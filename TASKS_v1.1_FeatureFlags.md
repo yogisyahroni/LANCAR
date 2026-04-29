@@ -158,7 +158,7 @@ Routing engine di ORDER-003 (TASKS v1.0) perlu diupdate: **sebelum memilih model
   }
   ```
 
-- [ ] Rollout percentage check:
+- [x] Rollout percentage check:
   ```go
   // Jika rollout_pct < 100, hanya sebagian user yang dapat model ini
   func inRollout(flag *FeatureFlag, userID string) bool {
@@ -208,12 +208,12 @@ GET    /admin/feature-flags/readiness/three-legs → data 3-Leg Activation Check
 **[GET /admin/feature-flags]**
 - [x] Return semua 15 flags dengan status + last_updated_by + last_updated_at
 - [x] Filter by category (model/pricing/feature/system)
-- [ ] Akses: semua role admin bisa baca (kecuali cs_agent dan finance)
+- [x] Akses: semua role admin bisa baca (kecuali cs_agent dan finance)
 
 **[PATCH /admin/feature-flags/:key/toggle — KRITIS]**
-- [ ] Middleware: role check → hanya `super_admin`
-- [ ] Middleware: 2FA check → session harus memiliki `totp_verified: true`
-- [ ] Rate limiting: max 10 toggle per jam per super_admin
+- [x] Middleware: role check → hanya `super_admin`
+- [x] Middleware: 2FA check → session harus memiliki `totp_verified: true`
+- [x] Rate limiting: max 10 toggle per jam per super_admin
 - [x] Request body:
   ```typescript
   {
@@ -234,8 +234,8 @@ GET    /admin/feature-flags/readiness/three-legs → data 3-Leg Activation Check
   - Return error detail kondisi mana yang belum terpenuhi
 - [x] DB transaction: update `feature_flags` + insert `feature_flag_logs` (atomic)
 - [x] Invalidate Redis cache: `DEL flag:{key}`
-- [ ] Kirim notifikasi ke semua `super_admin` aktif via email + in-app
-- [ ] Kirim alert ke Slack/Discord ops channel
+- [x] Kirim notifikasi ke semua `super_admin` aktif via email + in-app
+- [x] Kirim alert ke Slack/Discord ops channel
 - [x] Response: return flag state baru + log entry
 
 **[GET /admin/feature-flags/readiness/three-legs]**
@@ -262,12 +262,12 @@ GET    /admin/feature-flags/readiness/three-legs → data 3-Leg Activation Check
     can_activate: false
   }
   ```
-- [ ] Query menggunakan materialized view untuk performa (refresh per jam)
-- [ ] Cache response 5 menit di Redis (data ini tidak perlu real-time)
+- [x] Query menggunakan materialized view untuk performa (refresh per jam)
+- [x] Cache response 5 menit di Redis (data ini tidak perlu real-time)
 
 **[PATCH /admin/feature-flags/:key/config]**
 - [x] Update config JSONB (misal: ubah active_zones, rollout_pct)
-- [ ] Validasi JSON schema per key (tidak sembarang config bisa masuk)
+- [x] Validasi JSON schema per key (tidak sembarang config bisa masuk)
 - [x] Juga invalidate Redis cache + audit log
 
 **Acceptance Criteria:**
@@ -299,13 +299,13 @@ GET    /admin/feature-flags/readiness/three-legs → data 3-Leg Activation Check
 
 - [x] Semua instance routing-service (Go) subscribe ke channel ini → invalidate local cache
 
-- [ ] Notifikasi real-time ke admin dashboard via WebSocket:
+- [x] Notifikasi real-time ke admin dashboard via WebSocket:
   ```
   Server → Client: { event: "flag:changed", key: "model_three_legs", enabled: true }
   ```
   Admin dashboard langsung refresh tampilan tanpa perlu reload halaman.
 
-- [ ] Alert email template untuk perubahan flag kritikal (model flags):
+- [x] Alert email template untuk perubahan flag kritikal (model flags):
   ```
   Subject: [ALERT] Feature Flag Changed — model_three_legs: OFF → ON
   Body: Admin Andi mengaktifkan 3-Kaki pada 2026-10-15 09:03 WIB
