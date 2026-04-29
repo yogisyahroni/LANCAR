@@ -19,23 +19,30 @@ jest.mock('./controllers', () => ({
 
 describe('Admin Service Routes', () => {
   it('should return all flags', async () => {
-    const res = await request(app).get('/admin/feature-flags');
+    const res = await request(app).get('/admin/feature-flags')
+      .set('x-user-role', 'super_admin')
+      .set('x-totp-verified', 'true');
     expect(res.status).toBe(200);
     expect(res.body).toEqual([{ key: 'test-flag' }]);
   });
 
   it('should toggle flag', async () => {
-    const res = await request(app).patch('/admin/feature-flags/test-flag/toggle').send({
-      enabled: true,
-      reason: '12345678901234567890123456789012345678901234567890',
-      totpToken: '123456'
-    });
+    const res = await request(app).patch('/admin/feature-flags/test-flag/toggle')
+      .set('x-user-role', 'super_admin')
+      .set('x-totp-verified', 'true')
+      .send({
+        enabled: true,
+        reason: '12345678901234567890123456789012345678901234567890',
+        totpToken: '123456'
+      });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: 'toggled' });
   });
 
   it('should get 3-legs readiness', async () => {
-    const res = await request(app).get('/admin/feature-flags/readiness/three-legs');
+    const res = await request(app).get('/admin/feature-flags/readiness/three-legs')
+      .set('x-user-role', 'super_admin')
+      .set('x-totp-verified', 'true');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ readiness: true });
   });

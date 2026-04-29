@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { db } from './db';
 import { redis } from './redis';
+import { sendEmailAlert, sendSlackAlert } from './notifications';
+import { validateFlagConfig } from './validators';
 
 export const getAllFlags = async (req: Request, res: Response) => {
   try {
@@ -38,14 +40,8 @@ export const getFlagByKey = async (req: Request, res: Response): Promise<void> =
 
 export const toggleFlag = async (req: Request, res: Response): Promise<void> => {
   const { key } = req.params;
-  const { new_enabled, reason, totp_code, checklist_data } = req.body;
+  const { new_enabled, reason, checklist_data } = req.body;
 
-  // Simulate TOTP check (In real world, verify totp_code)
-  if (!totp_code) {
-    res.status(403).json({ error: 'MFA/TOTP required' });
-    return;
-  }
-  
   if (!reason || reason.length < 50) {
     res.status(400).json({ error: 'Reason must be at least 50 characters' });
     return;
@@ -77,19 +73,24 @@ export const toggleFlag = async (req: Request, res: Response): Promise<void> => 
       [new_enabled, key]
     );
 
+    const changedBy = req.user?.id || 'super_admin_1';
+
     // Insert log
     await client.query(
       `INSERT INTO feature_flag_logs (flag_key, old_enabled, new_enabled, old_config, new_config, changed_by, reason) 
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [key, flag.is_enabled, new_enabled, flag.config, flag.config, 'super_admin_1', reason]
+      [key, flag.is_enabled, new_enabled, flag.config, flag.config, changedBy, reason]
     );
 
     await client.query('COMMIT');
     
-    // Invalidate Cache + Pub/Sub broadcast
     const cacheKey = `flag:${key}`;
     await redis.del(cacheKey);
     await redis.publish('flag:changed', JSON.stringify({ key, is_enabled: new_enabled, changed_at: new Date() }));
+
+    // Send notifications asynchronously
+    sendEmailAlert(key, flag.is_enabled, new_enabled, reason, changedBy).catch(console.error);
+    sendSlackAlert(key, flag.is_enabled, new_enabled, reason, changedBy).catch(console.error);
 
     res.json(updateRes.rows[0]);
   } catch (error: any) {
@@ -102,10 +103,13 @@ export const toggleFlag = async (req: Request, res: Response): Promise<void> => 
 
 export const updateFlagConfig = async (req: Request, res: Response): Promise<void> => {
   const { key } = req.params;
-  const { config, reason, totp_code } = req.body;
+  const { config, reason } = req.body;
 
-  if (!totp_code) {
-    res.status(403).json({ error: 'MFA/TOTP required' });
+  let validConfig;
+  try {
+    validConfig = validateFlagConfig(config);
+  } catch (error: any) {
+    res.status(400).json({ error: 'Invalid configuration format', details: error.errors });
     return;
   }
 
@@ -122,13 +126,15 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
 
     const updateRes = await client.query(
       'UPDATE feature_flags SET config = $1, updated_at = NOW() WHERE key = $2 RETURNING *',
-      [config, key]
+      [validConfig, key]
     );
+
+    const changedBy = req.user?.id || 'super_admin_1';
 
     await client.query(
       `INSERT INTO feature_flag_logs (flag_key, old_enabled, new_enabled, old_config, new_config, changed_by, reason) 
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [key, flag.is_enabled, flag.is_enabled, flag.config, config, 'super_admin_1', reason || 'Config update']
+      [key, flag.is_enabled, flag.is_enabled, flag.config, validConfig, changedBy, reason || 'Config update']
     );
 
     await client.query('COMMIT');
@@ -136,6 +142,9 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
     const cacheKey = `flag:${key}`;
     await redis.del(cacheKey);
     await redis.publish('flag:changed', JSON.stringify({ key, is_enabled: flag.is_enabled, changed_at: new Date() }));
+
+    sendEmailAlert(key, flag.is_enabled, flag.is_enabled, reason || 'Config update', changedBy).catch(console.error);
+    sendSlackAlert(key, flag.is_enabled, flag.is_enabled, reason || 'Config update', changedBy).catch(console.error);
 
     res.json(updateRes.rows[0]);
   } catch (error: any) {
@@ -156,26 +165,25 @@ export const getFlagLogs = async (req: Request, res: Response) => {
   }
 };
 
-export const getThreeLegsReadiness = async (req: Request, res: Response) => {
-  // Mock readiness logic
-  res.json({
-    gate: {
-      sla_two_legs_rolling_4weeks: {
-        week1: 85.2, week2: 86.1, week3: 88.7, week4: 89.1,
-        all_above_93: false,
-        current_avg: 87.3
-      }
-    },
-    checklist: {
-      courier_density: {
-        "JAK-TIM": 28, "JAK-BAR": 22, "JAK-PST": 31,
-        min_required: 30, zones_ready: ["JAK-PST"]
-      },
-      validated_meeting_points: { count: 4, required: 5 },
-      daily_orders: { avg_30days: 187, required: 200 }
-    },
-    overall_ready: false,
-    estimated_ready_in_weeks: 6,
-    can_activate: false
-  });
+export const getThreeLegsReadiness = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const cacheKey = 'readiness:three_legs';
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      res.json(JSON.parse(cached));
+      return;
+    }
+
+    const result = await db.query('SELECT readiness_data, overall_ready, estimated_ready_in_weeks, can_activate, last_updated FROM mv_readiness_three_legs LIMIT 1');
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Readiness data not found in materialized view' });
+      return;
+    }
+
+    const data = result.rows[0];
+    await redis.setex(cacheKey, 300, JSON.stringify(data)); // Cache for 5 mins
+    res.json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
 };
