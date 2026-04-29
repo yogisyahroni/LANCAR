@@ -27,7 +27,7 @@ export const getAllFlags = async (req: Request, res: Response) => {
 
 export const getFlagByKey = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { key } = req.params;
+    const key = req.params.key as string;
     const result = await db.query('SELECT * FROM feature_flags WHERE key = $1', [key]);
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'Flag not found' });
@@ -40,7 +40,7 @@ export const getFlagByKey = async (req: Request, res: Response): Promise<void> =
 };
 
 export const toggleFlag = async (req: Request, res: Response): Promise<void> => {
-  const { key } = req.params;
+  const key = req.params.key as string;
   const { new_enabled, reason, checklist_data } = req.body;
 
   if (!reason || reason.length < 50) {
@@ -106,7 +106,7 @@ export const toggleFlag = async (req: Request, res: Response): Promise<void> => 
 };
 
 export const updateFlagConfig = async (req: Request, res: Response): Promise<void> => {
-  const { key } = req.params;
+  const key = req.params.key as string;
   const { config, reason } = req.body;
 
   let validConfig;
@@ -164,7 +164,7 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
 
 export const getFlagLogs = async (req: Request, res: Response) => {
   try {
-    const { key } = req.params;
+    const key = req.params.key as string;
     const result = await db.query('SELECT * FROM feature_flag_logs WHERE flag_key = $1 ORDER BY created_at DESC', [key]);
     res.json(result.rows);
   } catch (error: any) {

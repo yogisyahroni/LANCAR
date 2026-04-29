@@ -566,12 +566,12 @@ Customer app perlu handle skenario ketika model tertentu tidak tersedia (flag OF
 #### Test Scenarios
 
 **[Backend — Unit + Integration]**
-- [ ] **Routing dengan P2P ON, 2-Kaki ON, 3-Kaki OFF:**
+- [x] **Routing dengan P2P ON, 2-Kaki ON, 3-Kaki OFF:**
   - Jarak 10 km → P2P ✅
   - Jarak 20 km → 2-Kaki ✅
   - Jarak 30 km → error MSG_THREE_LEGS_UNAVAILABLE ✅
 
-- [ ] **Routing dengan 2-Kaki OFF, 3-Kaki OFF:**
+- [x] **Routing dengan 2-Kaki OFF, 3-Kaki OFF:**
   - Jarak 20 km → error ✅
   - Jarak 10 km → P2P (tidak terpengaruh) ✅
 
@@ -591,7 +591,7 @@ Customer app perlu handle skenario ketika model tertentu tidak tersedia (flag OF
   - SLA 94% tapi density <30 → reject ✅
   - Semua terpenuhi → accept ✅
 
-- [ ] **Audit log immutability:**
+- [x] **Audit log immutability:**
   - Coba UPDATE feature_flag_logs → trigger error ✅
   - Coba DELETE feature_flag_logs → trigger error ✅
 
@@ -608,9 +608,10 @@ Customer app perlu handle skenario ketika model tertentu tidak tersedia (flag OF
 - [ ] Audit log tampil setelah perubahan ✅
 
 **[Performance Testing]**
-- [ ] Flag read dari Redis: P95 < 5ms ✅
-- [ ] Flag read dari DB (cache miss): P95 < 20ms ✅
-- [ ] SelectModel() dengan flag check: P95 < 20ms ✅
+- [x] **Performance testing:**
+  - Flag read dari Redis: P95 < 5ms ✅
+  - Flag read dari DB (cache miss): P95 < 20ms ✅
+  - SelectModel() dengan flag check: P95 < 20ms ✅
 - [ ] 100 order simultan dengan flag check → tidak ada race condition ✅
 
 **[Security Testing]**
