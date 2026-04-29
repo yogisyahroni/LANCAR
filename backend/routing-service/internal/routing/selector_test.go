@@ -148,3 +148,40 @@ func BenchmarkSelectModel(b *testing.B) {
 		_, _ = engine.SelectModel(ctx, req)
 	}
 }
+
+func TestInRollout(t *testing.T) {
+	flag := &featureflags.FeatureFlag{
+		IsEnabled: true,
+		Config: map[string]interface{}{
+			"rollout_pct": float64(50),
+		},
+	}
+
+	// Because of hashing, we just check that distribution is roughly 50/50 over a large sample
+	inRolloutCount := 0
+	totalCount := 1000
+
+	for i := 0; i < totalCount; i++ {
+		userID := string(rune(i + 1000)) // simple unique ID
+		if inRollout(flag, userID) {
+			inRolloutCount++
+		}
+	}
+
+	// Allow some variance, e.g., 400 to 600 out of 1000 for a 50% rollout
+	if inRolloutCount < 400 || inRolloutCount > 600 {
+		t.Errorf("Rollout distribution failed, expected ~500, got %d", inRolloutCount)
+	}
+
+	// Test 0%
+	flag.Config["rollout_pct"] = float64(0)
+	if inRollout(flag, "user1") {
+		t.Errorf("Expected user to not be in 0%% rollout")
+	}
+
+	// Test 100%
+	flag.Config["rollout_pct"] = float64(100)
+	if !inRollout(flag, "user1") {
+		t.Errorf("Expected user to be in 100%% rollout")
+	}
+}

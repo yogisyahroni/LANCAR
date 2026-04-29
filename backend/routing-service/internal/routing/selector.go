@@ -3,6 +3,7 @@ package routing
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 
 	"lancar-backend/internal/featureflags"
 )
@@ -75,23 +76,23 @@ func (e *RoutingEngine) SelectModel(ctx context.Context, req OrderRequest) (Mode
 
 	switch {
 	case distKm <= 15:
-		if p2pFlag != nil && p2pFlag.IsEnabled && zoneActive(p2pFlag, pickupZone) {
+		if p2pFlag != nil && p2pFlag.IsEnabled && inRollout(p2pFlag, req.UserID) && zoneActive(p2pFlag, pickupZone) {
 			return ModelP2P, nil
 		}
 		return "", ErrModelUnavailable("P2P", "MSG_P2P_UNAVAILABLE")
 
 	case distKm <= 25:
-		if twoFlag != nil && twoFlag.IsEnabled && zonesActive(twoFlag, pickupZone, dropoffZone) {
+		if twoFlag != nil && twoFlag.IsEnabled && inRollout(twoFlag, req.UserID) && zonesActive(twoFlag, pickupZone, dropoffZone) {
 			return ModelTwoLegs, nil
 		}
 		// Fallback to 3-Legs if 2-Legs is disabled but 3-Legs is active (rare fallback case)
-		if threeFlag != nil && threeFlag.IsEnabled && zonesActive(threeFlag, pickupZone, dropoffZone) {
+		if threeFlag != nil && threeFlag.IsEnabled && inRollout(threeFlag, req.UserID) && zonesActive(threeFlag, pickupZone, dropoffZone) {
 			return ModelThreeLegs, nil
 		}
 		return "", ErrModelUnavailable("2-Kaki", "MSG_TWO_LEGS_UNAVAILABLE")
 
 	default: // distKm > 25
-		if threeFlag != nil && threeFlag.IsEnabled && zonesActive(threeFlag, pickupZone, dropoffZone) {
+		if threeFlag != nil && threeFlag.IsEnabled && inRollout(threeFlag, req.UserID) && zonesActive(threeFlag, pickupZone, dropoffZone) {
 			return ModelThreeLegs, nil
 		}
 		
@@ -142,4 +143,35 @@ func zoneActive(flag *featureflags.FeatureFlag, zone string) bool {
 
 func zonesActive(flag *featureflags.FeatureFlag, zone1, zone2 string) bool {
 	return zoneActive(flag, zone1) && zoneActive(flag, zone2)
+}
+
+func inRollout(flag *featureflags.FeatureFlag, userID string) bool {
+	if flag == nil {
+		return false
+	}
+	if flag.Config == nil {
+		// Default to 100% rollout if config doesn't exist
+		return true
+	}
+
+	pctFloat, ok := flag.Config["rollout_pct"].(float64)
+	if !ok {
+		// Default to 100% rollout if rollout_pct is not specified
+		return true
+	}
+
+	pct := int(pctFloat)
+	if pct <= 0 {
+		return false
+	}
+	if pct >= 100 {
+		return true
+	}
+
+	h := fnv.New32a()
+	h.Write([]byte(userID))
+	hashValue := h.Sum32()
+
+	// Map hash to 0-99
+	return (hashValue % 100) < uint32(pct)
 }

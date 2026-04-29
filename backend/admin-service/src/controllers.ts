@@ -3,6 +3,7 @@ import { db } from './db';
 import { redis } from './redis';
 import { sendEmailAlert, sendSlackAlert } from './notifications';
 import { validateFlagConfig } from './validators';
+import { getIO } from './websocket';
 
 export const getAllFlags = async (req: Request, res: Response) => {
   try {
@@ -87,6 +88,9 @@ export const toggleFlag = async (req: Request, res: Response): Promise<void> => 
     const cacheKey = `flag:${key}`;
     await redis.del(cacheKey);
     await redis.publish('flag:changed', JSON.stringify({ key, is_enabled: new_enabled, changed_at: new Date() }));
+    
+    // Emit to Dashboard via WebSocket
+    getIO().emit('flag:changed', { key, is_enabled: new_enabled, changed_at: new Date() });
 
     // Send notifications asynchronously
     sendEmailAlert(key, flag.is_enabled, new_enabled, reason, changedBy).catch(console.error);
@@ -142,6 +146,9 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
     const cacheKey = `flag:${key}`;
     await redis.del(cacheKey);
     await redis.publish('flag:changed', JSON.stringify({ key, is_enabled: flag.is_enabled, changed_at: new Date() }));
+
+    // Emit to Dashboard via WebSocket
+    getIO().emit('flag:changed', { key, is_enabled: flag.is_enabled, config: validConfig, changed_at: new Date() });
 
     sendEmailAlert(key, flag.is_enabled, flag.is_enabled, reason || 'Config update', changedBy).catch(console.error);
     sendSlackAlert(key, flag.is_enabled, flag.is_enabled, reason || 'Config update', changedBy).catch(console.error);
