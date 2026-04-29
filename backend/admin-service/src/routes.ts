@@ -5,6 +5,7 @@ import {
   toggleFlag, 
   updateFlagConfig, 
   getFlagLogs, 
+  getAllLogs,
   getThreeLegsReadiness 
 } from './controllers';
 import { requireAuth, requireRole, requireTotp } from './middlewares';
@@ -16,6 +17,7 @@ export const routes = Router();
 routes.use('/admin', requireAuth, requireRole(['super_admin']));
 
 routes.get('/admin/feature-flags', getAllFlags);
+routes.post('/admin/feature-flags', createFlag);
 routes.get('/admin/feature-flags/readiness/three-legs', getThreeLegsReadiness);
 routes.get('/admin/feature-flags/:key', getFlagByKey);
 // Apply TOTP and Rate Limit for toggle
@@ -23,3 +25,4 @@ routes.patch('/admin/feature-flags/:key/toggle', requireTotp, toggleRateLimiter,
 // Apply TOTP for config updates
 routes.patch('/admin/feature-flags/:key/config', requireTotp, updateFlagConfig);
 routes.get('/admin/feature-flags/:key/logs', getFlagLogs);
+routes.get('/admin/audit-logs', getAllLogs);

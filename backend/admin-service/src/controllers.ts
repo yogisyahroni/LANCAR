@@ -172,6 +172,15 @@ export const getFlagLogs = async (req: Request, res: Response) => {
   }
 };
 
+export const getAllLogs = async (req: Request, res: Response) => {
+  try {
+    const result = await db.query('SELECT * FROM feature_flag_logs ORDER BY created_at DESC LIMIT 100');
+    res.json(result.rows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const getThreeLegsReadiness = async (req: Request, res: Response): Promise<void> => {
   try {
     const cacheKey = 'readiness:three_legs';
@@ -192,5 +201,51 @@ export const getThreeLegsReadiness = async (req: Request, res: Response): Promis
     res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const createFlag = async (req: Request, res: Response): Promise<void> => {
+  const { key, category, description, config, is_enabled } = req.body;
+
+  if (!key || !category) {
+    res.status(400).json({ error: 'Key and Category are required' });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const checkRes = await client.query('SELECT id FROM feature_flags WHERE key = $1', [key]);
+    if (checkRes.rows.length > 0) {
+      res.status(409).json({ error: 'Flag key already exists' });
+      return;
+    }
+
+    const insertRes = await client.query(
+      `INSERT INTO feature_flags (key, category, description, config, is_enabled, updated_at) 
+       VALUES ($1, $2, $3, $4, $5, NOW()) RETURNING *`,
+      [key, category, description || '', config || {}, is_enabled || false]
+    );
+
+    const changedBy = req.user?.id || 'super_admin_1';
+
+    await client.query(
+      `INSERT INTO feature_flag_logs (flag_key, old_enabled, new_enabled, old_config, new_config, changed_by, reason) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [key, false, is_enabled || false, {}, config || {}, changedBy, 'Flag creation']
+    );
+
+    await client.query('COMMIT');
+    
+    // Clear global cache
+    await redis.del('flags:all');
+    
+    res.status(201).json(insertRes.rows[0]);
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
   }
 };

@@ -501,8 +501,8 @@ Customer app perlu handle skenario ketika model tertentu tidak tersedia (flag OF
 
 #### Subtask:
 
-- [ ] Halaman `/admin/feature-flags/three-legs-readiness`
-- [ ] Auto-refresh setiap 60 detik
+- [x] Halaman `/admin/feature-flags/three-legs-readiness`
+- [x] Auto-refresh setiap 60 detik
 
 **[Layout Dashboard]**
 ```
@@ -535,11 +535,11 @@ Customer app perlu handle skenario ketika model tertentu tidak tersedia (flag OF
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-- [ ] Progress bar animasi per metrik
-- [ ] Tooltip per metrik: "Apa ini?" + "Cara memperbaiki"
-- [ ] Tombol "Aktifkan 3-Kaki" disabled jika belum ready (disabled + tooltip alasan)
-- [ ] Jika semua ready: tombol hijau + konfetti animasi kecil saat hover
-- [ ] History chart: trend SLA 2-Kaki 8 minggu terakhir (line chart)
+- [x] Progress bar animasi per metrik
+- [x] Tooltip per metrik: "Apa ini?" + "Cara memperbaiki"
+- [x] Tombol "Aktifkan 3-Kaki" disabled jika belum ready (disabled + tooltip alasan)
+- [x] Jika semua ready: tombol hijau + konfetti animasi kecil saat hover
+- [x] History chart: trend SLA 2-Kaki 8 minggu terakhir (line chart)
 - [ ] Export readiness report ke PDF (untuk dokumentasi keputusan)
 
 **Acceptance Criteria:**
