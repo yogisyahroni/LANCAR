@@ -1,6 +1,8 @@
 # ENTITY RELATIONSHIP DIAGRAM (ERD)
 ## Platform Logistik Hyperlocal Relay
-### Versi 1.0 — April 2026
+### Versi 1.1 — April 2026
+
+> **Changelog v1.1 (29 April 2026):** Tabel `feature_flags` diperluas dengan kolom `category` & `require_checklist`. Tabel baru `feature_flag_logs` (immutable audit trail) ditambahkan. Seed data 15 flags, query patterns Go/TypeScript, Redis schema, dan ERD relasi baru tersedia di Seksi 7–11.
 
 ---
 
@@ -543,7 +545,7 @@ erDiagram
         boolean is_enabled
         jsonb config
         string description
-        string category
+        string category "model|pricing|feature|system"
         boolean require_checklist
         uuid updated_by FK
         timestamp updated_at
@@ -552,16 +554,18 @@ erDiagram
 
     FEATURE_FLAG_LOGS {
         uuid id PK
-        string key
-        boolean is_enabled
-        jsonb config
-        string description
-        string category
-        boolean require_checklist
-        uuid updated_by FK
-        string change_reason
+        uuid flag_id FK
+        string flag_key
+        uuid changed_by FK
+        boolean before_enabled
+        boolean after_enabled
+        jsonb before_config
+        jsonb after_config
+        text change_reason
         jsonb checklist_data
-        timestamp created_at
+        string ip_address
+        boolean totp_verified
+        timestamp changed_at
     }
 
     REFERRALS {
@@ -585,6 +589,9 @@ erDiagram
     USERS ||--o{ COURIER_RATINGS : "gives"
     USERS ||--o{ DISPUTES : "opens"
     USERS ||--o{ ADMIN_LOGS : "performs"
+    USERS ||--o{ FEATURE_FLAGS : "last_updated_by"
+    USERS ||--o{ FEATURE_FLAG_LOGS : "changed_by"
+    FEATURE_FLAGS ||--o{ FEATURE_FLAG_LOGS : "has history" 
 
     COURIER_PROFILES ||--o{ COURIER_ZONES : "has"
     COURIER_PROFILES ||--o{ COURIER_LOCATIONS : "tracks"
@@ -630,7 +637,6 @@ erDiagram
 
     PRICING_CONFIGS ||--o{ ORDERS : "applied to"
     DYNAMIC_PRICING_RULES ||--o{ DYNAMIC_PRICING_LOGS : "results in"
-    FEATURE_FLAGS ||--o{ FEATURE_FLAG_LOGS : "logs changes to"
 ```
 
 ---
@@ -939,60 +945,98 @@ CREATE INDEX idx_disputes_assigned ON disputes(assigned_to);
 
 ---
 
-### 2.11 Tabel: feature_flags
+### 2.11 Tabel: feature_flags (DIPERBARUI v1.1)
 
 ```sql
 CREATE TABLE feature_flags (
-    id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    key           VARCHAR(100) UNIQUE NOT NULL,
-    is_enabled    BOOLEAN NOT NULL DEFAULT FALSE,
-    config        JSONB,
-    description   TEXT NOT NULL,
-    category      VARCHAR(50) NOT NULL DEFAULT 'general',
+    id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    key               VARCHAR(100) UNIQUE NOT NULL,
+    is_enabled        BOOLEAN NOT NULL DEFAULT FALSE,
+    config            JSONB,
+    description       TEXT NOT NULL,
+    category          VARCHAR(50) NOT NULL DEFAULT 'general',
+    -- 'model'     = model pengiriman (model_p2p, model_two_legs, model_three_legs)
+    -- 'pricing'   = dynamic pricing (peak_hour, weather, demand_supply)
+    -- 'feature'   = fitur produk (scanning, chat, loyalty, dll)
+    -- 'system'    = config sistem internal
     require_checklist BOOLEAN NOT NULL DEFAULT FALSE,
-    updated_by    UUID REFERENCES users(id),
-    updated_at    TIMESTAMPTZ,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    -- TRUE = tidak bisa di-toggle tanpa checklist konfirmasi (khusus model_three_legs)
+    updated_by        UUID REFERENCES users(id),
+    updated_at        TIMESTAMPTZ,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX idx_feature_flags_key ON feature_flags(key);
-CREATE INDEX idx_feature_flags_category ON feature_flags(category);
-CREATE INDEX idx_feature_flags_enabled ON feature_flags(is_enabled);
+CREATE UNIQUE INDEX idx_feature_flags_key      ON feature_flags(key);
+CREATE INDEX        idx_feature_flags_category ON feature_flags(category);
+CREATE INDEX        idx_feature_flags_enabled  ON feature_flags(is_enabled);
 ```
+
+**Perubahan dari v1.0:** Ditambahkan kolom `category` (klasifikasi flag) dan `require_checklist` (flag yang butuh validasi checklist sebelum diaktifkan — khusus `model_three_legs`).
+
+**Default flags saat deployment:**
+
+| key | is_enabled | category | require_checklist |
+|---|---|---|---|
+| `model_p2p` | ✅ TRUE | model | FALSE |
+| `model_two_legs` | ✅ TRUE | model | FALSE |
+| `model_three_legs` | ❌ FALSE | model | **TRUE** |
+| `dynamic_pricing_peak_hour` | ✅ TRUE | pricing | FALSE |
+| `dynamic_pricing_weather` | ✅ TRUE | pricing | FALSE |
+| `dynamic_pricing_demand_supply` | ✅ TRUE | pricing | FALSE |
+| `volumetric_scanning` | ✅ TRUE | feature | FALSE |
+| `arcore_scanning` | ❌ FALSE | feature | FALSE |
+| `package_insurance` | ✅ TRUE | feature | FALSE |
+| `in_app_chat` | ✅ TRUE | feature | FALSE |
+| `loyalty_program` | ✅ TRUE | feature | FALSE |
+| `referral_program` | ✅ TRUE | feature | FALSE |
+| `scheduled_delivery` | ❌ FALSE | feature | FALSE |
+| `multi_zone_courier` | ✅ TRUE | feature | FALSE |
+| `courier_leaderboard` | ✅ TRUE | feature | FALSE |
 
 ---
 
-### 2.12 Tabel: feature_flag_logs
+### 2.12 Tabel: feature_flag_logs (BARU v1.1 — Immutable Audit Trail)
 
 ```sql
 CREATE TABLE feature_flag_logs (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    key             VARCHAR(100) NOT NULL,
-    is_enabled      BOOLEAN NOT NULL,
-    config          JSONB,
-    description     TEXT,
-    category        VARCHAR(50),
-    require_checklist BOOLEAN,
-    updated_by      UUID NOT NULL REFERENCES users(id),
-    change_reason   TEXT NOT NULL,
+    flag_id         UUID NOT NULL REFERENCES feature_flags(id),
+    flag_key        VARCHAR(100) NOT NULL,
+    changed_by      UUID NOT NULL REFERENCES users(id),
+    before_enabled  BOOLEAN NOT NULL,
+    after_enabled   BOOLEAN NOT NULL,
+    before_config   JSONB,
+    after_config    JSONB,
+    change_reason   TEXT NOT NULL CHECK (LENGTH(change_reason) >= 50),
     checklist_data  JSONB,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    ip_address      VARCHAR(50),
+    user_agent      TEXT,
+    totp_verified   BOOLEAN DEFAULT FALSE,
+    changed_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_feature_flag_logs_key ON feature_flag_logs(key);
+CREATE INDEX idx_ff_logs_flag    ON feature_flag_logs(flag_id);
+CREATE INDEX idx_ff_logs_changed ON feature_flag_logs(changed_at DESC);
+CREATE INDEX idx_ff_logs_by      ON feature_flag_logs(changed_by);
 
-CREATE OR REPLACE FUNCTION prevent_feature_flag_log_update()
+-- IMMUTABLE: Trigger mencegah UPDATE atau DELETE
+CREATE OR REPLACE FUNCTION prevent_ff_log_mutation()
 RETURNS TRIGGER AS $$
 BEGIN
-    RAISE EXCEPTION 'feature_flag_logs is an immutable audit table';
+    RAISE EXCEPTION 'feature_flag_logs is immutable — UPDATE/DELETE tidak diizinkan';
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trg_prevent_feature_flag_log_update
-BEFORE UPDATE OR DELETE ON feature_flag_logs
-FOR EACH ROW
-EXECUTE FUNCTION prevent_feature_flag_log_update();
+CREATE TRIGGER trg_ff_log_immutable
+    BEFORE UPDATE OR DELETE ON feature_flag_logs
+    FOR EACH ROW EXECUTE FUNCTION prevent_ff_log_mutation();
 ```
+
+**Kolom penting:**
+- `change_reason` — CHECK constraint minimal 50 karakter (tidak bisa diisi asal)
+- `checklist_data` — JSONB snapshot kondisi 3-Leg checklist saat aktivasi (NULL untuk flag biasa)
+- `totp_verified` — catat apakah 2FA sudah diverifikasi di session tersebut
+- **Seluruh tabel ini tidak bisa di-UPDATE atau DELETE** — hanya INSERT via aplikasi
 
 ---
 
@@ -1033,6 +1077,20 @@ EX 300                                   → 5 menit
 
 # SLA timer
 GET sla:{order_leg_id}                  → {deadline, warning_sent}
+
+# Feature flags cache (TTL 60 detik — read-heavy, rarely written)
+GET flag:{key}                          → JSON: {is_enabled, config, require_checklist, category}
+SET flag:{key} {json}                    EX 60
+# Contoh:
+# GET flag:model_p2p         → {"is_enabled":true,"config":{...},"require_checklist":false}
+# GET flag:model_three_legs  → {"is_enabled":false,"config":{...},"require_checklist":true}
+
+# Invalidasi manual oleh admin setelah toggle:
+DEL flag:{key}                           ← routing engine pakai cache lama max 60 detik
+
+# Readiness data cache (untuk dashboard admin, TTL 5 menit)
+GET readiness:three_legs                → JSON: {gate, checklist, overall_ready, estimated_weeks}
+SET readiness:three_legs {json}          EX 300
 
 # Cuaca per zona
 GET weather:{zone_id}                   → {intensity, condition, multiplier}
@@ -1181,3 +1239,201 @@ Customer     Backend     Courier A     Courier B     Courier C     DB
           │   FAILED    │ ← TERMINAL STATE ⚠️
           └─────────────┘
 ```
+
+
+---
+
+## 7. FEATURE FLAG — CONFIG JSON SCHEMA PER MODEL
+
+### 7.1 model_p2p
+```json
+{
+  "max_distance_km": 15,
+  "active_zones": ["JAK-TIM", "JAK-BAR", "JAK-PST", "JAK-UTR", "JAK-SEL"],
+  "rollout_pct": 100,
+  "fallback_if_disabled": "reject_with_message",
+  "rejection_message_id": "MSG_P2P_UNAVAILABLE"
+}
+```
+
+### 7.2 model_two_legs
+```json
+{
+  "max_distance_km": 25,
+  "active_zones": ["JAK-TIM", "JAK-BAR", "JAK-PST", "JAK-UTR", "JAK-SEL"],
+  "min_courier_density_per_zone": 10,
+  "rollout_pct": 100,
+  "fallback_if_disabled": "reject_with_message",
+  "rejection_message_id": "MSG_TWO_LEGS_UNAVAILABLE"
+}
+```
+
+### 7.3 model_three_legs (NONAKTIF DEFAULT)
+```json
+{
+  "max_distance_km": 50,
+  "active_zones": [],
+  "min_courier_density_per_zone": 30,
+  "activation_trigger": "manual_super_admin_only",
+  "rollout_pct": 0,
+  "fallback_if_disabled": "reject_with_message",
+  "rejection_message_id": "MSG_THREE_LEGS_UNAVAILABLE",
+  "activation_checklist": {
+    "sla_two_legs_pct_min": 93,
+    "sla_two_legs_weeks_min": 4,
+    "courier_density_min": 30,
+    "meeting_points_validated_min": 5,
+    "daily_orders_min": 200
+  }
+}
+```
+
+---
+
+## 8. FEATURE FLAG — QUERY PATTERNS
+
+### 8.1 Flag Reader dengan Cache (Go — routing-service)
+
+```go
+func GetFlag(ctx context.Context, key string) (*FeatureFlag, error) {
+    cacheKey := fmt.Sprintf("flag:%s", key)
+
+    // 1. Cek Redis cache
+    cached, err := redis.Get(ctx, cacheKey).Result()
+    if err == nil {
+        var flag FeatureFlag
+        json.Unmarshal([]byte(cached), &flag)
+        return &flag, nil
+    }
+
+    // 2. Cache miss → query DB
+    var flag FeatureFlag
+    err = db.QueryRowContext(ctx,
+        `SELECT id, key, is_enabled, config, category, require_checklist
+         FROM feature_flags WHERE key = $1`, key,
+    ).Scan(&flag.ID, &flag.Key, &flag.IsEnabled,
+           &flag.Config, &flag.Category, &flag.RequireChecklist)
+    if err != nil { return nil, err }
+
+    // 3. Simpan ke Redis TTL 60 detik
+    data, _ := json.Marshal(flag)
+    redis.Set(ctx, cacheKey, data, 60*time.Second)
+    return &flag, nil
+}
+```
+
+### 8.2 Model Selector dengan Flag Check (Go)
+
+```go
+func SelectModel(ctx context.Context, req OrderRequest) (ModelType, error) {
+    // Baca 3 flags paralel (goroutine)
+    var p2p, two, three *FeatureFlag
+    var eg errgroup.Group
+    eg.Go(func() error { p2p, _ = GetFlag(ctx, "model_p2p"); return nil })
+    eg.Go(func() error { two, _ = GetFlag(ctx, "model_two_legs"); return nil })
+    eg.Go(func() error { three, _ = GetFlag(ctx, "model_three_legs"); return nil })
+    eg.Wait()
+
+    dist := calculateDistance(req.Pickup, req.Dropoff)
+    pZone := detectZone(req.Pickup)
+    dZone := detectZone(req.Dropoff)
+
+    switch {
+    case dist <= 15:
+        if p2p.IsEnabled && zoneActive(p2p, pZone) { return ModelP2P, nil }
+        return "", ErrModelUnavailable("MSG_P2P_UNAVAILABLE")
+    case dist <= 25:
+        if two.IsEnabled && zonesActive(two, pZone, dZone) { return ModelTwoLegs, nil }
+        if three.IsEnabled && zonesActive(three, pZone, dZone) { return ModelThreeLegs, nil }
+        return "", ErrModelUnavailable("MSG_TWO_LEGS_UNAVAILABLE")
+    default:
+        if three.IsEnabled && zonesActive(three, pZone, dZone) { return ModelThreeLegs, nil }
+        return "", ErrModelUnavailable("MSG_THREE_LEGS_UNAVAILABLE")
+    }
+}
+```
+
+### 8.3 Toggle Flag oleh Super Admin (TypeScript)
+
+```typescript
+async function toggleFlag(params: {
+    adminId: string, flagKey: string, newEnabled: boolean,
+    reason: string, totpCode: string,
+    checklistData?: ThreeLegChecklist
+}): Promise<void> {
+
+    // Validasi: role super_admin + 2FA
+    const admin = await getUser(params.adminId);
+    if (admin.role !== 'super_admin') throw new ForbiddenError();
+    if (!await verifyTOTP(params.adminId, params.totpCode)) throw new TwoFAError();
+
+    const flag = await db.featureFlags.findOne({ key: params.flagKey });
+
+    // Checklist wajib untuk model_three_legs saat diaktifkan
+    if (flag.require_checklist && params.newEnabled) {
+        await validateActivationChecklist(params.flagKey, params.checklistData);
+    }
+
+    // Transaction: update flag + insert immutable log
+    await db.transaction(async (trx) => {
+        await trx.featureFlags.update(
+            { key: params.flagKey },
+            { is_enabled: params.newEnabled, updated_by: params.adminId, updated_at: new Date() }
+        );
+        await trx.featureFlagLogs.create({
+            flag_id: flag.id, flag_key: params.flagKey,
+            changed_by: params.adminId,
+            before_enabled: flag.is_enabled, after_enabled: params.newEnabled,
+            before_config: flag.config, after_config: flag.config,
+            change_reason: params.reason,
+            checklist_data: params.checklistData || null,
+            totp_verified: true, changed_at: new Date()
+        });
+    });
+
+    // Invalidate Redis cache
+    await redis.del(`flag:${params.flagKey}`);
+    // Broadcast via WebSocket ke semua admin dashboard
+    await websocket.broadcast('flag:changed', { key: params.flagKey, enabled: params.newEnabled });
+    // Notifikasi semua super_admin
+    await notifyAllSuperAdmins(params.flagKey, flag.is_enabled, params.newEnabled, params.reason);
+}
+```
+
+---
+
+## 9. ERD RELASI BARU (v1.1)
+
+```
+users ─────────────────────────────────────────────────────────────────┐
+  │ (updated_by)                                                        │ (changed_by)
+  ▼                                                                     ▼
+feature_flags                                            feature_flag_logs
+  │ id (PK)                                                 │ id (PK)
+  │ key (UNIQUE)                              ──────────────► flag_id → feature_flags.id (FK)
+  │ is_enabled                               │               │ flag_key (snapshot)
+  │ config (JSONB)          ◄────────────────┘               │ changed_by → users.id (FK)
+  │ description                                              │ before_enabled / after_enabled
+  │ category                                                 │ before_config / after_config (JSONB)
+  │ require_checklist                                        │ change_reason (min 50 char)
+  │ updated_by → users.id (FK)                              │ checklist_data (JSONB, nullable)
+  │ updated_at                                               │ totp_verified
+  │ created_at                                               │ changed_at
+  │                                                          │ [IMMUTABLE — trigger prevent UPDATE/DELETE]
+  └──────────────────────────────────────────────────────────┘
+               1 feature_flags : M feature_flag_logs
+```
+
+---
+
+## 10. RBAC MATRIX — FEATURE FLAGS
+
+| Role | GET flags | GET logs | Edit config | Toggle ON/OFF | Aktifkan 3-Kaki |
+|---|---|---|---|---|---|
+| `super_admin` | ✅ | ✅ | ✅ | ✅ | ✅ (checklist + 2FA) |
+| `ops_manager` | ✅ | ✅ | ❌ | ❌ | ❌ |
+| `zone_manager` | ✅ (zona sendiri) | ❌ | ❌ | ❌ | ❌ |
+| `finance` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `cs_agent` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `courier` | ❌ | ❌ | ❌ | ❌ | ❌ |
+| `customer` | ❌ | ❌ | ❌ | ❌ | ❌ |
