@@ -1,0 +1,166 @@
+package featureflags
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"sync"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
+
+// FeatureFlag represents the DB model for feature_flags
+type FeatureFlag struct {
+	ID               string
+	Key              string
+	IsEnabled        bool
+	Config           map[string]interface{}
+	RequireChecklist bool
+}
+
+// FlagReader is the interface defined in PRD for routing engine to fetch flags
+type FlagReader interface {
+	GetFlag(ctx context.Context, key string) (*FeatureFlag, error)
+	GetFlags(ctx context.Context, keys []string) (map[string]*FeatureFlag, error)
+	InvalidateCache(ctx context.Context, key string) error
+}
+
+type flagReaderImpl struct {
+	db         *sql.DB
+	redis      *redis.Client
+	localCache sync.Map
+}
+
+const flagCacheTTL = 60 * time.Second
+
+// NewFlagReader creates a new instance of FlagReader
+func NewFlagReader(db *sql.DB, rdb *redis.Client) FlagReader {
+	reader := &flagReaderImpl{
+		db:    db,
+		redis: rdb,
+	}
+	if rdb != nil {
+		go reader.subscribeToInvalidations()
+	}
+	return reader
+}
+
+func (f *flagReaderImpl) subscribeToInvalidations() {
+	ctx := context.Background()
+	pubsub := f.redis.Subscribe(ctx, "flag:changed")
+	defer pubsub.Close()
+	
+	for msg := range pubsub.Channel() {
+		var payload struct {
+			Key string `json:"key"`
+		}
+		if err := json.Unmarshal([]byte(msg.Payload), &payload); err == nil {
+			f.localCache.Delete(payload.Key)
+		}
+	}
+}
+
+// GetFlag retrieves a single flag from Redis or DB
+func (f *flagReaderImpl) GetFlag(ctx context.Context, key string) (*FeatureFlag, error) {
+	// 0. Try local in-memory cache
+	if val, ok := f.localCache.Load(key); ok {
+		return val.(*FeatureFlag), nil
+	}
+
+	cacheKey := fmt.Sprintf("flag:%s", key)
+
+	// 1. Try Redis cache
+	if f.redis != nil {
+		cached, err := f.redis.Get(ctx, cacheKey).Result()
+		if err == nil && cached != "" {
+			var flag FeatureFlag
+			if err := json.Unmarshal([]byte(cached), &flag); err == nil {
+				f.localCache.Store(key, &flag)
+				return &flag, nil
+			}
+		}
+	}
+
+	// 2. Cache miss -> query DB
+	var flag FeatureFlag
+	var configData []byte
+	err := f.db.QueryRowContext(ctx,
+		`SELECT id, key, is_enabled, config, require_checklist FROM feature_flags WHERE key = $1`,
+		key,
+	).Scan(&flag.ID, &flag.Key, &flag.IsEnabled, &configData, &flag.RequireChecklist)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get flag %s from DB: %w", key, err)
+	}
+
+	if len(configData) > 0 {
+		json.Unmarshal(configData, &flag.Config)
+	} else {
+		flag.Config = make(map[string]interface{})
+	}
+
+	// 3. Save to Redis and Local Cache
+	if f.redis != nil {
+		if data, err := json.Marshal(flag); err == nil {
+			f.redis.Set(ctx, cacheKey, data, flagCacheTTL)
+		}
+	}
+	f.localCache.Store(key, &flag)
+
+	return &flag, nil
+}
+
+// GetFlags retrieves multiple flags concurrently
+func (f *flagReaderImpl) GetFlags(ctx context.Context, keys []string) (map[string]*FeatureFlag, error) {
+	result := make(map[string]*FeatureFlag)
+	
+	// Fast path if only one key
+	if len(keys) == 1 {
+		flag, err := f.GetFlag(ctx, keys[0])
+		if err != nil {
+			return nil, err
+		}
+		result[keys[0]] = flag
+		return result, nil
+	}
+
+	// WaitGroup for parallel fetches
+	// While the spec mentions reading 3 model flags in parallel in the selector,
+	// doing it directly in the interface is also a good pattern.
+	type flagResult struct {
+		key  string
+		flag *FeatureFlag
+		err  error
+	}
+
+	resCh := make(chan flagResult, len(keys))
+
+	for _, k := range keys {
+		go func(key string) {
+			flag, err := f.GetFlag(ctx, key)
+			resCh <- flagResult{key: key, flag: flag, err: err}
+		}(k)
+	}
+
+	for i := 0; i < len(keys); i++ {
+		res := <-resCh
+		if res.err != nil {
+			// In production, we might want to log the error and continue, but for critical path, return error
+			return nil, res.err
+		}
+		result[res.key] = res.flag
+	}
+
+	return result, nil
+}
+
+// InvalidateCache invalidates a specific flag's cache
+func (f *flagReaderImpl) InvalidateCache(ctx context.Context, key string) error {
+	if f.redis == nil {
+		return nil
+	}
+	cacheKey := fmt.Sprintf("flag:%s", key)
+	return f.redis.Del(ctx, cacheKey).Err()
+}
