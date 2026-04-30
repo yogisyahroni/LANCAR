@@ -39,8 +39,8 @@ CREATE INDEX IF NOT EXISTS idx_order_legs_courier_completed
 -- -------------------------------------------------------
 -- Online couriers in zone (used by matching engine heavily)
 CREATE INDEX IF NOT EXISTS idx_courier_profile_online_zone
-    ON courier_profiles(is_online, verification_status)
-    WHERE is_online = TRUE AND verification_status = 'approved';
+    ON courier_profiles(is_online, status)
+    WHERE is_online = TRUE AND status = 'approved';
 
 -- -------------------------------------------------------
 -- Courier Locations: real-time tracking queries
@@ -80,8 +80,7 @@ CREATE INDEX IF NOT EXISTS idx_feature_flags_enabled_key
 -- Dynamic Pricing: per-zone active multiplier lookups
 -- -------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_dynamic_pricing_active
-    ON dynamic_pricing_logs(zone_id, factor, applied_at DESC)
-    WHERE expires_at IS NULL OR expires_at > NOW();
+    ON dynamic_pricing_logs(zone_id, factor, applied_at DESC);
 
 -- -------------------------------------------------------
 -- Vouchers: code lookup (public-facing)
@@ -100,8 +99,7 @@ CREATE INDEX IF NOT EXISTS idx_courier_ratings_courier_stars
 -- Relay Score History: analytics trend queries
 -- -------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_relay_score_30days
-    ON relay_score_history(courier_id, calculated_at DESC)
-    WHERE calculated_at > NOW() - INTERVAL '30 days';
+    ON relay_score_history(courier_id, calculated_at DESC);
 
 -- -------------------------------------------------------
 -- Weather Logs: latest per zone (for pricing workers)
