@@ -1,17 +1,17 @@
-name: CI/CD Staging
+name: PR Quality Gates
 
 on:
-  push:
-    branches: [staging]
+  pull_request:
+    branches: [development, staging, main]
 
 jobs:
   # ───────────────────────────────────────────────
-  # BUILD & TEST ALL SERVICES
+  # FRONTEND QUALITY
   # ───────────────────────────────────────────────
-  
-  frontend:
-    name: Frontend Build
+  frontend-quality:
+    name: Frontend Quality
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,13 +19,19 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-      - working-directory: ./frontend
+      - name: Install & Test
+        working-directory: ./frontend
         run: |
           npm ci
+          npm run lint
+          npx tsc --noEmit
           npm run build
 
-  admin-service:
-    name: Admin Service Test
+  # ───────────────────────────────────────────────
+  # ADMIN SERVICE (NODE.JS)
+  # ───────────────────────────────────────────────
+  admin-quality:
+    name: Admin Service Quality
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -42,15 +48,20 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: backend/admin-service/package-lock.json
-      - working-directory: ./backend/admin-service
+      - name: Install & Test
+        working-directory: ./backend/admin-service
         run: |
           npm ci
+          npx tsc --noEmit
           npm test
         env:
           DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
 
-  auth-service:
-    name: Auth Service Test
+  # ───────────────────────────────────────────────
+  # AUTH SERVICE (GO)
+  # ───────────────────────────────────────────────
+  auth-quality:
+    name: Auth Service Quality
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -66,15 +77,20 @@ jobs:
         with:
           go-version: '1.24.3'
           cache-dependency-path: backend/auth-service/go.sum
-      - working-directory: ./backend/auth-service
+      - name: Lint & Test
+        working-directory: ./backend/auth-service
         run: |
           go mod tidy
+          go vet ./...
           go test -v ./...
         env:
           DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
 
-  routing-service:
-    name: Routing Service Test
+  # ───────────────────────────────────────────────
+  # ROUTING SERVICE (GO)
+  # ───────────────────────────────────────────────
+  routing-quality:
+    name: Routing Service Quality
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -90,39 +106,11 @@ jobs:
         with:
           go-version: '1.24.3'
           cache-dependency-path: backend/routing-service/go.sum
-      - working-directory: ./backend/routing-service
+      - name: Lint & Test
+        working-directory: ./backend/routing-service
         run: |
           go mod tidy
+          go vet ./...
           go test -v ./...
         env:
           DB_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
-
-  # ───────────────────────────────────────────────
-  # SECURITY & DEPLOY
-  # ───────────────────────────────────────────────
-  
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    needs: [frontend, admin-service, auth-service, routing-service]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Audit Node.js Services
-        run: |
-          cd frontend && npm audit --audit-level=high || true
-          cd ../backend/admin-service && npm audit --audit-level=high || true
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-
-  deploy:
-    name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: [security]
-    environment: staging
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy Placeholder
-        run: echo "🚀 Deploying to Staging Server..."

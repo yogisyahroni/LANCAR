@@ -2,15 +2,16 @@ name: CI/CD Production
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches: [main]
 
 jobs:
-  test:
-    name: Build & Test
+  # ───────────────────────────────────────────────
+  # FULL QUALITY & BUILD
+  # ───────────────────────────────────────────────
+  
+  build-and-test:
+    name: Build & Test All
     runs-on: ubuntu-latest
-    
     services:
       postgres:
         image: postgres:15
@@ -18,63 +19,55 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: 1234
           POSTGRES_DB: lancar
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
+        ports: [5432:5432]
     steps:
-    - name: Check out repository
-      uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      
+      # Frontend
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: cd frontend && npm ci && npm run build
+      
+      # Admin Service
+      - run: cd backend/admin-service && npm ci && npm test
+        env:
+          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          
+      # Go Services
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.3'
+      - run: |
+          cd backend/auth-service && go mod tidy && go test ./...
+          cd ../routing-service && go mod tidy && go test ./...
+        env:
+          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          DB_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.22'
-        cache-dependency-path: backend/routing-service/go.sum
+  security:
+    name: Critical Security Audit
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Audit Production Deps
+        run: |
+          cd frontend && npm audit --audit-level=high
+          cd ../backend/admin-service && npm audit --audit-level=high
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: backend/admin-service/package-lock.json
-
-    - name: Test Routing Service (Go)
-      working-directory: ./backend/routing-service
-      run: |
-        go mod tidy
-        go test -v ./...
-      env:
-        DB_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
-        REDIS_URL: "localhost:6379"
-
-    - name: Test Admin Service (Node.js)
-      working-directory: ./backend/admin-service
-      run: |
-        npm ci
-        npm test
-      env:
-        DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
-        REDIS_HOST: "localhost"
-        REDIS_PORT: 6379
-
-  # deployment placeholder
-  # deploy:
-  #   needs: test
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Deploy to Production
-  #       run: echo "Deploying to Production Environment..."
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [security]
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy Placeholder
+        run: echo "🚀 Deploying to Production Server..."

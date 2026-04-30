@@ -1,0 +1,30 @@
+name: CI/CD Development
+
+on:
+  push:
+    branches: [development]
+
+jobs:
+  dev-check:
+    name: Quick Dev Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      # Minimal checks for speed
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Frontend Build Check
+        run: cd frontend && npm install --prefer-offline && npm run build
+        
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.3'
+      - name: Backend Build Check
+        run: |
+          cd backend/auth-service && go build ./...
+          cd ../routing-service && go build ./...
+          
+      - name: Deploy to Dev Staging
+        run: echo "🚀 Deploying to Development Server..."
