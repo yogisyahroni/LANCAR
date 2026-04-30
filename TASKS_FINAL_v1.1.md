@@ -333,7 +333,7 @@ Subtask:
   - [x] Apply semua faktor sesuai formula
   - [x] Cap total surge di +40%
 - [ ] Loyalty discount calculator berdasarkan tier
-- [ ] Price locking: simpan harga final di order, tidak bisa berubah setelah konfirmasi
+- [x] Price locking: simpan harga final di order, tidak bisa berubah setelah konfirmasi
 - [ ] GET /admin/pricing/config — baca config harga
 - [ ] PUT /admin/pricing/config — update config harga (dengan preview sebelum save)
 - [ ] Price simulation endpoint untuk admin
