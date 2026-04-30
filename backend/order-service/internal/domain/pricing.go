@@ -61,4 +61,17 @@ type RedisRepository interface {
 	SaveEstimate(ctx context.Context, estimate *PricingEstimateResponse) error
 	GetEstimate(ctx context.Context, estimateID string) (*PricingEstimateResponse, error)
 	GetMultiplier(ctx context.Context) (float64, error)
+
+	// Courier GEO methods
+	UpdateCourierLocation(ctx context.Context, courierID string, lat, lng float64) error
+	FindNearbyCouriers(ctx context.Context, lat, lng float64, radiusKM float64) ([]string, error)
+
+	// Distributed Lock
+	AcquireLock(ctx context.Context, key string, expiration time.Duration) (bool, error)
+	ReleaseLock(ctx context.Context, key string) error
+}
+
+type EventBus interface {
+	Publish(ctx context.Context, topic string, payload interface{}) error
+	Subscribe(ctx context.Context, topic string) (<-chan string, error)
 }

@@ -51,6 +51,7 @@ type OrderService interface {
 	GetOrder(ctx context.Context, orderID string) (*Order, error)
 	ListOrders(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, orderID string, status OrderStatus) error
+	FindAndAssignCourier(ctx context.Context, orderID string) error
 }
 
 type OrderRepository interface {
@@ -59,4 +60,13 @@ type OrderRepository interface {
 	ListByUserID(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, id string, status OrderStatus) error
 	CancelExpiredOrders(ctx context.Context, timeout time.Duration) (int64, error)
+	AssignCourier(ctx context.Context, orderID string, courierID string) error
+	GetActiveCourierOrder(ctx context.Context, courierID string) (string, error)
+}
+
+type OrderEvent struct {
+	OrderID string      `json:"order_id"`
+	UserID  string      `json:"user_id"`
+	Status  OrderStatus `json:"status"`
+	Message string      `json:"message,omitempty"`
 }

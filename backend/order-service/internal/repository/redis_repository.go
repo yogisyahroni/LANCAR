@@ -60,3 +60,28 @@ func (r *redisRepo) GetMultiplier(ctx context.Context) (float64, error) {
 
 	return multiplier, nil
 }
+
+func (r *redisRepo) UpdateCourierLocation(ctx context.Context, courierID string, lat, lng float64) error {
+	return r.client.GeoAdd(ctx, "courier_locations", &redis.GeoLocation{
+		Name:      courierID,
+		Latitude:  lat,
+		Longitude: lng,
+	}).Err()
+}
+
+func (r *redisRepo) FindNearbyCouriers(ctx context.Context, lat, lng float64, radiusKM float64) ([]string, error) {
+	return r.client.GeoSearch(ctx, "courier_locations", &redis.GeoSearchQuery{
+		Longitude:  lng,
+		Latitude:   lat,
+		Radius:     radiusKM,
+		RadiusUnit: "km",
+	}).Result()
+}
+
+func (r *redisRepo) AcquireLock(ctx context.Context, key string, expiration time.Duration) (bool, error) {
+	return r.client.SetNX(ctx, "lock:"+key, "locked", expiration).Result()
+}
+
+func (r *redisRepo) ReleaseLock(ctx context.Context, key string) error {
+	return r.client.Del(ctx, "lock:"+key).Err()
+}

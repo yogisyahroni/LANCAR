@@ -15,13 +15,15 @@ type orderServiceImpl struct {
 	orderRepo   domain.OrderRepository
 	redisRepo   domain.RedisRepository
 	pricingRepo domain.PricingRepository
+	eventBus    domain.EventBus
 }
 
-func NewOrderService(o domain.OrderRepository, r domain.RedisRepository, p domain.PricingRepository) domain.OrderService {
+func NewOrderService(o domain.OrderRepository, r domain.RedisRepository, p domain.PricingRepository, eb domain.EventBus) domain.OrderService {
 	return &orderServiceImpl{
 		orderRepo:   o,
 		redisRepo:   r,
 		pricingRepo: p,
+		eventBus:    eb,
 	}
 }
 
@@ -71,6 +73,14 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		return nil, fmt.Errorf("failed to save order: %w", err)
 	}
 
+	// 5. Publish creation event
+	s.eventBus.Publish(ctx, "order.updates", domain.OrderEvent{
+		OrderID: order.ID,
+		UserID:  order.CustomerID,
+		Status:  order.Status,
+		Message: "Order created, awaiting payment",
+	})
+
 	return order, nil
 }
 
@@ -95,5 +105,88 @@ func (s *orderServiceImpl) ListOrders(ctx context.Context, userID string, filter
 }
 
 func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, status domain.OrderStatus) error {
-	return s.orderRepo.UpdateStatus(ctx, orderID, status)
+	err := s.orderRepo.UpdateStatus(ctx, orderID, status)
+	if err != nil {
+		return err
+	}
+
+	// Fetch order to get UserID for the event
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err == nil {
+		s.eventBus.Publish(ctx, "order.updates", domain.OrderEvent{
+			OrderID: order.ID,
+			UserID:  order.CustomerID,
+			Status:  status,
+			Message: fmt.Sprintf("Order status updated to %s", status),
+		})
+	}
+
+	return nil
+}
+
+func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID string) error {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+
+	if order.Status != domain.StatusSearching {
+		return fmt.Errorf("order is not in searching status: %s", order.Status)
+	}
+
+	// Cascading search radius: 3km, 5km, 10km
+	radii := []float64{3, 5, 10}
+	var assignedCourierID string
+
+	for _, radius := range radii {
+		couriers, err := s.redisRepo.FindNearbyCouriers(ctx, order.PickupLat, order.PickupLng, radius)
+		if err != nil {
+			continue
+		}
+
+		for _, courierID := range couriers {
+			// 1. Check if courier has an active order (Postgres)
+			activeOrderID, err := s.orderRepo.GetActiveCourierOrder(ctx, courierID)
+			if err != nil || activeOrderID != "" {
+				continue // Courier is busy
+			}
+
+			// 2. Try to acquire distributed lock for this courier (Redis)
+			lockKey := fmt.Sprintf("lock:courier:%s", courierID)
+			locked, err := s.redisRepo.AcquireLock(ctx, lockKey, 30*time.Second)
+			if err != nil || !locked {
+				continue // Another process is trying to assign this courier
+			}
+
+			// 3. Assign courier to order (Atomic status update)
+			err = s.orderRepo.AssignCourier(ctx, orderID, courierID)
+			if err == nil {
+				assignedCourierID = courierID
+				s.redisRepo.ReleaseLock(ctx, lockKey)
+				break
+			}
+			s.redisRepo.ReleaseLock(ctx, lockKey)
+		}
+
+		if assignedCourierID != "" {
+			break
+		}
+		
+		// Small delay before next radius
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	if assignedCourierID == "" {
+		return errors.New("no couriers found in 10km radius")
+	}
+
+	// 4. Publish assignment event
+	s.eventBus.Publish(ctx, "order.updates", domain.OrderEvent{
+		OrderID: order.ID,
+		UserID:  order.CustomerID,
+		Status:  domain.StatusAccepted,
+		Message: "Courier found and assigned",
+	})
+
+	return nil
 }

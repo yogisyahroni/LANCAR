@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"lancar/order-service/internal/handler"
+	"lancar/order-service/internal/infrastructure/eventbus"
 	"lancar/order-service/internal/middleware"
 	"lancar/order-service/internal/repository"
 	"lancar/order-service/internal/service"
@@ -48,12 +49,16 @@ func main() {
 		log.Fatal("Failed to initialize maps repository:", err)
 	}
 
+	// Infrastructure
+	eb := eventbus.NewRedisEventBus(rdb)
+
 	// Services
 	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo)
-	orderSvc := service.NewOrderService(pgRepo, redisRepo, pgRepo) // pgRepo implements both Order and Pricing
+	orderSvc := service.NewOrderService(pgRepo, redisRepo, pgRepo, eb) // pgRepo implements both Order and Pricing
 
 	// Handlers
 	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc)
+	wsHandler := handler.NewWSHandler(eb)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb)
@@ -65,20 +70,27 @@ func main() {
 	// Routes
 	mux := http.NewServeMux()
 	
-	// Public Routes
-	mux.HandleFunc("/api/v1/pricing/estimate", orderHandler.Estimate)
+	// Infrastructure Routes
+	mux.HandleFunc("/health", handler.HealthHandler)
+	mux.HandleFunc("/ready", handler.ReadinessHandlerFunc(db))
 	
-	// Protected Routes
-	mux.HandleFunc("/api/v1/orders", middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	// WebSocket Route
+	mux.HandleFunc("/ws", middleware.AuthMiddleware(wsHandler.ServeHTTP))
+	
+	// Public Routes
+	mux.HandleFunc("/api/v1/pricing/estimate", middleware.LimitByIP(rdb)(middleware.BaseChain(orderHandler.Estimate)))
+	
+	// Protected Routes (Wrapped in Auth + Base Middleware)
+	mux.HandleFunc("/api/v1/orders", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			orderHandler.CreateOrder(w, r)
 		} else if r.Method == http.MethodGet {
 			orderHandler.ListOrders(w, r)
 		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
 		}
-	}))
-	mux.HandleFunc("/api/v1/orders/detail", middleware.AuthMiddleware(orderHandler.GetOrder))
+	})))
+	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetOrder)))
 
 	// Server
 	port := os.Getenv("ORDER_PORT")

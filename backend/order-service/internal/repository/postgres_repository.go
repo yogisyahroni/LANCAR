@@ -138,3 +138,19 @@ func (r *postgresRepo) CancelExpiredOrders(ctx context.Context, timeout time.Dur
 	}
 	return res.RowsAffected()
 }
+
+func (r *postgresRepo) AssignCourier(ctx context.Context, orderID string, courierID string) error {
+	query := `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW() WHERE id = $2`
+	_, err := r.db.ExecContext(ctx, query, courierID, orderID)
+	return err
+}
+
+func (r *postgresRepo) GetActiveCourierOrder(ctx context.Context, courierID string) (string, error) {
+	query := `SELECT id FROM orders WHERE courier_id = $1 AND status IN ('assigned', 'picked_up', 'in_transit') LIMIT 1`
+	var orderID string
+	err := r.db.QueryRowContext(ctx, query, courierID).Scan(&orderID)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return orderID, err
+}
