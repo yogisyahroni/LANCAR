@@ -41,11 +41,12 @@ export interface ReadinessData {
 export interface AuditLog {
   id: string;
   flag_key: string;
-  action: 'create' | 'update' | 'delete' | 'toggle';
-  old_value: any;
-  new_value: any;
-  justification: string;
-  admin_id: string;
+  old_enabled: boolean;
+  new_enabled: boolean;
+  old_config: any;
+  new_config: any;
+  changed_by: string;
+  reason: string;
   created_at: string;
 }
 

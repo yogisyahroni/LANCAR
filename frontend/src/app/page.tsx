@@ -157,8 +157,8 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">
-                        <span className="text-primary font-bold">{log.admin_id}</span> 
-                        <span className="mx-1 text-muted-foreground">{log.action === 'toggle' ? 'toggled' : 'updated'}</span> 
+                        <span className="text-primary font-bold">{log.changed_by}</span> 
+                        <span className="mx-1 text-muted-foreground">{log.old_enabled !== log.new_enabled ? 'toggled' : 'updated'}</span> 
                         <span className="font-mono text-xs bg-white/5 px-1.5 py-0.5 rounded text-white/70">{log.flag_key}</span>
                       </p>
                       <p className="text-[10px] text-muted-foreground uppercase tracking-tight mt-0.5 font-bold">
@@ -166,8 +166,8 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <StatusBadge 
-                      status={log.action === 'toggle' ? 'warning' : 'info'} 
-                      label={log.action.toUpperCase()} 
+                      status={log.old_enabled !== log.new_enabled ? 'warning' : 'info'} 
+                      label={log.old_enabled !== log.new_enabled ? 'TOGGLE' : 'UPDATE'} 
                       dot={false} 
                       className="text-[9px] px-1.5"
                     />

@@ -21,16 +21,16 @@ import { fetchAllAuditLogs, AuditLog } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
-const DiffView = ({ oldVal, newVal, action }: { oldVal: any; newVal: any; action: string }) => {
-  if (action === 'toggle') {
+const DiffView = ({ oldEnabled, newEnabled, oldConfig, newConfig }: { oldEnabled: boolean; newEnabled: boolean; oldConfig: any; newConfig: any }) => {
+  if (oldEnabled !== newEnabled) {
     return (
       <div className="flex items-center gap-3 py-2">
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${oldVal ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-          {oldVal ? 'Enabled' : 'Disabled'}
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${oldEnabled ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+          {oldEnabled ? 'Enabled' : 'Disabled'}
         </span>
         <ArrowRight className="h-3 w-3 text-muted-foreground" />
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${newVal ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-          {newVal ? 'Enabled' : 'Disabled'}
+        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${newEnabled ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+          {newEnabled ? 'Enabled' : 'Disabled'}
         </span>
       </div>
     );
@@ -41,13 +41,13 @@ const DiffView = ({ oldVal, newVal, action }: { oldVal: any; newVal: any; action
       <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/10">
         <p className="text-[10px] font-bold text-red-500 uppercase mb-1">Previous Config</p>
         <pre className="text-[11px] font-mono text-red-200/70 overflow-x-auto">
-          {JSON.stringify(oldVal, null, 2)}
+          {JSON.stringify(oldConfig, null, 2)}
         </pre>
       </div>
       <div className="p-3 rounded-lg bg-green-500/5 border border-green-500/10">
         <p className="text-[10px] font-bold text-green-500 uppercase mb-1">New Config</p>
         <pre className="text-[11px] font-mono text-green-200/70 overflow-x-auto">
-          {JSON.stringify(newVal, null, 2)}
+          {JSON.stringify(newConfig, null, 2)}
         </pre>
       </div>
     </div>
@@ -66,8 +66,8 @@ export default function AuditLogsPage() {
 
   const filteredLogs = logs?.filter(log => 
     log.flag_key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.admin_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.justification.toLowerCase().includes(searchTerm.toLowerCase())
+    log.changed_by.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    log.reason.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -141,14 +141,14 @@ export default function AuditLogsPage() {
                           </div>
                           <div>
                             <p className="text-sm font-bold text-white flex items-center gap-2">
-                              {log.admin_id} 
+                              {log.changed_by} 
                               <ArrowRight className="h-3 w-3 text-muted-foreground" />
                               <span className="text-primary font-mono">{log.flag_key}</span>
                             </p>
                             <div className="flex items-center gap-2 mt-0.5">
                               <StatusBadge 
-                                status={log.action === 'toggle' ? 'warning' : 'success'} 
-                                label={log.action.toUpperCase()} 
+                                status={log.old_enabled !== log.new_enabled ? 'warning' : 'success'} 
+                                label={log.old_enabled !== log.new_enabled ? 'TOGGLE' : 'UPDATE'} 
                               />
                               <span className="text-[10px] text-muted-foreground italic flex items-center gap-1">
                                 <Database className="h-2.5 w-2.5" /> Direct DB Write
@@ -173,7 +173,7 @@ export default function AuditLogsPage() {
                               Justification
                             </p>
                             <p className="text-sm text-white/90 leading-relaxed">
-                              {log.justification}
+                              {log.reason}
                             </p>
                           </div>
                         </div>
@@ -187,9 +187,10 @@ export default function AuditLogsPage() {
                       <div className="mt-4">
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3">Changes Detected</p>
                         <DiffView 
-                          oldVal={log.old_value} 
-                          newVal={log.new_value} 
-                          action={log.action} 
+                          oldEnabled={log.old_enabled}
+                          newEnabled={log.new_enabled}
+                          oldConfig={log.old_config}
+                          newConfig={log.new_config}
                         />
                       </div>
                     </div>
