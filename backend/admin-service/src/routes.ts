@@ -6,7 +6,8 @@ import {
   updateFlagConfig, 
   getFlagLogs, 
   getAllLogs,
-  getThreeLegsReadiness 
+  getThreeLegsReadiness,
+  createFlag
 } from './controllers';
 import { requireAuth, requireRole, requireTotp } from './middlewares';
 import { toggleRateLimiter } from './rateLimit';

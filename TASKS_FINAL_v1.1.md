@@ -67,13 +67,13 @@ Subtask:
 **Estimasi:** 2 hari
 
 Subtask:
-- [ ] Setup GitHub repository (monorepo atau multi-repo)
-- [ ] Branching strategy: `main` → `staging` → `develop` → feature branches
-- [ ] GitHub Actions pipeline untuk setiap service:
-  - Lint + unit test
-  - Build Docker image
-  - Push ke container registry
-  - Deploy ke staging (auto) / production (manual approval)
+- [x] Setup GitHub repository (monorepo atau multi-repo)
+- [x] Branching strategy: `main` → `staging` → `develop` → feature branches
+- [x] GitHub Actions pipeline untuk setiap service:
+  - [x] Lint + unit test
+  - [x] Build Docker image
+  - [x] Push ke container registry
+  - [x] Deploy ke staging (auto) / production (manual approval)
 - [ ] Pre-commit hooks: ESLint, Prettier, Husky
 - [ ] Automated database migration runner (Flyway atau Knex)
 - [ ] Slack notifications untuk deploy events
@@ -201,8 +201,8 @@ Subtask:
 **Estimasi:** 4 hari
 
 Subtask:
-- [ ] POST /auth/otp/send — kirim OTP via WhatsApp (WATI/Twilio) + SMS fallback
-- [ ] POST /auth/otp/verify — verifikasi OTP, return JWT pair
+- [x] POST /auth/otp/send — kirim OTP via WhatsApp (WATI/Twilio) + SMS fallback
+- [x] POST /auth/otp/verify — verifikasi OTP, return JWT pair
 - [ ] POST /auth/refresh — refresh access token
 - [ ] POST /auth/logout — invalidate refresh token
 - [ ] JWT structure: `{ user_id, role, device_id, exp }`
