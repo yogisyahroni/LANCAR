@@ -125,8 +125,8 @@ Subtask:
 
 ### Sprint 1: Database & Core Architecture
 
-#### DB-001: Database Schema Implementation
-**Assignee:** Backend Lead + 1 Backend  
+#### [x] DB-001: Database Schema Initialization (PostgreSQL)  
+- [x] DB-002: Migration & Seeding Strategy  
 **Estimasi:** 4 hari
 
 Subtask:
@@ -196,8 +196,8 @@ Subtask:
 
 ### Sprint 2: Auth & User Management
 
-#### AUTH-001: Authentication Service
-**Assignee:** Backend  
+#### [x] AUTH-001: Authentication Service (OTP-based)  
+- [x] AUTH-002: Role-based Access Control (RBAC)  
 **Estimasi:** 4 hari
 
 Subtask:

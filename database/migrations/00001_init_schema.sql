@@ -83,7 +83,16 @@ CREATE INDEX idx_courier_zones_courier ON courier_zones(courier_id);
 CREATE INDEX idx_courier_zones_zone ON courier_zones(zone_id);
 
 CREATE TABLE pricing_configs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4()
+    id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    model             VARCHAR(20) NOT NULL CHECK (model IN ('p2p','two_legs','three_legs')),
+    base_fee          INT NOT NULL,
+    per_km_fee        INT NOT NULL,
+    min_distance_km   DECIMAL(5,2) DEFAULT 0,
+    max_distance_km   DECIMAL(5,2),
+    weight_limit_kg   DECIMAL(5,2) DEFAULT 20.0,
+    is_active         BOOLEAN DEFAULT TRUE,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE orders (
@@ -134,8 +143,18 @@ CREATE INDEX idx_orders_dropoff ON orders USING GIST(dropoff_location);
 CREATE INDEX idx_orders_status_created ON orders(status, created_at DESC);
 
 CREATE TABLE meeting_points (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4()
+    id                UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name              VARCHAR(100) NOT NULL,
+    address           TEXT NOT NULL,
+    location          GEOGRAPHY(POINT, 4326) NOT NULL,
+    zone_id           UUID REFERENCES zones(id),
+    is_active         BOOLEAN DEFAULT TRUE,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_meeting_points_location ON meeting_points USING GIST(location);
+CREATE INDEX idx_meeting_points_zone ON meeting_points(zone_id);
 
 CREATE TABLE order_legs (
     id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
