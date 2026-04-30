@@ -45,7 +45,11 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 	// 2. Double check Feature Flag for the selected model
 	flag, err := s.flagReader.GetFlag(ctx, estimate.Model)
 	if err != nil || flag == nil || !flag.IsEnabled {
-		return nil, domain.ErrModelUnavailable
+		return nil, &domain.ModelUnavailableError{
+			Model:     estimate.Model,
+			MessageID: "MODEL_UNAVAILABLE",
+			UserMsg:   "The selected delivery model is no longer available",
+		}
 	}
 
 	// 3. Generate Order Number (RLY-YYYYMMDD-XXXX)

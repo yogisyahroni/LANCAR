@@ -109,6 +109,11 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
   const key = req.params.key as string;
   const { config, reason } = req.body;
 
+  if (!reason || reason.length < 50) {
+    res.status(400).json({ error: 'Reason must be at least 50 characters' });
+    return;
+  }
+
   let validConfig;
   try {
     validConfig = validateFlagConfig(config);
@@ -138,7 +143,7 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
     await client.query(
       `INSERT INTO feature_flag_logs (flag_key, old_enabled, new_enabled, old_config, new_config, changed_by, reason) 
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [key, flag.is_enabled, flag.is_enabled, flag.config, validConfig, changedBy, reason || 'Config update']
+      [key, flag.is_enabled, flag.is_enabled, flag.config, validConfig, changedBy, reason]
     );
 
     await client.query('COMMIT');
@@ -150,8 +155,8 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
     // Emit to Dashboard via WebSocket
     getIO().emit('flag:changed', { key, is_enabled: flag.is_enabled, config: validConfig, changed_at: new Date() });
 
-    sendEmailAlert(key, flag.is_enabled, flag.is_enabled, reason || 'Config update', changedBy).catch(console.error);
-    sendSlackAlert(key, flag.is_enabled, flag.is_enabled, reason || 'Config update', changedBy).catch(console.error);
+    sendEmailAlert(key, flag.is_enabled, flag.is_enabled, reason, changedBy).catch(console.error);
+    sendSlackAlert(key, flag.is_enabled, flag.is_enabled, reason, changedBy).catch(console.error);
 
     res.json(updateRes.rows[0]);
   } catch (error: any) {
@@ -205,10 +210,15 @@ export const getThreeLegsReadiness = async (req: Request, res: Response): Promis
 };
 
 export const createFlag = async (req: Request, res: Response): Promise<void> => {
-  const { key, category, description, config, is_enabled } = req.body;
+  const { key, category, description, config, is_enabled, reason } = req.body;
 
   if (!key || !category) {
     res.status(400).json({ error: 'Key and Category are required' });
+    return;
+  }
+
+  if (!reason || reason.length < 50) {
+    res.status(400).json({ error: 'Reason must be at least 50 characters' });
     return;
   }
 
@@ -233,7 +243,7 @@ export const createFlag = async (req: Request, res: Response): Promise<void> => 
     await client.query(
       `INSERT INTO feature_flag_logs (flag_key, old_enabled, new_enabled, old_config, new_config, changed_by, reason) 
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [key, false, is_enabled || false, {}, config || {}, changedBy, 'Flag creation']
+      [key, false, is_enabled || false, {}, config || {}, changedBy, reason]
     );
 
     await client.query('COMMIT');

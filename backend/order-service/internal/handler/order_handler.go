@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"lancar/order-service/internal/domain"
 	"lancar/order-service/internal/middleware"
 	"net/http"
@@ -45,8 +46,9 @@ func (h *OrderHandler) Estimate(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.pricingSvc.Estimate(r.Context(), *req)
 	if err != nil {
 		correlationID := middleware.GetCorrelationID(r.Context())
-		if err == domain.ErrModelUnavailable {
-			middleware.WriteError(w, http.StatusServiceUnavailable, "DELIVERY_MODEL_UNAVAILABLE", "Requested delivery models are currently unavailable", correlationID)
+		var modelErr *domain.ModelUnavailableError
+		if errors.As(err, &modelErr) {
+			middleware.WriteError(w, http.StatusServiceUnavailable, modelErr.MessageID, modelErr.UserMsg, correlationID)
 			return
 		}
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_PRICING", err.Error(), correlationID)
@@ -90,8 +92,9 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	order, err := h.orderSvc.CreateOrder(r.Context(), userID, *req)
 	if err != nil {
 		correlationID := middleware.GetCorrelationID(r.Context())
-		if err == domain.ErrModelUnavailable {
-			middleware.WriteError(w, http.StatusServiceUnavailable, "DELIVERY_MODEL_UNAVAILABLE", "The selected delivery model is no longer available", correlationID)
+		var modelErr *domain.ModelUnavailableError
+		if errors.As(err, &modelErr) {
+			middleware.WriteError(w, http.StatusServiceUnavailable, modelErr.MessageID, modelErr.UserMsg, correlationID)
 			return
 		}
 		if err == domain.ErrInvalidEstimate {

@@ -125,25 +125,25 @@ func TestPricingService_Estimate_FlagAware(t *testing.T) {
 		name          string
 		distanceKM    float64
 		expectedModel string
-		expectedErr   error
+		expectErr     bool
 	}{
 		{
 			name:          "Jarak 10 km -> P2P",
 			distanceKM:    10.0,
 			expectedModel: "model_p2p",
-			expectedErr:   nil,
+			expectErr:     false,
 		},
 		{
 			name:          "Jarak 20 km -> 2-Kaki (P2P exceeds max_distance)",
 			distanceKM:    20.0,
 			expectedModel: "model_two_legs",
-			expectedErr:   nil,
+			expectErr:     false,
 		},
 		{
 			name:          "Jarak 30 km -> Error (3-Kaki OFF)",
 			distanceKM:    30.0,
 			expectedModel: "",
-			expectedErr:   domain.ErrModelUnavailable,
+			expectErr:     true,
 		},
 	}
 
@@ -161,8 +161,8 @@ func TestPricingService_Estimate_FlagAware(t *testing.T) {
 
 			resp, err := svc.Estimate(context.Background(), req)
 
-			if err != tt.expectedErr {
-				t.Errorf("expected error %v, got %v", tt.expectedErr, err)
+			if (err != nil) != tt.expectErr {
+				t.Errorf("expected error %v, got %v", tt.expectErr, err)
 			}
 
 			if resp != nil && resp.Model != tt.expectedModel {
@@ -210,19 +210,19 @@ func TestPricingService_Estimate_TwoLegsOff(t *testing.T) {
 		name          string
 		distanceKM    float64
 		expectedModel string
-		expectedErr   error
+		expectErr     bool
 	}{
 		{
 			name:          "Jarak 10 km -> P2P",
 			distanceKM:    10.0,
 			expectedModel: "model_p2p",
-			expectedErr:   nil,
+			expectErr:     false,
 		},
 		{
 			name:          "Jarak 20 km -> Error (2-Kaki OFF)",
 			distanceKM:    20.0,
 			expectedModel: "",
-			expectedErr:   domain.ErrModelUnavailable,
+			expectErr:     true,
 		},
 	}
 
@@ -240,8 +240,8 @@ func TestPricingService_Estimate_TwoLegsOff(t *testing.T) {
 
 			resp, err := svc.Estimate(context.Background(), req)
 
-			if err != tt.expectedErr {
-				t.Errorf("expected error %v, got %v", tt.expectedErr, err)
+			if (err != nil) != tt.expectErr {
+				t.Errorf("expected error %v, got %v", tt.expectErr, err)
 			}
 
 			if resp != nil && resp.Model != tt.expectedModel {

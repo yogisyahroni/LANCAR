@@ -30,7 +30,11 @@ func NewPricingService(p domain.PricingRepository, m domain.MapsRepository, r do
 func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
 	// 0. Check Feature Flags for Model Availability
 	if len(req.Models) == 0 {
-		return nil, domain.ErrModelUnavailable
+		return nil, &domain.ModelUnavailableError{
+			Model:     "unknown",
+			MessageID: "NO_MODELS",
+			UserMsg:   "No delivery models requested",
+		}
 	}
 
 	flags, err := s.flagReader.GetFlags(ctx, req.Models)
@@ -65,7 +69,11 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	}
 
 	if selectedModel == "" {
-		return nil, domain.ErrModelUnavailable
+		return nil, &domain.ModelUnavailableError{
+			Model:     "unknown",
+			MessageID: "MODELS_UNAVAILABLE",
+			UserMsg:   "Requested delivery models are currently unavailable",
+		}
 	}
 
 	// 3. Get Pricing Configuration
