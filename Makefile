@@ -55,6 +55,9 @@ logs-auth: ## Tail logs auth-service saja
 logs-admin: ## Tail logs admin-service saja
 	docker compose logs -f admin-service
 
+logs-order: ## Tail logs order-service saja
+	docker compose logs -f order-service
+
 logs-db: ## Tail logs database saja
 	docker compose logs -f db
 
@@ -89,6 +92,8 @@ test: ## Jalankan semua tests
 	cd backend/admin-service && npm test
 	@echo "→ Routing Service tests..."
 	cd backend/routing-service && go test -v -timeout 5m ./...
+	@echo "→ Order Service tests..."
+	cd backend/order-service && go test -v -timeout 5m ./...
 
 test-auth: ## Test auth-service saja
 	cd backend/auth-service && go test -v -timeout 5m ./...
@@ -107,6 +112,8 @@ lint: ## Jalankan semua linter
 	cd backend/auth-service && go vet ./...
 	@echo "→ Go lint (routing-service)..."
 	cd backend/routing-service && go vet ./...
+	@echo "→ Go lint (order-service)..."
+	cd backend/order-service && go vet ./...
 	@echo "→ Node lint (admin-service)..."
 	cd backend/admin-service && npm run lint || true
 	@echo "→ Node lint (frontend)..."
@@ -119,6 +126,7 @@ sec-audit: ## Security audit Node.js dependencies
 sec-go: ## Security scan Go code dengan gosec (butuh: go install github.com/securego/gosec/v2/cmd/gosec@latest)
 	gosec ./backend/auth-service/...
 	gosec ./backend/routing-service/...
+	gosec ./backend/order-service/...
 
 ## ─────────────────────────────────────────────
 ## BUILD
@@ -129,6 +137,9 @@ build-auth: ## Build binary auth-service
 build-routing: ## Build binary routing-service
 	cd backend/routing-service && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o routing-service ./main.go
 
+build-order: ## Build binary order-service
+	cd backend/order-service && CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o order-service ./cmd/api/main.go
+
 build-docker: ## Build semua Docker images lokal
 	docker compose build
 
@@ -138,6 +149,7 @@ build-docker: ## Build semua Docker images lokal
 tidy: ## go mod tidy untuk semua Go services
 	cd backend/auth-service && go mod tidy
 	cd backend/routing-service && go mod tidy
+	cd backend/order-service && go mod tidy
 
 setup: ## First-time setup: copy .env, start services, migrate
 	@if [ ! -f .env ]; then cp .env.example .env && echo "✅ .env dibuat dari .env.example"; fi

@@ -266,20 +266,18 @@ Subtask:
 **Estimasi:** 4 hari
 
 Subtask:
-- [ ] POST /pricing/estimate — estimasi harga sebelum order (tidak buat order)
-  - Input: pickup_coords, dropoff_coords, package_details
-  - Output: price_breakdown, model_selected, eta, surge_info
-- [ ] POST /orders — buat order baru
-  - Validasi semua field
-  - Hitung jarak via Google Maps Distance Matrix API
-  - Pilih model (P2P/2-Kaki/3-Kaki) berdasarkan jarak + zona
-  - Hitung harga final (base + volumetric + dynamic)
-  - Buat payment intent
-  - Return order_id + QR code URL
+- [x] POST /pricing/estimate — estimasi harga sebelum order (tidak buat order)
+  - [x] Input: pickup_coords, dropoff_coords, package_details
+  - [x] Output: price_breakdown, model_selected, eta, surge_info
+- [x] POST /orders — buat order baru
+  - [ ] Validasi semua field
+  - [x] Hitung jarak via Google Maps Distance Matrix API
+  - [ ] Pilih model (P2P/2-Kaki/3-Kaki) berdasarkan jarak + zona
+  - [x] Hitung harga final (base + volumetric + dynamic)
+  - [ ] Buat payment intent
+  - [ ] Return order_id + QR code URL
 - [ ] Order number generation: `RLY-YYYYMMDD-XXXXX` (sequential per hari)
 - [ ] Caching rute populer (zona-ke-zona, 5 menit TTL)
-
----
 
 #### ORDER-002: Order State Machine
 **Assignee:** Backend  
@@ -292,10 +290,8 @@ Subtask:
 - [ ] Audit log setiap transisi (siapa, kapan, dari mana ke mana)
 - [ ] Scheduler: auto-cancel order `pending_payment` setelah 15 menit
 - [ ] Scheduler: alert admin jika `pending_assignment` >10 menit
-- [ ] GET /orders/:id — detail order lengkap (semua leg, proofs, timeline)
-- [ ] GET /orders — list order dengan filter + pagination
-
----
+- [x] GET /orders/:id — detail order lengkap (semua leg, proofs, timeline)
+- [x] GET /orders — list order dengan filter + pagination
 
 #### ORDER-003: Courier Matching Engine
 **Assignee:** Backend (Go preferred untuk performa)  
@@ -311,8 +307,6 @@ Subtask:
 - [ ] Cancel assignment jika semua kurir decline → notify customer
 - [ ] Mutex/lock untuk hindari double-assign kurir ke 2 order sekaligus
 
----
-
 #### ORDER-004: Meeting Point Engine
 **Assignee:** Backend  
 **Estimasi:** 2 hari
@@ -326,20 +320,18 @@ Subtask:
 - [ ] POST /admin/meeting-points — CRUD meeting point oleh admin
 - [ ] Meeting point analytics: berapa sering digunakan, rata-rata wait time
 
----
-
 #### PRICE-001: Pricing Engine
 **Assignee:** Backend (Go untuk performa)  
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] Base price calculator: jarak × harga per km (P2P) atau flat per leg (relay)
-- [ ] Volumetric surcharge calculator: berdasarkan charged_weight
+- [x] Base price calculator: jarak × harga per km (P2P) atau flat per leg (relay)
+- [x] Volumetric surcharge calculator: berdasarkan charged_weight
 - [ ] Weight bracket surcharge calculator
-- [ ] Dynamic pricing multiplier aggregator:
-  - Baca `pricing:multiplier:{zone_id}` dari Redis
-  - Apply semua faktor sesuai formula
-  - Cap total surge di +40%
+- [x] Dynamic pricing multiplier aggregator:
+  - [x] Baca `pricing:multiplier:{zone_id}` dari Redis
+  - [x] Apply semua faktor sesuai formula
+  - [x] Cap total surge di +40%
 - [ ] Loyalty discount calculator berdasarkan tier
 - [ ] Price locking: simpan harga final di order, tidak bisa berubah setelah konfirmasi
 - [ ] GET /admin/pricing/config — baca config harga
@@ -353,7 +345,7 @@ Subtask:
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] **Jam Sibuk Worker**: update Redis multiplier setiap menit berdasarkan jam saat ini
+- [x] **Jam Sibuk Worker**: update Redis multiplier setiap menit berdasarkan jam saat ini
 - [ ] **Cuaca Worker**: 
   - Poll BMKG API setiap 15 menit per zona aktif
   - Fallback ke Open-Meteo jika BMKG gagal
