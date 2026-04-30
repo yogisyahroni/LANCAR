@@ -151,7 +151,7 @@ Subtask:
 
 Subtask:
 - [ ] Setup API Gateway (Kong atau custom Express middleware)
-- [ ] Rate limiting middleware: Redis-backed, per user + per IP
+- [x] Rate limiting middleware: Redis-backed, per user + per IP — `rate_limiter.go`: 4 policies (global 100/60s, OTP send 3/5min, OTP verify 5/10min, auth 20/60s) + RFC 6585 headers + 8 unit tests (all PASS)
 - [x] Request logging middleware (correlation ID per request — `base_middleware.go`: CorrelationIDMiddleware + RequestLoggerMiddleware)
 - [x] Error handling middleware (standar error response format — `WriteError`/`WriteSuccess` JSON)
 - [ ] Request validation middleware (Joi atau Zod)
