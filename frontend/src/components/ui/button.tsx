@@ -5,11 +5,12 @@ import { motion, HTMLMotionProps } from 'framer-motion';
 import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
 
-interface ButtonProps extends HTMLMotionProps<'button'> {
+interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg' | 'icon';
   asChild?: boolean;
   isLoading?: boolean;
+  children?: React.ReactNode;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
