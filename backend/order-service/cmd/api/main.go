@@ -13,6 +13,7 @@ import (
 	"lancar/order-service/internal/middleware"
 	"lancar/order-service/internal/repository"
 	"lancar/order-service/internal/service"
+	"lancar/order-service/internal/featureflags"
 	"lancar/order-service/internal/worker"
 	"lancar/order-service/internal/infrastructure/notification"
 	"context"
@@ -63,6 +64,10 @@ func main() {
 		log.Fatal("Failed to initialize maps repository:", err)
 	}
 
+	// Feature Flags
+	flagReader := featureflags.NewFlagReader(db, readDB, rdb)
+	defer flagReader.Close()
+
 	// Infrastructure
 	eb := eventbus.NewRedisEventBus(rdb)
 	notificationSvc := notification.NewStubNotificationService()
@@ -79,8 +84,8 @@ func main() {
 	}
 
 	// Services
-	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo)
-	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, eb, tq)
+	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo, flagReader)
+	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, eb, tq, flagReader)
 
 	// Handlers
 	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc)

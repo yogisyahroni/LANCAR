@@ -30,14 +30,20 @@ const proxyWithBodyFix = (target: string) =>
   createProxyMiddleware({
     target,
     changeOrigin: true,
-    onProxyReq: fixRequestBody,
-    onError: (err: Error, req: Request, res: Response) => {
-      console.error(`Proxy Error (${target}):`, err);
-      res.status(502).json({
-        status: 'error',
-        code: 'ERR_BAD_GATEWAY',
-        message: 'Service is currently unavailable',
-      });
+    on: {
+      proxyReq: fixRequestBody,
+      error: (err: Error, req: any, res: any) => {
+        console.error(`Proxy Error (${target}):`, err);
+        if (res && typeof res.status === 'function') {
+          res.status(502).json({
+            status: 'error',
+            code: 'ERR_BAD_GATEWAY',
+            message: 'Service is currently unavailable',
+          });
+        } else if (res && typeof res.end === 'function') {
+          res.end('Service unavailable');
+        }
+      }
     }
   });
 

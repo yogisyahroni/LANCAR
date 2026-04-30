@@ -13,7 +13,8 @@ type PricingEstimateRequest struct {
 	Length     float64 `json:"length" validate:"required"`
 	Width      float64 `json:"width" validate:"required"`
 	Height     float64 `json:"height" validate:"required"`
-	Weight     float64 `json:"weight" validate:"required"`
+	Weight     float64  `json:"weight" validate:"required"`
+	Models     []string `json:"models" validate:"required"` // Requested delivery models
 }
 
 type PricingEstimateResponse struct {
@@ -33,6 +34,7 @@ type PricingEstimateResponse struct {
 	PickupLng  float64 `json:"pickup_lng"`
 	DropoffLat float64 `json:"dropoff_lat"`
 	DropoffLng float64 `json:"dropoff_lng"`
+	Model      string  `json:"model"` // Selected delivery model
 }
 
 type PricingConfig struct {

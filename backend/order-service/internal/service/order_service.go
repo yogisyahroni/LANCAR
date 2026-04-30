@@ -7,6 +7,7 @@ import (
 	"lancar/order-service/internal/domain"
 	"lancar/order-service/pkg/utils"
 	"lancar/order-service/internal/domain/queue"
+	"lancar/order-service/internal/featureflags"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,9 +20,10 @@ type orderServiceImpl struct {
 	pricingRepo domain.PricingRepository
 	eventBus    domain.EventBus
 	taskQueue   queue.Queue
+	flagReader  featureflags.FlagReader
 }
 
-func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, eb domain.EventBus, tq queue.Queue) domain.OrderService {
+func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader) domain.OrderService {
 	return &orderServiceImpl{
 		orderRepo:   o,
 		eventRepo:   er,
@@ -29,6 +31,7 @@ func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r
 		pricingRepo: p,
 		eventBus:    eb,
 		taskQueue:   tq,
+		flagReader:  f,
 	}
 }
 
@@ -36,25 +39,31 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 	// 1. Get cached estimate from Redis
 	estimate, err := s.redisRepo.GetEstimate(ctx, req.EstimateID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid or expired estimate: %w", err)
+		return nil, domain.ErrInvalidEstimate
 	}
 
-	// 2. Generate Order Number (RLY-YYYYMMDD-XXXX)
+	// 2. Double check Feature Flag for the selected model
+	flag, err := s.flagReader.GetFlag(ctx, estimate.Model)
+	if err != nil || flag == nil || !flag.IsEnabled {
+		return nil, domain.ErrModelUnavailable
+	}
+
+	// 3. Generate Order Number (RLY-YYYYMMDD-XXXX)
 	orderNum := fmt.Sprintf("RLY-%s-%s", time.Now().Format("20060102"), uuid.New().String()[:5])
 	handoverToken := uuid.New().String()
 
-	// 3. Generate QR Code Data URI
+	// 4. Generate QR Code Data URI
 	qrURL, err := utils.GenerateQRCodeDataURI(handoverToken, 256)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate qr code: %w", err)
 	}
 
-	// 3. Create Order object
+	// 5. Create Order object
 	order := &domain.Order{
 		ID:                     uuid.New().String(),
 		OrderNumber:            orderNum,
 		CustomerID:             userID,
-		Model:                  "p2p", // Default to p2p for now
+		Model:                  estimate.Model,
 		Status:                 domain.StatusPendingPayment,
 		PickupAddress:          estimate.PickupAddress,
 		PickupLat:              estimate.PickupLat,
@@ -73,12 +82,12 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		UpdatedAt:              time.Now(),
 	}
 
-	// 4. Save to DB
+	// 6. Save to DB
 	if err := s.orderRepo.Create(ctx, order); err != nil {
 		return nil, fmt.Errorf("failed to save order: %w", err)
 	}
 
-	// 5. Publish and Persist creation event
+	// 7. Publish and Persist creation event
 	event := domain.OrderEvent{
 		OrderID:   order.ID,
 		UserID:    order.CustomerID,
@@ -89,7 +98,7 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 	s.eventRepo.SaveEvent(ctx, event)
 	s.eventBus.Publish(ctx, "order.updates", event)
 
-	// 6. Push to persistent task queue for background processing (e.g., analytics, notifications)
+	// 8. Push to persistent task queue
 	if s.taskQueue != nil {
 		s.taskQueue.Push(ctx, queue.Task{
 			Type: "order.created",

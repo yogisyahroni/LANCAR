@@ -44,7 +44,12 @@ func (h *OrderHandler) Estimate(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.pricingSvc.Estimate(r.Context(), *req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		correlationID := middleware.GetCorrelationID(r.Context())
+		if err == domain.ErrModelUnavailable {
+			middleware.WriteError(w, http.StatusServiceUnavailable, "DELIVERY_MODEL_UNAVAILABLE", "Requested delivery models are currently unavailable", correlationID)
+			return
+		}
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_PRICING", err.Error(), correlationID)
 		return
 	}
 
@@ -84,7 +89,16 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	order, err := h.orderSvc.CreateOrder(r.Context(), userID, *req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		correlationID := middleware.GetCorrelationID(r.Context())
+		if err == domain.ErrModelUnavailable {
+			middleware.WriteError(w, http.StatusServiceUnavailable, "DELIVERY_MODEL_UNAVAILABLE", "The selected delivery model is no longer available", correlationID)
+			return
+		}
+		if err == domain.ErrInvalidEstimate {
+			middleware.WriteError(w, http.StatusBadRequest, "INVALID_ESTIMATE", "The pricing estimate has expired or is invalid", correlationID)
+			return
+		}
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_ORDER_CREATION", err.Error(), correlationID)
 		return
 	}
 
