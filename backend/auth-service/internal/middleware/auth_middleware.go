@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"lancar/auth-service/internal/domain"
 	"lancar/auth-service/pkg/utils"
 	"net/http"
 	"strings"
@@ -10,8 +11,9 @@ import (
 type contextKey string
 
 const (
-	UserIDKey contextKey = "user_id"
-	RoleKey   contextKey = "role"
+	UserIDKey       contextKey = "user_id"
+	RoleKey         contextKey = "role"
+	TOTPVerifiedKey contextKey = "totp_verified"
 )
 
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
@@ -36,15 +38,72 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
 		ctx = context.WithValue(ctx, RoleKey, claims.Role)
+		ctx = context.WithValue(ctx, TOTPVerifiedKey, claims.TOTPVerified)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
+	}
+}
+
+// Enforce2FAMiddleware ensures that users with sensitive roles have verified their 2FA
+func Enforce2FAMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		role := GetRoleFromContext(r.Context())
+		isVerified := IsTOTPVerifiedFromContext(r.Context())
+
+		// Roles that REQUIRE 2FA
+		if role == string(domain.RoleSuperAdmin) || role == string(domain.RoleFinance) {
+			if !isVerified {
+				http.Error(w, "2FA verification required for this role", http.StatusForbidden)
+				return
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	}
+}
+
+// PermissionMiddleware checks if the user's role has the required permission
+func PermissionMiddleware(userRepo domain.UserRepository, requiredPerm domain.Permission, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		role := GetRoleFromContext(r.Context())
+		if role == "" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Super Admin bypass
+		if role == string(domain.RoleSuperAdmin) {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		permissions, err := userRepo.GetPermissionsByRole(r.Context(), role)
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		hasPerm := false
+		for _, p := range permissions {
+			if p == string(requiredPerm) {
+				hasPerm = true
+				break
+			}
+		}
+
+		if !hasPerm {
+			http.Error(w, "Forbidden: insufficient permissions", http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
 	}
 }
 
 func RoleMiddleware(requiredRole string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		role := GetRoleFromContext(r.Context())
-		if role != requiredRole && role != "admin" { // admin bypasses all role checks
+		if role != requiredRole && role != string(domain.RoleSuperAdmin) {
 			http.Error(w, "Forbidden: insufficient permissions", http.StatusForbidden)
 			return
 		}
@@ -64,4 +123,11 @@ func GetRoleFromContext(ctx context.Context) string {
 		return v
 	}
 	return ""
+}
+
+func IsTOTPVerifiedFromContext(ctx context.Context) bool {
+	if v, ok := ctx.Value(TOTPVerifiedKey).(bool); ok {
+		return v
+	}
+	return false
 }

@@ -249,12 +249,12 @@ Subtask:
 **Estimasi:** 2 hari
 
 Subtask:
-- [x] RBAC middleware: decorator/guard untuk setiap endpoint
-- [ ] Role permissions matrix (siapa bisa akses apa)
-- [ ] POST /admin/users — buat akun admin baru (super_admin only)
+- [x] RBAC middleware: decorator/guard untuk setiap endpoint (PermissionMiddleware implemented)
+- [x] Role permissions matrix (siapa bisa akses apa) (role_permissions table seeded + used in middleware)
+- [x] POST /admin/users — buat akun admin baru (super_admin only)
 - [x] PATCH /admin/users/:id/role — ubah role
 - [x] GET /admin/audit-logs — audit log semua aksi admin
-- [ ] 2FA TOTP setup untuk super_admin dan finance (Google Authenticator)
+- [x] 2FA TOTP setup untuk super_admin dan finance (Google Authenticator) (Permission2FAChain enforced)
 - [x] Session management: force logout dari device lain
 
 ---

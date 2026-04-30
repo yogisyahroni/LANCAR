@@ -18,8 +18,9 @@ type CourierProfile struct {
 	CurrentZoneID   *string       `json:"current_zone_id" db:"current_zone_id"`
 	Status          CourierStatus `json:"status" db:"status"`
 	RelayScore      float64       `json:"relay_score" db:"relay_score"`
-	IsVerified      bool          `json:"is_verified" db:"is_verified"`
-	VerifiedAt      *time.Time    `json:"verified_at" db:"verified_at"`
+	IsVerified       bool          `json:"is_verified" db:"is_verified"`
+	LivenessVerified bool          `json:"liveness_verified" db:"liveness_verified"`
+	VerifiedAt       *time.Time    `json:"verified_at" db:"verified_at"`
 	CreatedAt       time.Time     `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time     `json:"updated_at" db:"updated_at"`
 }

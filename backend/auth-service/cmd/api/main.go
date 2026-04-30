@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"lancar/auth-service/internal/domain"
 	"lancar/auth-service/internal/handler"
 	"lancar/auth-service/internal/middleware"
 	"lancar/auth-service/internal/repository"
@@ -88,8 +89,24 @@ func main() {
 	// ─────────────────────────────────────────────
 	// Dependency Injection
 	// ─────────────────────────────────────────────
+	uploadPath := os.Getenv("UPLOAD_PATH")
+	if uploadPath == "" {
+		uploadPath = "./uploads"
+	}
+	uploadURL := os.Getenv("UPLOAD_URL")
+	if uploadURL == "" {
+		uploadURL = "http://localhost:8081/uploads"
+	}
+
+	storageSvc, err := service.NewLocalStorage(uploadPath, uploadURL)
+	if err != nil {
+		log.Fatalf("[auth-service] Failed to initialize storage: %v", err)
+	}
+
+	livenessSvc := service.NewLivenessService()
+
 	repo := repository.NewPostgresRepository(db, readDB)
-	svc := service.NewAuthService(repo, repo, repo, repo, repo)
+	svc := service.NewAuthService(repo, repo, repo, repo, repo, livenessSvc, storageSvc)
 	h := handler.NewAuthHandler(svc)
 
 	mux := http.NewServeMux()
@@ -121,11 +138,16 @@ func main() {
 	mux.HandleFunc("/api/v1/auth/logout",
 		middleware.AuthRateLimitedChain(rdb, h.Logout))
 
+	mux.HandleFunc("/api/v1/auth/2fa/complete",
+		middleware.AuthRateLimitedChain(rdb, h.Complete2FALogin))
+
 	// ─────────────────────────────────────────────
 	// API v1 — User Endpoints (requires JWT auth)
 	// ─────────────────────────────────────────────
 	mux.HandleFunc("/api/v1/auth/register", middleware.AuthChain(h.Register))
 	mux.HandleFunc("/api/v1/auth/pin/set", middleware.AuthChain(h.SetPIN))
+	mux.HandleFunc("/api/v1/auth/2fa/setup", middleware.AuthChain(h.Setup2FA))
+	mux.HandleFunc("/api/v1/auth/2fa/verify", middleware.AuthChain(h.Verify2FA))
 	mux.HandleFunc("/api/v1/users/me", middleware.AuthChain(h.GetMe))
 	mux.HandleFunc("/api/v1/users/me/photo", middleware.AuthChain(h.UpdatePhoto))
 
@@ -137,14 +159,20 @@ func main() {
 	mux.HandleFunc("/api/v1/couriers/me", middleware.AuthChain(h.GetCourierProfile))
 
 	// ─────────────────────────────────────────────
-	// API v1 — Admin Endpoints (requires JWT + role)
+	// API v1 — Admin Endpoints (requires JWT + role + 2FA for sensitive)
 	// ─────────────────────────────────────────────
-	mux.HandleFunc("/api/v1/admin/users/role", middleware.AdminChain("admin", h.UpdateUserRole))
-	mux.HandleFunc("/api/v1/admin/audit-logs", middleware.AdminChain("admin", h.GetAuditLogs))
-	mux.HandleFunc("/api/v1/admin/couriers", middleware.AdminChain("admin", h.ListCouriers))
-	mux.HandleFunc("/api/v1/admin/couriers/verify", middleware.AdminChain("admin", h.VerifyCourier))
-	mux.HandleFunc("/api/v1/admin/couriers/suspend", middleware.AdminChain("admin", h.SuspendCourier))
-	mux.HandleFunc("/api/v1/admin/couriers/zones", middleware.AdminChain("admin", h.AssignCourierZone))
+	mux.HandleFunc("/api/v1/admin/users", middleware.Permission2FAChain(repo, domain.PermManageUsers, h.CreateAdminUser))
+	mux.HandleFunc("/api/v1/admin/users/role", middleware.Permission2FAChain(repo, domain.PermManageUsers, h.UpdateUserRole))
+	mux.HandleFunc("/api/v1/admin/audit-logs", middleware.Permission2FAChain(repo, domain.PermViewAuditLogs, h.GetAuditLogs))
+	mux.HandleFunc("/api/v1/admin/couriers", middleware.PermissionChain(repo, domain.PermManageCouriers, h.ListCouriers))
+	mux.HandleFunc("/api/v1/admin/couriers/verify", middleware.Permission2FAChain(repo, domain.PermManageCouriers, h.VerifyCourier))
+	mux.HandleFunc("/api/v1/admin/couriers/suspend", middleware.Permission2FAChain(repo, domain.PermManageCouriers, h.SuspendCourier))
+	mux.HandleFunc("/api/v1/admin/couriers/zones", middleware.Permission2FAChain(repo, domain.PermManageCouriers, h.AssignCourierZone))
+
+	// ─────────────────────────────────────────────
+	// Static Files (for local storage)
+	// ─────────────────────────────────────────────
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadPath))))
 
 	// ─────────────────────────────────────────────
 	// Legacy routes (backward-compat: 301 redirect to v1)

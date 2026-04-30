@@ -2,14 +2,6 @@ package domain
 
 import "context"
 
-type UserRole string
-
-const (
-	RoleCustomer UserRole = "customer"
-	RoleCourier  UserRole = "courier"
-	RoleAdmin    UserRole = "admin"
-)
-
 type UserRepository interface {
 	GetByPhoneNumber(ctx context.Context, phoneNumber string) (*User, error)
 	GetByID(ctx context.Context, id string) (*User, error)
@@ -20,6 +12,9 @@ type UserRepository interface {
 	UpdatePhotoURL(ctx context.Context, userID, url string) error
 	SetReferralCode(ctx context.Context, userID, code string) error
 	UpdateRole(ctx context.Context, userID, role string) error
+	GetPermissionsByRole(ctx context.Context, role string) ([]string, error)
+	UpdateTOTP(ctx context.Context, userID string, secret string, backupCodes []string) error
+	Enable2FA(ctx context.Context, userID string) error
 }
 
 type SessionRepository interface {
@@ -44,6 +39,7 @@ type CourierRepository interface {
 	ListProfiles(ctx context.Context, limit, offset int) ([]*CourierProfile, error)
 	UpdateStatus(ctx context.Context, id string, status CourierStatus) error
 	SetZone(ctx context.Context, id string, zoneID string) error
+	UpdateLivenessStatus(ctx context.Context, id string, status bool) error
 }
 
 

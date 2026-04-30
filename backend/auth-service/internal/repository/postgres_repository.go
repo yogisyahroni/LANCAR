@@ -21,12 +21,14 @@ func NewPostgresRepository(db, readDB *sql.DB) *postgresRepo {
 
 // User Repository Implementation
 func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string) (*domain.User, error) {
-	query := `SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, pin_hash, is_verified, last_login_at, created_at, updated_at 
+	query := `SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, pin_hash, is_verified, 
+			  totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, created_at, updated_at 
 			  FROM users WHERE phone_number = $1`
 	user := &domain.User{}
 	err := r.readDB.QueryRowContext(ctx, query, phoneNumber).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status, 
-		&user.ReferralCode, &user.ReferredBy, &user.PINHash, &user.IsVerified, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
+		&user.ReferralCode, &user.ReferredBy, &user.PINHash, &user.IsVerified, 
+		&user.TOTPSecret, &user.Is2FAEnabled, &user.TOTPBackupCodes, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -35,12 +37,14 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 }
 
 func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.User, error) {
-	query := `SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, pin_hash, is_verified, last_login_at, created_at, updated_at 
+	query := `SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, pin_hash, is_verified, 
+			  totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, created_at, updated_at 
 			  FROM users WHERE id = $1`
 	user := &domain.User{}
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status, 
-		&user.ReferralCode, &user.ReferredBy, &user.PINHash, &user.IsVerified, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
+		&user.ReferralCode, &user.ReferredBy, &user.PINHash, &user.IsVerified, 
+		&user.TOTPSecret, &user.Is2FAEnabled, &user.TOTPBackupCodes, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -89,6 +93,39 @@ func (r *postgresRepo) SetReferralCode(ctx context.Context, userID, code string)
 func (r *postgresRepo) UpdateRole(ctx context.Context, userID, role string) error {
 	query := `UPDATE users SET role = $1, updated_at = $2 WHERE id = $3`
 	_, err := r.db.ExecContext(ctx, query, role, time.Now(), userID)
+	return err
+}
+
+func (r *postgresRepo) GetPermissionsByRole(ctx context.Context, role string) ([]string, error) {
+	query := `SELECT p.name FROM permissions p 
+			  JOIN role_permissions rp ON p.id = rp.permission_id 
+			  WHERE rp.role = $1`
+	rows, err := r.readDB.QueryContext(ctx, query, role)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var perms []string
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, err
+		}
+		perms = append(perms, p)
+	}
+	return perms, nil
+}
+
+func (r *postgresRepo) UpdateTOTP(ctx context.Context, userID string, secret string, backupCodes []string) error {
+	query := `UPDATE users SET totp_secret = $1, totp_backup_codes = $2, updated_at = $3 WHERE id = $4`
+	_, err := r.db.ExecContext(ctx, query, secret, backupCodes, time.Now(), userID)
+	return err
+}
+
+func (r *postgresRepo) Enable2FA(ctx context.Context, userID string) error {
+	query := `UPDATE users SET is_2fa_enabled = true, updated_at = $1 WHERE id = $2`
+	_, err := r.db.ExecContext(ctx, query, time.Now(), userID)
 	return err
 }
 
@@ -263,6 +300,12 @@ func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domai
 func (r *postgresRepo) SetZone(ctx context.Context, id string, zoneID string) error {
 	query := `UPDATE courier_profiles SET current_zone_id = $1, updated_at = $2 WHERE id = $3`
 	_, err := r.db.ExecContext(ctx, query, zoneID, time.Now(), id)
+	return err
+}
+
+func (r *postgresRepo) UpdateLivenessStatus(ctx context.Context, id string, status bool) error {
+	query := `UPDATE courier_profiles SET liveness_verified = $1, updated_at = $2 WHERE id = $3`
+	_, err := r.db.ExecContext(ctx, query, status, time.Now(), id)
 	return err
 }
 

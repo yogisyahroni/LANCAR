@@ -14,20 +14,22 @@ var (
 )
 
 type Claims struct {
-	UserID string `json:"user_id"`
-	Role   string `json:"role"`
+	UserID       string `json:"user_id"`
+	Role         string `json:"role"`
+	TOTPVerified bool   `json:"totp_verified"`
 	jwt.RegisteredClaims
 }
 
-func GenerateToken(userID string, role string, duration time.Duration) (string, error) {
+func GenerateToken(userID string, role string, totpVerified bool, duration time.Duration) (string, error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		secret = "lancar_secret_key_change_me"
 	}
 
 	claims := &Claims{
-		UserID: userID,
-		Role:   role,
+		UserID:       userID,
+		Role:         role,
+		TOTPVerified: totpVerified,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
