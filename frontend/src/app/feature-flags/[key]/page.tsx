@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useRouter } from 'next/navigation';
 import { api, fetchFlagLogs, updateConfig, FeatureFlag, AuditLog } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import Card, { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
