@@ -100,13 +100,13 @@ Subtask:
 **Estimasi:** 2 hari
 
 Subtask:
-- [ ] Setup WAF (AWS WAF atau Cloudflare)
-- [ ] Configure security headers (HSTS, CSP, X-Frame-Options)
-- [ ] Secrets management: AWS Secrets Manager atau HashiCorp Vault
-- [ ] Setup VPN untuk akses database production
-- [ ] Enable database encryption at rest
-- [ ] Setup backup otomatis: database (daily, 30 hari retensi), S3 (versioning)
-- [ ] Dependency vulnerability scanning: Snyk atau GitHub Dependabot
+- [ ] Setup WAF (AWS WAF atau Cloudflare) — butuh server
+- [x] Configure security headers (HSTS, CSP, X-Frame-Options) — implemented di auth-service middleware
+- [ ] Secrets management: AWS Secrets Manager atau HashiCorp Vault — butuh server
+- [ ] Setup VPN untuk akses database production — butuh server
+- [ ] Enable database encryption at rest — butuh cloud DB
+- [ ] Setup backup otomatis: database (daily, 30 hari retensi), S3 (versioning) — butuh server
+- [x] Dependency vulnerability scanning: govulncheck + gosec (Go) + npm audit (Node) di CI/CD pipeline
 
 ---
 
@@ -115,9 +115,9 @@ Subtask:
 **Estimasi:** 1 hari
 
 Subtask:
-- [ ] Docker Compose file untuk local development (semua services)
-- [ ] `.env.example` dengan semua environment variables terdokumentasi
-- [ ] Makefile/scripts untuk common tasks (migrate, seed, test, lint)
+- [x] Docker Compose file untuk local development (semua services) — `docker-compose.yml`: PostgreSQL+PostGIS, Redis, auth+admin+routing service, health checks
+- [x] `.env.example` dengan semua environment variables terdokumentasi — lengkap: DB, JWT, payment, maps, notifs, storage
+- [x] Makefile/scripts untuk common tasks (migrate, seed, test, lint) — `Makefile`: make dev, migrate, test, lint, sec-audit, build
 - [ ] README lengkap: setup instructions, architecture overview
 - [ ] API documentation framework: Swagger/OpenAPI 3.0
 
@@ -131,7 +131,7 @@ Subtask:
 
 Subtask:
 - [x] Buat semua migrasi database sesuai ERD (00008_missing_tables.sql — sla_logs, relay_score_history, weather_logs, notifications, payouts, ratings, vouchers, referrals, GPS logs, insurance, SLA configs)
-- [ ] Setup Flyway/Knex migration runner
+- [x] Setup migration runner — goose digunakan, migration-test job di CI/CD (goose up + down di PostGIS container)
 - [x] Buat seed data untuk development:
   - [x] 5 zona Jakarta (Timur, Barat, Pusat, Utara, Selatan) — dengan PostGIS polygon
   - [x] 10 meeting points — tersebar di 5 zona
