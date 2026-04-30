@@ -2,17 +2,20 @@
 
 import * as React from 'react';
 import { motion, HTMLMotionProps } from 'framer-motion';
+import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
 
-interface ButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
+interface ButtonProps extends HTMLMotionProps<'button'> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg' | 'icon';
-  children: React.ReactNode;
+  asChild?: boolean;
   isLoading?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', children, isLoading, ...props }, ref) => {
+  ({ className, variant = 'primary', size = 'md', asChild = false, children, isLoading, ...props }, ref) => {
+    const Component = asChild ? Slot : motion.button;
+
     const variants = {
       primary: 'bg-primary text-white hover:bg-primary/90 shadow-lg shadow-primary/20',
       secondary: 'bg-surface-raised text-white hover:bg-white/5 border border-border',
@@ -28,24 +31,28 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       icon: 'p-2',
     };
 
+    const baseProps = asChild ? props : {
+      whileHover: { scale: 1.01 },
+      whileTap: { scale: 0.98 },
+      ...props
+    };
+
     return (
-      <motion.button
+      <Component
         ref={ref}
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.98 }}
         className={cn(
           'inline-flex items-center justify-center rounded-xl font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-50',
           variants[variant],
           sizes[size],
           className
         )}
-        {...props}
+        {...baseProps}
       >
         {isLoading ? (
           <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
         ) : null}
         {children}
-      </motion.button>
+      </Component>
     );
   }
 );
