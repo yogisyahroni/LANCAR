@@ -250,3 +250,40 @@ func AuthChain(h http.HandlerFunc) http.HandlerFunc {
 func AdminChain(role string, h http.HandlerFunc) http.HandlerFunc {
 	return BaseChain(AuthMiddleware(RoleMiddleware(role, h)))
 }
+
+// -------------------------------------------------------
+// Rate-limited chain helpers
+// Wire these directly in main.go for specific endpoints.
+// -------------------------------------------------------
+
+// OTPSendChain applies BaseChain + IP-based OTP send rate limit (3 req/5min).
+func OTPSendChain(rdb interface{ Close() error }, h http.HandlerFunc) http.HandlerFunc {
+	// Type-assert to *redis.Client from the middleware package perspective.
+	// We use interface{} here to avoid importing redis in base_middleware;
+	// the actual redis.Client is passed from main and used in rate_limiter.go.
+	// Since both files are in the same package, we call the factory directly.
+	return baseChainWithRateLimit(h, LimitOTPSend(assertRedis(rdb)))
+}
+
+// OTPVerifyChain applies BaseChain + IP-based OTP verify rate limit (5 attempts/10min).
+func OTPVerifyChain(rdb interface{ Close() error }, h http.HandlerFunc) http.HandlerFunc {
+	return baseChainWithRateLimit(h, LimitOTPVerify(assertRedis(rdb)))
+}
+
+// AuthRateLimitedChain applies BaseChain + auth endpoint rate limit (20 req/60s).
+func AuthRateLimitedChain(rdb interface{ Close() error }, h http.HandlerFunc) http.HandlerFunc {
+	return baseChainWithRateLimit(h, LimitAuthEndpoints(assertRedis(rdb)))
+}
+
+// baseChainWithRateLimit composes: CORS → Security → CorrelationID → Logger → Recovery → RateLimit → handler.
+// Rate limiter runs after correlation ID is injected so error responses include correlation_id.
+func baseChainWithRateLimit(h http.HandlerFunc, rateLimitMW func(http.HandlerFunc) http.HandlerFunc) http.HandlerFunc {
+	return Chain(h,
+		CORSMiddleware,
+		SecurityHeadersMiddleware,
+		CorrelationIDMiddleware,
+		RequestLoggerMiddleware,
+		RecoveryMiddleware,
+		rateLimitMW,
+	)
+}
