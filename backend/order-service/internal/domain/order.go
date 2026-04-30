@@ -52,6 +52,7 @@ type OrderService interface {
 	ListOrders(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, orderID string, status OrderStatus) error
 	FindAndAssignCourier(ctx context.Context, orderID string) error
+	ListEvents(ctx context.Context, userID string, since time.Time) ([]OrderEvent, error)
 }
 
 type OrderRepository interface {
@@ -64,9 +65,17 @@ type OrderRepository interface {
 	GetActiveCourierOrder(ctx context.Context, courierID string) (string, error)
 }
 
+type OrderEventRepository interface {
+	SaveEvent(ctx context.Context, event OrderEvent) error
+	ListEventsByUserID(ctx context.Context, userID string, since time.Time) ([]OrderEvent, error)
+	ListEventsByOrderID(ctx context.Context, orderID string) ([]OrderEvent, error)
+}
+
 type OrderEvent struct {
-	OrderID string      `json:"order_id"`
-	UserID  string      `json:"user_id"`
-	Status  OrderStatus `json:"status"`
-	Message string      `json:"message,omitempty"`
+	ID        string      `json:"id"`
+	OrderID   string      `json:"order_id"`
+	UserID    string      `json:"user_id"`
+	Status    OrderStatus `json:"status"`
+	Message   string      `json:"message,omitempty"`
+	CreatedAt time.Time   `json:"created_at"`
 }

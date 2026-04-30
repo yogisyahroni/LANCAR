@@ -5,6 +5,7 @@ import (
 	"lancar/order-service/internal/domain"
 	"lancar/order-service/internal/middleware"
 	"net/http"
+	"time"
 )
 
 type OrderHandler struct {
@@ -34,13 +35,14 @@ func (h *OrderHandler) Estimate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req domain.PricingEstimateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	req, ok := middleware.GetValidatedData(r.Context()).(*domain.PricingEstimateRequest)
+	if !ok || req == nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to retrieve validated request", correlationID)
 		return
 	}
 
-	resp, err := h.pricingSvc.Estimate(r.Context(), req)
+	resp, err := h.pricingSvc.Estimate(r.Context(), *req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -73,13 +75,14 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req domain.CreateOrderRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	req, ok := middleware.GetValidatedData(r.Context()).(*domain.CreateOrderRequest)
+	if !ok || req == nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to retrieve validated request", correlationID)
 		return
 	}
 
-	order, err := h.orderSvc.CreateOrder(r.Context(), userID, req)
+	order, err := h.orderSvc.CreateOrder(r.Context(), userID, *req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -149,4 +152,38 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(orders)
+}
+
+// PollOrderUpdates godoc
+// @Summary Poll for order status updates
+// @Description Fallback mechanism for WebSocket failures
+// @Tags orders
+// @Produce json
+// @Security Bearer
+// @Param since query string false "ISO8601 timestamp"
+// @Success 200 {array} domain.OrderEvent
+// @Router /orders/poll [get]
+func (h *OrderHandler) PollOrderUpdates(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	sinceStr := r.URL.Query().Get("since")
+	since := time.Now().Add(-1 * time.Minute) // Default to last minute
+	if sinceStr != "" {
+		if t, err := time.Parse(time.RFC3339, sinceStr); err == nil {
+			since = t
+		}
+	}
+
+	events, err := h.orderSvc.ListEvents(r.Context(), userID, since)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(events)
 }

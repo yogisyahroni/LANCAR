@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { db } from './db';
+import { db, readDb } from './db';
 import { redis } from './redis';
 import { sendEmailAlert, sendSlackAlert } from './notifications';
 import { validateFlagConfig } from './validators';
@@ -18,7 +18,7 @@ export const getAllFlags = async (req: Request, res: Response) => {
     
     query += ' ORDER BY key ASC';
     
-    const result = await db.query(query, values);
+    const result = await readDb.query(query, values);
     res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -28,7 +28,7 @@ export const getAllFlags = async (req: Request, res: Response) => {
 export const getFlagByKey = async (req: Request, res: Response): Promise<void> => {
   try {
     const key = req.params.key as string;
-    const result = await db.query('SELECT * FROM feature_flags WHERE key = $1', [key]);
+    const result = await readDb.query('SELECT * FROM feature_flags WHERE key = $1', [key]);
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'Flag not found' });
       return;
@@ -165,7 +165,7 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
 export const getFlagLogs = async (req: Request, res: Response) => {
   try {
     const key = req.params.key as string;
-    const result = await db.query('SELECT * FROM feature_flag_logs WHERE flag_key = $1 ORDER BY created_at DESC', [key]);
+    const result = await readDb.query('SELECT * FROM feature_flag_logs WHERE flag_key = $1 ORDER BY created_at DESC', [key]);
     res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -174,7 +174,7 @@ export const getFlagLogs = async (req: Request, res: Response) => {
 
 export const getAllLogs = async (req: Request, res: Response) => {
   try {
-    const result = await db.query('SELECT * FROM feature_flag_logs ORDER BY created_at DESC LIMIT 100');
+    const result = await readDb.query('SELECT * FROM feature_flag_logs ORDER BY created_at DESC LIMIT 100');
     res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -190,7 +190,7 @@ export const getThreeLegsReadiness = async (req: Request, res: Response): Promis
       return;
     }
 
-    const result = await db.query('SELECT readiness_data, overall_ready, estimated_ready_in_weeks, can_activate, last_updated FROM mv_readiness_three_legs LIMIT 1');
+    const result = await readDb.query('SELECT readiness_data, overall_ready, estimated_ready_in_weeks, can_activate, last_updated FROM mv_readiness_three_legs LIMIT 1');
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'Readiness data not found in materialized view' });
       return;

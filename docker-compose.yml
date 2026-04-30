@@ -10,7 +10,7 @@ version: '3.8'
 services:
 
   # ─────────────────────────────────────────────
-  # DATABASE — PostgreSQL 15 + PostGIS
+  # DATABASE — PostgreSQL 15 + PostGIS (Primary)
   # ─────────────────────────────────────────────
   db:
     image: postgis/postgis:15-3.4-alpine
@@ -30,6 +30,25 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+    networks:
+      - lancar-net
+
+  # ─────────────────────────────────────────────
+  # READ REPLICA (Simulated)
+  # ─────────────────────────────────────────────
+  db-read:
+    image: postgis/postgis:15-3.4-alpine
+    container_name: lancar-db-read
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+      POSTGRES_DB: ${POSTGRES_DB:-lancar}
+    # In a real setup, we'd configure replication here. 
+    # For dev, we just provide a second instance.
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - lancar-net
 
@@ -86,10 +105,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-read:
+        condition: service_started
       redis:
         condition: service_healthy
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db-read:5432/${POSTGRES_DB:-lancar}?sslmode=disable"
       REDIS_URL: "redis://:${REDIS_PASSWORD:-}@redis:6379"
       AUTH_PORT: ${AUTH_PORT:-8081}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
@@ -119,10 +141,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-read:
+        condition: service_started
       redis:
         condition: service_healthy
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable"
+      READ_DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db-read:5432/${POSTGRES_DB:-lancar}?sslmode=disable"
       REDIS_URL: "redis://:${REDIS_PASSWORD:-}@redis:6379"
       PORT: ${ADMIN_PORT:-3000}
       ENVIRONMENT: ${ENVIRONMENT:-development}
@@ -173,13 +198,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      db-read:
+        condition: service_started
       redis:
         condition: service_healthy
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db-read:5432/${POSTGRES_DB:-lancar}?sslmode=disable"
       REDIS_URL: "redis://:${REDIS_PASSWORD:-}@redis:6379"
       ORDER_PORT: ${ORDER_PORT:-8083}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       ENVIRONMENT: ${ENVIRONMENT:-development}
     ports:
       - "${ORDER_PORT:-8083}:8083"
@@ -191,6 +220,7 @@ services:
       start_period: 10s
     networks:
       - lancar-net
+
 
   # ─────────────────────────────────────────────
   # REDIS COMMANDER — Web UI untuk Redis (dev only)
@@ -212,11 +242,58 @@ services:
     profiles:
       - tools
 
+  # ─────────────────────────────────────────────
+  # API GATEWAY — Node.js / Express / Zod
+  # ─────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./backend/api-gateway
+      dockerfile: Dockerfile
+    container_name: lancar-gateway
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+      - order-service
+      - admin-service
+      - routing-service
+    environment:
+      AUTH_SERVICE_URL: "http://auth-service:8081"
+      ORDER_SERVICE_URL: "http://order-service:8083"
+      ADMIN_SERVICE_URL: "http://admin-service:3000"
+      ROUTING_SERVICE_URL: "http://routing-service:8082"
+      GATEWAY_PORT: 8080
+    ports:
+      - "8080:8080"
+    networks:
+      - lancar-net
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - lancar-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   lancar-db-data:
     name: lancar-db-data
   lancar-redis-data:
     name: lancar-redis-data
+  rabbitmq_data:
+    name: rabbitmq_data
 
 networks:
   lancar-net:

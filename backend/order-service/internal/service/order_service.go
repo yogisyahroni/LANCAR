@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"lancar/order-service/internal/domain"
 	"lancar/order-service/pkg/utils"
+	"lancar/order-service/internal/domain/queue"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,17 +14,21 @@ import (
 
 type orderServiceImpl struct {
 	orderRepo   domain.OrderRepository
+	eventRepo   domain.OrderEventRepository
 	redisRepo   domain.RedisRepository
 	pricingRepo domain.PricingRepository
 	eventBus    domain.EventBus
+	taskQueue   queue.Queue
 }
 
-func NewOrderService(o domain.OrderRepository, r domain.RedisRepository, p domain.PricingRepository, eb domain.EventBus) domain.OrderService {
+func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, eb domain.EventBus, tq queue.Queue) domain.OrderService {
 	return &orderServiceImpl{
 		orderRepo:   o,
+		eventRepo:   er,
 		redisRepo:   r,
 		pricingRepo: p,
 		eventBus:    eb,
+		taskQueue:   tq,
 	}
 }
 
@@ -73,13 +78,27 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		return nil, fmt.Errorf("failed to save order: %w", err)
 	}
 
-	// 5. Publish creation event
-	s.eventBus.Publish(ctx, "order.updates", domain.OrderEvent{
-		OrderID: order.ID,
-		UserID:  order.CustomerID,
-		Status:  order.Status,
-		Message: "Order created, awaiting payment",
-	})
+	// 5. Publish and Persist creation event
+	event := domain.OrderEvent{
+		OrderID:   order.ID,
+		UserID:    order.CustomerID,
+		Status:    order.Status,
+		Message:   "Order created, awaiting payment",
+		CreatedAt: time.Now(),
+	}
+	s.eventRepo.SaveEvent(ctx, event)
+	s.eventBus.Publish(ctx, "order.updates", event)
+
+	// 6. Push to persistent task queue for background processing (e.g., analytics, notifications)
+	if s.taskQueue != nil {
+		s.taskQueue.Push(ctx, queue.Task{
+			Type: "order.created",
+			Payload: map[string]interface{}{
+				"order_id": order.ID,
+				"user_id":  order.CustomerID,
+			},
+		})
+	}
 
 	return order, nil
 }
@@ -113,12 +132,27 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 	// Fetch order to get UserID for the event
 	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err == nil {
-		s.eventBus.Publish(ctx, "order.updates", domain.OrderEvent{
-			OrderID: order.ID,
-			UserID:  order.CustomerID,
-			Status:  status,
-			Message: fmt.Sprintf("Order status updated to %s", status),
-		})
+		event := domain.OrderEvent{
+			OrderID:   order.ID,
+			UserID:    order.CustomerID,
+			Status:    status,
+			Message:   fmt.Sprintf("Order status updated to %s", status),
+			CreatedAt: time.Now(),
+		}
+		s.eventRepo.SaveEvent(ctx, event)
+		s.eventBus.Publish(ctx, "order.updates", event)
+
+		// Push to task queue for persistent background processing (notifications)
+		if s.taskQueue != nil {
+			s.taskQueue.Push(ctx, queue.Task{
+				Type: "order.status_updated",
+				Payload: map[string]interface{}{
+					"order_id": order.ID,
+					"user_id":  order.CustomerID,
+					"status":   string(status),
+				},
+			})
+		}
 	}
 
 	return nil
@@ -180,13 +214,32 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 		return errors.New("no couriers found in 10km radius")
 	}
 
-	// 4. Publish assignment event
-	s.eventBus.Publish(ctx, "order.updates", domain.OrderEvent{
-		OrderID: order.ID,
-		UserID:  order.CustomerID,
-		Status:  domain.StatusAccepted,
-		Message: "Courier found and assigned",
-	})
+	// 4. Publish and Persist assignment event
+	event := domain.OrderEvent{
+		OrderID:   order.ID,
+		UserID:    order.CustomerID,
+		Status:    domain.StatusAccepted,
+		Message:   "Courier found and assigned",
+		CreatedAt: time.Now(),
+	}
+	s.eventRepo.SaveEvent(ctx, event)
+	s.eventBus.Publish(ctx, "order.updates", event)
+
+	// Push to task queue
+	if s.taskQueue != nil {
+		s.taskQueue.Push(ctx, queue.Task{
+			Type: "order.status_updated",
+			Payload: map[string]interface{}{
+				"order_id": order.ID,
+				"user_id":  order.CustomerID,
+				"status":   string(domain.StatusAccepted),
+			},
+		})
+	}
 
 	return nil
+}
+
+func (s *orderServiceImpl) ListEvents(ctx context.Context, userID string, since time.Time) ([]domain.OrderEvent, error) {
+	return s.eventRepo.ListEventsByUserID(ctx, userID, since)
 }

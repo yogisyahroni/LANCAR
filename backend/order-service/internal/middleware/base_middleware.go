@@ -13,6 +13,8 @@ import (
 )
 
 
+type contextKey string
+
 const correlationIDKey contextKey = "correlation_id"
 const correlationIDHeader = "X-Correlation-ID"
 

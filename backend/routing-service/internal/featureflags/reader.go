@@ -30,6 +30,7 @@ type FlagReader interface {
 
 type flagReaderImpl struct {
 	db         *sql.DB
+	readDB     *sql.DB
 	redis      *redis.Client
 	localCache sync.Map
 	cancel     context.CancelFunc
@@ -39,10 +40,11 @@ type flagReaderImpl struct {
 const flagCacheTTL = 60 * time.Second
 
 // NewFlagReader creates a new instance of FlagReader
-func NewFlagReader(db *sql.DB, rdb *redis.Client) FlagReader {
+func NewFlagReader(db *sql.DB, readDB *sql.DB, rdb *redis.Client) FlagReader {
 	ctx, cancel := context.WithCancel(context.Background())
 	reader := &flagReaderImpl{
 		db:     db,
+		readDB: readDB,
 		redis:  rdb,
 		cancel: cancel,
 	}
@@ -109,7 +111,7 @@ func (f *flagReaderImpl) GetFlag(ctx context.Context, key string) (*FeatureFlag,
 	// 2. Cache miss -> query DB
 	var flag FeatureFlag
 	var configData []byte
-	err := f.db.QueryRowContext(ctx,
+	err := f.readDB.QueryRowContext(ctx,
 		`SELECT id, key, is_enabled, config, require_checklist FROM feature_flags WHERE key = $1`,
 		key,
 	).Scan(&flag.ID, &flag.Key, &flag.IsEnabled, &configData, &flag.RequireChecklist)

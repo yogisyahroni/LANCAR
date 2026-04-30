@@ -8,11 +8,15 @@ import (
 )
 
 type postgresRepo struct {
-	db *sql.DB
+	db     *sql.DB // writer
+	readDB *sql.DB // reader
 }
 
-func NewPostgresRepository(db *sql.DB) *postgresRepo {
-	return &postgresRepo{db: db}
+func NewPostgresRepository(db, readDB *sql.DB) *postgresRepo {
+	return &postgresRepo{
+		db:     db,
+		readDB: readDB,
+	}
 }
 
 // User Repository Implementation
@@ -20,7 +24,7 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 	query := `SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, pin_hash, is_verified, last_login_at, created_at, updated_at 
 			  FROM users WHERE phone_number = $1`
 	user := &domain.User{}
-	err := r.db.QueryRowContext(ctx, query, phoneNumber).Scan(
+	err := r.readDB.QueryRowContext(ctx, query, phoneNumber).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status, 
 		&user.ReferralCode, &user.ReferredBy, &user.PINHash, &user.IsVerified, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	)
@@ -34,7 +38,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.User, er
 	query := `SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, pin_hash, is_verified, last_login_at, created_at, updated_at 
 			  FROM users WHERE id = $1`
 	user := &domain.User{}
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status, 
 		&user.ReferralCode, &user.ReferredBy, &user.PINHash, &user.IsVerified, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	)
@@ -101,7 +105,7 @@ func (r *postgresRepo) GetSessionByToken(ctx context.Context, token string) (*do
 	query := `SELECT id, user_id, refresh_token, device_id, device_info, is_revoked, expires_at, created_at, updated_at 
 			  FROM user_sessions WHERE refresh_token = $1`
 	s := &domain.Session{}
-	err := r.db.QueryRowContext(ctx, query, token).Scan(
+	err := r.readDB.QueryRowContext(ctx, query, token).Scan(
 		&s.ID, &s.UserID, &s.RefreshToken, &s.DeviceID, &s.DeviceInfo, &s.IsRevoked, &s.ExpiresAt, &s.CreatedAt, &s.UpdatedAt,
 	)
 	if err != nil {
@@ -132,7 +136,7 @@ func (r *postgresRepo) SaveOTP(ctx context.Context, otp *domain.OTPLog) error {
 func (r *postgresRepo) VerifyOTP(ctx context.Context, phoneNumber, code string) (*domain.OTPLog, error) {
 	query := `SELECT id, phone_number, code, expires_at, is_used, created_at FROM otp_logs WHERE phone_number = $1 AND code = $2 ORDER BY created_at DESC LIMIT 1`
 	otp := &domain.OTPLog{}
-	err := r.db.QueryRowContext(ctx, query, phoneNumber, code).Scan(
+	err := r.readDB.QueryRowContext(ctx, query, phoneNumber, code).Scan(
 		&otp.ID, &otp.PhoneNumber, &otp.Code, &otp.ExpiresAt, &otp.IsUsed, &otp.CreatedAt,
 	)
 	if err != nil {
@@ -183,7 +187,7 @@ func (r *postgresRepo) GetProfileByUserID(ctx context.Context, userID string) (*
 	query := `SELECT id, user_id, vehicle_type, vehicle_plate, current_zone_id, status, relay_score, is_verified, verified_at, created_at, updated_at 
 			  FROM courier_profiles WHERE user_id = $1`
 	p := &domain.CourierProfile{}
-	err := r.db.QueryRowContext(ctx, query, userID).Scan(
+	err := r.readDB.QueryRowContext(ctx, query, userID).Scan(
 		&p.ID, &p.UserID, &p.VehicleType, &p.VehiclePlate, &p.CurrentZoneID, &p.Status, &p.RelayScore, &p.IsVerified, &p.VerifiedAt, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err != nil {
@@ -205,7 +209,7 @@ func (r *postgresRepo) AddDocument(ctx context.Context, d *domain.CourierDocumen
 
 func (r *postgresRepo) GetDocuments(ctx context.Context, courierID string) ([]*domain.CourierDocument, error) {
 	query := `SELECT id, courier_id, document_type, document_url, is_verified, created_at FROM courier_documents WHERE courier_id = $1`
-	rows, err := r.db.QueryContext(ctx, query, courierID)
+	rows, err := r.readDB.QueryContext(ctx, query, courierID)
 	if err != nil {
 		return nil, err
 	}

@@ -25,27 +25,46 @@ func main() {
 	}
 
 	// ─────────────────────────────────────────────
-	// Database Connection
+	// Database Connection (Read/Write Split)
 	// ─────────────────────────────────────────────
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		log.Fatal("DATABASE_URL is not set")
 	}
 
+	readDBURL := os.Getenv("READ_DATABASE_URL")
+	if readDBURL == "" {
+		readDBURL = dbURL
+		log.Println("[auth-service] READ_DATABASE_URL not set, falling back to primary DB")
+	}
+
+	// Writer DB
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Fatal("Could not connect to database:", err)
+		log.Fatal("Could not connect to writer database:", err)
 	}
 	defer db.Close()
 
-	// Configure connection pool (25 max open, 5 idle)
+	// Reader DB
+	readDB, err := sql.Open("postgres", readDBURL)
+	if err != nil {
+		log.Fatal("Could not connect to reader database:", err)
+	}
+	defer readDB.Close()
+
+	// Configure connection pools
 	db.SetMaxOpenConns(25)
 	db.SetMaxIdleConns(5)
+	readDB.SetMaxOpenConns(25)
+	readDB.SetMaxIdleConns(5)
 
 	if err := db.Ping(); err != nil {
-		log.Fatal("Database is unreachable:", err)
+		log.Fatal("Writer database is unreachable:", err)
 	}
-	log.Println("[auth-service] Database connection established")
+	if err := readDB.Ping(); err != nil {
+		log.Fatal("Reader database is unreachable:", err)
+	}
+	log.Println("[auth-service] Database connections (R/W split) established")
 
 	// ─────────────────────────────────────────────
 	// Redis Connection (for rate limiting + OTP store)
@@ -69,7 +88,7 @@ func main() {
 	// ─────────────────────────────────────────────
 	// Dependency Injection
 	// ─────────────────────────────────────────────
-	repo := repository.NewPostgresRepository(db)
+	repo := repository.NewPostgresRepository(db, readDB)
 	svc := service.NewAuthService(repo, repo, repo, repo, repo)
 	h := handler.NewAuthHandler(svc)
 
@@ -79,7 +98,7 @@ func main() {
 	// Infrastructure Endpoints (no auth, no rate limit)
 	// ─────────────────────────────────────────────
 	mux.HandleFunc("/health", handler.HealthHandler)
-	mux.HandleFunc("/ready", handler.ReadinessHandlerFunc(db))
+	mux.HandleFunc("/ready", handler.ReadinessHandlerFunc(db)) // Check writer for readiness
 
 	// ─────────────────────────────────────────────
 	// API v1 — OTP Endpoints (public + rate limited)

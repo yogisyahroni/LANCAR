@@ -25,22 +25,39 @@ func main() {
 		log.Fatal("DATABASE_URL is not set")
 	}
 
+	readDbUrl := os.Getenv("READ_DATABASE_URL")
+	if readDbUrl == "" {
+		readDbUrl = dbUrl
+	}
+
 	redisUrl := os.Getenv("REDIS_URL")
 	if redisUrl == "" {
 		log.Fatal("REDIS_URL is not set")
 	}
 
-	// Connect to Database
+	// Connect to Primary Database (Writer)
 	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to connect to primary database: %v", err)
 	}
 	defer db.Close()
 
 	if err := db.Ping(); err != nil {
-		log.Fatalf("Failed to ping database: %v", err)
+		log.Fatalf("Failed to ping primary database: %v", err)
 	}
-	log.Println("Successfully connected to Postgres!")
+	log.Println("Successfully connected to Primary Postgres!")
+
+	// Connect to Read Replica Database (Reader)
+	readDB, err := sql.Open("postgres", readDbUrl)
+	if err != nil {
+		log.Fatalf("Failed to connect to read replica database: %v", err)
+	}
+	defer readDB.Close()
+
+	if err := readDB.Ping(); err != nil {
+		log.Fatalf("Failed to ping read replica database: %v", err)
+	}
+	log.Println("Successfully connected to Read Replica Postgres!")
 
 	// Connect to Redis
 	opts, err := redis.ParseURL(redisUrl)
@@ -52,9 +69,9 @@ func main() {
 
 	log.Println("Successfully connected to Redis!")
 
-	// Initialize FeatureFlag reader
-	_ = featureflags.NewFlagReader(db, rdb)
+	// Initialize FeatureFlag reader with both connections
+	_ = featureflags.NewFlagReader(db, readDB, rdb)
 
-	log.Println("Routing service initialized. Feature flag reader is active.")
+	log.Println("Routing service initialized. Feature flag reader is active (Dual-DB mode).")
 	// Ready to plug into HTTP or gRPC server...
 }

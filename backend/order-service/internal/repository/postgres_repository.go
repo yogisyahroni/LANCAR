@@ -8,11 +8,15 @@ import (
 )
 
 type postgresRepo struct {
-	db *sql.DB
+	db     *sql.DB // writer
+	readDB *sql.DB // reader
 }
 
-func NewPostgresRepository(db *sql.DB) *postgresRepo {
-	return &postgresRepo{db: db}
+func NewPostgresRepository(db, readDB *sql.DB) *postgresRepo {
+	return &postgresRepo{
+		db:     db,
+		readDB: readDB,
+	}
 }
 
 // Pricing Repository Implementation
@@ -21,7 +25,7 @@ func (r *postgresRepo) GetActiveConfig(ctx context.Context) (*domain.PricingConf
 			  FROM pricing_configs WHERE is_active = true LIMIT 1`
 	
 	config := &domain.PricingConfig{}
-	err := r.db.QueryRowContext(ctx, query).Scan(
+	err := r.readDB.QueryRowContext(ctx, query).Scan(
 		&config.ID, &config.BaseFare, &config.PerKMFare, &config.PerKGFare, &config.MinFare, &config.VolumetricDiv,
 	)
 	if err != nil {
@@ -71,7 +75,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 			  FROM orders WHERE id = $1`
 	
 	o := &domain.Order{}
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
 		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
 		&o.PickupLat, &o.PickupLng, &o.PickupAddress,
 		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
@@ -96,7 +100,7 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 				dynamic_price_idr, total_price_idr, handover_token, created_at, updated_at
 			  FROM orders WHERE customer_id = $1 ORDER BY created_at DESC`
 	
-	rows, err := r.db.QueryContext(ctx, query, userID)
+	rows, err := r.readDB.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -148,9 +152,64 @@ func (r *postgresRepo) AssignCourier(ctx context.Context, orderID string, courie
 func (r *postgresRepo) GetActiveCourierOrder(ctx context.Context, courierID string) (string, error) {
 	query := `SELECT id FROM orders WHERE courier_id = $1 AND status IN ('assigned', 'picked_up', 'in_transit') LIMIT 1`
 	var orderID string
-	err := r.db.QueryRowContext(ctx, query, courierID).Scan(&orderID)
+	err := r.readDB.QueryRowContext(ctx, query, courierID).Scan(&orderID)
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
 	return orderID, err
+}
+
+// Order Event Repository Implementation
+func (r *postgresRepo) SaveEvent(ctx context.Context, e domain.OrderEvent) error {
+	query := `INSERT INTO order_events (order_id, user_id, status, message, created_at) 
+			  VALUES ($1, $2, $3, $4, $5)`
+	
+	_, err := r.db.ExecContext(ctx, query,
+		e.OrderID, e.UserID, e.Status, e.Message, time.Now(),
+	)
+	return err
+}
+
+func (r *postgresRepo) ListEventsByUserID(ctx context.Context, userID string, since time.Time) ([]domain.OrderEvent, error) {
+	query := `SELECT id, order_id, user_id, status, message, created_at 
+			  FROM order_events WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC`
+	
+	rows, err := r.readDB.QueryContext(ctx, query, userID, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	events := []domain.OrderEvent{}
+	for rows.Next() {
+		var e domain.OrderEvent
+		err := rows.Scan(&e.ID, &e.OrderID, &e.UserID, &e.Status, &e.Message, &e.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, e)
+	}
+	return events, nil
+}
+
+func (r *postgresRepo) ListEventsByOrderID(ctx context.Context, orderID string) ([]domain.OrderEvent, error) {
+	query := `SELECT id, order_id, user_id, status, message, created_at 
+			  FROM order_events WHERE order_id = $1 ORDER BY created_at ASC`
+	
+	rows, err := r.readDB.QueryContext(ctx, query, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	events := []domain.OrderEvent{}
+	for rows.Next() {
+		var e domain.OrderEvent
+		err := rows.Scan(&e.ID, &e.OrderID, &e.UserID, &e.Status, &e.Message, &e.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, e)
+	}
+	return events, nil
 }
