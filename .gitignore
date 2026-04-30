@@ -1,6 +1,42 @@
+# Dependencies
 node_modules/
+vendor/
+
+# Build output
 dist/
+bin/
+*.exe
+*.test
+
+# Environment & Secrets
 .env
-coverage/
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Logs
 *.log
+logs/
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Go build artifacts
+*.out
+coverage.out
+coverage.html
+
+# Docker
+.docker/
+
+# IDE
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+
+# Test artifacts
+__tests__/coverage/
+coverage/

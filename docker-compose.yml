@@ -1,0 +1,193 @@
+# ============================================================
+# LANCAR — Docker Compose (Local Development)
+# Jalankan: docker compose up -d
+# Stop:     docker compose down
+# Reset DB: docker compose down -v && docker compose up -d
+# ============================================================
+
+version: '3.8'
+
+services:
+
+  # ─────────────────────────────────────────────
+  # DATABASE — PostgreSQL 15 + PostGIS
+  # ─────────────────────────────────────────────
+  db:
+    image: postgis/postgis:15-3.4-alpine
+    container_name: lancar-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+      POSTGRES_DB: ${POSTGRES_DB:-lancar}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - lancar-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-lancar}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - lancar-net
+
+  # ─────────────────────────────────────────────
+  # CACHE — Redis 7
+  # ─────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: lancar-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-}"
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - lancar-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - lancar-net
+
+  # ─────────────────────────────────────────────
+  # MIGRATION RUNNER — goose
+  # ─────────────────────────────────────────────
+  migrate:
+    image: ghcr.io/pressly/goose:latest
+    container_name: lancar-migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./database/migrations:/migrations
+    command: >
+      -dir /migrations
+      postgres
+      "host=db port=5432 user=${POSTGRES_USER:-postgres} password=${POSTGRES_PASSWORD:-1234} dbname=${POSTGRES_DB:-lancar} sslmode=disable"
+      up
+    networks:
+      - lancar-net
+    profiles:
+      - migrate
+
+  # ─────────────────────────────────────────────
+  # AUTH SERVICE — Go 1.24
+  # ─────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    container_name: lancar-auth
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable"
+      REDIS_URL: "redis://:${REDIS_PASSWORD:-}@redis:6379"
+      AUTH_PORT: ${AUTH_PORT:-8081}
+      JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-changeme_refresh_min32chars}
+      OTP_TTL_SECONDS: ${OTP_TTL_SECONDS:-300}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    ports:
+      - "${AUTH_PORT:-8081}:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - lancar-net
+
+  # ─────────────────────────────────────────────
+  # ADMIN SERVICE — Node.js / TypeScript
+  # ─────────────────────────────────────────────
+  admin-service:
+    build:
+      context: ./backend/admin-service
+      dockerfile: Dockerfile
+    container_name: lancar-admin
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable"
+      REDIS_URL: "redis://:${REDIS_PASSWORD:-}@redis:6379"
+      PORT: ${ADMIN_PORT:-3000}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    ports:
+      - "${ADMIN_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - lancar-net
+
+  # ─────────────────────────────────────────────
+  # ROUTING SERVICE — Go (Feature Flags, future HTTP)
+  # ─────────────────────────────────────────────
+  routing-service:
+    build:
+      context: ./backend/routing-service
+      dockerfile: Dockerfile
+    container_name: lancar-routing
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable"
+      REDIS_URL: "redis://:${REDIS_PASSWORD:-}@redis:6379"
+      ROUTING_PORT: ${ROUTING_PORT:-8082}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    ports:
+      - "${ROUTING_PORT:-8082}:8082"
+    networks:
+      - lancar-net
+
+  # ─────────────────────────────────────────────
+  # REDIS COMMANDER — Web UI untuk Redis (dev only)
+  # ─────────────────────────────────────────────
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: lancar-redis-ui
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: "local:redis:6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    ports:
+      - "8085:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - lancar-net
+    profiles:
+      - tools
+
+volumes:
+  lancar-db-data:
+    name: lancar-db-data
+  lancar-redis-data:
+    name: lancar-redis-data
+
+networks:
+  lancar-net:
+    name: lancar-net
+    driver: bridge
