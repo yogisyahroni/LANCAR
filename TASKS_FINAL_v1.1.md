@@ -203,12 +203,12 @@ Subtask:
 Subtask:
 - [x] POST /auth/otp/send — kirim OTP via WhatsApp (WATI/Twilio) + SMS fallback
 - [x] POST /auth/otp/verify — verifikasi OTP, return JWT pair
-- [ ] POST /auth/refresh — refresh access token
-- [ ] POST /auth/logout — invalidate refresh token
-- [ ] JWT structure: `{ user_id, role, device_id, exp }`
-- [ ] Refresh token rotation (setiap refresh, token lama diinvalidate)
-- [ ] OTP: 6 digit, expire 5 menit, max 3 attempts, cooldown 60 detik
-- [ ] Device management: simpan device_id + device info per user
+- [x] POST /auth/refresh — refresh access token
+- [x] POST /auth/logout — invalidate refresh token
+- [x] JWT structure: `{ user_id, role, device_id, exp }`
+- [x] Refresh token rotation (setiap refresh, token lama diinvalidate)
+- [x] OTP: 6 digit, expire 5 menit, max 3 attempts, cooldown 60 detik
+- [x] Device management: simpan device_id + device info per user
 
 ---
 
@@ -218,8 +218,8 @@ Subtask:
 
 Subtask:
 - [x] POST /auth/register — registrasi customer baru (Update Profile)
-- [ ] GET /users/me — profil sendiri
-- [ ] PATCH /users/me — update profil
+- [x] GET /users/me — profil sendiri
+- [x] PATCH /users/me — update profil
 - [ ] POST /users/me/photo — upload foto profil ke S3
 - [x] PIN management: set PIN, change PIN, reset PIN via OTP
 - [ ] Referral code generation saat registrasi
@@ -233,13 +233,13 @@ Subtask:
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] POST /couriers/register — registrasi kurir baru (multi-step)
-- [ ] POST /couriers/documents — upload KTP, SIM, STNK, selfie ke S3
-- [ ] GET /couriers/me — profil kurir lengkap
-- [ ] GET /admin/couriers — list semua kurir (admin only)
-- [ ] PATCH /admin/couriers/:id/verify — approve/reject kurir
-- [ ] POST /admin/couriers/:id/suspend — suspend kurir
-- [ ] Zone assignment: POST /admin/couriers/:id/zones
+- [x] POST /couriers/register — registrasi kurir baru (multi-step)
+- [x] POST /couriers/documents — upload KTP, SIM, STNK, selfie ke S3
+- [x] GET /couriers/me — profil kurir lengkap
+- [x] GET /admin/couriers — list semua kurir (admin only)
+- [x] PATCH /admin/couriers/:id/verify — approve/reject kurir
+- [x] POST /admin/couriers/:id/suspend — suspend kurir
+- [x] Zone assignment: POST /admin/couriers/:id/zones
 - [ ] Liveness detection integration (cek apakah selfie adalah orang sungguhan, bukan foto)
 
 ---
@@ -249,13 +249,13 @@ Subtask:
 **Estimasi:** 2 hari
 
 Subtask:
-- [ ] RBAC middleware: decorator/guard untuk setiap endpoint
+- [x] RBAC middleware: decorator/guard untuk setiap endpoint
 - [ ] Role permissions matrix (siapa bisa akses apa)
 - [ ] POST /admin/users — buat akun admin baru (super_admin only)
-- [ ] PATCH /admin/users/:id/role — ubah role
-- [ ] GET /admin/audit-logs — audit log semua aksi admin
+- [x] PATCH /admin/users/:id/role — ubah role
+- [x] GET /admin/audit-logs — audit log semua aksi admin
 - [ ] 2FA TOTP setup untuk super_admin dan finance (Google Authenticator)
-- [ ] Session management: force logout dari device lain
+- [x] Session management: force logout dari device lain
 
 ---
 
