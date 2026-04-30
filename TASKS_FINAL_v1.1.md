@@ -130,17 +130,17 @@ Subtask:
 **Estimasi:** 4 hari
 
 Subtask:
-- [ ] Buat semua migrasi database sesuai ERD
+- [x] Buat semua migrasi database sesuai ERD (00008_missing_tables.sql — sla_logs, relay_score_history, weather_logs, notifications, payouts, ratings, vouchers, referrals, GPS logs, insurance, SLA configs)
 - [ ] Setup Flyway/Knex migration runner
-- [ ] Buat seed data untuk development:
-  - 5 zona Jakarta (Timur, Barat, Pusat, Utara, Selatan)
-  - 10 meeting points
-  - SLA config default
-  - Pricing config default
-  - Feature flags default
-- [ ] Buat DB indexes sesuai query pattern
+- [x] Buat seed data untuk development:
+  - [x] 5 zona Jakarta (Timur, Barat, Pusat, Utara, Selatan) — dengan PostGIS polygon
+  - [x] 10 meeting points — tersebar di 5 zona
+  - [x] SLA config default — per model per leg
+  - [x] Pricing config default — semua 3 model
+  - [x] Feature flags default — semua 15 flags (00009_full_seed.sql)
+- [x] Buat DB indexes sesuai query pattern (00010_db_indexes.sql — 17 partial indexes)
 - [ ] Test query performance untuk order listing, courier matching, GPS queries
-- [ ] Setup database connection pool (PgBouncer)
+- [x] Setup database connection pool (db.SetMaxOpenConns(25) di auth-service main.go)
 - [ ] Setup read replica untuk analytics queries
 
 ---
@@ -152,12 +152,12 @@ Subtask:
 Subtask:
 - [ ] Setup API Gateway (Kong atau custom Express middleware)
 - [ ] Rate limiting middleware: Redis-backed, per user + per IP
-- [ ] Request logging middleware (correlation ID per request)
-- [ ] Error handling middleware (standar error response format)
+- [x] Request logging middleware (correlation ID per request — `base_middleware.go`: CorrelationIDMiddleware + RequestLoggerMiddleware)
+- [x] Error handling middleware (standar error response format — `WriteError`/`WriteSuccess` JSON)
 - [ ] Request validation middleware (Joi atau Zod)
-- [ ] CORS configuration
-- [ ] Health check endpoint `/health` dan `/ready`
-- [ ] API versioning strategy (`/api/v1/`)
+- [x] CORS configuration (`CORSMiddleware` dengan allowlist origin)
+- [x] Health check endpoint `/health` dan `/ready` (`health_handler.go` — DB ping check)
+- [x] API versioning strategy (`/api/v1/` — semua route di-prefix, legacy redirect 301)
 
 ---
 

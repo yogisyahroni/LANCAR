@@ -35,40 +35,82 @@ func main() {
 	}
 	defer db.Close()
 
+	// Configure connection pool
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+
 	if err := db.Ping(); err != nil {
 		log.Fatal("Database is unreachable:", err)
 	}
+	log.Println("Database connection established")
 
 	// Dependency Injection
 	repo := repository.NewPostgresRepository(db)
 	svc := service.NewAuthService(repo, repo, repo, repo, repo)
 	h := handler.NewAuthHandler(svc)
 
+	mux := http.NewServeMux()
 
-	// Routes
-	http.HandleFunc("/auth/otp/send", h.RequestOTP)
-	http.HandleFunc("/auth/otp/verify", h.VerifyOTP)
-	http.HandleFunc("/auth/refresh", h.RefreshToken)
-	http.HandleFunc("/auth/logout", h.Logout)
-	
-	// Protected Routes
-	http.HandleFunc("/auth/register", middleware.AuthMiddleware(h.Register))
-	http.HandleFunc("/auth/pin/set", middleware.AuthMiddleware(h.SetPIN))
-	http.HandleFunc("/users/me", middleware.AuthMiddleware(h.GetMe))
-	http.HandleFunc("/users/me/photo", middleware.AuthMiddleware(h.UpdatePhoto))
-	
-	// Courier Routes
-	http.HandleFunc("/couriers/register", middleware.AuthMiddleware(h.RegisterCourier))
-	http.HandleFunc("/couriers/documents", middleware.AuthMiddleware(h.UploadCourierDocument))
-	http.HandleFunc("/couriers/me", middleware.AuthMiddleware(h.GetCourierProfile))
-	
-	// Admin Routes
-	http.HandleFunc("/admin/users/role", middleware.AuthMiddleware(middleware.RoleMiddleware("admin", h.UpdateUserRole)))
-	http.HandleFunc("/admin/audit-logs", middleware.AuthMiddleware(middleware.RoleMiddleware("admin", h.GetAuditLogs)))
-	http.HandleFunc("/admin/couriers", middleware.AuthMiddleware(middleware.RoleMiddleware("admin", h.ListCouriers)))
-	http.HandleFunc("/admin/couriers/verify", middleware.AuthMiddleware(middleware.RoleMiddleware("admin", h.VerifyCourier)))
-	http.HandleFunc("/admin/couriers/suspend", middleware.AuthMiddleware(middleware.RoleMiddleware("admin", h.SuspendCourier)))
-	http.HandleFunc("/admin/couriers/zones", middleware.AuthMiddleware(middleware.RoleMiddleware("admin", h.AssignCourierZone)))
+	// -------------------------------------------------------
+	// Infrastructure Endpoints (no auth, no versioning)
+	// -------------------------------------------------------
+	mux.HandleFunc("/health", handler.HealthHandler)
+	mux.HandleFunc("/ready", handler.ReadinessHandlerFunc(db))
+
+	// -------------------------------------------------------
+	// API v1 — Auth Endpoints (public)
+	// -------------------------------------------------------
+	mux.HandleFunc("/api/v1/auth/otp/send", middleware.BaseChain(h.RequestOTP))
+	mux.HandleFunc("/api/v1/auth/otp/verify", middleware.BaseChain(h.VerifyOTP))
+	mux.HandleFunc("/api/v1/auth/refresh", middleware.BaseChain(h.RefreshToken))
+	mux.HandleFunc("/api/v1/auth/logout", middleware.BaseChain(h.Logout))
+
+	// -------------------------------------------------------
+	// API v1 — User Endpoints (requires auth)
+	// -------------------------------------------------------
+	mux.HandleFunc("/api/v1/auth/register", middleware.AuthChain(h.Register))
+	mux.HandleFunc("/api/v1/auth/pin/set", middleware.AuthChain(h.SetPIN))
+	mux.HandleFunc("/api/v1/users/me", middleware.AuthChain(h.GetMe))
+	mux.HandleFunc("/api/v1/users/me/photo", middleware.AuthChain(h.UpdatePhoto))
+
+	// -------------------------------------------------------
+	// API v1 — Courier Endpoints (requires auth)
+	// -------------------------------------------------------
+	mux.HandleFunc("/api/v1/couriers/register", middleware.AuthChain(h.RegisterCourier))
+	mux.HandleFunc("/api/v1/couriers/documents", middleware.AuthChain(h.UploadCourierDocument))
+	mux.HandleFunc("/api/v1/couriers/me", middleware.AuthChain(h.GetCourierProfile))
+
+	// -------------------------------------------------------
+	// API v1 — Admin Endpoints (requires auth + admin role)
+	// -------------------------------------------------------
+	mux.HandleFunc("/api/v1/admin/users/role", middleware.AdminChain("admin", h.UpdateUserRole))
+	mux.HandleFunc("/api/v1/admin/audit-logs", middleware.AdminChain("admin", h.GetAuditLogs))
+	mux.HandleFunc("/api/v1/admin/couriers", middleware.AdminChain("admin", h.ListCouriers))
+	mux.HandleFunc("/api/v1/admin/couriers/verify", middleware.AdminChain("admin", h.VerifyCourier))
+	mux.HandleFunc("/api/v1/admin/couriers/suspend", middleware.AdminChain("admin", h.SuspendCourier))
+	mux.HandleFunc("/api/v1/admin/couriers/zones", middleware.AdminChain("admin", h.AssignCourierZone))
+
+	// -------------------------------------------------------
+	// Legacy routes (backward-compat, redirect to v1)
+	// -------------------------------------------------------
+	legacyRoutes := map[string]string{
+		"/auth/otp/send":      "/api/v1/auth/otp/send",
+		"/auth/otp/verify":    "/api/v1/auth/otp/verify",
+		"/auth/refresh":       "/api/v1/auth/refresh",
+		"/auth/logout":        "/api/v1/auth/logout",
+		"/auth/register":      "/api/v1/auth/register",
+		"/auth/pin/set":       "/api/v1/auth/pin/set",
+		"/users/me":           "/api/v1/users/me",
+		"/couriers/register":  "/api/v1/couriers/register",
+		"/couriers/documents": "/api/v1/couriers/documents",
+		"/couriers/me":        "/api/v1/couriers/me",
+	}
+	for legacy, target := range legacyRoutes {
+		targetPath := target // capture for closure
+		mux.HandleFunc(legacy, func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, targetPath, http.StatusMovedPermanently)
+		})
+	}
 
 	// Start Server
 	port := os.Getenv("AUTH_PORT")
@@ -76,6 +118,6 @@ func main() {
 		port = "8081"
 	}
 
-	fmt.Printf("Auth Service starting on port %s...\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	fmt.Printf("[auth-service] Starting on :%s (API v1 ready)\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, mux))
 }
