@@ -197,8 +197,8 @@ Subtask:
 ### Sprint 2: Auth & User Management
 
 #### [x] AUTH-001: Authentication Service (OTP-based)  
-- [x] AUTH-002: Role-based Access Control (RBAC)  
-**Estimasi:** 4 hari
+#### [x] AUTH-002: User Registration & Profile 
+**Estimasi:** 7 hari (4 + 3)
 
 Subtask:
 - [x] POST /auth/otp/send — kirim OTP via WhatsApp (WATI/Twilio) + SMS fallback
@@ -212,16 +212,16 @@ Subtask:
 
 ---
 
-#### AUTH-002: User Registration & Profile
+#### [x] AUTH-002: User Registration & Profile
 **Assignee:** Backend  
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] POST /auth/register — registrasi customer baru
+- [x] POST /auth/register — registrasi customer baru (Update Profile)
 - [ ] GET /users/me — profil sendiri
 - [ ] PATCH /users/me — update profil
 - [ ] POST /users/me/photo — upload foto profil ke S3
-- [ ] PIN management: set PIN, change PIN, reset PIN via OTP
+- [x] PIN management: set PIN, change PIN, reset PIN via OTP
 - [ ] Referral code generation saat registrasi
 - [ ] Google OAuth integration (optional, untuk customer)
 - [ ] Apple Sign In integration (optional, untuk iOS customer)

@@ -46,6 +46,8 @@ func main() {
 	// Routes
 	http.HandleFunc("/auth/otp/send", h.RequestOTP)
 	http.HandleFunc("/auth/otp/verify", h.VerifyOTP)
+	http.HandleFunc("/auth/register", h.Register)
+	http.HandleFunc("/auth/pin/set", h.SetPIN)
 
 	// Start Server
 	port := os.Getenv("AUTH_PORT")
