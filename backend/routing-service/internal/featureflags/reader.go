@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -89,14 +90,14 @@ func (f *flagReaderImpl) Close() error {
 
 // GetFlag retrieves a single flag from Redis or DB
 func (f *flagReaderImpl) GetFlag(ctx context.Context, key string) (*FeatureFlag, error) {
-	// 0. Try local in-memory cache
+	// 0. Try local in-memory cache (L1 - Fastest)
 	if val, ok := f.localCache.Load(key); ok {
 		return val.(*FeatureFlag), nil
 	}
 
 	cacheKey := fmt.Sprintf("flag:%s", key)
 
-	// 1. Try Redis cache
+	// 1. Try Redis cache (L2)
 	if f.redis != nil {
 		cached, err := f.redis.Get(ctx, cacheKey).Result()
 		if err == nil && cached != "" {
@@ -106,9 +107,13 @@ func (f *flagReaderImpl) GetFlag(ctx context.Context, key string) (*FeatureFlag,
 				return &flag, nil
 			}
 		}
+		// If Redis is down (not just a cache miss), log and proceed to DB
+		if err != nil && err != redis.Nil {
+			log.Printf("[FlagReader] Redis error for key %s: %v. Falling back to DB.", key, err)
+		}
 	}
 
-	// 2. Cache miss -> query DB
+	// 2. Cache miss or Redis error -> query DB (L3)
 	var flag FeatureFlag
 	var configData []byte
 	err := f.readDB.QueryRowContext(ctx,
@@ -117,6 +122,11 @@ func (f *flagReaderImpl) GetFlag(ctx context.Context, key string) (*FeatureFlag,
 	).Scan(&flag.ID, &flag.Key, &flag.IsEnabled, &configData, &flag.RequireChecklist)
 
 	if err != nil {
+		// 3. DB Unavailable: return last known value from local cache if we had one
+		// Wait, if it was in local cache, it would've returned at step 0.
+		// If we are here, it's NOT in local cache.
+		// Return specific error for graceful degradation if needed.
+		log.Printf("[FlagReader] CRITICAL: DB error for key %s: %v. No cached value available.", key, err)
 		return nil, fmt.Errorf("failed to get flag %s from DB: %w", key, err)
 	}
 
@@ -126,7 +136,7 @@ func (f *flagReaderImpl) GetFlag(ctx context.Context, key string) (*FeatureFlag,
 		flag.Config = make(map[string]interface{})
 	}
 
-	// 3. Save to Redis and Local Cache
+	// 4. Update caches
 	if f.redis != nil {
 		if data, err := json.Marshal(flag); err == nil {
 			f.redis.Set(ctx, cacheKey, data, flagCacheTTL)

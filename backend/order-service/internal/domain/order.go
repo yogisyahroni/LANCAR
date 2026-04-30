@@ -38,6 +38,8 @@ type Order struct {
 	TotalPriceIDR          int64       `json:"total_price_idr"`
 	HandoverToken          string      `json:"handover_token"`
 	QRCodeURL              string      `json:"qr_code_url,omitempty"`
+	CancellationReason     string      `json:"cancellation_reason,omitempty"`
+	DispatchExpiry         *time.Time  `json:"dispatch_expiry,omitempty"`
 	CreatedAt              time.Time   `json:"created_at"`
 	UpdatedAt              time.Time   `json:"updated_at"`
 }
@@ -63,6 +65,32 @@ type OrderRepository interface {
 	CancelExpiredOrders(ctx context.Context, timeout time.Duration) (int64, error)
 	AssignCourier(ctx context.Context, orderID string, courierID string) error
 	GetActiveCourierOrder(ctx context.Context, courierID string) (string, error)
+	GetPendingAssignmentOrders(ctx context.Context, threshold time.Duration) ([]*Order, error)
+	SetDispatchExpiry(ctx context.Context, orderID string, expiry time.Time) error
+	ListMeetingPoints(ctx context.Context, lat, lng float64, radiusKM float64) ([]MeetingPoint, error)
+	CreateMeetingPoint(ctx context.Context, mp *MeetingPoint) error
+	UpdateMeetingPoint(ctx context.Context, mp *MeetingPoint) error
+	DeleteMeetingPoint(ctx context.Context, id string) error
+	GetMeetingPointAnalytics(ctx context.Context) ([]MeetingPointAnalytics, error)
+}
+
+type MeetingPoint struct {
+	ID           string  `json:"id"`
+	Name         string  `json:"name"`
+	Latitude     float64 `json:"latitude"`
+	Longitude    float64 `json:"longitude"`
+	Category     string  `json:"category"` // hub, fuel_station, convenience_store
+	Address      string  `json:"address"`
+	IsActive     bool    `json:"is_active"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type MeetingPointAnalytics struct {
+	MeetingPointID string  `json:"meeting_point_id"`
+	Name           string  `json:"name"`
+	UsageCount     int     `json:"usage_count"`
+	AvgWaitTimeMin float64 `json:"avg_wait_time_min"`
 }
 
 type OrderEventRepository interface {
@@ -78,4 +106,12 @@ type OrderEvent struct {
 	Status    OrderStatus `json:"status"`
 	Message   string      `json:"message,omitempty"`
 	CreatedAt time.Time   `json:"created_at"`
+}
+
+type MeetingPointService interface {
+	SuggestMeetingPoint(ctx context.Context, pickupLat, pickupLng, dropoffLat, dropoffLng float64) ([]map[string]interface{}, error)
+	CreateMeetingPoint(ctx context.Context, mp *MeetingPoint) error
+	UpdateMeetingPoint(ctx context.Context, mp *MeetingPoint) error
+	DeleteMeetingPoint(ctx context.Context, id string) error
+	GetAnalytics(ctx context.Context) ([]MeetingPointAnalytics, error)
 }

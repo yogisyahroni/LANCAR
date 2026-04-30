@@ -18,6 +18,9 @@ type MockPricingRepo struct {
 func (m *MockPricingRepo) GetActiveConfig(ctx context.Context) (*domain.PricingConfig, error) {
 	return m.Config, m.Err
 }
+func (m *MockPricingRepo) UpdateConfig(ctx context.Context, config *domain.PricingConfig) error {
+	return m.Err
+}
 
 type MockMapsRepo struct {
 	DistKM     float64
@@ -42,7 +45,13 @@ func (m *MockRedisRepo) SaveEstimate(ctx context.Context, estimate *domain.Prici
 func (m *MockRedisRepo) GetEstimate(ctx context.Context, estimateID string) (*domain.PricingEstimateResponse, error) {
 	return nil, nil
 }
-func (m *MockRedisRepo) GetMultiplier(ctx context.Context) (float64, error) {
+func (m *MockRedisRepo) GetConfig(ctx context.Context) (*domain.PricingConfig, error) {
+	return nil, nil
+}
+func (m *MockRedisRepo) UpdateConfig(ctx context.Context, config *domain.PricingConfig) error {
+	return nil
+}
+func (m *MockRedisRepo) GetMultiplier(ctx context.Context, zoneID string) (float64, error) {
 	return m.Multiplier, m.Err
 }
 func (m *MockRedisRepo) UpdateCourierLocation(ctx context.Context, courierID string, lat, lng float64) error {
@@ -91,9 +100,8 @@ func TestPricingService_Estimate_FlagAware(t *testing.T) {
 	mockPricing := &MockPricingRepo{
 		Config: &domain.PricingConfig{
 			BaseFare:      10000,
-			PerKMFare:     2000,
-			PerKGFare:     1000,
-			MinFare:       15000,
+			PricePerKM:    2000,
+			PricePerMin:   100,
 			VolumetricDiv: 6000,
 		},
 	}
@@ -152,14 +160,14 @@ func TestPricingService_Estimate_FlagAware(t *testing.T) {
 			mockMaps := &MockMapsRepo{DistKM: tt.distanceKM, DurMin: 30}
 			svc := service.NewPricingService(mockPricing, mockMaps, mockRedis, mockFlags)
 
-			req := domain.PricingEstimateRequest{
+			req := &domain.PricingEstimateRequest{
 				PickupLat:  -6.2, PickupLng: 106.8,
 				DropoffLat: -6.3, DropoffLng: 106.9,
 				Length: 10, Width: 10, Height: 10, Weight: 1,
 				Models: reqModels,
 			}
 
-			resp, err := svc.Estimate(context.Background(), req)
+			resp, err := svc.EstimatePrice(context.Background(), req)
 
 			if (err != nil) != tt.expectErr {
 				t.Errorf("expected error %v, got %v", tt.expectErr, err)
@@ -176,9 +184,8 @@ func TestPricingService_Estimate_TwoLegsOff(t *testing.T) {
 	mockPricing := &MockPricingRepo{
 		Config: &domain.PricingConfig{
 			BaseFare:      10000,
-			PerKMFare:     2000,
-			PerKGFare:     1000,
-			MinFare:       15000,
+			PricePerKM:    2000,
+			PricePerMin:   100,
 			VolumetricDiv: 6000,
 		},
 	}
@@ -231,14 +238,14 @@ func TestPricingService_Estimate_TwoLegsOff(t *testing.T) {
 			mockMaps := &MockMapsRepo{DistKM: tt.distanceKM, DurMin: 30}
 			svc := service.NewPricingService(mockPricing, mockMaps, mockRedis, mockFlags)
 
-			req := domain.PricingEstimateRequest{
+			req := &domain.PricingEstimateRequest{
 				PickupLat:  -6.2, PickupLng: 106.8,
 				DropoffLat: -6.3, DropoffLng: 106.9,
 				Length: 10, Width: 10, Height: 10, Weight: 1,
 				Models: reqModels,
 			}
 
-			resp, err := svc.Estimate(context.Background(), req)
+			resp, err := svc.EstimatePrice(context.Background(), req)
 
 			if (err != nil) != tt.expectErr {
 				t.Errorf("expected error %v, got %v", tt.expectErr, err)

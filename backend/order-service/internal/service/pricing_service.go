@@ -87,17 +87,26 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	effectiveWeight := math.Max(req.Weight, volWeight)
 
 	// 5. Calculate Base Prices
-	baseFare := config.BaseFare
-	distanceFare := int64(distKM * float64(config.PerKMFare))
-	weightFare := int64(effectiveWeight * float64(config.PerKGFare))
+	baseFare := int64(config.BaseFare)
+	distanceFare := int64(distKM * config.PricePerKM)
+	durationFare := int64(durMin * config.PricePerMin)
 
-	subtotal := baseFare + distanceFare + weightFare
-	if subtotal < config.MinFare {
-		subtotal = config.MinFare
+	subtotal := baseFare + distanceFare + durationFare
+
+	// 5.1 Apply Weight Bracket Surcharge
+	// 0-2kg: Base
+	// 2-5kg: +15%
+	// >5kg: +30%
+	var weightSurcharge int64
+	if effectiveWeight > 5 {
+		weightSurcharge = int64(float64(subtotal) * 0.30)
+	} else if effectiveWeight > 2 {
+		weightSurcharge = int64(float64(subtotal) * 0.15)
 	}
+	subtotal += weightSurcharge
 
 	// 6. Apply Dynamic Multiplier (Surge)
-	multiplier, err := s.redisRepo.GetMultiplier(ctx)
+	multiplier, err := s.redisRepo.GetMultiplier(ctx, "default")
 	if err != nil {
 		multiplier = 1.0 // Fallback
 	}
@@ -113,7 +122,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		DistanceKM:             distKM,
 		DurationMin:            durMin,
 		BasePriceIDR:           subtotal,
-		VolumetricSurchargeIDR: weightFare,
+		VolumetricSurchargeIDR: weightSurcharge,
 		DynamicPriceIDR:        dynamicPrice,
 		TotalPriceIDR:          totalPrice,
 		ExpiresAt:              time.Now().Add(10 * time.Minute),
@@ -132,6 +141,18 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	return resp, nil
 }
 
+func (s *pricingServiceImpl) EstimatePrice(ctx context.Context, req *domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
+	return s.Estimate(ctx, *req)
+}
+
 func (s *pricingServiceImpl) GetConfig(ctx context.Context) (*domain.PricingConfig, error) {
 	return s.pricingRepo.GetActiveConfig(ctx)
+}
+
+func (s *pricingServiceImpl) UpdateConfig(ctx context.Context, config *domain.PricingConfig) error {
+	return s.pricingRepo.UpdateConfig(ctx, config)
+}
+
+func (s *pricingServiceImpl) SimulatePrice(ctx context.Context, req *domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
+	return s.Estimate(ctx, *req)
 }

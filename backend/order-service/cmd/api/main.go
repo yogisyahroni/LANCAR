@@ -85,18 +85,20 @@ func main() {
 
 	// Services
 	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo, flagReader)
-	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, eb, tq, flagReader)
+	meetingPointSvc := service.NewMeetingPointService(pgRepo, mapsRepo, redisRepo)
+	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, eb, tq, flagReader, notificationSvc)
 
 	// Handlers
-	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc)
+	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc, meetingPointSvc)
+	adminHandler := handler.NewAdminHandler(meetingPointSvc, pricingSvc)
 	wsHandler := handler.NewWSHandler(eb)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb)
 	go surgeWorker.Start(context.Background())
 
-	cancelWorker := worker.NewAutoCancelWorker(pgRepo, 15*time.Minute)
-	go cancelWorker.Start(context.Background())
+	monitorWorker := worker.NewOrderMonitorWorker(pgRepo, 15*time.Minute)
+	go monitorWorker.Start(context.Background())
 
 	if tq != nil {
 		taskWorker := worker.NewTaskWorker(tq, pgRepo, notificationSvc)
@@ -134,6 +136,31 @@ func main() {
 	})))
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetOrder)))
 	mux.HandleFunc("/api/v1/orders/poll", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.PollOrderUpdates)))
+	mux.HandleFunc("/api/v1/meeting-points/suggest", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.SuggestMeetingPoints)))
+
+	// Admin Routes (Protected by Auth and Admin Role)
+	mux.HandleFunc("/api/v1/admin/meeting-points", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			adminHandler.CreateMeetingPoint(w, r)
+		} else if r.Method == http.MethodGet {
+			adminHandler.GetMeetingPointAnalytics(w, r)
+		}
+	})))
+	mux.HandleFunc("/api/v1/admin/meeting-points/", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			adminHandler.UpdateMeetingPoint(w, r)
+		} else if r.Method == http.MethodDelete {
+			adminHandler.DeleteMeetingPoint(w, r)
+		}
+	})))
+	mux.HandleFunc("/api/v1/admin/pricing/config", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			adminHandler.GetPricingConfig(w, r)
+		} else if r.Method == http.MethodPut {
+			adminHandler.UpdatePricingConfig(w, r)
+		}
+	})))
+	mux.HandleFunc("/api/v1/admin/pricing/simulate", middleware.BaseChain(middleware.AuthMiddleware(adminHandler.SimulatePrice)))
 
 	// Server
 	port := os.Getenv("ORDER_PORT")

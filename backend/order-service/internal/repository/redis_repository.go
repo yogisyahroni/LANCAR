@@ -44,10 +44,15 @@ func (r *redisRepo) GetEstimate(ctx context.Context, estimateID string) (*domain
 	return estimate, nil
 }
 
-func (r *redisRepo) GetMultiplier(ctx context.Context) (float64, error) {
-	val, err := r.client.Get(ctx, "surge_multiplier").Result()
+func (r *redisRepo) GetMultiplier(ctx context.Context, zoneID string) (float64, error) {
+	key := fmt.Sprintf("surge_multiplier:%s", zoneID)
+	val, err := r.client.Get(ctx, key).Result()
 	if err == redis.Nil {
-		return 1.0, nil
+		// Try global if zone not found
+		val, err = r.client.Get(ctx, "surge_multiplier:global").Result()
+		if err == redis.Nil {
+			return 1.0, nil
+		}
 	}
 	if err != nil {
 		return 1.0, err
@@ -59,6 +64,26 @@ func (r *redisRepo) GetMultiplier(ctx context.Context) (float64, error) {
 	}
 
 	return multiplier, nil
+}
+
+func (r *redisRepo) GetConfig(ctx context.Context) (*domain.PricingConfig, error) {
+	val, err := r.client.Get(ctx, "pricing_config").Result()
+	if err != nil {
+		return nil, err
+	}
+	var config domain.PricingConfig
+	if err := json.Unmarshal([]byte(val), &config); err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+func (r *redisRepo) UpdateConfig(ctx context.Context, config *domain.PricingConfig) error {
+	data, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	return r.client.Set(ctx, "pricing_config", data, 0).Err()
 }
 
 func (r *redisRepo) UpdateCourierLocation(ctx context.Context, courierID string, lat, lng float64) error {

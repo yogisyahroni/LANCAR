@@ -38,21 +38,26 @@ type PricingEstimateResponse struct {
 }
 
 type PricingConfig struct {
-	ID            string  `json:"id"`
-	BaseFare      int64   `json:"base_fare"`
-	PerKMFare     int64   `json:"per_km_fare"`
-	PerKGFare     int64   `json:"per_kg_fare"`
-	MinFare       int64   `json:"min_fare"`
-	VolumetricDiv float64 `json:"volumetric_div"` // default 6000
+	BaseFare          float64            `json:"base_fare"`
+	PricePerKM        float64            `json:"price_per_km"`
+	PricePerMin       float64            `json:"price_per_min"`
+	SurgeEnabled      bool               `json:"surge_enabled"`
+	WeatherMultiplier float64            `json:"weather_multiplier"`
+	TrafficMultiplier float64            `json:"traffic_multiplier"`
+	ZoneMultipliers   map[string]float64 `json:"zone_multipliers"`
+	VolumetricDiv     float64            `json:"volumetric_div"` // default 6000
 }
 
 type PricingService interface {
-	Estimate(ctx context.Context, req PricingEstimateRequest) (*PricingEstimateResponse, error)
+	EstimatePrice(ctx context.Context, req *PricingEstimateRequest) (*PricingEstimateResponse, error)
 	GetConfig(ctx context.Context) (*PricingConfig, error)
+	UpdateConfig(ctx context.Context, config *PricingConfig) error
+	SimulatePrice(ctx context.Context, req *PricingEstimateRequest) (*PricingEstimateResponse, error)
 }
 
 type PricingRepository interface {
 	GetActiveConfig(ctx context.Context) (*PricingConfig, error)
+	UpdateConfig(ctx context.Context, config *PricingConfig) error
 }
 
 type MapsRepository interface {
@@ -62,7 +67,9 @@ type MapsRepository interface {
 type RedisRepository interface {
 	SaveEstimate(ctx context.Context, estimate *PricingEstimateResponse) error
 	GetEstimate(ctx context.Context, estimateID string) (*PricingEstimateResponse, error)
-	GetMultiplier(ctx context.Context) (float64, error)
+	GetConfig(ctx context.Context) (*PricingConfig, error)
+	UpdateConfig(ctx context.Context, config *PricingConfig) error
+	GetMultiplier(ctx context.Context, zoneID string) (float64, error)
 
 	// Courier GEO methods
 	UpdateCourierLocation(ctx context.Context, courierID string, lat, lng float64) error

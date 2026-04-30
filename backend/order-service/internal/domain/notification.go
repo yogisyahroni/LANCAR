@@ -5,10 +5,11 @@ import "context"
 type NotificationChannel string
 
 const (
-	ChannelWhatsApp NotificationChannel = "whatsapp"
-	ChannelPush     NotificationChannel = "push"
-	ChannelSMS      NotificationChannel = "sms"
-	ChannelEmail    NotificationChannel = "email"
+	ChannelWhatsApp  NotificationChannel = "whatsapp"
+	ChannelPush      NotificationChannel = "push"
+	ChannelWebSocket NotificationChannel = "websocket"
+	ChannelSMS       NotificationChannel = "sms"
+	ChannelEmail     NotificationChannel = "email"
 )
 
 type NotificationRequest struct {

@@ -5,19 +5,22 @@ import (
 	"errors"
 	"lancar/order-service/internal/domain"
 	"lancar/order-service/internal/middleware"
+	"lancar/order-service/pkg/utils"
 	"net/http"
 	"time"
 )
 
 type OrderHandler struct {
-	pricingSvc domain.PricingService
-	orderSvc   domain.OrderService
+	pricingSvc      domain.PricingService
+	orderSvc        domain.OrderService
+	meetingPointSvc domain.MeetingPointService
 }
 
-func NewOrderHandler(p domain.PricingService, o domain.OrderService) *OrderHandler {
+func NewOrderHandler(p domain.PricingService, o domain.OrderService, m domain.MeetingPointService) *OrderHandler {
 	return &OrderHandler{
-		pricingSvc: p,
-		orderSvc:   o,
+		pricingSvc:      p,
+		orderSvc:        o,
+		meetingPointSvc: m,
 	}
 }
 
@@ -43,7 +46,7 @@ func (h *OrderHandler) Estimate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.pricingSvc.Estimate(r.Context(), *req)
+	resp, err := h.pricingSvc.EstimatePrice(r.Context(), req)
 	if err != nil {
 		correlationID := middleware.GetCorrelationID(r.Context())
 		var modelErr *domain.ModelUnavailableError
@@ -203,4 +206,42 @@ func (h *OrderHandler) PollOrderUpdates(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(events)
+}
+
+// SuggestMeetingPoints godoc
+// @Summary Suggest meeting points
+// @Description Suggest best meeting points for a route
+// @Tags orders
+// @Produce json
+// @Param pickup_lat query number true "Pickup Latitude"
+// @Param pickup_lng query number true "Pickup Longitude"
+// @Param dropoff_lat query number true "Dropoff Latitude"
+// @Param dropoff_lng query number true "Dropoff Longitude"
+// @Success 200 {array} map[string]interface{}
+// @Router /meeting-points/suggest [get]
+func (h *OrderHandler) SuggestMeetingPoints(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	pickupLat := utils.ParseFloat(r.URL.Query().Get("pickup_lat"))
+	pickupLng := utils.ParseFloat(r.URL.Query().Get("pickup_lng"))
+	dropoffLat := utils.ParseFloat(r.URL.Query().Get("dropoff_lat"))
+	dropoffLng := utils.ParseFloat(r.URL.Query().Get("dropoff_lng"))
+
+	if pickupLat == 0 || pickupLng == 0 || dropoffLat == 0 || dropoffLng == 0 {
+		http.Error(w, "Missing required coordinates", http.StatusBadRequest)
+		return
+	}
+
+	suggestions, err := h.meetingPointSvc.SuggestMeetingPoint(r.Context(), pickupLat, pickupLng, dropoffLat, dropoffLng)
+	if err != nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_MEETING_POINT", err.Error(), correlationID)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(suggestions)
 }
