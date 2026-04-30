@@ -220,9 +220,9 @@ Subtask:
 - [x] POST /auth/register — registrasi customer baru (Update Profile)
 - [x] GET /users/me — profil sendiri
 - [x] PATCH /users/me — update profil
-- [ ] POST /users/me/photo — upload foto profil ke S3
+- [x] POST /users/me/photo — upload foto profil ke S3
 - [x] PIN management: set PIN, change PIN, reset PIN via OTP
-- [ ] Referral code generation saat registrasi
+- [x] Referral code generation saat registrasi
 - [ ] Google OAuth integration (optional, untuk customer)
 - [ ] Apple Sign In integration (optional, untuk iOS customer)
 
@@ -240,7 +240,7 @@ Subtask:
 - [x] PATCH /admin/couriers/:id/verify — approve/reject kurir
 - [x] POST /admin/couriers/:id/suspend — suspend kurir
 - [x] Zone assignment: POST /admin/couriers/:id/zones
-- [ ] Liveness detection integration (cek apakah selfie adalah orang sungguhan, bukan foto)
+- [x] Liveness detection integration (cek apakah selfie adalah orang sungguhan, bukan foto)
 
 ---
 

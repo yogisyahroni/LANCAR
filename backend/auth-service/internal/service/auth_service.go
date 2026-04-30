@@ -103,7 +103,8 @@ func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID
 		}
 
 		// Generate Referral Code for new user
-		refCode := fmt.Sprintf("RLY%s", user.ID[:6])
+		randomPart, _ := utils.GenerateRandomString(6)
+		refCode := fmt.Sprintf("RLY-%s", randomPart)
 		_ = s.userRepo.SetReferralCode(ctx, user.ID, refCode)
 		user.ReferralCode = &refCode
 	}

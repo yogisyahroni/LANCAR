@@ -87,23 +87,52 @@ func main() {
 	log.Println("[auth-service] Redis connection established")
 
 	// ─────────────────────────────────────────────
-	// Dependency Injection
+	// Storage Service (Local vs S3)
 	// ─────────────────────────────────────────────
+	var storageSvc service.StorageService
+	storageDriver := os.Getenv("STORAGE_DRIVER")
 	uploadPath := os.Getenv("UPLOAD_PATH")
 	if uploadPath == "" {
 		uploadPath = "./uploads"
 	}
-	uploadURL := os.Getenv("UPLOAD_URL")
-	if uploadURL == "" {
-		uploadURL = "http://localhost:8081/uploads"
+
+	if storageDriver == "s3" {
+		region := os.Getenv("AWS_REGION")
+		bucket := os.Getenv("S3_BUCKET")
+		var s3Err error
+		storageSvc, s3Err = service.NewS3Storage(region, bucket)
+		if s3Err != nil {
+			log.Fatalf("[auth-service] Failed to initialize S3 storage: %v", s3Err)
+		}
+		log.Println("[auth-service] Using S3 storage")
+	} else {
+		uploadURL := os.Getenv("UPLOAD_URL")
+		if uploadURL == "" {
+			uploadURL = "http://localhost:8081/uploads"
+		}
+		var localErr error
+		storageSvc, localErr = service.NewLocalStorage(uploadPath, uploadURL)
+		if localErr != nil {
+			log.Fatalf("[auth-service] Failed to initialize local storage: %v", localErr)
+		}
+		log.Println("[auth-service] Using local storage")
 	}
 
-	storageSvc, err := service.NewLocalStorage(uploadPath, uploadURL)
-	if err != nil {
-		log.Fatalf("[auth-service] Failed to initialize storage: %v", err)
-	}
+	// ─────────────────────────────────────────────
+	// Liveness Service (Mock vs Verihubs)
+	// ─────────────────────────────────────────────
+	var livenessSvc service.LivenessService
+	livenessDriver := os.Getenv("LIVENESS_DRIVER")
 
-	livenessSvc := service.NewLivenessService()
+	if livenessDriver == "verihubs" {
+		appID := os.Getenv("VERIHUBS_APP_ID")
+		apiKey := os.Getenv("VERIHUBS_API_KEY")
+		livenessSvc = service.NewVerihubsLiveness(appID, apiKey)
+		log.Println("[auth-service] Using Verihubs liveness detection")
+	} else {
+		livenessSvc = service.NewLivenessService()
+		log.Println("[auth-service] Using mock liveness detection")
+	}
 
 	repo := repository.NewPostgresRepository(db, readDB)
 	svc := service.NewAuthService(repo, repo, repo, repo, repo, livenessSvc, storageSvc)
@@ -157,6 +186,7 @@ func main() {
 	mux.HandleFunc("/api/v1/couriers/register", middleware.AuthChain(h.RegisterCourier))
 	mux.HandleFunc("/api/v1/couriers/documents", middleware.AuthChain(h.UploadCourierDocument))
 	mux.HandleFunc("/api/v1/couriers/me", middleware.AuthChain(h.GetCourierProfile))
+	mux.HandleFunc("/api/v1/couriers/verify-liveness", middleware.AuthChain(h.VerifyLiveness))
 
 	// ─────────────────────────────────────────────
 	// API v1 — Admin Endpoints (requires JWT + role + 2FA for sensitive)
@@ -170,9 +200,10 @@ func main() {
 	mux.HandleFunc("/api/v1/admin/couriers/zones", middleware.Permission2FAChain(repo, domain.PermManageCouriers, h.AssignCourierZone))
 
 	// ─────────────────────────────────────────────
-	// Static Files (for local storage)
-	// ─────────────────────────────────────────────
-	mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadPath))))
+	// Static Files (only if not using S3)
+	if storageDriver != "s3" {
+		mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadPath))))
+	}
 
 	// ─────────────────────────────────────────────
 	// Legacy routes (backward-compat: 301 redirect to v1)
