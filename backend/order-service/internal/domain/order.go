@@ -37,6 +37,7 @@ type Order struct {
 	DynamicPriceIDR        int64       `json:"dynamic_price_idr"`
 	TotalPriceIDR          int64       `json:"total_price_idr"`
 	HandoverToken          string      `json:"handover_token"`
+	QRCodeURL              string      `json:"qr_code_url,omitempty"`
 	CreatedAt              time.Time   `json:"created_at"`
 	UpdatedAt              time.Time   `json:"updated_at"`
 }
@@ -57,4 +58,5 @@ type OrderRepository interface {
 	GetByID(ctx context.Context, id string) (*Order, error)
 	ListByUserID(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, id string, status OrderStatus) error
+	CancelExpiredOrders(ctx context.Context, timeout time.Duration) (int64, error)
 }

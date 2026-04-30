@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"lancar/order-service/internal/handler"
+	"lancar/order-service/internal/middleware"
 	"lancar/order-service/internal/repository"
 	"lancar/order-service/internal/service"
 	"lancar/order-service/internal/worker"
@@ -57,10 +58,17 @@ func main() {
 	surgeWorker := worker.NewSurgeWorker(rdb)
 	go surgeWorker.Start(context.Background())
 
+	cancelWorker := worker.NewAutoCancelWorker(pgRepo, 15*time.Minute)
+	go cancelWorker.Start(context.Background())
+
 	// Routes
 	mux := http.NewServeMux()
+	
+	// Public Routes
 	mux.HandleFunc("/api/v1/pricing/estimate", orderHandler.Estimate)
-	mux.HandleFunc("/api/v1/orders", func(w http.ResponseWriter, r *http.Request) {
+	
+	// Protected Routes
+	mux.HandleFunc("/api/v1/orders", middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			orderHandler.CreateOrder(w, r)
 		} else if r.Method == http.MethodGet {
@@ -68,8 +76,8 @@ func main() {
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
-	})
-	mux.HandleFunc("/api/v1/orders/detail", orderHandler.GetOrder)
+	}))
+	mux.HandleFunc("/api/v1/orders/detail", middleware.AuthMiddleware(orderHandler.GetOrder))
 
 	// Server
 	port := os.Getenv("ORDER_PORT")

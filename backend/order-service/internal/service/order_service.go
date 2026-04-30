@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"lancar/order-service/internal/domain"
+	"lancar/order-service/internal/repository" // if needed for shared types
+	"lancar/order-service/pkg/utils"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,8 +33,15 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		return nil, fmt.Errorf("invalid or expired estimate: %w", err)
 	}
 
-	// 2. Generate Order Number (LCR-YYYYMMDD-XXXX)
-	orderNum := fmt.Sprintf("LCR-%s-%s", time.Now().Format("20060102"), uuid.New().String()[:6])
+	// 2. Generate Order Number (RLY-YYYYMMDD-XXXX)
+	orderNum := fmt.Sprintf("RLY-%s-%s", time.Now().Format("20060102"), uuid.New().String()[:5])
+	handoverToken := uuid.New().String()
+
+	// 3. Generate QR Code Data URI
+	qrURL, err := utils.GenerateQRCodeDataURI(handoverToken, 256)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate qr code: %w", err)
+	}
 
 	// 3. Create Order object
 	order := &domain.Order{
@@ -52,7 +61,8 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		VolumetricSurchargeIDR: estimate.VolumetricSurchargeIDR,
 		DynamicPriceIDR:        estimate.DynamicPriceIDR,
 		TotalPriceIDR:          estimate.TotalPriceIDR,
-		HandoverToken:          uuid.New().String(),
+		HandoverToken:          handoverToken,
+		QRCodeURL:              qrURL,
 		CreatedAt:              time.Now(),
 		UpdatedAt:              time.Now(),
 	}
@@ -73,6 +83,11 @@ func (s *orderServiceImpl) GetOrder(ctx context.Context, orderID string) (*domai
 	if order == nil {
 		return nil, errors.New("order not found")
 	}
+
+	// Generate QR Code URL for the detail view
+	qrURL, _ := utils.GenerateQRCodeDataURI(order.HandoverToken, 256)
+	order.QRCodeURL = qrURL
+
 	return order, nil
 }
 

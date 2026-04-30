@@ -270,25 +270,25 @@ Subtask:
   - [x] Input: pickup_coords, dropoff_coords, package_details
   - [x] Output: price_breakdown, model_selected, eta, surge_info
 - [x] POST /orders — buat order baru
-  - [ ] Validasi semua field
+  - [x] Validasi semua field
   - [x] Hitung jarak via Google Maps Distance Matrix API
-  - [ ] Pilih model (P2P/2-Kaki/3-Kaki) berdasarkan jarak + zona
+  - [x] Pilih model (P2P/2-Kaki/3-Kaki) berdasarkan jarak + zona
   - [x] Hitung harga final (base + volumetric + dynamic)
-  - [ ] Buat payment intent
-  - [ ] Return order_id + QR code URL
-- [ ] Order number generation: `RLY-YYYYMMDD-XXXXX` (sequential per hari)
-- [ ] Caching rute populer (zona-ke-zona, 5 menit TTL)
+  - [x] Buat payment intent
+  - [x] Return order_id + QR code URL
+- [x] Order number generation: `RLY-YYYYMMDD-XXXXX` (sequential per hari)
+- [x] Caching rute populer (zona-ke-zona, 5 menit TTL)
 
 #### ORDER-002: Order State Machine
 **Assignee:** Backend  
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] Implementasi state machine (XState atau custom)
-- [ ] PATCH /orders/:id/status — update status dengan validasi transisi
+- [x] Implementasi state machine (XState atau custom)
+- [x] PATCH /orders/:id/status — update status dengan validasi transisi
 - [ ] Event emit ke WebSocket setiap status change
-- [ ] Audit log setiap transisi (siapa, kapan, dari mana ke mana)
-- [ ] Scheduler: auto-cancel order `pending_payment` setelah 15 menit
+- [x] Audit log setiap transisi (siapa, kapan, dari mana ke mana)
+- [x] Scheduler: auto-cancel order `pending_payment` setelah 15 menit
 - [ ] Scheduler: alert admin jika `pending_assignment` >10 menit
 - [x] GET /orders/:id — detail order lengkap (semua leg, proofs, timeline)
 - [x] GET /orders — list order dengan filter + pagination

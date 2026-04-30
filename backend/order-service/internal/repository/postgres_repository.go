@@ -125,3 +125,16 @@ func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domai
 	_, err := r.db.ExecContext(ctx, query, status, time.Now(), id)
 	return err
 }
+
+func (r *postgresRepo) CancelExpiredOrders(ctx context.Context, timeout time.Duration) (int64, error) {
+	query := `UPDATE orders 
+			  SET status = 'cancelled', updated_at = NOW(), cancellation_reason = 'Payment timeout'
+			  WHERE status = 'pending_payment' AND created_at < $1`
+	
+	expiryTime := time.Now().Add(-timeout)
+	res, err := r.db.ExecContext(ctx, query, expiryTime)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}

@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"lancar/order-service/internal/domain"
+	"lancar/order-service/internal/middleware"
 	"net/http"
 )
 
@@ -18,6 +19,15 @@ func NewOrderHandler(p domain.PricingService, o domain.OrderService) *OrderHandl
 	}
 }
 
+// Estimate godoc
+// @Summary Estimate pricing
+// @Description Get pricing estimate for an order without creating it
+// @Tags pricing
+// @Accept json
+// @Produce json
+// @Param request body domain.PricingEstimateRequest true "Pricing Estimate Request"
+// @Success 200 {object} domain.PricingEstimateResponse
+// @Router /pricing/estimate [post]
 func (h *OrderHandler) Estimate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -40,14 +50,24 @@ func (h *OrderHandler) Estimate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// CreateOrder godoc
+// @Summary Create a new order
+// @Description Create a new delivery order
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body domain.CreateOrderRequest true "Create Order Request"
+// @Success 201 {object} domain.Order
+// @Router /orders [post]
 func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// In real app, userID comes from JWT middleware
-	userID := r.Header.Get("X-User-ID")
+	// userID comes from JWT middleware
+	userID := middleware.GetUserIDFromContext(r.Context())
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -70,6 +90,15 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(order)
 }
 
+// GetOrder godoc
+// @Summary Get order details
+// @Description Get full details of a specific order
+// @Tags orders
+// @Produce json
+// @Security Bearer
+// @Param id query string true "Order ID"
+// @Success 200 {object} domain.Order
+// @Router /orders/detail [get]
 func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -92,13 +121,21 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(order)
 }
 
+// ListOrders godoc
+// @Summary List customer orders
+// @Description Get a list of orders for the authenticated user
+// @Tags orders
+// @Produce json
+// @Security Bearer
+// @Success 200 {array} domain.Order
+// @Router /orders [get]
 func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	userID := r.Header.Get("X-User-ID")
+	userID := middleware.GetUserIDFromContext(r.Context())
 	if userID == "" {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
