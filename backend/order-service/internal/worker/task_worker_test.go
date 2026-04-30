@@ -8,7 +8,7 @@ import (
 
 func TestTaskWorker_handleTask(t *testing.T) {
 	ns := notification.NewStubNotificationService()
-	w := NewTaskWorker(nil, nil, ns) // Queue and Repo not needed for these tests
+	w := NewTaskWorker(nil, nil, ns, nil) // Queue and Repo not needed for these tests
 
 	tests := []struct {
 		name    string

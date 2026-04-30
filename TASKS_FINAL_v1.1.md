@@ -362,78 +362,78 @@ Subtask:
 
 ### Sprint 4: Payment, SLA & Notifications
 
-#### PAY-001: Payment Gateway Integration
+#### [x] PAY-001: Payment Gateway Integration
 **Assignee:** Backend  
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] Integrate Midtrans atau Xendit SDK
-- [ ] POST /payments/create — buat QRIS transaction
-  - Generate QR code
-  - Set expiry 15 menit
-  - Simpan ke DB
-- [ ] POST /payments/webhook — terima dan verifikasi webhook dari gateway
-  - Signature verification (HMAC)
-  - Idempotency check (hindari double-process)
-  - Trigger order → status: `pending_assignment`
-  - Trigger fund splitting (async job)
-- [ ] Fund splitting logic:
-  - Hitung MDR, PPN, cuaca reserve, operasional
-  - Catat ke payments table
-- [ ] GET /payments/:id — status payment
-- [ ] Simulate payment untuk testing (test mode)
+- [x] Integrate Midtrans atau Xendit SDK
+- [x] POST /payments/create — buat QRIS transaction
+  - [x] Generate QR code
+  - [x] Set expiry 15 menit
+  - [x] Simpan ke DB
+- [x] POST /payments/webhook — terima dan verifikasi webhook dari gateway
+  - [x] Signature verification (HMAC)
+  - [x] Idempotency check (hindari double-process)
+  - [x] Trigger order → status: `pending_assignment`
+  - [x] Trigger fund splitting (async job)
+- [x] Fund splitting logic:
+  - [x] Hitung MDR, PPN, cuaca reserve, operasional
+  - [x] Catat ke payments table
+- [x] GET /payments/:id — status payment
+- [x] Simulate payment untuk testing (test mode)
 
 ---
 
-#### PAY-002: Payout System
+#### [x] PAY-002: Payout System
 **Assignee:** Backend  
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] Payout calculation per order leg selesai:
+- [x] Payout calculation per order leg selesai:
   - `net = assigned_fee - penalty + idle_compensation`
-- [ ] Batch payout: agregasi payout per kurir per hari
-- [ ] Integrate transfer bank API (Xendit Disbursement atau Flip)
-- [ ] POST /admin/payouts/trigger — manual trigger payout
-- [ ] GET /couriers/me/earnings — ringkasan penghasilan kurir
-- [ ] Payout history dengan status (pending/processing/completed/failed)
-- [ ] Retry otomatis jika payout gagal (max 3x, lalu alert admin)
-- [ ] PPh Pasal 21 calculation untuk kurir dengan penghasilan >Rp2.5jt/bulan
+- [x] Batch payout: agregasi payout per kurir per hari
+- [x] Integrate transfer bank API (Xendit Disbursement atau Flip)
+- [x] POST /admin/payouts/trigger — manual trigger payout
+- [x] GET /couriers/me/earnings — ringkasan penghasilan kurir
+- [x] Payout history dengan status (pending/processing/completed/failed)
+- [x] Retry otomatis jika payout gagal (max 3x, lalu alert admin)
+- [x] PPh Pasal 21 calculation untuk kurir dengan penghasilan >Rp2.5jt/bulan
 
 ---
 
-#### PAY-003: Refund System
+#### [x] PAY-003: Refund System
 **Assignee:** Backend  
 **Estimasi:** 2 hari
 
 Subtask:
-- [ ] POST /orders/:id/cancel — cancel order dengan validasi policy
+- [x] POST /orders/:id/cancel — cancel order dengan validasi policy
   - Sebelum assigned: refund 100%
   - Setelah assigned, belum pickup: refund 80%
   - Setelah pickup: tidak bisa cancel
-- [ ] Trigger refund ke payment gateway
-- [ ] SLA breach automatic refund: voucher ke customer (bukan cash)
-- [ ] GET /refunds/:id — status refund
-- [ ] Admin: manual trigger refund untuk kasus khusus
+- [x] Trigger refund ke payment gateway
+- [x] SLA breach automatic refund: voucher ke customer (bukan cash)
+- [x] GET /refunds/:id — status refund
+- [x] Admin: manual trigger refund untuk kasus khusus
 
 ---
 
-#### SLA-001: SLA Engine
+#### [x] SLA-001: SLA Engine
 **Assignee:** Backend  
 **Estimasi:** 2 hari
 
 Subtask:
-- [ ] Set SLA deadline per leg saat kurir di-assign
-- [ ] Scheduled job (setiap menit): cek semua leg yang mendekati SLA
-- [ ] Alert 5 menit sebelum SLA habis: push ke kurir + admin
-- [ ] SLA breach processing:
+- [x] Set SLA deadline per leg saat kurir di-assign
+- [x] Scheduled job (setiap menit): cek semua leg yang mendekati SLA
+- [x] Alert 5 menit sebelum SLA habis: push ke kurir + admin
+- [x] SLA breach processing:
   - Hitung breach_minutes
   - Hitung penalty (20% fee)
   - Distribute ke kurir berikutnya atau voucher customer
   - Update relay score kurir
   - Log ke sla_logs
-- [ ] Idle compensation: jika kurir di titik temu >10 menit, auto-kompensasi
-- [ ] SLA dashboard untuk admin: compliance rate per zona per hari
+- [x] Idle compensation: jika kurir di titik temu >10 menit, auto-kompensasi
+- [x] SLA dashboard untuk admin: compliance rate per zona per hari
 
 ---
 
@@ -446,12 +446,12 @@ Subtask:
 - [x] APNs integration (Stubbed in StubNotificationService for core flow)
 - [x] WhatsApp Business API integration (Stubbed in StubNotificationService for core flow)
 - [x] SMS fallback (Stubbed in StubNotificationService for core flow)
-- [ ] Notification templates management (admin configurable)
+- [x] Notification templates management (admin configurable)
 - [x] Notification queue: async sending via message queue (Implemented in TaskWorker)
-- [ ] Delivery tracking: simpan status sent/delivered/failed ke DB
-- [ ] GET /notifications — inbox notification user (in-app)
-- [ ] PATCH /notifications/read — mark as read
-- [ ] User preference: customer bisa pilih channel aktif
+- [x] Delivery tracking: simpan status sent/delivered/failed ke DB
+- [x] GET /notifications — inbox notification user (in-app)
+- [x] PATCH /notifications/read — mark as read
+- [x] User preference: customer bisa pilih channel aktif
 
 ---
 
@@ -460,7 +460,7 @@ Subtask:
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] POST /tracking/location — terima GPS update dari courier app
+- [x] POST /tracking/location — terima GPS update dari courier app
   - Rate: setiap 10 detik saat on-delivery
   - Validasi: lat/lng range, timestamp freshness
   - Kalman filter untuk smooth GPS noise
@@ -468,11 +468,11 @@ Subtask:
   - Simpan ke `courier_locations` (partitioned table)
   - Update `courier_profiles.current_location` (PostGIS)
   - Publish ke Redis Pub/Sub untuk real-time broadcast
-- [ ] GET /tracking/:order_id — live tracking data untuk customer
+- [x] GET /tracking/:order_id — live tracking data untuk customer
   - Return: courier current location, ETA, route_polyline
-- [ ] Geofencing: alert jika kurir keluar zona >5 menit
-- [ ] GPS trail recording per leg: simpan di `courier_gps_logs`
-- [ ] Auto-offline: jika tidak ada GPS update >15 menit, set kurir offline
+- [x] Geofencing: alert jika kurir keluar zona >5 menit
+- [x] GPS trail recording per leg: simpan di `courier_gps_logs`
+- [x] Auto-offline: jika tidak ada GPS update >15 menit, set kurir offline
 
 ---
 

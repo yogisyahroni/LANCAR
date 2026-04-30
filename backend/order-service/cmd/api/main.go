@@ -15,11 +15,12 @@ import (
 	"lancar/order-service/internal/service"
 	"lancar/order-service/internal/featureflags"
 	"lancar/order-service/internal/worker"
-	"lancar/order-service/internal/infrastructure/notification"
+	"lancar/order-service/internal/infrastructure/payment_gateway"
 	"context"
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 )
@@ -63,6 +64,19 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to initialize maps repository:", err)
 	}
+	paymentRepo := repository.NewPostgresPaymentRepo(sqlx.NewDb(db, "postgres"))
+	payoutRepo := repository.NewPostgresPayoutRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
+	refundRepo := repository.NewPostgresRefundRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
+	slaRepo := repository.NewPostgresSLARepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
+
+	// Payment Gateway Mock
+	midtransConfig := payment_gateway.MidtransConfig{
+		ServerKey: "MOCK_SERVER_KEY",
+		IsProd:    false,
+	}
+	paymentGw := payment_gateway.NewMidtransGateway(midtransConfig)
+	payoutGw := payment_gateway.NewStubPayoutGateway()
+	refundGw := payment_gateway.NewStubRefundGateway()
 
 	// Feature Flags
 	flagReader := featureflags.NewFlagReader(db, readDB, rdb)
@@ -70,7 +84,6 @@ func main() {
 
 	// Infrastructure
 	eb := eventbus.NewRedisEventBus(rdb)
-	notificationSvc := notification.NewStubNotificationService()
 
 	rabbitmqURL := os.Getenv("RABBITMQ_URL")
 	if rabbitmqURL == "" {
@@ -83,15 +96,33 @@ func main() {
 		defer tq.Close()
 	}
 
+	notifRepo := repository.NewPostgresNotificationRepo(sqlx.NewDb(db, "postgres"))
+	trackingRepo := repository.NewPostgresTrackingRepo(sqlx.NewDb(db, "postgres"))
+	
+	notificationSvc := service.NewNotificationService(notifRepo, tq)
+	trackingSvc := service.NewTrackingService(trackingRepo, eb)
+
+
+
 	// Services
 	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo, flagReader)
 	meetingPointSvc := service.NewMeetingPointService(pgRepo, mapsRepo, redisRepo)
 	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, eb, tq, flagReader, notificationSvc)
+	paymentSvc := service.NewPaymentService(paymentRepo, pgRepo, paymentGw)
+	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw)
+	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw)
+	slaSvc := service.NewSLAService(slaRepo, notificationSvc, payoutRepo)
 
 	// Handlers
 	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc, meetingPointSvc)
 	adminHandler := handler.NewAdminHandler(meetingPointSvc, pricingSvc)
 	wsHandler := handler.NewWSHandler(eb)
+	paymentHandler := handler.NewPaymentHandler(paymentSvc)
+	payoutHandler := handler.NewPayoutHandler(payoutSvc)
+	refundHandler := handler.NewRefundHandler(refundSvc)
+	slaHandler := handler.NewSLAHandler(slaSvc)
+	trackingHandler := handler.NewTrackingHandler(trackingSvc)
+	notificationHandler := handler.NewNotificationHandler(notificationSvc)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb)
@@ -100,8 +131,11 @@ func main() {
 	monitorWorker := worker.NewOrderMonitorWorker(pgRepo, 15*time.Minute)
 	go monitorWorker.Start(context.Background())
 
+	slaWorker := worker.NewSLAWorker(slaSvc)
+	slaWorker.Start()
+
 	if tq != nil {
-		taskWorker := worker.NewTaskWorker(tq, pgRepo, notificationSvc)
+		taskWorker := worker.NewTaskWorker(tq, pgRepo, notificationSvc, notifRepo)
 		go func() {
 			if err := taskWorker.Start(context.Background()); err != nil {
 				log.Printf("Failed to start task worker: %v", err)
@@ -138,7 +172,57 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/poll", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.PollOrderUpdates)))
 	mux.HandleFunc("/api/v1/meeting-points/suggest", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.SuggestMeetingPoints)))
 
+	// Tracking Routes
+	mux.HandleFunc("/api/v1/tracking/location", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.UpdateLocation)))
+	mux.HandleFunc("/api/v1/tracking", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			trackingHandler.GetTracking(w, r)
+		}
+	})))
+
+	// Notification Routes
+	mux.HandleFunc("/api/v1/notifications", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			notificationHandler.GetInbox(w, r)
+		}
+	})))
+	mux.HandleFunc("/api/v1/notifications/read", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPatch {
+			notificationHandler.MarkAsRead(w, r)
+		}
+	})))
+
+	// Courier Payout Routes
+	mux.HandleFunc("/api/v1/couriers/me/earnings", middleware.BaseChain(middleware.AuthMiddleware(payoutHandler.GetCourierEarnings)))
+
+	// Payment Routes
+	mux.HandleFunc("/api/v1/payments/create", middleware.BaseChain(middleware.AuthMiddleware(paymentHandler.CreatePayment)))
+	mux.HandleFunc("/api/v1/payments/", middleware.BaseChain(middleware.AuthMiddleware(paymentHandler.GetPaymentStatus))) // for GET /payments/:id
+	
+	// Webhook Route (no auth, verify signature inside)
+	mux.HandleFunc("/api/v1/payments/webhook", middleware.BaseChain(paymentHandler.HandleWebhook))
+
 	// Admin Routes (Protected by Auth and Admin Role)
+	mux.HandleFunc("/api/v1/admin/payouts/trigger", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			payoutHandler.TriggerBatchPayout(w, r)
+		}
+	})))
+	mux.HandleFunc("/api/v1/admin/refunds/process", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			refundHandler.ProcessRefunds(w, r)
+		}
+	})))
+	mux.HandleFunc("/api/v1/admin/notifications/templates", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			notificationHandler.ManageTemplates(w, r)
+		}
+	})))
+	mux.HandleFunc("/api/v1/admin/sla/dashboard", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			slaHandler.GetDashboard(w, r)
+		}
+	})))
 	mux.HandleFunc("/api/v1/admin/meeting-points", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			adminHandler.CreateMeetingPoint(w, r)

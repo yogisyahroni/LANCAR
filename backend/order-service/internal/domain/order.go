@@ -8,15 +8,16 @@ import (
 type OrderStatus string
 
 const (
-	StatusPendingPayment OrderStatus = "pending_payment"
-	StatusPending         OrderStatus = "pending"
-	StatusSearching       OrderStatus = "searching"
-	StatusAccepted        OrderStatus = "accepted"
-	StatusPickingUp       OrderStatus = "picking_up"
-	StatusPickedUp        OrderStatus = "picked_up"
-	StatusDelivering      OrderStatus = "delivering"
-	StatusDelivered       OrderStatus = "delivered"
-	StatusCancelled       OrderStatus = "cancelled"
+	StatusPendingPayment    OrderStatus = "pending_payment"
+	StatusPending           OrderStatus = "pending"
+	StatusPendingAssignment OrderStatus = "pending_assignment"
+	StatusSearching         OrderStatus = "searching"
+	StatusAccepted          OrderStatus = "accepted"
+	StatusPickingUp         OrderStatus = "picking_up"
+	StatusPickedUp          OrderStatus = "picked_up"
+	StatusDelivering        OrderStatus = "delivering"
+	StatusDelivered         OrderStatus = "delivered"
+	StatusCancelled         OrderStatus = "cancelled"
 )
 
 type Order struct {
