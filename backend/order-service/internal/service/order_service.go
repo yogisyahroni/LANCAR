@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"lancar/order-service/internal/domain"
-	"lancar/order-service/internal/repository" // if needed for shared types
 	"lancar/order-service/pkg/utils"
 	"time"
 

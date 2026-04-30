@@ -3,7 +3,6 @@ package utils
 import (
 	"errors"
 	"os"
-	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
