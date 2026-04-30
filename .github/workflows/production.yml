@@ -12,6 +12,7 @@ jobs:
   build-and-test:
     name: Build & Test All
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:15
@@ -20,6 +21,9 @@ jobs:
           POSTGRES_PASSWORD: 1234
           POSTGRES_DB: lancar
         ports: [5432:5432]
+      redis:
+        image: redis:6-alpine
+        ports: [6379:6379]
     steps:
       - uses: actions/checkout@v4
       
@@ -30,22 +34,26 @@ jobs:
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       - run: cd frontend && npm ci && npm run build
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
       
       # Admin Service
-      - run: cd backend/admin-service && npm ci && npm test
+      - run: cd backend/admin-service && npm ci && npm test -- --testTimeout=60000
         env:
           DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          REDIS_URL: "redis://localhost:6379"
           
       # Go Services
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.3'
       - run: |
-          cd backend/auth-service && go mod tidy && go test ./...
-          cd ../routing-service && go mod tidy && go test ./...
+          cd backend/auth-service && go mod tidy && go test -v -timeout 5m ./...
+          cd ../routing-service && go mod tidy && go test -v -timeout 5m ./...
         env:
           DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
           DB_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          REDIS_URL: "redis://localhost:6379"
 
   security:
     name: Critical Security Audit

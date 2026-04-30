@@ -12,6 +12,7 @@ jobs:
   frontend:
     name: Frontend Build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -23,10 +24,13 @@ jobs:
         run: |
           npm ci
           npm run build
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
   admin-service:
     name: Admin Service Test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       postgres:
         image: postgres:15
@@ -35,6 +39,9 @@ jobs:
           POSTGRES_PASSWORD: 1234
           POSTGRES_DB: lancar
         ports: [5432:5432]
+      redis:
+        image: redis:6-alpine
+        ports: [6379:6379]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -45,13 +52,15 @@ jobs:
       - working-directory: ./backend/admin-service
         run: |
           npm ci
-          npm test
+          npm test -- --testTimeout=60000
         env:
           DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          REDIS_URL: "redis://localhost:6379"
 
   auth-service:
     name: Auth Service Test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       postgres:
         image: postgres:15
@@ -60,6 +69,9 @@ jobs:
           POSTGRES_PASSWORD: 1234
           POSTGRES_DB: lancar
         ports: [5432:5432]
+      redis:
+        image: redis:6-alpine
+        ports: [6379:6379]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -69,13 +81,15 @@ jobs:
       - working-directory: ./backend/auth-service
         run: |
           go mod tidy
-          go test -v ./...
+          go test -v -timeout 5m ./...
         env:
           DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          REDIS_URL: "redis://localhost:6379"
 
   routing-service:
     name: Routing Service Test
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       postgres:
         image: postgres:15
@@ -84,6 +98,9 @@ jobs:
           POSTGRES_PASSWORD: 1234
           POSTGRES_DB: lancar
         ports: [5432:5432]
+      redis:
+        image: redis:6-alpine
+        ports: [6379:6379]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -93,9 +110,10 @@ jobs:
       - working-directory: ./backend/routing-service
         run: |
           go mod tidy
-          go test -v ./...
+          go test -v -timeout 5m ./...
         env:
-          DB_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          REDIS_URL: "redis://localhost:6379"
 
   # ───────────────────────────────────────────────
   # SECURITY & DEPLOY
@@ -104,6 +122,7 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [frontend, admin-service, auth-service, routing-service]
     steps:
       - uses: actions/checkout@v4
@@ -120,6 +139,7 @@ jobs:
   deploy:
     name: Deploy to Staging
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [security]
     environment: staging
     steps:

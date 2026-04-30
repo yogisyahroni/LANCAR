@@ -2,6 +2,9 @@ import express from 'express';
 import request from 'supertest';
 import { routes } from './routes';
 import * as controllers from './controllers';
+import { db } from './db';
+import { redis } from './redis';
+import { closeWebSocket } from './websocket';
 
 const app = express();
 app.use(express.json());
@@ -16,6 +19,35 @@ jest.mock('./controllers', () => ({
   getFlagLogs: jest.fn((req, res) => res.status(200).json([])),
   getThreeLegsReadiness: jest.fn((req, res) => res.status(200).json({ readiness: true })),
   createFlag: jest.fn((req, res) => res.status(201).json({ key: 'new-flag' })),
+  getAllLogs: jest.fn((req, res) => res.status(200).json([])),
+}));
+
+// Mock Redis to prevent open handles
+jest.mock('./redis', () => ({
+  redis: {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+    publish: jest.fn(),
+    multi: jest.fn(() => ({
+      incr: jest.fn().mockReturnThis(),
+      expire: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue([]),
+    })),
+    quit: jest.fn().mockResolvedValue('OK'),
+  },
+}));
+
+// Mock DB to prevent open handles
+jest.mock('./db', () => ({
+  db: {
+    query: jest.fn(),
+    connect: jest.fn(() => ({
+      query: jest.fn(),
+      release: jest.fn(),
+    })),
+    end: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 
 describe('Admin Service Routes', () => {
@@ -46,5 +78,12 @@ describe('Admin Service Routes', () => {
       .set('x-totp-verified', 'true');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ readiness: true });
+  });
+
+  afterAll(async () => {
+    // Close connections to prevent open handles
+    await db.end();
+    await redis.quit();
+    await closeWebSocket();
   });
 });

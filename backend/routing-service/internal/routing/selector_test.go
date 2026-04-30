@@ -27,6 +27,10 @@ func (m *mockFlagReader) InvalidateCache(ctx context.Context, key string) error 
 	return nil
 }
 
+func (m *mockFlagReader) Close() error {
+	return nil
+}
+
 func TestSelectModel(t *testing.T) {
 	// Setup flags
 	flags := map[string]*featureflags.FeatureFlag{

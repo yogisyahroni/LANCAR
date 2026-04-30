@@ -25,41 +25,64 @@ type FlagReader interface {
 	GetFlag(ctx context.Context, key string) (*FeatureFlag, error)
 	GetFlags(ctx context.Context, keys []string) (map[string]*FeatureFlag, error)
 	InvalidateCache(ctx context.Context, key string) error
+	Close() error
 }
 
 type flagReaderImpl struct {
 	db         *sql.DB
 	redis      *redis.Client
 	localCache sync.Map
+	cancel     context.CancelFunc
+	wg         sync.WaitGroup
 }
 
 const flagCacheTTL = 60 * time.Second
 
 // NewFlagReader creates a new instance of FlagReader
 func NewFlagReader(db *sql.DB, rdb *redis.Client) FlagReader {
+	ctx, cancel := context.WithCancel(context.Background())
 	reader := &flagReaderImpl{
-		db:    db,
-		redis: rdb,
+		db:     db,
+		redis:  rdb,
+		cancel: cancel,
 	}
 	if rdb != nil {
-		go reader.subscribeToInvalidations()
+		reader.wg.Add(1)
+		go reader.subscribeToInvalidations(ctx)
 	}
 	return reader
 }
 
-func (f *flagReaderImpl) subscribeToInvalidations() {
-	ctx := context.Background()
+func (f *flagReaderImpl) subscribeToInvalidations(ctx context.Context) {
+	defer f.wg.Done()
 	pubsub := f.redis.Subscribe(ctx, "flag:changed")
 	defer pubsub.Close()
 	
-	for msg := range pubsub.Channel() {
-		var payload struct {
-			Key string `json:"key"`
-		}
-		if err := json.Unmarshal([]byte(msg.Payload), &payload); err == nil {
-			f.localCache.Delete(payload.Key)
+	ch := pubsub.Channel()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
+			var payload struct {
+				Key string `json:"key"`
+			}
+			if err := json.Unmarshal([]byte(msg.Payload), &payload); err == nil {
+				f.localCache.Delete(payload.Key)
+			}
 		}
 	}
+}
+
+func (f *flagReaderImpl) Close() error {
+	if f.cancel != nil {
+		f.cancel()
+	}
+	f.wg.Wait()
+	return nil
 }
 
 // GetFlag retrieves a single flag from Redis or DB

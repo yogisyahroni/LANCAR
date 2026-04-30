@@ -28,3 +28,13 @@ export const getIO = () => {
   }
   return io;
 };
+
+export const closeWebSocket = async () => {
+  if (io) {
+    await new Promise<void>((resolve) => {
+      io.close(() => resolve());
+    });
+    io = undefined as any;
+    console.log('[WebSocket] Server closed');
+  }
+};
