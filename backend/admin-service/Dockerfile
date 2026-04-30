@@ -1,32 +1,55 @@
-# Multi-stage build for Node.js Admin Service
+# ============================================================
+# Admin Service — Multi-Stage Dockerfile (Hardened)
+# Node.js / TypeScript
+# ============================================================
+
+# Stage 1: Builder
 FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy dependency files first (cache layer)
 COPY package*.json ./
-RUN npm ci
 
-# Copy the rest of the code
+# Install ALL deps (including devDeps for build)
+RUN npm ci --ignore-scripts
+
+# Copy source
 COPY . .
 
-# Build TypeScript
+# Build TypeScript → dist/
 RUN npm run build
 
-# Final stage
-FROM node:20-alpine
+# Stage 2: Production
+FROM node:20-alpine AS production
+
+# Security: create non-root user
+RUN addgroup -S appgroup && \
+    adduser -S appuser -G appgroup && \
+    mkdir -p /app && chown appuser:appgroup /app
 
 WORKDIR /app
 
-# Copy package files
+# Copy only package files for production install
 COPY package*.json ./
-RUN npm ci --omit=dev
 
-# Copy the built files from the builder stage
+# Install production dependencies only
+RUN npm ci --omit=dev --ignore-scripts && \
+    npm cache clean --force
+
+# Copy built dist from builder
 COPY --from=builder /app/dist ./dist
 
-# Expose port (adjust if needed)
+# Set ownership
+RUN chown -R appuser:appgroup /app
+
+# Run as non-root
+USER appuser
+
 EXPOSE 3000
 
-# Command to run
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=3 \
+    CMD wget -qO- http://localhost:3000/health || exit 1
+
 CMD ["node", "dist/index.js"]
