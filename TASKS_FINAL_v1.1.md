@@ -166,13 +166,13 @@ Subtask:
 **Estimasi:** 2 hari
 
 Subtask:
-- [ ] Setup Redis Pub/Sub untuk real-time events
+- [x] Setup Redis Pub/Sub untuk real-time events (Redis EventBus implemented)
 - [ ] Setup RabbitMQ atau AWS SQS untuk async jobs:
   - Payout processing
   - Notification sending
   - Report generation
   - Score recalculation
-- [ ] Define event schema (JSON Schema) untuk semua event
+- [x] Define event schema (JSON Schema) untuk semua event (domain.OrderEvent defined)
 - [ ] Dead letter queue (DLQ) untuk failed jobs
 - [ ] Job retry dengan exponential backoff
 
@@ -183,12 +183,12 @@ Subtask:
 **Estimasi:** 2 hari
 
 Subtask:
-- [ ] Setup Socket.IO server (atau native WebSocket)
-- [ ] Room-based architecture: per order, per courier, per admin zone
-- [ ] JWT authentication untuk WebSocket handshake
-- [ ] Redis adapter untuk multi-instance WebSocket (horizontal scaling)
+- [x] Setup Socket.IO server (atau native WebSocket) (Gorilla WebSocket implemented)
+- [x] Room-based architecture: per order, per courier, per admin zone (Implemented in WSHandler)
+- [x] JWT authentication untuk WebSocket handshake (Integrated with AuthMiddleware)
+- [x] Redis adapter untuk multi-instance WebSocket (horizontal scaling) (Redis Pub/Sub integration)
 - [ ] Fallback ke HTTP polling (30s interval) jika WebSocket disconnect
-- [ ] Connection lifecycle management (reconnect, cleanup stale connections)
+- [x] Connection lifecycle management (reconnect, cleanup stale connections) (Implemented in read/write pumps)
 
 ---
 
@@ -286,7 +286,7 @@ Subtask:
 Subtask:
 - [x] Implementasi state machine (XState atau custom)
 - [x] PATCH /orders/:id/status — update status dengan validasi transisi
-- [ ] Event emit ke WebSocket setiap status change
+- [x] Event emit ke WebSocket setiap status change (via EventBus)
 - [x] Audit log setiap transisi (siapa, kapan, dari mana ke mana)
 - [x] Scheduler: auto-cancel order `pending_payment` setelah 15 menit
 - [ ] Scheduler: alert admin jika `pending_assignment` >10 menit
@@ -298,14 +298,14 @@ Subtask:
 **Estimasi:** 4 hari
 
 Subtask:
-- [ ] PostGIS query: cari kurir online di radius X km dari pickup
+- [x] PostGIS query: cari kurir online di radius X km dari pickup
 - [ ] Scoring kurir: `score = (relay_score × 0.5) + (proximity_score × 0.3) + (acceptance_rate × 0.2)`
 - [ ] Untuk relay: match 3 kurir sekaligus (atomic, hindari race condition)
 - [ ] Dispatch dengan timer 30 detik per kurir (jika tidak accept, skip ke berikutnya)
-- [ ] Cascade fallback: expand radius jika tidak ada kurir
+- [x] Cascade fallback: expand radius jika tidak ada kurir
 - [ ] Notify kurir via WebSocket + push notification
 - [ ] Cancel assignment jika semua kurir decline → notify customer
-- [ ] Mutex/lock untuk hindari double-assign kurir ke 2 order sekaligus
+- [x] Mutex/lock untuk hindari double-assign kurir ke 2 order sekaligus
 
 #### ORDER-004: Meeting Point Engine
 **Assignee:** Backend  
