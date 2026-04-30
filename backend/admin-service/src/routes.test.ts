@@ -15,6 +15,7 @@ jest.mock('./controllers', () => ({
   updateFlagConfig: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
   getFlagLogs: jest.fn((req, res) => res.status(200).json([])),
   getThreeLegsReadiness: jest.fn((req, res) => res.status(200).json({ readiness: true })),
+  createFlag: jest.fn((req, res) => res.status(201).json({ key: 'new-flag' })),
 }));
 
 describe('Admin Service Routes', () => {
