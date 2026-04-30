@@ -7,7 +7,7 @@ ALTER TABLE courier_profiles ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP WITH
 ALTER TABLE courier_profiles ADD COLUMN IF NOT EXISTS current_zone_id UUID;
 
 CREATE INDEX IF NOT EXISTS idx_courier_profiles_user_id ON courier_profiles(user_id);
-CREATE INDEX IF NOT EXISTS idx_courier_profiles_status ON courier_profiles(status);
+CREATE INDEX IF NOT EXISTS idx_courier_profiles_verification_status ON courier_profiles(verification_status);
 CREATE INDEX IF NOT EXISTS idx_courier_documents_courier_id ON courier_documents(courier_id);
 
 -- +goose Down

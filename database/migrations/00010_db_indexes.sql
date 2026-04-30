@@ -39,8 +39,8 @@ CREATE INDEX IF NOT EXISTS idx_order_legs_courier_completed
 -- -------------------------------------------------------
 -- Online couriers in zone (used by matching engine heavily)
 CREATE INDEX IF NOT EXISTS idx_courier_profile_online_zone
-    ON courier_profiles(is_online, status)
-    WHERE is_online = TRUE AND status = 'approved';
+    ON courier_profiles(is_online, verification_status)
+    WHERE is_online = TRUE AND verification_status = 'approved';
 
 -- -------------------------------------------------------
 -- Courier Locations: real-time tracking queries
