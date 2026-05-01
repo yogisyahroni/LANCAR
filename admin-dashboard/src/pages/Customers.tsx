@@ -5,52 +5,49 @@ import {
   Search, 
   Filter, 
   ShoppingBag, 
-  CreditCard, 
   Mail, 
   ChevronRight,
   TrendingUp,
-  Building2
+  Building2,
+  Loader2
 } from 'lucide-react'
 import { cn } from '../lib/utils'
-
-const customers = [
-  { 
-    id: 'CST-4001', 
-    name: 'Budi Santoso', 
-    type: 'Personal',
-    email: 'budi.s@gmail.com',
-    phone: '+62 812-3344-5566',
-    orders: 42,
-    wallet: 'Rp 250,000',
-    joinedAt: '12 Jan 2024',
-    status: 'Active'
-  },
-  { 
-    id: 'CST-4002', 
-    name: 'Warung Makan Bahari', 
-    type: 'UMKM',
-    email: 'info@bahari.id',
-    phone: '+62 811-2233-4455',
-    orders: 156,
-    wallet: 'Rp 1,200,000',
-    joinedAt: '5 Feb 2024',
-    status: 'Active'
-  },
-  { 
-    id: 'CST-4003', 
-    name: 'Siti Kholifah', 
-    type: 'Personal',
-    email: 'siti.k@yahoo.com',
-    phone: '+62 813-4455-6677',
-    orders: 8,
-    wallet: 'Rp 45,000',
-    joinedAt: '20 Mar 2024',
-    status: 'Inactive'
-  },
-]
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../lib/api'
+import { format } from 'date-fns'
 
 export default function Customers() {
   const [search, setSearch] = useState('')
+
+  const { data: stats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ['customer-stats'],
+    queryFn: async () => {
+      const res = await api.get('/admin/customers/stats');
+      return res.data;
+    }
+  });
+
+  const { data: customers, isLoading: isLoadingCustomers } = useQuery({
+    queryKey: ['customers', search],
+    queryFn: async () => {
+      const res = await api.get('/admin/customers', { params: { search } });
+      return res.data;
+    }
+  });
+
+  if (isLoadingStats || isLoadingCustomers) {
+    return (
+      <div className="h-[80vh] flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  const statCards = [
+    { label: 'Total Customers', value: stats?.totalCustomers?.toLocaleString() || '0', icon: Users, color: 'text-zinc-400' },
+    { label: 'UMKM Partners', value: stats?.umkmPartners?.toLocaleString() || '0', icon: Building2, color: 'text-primary-light' },
+    { label: 'Total Revenue', value: `Rp ${stats?.totalRevenue?.toLocaleString() || '0'}`, icon: TrendingUp, color: 'text-emerald-400' },
+  ];
 
   return (
     <div className="space-y-8 animate-in">
@@ -68,11 +65,7 @@ export default function Customers() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { label: 'Total Customers', value: '8,432', icon: Users, color: 'text-zinc-400' },
-          { label: 'UMKM Partners', value: '412', icon: Building2, color: 'text-primary-light' },
-          { label: 'Total Revenue', value: 'Rp 842.5M', icon: TrendingUp, color: 'text-emerald-400' },
-        ].map((stat, i) => (
+        {statCards.map((stat, i) => (
           <div key={i} className="glass-card p-8 rounded-[32px] border-white/5">
              <div className="flex items-center gap-4">
                 <div className={cn("p-4 rounded-2xl bg-white/5", stat.color)}>
@@ -106,11 +99,11 @@ export default function Customers() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {customers.map((customer, i) => (
+        {customers?.map((customer: any, i: number) => (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
+            transition={{ delay: i * 0.05 }}
             key={customer.id}
             className="glass-card p-8 rounded-[40px] border-white/5 hover:border-white/10 transition-all group"
           >
@@ -124,9 +117,9 @@ export default function Customers() {
                     <h3 className="text-xl font-bold text-zinc-100">{customer.name}</h3>
                     <span className={cn(
                       "px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest border",
-                      customer.type === 'UMKM' ? "border-primary-light/20 text-primary-light bg-primary-light/5" : "border-zinc-700 text-zinc-500 bg-white/5"
+                      customer.orders_count > 100 ? "border-primary-light/20 text-primary-light bg-primary-light/5" : "border-zinc-700 text-zinc-500 bg-white/5"
                     )}>
-                      {customer.type}
+                      {customer.orders_count > 100 ? 'UMKM' : 'Personal'}
                     </span>
                   </div>
                   <p className="text-sm text-zinc-500 mt-1">{customer.email}</p>
@@ -134,7 +127,7 @@ export default function Customers() {
               </div>
               <span className={cn(
                 "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                customer.status === 'Active' ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-600"
+                customer.status === 'active' ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-600"
               )}>
                 {customer.status}
               </span>
@@ -145,14 +138,14 @@ export default function Customers() {
                   <ShoppingBag size={18} className="text-zinc-600" />
                   <div>
                      <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Orders</p>
-                     <p className="text-sm font-black text-zinc-200">{customer.orders}</p>
+                     <p className="text-sm font-black text-zinc-200">{customer.orders_count}</p>
                   </div>
                </div>
                <div className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.01]">
-                  <CreditCard size={18} className="text-zinc-600" />
+                  <Users size={18} className="text-zinc-600" />
                   <div>
-                     <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Wallet</p>
-                     <p className="text-sm font-black text-zinc-200">{customer.wallet}</p>
+                     <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Joined</p>
+                     <p className="text-sm font-black text-zinc-200">{format(new Date(customer.joined_at), 'dd MMM yyyy')}</p>
                   </div>
                </div>
             </div>
@@ -163,6 +156,11 @@ export default function Customers() {
             </button>
           </motion.div>
         ))}
+        {(!customers || customers.length === 0) && (
+          <div className="col-span-full py-20 text-center text-zinc-500 font-bold italic uppercase tracking-widest">
+            No customers found matching your criteria
+          </div>
+        )}
       </div>
     </div>
   )

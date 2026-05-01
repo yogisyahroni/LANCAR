@@ -8,6 +8,10 @@ export const routes = Router();
 // Apply auth and role middleware to all admin routes
 routes.use('/admin', requireAuth, requireRole(['super_admin']));
 
+// Dashboard
+routes.get('/admin/dashboard/stats', controllers.getDashboardStats);
+routes.get('/admin/dashboard/events', controllers.getDashboardEvents);
+
 routes.get('/admin/feature-flags', controllers.getAllFlags);
 routes.post('/admin/feature-flags', controllers.createFlag);
 routes.get('/admin/feature-flags/readiness/three-legs', controllers.getThreeLegsReadiness);
@@ -41,4 +45,58 @@ routes.get('/admin/couriers/:id', controllers.getCourierById);
 routes.patch('/admin/couriers/:id/status', controllers.updateCourierStatus);
 routes.get('/admin/couriers/:id/history', controllers.getCourierHistory);
 routes.get('/admin/couriers/export', controllers.exportCouriers);
+
+
+// Disputes Management
+routes.get('/admin/disputes', controllers.getDisputes);
+routes.get('/admin/disputes/stats', controllers.getDisputeStats);
+routes.patch('/admin/disputes/:id/status', controllers.updateDisputeStatus);
+routes.post('/admin/disputes/:id/assign', controllers.assignDispute);
+
+// Finance Management
+routes.get('/admin/finance/summary', controllers.getFinancialSummary);
+routes.get('/admin/finance/revenue-breakdown', controllers.getRevenueBreakdown);
+routes.get('/admin/finance/cost-breakdown', controllers.getCostBreakdown);
+routes.get('/admin/finance/emergency-fund', controllers.getEmergencyFund);
+routes.get('/admin/finance/stats', controllers.getFinancialStats);
+routes.get('/admin/finance/payouts', controllers.getPayouts);
+routes.patch('/admin/finance/payouts/:id', controllers.updatePayoutStatus);
+
+// Customer Management
+routes.get('/admin/customers', controllers.getCustomers);
+routes.get('/admin/customers/stats', controllers.getCustomerStats);
+routes.patch('/admin/customers/:id/status', controllers.updateCustomerStatus);
+routes.post('/admin/customers/bulk-email', controllers.bulkEmailCustomers);
+
+// Notification Templates
+routes.get('/admin/notifications/templates', controllers.getNotificationTemplates);
+routes.put('/admin/notifications/templates/:id', controllers.updateNotificationTemplate);
+
+// Voucher Engine
+routes.get('/admin/vouchers', controllers.getVouchers);
+routes.post('/admin/vouchers', controllers.createVoucher);
+routes.patch('/admin/vouchers/:id', controllers.updateVoucher);
+routes.delete('/admin/vouchers/:id', controllers.deleteVoucher);
+routes.get('/admin/vouchers/stats', controllers.getVoucherStats);
+
+// Zone Management
+routes.get('/admin/zones', controllers.getZones);
+routes.post('/admin/zones', controllers.createZone);
+routes.patch('/admin/zones/:id', controllers.updateZone);
+routes.delete('/admin/zones/:id', controllers.deleteZone);
+
+// Analytics
+routes.get('/admin/analytics/kpis', controllers.getAnalyticsKPIs);
+routes.get('/admin/analytics/sla', controllers.getAnalyticsSLA);
+routes.get('/admin/analytics/surge', controllers.getAnalyticsSurge);
+routes.get('/admin/analytics/scan-accuracy', controllers.getAnalyticsScanAccuracy);
+routes.get('/admin/analytics/retention', controllers.getAnalyticsRetention);
+
+// Pricing Configuration
+routes.get('/admin/pricing', controllers.getPricingConfig);
+routes.put('/admin/pricing', controllers.updatePricingConfig);
+
+// SLA Thresholds
+routes.get('/admin/sla', controllers.getSLAConfigs);
+routes.put('/admin/sla', controllers.updateSLAConfig);
 

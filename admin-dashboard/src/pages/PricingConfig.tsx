@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Settings, 
   TrendingUp, 
@@ -9,7 +9,8 @@ import {
   Save, 
   Info,
   ChevronRight,
-  Plus
+  Plus,
+  Loader2
 } from 'lucide-react'
 import { 
   XAxis, 
@@ -21,21 +22,77 @@ import {
   Area
 } from 'recharts'
 import { cn } from '../lib/utils'
-
-const simulationData = [
-  { distance: 0, price: 15000 },
-  { distance: 2, price: 19000 },
-  { distance: 5, price: 25000 },
-  { distance: 8, price: 31000 },
-  { distance: 10, price: 35000 },
-  { distance: 15, price: 45000 },
-  { distance: 20, price: 55000 },
-]
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../lib/api'
+import { toast } from 'sonner'
 
 export default function PricingConfig() {
-  const [baseFare, setBaseFare] = useState(15000)
-  const [perKm, setPerKm] = useState(2000)
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('Standard')
+  const [formData, setFormData] = useState({
+    baseFare: 0,
+    perKm: 0
+  })
+
+  const { data: configs, isLoading } = useQuery({
+    queryKey: ['pricing'],
+    queryFn: async () => {
+      const res = await api.get('/admin/pricing');
+      return res.data;
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (updatedConfig: any) => {
+      const res = await api.put('/admin/pricing', updatedConfig);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pricing'] });
+      toast.success('Pricing configuration updated successfully');
+    },
+    onError: (err: any) => {
+      toast.error(`Update failed: ${err.message}`);
+    }
+  });
+
+  useEffect(() => {
+    if (configs) {
+      const current = configs.find((c: any) => c.service_type === activeTab.toLowerCase());
+      if (current) {
+        setFormData({
+          baseFare: parseFloat(current.base_fare),
+          perKm: parseFloat(current.per_km_rate)
+        });
+      }
+    }
+  }, [configs, activeTab]);
+
+  const handleSave = () => {
+    updateMutation.mutate({
+      service_type: activeTab.toLowerCase(),
+      base_fare: formData.baseFare,
+      per_km_rate: formData.perKm
+    });
+  };
+
+  const simulationData = [
+    { distance: 0, price: formData.baseFare },
+    { distance: 2, price: formData.baseFare },
+    { distance: 5, price: formData.baseFare + (3 * formData.perKm) },
+    { distance: 8, price: formData.baseFare + (6 * formData.perKm) },
+    { distance: 10, price: formData.baseFare + (8 * formData.perKm) },
+    { distance: 15, price: formData.baseFare + (13 * formData.perKm) },
+    { distance: 20, price: formData.baseFare + (18 * formData.perKm) },
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="h-[80vh] flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in">
@@ -48,8 +105,12 @@ export default function PricingConfig() {
           <button className="px-8 py-3 rounded-2xl bg-zinc-800 text-zinc-400 font-black text-sm uppercase tracking-widest hover:text-white transition-all">
             Discard
           </button>
-          <button className="px-8 py-3 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
-            <Save size={18} />
+          <button 
+            onClick={handleSave}
+            disabled={updateMutation.isPending}
+            className="px-8 py-3 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50"
+          >
+            {updateMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
             Save Changes
           </button>
         </div>
@@ -87,8 +148,8 @@ export default function PricingConfig() {
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">Rp</span>
                   <input 
                     type="number" 
-                    value={baseFare}
-                    onChange={(e) => setBaseFare(Number(e.target.value))}
+                    value={formData.baseFare}
+                    onChange={(e) => setFormData(prev => ({ ...prev, baseFare: Number(e.target.value) }))}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                   />
                 </div>
@@ -101,8 +162,8 @@ export default function PricingConfig() {
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">Rp</span>
                   <input 
                     type="number" 
-                    value={perKm}
-                    onChange={(e) => setPerKm(Number(e.target.value))}
+                    value={formData.perKm}
+                    onChange={(e) => setFormData(prev => ({ ...prev, perKm: Number(e.target.value) }))}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                   />
                 </div>
@@ -188,6 +249,7 @@ export default function PricingConfig() {
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '12px' }}
                     itemStyle={{ color: '#006437', fontWeight: 'bold' }}
+                    formatter={(value) => [`Rp ${Number(value).toLocaleString()}`, 'Price']}
                   />
                   <Area type="monotone" dataKey="price" stroke="#006437" strokeWidth={3} fillOpacity={1} fill="url(#colorPrice)" />
                 </AreaChart>
@@ -199,7 +261,7 @@ export default function PricingConfig() {
                   <Info size={16} />
                 </div>
                 <p className="text-xs text-zinc-400 leading-relaxed italic font-medium">
-                  At current settings, a <span className="text-primary-light font-bold">10km</span> delivery will cost <span className="text-zinc-100 font-bold">Rp 35,000</span> (Standard).
+                  At current settings, a <span className="text-primary-light font-bold">10km</span> delivery will cost <span className="text-zinc-100 font-bold">Rp {(formData.baseFare + 8 * formData.perKm).toLocaleString()}</span> ({activeTab}).
                 </p>
               </div>
             </div>

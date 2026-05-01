@@ -1,0 +1,1 @@
+{"new_enabled": false, "reason": "Testing toggle from agent to verify that the audit logging mechanism and feature flag persistence are working correctly in the end-to-end flow."}

@@ -12,7 +12,8 @@ import {
   Target,
   Plus,
   History as HistoryIcon,
-  Users
+  Users,
+  Loader2
 } from 'lucide-react'
 import { 
   XAxis, 
@@ -27,44 +28,51 @@ import {
 } from 'recharts'
 import { cn } from '../lib/utils'
 
-const slaComplianceByZone = [
-  { name: 'Mon', south: 95, central: 92, west: 88 },
-  { name: 'Tue', south: 96, central: 94, west: 90 },
-  { name: 'Wed', south: 94, central: 91, west: 87 },
-  { name: 'Thu', south: 97, central: 93, west: 89 },
-  { name: 'Fri', south: 95, central: 90, west: 85 },
-  { name: 'Sat', south: 98, central: 95, west: 92 },
-  { name: 'Sun', south: 96, central: 94, west: 91 },
-]
-
-const cohortData = [
-  { month: 'Jan', size: 1200, m1: 100, m2: 85, m3: 72, m4: 65, m5: 60 },
-  { month: 'Feb', size: 1450, m1: 100, m2: 82, m3: 68, m4: 58 },
-  { month: 'Mar', size: 1100, m1: 100, m2: 78, m3: 64 },
-  { month: 'Apr', size: 1600, m1: 100, m2: 84 },
-  { month: 'May', size: 1300, m1: 100 },
-]
-
-const surgeAnalytics = [
-  { time: '08:00', frequency: 12, impact: 450000 },
-  { time: '10:00', frequency: 8, impact: 280000 },
-  { time: '12:00', frequency: 15, impact: 620000 },
-  { time: '14:00', frequency: 6, impact: 150000 },
-  { time: '17:00', frequency: 22, impact: 980000 },
-  { time: '20:00', frequency: 10, impact: 320000 },
-]
-
-const volumetricAccuracy = [
-  { confidence: '0-20%', count: 5 },
-  { confidence: '20-40%', count: 12 },
-  { confidence: '40-60%', count: 45 },
-  { confidence: '60-80%', count: 180 },
-  { confidence: '80-90%', count: 420 },
-  { confidence: '90-100%', count: 310 },
-]
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../lib/api'
 
 export default function Analytics() {
   const [timeRange, setTimeRange] = useState('7D')
+
+  const { data: kpis, isLoading: kpisLoading } = useQuery({
+    queryKey: ['analytics', 'kpis', timeRange],
+    queryFn: () => api.get(`/admin/analytics/kpis?range=${timeRange}`).then(res => res.data)
+  })
+
+  const { data: slaData } = useQuery({
+    queryKey: ['analytics', 'sla'],
+    queryFn: () => api.get('/admin/analytics/sla').then(res => res.data)
+  })
+
+  const { data: surgeData } = useQuery({
+    queryKey: ['analytics', 'surge'],
+    queryFn: () => api.get('/admin/analytics/surge').then(res => res.data)
+  })
+
+  const { data: accuracyData } = useQuery({
+    queryKey: ['analytics', 'accuracy'],
+    queryFn: () => api.get('/admin/analytics/scan-accuracy').then(res => res.data)
+  })
+
+  const { data: retentionData } = useQuery({
+    queryKey: ['analytics', 'retention'],
+    queryFn: () => api.get('/admin/analytics/retention').then(res => res.data)
+  })
+
+  if (kpisLoading) {
+    return (
+      <div className="h-[80vh] flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  const kpiItems = kpis || [
+    { label: 'SLA Compliance', value: '92.4%', change: '+2.5%', up: true, icon: Target },
+    { label: 'Demand Gap', value: '4.2%', change: '-1.2%', up: true, icon: Zap },
+    { label: 'Active Couriers', value: '412', change: '-2.4%', up: false, icon: Users },
+    { label: 'Avg. Delivery', value: '24m', change: '-4m', up: true, icon: Clock },
+  ];
 
   return (
     <div className="space-y-10 animate-in pb-20">
@@ -96,31 +104,29 @@ export default function Analytics() {
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        {[
-          { label: 'SLA Compliance', value: '92.4%', change: '+2.5%', up: true, icon: Target },
-          { label: 'Demand Gap', value: '4.2%', change: '-1.2%', up: true, icon: Zap },
-          { label: 'Active Couriers', value: '412', change: '-2.4%', up: false, icon: Users },
-          { label: 'Avg. Delivery', value: '24m', change: '-4m', up: true, icon: Clock },
-        ].map((stat, i) => (
-          <div key={i} className="glass-card p-8 rounded-[40px] border-white/5 group hover:border-white/10 transition-all">
-             <div className="flex items-start justify-between">
-                <div className="p-3 rounded-2xl bg-white/5 text-zinc-500 group-hover:text-primary-light transition-colors">
-                   <stat.icon size={24} />
-                </div>
-                <div className={cn(
-                  "flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full",
-                  stat.up ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                )}>
-                   {stat.up ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
-                   {stat.change}
-                </div>
-             </div>
-             <div className="mt-6">
-                <p className="text-xs font-black text-zinc-600 uppercase tracking-widest">{stat.label}</p>
-                <p className="text-3xl font-black text-zinc-100 mt-1 tracking-tighter">{stat.value}</p>
-             </div>
-          </div>
-        ))}
+        {kpiItems.map((stat: any, i: number) => {
+          const Icon = i === 0 ? Target : i === 1 ? Zap : i === 2 ? Users : Clock;
+          return (
+            <div key={i} className="glass-card p-8 rounded-[40px] border-white/5 group hover:border-white/10 transition-all">
+               <div className="flex items-start justify-between">
+                  <div className="p-3 rounded-2xl bg-white/5 text-zinc-500 group-hover:text-primary-light transition-colors">
+                     <Icon size={24} />
+                  </div>
+                  <div className={cn(
+                    "flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full",
+                    stat.up ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                  )}>
+                     {stat.up ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                     {stat.change}
+                  </div>
+               </div>
+               <div className="mt-6">
+                  <p className="text-xs font-black text-zinc-600 uppercase tracking-widest">{stat.label}</p>
+                  <p className="text-3xl font-black text-zinc-100 mt-1 tracking-tighter">{stat.value}</p>
+               </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -144,7 +150,7 @@ export default function Analytics() {
            </div>
            <div className="h-[350px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                 <LineChart data={slaComplianceByZone}>
+                 <LineChart data={slaData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                     <XAxis 
                        dataKey="name" 
@@ -201,7 +207,7 @@ export default function Analytics() {
            </div>
            <div className="h-[350px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                 <BarChart data={surgeAnalytics}>
+                 <BarChart data={surgeData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                     <XAxis dataKey="time" stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis yAxisId="left" stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} />
@@ -225,7 +231,7 @@ export default function Analytics() {
            </div>
            <div className="h-[350px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                 <BarChart data={volumetricAccuracy}>
+                 <BarChart data={accuracyData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                     <XAxis dataKey="confidence" stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} />
                     <YAxis stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} />
@@ -255,10 +261,10 @@ export default function Analytics() {
                   </tr>
                </thead>
                <tbody className="divide-y divide-white/5">
-                  {cohortData.map((row, i) => (
+                  {(retentionData || []).map((row: any, i: number) => (
                     <tr key={i} className="group hover:bg-white/[0.01]">
                        <td className="py-6 font-bold text-zinc-300">{row.month}</td>
-                       <td className="py-6 font-black text-zinc-500 text-xs">{row.size.toLocaleString()}</td>
+                       <td className="py-6 font-black text-zinc-500 text-xs">{row.size?.toLocaleString()}</td>
                        {[row.m1, row.m2, row.m3, row.m4, row.m5].map((val, idx) => (
                          <td key={idx} className="py-4 px-1">
                             {val !== undefined ? (

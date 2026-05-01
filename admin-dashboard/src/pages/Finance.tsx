@@ -10,7 +10,8 @@ import {
   ShieldAlert,
   Download,
   CloudRain,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react'
 import { 
   XAxis, 
@@ -24,27 +25,62 @@ import {
   Bar
 } from 'recharts'
 import { cn } from '../lib/utils'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../lib/api'
+import { toast } from 'sonner'
+import { format } from 'date-fns'
 
-const revenueBreakdown = [
-  { name: 'P2P', value: 35, fill: '#006437' },
-  { name: '2-Kaki', value: 45, fill: '#10b981' },
-  { name: '3-Kaki', value: 20, fill: '#34d399' },
-]
-
-const costBreakdown = [
-  { name: 'Courier Payout', cost: 12000000 },
-  { name: 'Insurance', cost: 2500000 },
-  { name: 'Marketing', cost: 4000000 },
-  { name: 'Infrastructure', cost: 1500000 },
-]
-
-const pendingSettlements = [
-  { id: 'SET-901', courier: 'Aris Setiawan', amount: 'Rp 1,240,000', status: 'Pending', bank: 'BCA' },
-  { id: 'SET-902', courier: 'Dewi Lestari', amount: 'Rp 850,000', status: 'Processing', bank: 'Mandiri' },
-  { id: 'SET-903', courier: 'Budi Santoso', amount: 'Rp 2,100,000', status: 'Pending', bank: 'BNI' },
-]
+const COLORS = ['#006437', '#10b981', '#34d399', '#6ee7b7'];
 
 export default function Finance() {
+  const queryClient = useQueryClient();
+
+  const { data: financialData, isLoading: isLoadingStats } = useQuery({
+    queryKey: ['finance-stats'],
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/stats');
+      return res.data;
+    }
+  });
+
+  const { data: payouts, isLoading: isLoadingPayouts } = useQuery({
+    queryKey: ['finance-payouts'],
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/payouts');
+      return res.data;
+    }
+  });
+
+  const releaseMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.patch(`/admin/finance/payouts/${id}`, { 
+        status: 'completed',
+        reference: `RE-ADMIN-${Date.now()}`
+      });
+    },
+    onSuccess: () => {
+      toast.success('Payout released successfully');
+      queryClient.invalidateQueries({ queryKey: ['finance-payouts'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-stats'] });
+    },
+    onError: () => {
+      toast.error('Failed to release payout');
+    }
+  });
+
+  if (isLoadingStats || isLoadingPayouts) {
+    return (
+      <div className="h-[80vh] flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  const stats = financialData?.stats || [];
+  const revenueBreakdown = financialData?.revenueBreakdown || [];
+  const emergencyFund = financialData?.emergencyFund || 0;
+  const unitEconomics = financialData?.unitEconomics || [];
+
   return (
     <div className="space-y-10 animate-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -62,30 +98,42 @@ export default function Finance() {
 
       {/* Primary Financial Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {[
-          { label: 'Gross Revenue', value: 'Rp 842.5M', change: '+18%', up: true, icon: DollarSign, color: 'text-emerald-400' },
-          { label: 'Net Profit', value: 'Rp 214.2M', change: '+22%', up: true, icon: TrendingUp, color: 'text-primary-light' },
-          { label: 'Operational Cost', value: 'Rp 628.3M', change: '+5%', up: false, icon: TrendingDown, color: 'text-red-400' },
-        ].map((stat, i) => (
-          <div key={i} className="glass-card p-10 rounded-[48px] border-white/5 group hover:border-white/10 transition-all">
-             <div className="flex items-start justify-between">
-                <div className={cn("p-4 rounded-2xl bg-white/5", stat.color)}>
-                   <stat.icon size={28} />
-                </div>
-                <div className={cn(
-                  "flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full",
-                  stat.up ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                )}>
-                   {stat.up ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
-                   {stat.change}
-                </div>
-             </div>
-             <div className="mt-8">
-                <p className="text-xs font-black text-zinc-600 uppercase tracking-widest">{stat.label}</p>
-                <p className="text-4xl font-black text-zinc-100 mt-2 tracking-tighter">{stat.value}</p>
-             </div>
-          </div>
-        ))}
+        {stats.map((stat: any, i: number) => {
+          const icons: Record<string, any> = {
+            'Gross Revenue': DollarSign,
+            'Net Profit': TrendingUp,
+            'Operational Cost': TrendingDown
+          };
+          const colors: Record<string, string> = {
+            'Gross Revenue': 'text-emerald-400',
+            'Net Profit': 'text-primary-light',
+            'Operational Cost': 'text-red-400'
+          };
+          const Icon = icons[stat.label] || DollarSign;
+          
+          return (
+            <div key={i} className="glass-card p-10 rounded-[48px] border-white/5 group hover:border-white/10 transition-all">
+              <div className="flex items-start justify-between">
+                  <div className={cn("p-4 rounded-2xl bg-white/5", colors[stat.label])}>
+                    <Icon size={28} />
+                  </div>
+                  <div className={cn(
+                    "flex items-center gap-1 text-[10px] font-black px-2 py-1 rounded-full",
+                    stat.up ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                  )}>
+                    {stat.up ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                    {stat.change}
+                  </div>
+              </div>
+              <div className="mt-8">
+                  <p className="text-xs font-black text-zinc-600 uppercase tracking-widest">{stat.label}</p>
+                  <p className="text-4xl font-black text-zinc-100 mt-2 tracking-tighter">
+                    Rp {stat.value.toLocaleString()}
+                  </p>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -111,8 +159,8 @@ export default function Finance() {
                           paddingAngle={8}
                           dataKey="value"
                        >
-                          {revenueBreakdown.map((entry, index) => (
-                             <Cell key={`cell-${index}`} fill={entry.fill} stroke="none" />
+                          {revenueBreakdown.map((_: any, index: number) => (
+                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none" />
                           ))}
                        </Pie>
                        <Tooltip />
@@ -124,34 +172,34 @@ export default function Finance() {
                  </div>
               </div>
               <div className="flex-1 space-y-6 w-full">
-                 {revenueBreakdown.map((item, i) => (
+                 {revenueBreakdown.map((item: any, i: number) => (
                    <div key={i} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
                       <div className="flex items-center gap-3">
-                         <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.fill }} />
+                         <div className="h-3 w-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                          <span className="text-sm font-bold text-zinc-300">{item.name}</span>
                       </div>
-                      <span className="text-sm font-black text-zinc-100">{item.value}%</span>
+                      <span className="text-sm font-black text-zinc-100">{item.percentage}%</span>
                    </div>
                  ))}
               </div>
            </div>
         </div>
 
-        {/* Cost Breakdown Bar Chart */}
+        {/* Cost Breakdown Bar Chart - Using Payout Data */}
         <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-10">
            <div className="flex items-center justify-between">
               <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3">
                  <History className="text-red-400" size={24} />
                  Burn Analysis
               </h3>
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Monthly Cost Centers</p>
+              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Payout History</p>
            </div>
            <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                 <BarChart data={costBreakdown} layout="vertical" margin={{ left: 40 }}>
+                 <BarChart data={payouts?.slice(0, 5)} layout="vertical" margin={{ left: 40 }}>
                     <XAxis type="number" hide />
                     <YAxis 
-                       dataKey="name" 
+                       dataKey="courier_name" 
                        type="category" 
                        stroke="#52525b" 
                        fontSize={12} 
@@ -162,7 +210,7 @@ export default function Finance() {
                        cursor={{ fill: 'rgba(255,255,255,0.02)' }}
                        contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '16px' }}
                     />
-                    <Bar dataKey="cost" fill="#ef4444" radius={[0, 10, 10, 0]} barSize={32} />
+                    <Bar dataKey="net_idr" fill="#ef4444" radius={[0, 10, 10, 0]} barSize={32} />
                  </BarChart>
               </ResponsiveContainer>
            </div>
@@ -187,7 +235,7 @@ export default function Finance() {
             <div className="flex flex-col items-center md:items-end gap-6">
                <div className="text-center md:text-right">
                   <p className="text-[10px] font-black text-amber-500/60 uppercase tracking-[0.2em] mb-2">Available Balance</p>
-                  <p className="text-5xl font-black text-zinc-100 tracking-tighter">Rp 42.500.000</p>
+                  <p className="text-5xl font-black text-zinc-100 tracking-tighter">Rp {emergencyFund.toLocaleString()}</p>
                </div>
                <div className="flex gap-3">
                   <button className="px-6 py-3 rounded-2xl bg-amber-500 text-black font-black text-xs uppercase tracking-widest hover:bg-amber-400 transition-all">
@@ -217,40 +265,60 @@ export default function Finance() {
             <table className="w-full text-left">
                <thead>
                   <tr className="border-b border-white/5">
-                     {['Settlement ID', 'Courier Partner', 'Bank', 'Amount', 'Status', 'Actions'].map(h => (
+                     {['Payout ID', 'Courier Partner', 'Created', 'Amount', 'Status', 'Actions'].map(h => (
                        <th key={h} className="pb-6 text-[10px] font-black text-zinc-600 uppercase tracking-widest">{h}</th>
                      ))}
                   </tr>
                </thead>
                <tbody className="divide-y divide-white/5">
-                  {pendingSettlements.map((set) => (
+                  {payouts?.map((set: any) => (
                     <tr key={set.id} className="group hover:bg-white/[0.01] transition-all">
-                       <td className="py-8 font-mono text-xs text-zinc-500">{set.id}</td>
+                       <td className="py-8 font-mono text-[10px] text-zinc-500 uppercase">{set.id.split('-')[0]}...</td>
                        <td className="py-8">
                           <div className="flex items-center gap-3">
                              <div className="h-8 w-8 rounded-lg bg-zinc-900 border border-white/10 flex items-center justify-center font-bold text-xs text-zinc-400">
-                                {set.courier.charAt(0)}
+                                {set.courier_name.charAt(0)}
                              </div>
-                             <span className="font-bold text-zinc-200">{set.courier}</span>
+                             <div className="flex flex-col">
+                                <span className="font-bold text-zinc-200">{set.courier_name}</span>
+                                <span className="text-[10px] text-zinc-500">{set.courier_phone}</span>
+                             </div>
                           </div>
                        </td>
-                       <td className="py-8 text-sm font-bold text-zinc-500">{set.bank}</td>
-                       <td className="py-8 text-sm font-black text-zinc-100">{set.amount}</td>
+                       <td className="py-8 text-[10px] font-bold text-zinc-500">
+                          {format(new Date(set.created_at), 'dd MMM yyyy HH:mm')}
+                       </td>
+                       <td className="py-8 text-sm font-black text-zinc-100">
+                          Rp {parseInt(set.net_idr).toLocaleString()}
+                       </td>
                        <td className="py-8">
                           <span className={cn(
                             "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                            set.status === 'Pending' ? "bg-amber-500/10 text-amber-400" : "bg-emerald-500/10 text-emerald-400"
+                            set.disbursement_status === 'pending' ? "bg-amber-500/10 text-amber-400" : "bg-emerald-500/10 text-emerald-400"
                           )}>
-                             {set.status}
+                             {set.disbursement_status}
                           </span>
                        </td>
                        <td className="py-8">
-                          <button className="px-4 py-2 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:bg-primary-light transition-all shadow-lg shadow-primary/10">
-                             Release
-                          </button>
+                          {set.disbursement_status === 'pending' && (
+                            <button 
+                              onClick={() => releaseMutation.mutate(set.id)}
+                              disabled={releaseMutation.isPending}
+                              className="px-4 py-2 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:bg-primary-light transition-all shadow-lg shadow-primary/10 disabled:opacity-50"
+                            >
+                               {releaseMutation.isPending ? 'Processing...' : 'Release'}
+                            </button>
+                          )}
                        </td>
                     </tr>
                   ))}
+                  {(!payouts || payouts.length === 0) && (
+                    <tr>
+                      <td colSpan={6} className="py-20 text-center text-zinc-500 font-bold italic uppercase tracking-widest">
+                        No pending payouts found
+                      </td>
+                    </tr>
+                  )}
                </tbody>
             </table>
          </div>
@@ -261,15 +329,11 @@ export default function Finance() {
          <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
             <h3 className="text-xl font-black text-zinc-100 italic uppercase">Unit Economics</h3>
             <div className="space-y-6">
-               {[
-                 { label: 'CAC (Acquisition)', value: 'Rp 12.400', status: 'Healthy' },
-                 { label: 'LTV (Lifetime Value)', value: 'Rp 412.000', status: 'Healthy' },
-                 { label: 'Avg Margin (3-Leg)', value: 'Rp 8.500 / order', status: 'Warning' },
-               ].map((item, i) => (
+               {unitEconomics.map((item: any, i: number) => (
                  <div key={i} className="flex items-center justify-between p-6 rounded-3xl bg-white/[0.01] border border-white/5 group hover:border-white/10 transition-all">
                     <div>
                        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{item.label}</p>
-                       <p className="text-xl font-black text-zinc-100 mt-1">{item.value}</p>
+                       <p className="text-xl font-black text-zinc-100 mt-1">Rp {item.value.toLocaleString()}</p>
                     </div>
                     <span className={cn(
                       "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
@@ -286,7 +350,9 @@ export default function Finance() {
             <h3 className="text-xl font-black text-zinc-100 italic uppercase">Tax Compliance (PPN)</h3>
             <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex flex-col items-center justify-center text-center space-y-4">
                <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Total PPN to be Remitted (Current Masa)</p>
-               <p className="text-5xl font-black text-zinc-100 tracking-tighter">Rp 12.842.100</p>
+               <p className="text-5xl font-black text-zinc-100 tracking-tighter">
+                  Rp {(financialData?.stats?.find((s:any) => s.label === 'Gross Revenue')?.value * 0.11 || 0).toLocaleString()}
+               </p>
                <div className="flex gap-3 pt-4">
                   <button className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all">
                      Export Masa Report

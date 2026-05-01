@@ -27,10 +27,10 @@ const barData = [
   { name: '3-Kaki', value: 200 },
 ]
 
-export const RevenueChart = () => (
+export const RevenueChart = ({ data: externalData }: { data?: any[] }) => (
   <div className="h-[300px] w-full mt-4">
     <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data}>
+      <AreaChart data={externalData || data}>
         <defs>
           <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#22C55E" stopOpacity={0.3}/>
@@ -50,7 +50,7 @@ export const RevenueChart = () => (
           fontSize={12} 
           tickLine={false} 
           axisLine={false}
-          tickFormatter={(value) => `Rp${value}k`}
+          tickFormatter={(value) => `Rp${value >= 1000 ? (value/1000).toFixed(1) + 'm' : value + 'k'}`}
         />
         <Tooltip 
           contentStyle={{ 
@@ -74,10 +74,10 @@ export const RevenueChart = () => (
   </div>
 )
 
-export const OrderDistributionChart = () => (
+export const OrderDistributionChart = ({ data: externalData }: { data?: any[] }) => (
   <div className="h-[300px] w-full mt-4">
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={barData}>
+      <BarChart data={externalData || barData}>
         <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
         <XAxis 
           dataKey="name" 
@@ -102,7 +102,7 @@ export const OrderDistributionChart = () => (
           }}
         />
         <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-          {barData.map((_, index) => (
+          {(externalData || barData).map((_, index) => (
             <Cell key={`cell-${index}`} fill={index === 0 ? '#006437' : index === 1 ? '#22C55E' : '#10b981'} />
           ))}
         </Bar>

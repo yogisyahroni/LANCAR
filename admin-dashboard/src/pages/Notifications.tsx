@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { 
   Plus, 
@@ -7,42 +7,79 @@ import {
   Smartphone, 
   Save,
   RotateCcw,
-  Code
+  Code,
+  Loader2
 } from 'lucide-react'
 import { cn } from '../lib/utils'
-
-const initialTemplates = [
-  {
-    id: 'NTF-001',
-    trigger: 'ORDER_PLACED',
-    channels: ['PUSH', 'EMAIL'],
-    subject: 'Order #{order_id} Received!',
-    content: 'Hi {customer_name}, your order #{order_id} from {pickup} is being processed. ETA: {eta}.',
-    status: 'Active'
-  },
-  {
-    id: 'NTF-002',
-    trigger: 'COURIER_ASSIGNED',
-    channels: ['PUSH', 'SMS'],
-    subject: 'Courier is on the way!',
-    content: '{courier_name} is heading to {pickup} to collect your package. Tracking: {tracking_url}',
-    status: 'Active'
-  },
-  {
-    id: 'NTF-003',
-    trigger: 'LEG_1_COMPLETE',
-    channels: ['PUSH'],
-    subject: 'Package at Relay Point 1',
-    content: 'Great news! Your package has arrived at {relay_1_name}. Next courier is being assigned.',
-    status: 'Active'
-  }
-]
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../lib/api'
+import { toast } from 'sonner'
 
 export default function Notifications() {
-  const [templates] = useState(initialTemplates)
-  const [selectedId, setSelectedId] = useState(templates[0].id)
-  
-  const selectedTemplate = templates.find(t => t.id === selectedId)
+  const queryClient = useQueryClient()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [formData, setFormData] = useState({
+    subject: '',
+    content: '',
+    channels: [] as string[]
+  })
+
+  const { data: templates, isLoading } = useQuery({
+    queryKey: ['notification-templates'],
+    queryFn: async () => {
+      const res = await api.get('/admin/notifications/templates');
+      return res.data;
+    }
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: any) => {
+      await api.put(`/admin/notifications/templates/${selectedId}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notification-templates'] });
+      toast.success('Notification template updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to update template');
+    }
+  })
+
+  const selectedTemplate = templates?.find((t: any) => t.id === selectedId)
+
+  useEffect(() => {
+    if (selectedTemplate) {
+      setFormData({
+        subject: selectedTemplate.subject,
+        content: selectedTemplate.content,
+        channels: selectedTemplate.channels || []
+      })
+    } else if (templates?.length > 0 && !selectedId) {
+      setSelectedId(templates[0].id)
+    }
+  }, [selectedTemplate, templates])
+
+  if (isLoading) {
+    return (
+      <div className="h-[80vh] flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+      </div>
+    );
+  }
+
+  const handleSave = () => {
+    if (!selectedId) return;
+    updateMutation.mutate(formData);
+  }
+
+  const toggleChannel = (channelId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      channels: prev.channels.includes(channelId)
+        ? prev.channels.filter(c => c !== channelId)
+        : [...prev.channels, channelId]
+    }))
+  }
 
   return (
     <div className="space-y-8 animate-in">
@@ -62,7 +99,7 @@ export default function Notifications() {
         <div className="lg:col-span-4 space-y-3">
           <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-2">Trigger Events</p>
           <div className="space-y-2">
-            {templates.map((t) => (
+            {templates?.map((t: any) => (
               <motion.div 
                 key={t.id}
                 onClick={() => setSelectedId(t.id)}
@@ -74,13 +111,13 @@ export default function Notifications() {
                 )}
               >
                 <div>
-                   <p className="text-[10px] font-black uppercase tracking-widest mb-1">{t.id}</p>
+                   <p className="text-[10px] font-black uppercase tracking-widest mb-1">ID: {t.id}</p>
                    <h3 className="font-bold">{t.trigger}</h3>
                 </div>
                 <div className="flex gap-1.5">
-                   {t.channels.includes('PUSH') && <Smartphone size={14} className="opacity-40" />}
-                   {t.channels.includes('EMAIL') && <Mail size={14} className="opacity-40" />}
-                   {t.channels.includes('SMS') && <MessageSquare size={14} className="opacity-40" />}
+                   {t.channels?.includes('PUSH') && <Smartphone size={14} className="opacity-40" />}
+                   {t.channels?.includes('EMAIL') && <Mail size={14} className="opacity-40" />}
+                   {t.channels?.includes('SMS') && <MessageSquare size={14} className="opacity-40" />}
                 </div>
               </motion.div>
             ))}
@@ -89,7 +126,7 @@ export default function Notifications() {
 
         {/* Right: Template Editor */}
         <div className="lg:col-span-8 glass-card p-10 rounded-[48px] border-white/5 space-y-10">
-           {selectedTemplate && (
+           {selectedTemplate ? (
              <>
                <div className="flex items-center justify-between">
                   <div className="space-y-1">
@@ -97,11 +134,22 @@ export default function Notifications() {
                      <p className="text-xs text-zinc-500">Configure messaging for this event</p>
                   </div>
                   <div className="flex items-center gap-2">
-                     <button className="p-3 rounded-xl bg-white/5 text-zinc-500 hover:text-white transition-all">
+                     <button 
+                        onClick={() => setFormData({
+                          subject: selectedTemplate.subject,
+                          content: selectedTemplate.content,
+                          channels: selectedTemplate.channels || []
+                        })}
+                        className="p-3 rounded-xl bg-white/5 text-zinc-500 hover:text-white transition-all"
+                      >
                         <RotateCcw size={18} />
                      </button>
-                     <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-500 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-400 transition-all">
-                        <Save size={18} />
+                     <button 
+                        onClick={handleSave}
+                        disabled={updateMutation.isPending}
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-500 text-white font-black text-xs uppercase tracking-widest hover:bg-emerald-400 transition-all disabled:opacity-50"
+                      >
+                        {updateMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save size={18} />}
                         Save Changes
                      </button>
                   </div>
@@ -119,9 +167,10 @@ export default function Notifications() {
                         ].map(ch => (
                           <button 
                             key={ch.id}
+                            onClick={() => toggleChannel(ch.id)}
                             className={cn(
                               "flex-1 flex items-center justify-center gap-3 p-4 rounded-2xl border transition-all",
-                              selectedTemplate.channels.includes(ch.id)
+                              formData.channels.includes(ch.id)
                                 ? "bg-primary/5 border-primary/20 text-primary-light"
                                 : "bg-white/5 border-white/5 text-zinc-500 grayscale opacity-50"
                             )}
@@ -138,7 +187,8 @@ export default function Notifications() {
                      <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Message Subject</label>
                      <input 
                         type="text" 
-                        defaultValue={selectedTemplate.subject}
+                        value={formData.subject}
+                        onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                      />
                   </div>
@@ -154,12 +204,17 @@ export default function Notifications() {
                      </div>
                      <textarea 
                         rows={6}
-                        defaultValue={selectedTemplate.content}
+                        value={formData.content}
+                        onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-sm font-medium text-zinc-300 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none leading-relaxed"
                      />
                      <div className="flex flex-wrap gap-2 pt-2">
                         {['{order_id}', '{customer_name}', '{pickup}', '{courier_name}', '{eta}'].map(v => (
-                          <span key={v} className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-white/5 text-[10px] font-mono text-primary-light/60 hover:text-primary-light hover:border-primary/20 cursor-pointer transition-all">
+                          <span 
+                            key={v} 
+                            onClick={() => setFormData(prev => ({ ...prev, content: prev.content + v }))}
+                            className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-white/5 text-[10px] font-mono text-primary-light/60 hover:text-primary-light hover:border-primary/20 cursor-pointer transition-all"
+                          >
                              {v}
                           </span>
                         ))}
@@ -167,6 +222,10 @@ export default function Notifications() {
                   </div>
                </div>
              </>
+           ) : (
+             <div className="h-[400px] flex items-center justify-center text-zinc-600 font-black uppercase tracking-widest italic">
+                Select a trigger to edit template
+             </div>
            )}
         </div>
       </div>

@@ -7,12 +7,44 @@ import {
   ShieldAlert, 
   Zap, 
   Target,
-  Timer
+  Timer,
+  Loader2
 } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../lib/api'
+import { toast } from 'sonner'
 
 export default function SLAConfig() {
+  const queryClient = useQueryClient();
   const [activeModel, setActiveModel] = useState('3-Leg')
+
+  const { data: configs, isLoading } = useQuery({
+    queryKey: ['sla', activeModel],
+    queryFn: async () => {
+      const res = await api.get(`/admin/sla?model_type=${activeModel}`);
+      return res.data;
+    }
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (updatedStage: any) => {
+      const res = await api.put('/admin/sla', updatedStage);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sla', activeModel] });
+      toast.success('SLA threshold updated successfully');
+    }
+  });
+
+  if (isLoading) {
+    return (
+      <div className="h-[80vh] flex items-center justify-center">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in">
@@ -22,7 +54,10 @@ export default function SLAConfig() {
           <p className="text-zinc-500 mt-1">Configure service level agreements and automated alert triggers.</p>
         </div>
         <div className="flex items-center gap-3">
-           <button className="p-3 rounded-xl bg-white/5 text-zinc-500 hover:text-white transition-all">
+           <button 
+             onClick={() => queryClient.invalidateQueries({ queryKey: ['sla', activeModel] })}
+             className="p-3 rounded-xl bg-white/5 text-zinc-500 hover:text-white transition-all"
+           >
               <RotateCcw size={18} />
            </button>
            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all">
@@ -50,14 +85,9 @@ export default function SLAConfig() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left: SLA Stages */}
         <div className="lg:col-span-8 space-y-6">
-           {[
-             { stage: 'Pickup Window', target: '15m', critical: '25m', description: 'Time from assignment to courier pickup at origin.' },
-             { stage: 'Leg 1 (Origin to Relay)', target: '45m', critical: '60m', description: 'Maximum travel time for the first courier.' },
-             { stage: 'Relay Processing', target: '10m', critical: '20m', description: 'Time for package handoff and second courier assignment.' },
-             { stage: 'Final Leg Delivery', target: '30m', critical: '45m', description: 'Time from relay pickup to final customer delivery.' },
-           ].map((item, i) => (
+           {configs?.map((item: any, i: number) => (
              <motion.div 
-               key={i}
+               key={item.id}
                initial={{ opacity: 0, y: 10 }}
                animate={{ opacity: 1, y: 0 }}
                transition={{ delay: i * 0.1 }}
@@ -69,7 +99,7 @@ export default function SLAConfig() {
                         <div className="p-2 rounded-lg bg-white/5 text-primary-light">
                            <Timer size={20} />
                         </div>
-                        {item.stage}
+                        {item.stage_name}
                      </h3>
                      <p className="text-sm text-zinc-500 max-w-md">{item.description}</p>
                   </div>
@@ -77,14 +107,26 @@ export default function SLAConfig() {
                      <div className="space-y-2">
                         <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Target (Soft)</label>
                         <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
-                           <input type="text" defaultValue={item.target} className="bg-transparent w-12 text-sm font-bold text-zinc-100 focus:outline-none" />
+                           <input 
+                             type="number" 
+                             defaultValue={item.target_minutes} 
+                             onBlur={(e) => updateMutation.mutate({ id: item.id, target_minutes: Number(e.target.value), critical_minutes: item.critical_minutes })}
+                             className="bg-transparent w-12 text-sm font-bold text-zinc-100 focus:outline-none" 
+                           />
+                           <span className="text-[10px] text-zinc-600 font-bold uppercase">Min</span>
                            <Clock size={14} className="text-zinc-600" />
                         </div>
                      </div>
                      <div className="space-y-2">
                         <label className="text-[10px] font-black text-red-500/60 uppercase tracking-widest">Critical (Hard)</label>
                         <div className="flex items-center gap-3 bg-red-500/5 border border-red-500/10 rounded-xl px-4 py-3">
-                           <input type="text" defaultValue={item.critical} className="bg-transparent w-12 text-sm font-bold text-red-400 focus:outline-none" />
+                           <input 
+                             type="number" 
+                             defaultValue={item.critical_minutes} 
+                             onBlur={(e) => updateMutation.mutate({ id: item.id, critical_minutes: Number(e.target.value), target_minutes: item.target_minutes })}
+                             className="bg-transparent w-12 text-sm font-bold text-red-400 focus:outline-none" 
+                           />
+                           <span className="text-[10px] text-red-500/40 font-bold uppercase">Min</span>
                            <ShieldAlert size={14} className="text-red-500/40" />
                         </div>
                      </div>
@@ -92,6 +134,11 @@ export default function SLAConfig() {
                </div>
              </motion.div>
            ))}
+           {(!configs || configs.length === 0) && (
+             <div className="py-20 text-center text-zinc-500 font-bold italic uppercase tracking-widest italic">
+               No SLA configurations found for this model
+             </div>
+           )}
         </div>
 
         {/* Right: Automation Settings */}

@@ -1,4 +1,7 @@
 import { motion } from 'framer-motion'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../lib/api'
+import { Link } from 'react-router-dom'
 import { 
   TrendingUp, 
   Package, 
@@ -6,13 +9,17 @@ import {
   ArrowUpRight, 
   ArrowDownRight,
   Activity,
-  Clock
+  Clock,
+  RefreshCw,
+  AlertCircle,
+  ShieldCheck,
+  Zap
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { RevenueChart, OrderDistributionChart } from '../components/Charts'
 import LiveMap from '../components/LiveMap'
 
-const StatCard = ({ title, value, change, icon: Icon, trend }: any) => (
+const StatCard = ({ title, value, change, icon: Icon, trend, loading }: any) => (
   <motion.div 
     whileHover={{ y: -5 }}
     className="glass-card p-6 rounded-2xl relative overflow-hidden group"
@@ -24,20 +31,59 @@ const StatCard = ({ title, value, change, icon: Icon, trend }: any) => (
       <div className="p-2 rounded-lg bg-primary/10 text-primary-light">
         <Icon size={24} />
       </div>
-      <div className={cn(
-        "flex items-center text-xs font-medium px-2 py-1 rounded-full",
-        trend === 'up' ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-      )}>
-        {trend === 'up' ? <ArrowUpRight size={14} className="mr-1" /> : <ArrowDownRight size={14} className="mr-1" />}
-        {change}
-      </div>
+      {!loading && change !== undefined && (
+        <div className={cn(
+          "flex items-center text-xs font-medium px-2 py-1 rounded-full",
+          trend === 'up' ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+        )}>
+          {trend === 'up' ? <ArrowUpRight size={14} className="mr-1" /> : <ArrowDownRight size={14} className="mr-1" />}
+          {change}
+        </div>
+      )}
     </div>
     <p className="text-zinc-500 text-sm mb-1">{title}</p>
-    <h3 className="text-2xl font-bold text-zinc-100">{value}</h3>
+    {loading ? (
+      <div className="h-8 w-24 bg-white/5 animate-pulse rounded-lg" />
+    ) : (
+      <h3 className="text-2xl font-bold text-zinc-100">{value}</h3>
+    )}
   </motion.div>
 )
 
 export default function Dashboard() {
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: async () => {
+      const res = await api.get('/admin/dashboard/stats')
+      return res.data
+    },
+    refetchInterval: 30000 // Refetch every 30s
+  })
+
+  const { data: events, isLoading: eventsLoading } = useQuery({
+    queryKey: ['dashboard-events'],
+    queryFn: async () => {
+      const res = await api.get('/admin/dashboard/events')
+      return res.data
+    }
+  })
+
+  const { data: health, isLoading: healthLoading } = useQuery({
+    queryKey: ['system-health'],
+    queryFn: async () => {
+      const res = await api.get('/admin/health')
+      return res.data
+    }
+  })
+
+  const { data: revenueData } = useQuery({
+    queryKey: ['revenue-breakdown'],
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/revenue-breakdown')
+      return res.data
+    }
+  })
+
   return (
     <div className="space-y-8 animate-in max-w-[1600px] mx-auto">
       {/* Header Section */}
@@ -50,7 +96,13 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3 bg-white/5 p-1 rounded-xl border border-white/5">
-          <button className="px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg shadow-lg shadow-primary/20 transition-all">Real-time</button>
+          <button 
+            onClick={() => refetchStats()}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg shadow-lg shadow-primary/20 transition-all hover:brightness-110 active:scale-95"
+          >
+            <RefreshCw size={14} className={cn(statsLoading && "animate-spin")} />
+            Real-time
+          </button>
           <button className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-all">Historical</button>
         </div>
       </div>
@@ -59,31 +111,35 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
           title="Daily Orders" 
-          value="1,429" 
-          change="+12.5%" 
+          value={stats?.total_orders_today?.toLocaleString()} 
+          change={`${stats?.orders_growth > 0 ? '+' : ''}${stats?.orders_growth}%`}
+          trend={stats?.orders_growth >= 0 ? 'up' : 'down'}
           icon={Package} 
-          trend="up" 
+          loading={statsLoading}
         />
         <StatCard 
           title="Revenue" 
-          value="Rp 84.2M" 
-          change="+8.2%" 
+          value={`Rp ${(stats?.revenue_today / 1000000 || 0).toFixed(1)}M`} 
+          change={`${stats?.revenue_growth > 0 ? '+' : ''}${stats?.revenue_growth}%`}
+          trend={stats?.revenue_growth >= 0 ? 'up' : 'down'}
           icon={TrendingUp} 
-          trend="up" 
+          loading={statsLoading}
         />
         <StatCard 
           title="Active Couriers" 
-          value="124" 
-          change="+4.1%" 
+          value={stats?.active_couriers} 
+          change={`${stats?.courier_growth > 0 ? '+' : ''}${stats?.courier_growth}%`}
+          trend={stats?.courier_growth >= 0 ? 'up' : 'down'}
           icon={Truck} 
-          trend="up" 
+          loading={statsLoading}
         />
         <StatCard 
           title="SLA Compliance" 
-          value="98.4%" 
-          change="-0.2%" 
+          value={`${stats?.sla_compliance}%`} 
+          change={`${stats?.sla_growth > 0 ? '+' : ''}${stats?.sla_growth}%`}
+          trend={stats?.sla_growth >= 0 ? 'up' : 'down'}
           icon={Clock} 
-          trend="down" 
+          loading={statsLoading}
         />
       </div>
 
@@ -107,29 +163,41 @@ export default function Dashboard() {
         <div className="lg:col-span-4 flex flex-col gap-6">
           <div className="glass-card p-6 rounded-3xl flex-1">
             <h3 className="font-bold text-zinc-100 flex items-center gap-2 mb-6">
-              <TrendingUp className="h-4 w-4 text-primary-light" />
-              Order Distribution
+              <Zap className="h-4 w-4 text-primary-light" />
+              Service Performance
             </h3>
-            <OrderDistributionChart />
+            <OrderDistributionChart data={revenueData?.map((d: any) => ({ name: d.service_type, value: d.orders }))} />
           </div>
           
           <div className="glass-card p-6 rounded-3xl">
-            <h3 className="font-bold text-zinc-100 mb-6">System Health</h3>
+            <h3 className="font-bold text-zinc-100 mb-6 flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary-light" />
+              System Health
+            </h3>
             <div className="space-y-4">
-              {[
-                { label: 'API Gateway', status: 'Optimal', color: 'bg-emerald-500' },
-                { label: 'WebSocket Hub', status: 'Connected', color: 'bg-emerald-500' },
-                { label: 'Matching Engine', status: 'Healthy', color: 'bg-emerald-500' },
-                { label: 'Database Cluster', status: '94% Cap', color: 'bg-amber-500' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <span className="text-sm text-zinc-400">{item.label}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-zinc-200">{item.status}</span>
-                    <div className={cn("h-1.5 w-1.5 rounded-full", item.color)} />
+              {healthLoading ? (
+                Array(4).fill(0).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="h-4 w-24 bg-white/5 animate-pulse rounded" />
+                    <div className="h-4 w-12 bg-white/5 animate-pulse rounded" />
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                [
+                  { label: 'API Gateway', status: health?.api_gateway === 'UP' ? 'Optimal' : 'Issues', color: health?.api_gateway === 'UP' ? 'bg-emerald-500' : 'bg-red-500' },
+                  { label: 'Database', status: health?.database === 'UP' ? 'Healthy' : 'Latency', color: health?.database === 'UP' ? 'bg-emerald-500' : 'bg-amber-500' },
+                  { label: 'Redis Cache', status: health?.redis === 'UP' ? 'Connected' : 'Disconnected', color: health?.redis === 'UP' ? 'bg-emerald-500' : 'bg-red-500' },
+                  { label: 'Storage', status: '94% Cap', color: 'bg-amber-500' },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <span className="text-sm text-zinc-400">{item.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-zinc-200">{item.status}</span>
+                      <div className={cn("h-1.5 w-1.5 rounded-full", item.color)} />
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -141,45 +209,64 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h3 className="text-xl font-bold text-zinc-100">Revenue Velocity</h3>
-              <p className="text-sm text-zinc-500">Projected vs Actual revenue today</p>
+              <p className="text-sm text-zinc-500">Actual revenue breakdown by service</p>
             </div>
             <div className="flex items-center gap-2 text-primary-light text-sm font-bold bg-primary/10 px-3 py-1 rounded-lg">
               <TrendingUp size={16} />
               +14% vs Yesterday
             </div>
           </div>
-          <RevenueChart />
+          <RevenueChart data={revenueData?.map((d: any) => ({ name: d.service_type, value: d.revenue / 1000 }))} />
         </div>
 
-        <div className="lg:col-span-4 glass-card p-8 rounded-3xl">
-          <h3 className="text-xl font-bold text-zinc-100 mb-6">Recent Events</h3>
-          <div className="space-y-6">
-            {[
-              { type: 'order', msg: 'New large-haul order from UMKM-32', time: 'Just now' },
-              { type: 'courier', msg: 'Kurir Andi reached Meeting Point A', time: '4m ago' },
-              { type: 'alert', msg: 'SLA Warning: Route #LC-492 delayed', time: '12m ago' },
-              { type: 'system', msg: 'Daily financial report generated', time: '1h ago' },
-            ].map((item, i) => (
-              <div key={i} className="flex gap-4 relative group cursor-pointer">
-                <div className={cn(
-                  "h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors",
-                  item.type === 'alert' ? "bg-red-500/10 text-red-400" : "bg-white/5 text-zinc-400 group-hover:text-primary-light"
-                )}>
-                  {item.type === 'order' && <Package size={18} />}
-                  {item.type === 'courier' && <Truck size={18} />}
-                  {item.type === 'alert' && <Activity size={18} />}
-                  {item.type === 'system' && <TrendingUp size={18} />}
+        <div className="lg:col-span-4 glass-card p-8 rounded-3xl flex flex-col">
+          <h3 className="text-xl font-bold text-zinc-100 mb-6 flex items-center gap-2">
+            <Activity className="h-5 w-5 text-primary-light" />
+            Recent Events
+          </h3>
+          <div className="space-y-6 flex-1 overflow-y-auto max-h-[400px] pr-2 custom-scrollbar">
+            {eventsLoading ? (
+              Array(4).fill(0).map((_, i) => (
+                <div key={i} className="flex gap-4">
+                  <div className="h-10 w-10 bg-white/5 animate-pulse rounded-xl" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-full bg-white/5 animate-pulse rounded" />
+                    <div className="h-3 w-1/4 bg-white/5 animate-pulse rounded" />
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm text-zinc-200 group-hover:text-white transition-colors">{item.msg}</p>
-                  <p className="text-xs text-zinc-500 mt-1">{item.time}</p>
-                </div>
+              ))
+            ) : events?.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-zinc-500">
+                <AlertCircle size={40} className="mb-4 opacity-20" />
+                <p>No recent events</p>
               </div>
-            ))}
+            ) : (
+              events?.map((item: any, i: number) => (
+                <div key={i} className="flex gap-4 relative group cursor-pointer">
+                  <div className={cn(
+                    "h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors",
+                    item.event_type === 'ALERT' || item.event_type === 'SLA_BREACH' ? "bg-red-500/10 text-red-400" : "bg-white/5 text-zinc-400 group-hover:text-primary-light"
+                  )}>
+                    {item.event_type === 'ORDER_CREATED' && <Package size={18} />}
+                    {item.event_type === 'COURIER_ASSIGNED' && <Truck size={18} />}
+                    {(item.event_type === 'ALERT' || item.event_type === 'SLA_BREACH') && <Activity size={18} />}
+                    {item.event_type === 'CONFIG_CHANGE' && <RefreshCw size={18} />}
+                    {!['ORDER_CREATED', 'COURIER_ASSIGNED', 'ALERT', 'SLA_BREACH', 'CONFIG_CHANGE'].includes(item.event_type) && <TrendingUp size={18} />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-zinc-200 group-hover:text-white transition-colors">{item.message}</p>
+                    <p className="text-xs text-zinc-500 mt-1">{new Date(item.created_at).toLocaleTimeString()}</p>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
-          <button className="w-full mt-8 py-3 rounded-xl border border-white/5 text-sm font-medium text-zinc-400 hover:bg-white/5 hover:text-white transition-all">
+          <Link 
+            to="/audit-logs"
+            className="w-full mt-8 py-3 rounded-xl border border-white/5 text-sm font-medium text-center text-zinc-400 hover:bg-white/5 hover:text-white transition-all active:scale-[0.98]"
+          >
             View All Activity
-          </button>
+          </Link>
         </div>
       </div>
     </div>
