@@ -20,6 +20,15 @@ jest.mock('./controllers', () => ({
   getThreeLegsReadiness: jest.fn((req, res) => res.status(200).json({ readiness: true })),
   createFlag: jest.fn((req, res) => res.status(201).json({ key: 'new-flag' })),
   getAllLogs: jest.fn((req, res) => res.status(200).json([])),
+  // Settings & system config controllers
+  getSystemConfigs: jest.fn((req, res) => res.status(200).json([])),
+  updateSystemConfig: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
+  // Admin team management controllers
+  getAllAdmins: jest.fn((req, res) => res.status(200).json([])),
+  deleteAdmin: jest.fn((req, res) => res.status(200).json({ status: 'deleted' })),
+  inviteAdmin: jest.fn((req, res) => res.status(201).json({ id: 'new-admin-1' })),
+  // System health controller
+  getSystemHealth: jest.fn((req, res) => res.status(200).json([])),
 }));
 
 // Mock Redis to prevent open handles
