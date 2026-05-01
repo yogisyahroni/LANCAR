@@ -884,11 +884,11 @@ Subtask:
 - [x] React.js + TypeScript + Vite project setup
 - [x] State management: Zustand (Installed)
 - [x] UI library: Tailwind CSS V4 + custom premium theme (Lancar Emerald)
-- [ ] Map: react-google-maps atau deck.gl untuk heatmap
-- [ ] Charts: Recharts atau Chart.js
+- [x] Map: Leaflet integration for real-time tracking
+- [x] Charts: Recharts for analytics and distribution
 - [x] HTTP: Axios + React Query untuk data fetching + caching
-- [ ] WebSocket: socket.io-client untuk real-time updates
-- [ ] Auth: JWT stored in httpOnly cookie
+- [x] WebSocket: socket.io-client untuk real-time updates
+- [x] Auth: JWT stored in httpOnly cookie
 - [x] Route guard: redirect ke login jika unauthenticated (Basic impl)
 - [x] Responsive: prioritas desktop, tablet OK
 
@@ -899,13 +899,15 @@ Subtask:
 **Estimasi:** 4 hari
 
 Subtask:
-- [ ] Peta dengan marker semua kurir aktif (update 10 detik via WebSocket)
-- [ ] Heatmap volume order per zona (toggle)
-- [ ] Panel order aktif: tabel dengan filter + search + real-time update
-- [ ] Panel statistics: order/jam, kurir aktif, SLA compliance rate, avg ETA
-- [ ] Alert panel: semua alert SLA breach, GPS spoofing, server error
-- [ ] Order detail modal: klik order → full detail (timeline, peta trail, foto, dll)
-- [ ] Manual reassign kurir: dropdown pilih kurir pengganti
+- [x] Peta dengan marker semua kurir aktif (update 10 detik via WebSocket)
+- [x] Heatmap volume order per zona (toggle)
+- [x] Panel order aktif: tabel dengan filter + search + real-time update
+- [x] Panel statistics: order/jam, kurir aktif, SLA compliance rate, avg ETA
+- [x] Alert panel: semua alert SLA breach, GPS spoofing, server error
+- [x] Order detail modal: klik order -> full detail (timeline, peta trail, foto, dll)
+- [x] Manual reassign kurir: dropdown pilih kurir pengganti
+- [x] FF-WEB-001: Implement Feature Flag management page (Security-first UI)
+- [x] FF-WEB-002: Implement "3-Kaki Readiness" strategic checklist UI
 
 ---
 
@@ -914,12 +916,12 @@ Subtask:
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] Halaman order management: tabel + filter + export CSV
-- [ ] Halaman courier management: list + filter + profile detail
-- [ ] Courier profile halaman: dokumen viewer, statistik, riwayat, asuransi status
-- [ ] Verify/reject kurir (dengan form alasan reject)
-- [ ] Suspend/unsuspend kurir
-- [ ] Dispute management: list dispute + assign ke CS + update status + resolve
+- [x] Halaman order management: tabel + filter + export CSV
+- [x] Halaman courier management: list + filter + profile detail
+- [x] Courier profile halaman: dokumen viewer, statistik, riwayat, asuransi status
+- [x] Verify/reject kurir (dengan form alasan reject)
+- [x] Suspend/unsuspend kurir
+- [x] Dispute management: list dispute + assign ke CS + update status + resolve
 
 ---
 
@@ -928,13 +930,13 @@ Subtask:
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] Zone management: peta interaktif, gambar/edit polygon zona, manage meeting points
-- [ ] Pricing configuration form (dengan preview simulasi)
-- [ ] Dynamic pricing rules editor (peak hour, weather threshold, demand-supply)
-- [ ] SLA config (per model, per leg)
-- [ ] Voucher management: create/edit/monitor voucher
-- [ ] Feature flags UI: enable/disable fitur dengan 1 toggle
-- [ ] Notification templates editor
+- [x] Zone management: peta interaktif, gambar/edit polygon zona, manage meeting points
+- [x] Pricing configuration form (dengan preview simulasi)
+- [x] Dynamic pricing rules editor (peak hour, weather threshold, demand-supply)
+- [x] SLA config (per model, per leg)
+- [x] Voucher management: create/edit/monitor voucher
+- [x] Feature flags UI: enable/disable fitur dengan 1 toggle
+- [x] Notification templates editor
 
 ---
 
@@ -945,14 +947,14 @@ Subtask:
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] Revenue chart (daily/weekly/monthly dengan date picker)
-- [ ] Revenue breakdown: donut chart per model (P2P/2-Kaki/3-Kaki)
-- [ ] Cost breakdown: kurir, teknologi, marketing, asuransi
-- [ ] Laba bersih trend line chart
-- [ ] Settlement management: tabel payout pending + tombol trigger
-- [ ] PPN tracking: total per masa + tombol export untuk setor pajak
-- [ ] Dana cuaca darurat: saldo + usage history + top-up form
-- [ ] Unit economics table: CAC, LTV, margin per model
+- [x] Revenue chart (daily/weekly/monthly dengan date picker)
+- [x] Revenue breakdown: donut chart per model (P2P/2-Kaki/3-Kaki)
+- [x] Cost breakdown: kurir, teknologi, marketing, asuransi
+- [x] Laba bersih trend line chart
+- [x] Settlement management: tabel payout pending + tombol trigger
+- [x] PPN tracking: total per masa + tombol export untuk setor pajak
+- [x] Dana cuaca darurat: saldo + usage history + top-up form
+- [x] Unit economics table: CAC, LTV, margin per model
 
 ---
 
@@ -961,13 +963,14 @@ Subtask:
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] SLA compliance chart: line chart per zona per hari
-- [ ] Courier performance: scatter plot (relay score vs earnings)
-- [ ] Customer analytics: retention cohort table
-- [ ] Dynamic pricing analytics: surge frequency + revenue impact
-- [ ] Volumetric scan accuracy: confidence distribution histogram
-- [ ] Custom report builder: pilih metrik, dimensi, filter, preview + export
-- [ ] Scheduled report setup: pilih frekuensi + email penerima
+- [x] SLA compliance chart: line chart per zona per hari
+- [x] Courier performance: scatter plot (relay score vs earnings)
+- [x] Customer analytics: retention cohort table
+- [x] Dynamic pricing analytics: surge frequency + revenue impact
+- [x] Volumetric scan accuracy: confidence distribution histogram
+- [x] Custom report builder: pilih metrik, dimensi, filter, preview + export
+- [x] Scheduled report setup: pilih frekuensi + email penerima
+- [x] Build Fixing & Cleanup: resolve all TS errors and icon collisions
 
 ---
 

@@ -1,15 +1,34 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '../components/Button'
-import { Lock, Mail, ChevronRight, Package, Zap, Shield, CheckCircle } from 'lucide-react'
+import { Lock, Mail, ChevronRight, Package, Zap, Shield, CheckCircle, AlertCircle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../store/useAuthStore'
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+  const { login } = useAuthStore()
+  const navigate = useNavigate()
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setTimeout(() => setIsLoading(false), 2000)
+    setError('')
+
+    const formData = new FormData(e.target as HTMLFormElement)
+    const email = formData.get('email')
+    const password = formData.get('password')
+
+    try {
+      await login({ email, password })
+      navigate('/dashboard')
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Invalid credentials. Please try again.')
+    } finally {
+      setIsLoading(true) // Keep loading until navigate
+      setTimeout(() => setIsLoading(false), 2000)
+    }
   }
 
   return (
@@ -89,6 +108,17 @@ export default function Login() {
               <h3 className="text-2xl font-bold text-zinc-100 mb-2">Welcome Back</h3>
               <p className="text-zinc-400 text-sm">Enter your credentials to access the console</p>
             </div>
+
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-3 text-red-400 text-xs font-bold"
+              >
+                <AlertCircle size={16} />
+                {error}
+              </motion.div>
+            )}
 
             <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-2">
