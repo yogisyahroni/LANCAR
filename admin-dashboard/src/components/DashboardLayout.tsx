@@ -12,17 +12,18 @@ import {
   Bell,
   Menu,
   X,
-  Shield,
   DollarSign,
   AlertTriangle,
   Ticket,
-  Clock,
   Map,
-  LogOut
+  LogOut,
+  History
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation } from 'react-router-dom'
 import { useSocket } from '../hooks/useSocket'
+
+import { useAuthStore } from '../store/useAuthStore'
 
 interface SidebarItemProps {
   icon: React.ElementType
@@ -54,6 +55,7 @@ const SidebarItem = ({ icon: Icon, label, path, collapsed }: SidebarItemProps) =
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { user, logout } = useAuthStore()
   useSocket()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -63,16 +65,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: Map, label: "Zones", path: "/zones" },
     { icon: Ticket, label: "Vouchers", path: "/vouchers" },
     { icon: Bell, label: "Notifications", path: "/notifications" },
-    { icon: Clock, label: "SLA Config", path: "/sla-config" },
     { icon: Package, label: "Orders", path: "/orders" },
     { icon: Truck, label: "Couriers", path: "/couriers" },
     { icon: BarChart3, label: "3-Leg Readiness", path: "/three-legs-readiness" },
-    { icon: Shield, label: "Feature Flags", path: "/feature-flags" },
     { icon: DollarSign, label: "Pricing", path: "/pricing" },
     { icon: AlertTriangle, label: "Disputes", path: "/disputes" },
     { icon: Users, label: "Customers", path: "/customers" },
     { icon: DollarSign, label: "Finance", path: "/finance" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
+    { icon: History, label: "Audit Logs", path: "/audit-logs" },
   ]
 
   return (
@@ -194,22 +195,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="h-8 w-px bg-white/10 mx-2" />
             <div className="flex items-center gap-3 group p-1.5 hover:bg-white/5 rounded-xl transition-all">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-zinc-200 group-hover:text-primary-light transition-colors">Admin Lancar</p>
-                <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Super Admin</p>
+                <p className="text-sm font-bold text-zinc-200 group-hover:text-primary-light transition-colors">{user?.name || 'Admin Lancar'}</p>
+                <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">{user?.role === 'superadmin' ? 'Super Admin' : 'Admin'}</p>
               </div>
               <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 p-[1px] shadow-lg shadow-primary/10">
                 <div className="h-full w-full rounded-[11px] bg-zinc-900 flex items-center justify-center overflow-hidden">
-                   <img src="https://ui-avatars.com/api/?name=Admin+Lancar&background=006437&color=fff" alt="Avatar" className="w-full h-full object-cover" />
+                   <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Admin')}&background=006437&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
                 </div>
               </div>
             </div>
             <button 
               className="p-2.5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 rounded-xl transition-all"
-              onClick={() => {
-                // Logout logic here
-                document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-                window.location.href = "/login";
-              }}
+              onClick={() => logout()}
               title="Logout"
             >
               <LogOut size={20} />
@@ -223,5 +220,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </main>
     </div>
+
   )
 }

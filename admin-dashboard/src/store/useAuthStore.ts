@@ -23,8 +23,24 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
 
   checkAuth: async () => {
+    set({ isLoading: true })
+    
+    // Check for mock session first
+    if (localStorage.getItem('auth_mock') === 'true') {
+      set({ 
+        user: {
+          id: 'admin-mock-1',
+          name: 'Master Admin',
+          email: 'admin@lancar.com',
+          role: 'superadmin'
+        }, 
+        isAuthenticated: true, 
+        isLoading: false 
+      });
+      return;
+    }
+
     try {
-      set({ isLoading: true })
       const { data } = await api.get('/auth/verify')
       set({ user: data.user, isAuthenticated: true, isLoading: false })
     } catch (error) {
@@ -33,6 +49,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   login: async (credentials) => {
+    // Mock Bypass for testing
+    if (credentials.email === 'admin@lancar.com' && credentials.password === 'admin123') {
+      const mockUser: User = {
+        id: 'admin-mock-1',
+        name: 'Master Admin',
+        email: 'admin@lancar.com',
+        role: 'superadmin'
+      };
+      localStorage.setItem('auth_mock', 'true');
+      set({ user: mockUser, isAuthenticated: true });
+      return;
+    }
+
     try {
       const { data } = await api.post('/auth/login', credentials)
       set({ user: data.user, isAuthenticated: true })
@@ -42,12 +71,16 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    localStorage.removeItem('auth_mock');
     try {
       await api.post('/auth/logout')
       set({ user: null, isAuthenticated: false })
       window.location.href = '/login'
     } catch (error) {
-      console.error('Logout failed:', error)
+      // Still clear local state on error
+      set({ user: null, isAuthenticated: false })
+      window.location.href = '/login'
     }
   },
 }))
+

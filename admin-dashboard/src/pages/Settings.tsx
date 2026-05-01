@@ -1,0 +1,867 @@
+import { useState } from 'react'
+import { 
+  Settings as SettingsIcon, 
+  User, 
+  Shield, 
+  Users, 
+  Globe, 
+  Lock, 
+  Eye, 
+  EyeOff,
+  Save,
+  Trash2,
+  Plus,
+  History,
+  Smartphone,
+  Flag,
+  Umbrella,
+  Sliders,
+  Zap,
+  Cpu,
+  Activity,
+  DollarSign,
+  Timer,
+  Clock,
+  ShieldAlert,
+  Target,
+  Loader2,
+  Mail,
+  X
+} from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { cn } from '../lib/utils'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../lib/api'
+import { toast } from 'sonner'
+
+export default function Settings() {
+  const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState('General')
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [activeModel, setActiveModel] = useState('3-Leg')
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [inviteForm, setInviteForm] = useState({
+    email: '',
+    name: '',
+    role: 'admin',
+    phoneNumber: ''
+  })
+
+  const tabs = [
+    { id: 'General', icon: Globe },
+    { id: 'Feature Flags', icon: Flag },
+    { id: 'SLA Config', icon: Timer },
+    { id: 'Insurance', icon: Umbrella },
+    { id: 'Parameters', icon: Sliders },
+    { id: 'Security', icon: Shield },
+    { id: 'Team', icon: Users },
+  ]
+
+  // Fetch Feature Flags
+  const { data: flags = [], isLoading: isLoadingFlags } = useQuery({
+    queryKey: ['feature-flags'],
+    queryFn: async () => {
+      const res = await api.get('/admin/feature-flags')
+      return res.data
+    }
+  })
+
+  // Fetch System Configs
+  const { data: configs = [], isLoading: isLoadingConfigs } = useQuery({
+    queryKey: ['system-configs'],
+    queryFn: async () => {
+      const res = await api.get('/admin/settings')
+      return res.data
+    }
+  })
+
+  // Fetch Admin Team
+  const { data: admins = [], isLoading: isLoadingAdmins } = useQuery({
+    queryKey: ['admin-team'],
+    queryFn: async () => {
+      const res = await api.get('/admin/admins')
+      return res.data
+    }
+  })
+
+  // Fetch System Health
+  const { data: healthData = [], isLoading: isLoadingHealth } = useQuery({
+    queryKey: ['system-health'],
+    queryFn: async () => {
+      const res = await api.get('/admin/health')
+      return res.data
+    }
+  })
+
+  // Mutations
+  const updateFlagMutation = useMutation({
+    mutationFn: async ({ key, is_enabled, reason }: { key: string, is_enabled: boolean, reason: string }) => {
+      return api.patch(`/admin/feature-flags/${key}/toggle`, { new_enabled: is_enabled, reason })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feature-flags'] })
+      toast.success('Feature flag updated successfully')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to update flag')
+    }
+  })
+
+  const updateConfigMutation = useMutation({
+    mutationFn: async ({ key, value }: { key: string, value: any }) => {
+      return api.patch(`/admin/settings/${key}`, { value })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['system-configs'] })
+      toast.success('System configuration updated')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to update configuration')
+    }
+  })
+
+  const deleteAdminMutation = useMutation({
+    mutationFn: async (adminId: string) => {
+      return api.delete(`/admin/admins/${adminId}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-team'] })
+      toast.success('Admin removed from team')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to remove admin')
+    }
+  })
+
+  const inviteAdminMutation = useMutation({
+    mutationFn: async (data: typeof inviteForm) => {
+      return api.post('/admin/admins', {
+        email: data.email,
+        full_name: data.name,
+        role: data.role,
+        phone_number: data.phoneNumber
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-team'] })
+      setIsInviteModalOpen(false)
+      setInviteForm({ email: '', name: '', role: 'admin', phoneNumber: '' })
+      toast.success('Invitation sent to new admin')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to send invitation')
+    }
+  })
+
+  // Helper to get config value
+  const getConfig = (key: string, defaultValue: any) => {
+    const item = configs.find((c: any) => c.key === key)
+    if (!item) return defaultValue
+    
+    // Handle JSON string or raw value
+    if (typeof item.value === 'string') {
+      try {
+        return JSON.parse(item.value)
+      } catch (e) {
+        return item.value
+      }
+    }
+    return item.value
+  }
+
+  // SLA mapping (Dynamic from backend)
+  const slaData = getConfig('sla_config', {
+    'P2P': [
+      { stage: 'Pickup Window', target: '10m', critical: '15m' },
+      { stage: 'Direct Delivery', target: '30m', critical: '45m' }
+    ],
+    '2-Leg': [
+      { stage: 'Pickup Window', target: '12m', critical: '20m' },
+      { stage: 'Leg 1 (Origin to Relay)', target: '35m', critical: '50m' },
+      { stage: 'Final Delivery', target: '25m', critical: '40m' }
+    ],
+    '3-Leg': [
+      { stage: 'Pickup Window', target: '15m', critical: '25m' },
+      { stage: 'Leg 1 (Origin to Relay)', target: '45m', critical: '60m' },
+      { stage: 'Relay Processing', target: '10m', critical: '20m' },
+      { stage: 'Final Leg Delivery', target: '30m', critical: '45m' }
+    ]
+  })
+
+  if (isLoadingFlags || isLoadingConfigs || isLoadingAdmins || isLoadingHealth) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="w-12 h-12 text-primary animate-spin" />
+        <p className="text-zinc-500 font-black uppercase tracking-widest text-xs">Synchronizing Hub...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-8 animate-in">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">System Settings</h1>
+          <p className="text-zinc-500 mt-1">Manage platform configuration, feature flags, and dynamic parameters.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => {
+              queryClient.invalidateQueries()
+              toast.info('Syncing latest configuration...')
+            }}
+            className="px-8 py-3 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
+          >
+            <Save size={18} />
+            Sync Now
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Navigation Sidebar */}
+        <div className="lg:col-span-1 space-y-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "w-full flex items-center gap-4 px-6 py-4 rounded-2xl transition-all duration-200 group text-left",
+                activeTab === tab.id 
+                  ? "bg-primary text-white shadow-lg shadow-primary/10" 
+                  : "text-zinc-500 hover:bg-white/5 hover:text-zinc-300"
+              )}
+            >
+              <tab.icon size={20} className={cn(activeTab === tab.id ? "text-white" : "group-hover:text-primary-light")} />
+              <span className="font-bold text-sm uppercase tracking-widest">{tab.id}</span>
+            </button>
+          ))}
+          
+          <div className="pt-6 mt-6 border-t border-white/5">
+             <button className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-zinc-500 hover:bg-white/5 hover:text-zinc-300 transition-all group">
+                <History size={20} className="group-hover:text-amber-400" />
+                <span className="font-bold text-sm uppercase tracking-widest">Audit Logs</span>
+             </button>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="lg:col-span-3 space-y-8">
+          <AnimatePresence mode="wait">
+            {activeTab === 'General' && (
+              <motion.div 
+                key="general"
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -10 }}
+                className="glass-card p-10 rounded-[48px] border-white/5 space-y-10"
+              >
+                <div className="space-y-6">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <Globe className="text-primary-light" size={24} />
+                    Platform Information
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Platform Name</label>
+                      <input 
+                        type="text" 
+                        defaultValue={getConfig('platform_name', 'LANCAR Logistics Hub')}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'platform_name', value: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Support Email</label>
+                      <input 
+                        type="email" 
+                        defaultValue={getConfig('support_email', 'ops@lancar.com')}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'support_email', value: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-10 border-t border-white/5 space-y-6">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <Smartphone className="text-primary-light" size={24} />
+                    System Health
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    {healthData.map((app: any) => (
+                      <div key={app.label} className="p-6 rounded-[32px] bg-white/[0.02] border border-white/5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{app.label}</p>
+                          <span className={cn(
+                            "w-2 h-2 rounded-full",
+                            app.status === 'Stable' || app.status === 'Healthy' || app.status === 'Live' || app.status === 'Optimal' ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.4)]" : "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.4)]"
+                          )} />
+                        </div>
+                        <p className="text-lg font-black text-zinc-100">{app.version}</p>
+                        <div className="flex items-center justify-between pt-2">
+                           <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">{app.status}</p>
+                           <p className="text-[10px] text-primary-light font-black tracking-tight">{app.metrics}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'Feature Flags' && (
+              <motion.div 
+                key="flags"
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-6"
+              >
+                <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                      <Flag className="text-primary-light" size={24} />
+                      Feature Management
+                    </h3>
+                    <div className="flex gap-2">
+                       <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase tracking-widest border border-amber-500/20">Super Admin Only</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {flags.map((flag: any) => (
+                      <div key={flag.id} className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 hover:border-primary/20 transition-all group relative overflow-hidden">
+                        <div className="flex items-center justify-between mb-4">
+                           <div className="flex items-center gap-3">
+                              <div className={cn("p-2 rounded-xl", flag.is_enabled ? "bg-emerald-500/10 text-emerald-400" : "bg-zinc-800 text-zinc-500")}>
+                                {flag.is_enabled ? <Zap size={18} /> : <Lock size={18} />}
+                              </div>
+                              <p className="text-sm font-black text-zinc-200">{flag.name || flag.key}</p>
+                           </div>
+                           <button 
+                             onClick={() => updateFlagMutation.mutate({ 
+                               key: flag.key, 
+                               is_enabled: !flag.is_enabled,
+                               reason: 'Toggled from Admin Dashboard Settings'
+                             })}
+                             className={cn(
+                               "w-12 h-6 rounded-full relative transition-all duration-300",
+                               flag.is_enabled ? "bg-primary" : "bg-zinc-800"
+                             )}>
+                               <div className={cn(
+                                 "absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300",
+                                 flag.is_enabled ? "right-1" : "left-1"
+                               )} />
+                             </button>
+                        </div>
+                        <p className="text-xs text-zinc-600 font-medium leading-relaxed">{flag.description}</p>
+                        <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-full blur-2xl -translate-y-8 translate-x-8 opacity-0 group-hover:opacity-100 transition-all" />
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <button className="w-full py-4 rounded-2xl border border-dashed border-white/10 text-zinc-600 hover:text-zinc-400 hover:border-white/20 transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest">
+                    <Plus size={16} />
+                    Register New Feature Flag
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'SLA Config' && (
+              <motion.div 
+                key="sla"
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-8"
+              >
+                <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-10">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                      <Timer className="text-primary-light" size={24} />
+                      SLA Thresholds
+                    </h3>
+                    <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-fit">
+                      {['P2P', '2-Leg', '3-Leg'].map(model => (
+                        <button 
+                          key={model}
+                          onClick={() => setActiveModel(model)}
+                          className={cn(
+                            "px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                            activeModel === model ? "bg-primary text-white shadow-lg" : "text-zinc-600 hover:text-zinc-300"
+                          )}
+                        >
+                          {model}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    {slaData[activeModel as keyof typeof slaData]?.map((item: any, i: number) => (
+                      <div key={i} className="p-6 rounded-[32px] bg-white/[0.02] border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <p className="text-sm font-black text-zinc-200 uppercase tracking-widest">{item.stage}</p>
+                        <div className="flex items-center gap-4">
+                           <div className="space-y-1">
+                              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block">Target</label>
+                              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
+                                <input 
+                                  type="text" 
+                                  defaultValue={item.target} 
+                                  onBlur={(e) => {
+                                    const newSlaData = { ...slaData };
+                                    newSlaData[activeModel as keyof typeof slaData][i].target = e.target.value;
+                                    updateConfigMutation.mutate({ key: 'sla_config', value: newSlaData });
+                                  }}
+                                  className="bg-transparent w-10 text-xs font-bold text-zinc-100 focus:outline-none" 
+                                />
+                                <Clock size={12} className="text-zinc-600" />
+                              </div>
+                           </div>
+                           <div className="space-y-1">
+                              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block">Critical</label>
+                              <div className="flex items-center gap-2 bg-red-500/5 border border-red-500/10 rounded-xl px-4 py-2">
+                                <input 
+                                  type="text" 
+                                  defaultValue={item.critical} 
+                                  onBlur={(e) => {
+                                    const newSlaData = { ...slaData };
+                                    newSlaData[activeModel as keyof typeof slaData][i].critical = e.target.value;
+                                    updateConfigMutation.mutate({ key: 'sla_config', value: newSlaData });
+                                  }}
+                                  className="bg-transparent w-10 text-xs font-bold text-red-400 focus:outline-none" 
+                                />
+                                <ShieldAlert size={12} className="text-red-500/40" />
+                              </div>
+                           </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-6 border-t border-white/5 flex items-center gap-3">
+                     <Target size={18} className="text-amber-500" />
+                     <p className="text-[10px] text-zinc-500 italic font-medium">SLA targets are dynamically adjusted during peak hours and weather surges.</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'Insurance' && (
+              <motion.div 
+                key="insurance"
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -10 }}
+                className="glass-card p-10 rounded-[48px] border-white/5 space-y-10"
+              >
+                <div className="space-y-8">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <Umbrella className="text-primary-light" size={24} />
+                    Insurance Policy Settings
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-4">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Premium Rate (%)</label>
+                      <div className="relative">
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">%</span>
+                        <input 
+                          type="number" 
+                          step="0.01"
+                          defaultValue={getConfig('insurance_premium_rate', 0.1)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'insurance_premium_rate', value: Number(e.target.value) })}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        />
+                      </div>
+                      <p className="text-[10px] text-zinc-600 font-bold italic">Percentage of declared value per order.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Minimum Premium (IDR)</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">Rp</span>
+                        <input 
+                          type="number" 
+                          defaultValue={getConfig('insurance_min_premium', 2000)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'insurance_min_premium', value: Number(e.target.value) })}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        />
+                      </div>
+                      <p className="text-[10px] text-zinc-600 font-bold italic">Minimum fee if rate calculation is lower.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-4">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Maximum Coverage (IDR)</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">Rp</span>
+                        <input 
+                          type="number" 
+                          defaultValue={getConfig('insurance_max_coverage', 25000000)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'insurance_max_coverage', value: Number(e.target.value) })}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        />
+                      </div>
+                      <p className="text-[10px] text-zinc-600 font-bold italic">Maximum replacement value per order.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Insurance Provider</label>
+                      <select 
+                        defaultValue={getConfig('insurance_provider', 'Internal / Managed')}
+                        onChange={(e) => updateConfigMutation.mutate({ key: 'insurance_provider', value: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all appearance-none"
+                      >
+                        <option>Internal / Managed</option>
+                        <option>PasarPolis Integration</option>
+                        <option>AXA Mandiri (Relay)</option>
+                      </select>
+                      <p className="text-[10px] text-zinc-600 font-bold italic">Active partner for claim settlements.</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'Parameters' && (
+              <motion.div 
+                key="params"
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -10 }}
+                className="glass-card p-10 rounded-[48px] border-white/5 space-y-12"
+              >
+                {/* Logistics Params */}
+                <div className="space-y-8">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <Cpu className="text-primary-light" size={24} />
+                    Logistics & Core Engine
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-4">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+                        <Activity size={14} />
+                        Max Courier Weight (KG)
+                      </label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('max_weight_kg', 20)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'max_weight_kg', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-4">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+                        <Activity size={14} />
+                        Max Leg Distance (KM)
+                      </label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('max_distance_km', 15)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'max_distance_km', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Safety & Finance Params */}
+                <div className="pt-12 border-t border-white/5 space-y-8">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <DollarSign className="text-primary-light" size={24} />
+                    Safety & Financial Thresholds
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Speed Alert (km/h)</label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('speed_threshold_kmh', 60)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'speed_threshold_kmh', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Battery Alert (%)</label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('battery_alert_pct', 20)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'battery_alert_pct', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Platform Fee (%)</label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('admin_fee_pct', 5)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'admin_fee_pct', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'Security' && (
+              <motion.div 
+                key="security"
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -10 }}
+                className="glass-card p-10 rounded-[48px] border-white/5 space-y-10"
+              >
+                <div className="space-y-6">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <Lock className="text-primary-light" size={24} />
+                    API Keys & Access
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Public API Key</label>
+                    <div className="relative">
+                      <input 
+                        type={showApiKey ? "text" : "password"} 
+                        readOnly
+                        value={getConfig('security_public_api_key', 'pk_live_*************************')}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-mono text-sm focus:outline-none"
+                      />
+                      <button 
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
+                      >
+                        {showApiKey ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    {[
+                      { label: 'Force 2FA for Admins', key: 'security_force_2fa' },
+                      { label: 'Session Timeout (h)', key: 'security_session_timeout_h' },
+                      { label: 'IP Whitelisting', key: 'security_ip_whitelisting' },
+                    ].map((rule) => {
+                      const value = getConfig(rule.key, false);
+                      const isToggle = typeof value === 'boolean';
+                      
+                      return (
+                        <div key={rule.key} className="flex items-center justify-between p-6 rounded-3xl bg-white/[0.02] border border-white/5">
+                          <span className="text-sm font-black text-zinc-200">{rule.label}</span>
+                          {isToggle ? (
+                            <button 
+                              onClick={() => updateConfigMutation.mutate({ key: rule.key, value: !value })}
+                              className={cn(
+                                "w-12 h-6 rounded-full relative transition-all duration-300",
+                                value ? "bg-primary" : "bg-zinc-800"
+                              )}
+                            >
+                              <div className={cn(
+                                "absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300",
+                                value ? "right-1" : "left-1"
+                              )} />
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
+                                <input 
+                                  type="number" 
+                                  defaultValue={value} 
+                                  onBlur={(e) => updateConfigMutation.mutate({ key: rule.key, value: Number(e.target.value) })}
+                                  className="bg-transparent w-8 text-xs font-bold text-zinc-100 focus:outline-none" 
+                                />
+                                <Clock size={12} className="text-zinc-600" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'Team' && (
+              <motion.div 
+                key="team"
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -10 }}
+                className="glass-card p-10 rounded-[48px] border-white/5 space-y-8"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <Users className="text-primary-light" size={24} />
+                    Admin Team
+                  </h3>
+                  <button 
+                    onClick={() => setIsInviteModalOpen(true)}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary/10 text-primary-light border border-primary/20 font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all"
+                  >
+                    <Plus size={14} />
+                    Invite Admin
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {admins.length > 0 ? admins.map((member: any) => (
+                    <div key={member.id} className="flex items-center justify-between p-6 rounded-3xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all group">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-500/20 flex items-center justify-center text-primary-light font-black overflow-hidden text-sm">
+                          {member.photo_url ? (
+                            <img src={member.photo_url} alt={member.full_name} className="w-full h-full object-cover" />
+                          ) : (
+                            member.full_name?.substring(0, 2).toUpperCase() || 'AD'
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-zinc-200">{member.full_name}</p>
+                          <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest">{member.role.replace('_', ' ')}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                         <button 
+                           onClick={() => toast.info('Member permissions can be tuned in IAM section.')}
+                           className="p-2 text-zinc-500 hover:text-white transition-colors"
+                         >
+                            <SettingsIcon size={18} />
+                         </button>
+                         <button 
+                           onClick={() => {
+                             if (confirm(`Remove ${member.full_name} from Admin team?`)) {
+                               deleteAdminMutation.mutate(member.id)
+                             }
+                           }}
+                           className="p-2 text-zinc-500 hover:text-red-400 transition-colors"
+                         >
+                            <Trash2 size={18} />
+                         </button>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="p-12 text-center text-zinc-500 font-bold uppercase tracking-widest text-xs">
+                      No admins found
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Invite Admin Modal */}
+      <AnimatePresence>
+        {isInviteModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsInviteModalOpen(false)}
+              className="absolute inset-0 bg-zinc-950/80 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-lg bg-zinc-900 border border-white/10 rounded-[40px] shadow-2xl relative z-10 overflow-hidden"
+            >
+              <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                <h3 className="text-2xl font-black text-white tracking-tight flex items-center gap-3">
+                  <Users className="text-primary-light" size={24} />
+                  Invite New Admin
+                </h3>
+                <button 
+                  onClick={() => setIsInviteModalOpen(false)}
+                  className="p-2 hover:bg-white/5 rounded-xl transition-all text-zinc-500 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Full Name</label>
+                  <div className="relative">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+                    <input 
+                      type="text" 
+                      placeholder="e.g. John Doe"
+                      value={inviteForm.name}
+                      onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Email Address</label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+                    <input 
+                      type="email" 
+                      placeholder="john@lancar.id"
+                      value={inviteForm.email}
+                      onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Role</label>
+                    <select 
+                      value={inviteForm.role}
+                      onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all appearance-none"
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="super_admin">Super Admin</option>
+                      <option value="manager">Operations Manager</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Phone Number</label>
+                    <div className="relative">
+                      <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
+                      <input 
+                        type="tel" 
+                        placeholder="+62..."
+                        value={inviteForm.phoneNumber}
+                        onChange={(e) => setInviteForm({ ...inviteForm, phoneNumber: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 pt-4 bg-white/[0.02] border-t border-white/5 flex gap-4">
+                <button 
+                  onClick={() => setIsInviteModalOpen(false)}
+                  className="flex-1 py-4 rounded-2xl bg-white/5 text-zinc-400 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => inviteAdminMutation.mutate(inviteForm)}
+                  disabled={inviteAdminMutation.isPending || !inviteForm.email || !inviteForm.name}
+                  className="flex-1 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary-light shadow-lg shadow-primary/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {inviteAdminMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+                  Send Invitation
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}

@@ -18,3 +18,10 @@ routes.patch('/admin/feature-flags/:key/toggle', requireTotp, toggleRateLimiter,
 routes.patch('/admin/feature-flags/:key/config', requireTotp, controllers.updateFlagConfig);
 routes.get('/admin/feature-flags/:key/logs', controllers.getFlagLogs);
 routes.get('/admin/audit-logs', controllers.getAllLogs);
+routes.get('/admin/settings', controllers.getSystemConfigs);
+routes.patch('/admin/settings/:key', requireTotp, controllers.updateSystemConfig);
+routes.get('/admin/admins', controllers.getAllAdmins);
+routes.post('/admin/admins', controllers.inviteAdmin);
+routes.delete('/admin/admins/:id', controllers.deleteAdmin);
+routes.get('/admin/health', controllers.getSystemHealth);
+

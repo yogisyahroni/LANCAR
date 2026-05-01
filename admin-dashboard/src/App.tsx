@@ -3,7 +3,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Orders from './pages/Orders'
-import FeatureFlags from './pages/FeatureFlags'
 import ThreeLegReadiness from './pages/ThreeLegReadiness'
 import Couriers from './pages/Couriers'
 import PricingConfig from './pages/PricingConfig'
@@ -13,8 +12,9 @@ import Analytics from './pages/Analytics'
 import Zones from './pages/Zones'
 import Vouchers from './pages/Vouchers'
 import Notifications from './pages/Notifications'
-import SLAConfig from './pages/SLAConfig'
 import Finance from './pages/Finance'
+import Settings from './pages/Settings'
+import AuditLogs from './pages/AuditLogs'
 import DashboardLayout from './components/DashboardLayout'
 
 import { useEffect } from 'react'
@@ -63,14 +63,7 @@ function App() {
               </ProtectedRoute>
             } 
           />
-          <Route 
-            path="/feature-flags" 
-            element={
-              <ProtectedRoute>
-                <FeatureFlags />
-              </ProtectedRoute>
-            } 
-          />
+
           <Route 
             path="/three-legs-readiness" 
             element={
@@ -151,11 +144,20 @@ function App() {
               </ProtectedRoute>
             } 
           />
+
           <Route 
-            path="/sla-config" 
+            path="/audit-logs" 
             element={
               <ProtectedRoute>
-                <SLAConfig />
+                <AuditLogs />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/settings" 
+            element={
+              <ProtectedRoute>
+                <Settings />
               </ProtectedRoute>
             } 
           />
