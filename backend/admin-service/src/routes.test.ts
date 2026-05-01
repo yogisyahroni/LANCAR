@@ -69,6 +69,17 @@ jest.mock('./controllers', () => ({
   getRevenueBreakdown: jest.fn((req, res) => res.status(200).json([])),
   getCostBreakdown: jest.fn((req, res) => res.status(200).json([])),
   getEmergencyFund: jest.fn((req, res) => res.status(200).json({})),
+  createVoucher: jest.fn((req, res) => res.status(201).json({ id: 'new-voucher' })),
+  updateVoucher: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
+  deleteVoucher: jest.fn((req, res) => res.status(200).json({ status: 'deleted' })),
+  createZone: jest.fn((req, res) => res.status(201).json({ id: 'new-zone' })),
+  updateZone: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
+  deleteZone: jest.fn((req, res) => res.status(200).json({ status: 'deleted' })),
+  getAnalyticsKPIs: jest.fn((req, res) => res.status(200).json({})),
+  getAnalyticsSLA: jest.fn((req, res) => res.status(200).json({})),
+  getAnalyticsSurge: jest.fn((req, res) => res.status(200).json({})),
+  getAnalyticsScanAccuracy: jest.fn((req, res) => res.status(200).json({})),
+  getAnalyticsRetention: jest.fn((req, res) => res.status(200).json({})),
 }));
 
 // Mock Redis to prevent open handles
