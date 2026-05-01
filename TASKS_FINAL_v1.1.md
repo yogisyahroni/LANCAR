@@ -857,18 +857,18 @@ Subtask:
 **Estimasi:** 4 hari
 
 Subtask:
-- [ ] Analytics queries (gunakan read replica):
-  - Revenue per hari/minggu/bulan/zona/model
-  - SLA compliance rate per zona dan per kurir
-  - Courier utilization (jam aktif / total order per jam)
-  - Customer retention (% yang order lagi dalam 30 hari)
-  - Order funnel (berapa % dari estimate → order → payment → delivery)
-  - Dynamic pricing impact (revenue lift dari surge)
-  - Scan accuracy rate (confidence distribution)
-- [ ] Materialized views untuk query berat (refresh setiap jam)
-- [ ] Export endpoints: GET /admin/reports?type=X&from=&to= → CSV / PDF
-- [ ] PDF generation: Puppeteer atau WeasyPrint
-- [ ] Scheduled report email ke finance team (bulanan)
+- [x] Analytics queries (gunakan read replica):
+  - [x] Revenue per hari/minggu/bulan/zona/model
+  - [x] SLA compliance rate per zona dan per kurir
+  - [x] Courier utilization (jam aktif / total order per jam)
+  - [x] Customer retention (% yang order lagi dalam 30 hari)
+  - [x] Order funnel (berapa % dari estimate → order → payment → delivery)
+  - [x] Dynamic pricing impact (revenue lift dari surge)
+  - [x] Scan accuracy rate (confidence distribution)
+- [x] Materialized views untuk query berat (refresh setiap jam)
+- [x] Export endpoints: GET /admin/reports?type=X&from=&to= → CSV / PDF
+- [/] PDF generation: Puppeteer atau WeasyPrint (Stubbed)
+- [x] Scheduled report email ke finance team (bulanan)
 
 ---
 

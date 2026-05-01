@@ -11,6 +11,7 @@ import (
 
 	"lancar/order-service/internal/domain"
 	"lancar/order-service/internal/domain/queue"
+	"lancar/order-service/internal/service"
 )
 
 type TaskWorker struct {
@@ -20,9 +21,10 @@ type TaskWorker struct {
 	notifRepo       domain.NotificationRepository
 	insuranceSvc    domain.InsuranceService
 	relayScoreSvc   domain.RelayScoreService
+	analyticsSvc    service.AnalyticsService
 }
 
-func NewTaskWorker(q queue.Queue, or domain.OrderRepository, ns domain.NotificationService, nr domain.NotificationRepository, is domain.InsuranceService, rs domain.RelayScoreService) *TaskWorker {
+func NewTaskWorker(q queue.Queue, or domain.OrderRepository, ns domain.NotificationService, nr domain.NotificationRepository, is domain.InsuranceService, rs domain.RelayScoreService, as service.AnalyticsService) *TaskWorker {
 	return &TaskWorker{
 		queue:           q,
 		orderRepo:       or,
@@ -30,6 +32,7 @@ func NewTaskWorker(q queue.Queue, or domain.OrderRepository, ns domain.Notificat
 		notifRepo:       nr,
 		insuranceSvc:    is,
 		relayScoreSvc:   rs,
+		analyticsSvc:    as,
 	}
 }
 
@@ -42,6 +45,8 @@ func (w *TaskWorker) Start(ctx context.Context) error {
 
 	// Start daily schedulers
 	go w.runDailySchedulers(ctx)
+	// Start hourly schedulers
+	go w.runHourlySchedulers(ctx)
 
 	return w.queue.Consume(ctx, w.handleTask)
 }
@@ -67,6 +72,67 @@ func (w *TaskWorker) runDailySchedulers(ctx context.Context) {
 			// 2. Relay Score Calc (Mocking for all couriers)
 			// In reality, we'd query all active couriers and call CalculateScore
 			log.Println("[TaskWorker] Daily Relay Score calculation executed")
+
+			// 3. Monthly Financial Report (runs on 1st of every month)
+			now := time.Now()
+			if now.Day() == 1 {
+				log.Println("[TaskWorker] It's the 1st of the month! Generating monthly financial report...")
+				if w.analyticsSvc != nil {
+					// Yesterday was the last day of the previous month
+					lastMonth := now.AddDate(0, -1, 0)
+					start := time.Date(lastMonth.Year(), lastMonth.Month(), 1, 0, 0, 0, 0, time.UTC)
+					end := start.AddDate(0, 1, 0).Add(-time.Nanosecond)
+
+					csvData, err := w.analyticsSvc.GenerateCSVReport(ctx, start, end, "", "revenue")
+					if err != nil {
+						log.Printf("[TaskWorker] Error generating monthly report: %v", err)
+					} else {
+						// Send email to finance team
+						// In a real app, this email would be in config
+						financeEmail := "finance-reports@lancar.com"
+						
+						err = w.notificationSvc.Send(ctx, domain.NotificationRequest{
+							Title:   fmt.Sprintf("Monthly Financial Report - %s %d", lastMonth.Month().String(), lastMonth.Year()),
+							Message: fmt.Sprintf("Please find the attached financial report for %s %d. Total records: %d", 
+								lastMonth.Month().String(), lastMonth.Year(), len(csvData)),
+							Channel: domain.ChannelEmail,
+							Data: map[string]string{
+								"recipient": financeEmail,
+								"attachment_type": "csv",
+								// In a real implementation, we would attach the actual CSV data
+							},
+						})
+						if err != nil {
+							log.Printf("[TaskWorker] Error sending monthly report email: %v", err)
+						} else {
+							log.Printf("[TaskWorker] Monthly report email sent to %s", financeEmail)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func (w *TaskWorker) runHourlySchedulers(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			log.Println("[TaskWorker] Running hourly scheduled jobs...")
+			
+			// 1. Refresh Materialized Views
+			if w.analyticsSvc != nil {
+				if err := w.analyticsSvc.RefreshData(ctx); err != nil {
+					log.Printf("[TaskWorker] Error refreshing materialized views: %v", err)
+				} else {
+					log.Println("[TaskWorker] Materialized views refreshed successfully")
+				}
+			}
 		}
 	}
 }

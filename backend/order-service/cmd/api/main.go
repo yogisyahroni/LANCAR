@@ -70,6 +70,7 @@ func main() {
 	slaRepo := repository.NewPostgresSLARepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
 	insuranceRepo := repository.NewInsuranceRepository(sqlx.NewDb(db, "postgres"))
 	relayRepo := repository.NewRelayRepository(sqlx.NewDb(db, "postgres"), rdb)
+	analyticsRepo := repository.NewAnalyticsRepository(sqlx.NewDb(readDB, "postgres")) // Analytics uses read replica
 
 	// Payment Gateway Mock
 	midtransConfig := payment_gateway.MidtransConfig{
@@ -116,6 +117,7 @@ func main() {
 	slaSvc := service.NewSLAService(slaRepo, notificationSvc, payoutRepo)
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc)
 	relayScoreSvc := service.NewRelayScoreService(relayRepo)
+	analyticsSvc := service.NewAnalyticsService(analyticsRepo)
 	// matchingSvc := service.NewRelayMatchingService(relayRepo, pgRepo, redisRepo) // Can be used later
 
 	// Handlers
@@ -130,6 +132,7 @@ func main() {
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
 	insuranceHandler := handler.NewInsuranceHandler(insuranceSvc)
 	relayHandler := handler.NewRelayHandler(relayScoreSvc)
+	analyticsHandler := handler.NewAnalyticsHandler(analyticsSvc)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb)
@@ -142,7 +145,7 @@ func main() {
 	slaWorker.Start()
 
 	if tq != nil {
-		taskWorker := worker.NewTaskWorker(tq, pgRepo, notificationSvc, notifRepo, insuranceSvc, relayScoreSvc)
+		taskWorker := worker.NewTaskWorker(tq, pgRepo, notificationSvc, notifRepo, insuranceSvc, relayScoreSvc, analyticsSvc)
 		go func() {
 			if err := taskWorker.Start(context.Background()); err != nil {
 				log.Printf("Failed to start task worker: %v", err)
@@ -256,6 +259,11 @@ func main() {
 		}
 	})))
 	mux.HandleFunc("/api/v1/admin/pricing/simulate", middleware.BaseChain(middleware.AuthMiddleware(adminHandler.SimulatePrice)))
+	
+	// Analytics Routes
+	mux.HandleFunc("/api/v1/admin/analytics/dashboard", middleware.BaseChain(middleware.AuthMiddleware(analyticsHandler.GetDashboardMetrics)))
+	mux.HandleFunc("/api/v1/admin/analytics/reports", middleware.BaseChain(middleware.AuthMiddleware(analyticsHandler.GetReport)))
+	mux.HandleFunc("/api/v1/admin/analytics/refresh", middleware.BaseChain(middleware.AuthMiddleware(analyticsHandler.RefreshData)))
 
 	// Server
 	port := os.Getenv("ORDER_PORT")
