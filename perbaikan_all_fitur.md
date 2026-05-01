@@ -1,4 +1,4 @@
-﻿# Perbaikan All Fitur — Admin Dashboard E2E
+# Perbaikan All Fitur — Admin Dashboard E2E
 
 Status: In Progress | Dibuat: 2026-05-02
 
@@ -9,8 +9,8 @@ Status: In Progress | Dibuat: 2026-05-02
 | Halaman        | Live API?              | Aksi Berfungsi?                           | Prioritas |
 |----------------|------------------------|-------------------------------------------|-----------|
 | Dashboard      | TIDAK - 100% hardcoded | TIDAK                                     | P1 KRITIS |
-| Orders         | TIDAK - ActiveOrdersTable hardcoded | TIDAK - Export/Reassign/Flag mati | P1 KRITIS |
-| Couriers       | TIDAK - 100% hardcoded | TIDAK - Verify/Suspend/Paginate mati      | P1 KRITIS |
+| Orders         | SUDAH LIVE             | SUDAH E2E                                 | DONE      |
+| Couriers       | SUDAH LIVE             | SUDAH E2E                                 | DONE      |
 | Disputes       | TIDAK - 100% hardcoded | TIDAK - Resolve/Assign/Escalate mati      | P1 KRITIS |
 | Finance        | TIDAK - 100% hardcoded | TIDAK - Release/Export/TopUp mati         | P1 KRITIS |
 | Customers      | TIDAK - 100% hardcoded | TIDAK - BulkEmail/ViewProfile mati        | P1 KRITIS |
@@ -56,25 +56,25 @@ Tombol "Export CSV" dan "Create Manual Order" di Orders.tsx juga mati.
 DB TABLES: orders, order_legs, order_events, users, courier_profiles, package_scans
 
 BACKEND PERLU DIBUAT:
-[ ] GET /admin/orders?page=1&limit=20&status=&search=&type=
+[x] GET /admin/orders?page=1&limit=20&status=&search=&type=
     -> JOIN orders, users(customer), courier_profiles, order_legs
-[ ] GET /admin/orders/stats -> COUNT per status, total revenue
-[ ] GET /admin/orders/:id   -> detail + order_events timeline + package_scans
-[ ] POST /admin/orders/:id/reassign -> {courier_id} update order_legs
-[ ] POST /admin/orders/:id/flag    -> insert ke disputes
-[ ] POST /admin/orders (Create Manual Order)
-[ ] GET /admin/orders/export -> CSV stream dari DB
+[x] GET /admin/orders/stats -> COUNT per status, total revenue
+[x] GET /admin/orders/:id   -> detail + order_events timeline + package_scans
+[x] POST /admin/orders/:id/reassign -> {courier_id} update order_legs
+[x] POST /admin/orders/:id/flag    -> insert ke disputes
+[x] POST /admin/orders (Create Manual Order)
+[x] GET /admin/orders/export -> CSV stream dari DB
 
 FRONTEND:
-[ ] Replace const orders dengan useQuery('/admin/orders') + skeleton
-[ ] Search input -> debounce + ?search= backend (bukan filter array)
-[ ] Pagination real (total dari response, bukan hardcoded 124)
-[ ] Modal timeline -> dari order_events (GET /admin/orders/:id)
-[ ] Delivery Evidence -> dari package_scans (foto POD)
-[ ] Tombol "Manual Reassign" -> useMutation POST /admin/orders/:id/reassign
-[ ] Tombol "Flag Issue" -> useMutation POST /admin/orders/:id/flag
-[ ] Tombol "Export CSV" -> GET /admin/orders/export download file
-[ ] Tombol "Create Manual Order" -> modal form + POST /admin/orders
+[x] Replace const orders dengan useQuery('/admin/orders') + skeleton
+[x] Search input -> debounce + ?search= backend (bukan filter array)
+[x] Pagination real (total dari response, bukan hardcoded 124)
+[x] Modal timeline -> dari order_events (GET /admin/orders/:id)
+[x] Delivery Evidence -> dari package_scans (foto POD)
+[x] Tombol "Manual Reassign" -> useMutation POST /admin/orders/:id/reassign
+[x] Tombol "Flag Issue" -> useMutation POST /admin/orders/:id/flag
+[x] Tombol "Export CSV" -> GET /admin/orders/export download file
+[x] Tombol "Create Manual Order" -> modal form + POST /admin/orders
 
 ---
 
@@ -86,22 +86,22 @@ Pagination palsu. Tombol Verify/Suspend tidak melakukan apapun.
 DB TABLES: courier_profiles, users, courier_documents, courier_ratings, relay_score_history
 
 BACKEND PERLU DIBUAT:
-[ ] GET /admin/couriers?page=1&limit=20&status=&search=
+[x] GET /admin/couriers?page=1&limit=20&status=&search=
     -> JOIN courier_profiles, users, courier_ratings
-[ ] GET /admin/couriers/stats -> COUNT per status
-[ ] GET /admin/couriers/:id  -> detail + courier_documents + rating
-[ ] PATCH /admin/couriers/:id/status -> {status: active|suspended|pending}
-[ ] GET /admin/couriers/:id/history -> orders JOIN order_legs
-[ ] GET /admin/couriers/export -> CSV
+[x] GET /admin/couriers/stats -> COUNT per status
+[x] GET /admin/couriers/:id  -> detail + courier_documents + rating
+[x] PATCH /admin/couriers/:id/status -> {status: active|suspended|pending}
+[x] GET /admin/couriers/:id/history -> orders JOIN order_legs
+[x] GET /admin/couriers/export -> CSV
 
 FRONTEND:
-[ ] Replace array hardcoded dengan useQuery('/admin/couriers') + skeleton
-[ ] Stats cards -> useQuery('/admin/couriers/stats')
-[ ] Pagination real
-[ ] "Verify Courier" -> PATCH status active
-[ ] "Suspend Access" -> PATCH status suspended
-[ ] Modal detail -> GET /admin/couriers/:id
-[ ] "Export List" -> download CSV
+[x] Replace array hardcoded dengan useQuery('/admin/couriers') + skeleton
+[x] Stats cards -> useQuery('/admin/couriers/stats')
+[x] Pagination real
+[x] "Verify Courier" -> PATCH status active
+[x] "Suspend Access" -> PATCH status suspended
+[x] Modal detail -> GET /admin/couriers/:id
+[x] "Export List" -> download CSV
 
 ---
 
@@ -380,18 +380,18 @@ FRONTEND:
 |---------------------------------------|--------|--------------------------|--------|
 | /admin/dashboard/stats                | GET    | orders,payments,couriers | TODO   |
 | /admin/dashboard/events               | GET    | order_events,audit_logs  | TODO   |
-| /admin/orders                         | GET    | orders,users,couriers    | TODO   |
-| /admin/orders/stats                   | GET    | orders                   | TODO   |
-| /admin/orders/:id                     | GET    | orders,order_events      | TODO   |
-| /admin/orders/:id/reassign            | POST   | order_legs               | TODO   |
-| /admin/orders/:id/flag                | POST   | disputes                 | TODO   |
-| /admin/orders/export                  | GET    | orders                   | TODO   |
-| /admin/couriers                       | GET    | courier_profiles,users   | TODO   |
-| /admin/couriers/stats                 | GET    | courier_profiles         | TODO   |
-| /admin/couriers/:id                   | GET    | courier_profiles,docs    | TODO   |
-| /admin/couriers/:id/status            | PATCH  | courier_profiles         | TODO   |
-| /admin/couriers/:id/history           | GET    | orders,order_legs        | TODO   |
-| /admin/couriers/export                | GET    | courier_profiles         | TODO   |
+| /admin/orders                         | GET    | orders,users,couriers    | DONE   |
+| /admin/orders/stats                   | GET    | orders                   | DONE   |
+| /admin/orders/:id                     | GET    | orders,order_events      | DONE   |
+| /admin/orders/:id/reassign            | POST   | order_legs               | DONE   |
+| /admin/orders/:id/flag                | POST   | disputes                 | DONE   |
+| /admin/orders/export                  | GET    | orders                   | DONE   |
+| /admin/couriers                       | GET    | courier_profiles,users   | DONE   |
+| /admin/couriers/stats                 | GET    | courier_profiles         | DONE   |
+| /admin/couriers/:id                   | GET    | courier_profiles,docs    | DONE   |
+| /admin/couriers/:id/status            | PATCH  | courier_profiles         | DONE   |
+| /admin/couriers/:id/history           | GET    | orders,order_legs        | DONE   |
+| /admin/couriers/export                | GET    | courier_profiles         | DONE   |
 | /admin/disputes                       | GET    | disputes,orders,users    | TODO   |
 | /admin/disputes/stats                 | GET    | disputes                 | TODO   |
 | /admin/disputes/:id/status            | PATCH  | disputes                 | TODO   |

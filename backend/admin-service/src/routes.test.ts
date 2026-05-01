@@ -29,6 +29,20 @@ jest.mock('./controllers', () => ({
   inviteAdmin: jest.fn((req, res) => res.status(201).json({ id: 'new-admin-1' })),
   // System health controller
   getSystemHealth: jest.fn((req, res) => res.status(200).json([])),
+  // New controller functions
+  getAllOrders: jest.fn((req, res) => res.status(200).json([])),
+  getOrderStats: jest.fn((req, res) => res.status(200).json({})),
+  getOrderById: jest.fn((req, res) => res.status(200).json({})),
+  reassignOrder: jest.fn((req, res) => res.status(200).json({ status: 'reassigned' })),
+  flagOrderIssue: jest.fn((req, res) => res.status(200).json({ status: 'flagged' })),
+  getAllCouriers: jest.fn((req, res) => res.status(200).json([])),
+  getCourierStats: jest.fn((req, res) => res.status(200).json({})),
+  getCourierById: jest.fn((req, res) => res.status(200).json({})),
+  updateCourierStatus: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
+  createOrder: jest.fn((req, res) => res.status(201).json({ id: 'new-order' })),
+  exportOrders: jest.fn((req, res) => res.status(200).send('csv,data')),
+  getCourierHistory: jest.fn((req, res) => res.status(200).json([])),
+  exportCouriers: jest.fn((req, res) => res.status(200).send('csv,data')),
 }));
 
 // Mock Redis to prevent open handles

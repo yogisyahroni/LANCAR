@@ -11,71 +11,98 @@ import {
   Ban,
   CheckCircle,
   FileText,
-  Truck
+  Truck,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Download
 } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api } from '../lib/api'
 import { cn } from '../lib/utils'
+import { toast } from 'sonner'
 
-const couriers = [
-  { 
-    id: 'CR-1029', 
-    name: 'Ahmad Subarjo', 
-    phone: '+62 812-9981-1221',
-    plate: 'B 1234 ABC',
-    status: 'Active', 
-    score: 4.8, 
-    relayScore: 92,
-    location: 'Jakarta Selatan', 
-    joinedAt: '12 Jan 2024',
-    type: 'Motor'
-  },
-  { 
-    id: 'CR-1035', 
-    name: 'Siti Aminah', 
-    phone: '+62 813-1122-3344',
-    plate: 'B 5678 XYZ',
-    status: 'Pending', 
-    score: 0, 
-    relayScore: 0,
-    location: 'Jakarta Barat', 
-    joinedAt: 'Today, 10:15',
-    type: 'Motor'
-  },
-  { 
-    id: 'CR-1041', 
-    name: 'Budi Hartono', 
-    phone: '+62 815-5566-7788',
-    plate: 'B 9012 DEF',
-    status: 'Suspended', 
-    score: 3.2, 
-    relayScore: 45,
-    location: 'Jakarta Timur', 
-    joinedAt: '5 Des 2023',
-    type: 'Motor'
-  },
-  { 
-    id: 'CR-1050', 
-    name: 'Dedi Kusuma', 
-    phone: '+62 817-8899-0011',
-    plate: 'B 3456 GHI',
-    status: 'Active', 
-    score: 4.9, 
-    relayScore: 98,
-    location: 'Jakarta Pusat', 
-    joinedAt: '1 Feb 2024',
-    type: 'Motor'
-  },
-]
+
 
 export default function Couriers() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('All')
-  const [selectedCourier, setSelectedCourier] = useState<any>(null)
+  const [page, setPage] = useState(1)
+  const [selectedCourierId, setSelectedCourierId] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const queryClient = useQueryClient()
 
-  const filteredCouriers = couriers.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.id.includes(search)
-    const matchesFilter = filter === 'All' || c.status === filter
-    return matchesSearch && matchesFilter
+  // Fetch Stats
+  const { data: stats } = useQuery({
+    queryKey: ['admin-couriers-stats'],
+    queryFn: async () => {
+      const res = await api.get('/admin/couriers/stats')
+      return res.data
+    }
   })
+
+  // Fetch Couriers List
+  const { data: couriersData, isLoading } = useQuery({
+    queryKey: ['admin-couriers', search, filter, page],
+    queryFn: async () => {
+      const res = await api.get('/admin/couriers', {
+        params: {
+          search,
+          status: filter === 'All' ? undefined : filter,
+          page,
+          limit: 10
+        }
+      })
+      return res.data
+    }
+  })
+
+  // Fetch Single Courier Detail
+  const { data: courierDetail, isLoading: isLoadingDetail } = useQuery({
+    queryKey: ['admin-courier-detail', selectedCourierId],
+    queryFn: async () => {
+      if (!selectedCourierId) return null
+      const res = await api.get(`/admin/couriers/${selectedCourierId}`)
+      return res.data
+    },
+    enabled: !!selectedCourierId
+  })
+
+  // Update Status Mutation
+  const updateStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: string, status: string }) => {
+      const res = await api.patch(`/admin/couriers/${id}/status`, { status })
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-couriers'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-couriers-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-courier-detail'] })
+      toast.success('Courier status updated successfully')
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to update status')
+    }
+  })
+
+  const handleExport = async () => {
+    try {
+      setIsExporting(true)
+      const response = await api.get('/admin/couriers/export', { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `couriers_export_${new Date().toISOString().split('T')[0]}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      toast.success('Courier list exported successfully')
+    } catch (error) {
+      toast.error('Failed to export couriers')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   return (
     <div className="space-y-8 animate-in">
@@ -85,8 +112,12 @@ export default function Couriers() {
           <p className="text-zinc-500 mt-1">Manage, verify, and monitor courier performance across the fleet.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="px-6 py-3 rounded-2xl bg-primary text-white font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2">
-            <Users size={18} />
+          <button 
+            onClick={handleExport}
+            disabled={isExporting}
+            className="px-6 py-3 rounded-2xl bg-primary text-white font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50"
+          >
+            {isExporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
             Export List
           </button>
         </div>
@@ -95,12 +126,12 @@ export default function Couriers() {
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {[
-          { label: 'Total Couriers', value: '1,248', icon: Users, color: 'text-zinc-400' },
-          { label: 'Active Now', value: '412', icon: Truck, color: 'text-emerald-400' },
-          { label: 'Pending Verification', value: '28', icon: Clock, color: 'text-amber-400' },
-          { label: 'Suspended', value: '5', icon: Ban, color: 'text-red-400' },
+          { label: 'Total Couriers', value: stats?.total || '0', icon: Users, color: 'text-zinc-400' },
+          { label: 'Active Now', value: stats?.active || '0', icon: Truck, color: 'text-emerald-400' },
+          { label: 'Pending Verification', value: stats?.pending || '0', icon: Clock, color: 'text-amber-400' },
+          { label: 'Suspended', value: stats?.suspended || '0', icon: Ban, color: 'text-red-400' },
         ].map((stat, i) => (
-          <div key={i} className="glass-card p-6 rounded-3xl border-white/5">
+          <div key={i} className="glass-card p-6 rounded-3xl border-white/5 shadow-xl shadow-black/20">
             <div className="flex items-center gap-4">
               <div className={cn("p-3 rounded-2xl bg-white/5", stat.color)}>
                 <stat.icon size={24} />
@@ -143,20 +174,29 @@ export default function Couriers() {
       </div>
 
       {/* Courier Table */}
-      <div className="glass-card rounded-[40px] border-white/5 overflow-hidden">
+      <div className="glass-card rounded-[40px] border-white/5 overflow-hidden shadow-2xl shadow-black/40">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-white/5 bg-white/[0.01]">
                 <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Courier</th>
                 <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Status</th>
-                <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Relay Score</th>
+                <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Avg Rating</th>
                 <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Location</th>
                 <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {filteredCouriers.map((courier, i) => (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={5} className="px-8 py-20 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                      <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Loading fleet data...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : couriersData?.data?.map((courier: any, i: number) => (
                 <motion.tr 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -166,17 +206,17 @@ export default function Couriers() {
                 >
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-2xl bg-zinc-800 flex items-center justify-center text-zinc-600 font-bold text-lg border border-white/5 group-hover:border-primary/20 transition-all uppercase">
-                        {courier.name.charAt(0)}
+                      <div className="h-12 w-12 rounded-2xl bg-zinc-800 flex items-center justify-center text-zinc-400 font-bold text-lg border border-white/5 group-hover:border-primary/20 transition-all uppercase">
+                        {courier.full_name?.charAt(0)}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="font-bold text-zinc-100">{courier.name}</p>
+                          <p className="font-bold text-zinc-100">{courier.full_name}</p>
                           <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-500 border border-white/5 uppercase font-bold">
-                            {courier.type}
+                            {courier.vehicle_type || 'MOTOR'}
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-500 mt-0.5">{courier.id} • {courier.plate}</p>
+                        <p className="text-xs text-zinc-500 mt-0.5">{courier.id.split('-')[0]} • {courier.plate_number || 'No Plate'}</p>
                       </div>
                     </div>
                   </td>
@@ -187,8 +227,8 @@ export default function Couriers() {
                       courier.status === 'Pending' ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
                       "bg-red-500/10 text-red-400 border border-red-500/20"
                     )}>
-                      <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", 
-                        courier.status === 'Active' ? "bg-emerald-400" :
+                      <div className={cn("w-1.5 h-1.5 rounded-full", 
+                        courier.status === 'Active' ? "bg-emerald-400 animate-pulse" :
                         courier.status === 'Pending' ? "bg-amber-400" : "bg-red-400"
                       )} />
                       {courier.status}
@@ -197,12 +237,12 @@ export default function Couriers() {
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center text-sm font-black text-zinc-100">
-                        {courier.relayScore}
+                        {parseFloat(courier.avg_rating || '0').toFixed(1)}
                       </div>
                       <div className="flex-1 max-w-[100px] h-1.5 bg-white/5 rounded-full overflow-hidden">
                         <div 
-                          className={cn("h-full rounded-full", courier.relayScore > 80 ? "bg-emerald-500" : courier.relayScore > 50 ? "bg-amber-500" : "bg-red-500")} 
-                          style={{ width: `${courier.relayScore}%` }} 
+                          className={cn("h-full rounded-full", parseFloat(courier.avg_rating) > 4.5 ? "bg-emerald-500" : parseFloat(courier.avg_rating) > 3.5 ? "bg-amber-500" : "bg-red-500")} 
+                          style={{ width: `${(parseFloat(courier.avg_rating || '0') / 5) * 100}%` }} 
                         />
                       </div>
                     </div>
@@ -210,20 +250,32 @@ export default function Couriers() {
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-2 text-zinc-400">
                       <MapPin size={14} className="text-zinc-600" />
-                      <span className="text-sm font-medium">{courier.location}</span>
+                      <span className="text-sm font-medium">{courier.current_location || 'Unknown'}</span>
                     </div>
                   </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
-                        onClick={() => setSelectedCourier(courier)}
+                        onClick={() => setSelectedCourierId(courier.id)}
                         className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white hover:bg-white/10 transition-all"
                       >
                         <ExternalLink size={18} />
                       </button>
-                      <button className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-all">
-                        <Ban size={18} />
-                      </button>
+                      {courier.status !== 'Suspended' ? (
+                        <button 
+                          onClick={() => updateStatus.mutate({ id: courier.id, status: 'Suspended' })}
+                          className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                        >
+                          <Ban size={18} />
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => updateStatus.mutate({ id: courier.id, status: 'Active' })}
+                          className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all"
+                        >
+                          <CheckCircle size={18} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </motion.tr>
@@ -232,131 +284,186 @@ export default function Couriers() {
           </table>
         </div>
         
-        {/* Pagination Mock */}
-        <div className="px-8 py-6 border-t border-white/5 flex items-center justify-between">
-          <p className="text-xs text-zinc-600 font-bold uppercase tracking-widest">Showing 4 of 1,248 Couriers</p>
+        {/* Pagination */}
+        <div className="px-8 py-6 border-t border-white/5 flex items-center justify-between bg-white/[0.01]">
+          <p className="text-xs text-zinc-600 font-bold uppercase tracking-widest">
+            Showing {couriersData?.data?.length || 0} of {couriersData?.pagination?.total || 0} Couriers
+          </p>
           <div className="flex items-center gap-2">
-            <button disabled className="px-4 py-2 rounded-xl bg-white/5 text-zinc-700 font-bold text-sm">Previous</button>
-            <button className="px-4 py-2 rounded-xl bg-primary text-white font-bold text-sm shadow-lg shadow-primary/20">1</button>
-            <button className="px-4 py-2 rounded-xl bg-white/5 text-zinc-400 font-bold text-sm hover:bg-white/10 transition-all">2</button>
-            <button className="px-4 py-2 rounded-xl bg-white/5 text-zinc-400 font-bold text-sm hover:bg-white/10 transition-all">Next</button>
+            <button 
+              disabled={page === 1}
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:bg-white/5 transition-all"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div className="flex items-center gap-1">
+              {[...Array(couriersData?.pagination?.pages || 0)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setPage(i + 1)}
+                  className={cn(
+                    "w-10 h-10 rounded-xl font-bold text-sm transition-all",
+                    page === i + 1 ? "bg-primary text-white shadow-lg shadow-primary/20" : "bg-white/5 text-zinc-500 hover:bg-white/10"
+                  )}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            <button 
+              disabled={page === (couriersData?.pagination?.pages || 1)}
+              onClick={() => setPage(p => p + 1)}
+              className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:bg-white/5 transition-all"
+            >
+              <ChevronRight size={18} />
+            </button>
           </div>
         </div>
       </div>
 
       {/* Courier Detail Modal */}
       <AnimatePresence>
-        {selectedCourier && (
+        {selectedCourierId && (
           <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setSelectedCourier(null)}
+              onClick={() => setSelectedCourierId(null)}
               className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-card w-full max-w-4xl max-h-[90vh] overflow-y-auto p-10 rounded-[48px] relative z-10 border-white/10"
+              className="glass-card w-full max-w-4xl max-h-[90vh] overflow-y-auto p-10 rounded-[48px] relative z-10 border-white/10 shadow-3xl shadow-black/60"
             >
-              <div className="flex flex-col md:flex-row gap-10">
-                <div className="md:w-1/3 space-y-6">
-                  <div className="aspect-square rounded-[32px] bg-zinc-900 border border-white/10 flex items-center justify-center text-6xl font-black text-zinc-700 uppercase">
-                    {selectedCourier.name.charAt(0)}
-                  </div>
-                  <div className="space-y-4">
-                    <button className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-sm shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3">
-                      <CheckCircle size={20} />
-                      Verify Courier
-                    </button>
-                    <button className="w-full py-4 rounded-2xl bg-red-500/10 text-red-400 border border-red-500/20 font-black uppercase tracking-widest text-sm hover:bg-red-500/20 transition-all flex items-center justify-center gap-3">
-                      <Ban size={20} />
-                      Suspend Access
-                    </button>
-                  </div>
+              {isLoadingDetail ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                  <p className="text-zinc-500 font-black uppercase tracking-widest">Retrieving dossier...</p>
                 </div>
-
-                <div className="md:w-2/3 space-y-10">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h2 className="text-4xl font-black text-zinc-100 tracking-tighter">{selectedCourier.name}</h2>
-                      <p className="text-zinc-500 font-medium mt-1">{selectedCourier.id} • {selectedCourier.plate}</p>
+              ) : courierDetail && (
+                <div className="flex flex-col md:flex-row gap-10">
+                  <div className="md:w-1/3 space-y-6">
+                    <div className="aspect-square rounded-[32px] bg-zinc-900 border border-white/10 flex items-center justify-center text-6xl font-black text-zinc-700 uppercase shadow-inner">
+                      {courierDetail.full_name?.charAt(0)}
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs font-black text-zinc-600 uppercase tracking-widest mb-1">Relay Rating</p>
-                      <div className="flex items-center gap-2">
-                        <div className="px-3 py-1.5 rounded-xl bg-primary/10 text-primary-light border border-primary/20 flex items-center gap-2">
-                          <Star size={16} fill="currentColor" />
-                          <span className="font-black text-lg">{selectedCourier.score || 'N/A'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5">
-                      <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest mb-3">Performance Data</p>
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-zinc-400 italic">Total Deliveries</span>
-                          <span className="text-sm font-bold text-zinc-100">142</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-zinc-400 italic">Ontime Rate</span>
-                          <span className="text-sm font-bold text-emerald-400">98.2%</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-zinc-400 italic">Cancel Rate</span>
-                          <span className="text-sm font-bold text-red-400">1.2%</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5">
-                      <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest mb-3">Identity & Docs</p>
-                      <div className="space-y-3">
-                        <button className="w-full flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all group">
-                          <div className="flex items-center gap-3">
-                            <FileText size={16} className="text-zinc-500" />
-                            <span className="text-sm text-zinc-300">Identity Card (KTP)</span>
-                          </div>
-                          <CheckCircle size={14} className="text-emerald-500" />
-                        </button>
-                        <button className="w-full flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all group">
-                          <div className="flex items-center gap-3">
-                            <FileText size={16} className="text-zinc-500" />
-                            <span className="text-sm text-zinc-300">Vehicle Permit (STNK)</span>
-                          </div>
-                          <CheckCircle size={14} className="text-emerald-500" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-bold text-zinc-100 mb-6 flex items-center gap-2">
-                      <ShieldCheck className="text-primary-light" size={20} />
-                      Operation History
-                    </h3>
                     <div className="space-y-4">
-                      {[
-                        { event: 'Successfully completed 3-Kaki Relay', time: '2h ago', status: 'Success' },
-                        { event: 'Route optimization alert triggered', time: '1d ago', status: 'Warning' },
-                        { event: 'Monthly insurance payout processed', time: '3d ago', status: 'Info' },
-                      ].map((log, i) => (
-                        <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.01] border border-white/5">
-                          <div className="w-2 h-2 rounded-full bg-zinc-700" />
-                          <div className="flex-1">
-                            <p className="text-sm text-zinc-300 font-medium">{log.event}</p>
-                            <p className="text-xs text-zinc-600 mt-0.5">{log.time}</p>
+                      {courierDetail.status === 'Pending' && (
+                        <button 
+                          onClick={() => updateStatus.mutate({ id: courierDetail.id, status: 'Active' })}
+                          disabled={updateStatus.isPending}
+                          className="w-full py-4 rounded-2xl bg-emerald-500 text-white font-black uppercase tracking-widest text-sm shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                        >
+                          <CheckCircle size={20} />
+                          {updateStatus.isPending ? 'Processing...' : 'Verify Courier'}
+                        </button>
+                      )}
+                      {courierDetail.status !== 'Suspended' ? (
+                        <button 
+                          onClick={() => updateStatus.mutate({ id: courierDetail.id, status: 'Suspended' })}
+                          disabled={updateStatus.isPending}
+                          className="w-full py-4 rounded-2xl bg-red-500/10 text-red-400 border border-red-500/20 font-black uppercase tracking-widest text-sm hover:bg-red-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                        >
+                          <Ban size={20} />
+                          {updateStatus.isPending ? 'Processing...' : 'Suspend Access'}
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => updateStatus.mutate({ id: courierDetail.id, status: 'Active' })}
+                          disabled={updateStatus.isPending}
+                          className="w-full py-4 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-black uppercase tracking-widest text-sm hover:bg-emerald-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                        >
+                          <CheckCircle size={20} />
+                          {updateStatus.isPending ? 'Processing...' : 'Activate Access'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="md:w-2/3 space-y-10">
+                    <div className="flex items-start justify-between border-b border-white/5 pb-8">
+                      <div>
+                        <h2 className="text-4xl font-black text-zinc-100 tracking-tighter">{courierDetail.full_name}</h2>
+                        <p className="text-zinc-500 font-medium mt-1">{courierDetail.id} • {courierDetail.plate_number || 'No Plate'}</p>
+                        <p className="text-xs text-primary-light font-bold mt-2 flex items-center gap-2">
+                          <MapPin size={12} />
+                          {courierDetail.current_location || 'Last location unknown'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-black text-zinc-600 uppercase tracking-widest mb-1">Fleet Rating</p>
+                        <div className="flex items-center gap-2">
+                          <div className="px-3 py-1.5 rounded-xl bg-primary/10 text-primary-light border border-primary/20 flex items-center gap-2">
+                            <Star size={16} fill="currentColor" />
+                            <span className="font-black text-lg">{parseFloat(courierDetail.avg_rating || '0').toFixed(1)}</span>
                           </div>
                         </div>
-                      ))}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 shadow-xl">
+                        <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest mb-4">Contact Info</p>
+                        <div className="space-y-4">
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] text-zinc-500 font-black uppercase">Phone Number</span>
+                            <span className="text-sm font-bold text-zinc-100">{courierDetail.phone_number || 'Not provided'}</span>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] text-zinc-500 font-black uppercase">Email Address</span>
+                            <span className="text-sm font-bold text-zinc-100">{courierDetail.email || 'Not provided'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 shadow-xl">
+                        <p className="text-xs font-bold text-zinc-600 uppercase tracking-widest mb-4">Verification Artifacts</p>
+                        <div className="space-y-3">
+                          {courierDetail.documents?.map((doc: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                              <div className="flex items-center gap-3">
+                                <FileText size={16} className="text-primary-light" />
+                                <span className="text-sm text-zinc-300 capitalize">{doc.type?.replace(/_/g, ' ')}</span>
+                              </div>
+                              <CheckCircle size={14} className="text-emerald-500" />
+                            </div>
+                          )) || (
+                            <p className="text-xs text-zinc-600 italic">No documents uploaded</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-lg font-bold text-zinc-100 mb-6 flex items-center gap-2">
+                        <ShieldCheck className="text-primary-light" size={20} />
+                        Fleet Feedback (Last 5)
+                      </h3>
+                      <div className="space-y-4">
+                        {courierDetail.recent_ratings?.length > 0 ? courierDetail.recent_ratings.map((rating: any, i: number) => (
+                          <div key={i} className="flex items-start gap-4 p-4 rounded-2xl bg-white/[0.01] border border-white/5 group hover:bg-white/[0.03] transition-all">
+                            <div className="w-10 h-10 rounded-xl bg-zinc-900 flex items-center justify-center text-primary-light font-black border border-white/5">
+                              {rating.rating}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm text-zinc-300 font-medium italic">"{rating.comment || 'No comment provided'}"</p>
+                              <p className="text-[10px] text-zinc-600 mt-2 font-bold uppercase tracking-widest">
+                                Order #{rating.order_id?.split('-')[0]} • {new Date(rating.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="p-8 rounded-2xl bg-white/[0.01] border border-dashed border-white/10 text-center">
+                            <p className="text-sm text-zinc-600">No feedback found for this operative.</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </motion.div>
           </div>
         )}

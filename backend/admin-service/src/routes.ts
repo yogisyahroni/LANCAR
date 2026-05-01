@@ -25,3 +25,20 @@ routes.post('/admin/admins', controllers.inviteAdmin);
 routes.delete('/admin/admins/:id', controllers.deleteAdmin);
 routes.get('/admin/health', controllers.getSystemHealth);
 
+// Orders Management
+routes.get('/admin/orders', controllers.getAllOrders);
+routes.get('/admin/orders/stats', controllers.getOrderStats);
+routes.get('/admin/orders/:id', controllers.getOrderById);
+routes.post('/admin/orders/:id/reassign', controllers.reassignOrder);
+routes.post('/admin/orders/:id/flag', controllers.flagOrderIssue);
+routes.post('/admin/orders', controllers.createOrder);
+routes.get('/admin/orders/export', controllers.exportOrders);
+
+// Couriers Management
+routes.get('/admin/couriers', controllers.getAllCouriers);
+routes.get('/admin/couriers/stats', controllers.getCourierStats);
+routes.get('/admin/couriers/:id', controllers.getCourierById);
+routes.patch('/admin/couriers/:id/status', controllers.updateCourierStatus);
+routes.get('/admin/couriers/:id/history', controllers.getCourierHistory);
+routes.get('/admin/couriers/export', controllers.exportCouriers);
+

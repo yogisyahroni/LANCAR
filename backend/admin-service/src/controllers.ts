@@ -403,3 +403,412 @@ export const getSystemHealth = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// --- Orders Management ---
+
+export const getAllOrders = async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = (page - 1) * limit;
+    const search = req.query.search as string;
+    const status = req.query.status as string;
+    const type = req.query.type as string;
+
+    let query = `
+      SELECT 
+        o.id, 
+        o.status, 
+        o.type, 
+        o.total_amount as amount, 
+        o.created_at,
+        u.full_name as customer_name,
+        cp.id as courier_id,
+        cu.full_name as courier_name
+      FROM orders o
+      LEFT JOIN users u ON o.customer_id = u.id
+      LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.is_current = true
+      LEFT JOIN courier_profiles cp ON ol.courier_id = cp.id
+      LEFT JOIN users cu ON cp.user_id = cu.id
+      WHERE 1=1
+    `;
+    const values: any[] = [];
+
+    if (search) {
+      values.push(`%${search}%`);
+      query += ` AND (o.id::text ILIKE $${values.length} OR u.full_name ILIKE $${values.length} OR cu.full_name ILIKE $${values.length})`;
+    }
+
+    if (status) {
+      values.push(status);
+      query += ` AND o.status = $${values.length}`;
+    }
+
+    if (type) {
+      values.push(type);
+      query += ` AND o.type = $${values.length}`;
+    }
+
+    const countQuery = `SELECT COUNT(*) FROM (${query}) as subquery`;
+    const countRes = await readDb.query(countQuery, values);
+    const total = parseInt(countRes.rows[0].count);
+
+    query += ` ORDER BY o.created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+    values.push(limit, offset);
+
+    const result = await readDb.query(query, values);
+
+    res.json({
+      data: result.rows,
+      total,
+      page,
+      limit
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getOrderStats = async (req: Request, res: Response) => {
+  try {
+    const query = `
+      SELECT 
+        status, 
+        COUNT(*) as count,
+        SUM(total_amount) as total_revenue
+      FROM orders
+      GROUP BY status
+    `;
+    const result = await readDb.query(query);
+    res.json(result.rows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getOrderById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const orderRes = await readDb.query(`
+      SELECT o.*, u.full_name as customer_name, u.email as customer_email
+      FROM orders o
+      JOIN users u ON o.customer_id = u.id
+      WHERE o.id = $1
+    `, [id]);
+
+    if (orderRes.rows.length === 0) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    const eventsRes = await readDb.query(`
+      SELECT * FROM order_events 
+      WHERE order_id = $1 
+      ORDER BY created_at ASC
+    `, [id]);
+
+    const legsRes = await readDb.query(`
+      SELECT ol.*, cu.full_name as courier_name
+      FROM order_legs ol
+      LEFT JOIN courier_profiles cp ON ol.courier_id = cp.id
+      LEFT JOIN users cu ON cp.user_id = cu.id
+      WHERE ol.order_id = $1
+      ORDER BY sequence ASC
+    `, [id]);
+
+    res.json({
+      ...orderRes.rows[0],
+      events: eventsRes.rows,
+      legs: legsRes.rows
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const reassignOrder = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { courier_id, reason } = req.body;
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Update current leg
+    await client.query(`
+      UPDATE order_legs 
+      SET courier_id = $1, status = 'assigned', updated_at = NOW()
+      WHERE order_id = $2 AND is_current = true
+    `, [courier_id, id]);
+
+    // Log event
+    await client.query(`
+      INSERT INTO order_events (order_id, event_type, description, metadata)
+      VALUES ($1, 'reassigned', $2, $3)
+    `, [id, `Order reassigned to new courier. Reason: ${reason || 'Not specified'}`, JSON.stringify({ courier_id })]);
+
+    await client.query('COMMIT');
+    res.json({ message: 'Order reassigned successfully' });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const flagOrderIssue = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { type, description } = req.body;
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Create dispute
+    await client.query(`
+      INSERT INTO disputes (order_id, type, description, status, created_at)
+      VALUES ($1, $2, $3, 'pending', NOW())
+    `, [id, type || 'general', description]);
+
+    // Log event
+    await client.query(`
+      INSERT INTO order_events (order_id, event_type, description)
+      VALUES ($1, 'flagged', $2)
+    `, [id, `Order flagged: ${description}`]);
+
+    await client.query('COMMIT');
+    res.json({ message: 'Order flagged and dispute created' });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const createOrder = async (req: Request, res: Response): Promise<void> => {
+  const { customer_id, pickup_address, delivery_address, total_amount, type } = req.body;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(`
+      INSERT INTO orders (customer_id, pickup_address, delivery_address, total_amount, type, status, created_at)
+      VALUES ($1, $2, $3, $4, $5, 'pending', NOW()) RETURNING *
+    `, [customer_id, pickup_address, delivery_address, total_amount, type || 'standard']);
+    
+    // Log event
+    await client.query(`
+      INSERT INTO order_events (order_id, event_type, description)
+      VALUES ($1, 'created', 'Manual order created by admin')
+    `, [result.rows[0].id]);
+
+    await client.query('COMMIT');
+    res.status(201).json(result.rows[0]);
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const exportOrders = async (req: Request, res: Response) => {
+  try {
+    const result = await readDb.query(`
+      SELECT o.id, o.status, o.type, o.total_amount, o.created_at, u.full_name as customer
+      FROM orders o
+      JOIN users u ON o.customer_id = u.id
+      ORDER BY o.created_at DESC
+    `);
+    
+    const csvRows = [
+      ['Order ID', 'Status', 'Type', 'Amount', 'Date', 'Customer'].join(','),
+      ...result.rows.map(r => [
+        r.id, r.status, r.type, r.total_amount, r.created_at, `"${r.customer}"`
+      ].join(','))
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=orders_export.csv');
+    res.send(csvRows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// --- Couriers Management ---
+
+export const getAllCouriers = async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = (page - 1) * limit;
+    const search = req.query.search as string;
+    const status = req.query.status as string;
+
+    let query = `
+      SELECT 
+        cp.*, 
+        u.full_name, 
+        u.email, 
+        u.phone_number,
+        (SELECT AVG(rating) FROM courier_ratings WHERE courier_id = cp.id) as avg_rating
+      FROM courier_profiles cp
+      JOIN users u ON cp.user_id = u.id
+      WHERE u.deleted_at IS NULL
+    `;
+    const values: any[] = [];
+
+    if (search) {
+      values.push(`%${search}%`);
+      query += ` AND (u.full_name ILIKE $${values.length} OR u.email ILIKE $${values.length})`;
+    }
+
+    if (status) {
+      values.push(status);
+      query += ` AND cp.status = $${values.length}`;
+    }
+
+    const countQuery = `SELECT COUNT(*) FROM (${query}) as subquery`;
+    const countRes = await readDb.query(countQuery, values);
+    const total = parseInt(countRes.rows[0].count);
+
+    query += ` ORDER BY cp.created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`;
+    values.push(limit, offset);
+
+    const result = await readDb.query(query, values);
+
+    res.json({
+      data: result.rows,
+      total,
+      page,
+      limit
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getCourierStats = async (req: Request, res: Response) => {
+  try {
+    const query = `
+      SELECT status, COUNT(*) as count
+      FROM courier_profiles
+      GROUP BY status
+    `;
+    const result = await readDb.query(query);
+    res.json(result.rows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getCourierById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const courierRes = await readDb.query(`
+      SELECT cp.*, u.full_name, u.email, u.phone_number, u.photo_url
+      FROM courier_profiles cp
+      JOIN users u ON cp.user_id = u.id
+      WHERE cp.id = $1
+    `, [id]);
+
+    if (courierRes.rows.length === 0) {
+      res.status(404).json({ error: 'Courier not found' });
+      return;
+    }
+
+    const docsRes = await readDb.query('SELECT * FROM courier_documents WHERE courier_id = $1', [id]);
+    const ratingsRes = await readDb.query('SELECT * FROM courier_ratings WHERE courier_id = $1 ORDER BY created_at DESC LIMIT 10', [id]);
+
+    res.json({
+      ...courierRes.rows[0],
+      documents: docsRes.rows,
+      recent_ratings: ratingsRes.rows
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateCourierStatus = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!['active', 'suspended', 'pending'].includes(status)) {
+    res.status(400).json({ error: 'Invalid status' });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const result = await client.query(
+      'UPDATE courier_profiles SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [status, id]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Courier not found' });
+      return;
+    }
+
+    // Log to audit
+    const changedBy = req.user?.id || 'super_admin_1';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason) 
+       VALUES ($1, $2, $3, $4)`,
+      [`courier:${id}`, status === 'active', changedBy, `Status updated to ${status}`]
+    );
+
+    await client.query('COMMIT');
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const getCourierHistory = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const result = await readDb.query(`
+      SELECT o.*, ol.status as leg_status
+      FROM orders o
+      JOIN order_legs ol ON o.id = ol.order_id
+      WHERE ol.courier_id = $1
+      ORDER BY o.created_at DESC
+    `, [id]);
+    res.json(result.rows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const exportCouriers = async (req: Request, res: Response) => {
+  try {
+    const result = await readDb.query(`
+      SELECT cp.id, u.full_name, u.email, cp.status, cp.vehicle_type, cp.created_at
+      FROM courier_profiles cp
+      JOIN users u ON cp.user_id = u.id
+      WHERE u.deleted_at IS NULL
+    `);
+    
+    const csvRows = [
+      ['Courier ID', 'Name', 'Email', 'Status', 'Vehicle', 'Joined Date'].join(','),
+      ...result.rows.map(r => [
+        r.id, `"${r.full_name}"`, r.email, r.status, r.vehicle_type, r.created_at
+      ].join(','))
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=couriers_export.csv');
+    res.send(csvRows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
