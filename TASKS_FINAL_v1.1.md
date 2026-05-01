@@ -881,16 +881,16 @@ Subtask:
 **Estimasi:** 2 hari
 
 Subtask:
-- [ ] React.js + TypeScript + Vite project setup
-- [ ] State management: Zustand atau Redux Toolkit
-- [ ] UI library: Ant Design atau MUI + custom theme
+- [x] React.js + TypeScript + Vite project setup
+- [x] State management: Zustand (Installed)
+- [x] UI library: Tailwind CSS V4 + custom premium theme (Lancar Emerald)
 - [ ] Map: react-google-maps atau deck.gl untuk heatmap
 - [ ] Charts: Recharts atau Chart.js
-- [ ] HTTP: Axios + React Query untuk data fetching + caching
+- [x] HTTP: Axios + React Query untuk data fetching + caching
 - [ ] WebSocket: socket.io-client untuk real-time updates
 - [ ] Auth: JWT stored in httpOnly cookie
-- [ ] Route guard: redirect ke login jika unauthenticated
-- [ ] Responsive: prioritas desktop, tablet OK
+- [x] Route guard: redirect ke login jika unauthenticated (Basic impl)
+- [x] Responsive: prioritas desktop, tablet OK
 
 ---
 
