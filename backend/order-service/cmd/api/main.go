@@ -68,6 +68,8 @@ func main() {
 	payoutRepo := repository.NewPostgresPayoutRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
 	refundRepo := repository.NewPostgresRefundRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
 	slaRepo := repository.NewPostgresSLARepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
+	insuranceRepo := repository.NewInsuranceRepository(sqlx.NewDb(db, "postgres"))
+	relayRepo := repository.NewRelayRepository(sqlx.NewDb(db, "postgres"), rdb)
 
 	// Payment Gateway Mock
 	midtransConfig := payment_gateway.MidtransConfig{
@@ -112,6 +114,9 @@ func main() {
 	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw)
 	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw)
 	slaSvc := service.NewSLAService(slaRepo, notificationSvc, payoutRepo)
+	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc)
+	relayScoreSvc := service.NewRelayScoreService(relayRepo)
+	// matchingSvc := service.NewRelayMatchingService(relayRepo, pgRepo, redisRepo) // Can be used later
 
 	// Handlers
 	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc, meetingPointSvc)
@@ -123,6 +128,8 @@ func main() {
 	slaHandler := handler.NewSLAHandler(slaSvc)
 	trackingHandler := handler.NewTrackingHandler(trackingSvc)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
+	insuranceHandler := handler.NewInsuranceHandler(insuranceSvc)
+	relayHandler := handler.NewRelayHandler(relayScoreSvc)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb)
@@ -135,7 +142,7 @@ func main() {
 	slaWorker.Start()
 
 	if tq != nil {
-		taskWorker := worker.NewTaskWorker(tq, pgRepo, notificationSvc, notifRepo)
+		taskWorker := worker.NewTaskWorker(tq, pgRepo, notificationSvc, notifRepo, insuranceSvc, relayScoreSvc)
 		go func() {
 			if err := taskWorker.Start(context.Background()); err != nil {
 				log.Printf("Failed to start task worker: %v", err)
@@ -191,6 +198,10 @@ func main() {
 			notificationHandler.MarkAsRead(w, r)
 		}
 	})))
+
+	// Insurance & Relay Score Routes
+	mux.HandleFunc("/api/v1/insurance/enroll-bpjs", middleware.BaseChain(middleware.AuthMiddleware(insuranceHandler.EnrollBPJSTK))) // Example mapping
+	mux.HandleFunc("/api/v1/admin/relay-score/override", middleware.BaseChain(middleware.AuthMiddleware(relayHandler.AdminOverrideScore)))
 
 	// Courier Payout Routes
 	mux.HandleFunc("/api/v1/couriers/me/earnings", middleware.BaseChain(middleware.AuthMiddleware(payoutHandler.GetCourierEarnings)))

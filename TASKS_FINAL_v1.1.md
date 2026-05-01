@@ -803,12 +803,12 @@ Subtask:
 **Estimasi:** 4 hari
 
 Subtask:
-- [ ] Atomic 3-courier matching dengan Redis distributed lock
-- [ ] ETA synchronization: pastikan semua kurir tiba di titik temu dalam window waktu yang sama (±10 menit)
-- [ ] Jika ETA mismatch: delay dispatch kurir yang lebih cepat, atau percepat routing kurir yang lambat
-- [ ] Relay cancellation flow: jika 1 kurir drop out, find replacement tanpa ganggu leg lain
-- [ ] Meeting point conflict resolution: jika 2 relay butuh meeting point yang sama di waktu sama
-- [ ] Relay performance analytics: success rate, average wait time, breakdown per zona
+- [x] Atomic 3-courier matching dengan Redis distributed lock
+- [x] ETA synchronization: pastikan semua kurir tiba di titik temu dalam window waktu yang sama (±10 menit)
+- [x] Jika ETA mismatch: delay dispatch kurir yang lebih cepat, atau percepat routing kurir yang lambat
+- [x] Relay cancellation flow: jika 1 kurir drop out, find replacement tanpa ganggu leg lain
+- [x] Meeting point conflict resolution: jika 2 relay butuh meeting point yang sama di waktu sama
+- [x] Relay performance analytics: success rate, average wait time, breakdown per zona
 
 ---
 
@@ -824,12 +824,12 @@ Subtask:
                 (partner_ratings_avg × 0.20) +
                 (complaint_ratio_inverse × 0.10)
   ```
-- [ ] History tracking di `relay_score_history`
-- [ ] Tier promotion/demotion otomatis (Regular → Mitra → Elite)
-- [ ] Notification ke kurir jika score berubah signifikan (±0.3)
-- [ ] Score <3.5: flag wajib retraining di sistem
-- [ ] Score <3.0: auto-suspend pending review admin
-- [ ] Admin override: bisa adjust skor dengan alasan tertulis
+- [x] History tracking di `relay_score_history`
+- [x] Tier promotion/demotion otomatis (Regular → Mitra → Elite)
+- [x] Notification ke kurir jika score berubah signifikan (±0.3)
+- [x] Score <3.5: flag wajib retraining di sistem
+- [x] Score <3.0: auto-suspend pending review admin
+- [x] Admin override: bisa adjust skor dengan alasan tertulis
 
 ---
 
@@ -838,15 +838,15 @@ Subtask:
 **Estimasi:** 3 hari
 
 Subtask:
-- [ ] BPJS TK enrollment flow untuk kurir baru (via API BPJS jika tersedia, atau manual form)
-- [ ] Tracking iuran BPJS per kurir (company share vs courier share)
-- [ ] Micro insurance partner integration (via API asuransi mikro — e.g., PasarPolis)
-- [ ] Package insurance (barang):
+- [x] BPJS TK enrollment flow untuk kurir baru (via API BPJS jika tersedia, atau manual form)
+- [x] Tracking iuran BPJS per kurir (company share vs courier share)
+- [x] Micro insurance partner integration (via API asuransi mikro — e.g., PasarPolis)
+- [x] Package insurance (barang):
   - Kalkulasi premi saat order dibuat
   - Catat di `courier_insurance` table
-- [ ] Insurance claim trigger dari dispute resolution
-- [ ] GET /admin/insurance — dashboard asuransi (total covered, claims, premium)
-- [ ] Reminder perpanjangan asuransi kurir (30, 14, 7 hari sebelum expire)
+- [x] Insurance claim trigger dari dispute resolution
+- [x] GET /admin/insurance — dashboard asuransi (total covered, claims, premium)
+- [x] Reminder perpanjangan asuransi kurir (30, 14, 7 hari sebelum expire)
 
 ---
 

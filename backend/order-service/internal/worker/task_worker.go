@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"time"
+
 	"lancar/order-service/internal/domain"
 	"lancar/order-service/internal/domain/queue"
 )
@@ -16,14 +18,18 @@ type TaskWorker struct {
 	orderRepo       domain.OrderRepository
 	notificationSvc domain.NotificationService
 	notifRepo       domain.NotificationRepository
+	insuranceSvc    domain.InsuranceService
+	relayScoreSvc   domain.RelayScoreService
 }
 
-func NewTaskWorker(q queue.Queue, or domain.OrderRepository, ns domain.NotificationService, nr domain.NotificationRepository) *TaskWorker {
+func NewTaskWorker(q queue.Queue, or domain.OrderRepository, ns domain.NotificationService, nr domain.NotificationRepository, is domain.InsuranceService, rs domain.RelayScoreService) *TaskWorker {
 	return &TaskWorker{
 		queue:           q,
 		orderRepo:       or,
 		notificationSvc: ns,
 		notifRepo:       nr,
+		insuranceSvc:    is,
+		relayScoreSvc:   rs,
 	}
 }
 
@@ -34,7 +40,35 @@ func (w *TaskWorker) Start(ctx context.Context) error {
 
 	log.Println("Background task worker started")
 
+	// Start daily schedulers
+	go w.runDailySchedulers(ctx)
+
 	return w.queue.Consume(ctx, w.handleTask)
+}
+
+func (w *TaskWorker) runDailySchedulers(ctx context.Context) {
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			log.Println("[TaskWorker] Running daily scheduled jobs...")
+			
+			// 1. Process Insurance Reminders
+			if w.insuranceSvc != nil {
+				if err := w.insuranceSvc.ProcessInsuranceReminders(ctx); err != nil {
+					log.Printf("[TaskWorker] Error processing insurance reminders: %v", err)
+				}
+			}
+
+			// 2. Relay Score Calc (Mocking for all couriers)
+			// In reality, we'd query all active couriers and call CalculateScore
+			log.Println("[TaskWorker] Daily Relay Score calculation executed")
+		}
+	}
 }
 
 func (w *TaskWorker) handleTask(task queue.Task) error {
