@@ -20,14 +20,19 @@ import { toast } from 'sonner'
 export default function Disputes() {
   const [selectedDispute, setSelectedDispute] = useState<any>(null)
   const [filter, setFilter] = useState('All')
+  const [page, setPage] = useState(1)
+  const LIMIT = 10
   const queryClient = useQueryClient()
 
-  const { data: disputes = [], isLoading } = useQuery({
-    queryKey: ['disputes', filter],
+  const { data: disputeRes = { data: [], total: 0 }, isLoading } = useQuery({
+    queryKey: ['disputes', filter, page],
     queryFn: async () => {
-      const res = await api.get('/admin/disputes', { params: { status: filter } })
-      return res.data
-    }
+      const res = await api.get('/admin/disputes', {
+        params: { status: filter, page, limit: LIMIT }
+      })
+      return res.data // { data: [], total, page, limit }
+    },
+    placeholderData: (prev) => prev
   })
 
   const { data: stats } = useQuery({
@@ -70,6 +75,10 @@ export default function Disputes() {
     onError: () => toast.error('Failed to update dispute status')
   })
 
+  const disputes = (disputeRes as any).data || []
+  const total = (disputeRes as any).total || 0
+  const totalPages = Math.ceil(total / LIMIT)
+
   return (
     <div className="space-y-8 animate-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -90,7 +99,7 @@ export default function Disputes() {
         {['All', 'Open', 'Investigating', 'Resolved'].map(t => (
           <button 
             key={t}
-            onClick={() => setFilter(t)}
+            onClick={() => { setFilter(t); setPage(1) }}
             className={cn(
               "px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
               filter === t ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
@@ -173,6 +182,34 @@ export default function Disputes() {
               </div>
             </motion.div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <p className="text-sm text-zinc-500">
+            Showing <span className="text-zinc-300 font-bold">{((page - 1) * LIMIT) + 1}–{Math.min(page * LIMIT, total)}</span> of <span className="text-zinc-300 font-bold">{total}</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white text-sm font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              ← Prev
+            </button>
+            <span className="px-4 py-2 text-sm text-zinc-400">
+              Page {page} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-white text-sm font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Next →
+            </button>
+          </div>
         </div>
       )}
 

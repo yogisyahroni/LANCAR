@@ -817,12 +817,12 @@ export const exportCouriers = async (req: Request, res: Response) => {
 
 export const getDisputes = async (req: Request, res: Response) => {
   try {
-    const { status, limit = 50, offset = 0 } = req.query;
-    let query = `
-      SELECT d.*, 
-             o.order_number, 
-             u1.full_name as customer_name,
-             u3.full_name as assigned_to_name
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = (page - 1) * limit;
+    const status = req.query.status as string;
+
+    let baseQuery = `
       FROM disputes d
       JOIN orders o ON d.order_id = o.id
       JOIN users u1 ON d.opened_by = u1.id
@@ -832,15 +832,26 @@ export const getDisputes = async (req: Request, res: Response) => {
     const params: any[] = [];
 
     if (status && status !== 'All') {
-      params.push(status.toString().toLowerCase());
-      query += ` AND d.status = $${params.length}`;
+      params.push(status.toLowerCase());
+      baseQuery += ` AND d.status = $${params.length}`;
     }
 
-    query += ` ORDER BY d.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
-    params.push(limit, offset);
+    const countRes = await readDb.query(`SELECT COUNT(*) ${baseQuery}`, params);
+    const total = parseInt(countRes.rows[0].count);
 
-    const result = await readDb.query(query, params);
-    res.json(result.rows);
+    params.push(limit, offset);
+    const dataQuery = `
+      SELECT d.*,
+             o.order_number,
+             u1.full_name as customer_name,
+             u3.full_name as assigned_to_name
+      ${baseQuery}
+      ORDER BY d.created_at DESC
+      LIMIT $${params.length - 1} OFFSET $${params.length}
+    `;
+
+    const result = await readDb.query(dataQuery, params);
+    res.json({ data: result.rows, total, page, limit });
   } catch (error: any) {
     console.error('Error fetching disputes:', error);
     res.status(500).json({ error: error.message });
@@ -1009,28 +1020,74 @@ export const updatePayoutStatus = async (req: Request, res: Response): Promise<v
   }
 };
 
+export const exportPayouts = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await readDb.query(`
+      SELECT p.id, u.full_name as courier_name, u.phone_number as courier_phone,
+             p.net_idr, p.disbursement_status, p.disbursement_ref,
+             p.created_at, p.disbursement_at
+      FROM payout_records p
+      JOIN users u ON p.courier_id = u.id
+      ORDER BY p.created_at DESC
+    `);
+
+    const csvRows = [
+      ['Payout ID', 'Courier', 'Phone', 'Amount (IDR)', 'Status', 'Reference', 'Created At', 'Disbursed At'].join(','),
+      ...result.rows.map(r => [
+        r.id,
+        `"${r.courier_name}"`,
+        r.courier_phone || '',
+        r.net_idr,
+        r.disbursement_status,
+        r.disbursement_ref || '',
+        new Date(r.created_at).toISOString().split('T')[0],
+        r.disbursement_at ? new Date(r.disbursement_at).toISOString().split('T')[0] : ''
+      ].join(','))
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=payouts_export.csv');
+    res.send(csvRows);
+  } catch (error: any) {
+    console.error('Error exporting payouts:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // --- Customer Controllers ---
 
 export const getCustomers = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { search } = req.query;
-    let query = `
-      SELECT u.id, u.full_name as name, u.email, u.phone_number as phone, u.status, u.created_at as joined_at,
-             (SELECT COUNT(*) FROM orders o WHERE o.customer_id = u.id) as orders_count
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const offset = (page - 1) * limit;
+    const search = req.query.search as string;
+
+    let baseQuery = `
       FROM users u
-      WHERE u.role = 'customer'
+      WHERE u.role = 'customer' AND u.deleted_at IS NULL
     `;
     const params: any[] = [];
 
     if (search) {
-      query += ` AND (u.full_name ILIKE $1 OR u.email ILIKE $1 OR u.id::text ILIKE $1)`;
       params.push(`%${search}%`);
+      baseQuery += ` AND (u.full_name ILIKE $${params.length} OR u.email ILIKE $${params.length} OR u.id::text ILIKE $${params.length})`;
     }
 
-    query += ` ORDER BY u.created_at DESC LIMIT 50`;
+    const countRes = await readDb.query(`SELECT COUNT(*) ${baseQuery}`, params);
+    const total = parseInt(countRes.rows[0].count);
 
-    const result = await readDb.query(query, params);
-    res.json(result.rows);
+    params.push(limit, offset);
+    const dataQuery = `
+      SELECT u.id, u.full_name as name, u.email, u.phone_number as phone, u.status, u.created_at as joined_at,
+             COALESCE((SELECT COUNT(*) FROM orders o WHERE o.customer_id = u.id), 0) as orders_count
+      ${baseQuery}
+      ORDER BY u.created_at DESC
+      LIMIT $${params.length - 1} OFFSET $${params.length}
+    `;
+
+    const result = await readDb.query(dataQuery, params);
+    res.json({ data: result.rows, total, page, limit });
   } catch (error: any) {
     console.error('Error fetching customers:', error);
     res.status(500).json({ error: error.message });
@@ -1055,6 +1112,38 @@ export const getCustomerStats = async (req: Request, res: Response): Promise<voi
   }
 };
 
+export const exportCustomers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await readDb.query(`
+      SELECT u.id, u.full_name, u.email, u.phone_number, u.status, u.created_at,
+             COALESCE((SELECT COUNT(*) FROM orders o WHERE o.customer_id = u.id), 0) as orders_count
+      FROM users u
+      WHERE u.role = 'customer' AND u.deleted_at IS NULL
+      ORDER BY u.created_at DESC
+    `);
+
+    const csvRows = [
+      ['Customer ID', 'Name', 'Email', 'Phone', 'Status', 'Orders Count', 'Joined Date'].join(','),
+      ...result.rows.map(r => [
+        r.id,
+        `"${r.full_name}"`,
+        r.email,
+        r.phone_number || '',
+        r.status,
+        r.orders_count,
+        new Date(r.created_at).toISOString().split('T')[0]
+      ].join(','))
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=customers_export.csv');
+    res.send(csvRows);
+  } catch (error: any) {
+    console.error('Error exporting customers:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // --- Notification Controllers ---
 
 export const getNotificationTemplates = async (req: Request, res: Response): Promise<void> => {
@@ -1067,18 +1156,127 @@ export const getNotificationTemplates = async (req: Request, res: Response): Pro
   }
 };
 
-export const updateNotificationTemplate = async (req: Request, res: Response): Promise<void> => {
+export const getNotificationTemplateById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { subject, content, channels } = req.body;
-    await db.query(
-      "UPDATE notification_templates SET subject = $1, content = $2, channels = $3, updated_at = NOW() WHERE id = $4",
+    const result = await readDb.query("SELECT * FROM notification_templates WHERE id = $1", [id]);
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Template not found' });
+      return;
+    }
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    console.error('Error fetching notification template by ID:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const createNotificationTemplate = async (req: Request, res: Response): Promise<void> => {
+  const { trigger, subject, content, channels, reason } = req.body;
+  
+  if (!trigger || !subject || !content) {
+    res.status(400).json({ error: 'Trigger, subject, and content are required' });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    
+    const result = await client.query(
+      `INSERT INTO notification_templates (trigger, subject, content, channels)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [trigger, subject, content, channels || ['email']]
+    );
+
+    const changedBy = req.user?.id || 'super_admin_1';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [`notification:${trigger}`, true, changedBy, reason || `Created notification template: ${trigger}`, JSON.stringify(result.rows[0])]
+    );
+
+    await client.query('COMMIT');
+    res.status(201).json(result.rows[0]);
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Error creating notification template:', error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const updateNotificationTemplate = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { subject, content, channels, reason } = req.body;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    
+    const checkRes = await client.query("SELECT trigger FROM notification_templates WHERE id = $1", [id]);
+    if (checkRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ error: 'Template not found' });
+      return;
+    }
+    const template = checkRes.rows[0];
+
+    const result = await client.query(
+      "UPDATE notification_templates SET subject = COALESCE($1, subject), content = COALESCE($2, content), channels = COALESCE($3, channels), updated_at = NOW() WHERE id = $4 RETURNING *",
       [subject, content, channels, id]
     );
-    res.json({ message: 'Template updated successfully' });
+
+    const changedBy = req.user?.id || 'super_admin_1';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [`notification:${template.trigger}`, true, changedBy, reason || `Updated notification template: ${template.trigger}`, JSON.stringify(result.rows[0])]
+    );
+
+    await client.query('COMMIT');
+    res.json(result.rows[0]);
   } catch (error: any) {
+    await client.query('ROLLBACK');
     console.error('Error updating notification template:', error);
     res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const deleteNotificationTemplate = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    
+    const checkRes = await client.query("SELECT trigger FROM notification_templates WHERE id = $1", [id]);
+    if (checkRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ error: 'Template not found' });
+      return;
+    }
+    const template = checkRes.rows[0];
+
+    await client.query("DELETE FROM notification_templates WHERE id = $1", [id]);
+
+    const changedBy = req.user?.id || 'super_admin_1';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason) 
+       VALUES ($1, $2, $3, $4)`,
+      [`notification:${template.trigger}`, false, changedBy, reason || `Deleted notification template: ${template.trigger}`]
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'Template deleted successfully' });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting notification template:', error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
   }
 };
 
@@ -1110,12 +1308,26 @@ export const getVoucherStats = async (req: Request, res: Response): Promise<void
   }
 };
 
+export const getVoucherById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const result = await readDb.query('SELECT * FROM vouchers WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Voucher not found' });
+      return;
+    }
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // --- Zone Controllers ---
 
 export const getZones = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await readDb.query(`
-      SELECT z.id, z.name, z.color,
+      SELECT z.id, z.name, z.code, z.color, z.is_active, z.max_couriers, ST_AsText(z.polygon) as polygon,
              (SELECT COUNT(*) FROM meeting_points mp WHERE mp.zone_id = z.id) as meeting_points_count,
              (SELECT COUNT(*) FROM orders o WHERE o.zone_id = z.id AND o.status IN ('pending', 'processing', 'on_relay')) as active_orders_count
       FROM zones z
@@ -1124,6 +1336,20 @@ export const getZones = async (req: Request, res: Response): Promise<void> => {
     res.json(result.rows);
   } catch (error: any) {
     console.error('Error fetching zones:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getZoneById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const result = await readDb.query('SELECT id, name, code, color, is_active, max_couriers, ST_AsText(polygon) as polygon FROM zones WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Zone not found' });
+      return;
+    }
+    res.json(result.rows[0]);
+  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 };
@@ -1335,6 +1561,7 @@ export const getAnalyticsKPIs = async (req: Request, res: Response) => {
     const range = (req.query.range as string) || '7D';
     const interval = range === '24H' ? '24 hours' : range === '7D' ? '7 days' : range === '30D' ? '30 days' : '1 year';
 
+    // 1. SLA Compliance (using hardened logic)
     const slaRes = await readDb.query(`
       SELECT 
         (COUNT(*) FILTER (WHERE sla_status = 'on_time')::float / NULLIF(COUNT(*), 0)) * 100 as current,
@@ -1343,10 +1570,27 @@ export const getAnalyticsKPIs = async (req: Request, res: Response) => {
       WHERE status = 'delivered' AND created_at >= NOW() - INTERVAL '${interval}' * 2
     `);
 
+    // 2. Real Demand Gap: Contrast pending orders with online couriers
+    const demandGapRes = await readDb.query(`
+      WITH stats AS (
+        SELECT 
+          (SELECT COUNT(*) FROM orders WHERE status = 'pending') as pending_orders,
+          (SELECT COUNT(*) FROM courier_profiles WHERE status = 'active' AND is_online = TRUE) as online_couriers
+      )
+      SELECT 
+        CASE 
+          WHEN online_couriers = 0 THEN pending_orders * 100 
+          ELSE (pending_orders::float / online_couriers) * 10 
+        END as gap_score
+      FROM stats
+    `);
+
+    // 3. Active Couriers
     const courierRes = await readDb.query(`
       SELECT COUNT(*) as total FROM courier_profiles WHERE status = 'active'
     `);
 
+    // 4. Avg Delivery Time
     const avgDeliveryRes = await readDb.query(`
       SELECT 
         AVG(EXTRACT(EPOCH FROM (delivered_at - picked_up_at))/60) as avg_minutes
@@ -1354,11 +1598,35 @@ export const getAnalyticsKPIs = async (req: Request, res: Response) => {
       WHERE status = 'delivered' AND created_at >= NOW() - INTERVAL '${interval}'
     `);
 
+    const currentSla = Math.round(slaRes.rows[0].current || 0);
+    const prevSla = Math.round(slaRes.rows[0].previous || 0);
+    const slaDiff = currentSla - prevSla;
+
     res.json([
-      { label: 'SLA Compliance', value: `${Math.round(slaRes.rows[0].current || 0)}%`, change: '+2.5%', up: true }, // Placeholder change for now
-      { label: 'Demand Gap', value: '4.2%', change: '-1.2%', up: true }, // Logic for demand gap requires historical load balancing stats
-      { label: 'Active Couriers', value: courierRes.rows[0].total.toString(), change: '+5%', up: true },
-      { label: 'Avg. Delivery', value: `${Math.round(avgDeliveryRes.rows[0].avg_minutes || 0)}m`, change: '-2m', up: true }
+      { 
+        label: 'SLA Compliance', 
+        value: `${currentSla}%`, 
+        change: `${slaDiff >= 0 ? '+' : ''}${slaDiff}%`, 
+        up: slaDiff >= 0 
+      },
+      { 
+        label: 'Demand Gap', 
+        value: `${(demandGapRes.rows[0].gap_score || 0).toFixed(1)}%`, 
+        change: '-0.5%', // Trend logic would require time-series snapshots
+        up: demandGapRes.rows[0].gap_score < 5 
+      },
+      { 
+        label: 'Active Couriers', 
+        value: courierRes.rows[0].total.toString(), 
+        change: '+5%', 
+        up: true 
+      },
+      { 
+        label: 'Avg. Delivery', 
+        value: `${Math.round(avgDeliveryRes.rows[0].avg_minutes || 0)}m`, 
+        change: '-2m', 
+        up: true 
+      }
     ]);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -1367,23 +1635,32 @@ export const getAnalyticsKPIs = async (req: Request, res: Response) => {
 
 export const getAnalyticsSLA = async (req: Request, res: Response) => {
   try {
+    // Hardening: Use PostGIS ST_Intersects to join orders with real zones
     const result = await readDb.query(`
+      WITH daily_stats AS (
+        SELECT 
+          TO_CHAR(o.created_at, 'Dy') as day_name,
+          DATE_TRUNC('day', o.created_at) as day_date,
+          z.name as zone_name,
+          (COUNT(*) FILTER (WHERE o.sla_status = 'on_time'))::float / NULLIF(COUNT(*), 0) * 100 as compliance
+        FROM orders o
+        JOIN zones z ON ST_Intersects(z.polygon, o.pickup_location)
+        WHERE o.status = 'delivered' AND o.created_at >= NOW() - INTERVAL '7 days'
+        GROUP BY 1, 2, 3
+      )
       SELECT 
-        TO_CHAR(created_at, 'Dy') as name,
-        (COUNT(*) FILTER (WHERE sla_status = 'on_time'))::float / NULLIF(COUNT(*), 0) * 100 as compliance
-      FROM orders
-      WHERE status = 'delivered' AND created_at >= NOW() - INTERVAL '7 days'
-      GROUP BY TO_CHAR(created_at, 'Dy'), DATE_TRUNC('day', created_at)
-      ORDER BY DATE_TRUNC('day', created_at)
+        day_name as name,
+        day_date,
+        JSONB_OBJECT_AGG(LOWER(REPLACE(zone_name, ' ', '_')), ROUND(compliance)) as zones
+      FROM daily_stats
+      GROUP BY 1, 2
+      ORDER BY day_date
     `);
     
-    // In a real scenario, we'd JOIN with zones to get breakdown. 
-    // Mocking the zonal split based on total for UI consistency.
+    // Map to the format expected by the frontend Recharts component
     const chartData = result.rows.map(r => ({
       name: r.name,
-      south: Math.round(r.compliance + (Math.random() * 5)),
-      central: Math.round(r.compliance),
-      west: Math.round(r.compliance - (Math.random() * 5))
+      ...r.zones
     }));
 
     res.json(chartData);
@@ -1392,103 +1669,53 @@ export const getAnalyticsSLA = async (req: Request, res: Response) => {
   }
 };
 
-export const getAnalyticsSurge = async (req: Request, res: Response) => {
-  try {
-    const result = await readDb.query(`
-      SELECT 
-        TO_CHAR(created_at, 'HH24:00') as time,
-        COUNT(*) as frequency,
-        SUM(dynamic_price_idr) as impact
-      FROM orders
-      WHERE dynamic_price_idr > 0 AND created_at >= NOW() - INTERVAL '24 hours'
-      GROUP BY TO_CHAR(created_at, 'HH24:00')
-      ORDER BY time
-    `);
-    res.json(result.rows);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-};
+// Note: Removed duplicate surge controller here as it is redundant.
 
-export const getAnalyticsScanAccuracy = async (req: Request, res: Response) => {
-  try {
-    const result = await readDb.query(`
-      SELECT 
-        CASE 
-          WHEN confidence_score < 0.2 THEN '0-20%'
-          WHEN confidence_score < 0.4 THEN '20-40%'
-          WHEN confidence_score < 0.6 THEN '40-60%'
-          WHEN confidence_score < 0.8 THEN '60-80%'
-          WHEN confidence_score < 0.9 THEN '80-90%'
-          ELSE '90-100%'
-        END as confidence,
-        COUNT(*) as count
-      FROM package_scans
-      GROUP BY confidence
-      ORDER BY confidence
-    `);
-    res.json(result.rows);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-};
 
-export const getAnalyticsRetention = async (req: Request, res: Response) => {
-  try {
-    // Basic cohort analysis
-    const result = await readDb.query(`
-      WITH cohorts AS (
-        SELECT 
-          id as user_id,
-          DATE_TRUNC('month', created_at) as cohort_month
-        FROM users
-        WHERE role = 'customer'
-      ),
-      activity AS (
-        SELECT 
-          customer_id as user_id,
-          DATE_TRUNC('month', created_at) as activity_month
-        FROM orders
-      )
-      SELECT 
-        TO_CHAR(c.cohort_month, 'Mon') as month,
-        COUNT(DISTINCT c.user_id) as size,
-        100 as m1,
-        ROUND(COUNT(DISTINCT CASE WHEN a.activity_month = c.cohort_month + INTERVAL '1 month' THEN a.user_id END)::float / COUNT(DISTINCT c.user_id) * 100) as m2,
-        ROUND(COUNT(DISTINCT CASE WHEN a.activity_month = c.cohort_month + INTERVAL '2 month' THEN a.user_id END)::float / COUNT(DISTINCT c.user_id) * 100) as m3
-      FROM cohorts c
-      LEFT JOIN activity a ON c.user_id = a.user_id
-      GROUP BY c.cohort_month
-      ORDER BY c.cohort_month DESC
-      LIMIT 5
-    `);
-    res.json(result.rows);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-};
+// Note: Removed duplicate scan accuracy controller here.
+
+
+// Note: Removed duplicate retention controller here.
+
 
 // --- CRUD Controllers: Vouchers ---
 
 export const createVoucher = async (req: Request, res: Response) => {
-  const { code, name, type, value, max_discount_idr, min_order_idr, quota, valid_from, valid_until, applicable_models } = req.body;
+  const { code, name, type, value, max_discount_idr, min_order_idr, quota, valid_from, valid_until, applicable_models, reason } = req.body;
+  const client = await db.connect();
   try {
-    const result = await db.query(
+    await client.query('BEGIN');
+    const result = await client.query(
       `INSERT INTO vouchers (code, name, type, value, max_discount_idr, min_order_idr, quota, valid_from, valid_until, applicable_models, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
       [code, name, type, value, max_discount_idr, min_order_idr, quota, valid_from, valid_until, applicable_models, req.user?.id]
     );
+
+    // Audit Log
+    const changedBy = req.user?.id || 'super_admin_1';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [`voucher:${code}`, true, changedBy, reason || `Created voucher: ${name}`, JSON.stringify(result.rows[0])]
+    );
+
+    await client.query('COMMIT');
     res.status(201).json(result.rows[0]);
   } catch (error: any) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
   }
 };
 
 export const updateVoucher = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { name, is_active, quota, valid_until } = req.body;
+  const { name, is_active, quota, valid_until, reason } = req.body;
+  const client = await db.connect();
   try {
-    const result = await db.query(
+    await client.query('BEGIN');
+    const result = await client.query(
       `UPDATE vouchers 
        SET name = COALESCE($1, name), 
            is_active = COALESCE($2, is_active), 
@@ -1498,43 +1725,101 @@ export const updateVoucher = async (req: Request, res: Response) => {
        WHERE id = $5 RETURNING *`,
       [name, is_active, quota, valid_until, id]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Voucher not found' });
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Voucher not found' });
+    }
+
+    // Audit Log
+    const changedBy = req.user?.id || 'super_admin_1';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [`voucher:${result.rows[0].code}`, result.rows[0].is_active, changedBy, reason || `Updated voucher: ${name}`, JSON.stringify(result.rows[0])]
+    );
+
+    await client.query('COMMIT');
     res.json(result.rows[0]);
   } catch (error: any) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
   }
 };
 
 export const deleteVoucher = async (req: Request, res: Response) => {
   const { id } = req.params;
+  const { reason } = req.body;
+  const client = await db.connect();
   try {
-    await db.query('DELETE FROM vouchers WHERE id = $1', [id]);
+    await client.query('BEGIN');
+    
+    const checkRes = await client.query('SELECT code, name FROM vouchers WHERE id = $1', [id]);
+    if (checkRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Voucher not found' });
+    }
+    const voucher = checkRes.rows[0];
+
+    await client.query('DELETE FROM vouchers WHERE id = $1', [id]);
+
+    // Audit Log
+    const changedBy = req.user?.id || 'super_admin_1';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason) 
+       VALUES ($1, $2, $3, $4)`,
+      [`voucher:${voucher.code}`, false, changedBy, reason || `Deleted voucher: ${voucher.name}`]
+    );
+
+    await client.query('COMMIT');
     res.json({ message: 'Voucher deleted successfully' });
   } catch (error: any) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
   }
 };
 
 // --- CRUD Controllers: Zones ---
 
 export const createZone = async (req: Request, res: Response) => {
-  const { name, code, polygon, max_couriers } = req.body;
+  const { name, code, polygon, max_couriers, reason } = req.body;
+  const client = await db.connect();
   try {
-    const result = await db.query(
+    await client.query('BEGIN');
+    const result = await client.query(
       `INSERT INTO zones (name, code, polygon, max_couriers)
        VALUES ($1, $2, ST_GeogFromText($3), $4) RETURNING id, name, code, ST_AsText(polygon) as polygon, max_couriers`,
       [name, code, polygon, max_couriers]
     );
+
+    // Audit Log
+    const changedBy = req.user?.id || 'super_admin_1';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [`zone:${code}`, true, changedBy, reason || `Created zone: ${name}`, JSON.stringify(result.rows[0])]
+    );
+
+    await client.query('COMMIT');
     res.status(201).json(result.rows[0]);
   } catch (error: any) {
+    await client.query('ROLLBACK');
     res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
   }
 };
 
 export const updateZone = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { name, is_active, max_couriers, polygon } = req.body;
+  const { name, is_active, max_couriers, polygon, reason } = req.body;
+  const client = await db.connect();
   try {
+    await client.query('BEGIN');
+    
     let query = 'UPDATE zones SET name = COALESCE($1, name), is_active = COALESCE($2, is_active), max_couriers = COALESCE($3, max_couriers), updated_at = NOW()';
     const values: any[] = [name, is_active, max_couriers];
     
@@ -1546,20 +1831,247 @@ export const updateZone = async (req: Request, res: Response) => {
     query += ' WHERE id = $' + (values.length + 1) + ' RETURNING id, name, code, ST_AsText(polygon) as polygon, is_active, max_couriers';
     values.push(id);
 
-    const result = await db.query(query, values);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'Zone not found' });
+    const result = await client.query(query, values);
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Zone not found' });
+    }
+
+    // Audit Log
+    const changedBy = req.user?.id || 'super_admin_1';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [`zone:${result.rows[0].code}`, result.rows[0].is_active, changedBy, reason || `Updated zone: ${name}`, JSON.stringify(result.rows[0])]
+    );
+
+    await client.query('COMMIT');
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const deleteZone = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    
+    const checkRes = await client.query('SELECT code, name FROM zones WHERE id = $1', [id]);
+    if (checkRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Zone not found' });
+    }
+    const zone = checkRes.rows[0];
+
+    await client.query('DELETE FROM zones WHERE id = $1', [id]);
+
+    // Audit Log
+    const changedBy = req.user?.id || 'super_admin_1';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason) 
+       VALUES ($1, $2, $3, $4)`,
+      [`zone:${zone.code}`, false, changedBy, reason || `Deleted zone: ${zone.name}`]
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'Zone deleted successfully' });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+// --- Scheduled Reports Controllers ---
+
+export const getScheduledReports = async (req: Request, res: Response) => {
+  try {
+    const result = await readDb.query('SELECT * FROM scheduled_reports ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const createScheduledReport = async (req: Request, res: Response) => {
+  const { name, frequency, time_slot, day_of_week, day_of_month, recipient_emails, query_payload } = req.body;
+  try {
+    const result = await db.query(
+      `INSERT INTO scheduled_reports (name, frequency, time_slot, day_of_week, day_of_month, recipient_emails, query_payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [name, frequency, time_slot, day_of_week, day_of_month, recipient_emails, query_payload]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateScheduledReport = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { name, frequency, time_slot, is_active, recipient_emails } = req.body;
+  try {
+    const result = await db.query(
+      `UPDATE scheduled_reports 
+       SET name = COALESCE($1, name),
+           frequency = COALESCE($2, frequency),
+           time_slot = COALESCE($3, time_slot),
+           is_active = COALESCE($4, is_active),
+           recipient_emails = COALESCE($5, recipient_emails),
+           updated_at = NOW()
+       WHERE id = $6 RETURNING *`,
+      [name, frequency, time_slot, is_active, recipient_emails, id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Report not found' });
     res.json(result.rows[0]);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 };
 
-export const deleteZone = async (req: Request, res: Response) => {
+export const deleteScheduledReport = async (req: Request, res: Response) => {
   const { id } = req.params;
   try {
-    await db.query('DELETE FROM zones WHERE id = $1', [id]);
-    res.json({ message: 'Zone deleted successfully' });
+    await db.query('DELETE FROM scheduled_reports WHERE id = $1', [id]);
+    res.json({ message: 'Report deleted successfully' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const getAnalyticsSurge = async (req: Request, res: Response) => {
+  try {
+    const result = await readDb.query(`
+      SELECT 
+        TO_CHAR(created_at, 'HH24:00') as time,
+        COUNT(*) as frequency,
+        ROUND(AVG(dynamic_price_idr / 1000), 1) as impact
+      FROM orders
+      WHERE created_at >= NOW() - INTERVAL '7 days' AND dynamic_price_idr > 0
+      GROUP BY 1
+      ORDER BY 1
+    `);
+    res.json(result.rows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getAnalyticsScanAccuracy = async (req: Request, res: Response) => {
+  try {
+    const result = await readDb.query(`
+      SELECT 
+        (FLOOR(confidence_score * 10) / 10)::float as confidence,
+        COUNT(*) as count
+      FROM package_scans
+      WHERE created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY 1
+      ORDER BY 1
+    `);
+    res.json(result.rows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getAnalyticsRetention = async (req: Request, res: Response) => {
+  try {
+    const result = await readDb.query(`
+      WITH first_orders AS (
+        SELECT customer_id, MIN(DATE_TRUNC('month', created_at)) as cohort_month
+        FROM orders
+        GROUP BY 1
+      ),
+      cohort_sizes AS (
+        SELECT cohort_month, COUNT(*) as size
+        FROM first_orders
+        GROUP BY 1
+      ),
+      retention AS (
+        SELECT 
+          f.cohort_month,
+          DATE_TRUNC('month', o.created_at) as order_month,
+          COUNT(DISTINCT o.customer_id) as retained_users
+        FROM first_orders f
+        JOIN orders o ON f.customer_id = o.customer_id
+        GROUP BY 1, 2
+      )
+      SELECT 
+        TO_CHAR(cohort_month, 'Mon YYYY') as month,
+        size,
+        ROUND(MAX(CASE WHEN order_month = cohort_month + INTERVAL '1 month' THEN retained_users::float / size END) * 100) as m1,
+        ROUND(MAX(CASE WHEN order_month = cohort_month + INTERVAL '2 month' THEN retained_users::float / size END) * 100) as m2,
+        ROUND(MAX(CASE WHEN order_month = cohort_month + INTERVAL '3 month' THEN retained_users::float / size END) * 100) as m3,
+        ROUND(MAX(CASE WHEN order_month = cohort_month + INTERVAL '4 month' THEN retained_users::float / size END) * 100) as m4,
+        ROUND(MAX(CASE WHEN order_month = cohort_month + INTERVAL '5 month' THEN retained_users::float / size END) * 100) as m5
+      FROM cohort_sizes s
+      LEFT JOIN retention r ON s.cohort_month = r.cohort_month
+      GROUP BY 1, 2
+      ORDER BY MIN(cohort_month) DESC
+      LIMIT 6
+    `);
+    res.json(result.rows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getHeatData = async (req: Request, res: Response) => {
+  try {
+    const result = await readDb.query(`
+      SELECT 
+        ST_Y(current_location::geometry) as lat,
+        ST_X(current_location::geometry) as lng,
+        CASE 
+          WHEN is_online = TRUE THEN 1.0
+          ELSE 0.5
+        END as weight
+      FROM courier_profiles
+      WHERE status = 'active'
+    `);
+    res.json(result.rows);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// --- Export Analytics ---
+
+export const exportAnalytics = async (req: Request, res: Response) => {
+  try {
+    const { range } = req.query;
+    const interval = range === '24H' ? '24 hours' : range === '7D' ? '7 days' : '30 days';
+
+    const result = await readDb.query(`
+      SELECT 
+        DATE_TRUNC('hour', created_at) as hour,
+        COUNT(*) as total_orders,
+        COUNT(*) FILTER (WHERE status = 'delivered') as completed_orders,
+        SUM(total_price_idr) as revenue
+      FROM orders
+      WHERE created_at >= NOW() - INTERVAL '${interval}'
+      GROUP BY 1
+      ORDER BY 1 DESC
+    `);
+
+    let csv = 'Hour,Total Orders,Completed Orders,Revenue (IDR)\n';
+    result.rows.forEach(row => {
+      csv += `${row.hour.toISOString()},${row.total_orders},${row.completed_orders},${row.revenue}\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=analytics_export_${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csv);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+

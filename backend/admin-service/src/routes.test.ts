@@ -49,11 +49,16 @@ jest.mock('./controllers', () => ({
   assignDispute: jest.fn((req, res) => res.status(200).json({ status: 'assigned' })),
   getFinancialStats: jest.fn((req, res) => res.status(200).json({})),
   getPayouts: jest.fn((req, res) => res.status(200).json([])),
+  exportPayouts: jest.fn((req, res) => res.status(200).send('csv,data')),
   updatePayoutStatus: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
-  getCustomers: jest.fn((req, res) => res.status(200).json([])),
+  getCustomers: jest.fn((req, res) => res.status(200).json({ data: [], total: 0, page: 1, limit: 20 })),
   getCustomerStats: jest.fn((req, res) => res.status(200).json({})),
+  exportCustomers: jest.fn((req, res) => res.status(200).send('csv,data')),
   getNotificationTemplates: jest.fn((req, res) => res.status(200).json([])),
+  getNotificationTemplateById: jest.fn((req, res) => res.status(200).json({ id: req.params.id })),
+  createNotificationTemplate: jest.fn((req, res) => res.status(201).json({ id: 'new-template' })),
   updateNotificationTemplate: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
+  deleteNotificationTemplate: jest.fn((req, res) => res.status(200).json({ status: 'deleted' })),
   getVouchers: jest.fn((req, res) => res.status(200).json([])),
   getVoucherStats: jest.fn((req, res) => res.status(200).json({})),
   getZones: jest.fn((req, res) => res.status(200).json([])),
@@ -80,6 +85,12 @@ jest.mock('./controllers', () => ({
   getAnalyticsSurge: jest.fn((req, res) => res.status(200).json({})),
   getAnalyticsScanAccuracy: jest.fn((req, res) => res.status(200).json({})),
   getAnalyticsRetention: jest.fn((req, res) => res.status(200).json({})),
+  getHeatData: jest.fn((req, res) => res.status(200).json([])),
+  exportAnalytics: jest.fn((req, res) => res.status(200).send('csv,data')),
+  getScheduledReports: jest.fn((req, res) => res.status(200).json([])),
+  createScheduledReport: jest.fn((req, res) => res.status(201).json({ id: 'new-report' })),
+  updateScheduledReport: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
+  deleteScheduledReport: jest.fn((req, res) => res.status(200).json({ status: 'deleted' })),
 }));
 
 // Mock Redis to prevent open handles
@@ -138,6 +149,31 @@ describe('Admin Service Routes', () => {
       .set('x-totp-verified', 'true');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ readiness: true });
+  });
+  
+  it('should get notification template by id', async () => {
+    const res = await request(app).get('/admin/notifications/templates/1')
+      .set('x-user-role', 'super_admin')
+      .set('x-totp-verified', 'true');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ id: '1' });
+  });
+
+  it('should create notification template', async () => {
+    const res = await request(app).post('/admin/notifications/templates')
+      .set('x-user-role', 'super_admin')
+      .set('x-totp-verified', 'true')
+      .send({ trigger: 'test', subject: 'test', content: 'test' });
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({ id: 'new-template' });
+  });
+
+  it('should delete notification template', async () => {
+    const res = await request(app).delete('/admin/notifications/templates/1')
+      .set('x-user-role', 'super_admin')
+      .set('x-totp-verified', 'true');
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ status: 'deleted' });
   });
 
   afterAll(async () => {

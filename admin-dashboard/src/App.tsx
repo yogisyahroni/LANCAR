@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Toaster } from 'sonner'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Orders from './pages/Orders'
@@ -43,6 +44,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <Toaster position="top-right" theme="dark" richColors closeButton />
       <Router>
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" />} />

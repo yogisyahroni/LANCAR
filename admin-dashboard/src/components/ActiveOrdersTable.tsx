@@ -28,7 +28,7 @@ export default function ActiveOrdersTable() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const limit = 10
 
-  // Fetch Orders
+  // Fetch Orders — auto-refetch every 10s for near-realtime updates
   const { data: ordersData, isLoading: isLoadingOrders } = useQuery({
     queryKey: ['admin-orders', page, searchTerm],
     queryFn: async () => {
@@ -40,7 +40,8 @@ export default function ActiveOrdersTable() {
         }
       })
       return res.data
-    }
+    },
+    refetchInterval: 10000
   })
 
   // Fetch Order Detail when selected

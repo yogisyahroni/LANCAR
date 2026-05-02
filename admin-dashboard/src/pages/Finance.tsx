@@ -89,6 +89,23 @@ export default function Finance() {
           <p className="text-zinc-500 mt-1">Real-time revenue oversight, cost analysis, and settlement control.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={async () => {
+              try {
+                const res = await api.get('/admin/finance/payouts/export', { responseType: 'blob' })
+                const url = URL.createObjectURL(res.data)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `payouts_export_${new Date().toISOString().split('T')[0]}.csv`
+                a.click()
+                URL.revokeObjectURL(url)
+              } catch { console.error('Export failed') }
+            }}
+            className="px-6 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-sm uppercase tracking-widest hover:bg-emerald-500/20 transition-all flex items-center gap-2"
+          >
+            <Download size={18} />
+            Export Payouts CSV
+          </button>
           <button className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-sm uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2">
             <Download size={18} />
             Export Audit (PDF)
