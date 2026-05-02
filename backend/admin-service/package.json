@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "test": "jest --forceExit --detectOpenHandles",
-    "build": "tsc"
+    "build": "tsc",
+    "seed:comprehensive": "ts-node src/seed-comprehensive.ts"
   },
   "keywords": [],
   "author": "",

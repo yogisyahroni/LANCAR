@@ -5,6 +5,73 @@ import { sendEmailAlert, sendSlackAlert } from './notifications';
 import { validateFlagConfig } from './validators';
 import { getIO } from './websocket';
 
+export const exportAuditLogs = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await readDb.query(`
+      SELECT l.created_at, l.key, l.category, l.updated_by, l.change_reason, l.is_enabled
+      FROM feature_flag_logs l
+      ORDER BY l.created_at DESC
+    `);
+
+    const csvRows = [
+      ['Timestamp', 'Entity/Key', 'Category', 'Changed By', 'Action', 'Reason'].join(','),
+      ...result.rows.map(r => [
+        r.created_at.toISOString(),
+        r.key,
+        r.category || 'general',
+        r.updated_by || 'System',
+        r.is_enabled ? 'ENABLED/UPDATED' : 'DISABLED',
+        `"${(r.change_reason || '').replace(/"/g, '""')}"`
+      ].join(','))
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=system_audit_export.csv');
+    res.send(csvRows);
+  } catch (error: any) {
+    console.error('Error exporting audit logs:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const exportMasaReport = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Current month start
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const result = await readDb.query(`
+      SELECT o.id, o.created_at, o.total_price_idr, o.status,
+             (o.total_price_idr * 0.11) as ppn_amount
+      FROM orders o
+      WHERE o.created_at >= $1 AND o.status = 'delivered'
+      ORDER BY o.created_at ASC
+    `, [startOfMonth]);
+
+    const csvRows = [
+      ['Order ID', 'Date', 'Gross Amount (IDR)', 'PPN (11%)', 'Status'].join(','),
+      ...result.rows.map(r => [
+        r.id,
+        r.created_at.toISOString().split('T')[0],
+        r.total_price_idr,
+        r.ppn_amount,
+        r.status
+      ].join(','))
+    ].join('\n');
+
+    const totalPPN = result.rows.reduce((sum, r) => sum + parseFloat(r.ppn_amount), 0);
+    const summary = `\nTOTAL PPN CURRENT MASA, , ,${totalPPN}, `;
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=masa_ppn_report_${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csvRows + summary);
+  } catch (error: any) {
+    console.error('Error exporting masa report:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const getAllFlags = async (req: Request, res: Response) => {
   try {
     const category = req.query.category as string;
@@ -78,9 +145,9 @@ export const toggleFlag = async (req: Request, res: Response): Promise<void> => 
 
     // Insert log
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [key, new_enabled, changedBy, reason, JSON.stringify(flag.config)]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [key, new_enabled, changedBy, reason, JSON.stringify(flag.config), flag.category || 'feature']
     );
 
     await client.query('COMMIT');
@@ -147,9 +214,9 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
 
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [key, flag.is_enabled, changedBy, reason, JSON.stringify(validConfig)]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [key, flag.is_enabled, changedBy, reason, JSON.stringify(validConfig), flag.category || 'feature']
     );
 
     await client.query('COMMIT');
@@ -317,9 +384,9 @@ export const updateSystemConfig = async (req: Request, res: Response): Promise<v
 
     // Log to audit logs (using feature_flag_logs for now as a generic audit log)
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [`config:${key}`, true, changedBy, `Updated system config: ${key}`, JSON.stringify(value)]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [`config:${key}`, true, changedBy, `Updated system config: ${key}`, JSON.stringify(value), category || oldConfig.category || 'general']
     );
 
     await client.query('COMMIT');
@@ -849,9 +916,9 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
     // Log to audit
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason) 
-       VALUES ($1, $2, $3, $4)`,
-      [`courier:${id}`, status === 'Active', changedBy, `Status updated to ${status}`]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, category) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [`courier:${id}`, status === 'Active', changedBy, `Status updated to ${status}`, 'security']
     );
 
     await client.query('COMMIT');
@@ -1022,43 +1089,92 @@ export const assignDispute = async (req: Request, res: Response) => {
 
 export const getFinancialStats = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Aggregate revenue from payments table
-    const grossResult = await readDb.query(`
-      SELECT COALESCE(SUM(amount_idr), 0) as gross_revenue
+    // 1. Calculate Gross Revenue (Current 30d vs Previous 30d)
+    const revenueQuery = `
+      SELECT 
+        COALESCE(SUM(amount_idr) FILTER (WHERE paid_at >= NOW() - INTERVAL '30 days'), 0) as current_revenue,
+        COALESCE(SUM(amount_idr) FILTER (WHERE paid_at >= NOW() - INTERVAL '60 days' AND paid_at < NOW() - INTERVAL '30 days'), 0) as prev_revenue,
+        COALESCE(SUM(ppn_amount_idr) FILTER (WHERE paid_at >= NOW() - INTERVAL '30 days'), 0) as current_ppn
       FROM payments
       WHERE status = 'paid'
-    `);
+    `;
+    const revResult = await readDb.query(revenueQuery);
+    const currentRevenue = parseInt(revResult.rows[0].current_revenue);
+    const prevRevenue = parseInt(revResult.rows[0].prev_revenue);
+    const currentPpn = parseInt(revResult.rows[0].current_ppn);
 
-    const opsCostResult = await readDb.query(`
-      SELECT COALESCE(SUM(net_idr), 0) as total_payouts
+    // 2. Operational Cost (Current 30d vs Previous 30d)
+    const costQuery = `
+      SELECT 
+        COALESCE(SUM(net_idr) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days'), 0) as current_cost,
+        COALESCE(SUM(net_idr) FILTER (WHERE created_at >= NOW() - INTERVAL '60 days' AND created_at < NOW() - INTERVAL '30 days'), 0) as prev_cost
       FROM payout_records
       WHERE disbursement_status = 'completed'
-    `);
+    `;
+    const costResult = await readDb.query(costQuery);
+    const currentCost = parseInt(costResult.rows[0].current_cost);
+    const prevCost = parseInt(costResult.rows[0].prev_cost);
 
-    const grossRevenue = parseInt(grossResult.rows[0].gross_revenue);
-    const operationalCost = parseInt(opsCostResult.rows[0].total_payouts);
-    const netProfit = grossRevenue - operationalCost;
+    // 3. Net Profit
+    const currentProfit = currentRevenue - currentCost;
+    const prevProfit = prevRevenue - prevCost;
 
-    // Breakdown by model
+    // Helper to calculate percentage change
+    const calcChange = (current: number, prev: number) => {
+      if (prev === 0) return current > 0 ? 100 : 0;
+      return Math.round(((current - prev) / prev) * 100);
+    };
+
+    const revChange = calcChange(currentRevenue, prevRevenue);
+    const costChange = calcChange(currentCost, prevCost);
+    const profitChange = calcChange(currentProfit, prevProfit);
+
+    // 4. Model Breakdown
     const modelBreakdown = await readDb.query(`
       SELECT model, COUNT(*) as count, SUM(total_price_idr) as revenue
       FROM orders
-      WHERE status = 'delivered'
+      WHERE status = 'delivered' AND created_at >= NOW() - INTERVAL '30 days'
       GROUP BY model
     `);
 
-    // Emergency Fund (weather_reserve_idr in payments)
+    // 5. Emergency Fund
     const weatherReserveResult = await readDb.query(`
       SELECT COALESCE(SUM(weather_reserve_idr), 0) as total_reserve
       FROM payments
       WHERE status = 'paid'
     `);
 
+    // 6. Burn Analysis (7-day time series)
+    const burnTimeSeries = await readDb.query(`
+      SELECT 
+        DATE_TRUNC('day', created_at) as date,
+        SUM(net_idr) as total_amount
+      FROM payout_records
+      WHERE created_at >= NOW() - INTERVAL '7 days'
+      GROUP BY 1
+      ORDER BY 1 ASC
+    `);
+
     res.json({
       stats: [
-        { label: 'Gross Revenue', value: grossRevenue, change: '+12%', up: true },
-        { label: 'Net Profit', value: netProfit, change: '+15%', up: true },
-        { label: 'Operational Cost', value: operationalCost, change: '+5%', up: false },
+        { 
+          label: 'Gross Revenue', 
+          value: currentRevenue, 
+          change: `${revChange >= 0 ? '+' : ''}${revChange}%`, 
+          up: revChange >= 0 
+        },
+        { 
+          label: 'Net Profit', 
+          value: currentProfit, 
+          change: `${profitChange >= 0 ? '+' : ''}${profitChange}%`, 
+          up: profitChange >= 0 
+        },
+        { 
+          label: 'Operational Cost', 
+          value: currentCost, 
+          change: `${costChange >= 0 ? '+' : ''}${costChange}%`, 
+          up: costChange < 0 // Down is good for cost
+        },
       ],
       model_breakdown: modelBreakdown.rows.map(row => ({
         name: row.model.toUpperCase(),
@@ -1066,12 +1182,25 @@ export const getFinancialStats = async (req: Request, res: Response): Promise<vo
         value: parseInt(row.revenue),
         count: parseInt(row.count),
         revenue: parseInt(row.revenue),
-        percentage: Math.round((parseInt(row.revenue) / grossRevenue) * 100) || 0
+        percentage: Math.round((parseInt(row.revenue) / (currentRevenue || 1)) * 100) || 0
       })),
       emergency_fund: parseInt(weatherReserveResult.rows[0].total_reserve),
+      ppn_total: currentPpn,
+      burn_time_series: burnTimeSeries.rows.map(row => ({
+        date: row.date,
+        amount: parseInt(row.total_amount)
+      })),
       unit_economics: [
-        { label: 'Avg Order Value', value: Math.round(grossRevenue / (modelBreakdown.rows.reduce((acc: number, r: any) => acc + parseInt(r.count), 0) || 1)) || 0, status: 'Healthy' },
-        { label: 'Avg Payout', value: Math.round(operationalCost / (modelBreakdown.rows.reduce((acc: number, r: any) => acc + parseInt(r.count), 0) || 1)) || 0, status: 'Healthy' },
+        { 
+          label: 'Avg Order Value', 
+          value: Math.round(currentRevenue / (modelBreakdown.rows.reduce((acc: number, r: any) => acc + parseInt(r.count), 0) || 1)) || 0, 
+          status: currentRevenue > 50000 ? 'Healthy' : 'Low' 
+        },
+        { 
+          label: 'Profit Margin', 
+          value: Math.round((currentProfit / (currentRevenue || 1)) * 100), 
+          status: (currentProfit / (currentRevenue || 1)) > 0.15 ? 'Healthy' : 'Critical' 
+        },
       ]
     });
   } catch (error: any) {
@@ -1087,7 +1216,7 @@ export const getPayouts = async (req: Request, res: Response): Promise<void> => 
       FROM payout_records p
       JOIN users u ON p.courier_id = u.id
       ORDER BY p.created_at DESC
-      LIMIT 50
+      LIMIT 100
     `);
 
     res.json(result.rows);
@@ -1098,19 +1227,85 @@ export const getPayouts = async (req: Request, res: Response): Promise<void> => 
 };
 
 export const updatePayoutStatus = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const { status, reference } = req.body;
+  const { id } = req.params;
+  const { status, reference, reason } = req.body;
+  
+  if (!['processing', 'completed', 'failed'].includes(status)) {
+    res.status(400).json({ error: 'Invalid status' });
+    return;
+  }
 
-    await db.query(
-      'UPDATE payout_records SET disbursement_status = $1, disbursement_ref = $2, disbursement_at = NOW(), updated_at = NOW() WHERE id = $3',
-      [status, reference, id]
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    
+    const updateQuery = `
+      UPDATE payout_records 
+      SET 
+        disbursement_status = $1, 
+        disbursement_ref = COALESCE($2, disbursement_ref),
+        disbursed_at = CASE WHEN $1 = 'completed' THEN NOW() ELSE disbursed_at END,
+        updated_at = NOW()
+      WHERE id = $3
+      RETURNING *
+    `;
+    const result = await client.query(updateQuery, [status, reference, id]);
+    
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ error: 'Payout record not found' });
+      return;
+    }
+
+    // Log the change
+    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [`payout:${id}`, status === 'completed', changedBy, reason || `Updated payout status to ${status}`, JSON.stringify(result.rows[0]), 'finance']
     );
 
-    res.json({ message: 'Payout status updated successfully' });
+    await client.query('COMMIT');
+    res.json(result.rows[0]);
   } catch (error: any) {
+    await client.query('ROLLBACK');
     console.error('Error updating payout status:', error);
     res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const batchReleasePayouts = async (req: Request, res: Response): Promise<void> => {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    
+    const result = await client.query(`
+      UPDATE payout_records 
+      SET 
+        disbursement_status = 'completed', 
+        disbursed_at = NOW(),
+        updated_at = NOW()
+      WHERE disbursement_status = 'pending'
+      RETURNING id
+    `);
+
+    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      ['payout:batch_release', true, changedBy, `Batch released ${result.rows.length} payouts`, JSON.stringify({ count: result.rows.length }), 'finance']
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, count: result.rows.length });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Error batch releasing payouts:', error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
   }
 };
 
@@ -1147,6 +1342,57 @@ export const exportPayouts = async (req: Request, res: Response): Promise<void> 
     res.status(500).json({ error: error.message });
   }
 };
+
+export const topUpEmergencyFund = async (req: Request, res: Response): Promise<void> => {
+  const { amount, reason } = req.body;
+  
+  if (!amount || amount <= 0) {
+    res.status(400).json({ error: 'Invalid amount' });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    
+    const configKey = 'emergency_fund_base';
+    const checkRes = await client.query('SELECT value FROM system_configs WHERE key = $1', [configKey]);
+    
+    let currentBase = 0;
+    if (checkRes.rows.length > 0) {
+      currentBase = parseInt(JSON.parse(checkRes.rows[0].value)) || 0;
+    }
+    
+    const newBase = currentBase + amount;
+    
+    await client.query(
+      `INSERT INTO system_configs (key, value, description, category, updated_at)
+       VALUES ($1, $2, $3, 'finance', NOW())
+       ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()`,
+      [configKey, JSON.stringify(newBase), 'Base emergency fund balance']
+    );
+
+    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      ['finance:emergency_fund_topup', true, changedBy, reason || `Top up emergency fund by ${amount}`, JSON.stringify({ amount, newTotal: newBase }), 'finance']
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, newTotal: newBase });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Error topping up emergency fund:', error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+
+
+
 
 // --- Customer Controllers ---
 
@@ -1305,9 +1551,9 @@ export const createNotificationTemplate = async (req: Request, res: Response): P
 
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [`notification:${trigger}`, true, changedBy, reason || `Created notification template: ${trigger}`, JSON.stringify(result.rows[0])]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [`notification:${trigger}`, true, changedBy, reason || `Created notification template: ${trigger}`, JSON.stringify(result.rows[0]), 'general']
     );
 
     await client.query('COMMIT');
@@ -1343,9 +1589,9 @@ export const updateNotificationTemplate = async (req: Request, res: Response): P
 
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [`notification:${template.key}`, true, changedBy, reason || `Updated notification template: ${template.key}`, JSON.stringify(result.rows[0])]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [`notification:${template.key}`, true, changedBy, reason || `Updated notification template: ${template.key}`, JSON.stringify(result.rows[0]), 'general']
     );
 
     await client.query('COMMIT');
@@ -1378,9 +1624,9 @@ export const deleteNotificationTemplate = async (req: Request, res: Response): P
 
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason) 
-       VALUES ($1, $2, $3, $4)`,
-      [`notification:${template.key}`, false, changedBy, reason || `Deleted notification template: ${template.key}`]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, category) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [`notification:${template.key}`, false, changedBy, reason || `Deleted notification template: ${template.key}`, 'general']
     );
 
     await client.query('COMMIT');
@@ -1848,9 +2094,9 @@ export const createVoucher = async (req: Request, res: Response) => {
     // Audit Log
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [`voucher:${code}`, true, changedBy, reason || `Created voucher: ${name}`, JSON.stringify(result.rows[0])]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [`voucher:${code}`, true, changedBy, reason || `Created voucher: ${name}`, JSON.stringify(result.rows[0]), 'marketing']
     );
 
     await client.query('COMMIT');
@@ -1887,9 +2133,9 @@ export const updateVoucher = async (req: Request, res: Response) => {
     // Audit Log
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [`voucher:${result.rows[0].code}`, result.rows[0].is_active, changedBy, reason || `Updated voucher: ${name}`, JSON.stringify(result.rows[0])]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [`voucher:${result.rows[0].code}`, result.rows[0].is_active, changedBy, reason || `Updated voucher: ${name}`, JSON.stringify(result.rows[0]), 'marketing']
     );
 
     await client.query('COMMIT');
@@ -1921,9 +2167,9 @@ export const deleteVoucher = async (req: Request, res: Response) => {
     // Audit Log
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason) 
-       VALUES ($1, $2, $3, $4)`,
-      [`voucher:${voucher.code}`, false, changedBy, reason || `Deleted voucher: ${voucher.name}`]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, category) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [`voucher:${voucher.code}`, false, changedBy, reason || `Deleted voucher: ${voucher.name}`, 'marketing']
     );
 
     await client.query('COMMIT');
@@ -1952,9 +2198,9 @@ export const createZone = async (req: Request, res: Response) => {
     // Audit Log
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [`zone:${code}`, true, changedBy, reason || `Created zone: ${name}`, JSON.stringify(result.rows[0])]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [`zone:${code}`, true, changedBy, reason || `Created zone: ${name}`, JSON.stringify(result.rows[0]), 'logistics']
     );
 
     await client.query('COMMIT');
@@ -1994,9 +2240,9 @@ export const updateZone = async (req: Request, res: Response) => {
     // Audit Log
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [`zone:${result.rows[0].code}`, result.rows[0].is_active, changedBy, reason || `Updated zone: ${name}`, JSON.stringify(result.rows[0])]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [`zone:${result.rows[0].code}`, result.rows[0].is_active, changedBy, reason || `Updated zone: ${name}`, JSON.stringify(result.rows[0]), 'logistics']
     );
 
     await client.query('COMMIT');
@@ -2028,9 +2274,9 @@ export const deleteZone = async (req: Request, res: Response) => {
     // Audit Log
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason) 
-       VALUES ($1, $2, $3, $4)`,
-      [`zone:${zone.code}`, false, changedBy, reason || `Deleted zone: ${zone.name}`]
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, category) 
+       VALUES ($1, $2, $3, $4, $5)`,
+      [`zone:${zone.code}`, false, changedBy, reason || `Deleted zone: ${zone.name}`, 'logistics']
     );
 
     await client.query('COMMIT');

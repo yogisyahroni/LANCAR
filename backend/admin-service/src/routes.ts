@@ -23,6 +23,7 @@ routes.patch('/admin/feature-flags/:key/toggle', requireTotp, toggleRateLimiter,
 routes.patch('/admin/feature-flags/:key/config', requireTotp, controllers.updateFlagConfig);
 routes.get('/admin/feature-flags/:key/logs', controllers.getFlagLogs);
 routes.get('/admin/audit-logs', controllers.getAllLogs);
+routes.get('/admin/audit-logs/export', controllers.exportAuditLogs);
 routes.get('/admin/settings', controllers.getSystemConfigs);
 routes.patch('/admin/settings/:key', requireTotp, controllers.updateSystemConfig);
 routes.get('/admin/admins', controllers.getAllAdmins);
@@ -64,7 +65,10 @@ routes.post('/admin/disputes/:id/assign', controllers.assignDispute);
 routes.get('/admin/finance/stats', controllers.getFinancialStats);
 routes.get('/admin/finance/payouts', controllers.getPayouts);
 routes.get('/admin/finance/payouts/export', controllers.exportPayouts);
+routes.post('/admin/finance/payouts/batch-release', controllers.batchReleasePayouts);
 routes.patch('/admin/finance/payouts/:id', controllers.updatePayoutStatus);
+routes.post('/admin/finance/emergency-fund/top-up', controllers.topUpEmergencyFund);
+routes.get('/admin/finance/masa-report/export', controllers.exportMasaReport);
 
 // Customer Management
 routes.get('/admin/customers/export', controllers.exportCustomers);

@@ -9,7 +9,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
-  AlertCircle
+  AlertCircle,
+  CreditCard,
+  Truck,
+  ShieldCheck,
+  Megaphone,
+  Activity,
+  Layers
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
@@ -46,7 +52,20 @@ export default function AuditLogs() {
           </h2>
           <p className="text-zinc-500 font-medium mt-1">Track every configuration change and feature flag toggle across the platform.</p>
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-bold hover:bg-white/10 transition-all">
+        <button 
+          onClick={async () => {
+            try {
+              const res = await api.get('/admin/audit-logs/export', { responseType: 'blob' })
+              const url = URL.createObjectURL(res.data)
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `system_audit_${new Date().toISOString().split('T')[0]}.csv`
+              a.click()
+              URL.revokeObjectURL(url)
+            } catch { console.error('Export failed') }
+          }}
+          className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-bold hover:bg-white/10 transition-all"
+        >
           <Download size={18} />
           Export CSV
         </button>
@@ -72,10 +91,13 @@ export default function AuditLogs() {
             className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all appearance-none"
           >
             <option value="all">All Categories</option>
+            <option value="finance">Finance / Treasury</option>
+            <option value="logistics">Logistics / Zones</option>
+            <option value="insurance">Insurance / Risks</option>
+            <option value="security">Security / Auth</option>
+            <option value="marketing">Marketing / Promos</option>
             <option value="feature">Feature Flags</option>
-            <option value="general">General Config</option>
-            <option value="insurance">Insurance</option>
-            <option value="security">Security</option>
+            <option value="general">General System</option>
           </select>
         </div>
       </div>
@@ -114,12 +136,27 @@ export default function AuditLogs() {
                     <td className="px-8 py-6">
                       <div className="flex items-center gap-3">
                         <div className={cn(
-                          "h-8 w-8 rounded-lg flex items-center justify-center",
-                          log.key.startsWith('config:') ? "bg-amber-500/10 text-amber-500" : "bg-primary/10 text-primary-light"
+                          "h-8 w-8 rounded-lg flex items-center justify-center shadow-sm",
+                          log.category === 'finance' ? "bg-emerald-500/10 text-emerald-500" :
+                          log.category === 'logistics' ? "bg-blue-500/10 text-blue-500" :
+                          log.category === 'insurance' ? "bg-indigo-500/10 text-indigo-500" :
+                          log.category === 'security' ? "bg-rose-500/10 text-rose-500" :
+                          log.category === 'marketing' ? "bg-orange-500/10 text-orange-500" :
+                          log.category === 'feature' ? "bg-primary/10 text-primary-light" :
+                          "bg-zinc-500/10 text-zinc-400"
                         )}>
-                          {log.key.startsWith('config:') ? <Tag size={14} /> : <Info size={14} />}
+                          {log.category === 'finance' ? <CreditCard size={14} /> :
+                           log.category === 'logistics' ? <Truck size={14} /> :
+                           log.category === 'insurance' ? <ShieldCheck size={14} /> :
+                           log.category === 'security' ? <ShieldCheck size={14} /> :
+                           log.category === 'marketing' ? <Megaphone size={14} /> :
+                           log.category === 'feature' ? <Activity size={14} /> :
+                           <Layers size={14} />}
                         </div>
-                        <span className="text-sm font-mono font-bold text-zinc-300">{log.key}</span>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-mono font-black text-zinc-100 tracking-tight">{log.key}</span>
+                          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">{log.category || 'uncategorized'}</span>
+                        </div>
                       </div>
                     </td>
                     <td className="px-8 py-6">
@@ -127,7 +164,7 @@ export default function AuditLogs() {
                         "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
                         log.is_enabled ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
                       )}>
-                        {log.is_enabled ? 'ENABLED / UPDATED' : 'DISABLED'}
+                        {log.is_enabled ? (log.key.includes(':') ? 'ACTION COMPLETED' : 'ENABLED') : 'DISABLED / REJECTED'}
                       </span>
                     </td>
                     <td className="px-8 py-6">

@@ -55,7 +55,8 @@ export default function Finance() {
     mutationFn: async (id: string) => {
       await api.patch(`/admin/finance/payouts/${id}`, { 
         status: 'completed',
-        reference: `RE-ADMIN-${Date.now()}`
+        reference: `RE-ADMIN-${Date.now()}`,
+        reason: 'Manual release via dashboard'
       });
     },
     onSuccess: () => {
@@ -65,6 +66,37 @@ export default function Finance() {
     },
     onError: () => {
       toast.error('Failed to release payout');
+    }
+  });
+
+  const batchReleaseMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('/admin/finance/payouts/batch-release');
+      return res.data;
+    },
+    onSuccess: (data) => {
+      toast.success(`Successfully released ${data.count} payouts`);
+      queryClient.invalidateQueries({ queryKey: ['finance-payouts'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-stats'] });
+    },
+    onError: () => {
+      toast.error('Failed to process batch release');
+    }
+  });
+
+  const topUpMutation = useMutation({
+    mutationFn: async (amount: number) => {
+      await api.post('/admin/finance/emergency-fund/top-up', { 
+        amount,
+        reason: 'Manual top-up via treasury dashboard'
+      });
+    },
+    onSuccess: () => {
+      toast.success('Emergency fund topped up');
+      queryClient.invalidateQueries({ queryKey: ['finance-stats'] });
+    },
+    onError: () => {
+      toast.error('Failed to top up reserves');
     }
   });
 
@@ -106,9 +138,22 @@ export default function Finance() {
             <Download size={18} />
             Export Payouts CSV
           </button>
-          <button className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-sm uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2">
+          <button 
+            onClick={async () => {
+              try {
+                const res = await api.get('/admin/audit-logs/export', { responseType: 'blob' })
+                const url = URL.createObjectURL(res.data)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `system_audit_${new Date().toISOString().split('T')[0]}.csv`
+                a.click()
+                URL.revokeObjectURL(url)
+              } catch { toast.error('Audit export failed') }
+            }}
+            className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-sm uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+          >
             <Download size={18} />
-            Export Audit (PDF)
+            Export Audit (CSV)
           </button>
         </div>
       </div>
@@ -213,21 +258,29 @@ export default function Finance() {
            </div>
            <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                 <BarChart data={payouts?.slice(0, 5)} layout="vertical" margin={{ left: 40 }}>
-                    <XAxis type="number" hide />
-                    <YAxis 
-                       dataKey="courier_name" 
-                       type="category" 
+                 <BarChart data={financialData?.burn_time_series}>
+                    <XAxis 
+                       dataKey="date" 
                        stroke="#52525b" 
-                       fontSize={12} 
+                       fontSize={10} 
                        tickLine={false} 
-                       axisLine={false} 
+                       axisLine={false}
+                       tickFormatter={(date) => format(new Date(date), 'dd/MM')} 
+                    />
+                    <YAxis 
+                       stroke="#52525b" 
+                       fontSize={10} 
+                       tickLine={false} 
+                       axisLine={false}
+                       tickFormatter={(value) => `Rp${(value/1000).toFixed(0)}k`} 
                     />
                     <Tooltip 
                        cursor={{ fill: 'rgba(255,255,255,0.02)' }}
                        contentStyle={{ backgroundColor: '#09090b', borderColor: '#27272a', borderRadius: '16px' }}
+                       labelFormatter={(label) => format(new Date(label), 'dd MMM yyyy')}
+                       formatter={(value: any) => [`Rp ${value.toLocaleString()}`, 'Payout Amount']}
                     />
-                    <Bar dataKey="net_idr" fill="#ef4444" radius={[0, 10, 10, 0]} barSize={32} />
+                    <Bar dataKey="amount" fill="#ef4444" radius={[8, 8, 0, 0]} barSize={24} />
                  </BarChart>
               </ResponsiveContainer>
            </div>
@@ -255,10 +308,25 @@ export default function Finance() {
                   <p className="text-5xl font-black text-zinc-100 tracking-tighter">Rp {emergencyFund.toLocaleString()}</p>
                </div>
                <div className="flex gap-3">
-                  <button className="px-6 py-3 rounded-2xl bg-amber-500 text-black font-black text-xs uppercase tracking-widest hover:bg-amber-400 transition-all">
-                     Top Up Reserves
+                  <button 
+                    onClick={() => {
+                      const amount = prompt('Enter top-up amount (IDR):');
+                      if (amount && !isNaN(parseInt(amount))) {
+                        topUpMutation.mutate(parseInt(amount));
+                      }
+                    }}
+                    disabled={topUpMutation.isPending}
+                    className="px-6 py-3 rounded-2xl bg-amber-500 text-black font-black text-xs uppercase tracking-widest hover:bg-amber-400 transition-all disabled:opacity-50"
+                  >
+                     {topUpMutation.isPending ? 'Topping up...' : 'Top Up Reserves'}
                   </button>
-                  <button className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all">
+                  <button 
+                    onClick={() => {
+                      // Navigate to audit logs and filter by finance
+                      window.location.hash = '/audit-logs'
+                    }}
+                    className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                  >
                      View Usage History
                   </button>
                </div>
@@ -273,8 +341,16 @@ export default function Finance() {
                <CreditCard className="text-primary-light" size={28} />
                Payout Gateway
             </h3>
-            <button className="flex items-center gap-2 text-xs font-black text-primary-light uppercase tracking-widest">
-               Batch Trigger All
+            <button 
+              onClick={() => {
+                if (confirm('Are you sure you want to release ALL pending payouts?')) {
+                  batchReleaseMutation.mutate();
+                }
+              }}
+              disabled={batchReleaseMutation.isPending}
+              className="flex items-center gap-2 text-xs font-black text-primary-light uppercase tracking-widest hover:text-primary transition-all disabled:opacity-50"
+            >
+               {batchReleaseMutation.isPending ? 'Processing Batch...' : 'Batch Trigger All'}
                <ChevronRight size={14} />
             </button>
          </div>
@@ -368,10 +444,23 @@ export default function Finance() {
             <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex flex-col items-center justify-center text-center space-y-4">
                <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Total PPN to be Remitted (Current Masa)</p>
                <p className="text-5xl font-black text-zinc-100 tracking-tighter">
-                  Rp {(financialData?.stats?.find((s:any) => s.label === 'Gross Revenue')?.value * 0.11 || 0).toLocaleString()}
+                  Rp {(financialData?.ppn_total || 0).toLocaleString()}
                </p>
                <div className="flex gap-3 pt-4">
-                  <button className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all">
+                  <button 
+                    onClick={async () => {
+                      try {
+                        const res = await api.get('/admin/finance/masa-report/export', { responseType: 'blob' })
+                        const url = URL.createObjectURL(res.data)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `ppn_masa_report_${new Date().toISOString().split('T')[0]}.csv`
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      } catch { toast.error('Masa report export failed') }
+                    }}
+                    className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                  >
                      Export Masa Report
                   </button>
                   <button className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all">
