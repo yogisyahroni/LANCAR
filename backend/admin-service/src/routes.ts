@@ -60,3 +60,34 @@ routes.get('/admin/disputes', (req, res) => controllers.getDisputes(req, res));
 routes.get('/admin/disputes/stats', (req, res) => controllers.getDisputeStats(req, res));
 routes.patch('/admin/disputes/:id/status', (req, res) => controllers.updateDisputeStatus(req, res));
 routes.post('/admin/disputes/:id/assign', (req, res) => controllers.assignDispute(req, res));
+
+
+// Finance Management
+routes.get('/admin/finance/stats', (req, res) => controllers.getFinancialStats(req, res));
+routes.get('/admin/finance/payouts', (req, res) => controllers.getPayouts(req, res));
+routes.get('/admin/finance/payouts/export', (req, res) => controllers.exportPayouts(req, res));
+routes.post('/admin/finance/payouts/batch-release', (req, res) => controllers.batchReleasePayouts(req, res));
+routes.patch('/admin/finance/payouts/:id', (req, res) => controllers.updatePayoutStatus(req, res));
+routes.post('/admin/finance/emergency-fund/top-up', (req, res) => controllers.topUpEmergencyFund(req, res));
+routes.get('/admin/finance/masa-report/export', (req, res) => controllers.exportMasaReport(req, res));
+
+
+// Customer Management
+routes.get('/admin/customers/export', (req, res) => controllers.exportCustomers(req, res));
+routes.get('/admin/customers', (req, res) => controllers.getCustomers(req, res));
+routes.get('/admin/customers/stats', (req, res) => controllers.getCustomerStats(req, res));
+routes.patch('/admin/customers/:id/status', (req, res) => controllers.updateCustomerStatus(req, res));
+routes.post('/admin/customers/bulk-email', (req, res) => controllers.bulkEmailCustomers(req, res));
+
+
+// Notification Templates
+routes.get('/admin/notifications/templates', (req, res) => controllers.getNotificationTemplates(req, res));
+routes.get('/admin/notifications/templates/:id', (req, res) => controllers.getNotificationTemplateById(req, res));
+routes.post('/admin/notifications/templates', requireTotp, (req, res) => controllers.createNotificationTemplate(req, res));
+routes.put('/admin/notifications/templates/:id', requireTotp, (req, res) => controllers.updateNotificationTemplate(req, res));
+routes.delete('/admin/notifications/templates/:id', requireTotp, (req, res) => controllers.deleteNotificationTemplate(req, res));
+
+
+// Voucher Engine
+routes.get('/admin/vouchers', (req, res) => controllers.getVouchers(req, res));
+routes.post('/admin/vouchers', (req, res) => controllers.createVoucher(req, res));
