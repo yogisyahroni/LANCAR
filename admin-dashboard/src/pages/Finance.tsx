@@ -77,9 +77,9 @@ export default function Finance() {
   }
 
   const stats = financialData?.stats || [];
-  const revenueBreakdown = financialData?.revenueBreakdown || [];
-  const emergencyFund = financialData?.emergencyFund || 0;
-  const unitEconomics = financialData?.unitEconomics || [];
+  const revenueBreakdown = financialData?.model_breakdown || [];
+  const emergencyFund = financialData?.emergency_fund || 0;
+  const unitEconomics = financialData?.unit_economics || [];
 
   return (
     <div className="space-y-10 animate-in">

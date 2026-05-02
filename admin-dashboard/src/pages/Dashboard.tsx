@@ -77,10 +77,14 @@ export default function Dashboard() {
   })
 
   const { data: revenueData } = useQuery({
-    queryKey: ['revenue-breakdown'],
+    queryKey: ['revenue-stats'],
     queryFn: async () => {
-      const res = await api.get('/admin/finance/revenue-breakdown')
-      return res.data
+      const res = await api.get('/admin/finance/stats')
+      return res.data.model_breakdown?.map((item: any) => ({
+        service_type: item.model === 'relay' ? 'Relay' : item.model === 'direct' ? 'Direct' : item.model.toUpperCase(),
+        orders: parseInt(item.count),
+        revenue: parseInt(item.revenue)
+      })) || []
     }
   })
 
@@ -245,17 +249,17 @@ export default function Dashboard() {
                 <div key={i} className="flex gap-4 relative group cursor-pointer">
                   <div className={cn(
                     "h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors",
-                    item.event_type === 'ALERT' || item.event_type === 'SLA_BREACH' ? "bg-red-500/10 text-red-400" : "bg-white/5 text-zinc-400 group-hover:text-primary-light"
+                    item.type === 'system' ? "bg-amber-500/10 text-amber-400" : "bg-primary/10 text-primary-light"
                   )}>
-                    {item.event_type === 'ORDER_CREATED' && <Package size={18} />}
-                    {item.event_type === 'COURIER_ASSIGNED' && <Truck size={18} />}
-                    {(item.event_type === 'ALERT' || item.event_type === 'SLA_BREACH') && <Activity size={18} />}
-                    {item.event_type === 'CONFIG_CHANGE' && <RefreshCw size={18} />}
-                    {!['ORDER_CREATED', 'COURIER_ASSIGNED', 'ALERT', 'SLA_BREACH', 'CONFIG_CHANGE'].includes(item.event_type) && <TrendingUp size={18} />}
+                    {item.type === 'order' ? <Package size={18} /> : <RefreshCw size={18} />}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm text-zinc-200 group-hover:text-white transition-colors">{item.message}</p>
-                    <p className="text-xs text-zinc-500 mt-1">{new Date(item.created_at).toLocaleTimeString()}</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-bold text-zinc-100">{item.title}</p>
+                      <p className="text-[10px] text-zinc-500 uppercase">{item.type}</p>
+                    </div>
+                    <p className="text-xs text-zinc-400 mt-0.5 line-clamp-1">{item.description}</p>
+                    <p className="text-[10px] text-zinc-600 mt-1">{new Date(item.created_at).toLocaleTimeString()}</p>
                   </div>
                 </div>
               ))

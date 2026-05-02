@@ -110,7 +110,10 @@ export default function SLAConfig() {
                            <input 
                              type="number" 
                              defaultValue={item.target_minutes} 
-                             onBlur={(e) => updateMutation.mutate({ id: item.id, target_minutes: Number(e.target.value), critical_minutes: item.critical_minutes })}
+                             onBlur={(e) => {
+                               const val = Number(e.target.value);
+                               if (!isNaN(val)) updateMutation.mutate({ id: item.id, target_minutes: val, critical_minutes: item.critical_minutes });
+                             }}
                              className="bg-transparent w-12 text-sm font-bold text-zinc-100 focus:outline-none" 
                            />
                            <span className="text-[10px] text-zinc-600 font-bold uppercase">Min</span>
@@ -123,7 +126,10 @@ export default function SLAConfig() {
                            <input 
                              type="number" 
                              defaultValue={item.critical_minutes} 
-                             onBlur={(e) => updateMutation.mutate({ id: item.id, critical_minutes: Number(e.target.value), target_minutes: item.target_minutes })}
+                             onBlur={(e) => {
+                               const val = Number(e.target.value);
+                               if (!isNaN(val)) updateMutation.mutate({ id: item.id, critical_minutes: val, target_minutes: item.target_minutes });
+                             }}
                              className="bg-transparent w-12 text-sm font-bold text-red-400 focus:outline-none" 
                            />
                            <span className="text-[10px] text-red-500/40 font-bold uppercase">Min</span>

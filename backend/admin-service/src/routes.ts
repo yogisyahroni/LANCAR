@@ -15,6 +15,7 @@ routes.get('/admin/dashboard/events', controllers.getDashboardEvents);
 routes.get('/admin/feature-flags', controllers.getAllFlags);
 routes.post('/admin/feature-flags', controllers.createFlag);
 routes.get('/admin/feature-flags/readiness/three-legs', controllers.getThreeLegsReadiness);
+routes.get('/admin/readiness/three-legs', controllers.getThreeLegsReadiness);
 routes.get('/admin/feature-flags/:key', controllers.getFlagByKey);
 // Apply TOTP and Rate Limit for toggle
 routes.patch('/admin/feature-flags/:key/toggle', requireTotp, toggleRateLimiter, controllers.toggleFlag);

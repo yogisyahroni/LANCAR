@@ -46,6 +46,20 @@ export default function Settings() {
     role: 'admin',
     phoneNumber: ''
   })
+  const [isFlagModalOpen, setIsFlagModalOpen] = useState(false)
+  const [selectedFlag, setSelectedFlag] = useState<any>(null)
+  const [flagReason, setFlagReason] = useState('')
+  const [isManualConfirm, setIsManualConfirm] = useState(false)
+
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
+  const [registerFlagForm, setRegisterFlagForm] = useState({
+    key: '',
+    name: '',
+    category: 'System',
+    description: '',
+    is_enabled: false,
+    reason: ''
+  })
 
   const tabs = [
     { id: 'General', icon: Globe },
@@ -104,6 +118,35 @@ export default function Settings() {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Failed to update flag')
+    }
+  })
+
+  const createFlagMutation = useMutation({
+    mutationFn: async (data: typeof registerFlagForm) => {
+      return api.post('/admin/feature-flags', {
+        key: data.key,
+        category: data.category,
+        description: data.description,
+        is_enabled: data.is_enabled,
+        reason: data.reason,
+        name: data.name
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['feature-flags'] })
+      setIsRegisterModalOpen(false)
+      setRegisterFlagForm({
+        key: '',
+        name: '',
+        category: 'System',
+        description: '',
+        is_enabled: false,
+        reason: ''
+      })
+      toast.success('New feature flag registered')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || 'Failed to register flag')
     }
   })
 
@@ -341,11 +384,12 @@ export default function Settings() {
                               <p className="text-sm font-black text-zinc-200">{flag.name || flag.key}</p>
                            </div>
                            <button 
-                             onClick={() => updateFlagMutation.mutate({ 
-                               key: flag.key, 
-                               is_enabled: !flag.is_enabled,
-                               reason: 'Toggled from Admin Dashboard Settings'
-                             })}
+                             onClick={() => {
+                               setSelectedFlag(flag);
+                               setFlagReason('');
+                               setIsManualConfirm(false);
+                               setIsFlagModalOpen(true);
+                             }}
                              className={cn(
                                "w-12 h-6 rounded-full relative transition-all duration-300",
                                flag.is_enabled ? "bg-primary" : "bg-zinc-800"
@@ -362,7 +406,10 @@ export default function Settings() {
                     ))}
                   </div>
                   
-                  <button className="w-full py-4 rounded-2xl border border-dashed border-white/10 text-zinc-600 hover:text-zinc-400 hover:border-white/20 transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest">
+                  <button 
+                    onClick={() => setIsRegisterModalOpen(true)}
+                    className="w-full py-4 rounded-2xl border border-dashed border-white/10 text-zinc-600 hover:text-zinc-400 hover:border-white/20 transition-all flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest"
+                  >
                     <Plus size={16} />
                     Register New Feature Flag
                   </button>
@@ -551,7 +598,10 @@ export default function Settings() {
                       <input 
                         type="number" 
                         defaultValue={getConfig('max_weight_kg', 20)}
-                        onBlur={(e) => updateConfigMutation.mutate({ key: 'max_weight_kg', value: Number(e.target.value) })}
+                        onBlur={(e) => {
+                          const val = Number(e.target.value);
+                          if (!isNaN(val)) updateConfigMutation.mutate({ key: 'max_weight_kg', value: val });
+                        }}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       />
                     </div>
@@ -648,7 +698,7 @@ export default function Settings() {
                       { label: 'IP Whitelisting', key: 'security_ip_whitelisting' },
                     ].map((rule) => {
                       const value = getConfig(rule.key, false);
-                      const isToggle = typeof value === 'boolean';
+                      const isToggle = typeof value === 'boolean' && rule.key !== 'security_session_timeout_h';
                       
                       return (
                         <div key={rule.key} className="flex items-center justify-between p-6 rounded-3xl bg-white/[0.02] border border-white/5">
@@ -667,15 +717,18 @@ export default function Settings() {
                               )} />
                             </button>
                           ) : (
-                            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
+                          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
                                 <input 
                                   type="number" 
-                                  defaultValue={value} 
-                                  onBlur={(e) => updateConfigMutation.mutate({ key: rule.key, value: Number(e.target.value) })}
+                                  defaultValue={value as number || 0}
+                                  onBlur={(e) => {
+                                    const val = Number(e.target.value);
+                                    if (!isNaN(val)) updateConfigMutation.mutate({ key: rule.key, value: val });
+                                  }}
                                   className="bg-transparent w-8 text-xs font-bold text-zinc-100 focus:outline-none" 
                                 />
                                 <Clock size={12} className="text-zinc-600" />
-                            </div>
+                          </div>
                           )}
                         </div>
                       );
@@ -861,6 +914,264 @@ export default function Settings() {
             </motion.div>
           </div>
         )}
+        {/* Register Flag Modal */}
+        {isRegisterModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsRegisterModalOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-xl bg-zinc-900 border border-white/10 rounded-[40px] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 pb-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+                    <Plus size={24} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white tracking-tight">Register Flag</h2>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Add new system feature control</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsRegisterModalOpen(false)}
+                  className="p-2 rounded-xl hover:bg-white/5 text-zinc-500 transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Flag Key (Unique ID)</label>
+                    <input 
+                      type="text"
+                      placeholder="e.g. beta_checkout_flow"
+                      value={registerFlagForm.key}
+                      onChange={(e) => setRegisterFlagForm({...registerFlagForm, key: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Display Name</label>
+                    <input 
+                      type="text"
+                      placeholder="e.g. Beta Checkout"
+                      value={registerFlagForm.name}
+                      onChange={(e) => setRegisterFlagForm({...registerFlagForm, name: e.target.value})}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Category</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['System', 'UX', 'Pricing', 'Experimental', 'Beta'].map(cat => (
+                      <button 
+                        key={cat}
+                        onClick={() => setRegisterFlagForm({...registerFlagForm, category: cat})}
+                        className={cn(
+                          "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                          registerFlagForm.category === cat 
+                            ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
+                            : "bg-white/5 text-zinc-500 border-white/5 hover:border-white/10"
+                        )}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Description</label>
+                  <textarea 
+                    placeholder="Describe what this feature flag controls..."
+                    value={registerFlagForm.description}
+                    onChange={(e) => setRegisterFlagForm({...registerFlagForm, description: e.target.value})}
+                    rows={2}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex justify-between">
+                    <span>Initial Audit Reason</span>
+                    <span className={cn(registerFlagForm.reason.length >= 10 ? "text-emerald-500" : "text-amber-500")}>
+                      {registerFlagForm.reason.length}/10 min chars
+                    </span>
+                  </label>
+                  <textarea 
+                    placeholder="Why is this flag being created?"
+                    value={registerFlagForm.reason}
+                    onChange={(e) => setRegisterFlagForm({...registerFlagForm, reason: e.target.value})}
+                    rows={2}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                  />
+                </div>
+
+                <label className="flex items-center gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/5 cursor-pointer hover:bg-white/[0.05] transition-all">
+                  <input 
+                    type="checkbox"
+                    checked={registerFlagForm.is_enabled}
+                    onChange={(e) => setRegisterFlagForm({...registerFlagForm, is_enabled: e.target.checked})}
+                    className="w-5 h-5 rounded border-white/10 bg-white/5 text-primary focus:ring-offset-0 focus:ring-0"
+                  />
+                  <div>
+                    <p className="text-xs font-black text-zinc-200 uppercase tracking-tight">Enable by Default</p>
+                    <p className="text-[10px] text-zinc-500 font-medium">Activate this feature immediately upon registration</p>
+                  </div>
+                </label>
+              </div>
+
+              <div className="p-8 pt-4 bg-white/[0.02] border-t border-white/5 flex gap-4">
+                <button 
+                  onClick={() => setIsRegisterModalOpen(false)}
+                  className="flex-1 py-4 rounded-2xl bg-white/5 text-zinc-400 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => createFlagMutation.mutate(registerFlagForm)}
+                  disabled={
+                    createFlagMutation.isPending || 
+                    !registerFlagForm.key || 
+                    !registerFlagForm.name || 
+                    registerFlagForm.reason.length < 10
+                  }
+                  className="flex-1 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {createFlagMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  Register Flag
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Toggle Flag Modal */}
+        {isFlagModalOpen && selectedFlag && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsFlagModalOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm" 
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-zinc-900 border border-white/10 rounded-[40px] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 pb-4 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={cn("p-3 rounded-2xl", selectedFlag.is_enabled ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400")}>
+                    {selectedFlag.is_enabled ? <Lock size={24} /> : <Zap size={24} />}
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-white tracking-tight">
+                      {selectedFlag.is_enabled ? 'Disable' : 'Enable'} Feature
+                    </h2>
+                    <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest">{selectedFlag.name || selectedFlag.key}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsFlagModalOpen(false)}
+                  className="p-2 rounded-xl hover:bg-white/5 text-zinc-500 transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                  <p className="text-sm text-zinc-400 leading-relaxed italic">"{selectedFlag.description}"</p>
+                </div>
+
+                {selectedFlag.key === 'model_three_legs' && !selectedFlag.is_enabled && (
+                  <div className="p-6 rounded-3xl bg-amber-500/10 border border-amber-500/20 space-y-4">
+                    <div className="flex items-start gap-3">
+                      <ShieldAlert className="text-amber-500 shrink-0" size={20} />
+                      <div className="space-y-1">
+                        <p className="text-sm font-black text-amber-500 uppercase tracking-tight">Critical Activation</p>
+                        <p className="text-xs text-amber-200/60 leading-relaxed font-medium">Activating 3-Legs model requires manual confirmation that all relay points and courier equipment are ready.</p>
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-3 p-3 rounded-xl bg-black/20 cursor-pointer hover:bg-black/30 transition-all border border-white/5">
+                      <input 
+                        type="checkbox"
+                        checked={isManualConfirm}
+                        onChange={(e) => setIsManualConfirm(e.target.checked)}
+                        className="w-4 h-4 rounded border-white/10 bg-white/5 text-primary focus:ring-offset-0 focus:ring-0"
+                      />
+                      <span className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">I confirm operational readiness</span>
+                    </label>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex justify-between">
+                    <span>Reason for Change</span>
+                    <span className={cn(flagReason.length >= 10 ? "text-emerald-500" : "text-amber-500")}>
+                      {flagReason.length}/10 min chars
+                    </span>
+                  </label>
+                  <textarea 
+                    placeholder="Provide a detailed reason for this change (e.g., scheduled maintenance, performance testing...)"
+                    value={flagReason}
+                    onChange={(e) => setFlagReason(e.target.value)}
+                    rows={3}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="p-8 pt-4 bg-white/[0.02] border-t border-white/5 flex gap-4">
+                <button 
+                  onClick={() => setIsFlagModalOpen(false)}
+                  className="flex-1 py-4 rounded-2xl bg-white/5 text-zinc-400 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    updateFlagMutation.mutate({ 
+                      key: selectedFlag.key, 
+                      is_enabled: !selectedFlag.is_enabled,
+                      reason: flagReason,
+                      checklist_data: selectedFlag.key === 'model_three_legs' ? { admin_manual_confirm: isManualConfirm } : undefined
+                    } as any);
+                    setIsFlagModalOpen(false);
+                  }}
+                  disabled={
+                    updateFlagMutation.isPending || 
+                    flagReason.length < 10 || 
+                    (selectedFlag.key === 'model_three_legs' && !selectedFlag.is_enabled && !isManualConfirm)
+                  }
+                  className={cn(
+                    "flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2",
+                    selectedFlag.is_enabled ? "bg-red-500 text-white hover:bg-red-600 shadow-red-500/20" : "bg-primary text-white hover:bg-primary-light shadow-primary/20"
+                  )}
+                >
+                  {updateFlagMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : (selectedFlag.is_enabled ? <Lock size={16} /> : <Zap size={16} />)}
+                  Confirm {selectedFlag.is_enabled ? 'Disable' : 'Enable'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
       </AnimatePresence>
     </div>
   )

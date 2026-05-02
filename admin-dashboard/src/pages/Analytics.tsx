@@ -38,6 +38,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import 'leaflet.heat'
 
 // --- Leaflet Heatmap Component ---
 function HeatLayer({ points }: { points: any[] }) {
@@ -47,13 +48,29 @@ function HeatLayer({ points }: { points: any[] }) {
     if (!points || points.length === 0) return;
     
     // @ts-ignore - leaflet.heat is not in types
-    const heat = L.heatLayer(
-      points.map(p => [p.lat, p.lng, p.weight || 1]), 
-      { radius: 25, blur: 15, maxZoom: 17, gradient: { 0.4: 'blue', 0.65: 'lime', 1: 'red' } }
-    ).addTo(map);
+    if (typeof L.heatLayer !== 'function') {
+      console.warn('L.heatLayer is not available');
+      return;
+    }
+
+    const validPoints = points
+      .filter(p => p && p.lat !== null && p.lng !== null)
+      .map(p => [p.lat, p.lng, parseFloat(p.weight) || 1]);
+
+    if (validPoints.length === 0) return;
+
+    let heat: any;
+    try {
+      heat = (L as any).heatLayer(
+        validPoints, 
+        { radius: 25, blur: 15, maxZoom: 17, gradient: { 0.4: 'blue', 0.65: 'lime', 1: 'red' } }
+      ).addTo(map);
+    } catch (e) {
+      console.error('Heatmap layer failed:', e);
+    }
 
     return () => {
-      map.removeLayer(heat);
+      if (heat) map.removeLayer(heat);
     };
   }, [points, map]);
 

@@ -17,7 +17,7 @@ api.interceptors.request.use((config) => {
   // These headers satisfy the requireAuth & requireRole middlewares
   const authMock = localStorage.getItem('auth_mock')
   if (authMock === 'true') {
-    config.headers['x-user-id'] = 'admin-mock-1'
+    config.headers['x-user-id'] = 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3' // Valid Super Admin UUID
     config.headers['x-user-role'] = 'super_admin'
     config.headers['x-totp-verified'] = 'true'
   }
