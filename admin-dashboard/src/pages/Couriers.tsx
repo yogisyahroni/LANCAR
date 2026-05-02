@@ -15,7 +15,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  Download
+  Download,
+  Package,
+  History
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
@@ -30,6 +32,7 @@ export default function Couriers() {
   const [page, setPage] = useState(1)
   const [selectedCourierId, setSelectedCourierId] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState(false)
+  const [detailTab, setDetailTab] = useState<'profile' | 'history'>('profile')
   const queryClient = useQueryClient()
 
   // Fetch Stats
@@ -66,6 +69,16 @@ export default function Couriers() {
       return res.data
     },
     enabled: !!selectedCourierId
+  })
+
+  // Fetch Courier Order History
+  const { data: courierHistory = [], isLoading: isLoadingHistory } = useQuery<any[]>({
+    queryKey: ['admin-courier-history', selectedCourierId],
+    queryFn: async () => {
+      const res = await api.get(`/admin/couriers/${selectedCourierId}/history`)
+      return res.data
+    },
+    enabled: !!selectedCourierId && detailTab === 'history'
   })
 
   // Update Status Mutation
@@ -330,7 +343,7 @@ export default function Couriers() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setSelectedCourierId(null)}
+              onClick={() => { setSelectedCourierId(null); setDetailTab('profile') }}
               className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             />
             <motion.div
@@ -339,12 +352,34 @@ export default function Couriers() {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="glass-card w-full max-w-4xl max-h-[90vh] overflow-y-auto p-10 rounded-[48px] relative z-10 border-white/10 shadow-3xl shadow-black/60"
             >
+              {/* Tab Switcher */}
+              {!isLoadingDetail && courierDetail && (
+                <div className="flex gap-2 mb-8 border-b border-white/5 pb-px">
+                  {(['profile', 'history'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setDetailTab(tab)}
+                      className={cn(
+                        'px-6 py-3 text-sm font-bold capitalize transition-all relative flex items-center gap-2',
+                        detailTab === tab ? 'text-primary-light' : 'text-zinc-500 hover:text-zinc-300'
+                      )}
+                    >
+                      {tab === 'profile' ? <ShieldCheck size={15} /> : <History size={15} />}
+                      {tab === 'profile' ? 'Profile' : 'Order History'}
+                      {detailTab === tab && (
+                        <motion.div layoutId="courierTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-light" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {isLoadingDetail ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <Loader2 className="w-12 h-12 text-primary animate-spin" />
                   <p className="text-zinc-500 font-black uppercase tracking-widest">Retrieving dossier...</p>
                 </div>
-              ) : courierDetail && (
+              ) : courierDetail && detailTab === 'profile' && (
                 <div className="flex flex-col md:flex-row gap-10">
                   <div className="md:w-1/3 space-y-6">
                     <div className="aspect-square rounded-[32px] bg-zinc-900 border border-white/10 flex items-center justify-center text-6xl font-black text-zinc-700 uppercase shadow-inner">
@@ -462,6 +497,65 @@ export default function Couriers() {
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Order History Tab */}
+              {!isLoadingDetail && courierDetail && detailTab === 'history' && (
+                <div>
+                  {isLoadingHistory ? (
+                    <div className="flex flex-col items-center py-16 gap-4">
+                      <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                      <p className="text-zinc-500 text-sm uppercase tracking-widest font-bold">Loading history...</p>
+                    </div>
+                  ) : courierHistory.length === 0 ? (
+                    <div className="text-center py-16 text-zinc-600">
+                      <Package size={48} className="mx-auto mb-4 opacity-30" />
+                      <p className="font-bold">No order history found.</p>
+                      <p className="text-sm mt-1">This courier hasn't completed any legs yet.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {courierHistory.map((order: any, i: number) => (
+                        <motion.div
+                          key={order.id || i}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.04 }}
+                          className="flex items-center justify-between p-5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.04] transition-all"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center">
+                              <Package size={18} className="text-primary-light" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-zinc-100">
+                                #{(order.id || '').split('-')[0]?.toUpperCase()}
+                              </p>
+                              <p className="text-xs text-zinc-500 mt-0.5">
+                                {order.pickup_address || 'N/A'} → {order.delivery_address || 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className={cn(
+                              'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest',
+                              order.leg_status === 'delivered' || order.status === 'delivered'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : order.status === 'cancelled'
+                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            )}>
+                              {order.leg_status || order.status || 'unknown'}
+                            </div>
+                            <p className="text-xs text-zinc-600 mt-1">
+                              {order.created_at ? new Date(order.created_at).toLocaleDateString('id-ID') : '-'}
+                            </p>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>

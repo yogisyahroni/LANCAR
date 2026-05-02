@@ -4,8 +4,10 @@ import { api } from '../lib/api'
 import { toast } from 'sonner'
 import { Download, Plus, Loader2, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useQueryClient } from '@tanstack/react-query'
 
 export default function Orders() {
+  const queryClient = useQueryClient()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [formData, setFormData] = useState({
@@ -53,9 +55,8 @@ export default function Orders() {
         total_amount: '',
         type: 'standard'
       })
-      // Refresh table would be better with query invalidation, but ActiveOrdersTable handles its own.
-      // For now, simple reload or we could pass a refresh trigger.
-      window.location.reload() 
+      // Invalidate orders query so ActiveOrdersTable auto-refetches
+      queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to create order')
     } finally {

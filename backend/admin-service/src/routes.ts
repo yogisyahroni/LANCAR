@@ -54,15 +54,19 @@ routes.patch('/admin/disputes/:id/status', controllers.updateDisputeStatus);
 routes.post('/admin/disputes/:id/assign', controllers.assignDispute);
 
 // Finance Management
-routes.get('/admin/finance/summary', controllers.getFinancialSummary);
-routes.get('/admin/finance/revenue-breakdown', controllers.getRevenueBreakdown);
-routes.get('/admin/finance/cost-breakdown', controllers.getCostBreakdown);
-routes.get('/admin/finance/emergency-fund', controllers.getEmergencyFund);
+// NOTE: The 4 routes below are superseded by /finance/stats which returns all data in one response.
+// Kept as dead code for reference. Frontend uses /finance/stats exclusively.
+// routes.get('/admin/finance/summary', controllers.getFinancialSummary);
+// routes.get('/admin/finance/revenue-breakdown', controllers.getRevenueBreakdown);
+// routes.get('/admin/finance/cost-breakdown', controllers.getCostBreakdown);
+// routes.get('/admin/finance/emergency-fund', controllers.getEmergencyFund);
 routes.get('/admin/finance/stats', controllers.getFinancialStats);
 routes.get('/admin/finance/payouts', controllers.getPayouts);
+routes.get('/admin/finance/payouts/export', controllers.exportPayouts);
 routes.patch('/admin/finance/payouts/:id', controllers.updatePayoutStatus);
 
 // Customer Management
+routes.get('/admin/customers/export', controllers.exportCustomers);
 routes.get('/admin/customers', controllers.getCustomers);
 routes.get('/admin/customers/stats', controllers.getCustomerStats);
 routes.patch('/admin/customers/:id/status', controllers.updateCustomerStatus);
@@ -70,7 +74,10 @@ routes.post('/admin/customers/bulk-email', controllers.bulkEmailCustomers);
 
 // Notification Templates
 routes.get('/admin/notifications/templates', controllers.getNotificationTemplates);
-routes.put('/admin/notifications/templates/:id', controllers.updateNotificationTemplate);
+routes.get('/admin/notifications/templates/:id', controllers.getNotificationTemplateById);
+routes.post('/admin/notifications/templates', requireTotp, controllers.createNotificationTemplate);
+routes.put('/admin/notifications/templates/:id', requireTotp, controllers.updateNotificationTemplate);
+routes.delete('/admin/notifications/templates/:id', requireTotp, controllers.deleteNotificationTemplate);
 
 // Voucher Engine
 routes.get('/admin/vouchers', controllers.getVouchers);
@@ -91,6 +98,12 @@ routes.get('/admin/analytics/sla', controllers.getAnalyticsSLA);
 routes.get('/admin/analytics/surge', controllers.getAnalyticsSurge);
 routes.get('/admin/analytics/scan-accuracy', controllers.getAnalyticsScanAccuracy);
 routes.get('/admin/analytics/retention', controllers.getAnalyticsRetention);
+routes.get('/admin/analytics/heat-data', controllers.getHeatData);
+routes.get('/admin/analytics/export', controllers.exportAnalytics);
+routes.get('/admin/analytics/reports', controllers.getScheduledReports);
+routes.post('/admin/analytics/reports', controllers.createScheduledReport);
+routes.patch('/admin/analytics/reports/:id', controllers.updateScheduledReport);
+routes.delete('/admin/analytics/reports/:id', controllers.deleteScheduledReport);
 
 // Pricing Configuration
 routes.get('/admin/pricing', controllers.getPricingConfig);
