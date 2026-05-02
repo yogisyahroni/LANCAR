@@ -1,9 +1,12 @@
+-- +goose Up
 -- Migration: Backfill Audit Categories
 -- Description: Standardizes existing audit logs by assigning categories based on the key prefix.
 -- This requires temporarily disabling the immutability trigger on feature_flag_logs.
 
 -- 1. Disable the protection trigger
+-- +goose StatementBegin
 ALTER TABLE feature_flag_logs DISABLE TRIGGER trg_prevent_feature_flag_log_update;
+-- +goose StatementEnd
 
 -- 2. Backfill categories based on key patterns
 -- Finance
@@ -66,4 +69,9 @@ SET category = 'general'
 WHERE category IS NULL;
 
 -- 3. Re-enable the protection trigger
+-- +goose StatementBegin
 ALTER TABLE feature_flag_logs ENABLE TRIGGER trg_prevent_feature_flag_log_update;
+-- +goose StatementEnd
+
+-- +goose Down
+-- No-op: We don't want to revert the categorization as it's a non-destructive cleanup.
