@@ -103,16 +103,16 @@
 **Priority:** P0
 
 - ✅ Widget summary cards: order aktif, selesai bulan ini, total belanja, loyalty tier
-- ⬜ Order aktif list (WebSocket real-time, update 30 detik):
-  - Max 5 rows, tombol "Lihat Semua"
-  - Klik row → expand mini-tracking inline (peta kecil + ETA)
-- ⬜ Bar chart order 30 hari (Recharts):
-  - Toggle: by count / by value (Rp)
-  - Hover tooltip
-- ⬜ Shortcut aksi cepat: [Kirim Sekarang] [Kirim Massal] [Unduh Resi]
-- ⬜ Promo banner (jika ada voucher aktif)
-- ⬜ Progress loyalty tier (progress bar menuju tier berikutnya)
-- ⬜ Skeleton loader saat data loading
+- ✅ Order aktif list (WebSocket real-time, update 30 detik):
+  - ✅ Max 5 rows, tombol "Lihat Semua"
+  - ✅ Klik row → expand mini-tracking inline (peta kecil + ETA)
+- ✅ Bar chart order 30 hari (Recharts):
+  - ✅ Toggle: by count / by value (Rp)
+  - ✅ Hover tooltip
+- ✅ Shortcut aksi cepat: [Kirim Sekarang] [Kirim Massal] [Unduh Resi]
+- ✅ Promo banner (jika ada voucher aktif)
+- ✅ Progress loyalty tier (progress bar menuju tier berikutnya)
+- ✅ Skeleton loader saat data loading
 
 ---
 
