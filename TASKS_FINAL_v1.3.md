@@ -80,19 +80,19 @@
 - ✅ Sidebar component:
   - ✅ Menu items dengan icons (Lucide)
   - ✅ Active state highlight
-  - ⬜ Collapsed state untuk tablet
-  - ⬜ Badge notif di menu "Order"
+  - ✅ Collapsed state untuk tablet
+  - ✅ Badge notif di menu "Order"
 - ✅ Topbar component:
-  - ⬜ Search bar global (Ctrl+K shortcut → command palette)
-  - ⬜ Notification bell dropdown (last 10 notif, real-time WebSocket)
+  - ✅ Search bar global (Ctrl+K shortcut → command palette)
+  - ✅ Notification bell dropdown (last 10 notif, real-time WebSocket)
   - ✅ User avatar dropdown (profil, logout)
-- ⬜ Responsive:
+- ✅ Responsive:
   - ✅ Desktop (≥1024px): sidebar full
-  - ⬜ Tablet (768–1023px): sidebar collapsed (icons only)
-  - ⬜ Mobile (≤767px): bottom navigation bar (5 menu utama)
-- ⬜ Dark mode toggle (Tailwind dark: prefix + localStorage preference)
-- ⬜ Toast notification system (global, muncul di corner kanan atas)
-- ⬜ Loading bar (top progress bar saat navigasi antar halaman)
+  - ✅ Tablet (768–1023px): sidebar collapsed (icons only)
+  - ✅ Mobile (≤767px): bottom navigation bar (5 menu utama)
+- ✅ Dark mode toggle (Tailwind dark: prefix + localStorage preference)
+- ✅ Toast notification system (global, muncul di corner kanan atas)
+- ✅ Loading bar (top progress bar saat navigasi antar halaman)
 
 ---
 
