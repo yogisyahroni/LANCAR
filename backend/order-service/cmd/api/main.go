@@ -27,7 +27,7 @@ import (
 
 func main() {
 	// Load environment variables
-	godotenv.Load("../../../.env")
+	godotenv.Load("../../.env", "../../../.env")
 
 	// Database connections
 	dbConn := os.Getenv("DATABASE_URL")
@@ -49,9 +49,15 @@ func main() {
 	defer readDB.Close()
 
 	// Redis connection
-	rdb := redis.NewClient(&redis.Options{
-		Addr: os.Getenv("REDIS_URL"),
-	})
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = "redis://localhost:6379"
+	}
+	redisOpts, err := redis.ParseURL(redisURL)
+	if err != nil {
+		log.Fatalf("Failed to parse Redis URL: %v", err)
+	}
+	rdb := redis.NewClient(redisOpts)
 	defer rdb.Close()
 
 	// Maps API Key

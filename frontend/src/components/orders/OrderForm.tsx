@@ -43,6 +43,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
     control,
     watch,
     setValue,
+    getValues,
     formState: { errors, isValid }
   } = useForm<OrderFormValues>({
     resolver: zodResolver(orderSchema),
@@ -57,13 +58,40 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
     }
   });
 
-  const watchAll = watch();
+
+  const pickup_address = watch("pickup_address");
+  const pickup_location = watch("pickup_location");
+  const dropoff_address = watch("dropoff_address");
+  const dropoff_location = watch("dropoff_location");
+  const category = watch("package_details.category");
+  const weight_kg = watch("package_details.weight_kg");
+  const length = watch("package_details.dimensions.length");
+  const width = watch("package_details.dimensions.width");
+  const height = watch("package_details.dimensions.height");
+  const has_insurance = watch("has_insurance");
+  const item_value = watch("item_value");
 
   useEffect(() => {
-    onFormChange(watchAll, isValid);
-  }, [watchAll, isValid, onFormChange]);
+    onFormChange(getValues(), isValid);
+  }, [
+    pickup_address,
+    pickup_location?.lat,
+    pickup_location?.lng,
+    dropoff_address,
+    dropoff_location?.lat,
+    dropoff_location?.lng,
+    category,
+    weight_kg,
+    length,
+    width,
+    height,
+    has_insurance,
+    item_value,
+    isValid,
+    onFormChange
+  ]);
 
-  const useMyLocation = (field: 'pickup_location' | 'dropoff_location') => {
+  const handleGetMyLocation = (field: 'pickup_location' | 'dropoff_location') => {
     // Mock geolocation
     setValue(field, { lat: -6.200000, lng: 106.816666 }, { shouldValidate: true });
     if (field === 'pickup_location') {
@@ -96,7 +124,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
           <div className="flex gap-2">
             <button 
               type="button" 
-              onClick={() => useMyLocation('pickup_location')}
+              onClick={() => handleGetMyLocation('pickup_location')}
               className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
             >
               Gunakan Lokasi Saya
@@ -218,7 +246,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
               <p className="text-xs text-muted-foreground">Lindungi barang berharga Anda. Premi 0.2% dari nilai barang.</p>
             </div>
           </label>
-          {watchAll.has_insurance && (
+          {has_insurance && (
             <div className="ml-7 mt-3">
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Nilai Barang (Rp)</label>
               <input 

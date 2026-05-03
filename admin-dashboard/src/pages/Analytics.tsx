@@ -47,7 +47,7 @@ function HeatLayer({ points }: { points: any[] }) {
   useEffect(() => {
     if (!points || points.length === 0) return;
     
-    // @ts-ignore - leaflet.heat is not in types
+    // @ts-expect-error - leaflet.heat is not in types
     if (typeof L.heatLayer !== 'function') {
       console.warn('L.heatLayer is not available');
       return;

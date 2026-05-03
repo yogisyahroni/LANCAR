@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { OrderForm, OrderFormValues } from "@/components/orders/OrderForm";
 import { OrderSummary } from "@/components/orders/OrderSummary";
 import { PaymentModal } from "@/components/orders/PaymentModal";
@@ -22,34 +22,16 @@ export default function NewOrderPage() {
   const router = useRouter();
   const { addNotification } = useNotificationStore();
 
-  // Debounce effect for price calculation
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      // Only calculate if basic fields exist
-      if (formData.pickup_location && formData.dropoff_location) {
-        calculatePricing();
-      }
-    }, 500);
-
-    return () => clearTimeout(handler);
-  }, [
-    formData.pickup_location, 
-    formData.dropoff_location, 
-    formData.package_details, 
-    formData.has_insurance, 
-    formData.item_value
-  ]);
-
-  const calculatePricing = async () => {
+  const calculatePricing = useCallback(async (data: Partial<OrderFormValues>) => {
     setIsCalculating(true);
     try {
       const res = await api.post('/orders/calculate', {
-        pickup: formData.pickup_location,
-        dropoff: formData.dropoff_location,
-        weight_kg: formData.package_details?.weight_kg,
-        dimensions: formData.package_details?.dimensions,
-        has_insurance: formData.has_insurance,
-        item_value: formData.item_value
+        pickup: data.pickup_location,
+        dropoff: data.dropoff_location,
+        weight_kg: data.package_details?.weight_kg,
+        dimensions: data.package_details?.dimensions,
+        has_insurance: data.has_insurance,
+        item_value: data.item_value
       });
       setPricing(res.data);
     } catch (error) {
@@ -57,12 +39,36 @@ export default function NewOrderPage() {
     } finally {
       setIsCalculating(false);
     }
-  };
+  }, []);
 
-  const handleFormChange = (data: Partial<OrderFormValues>, valid: boolean) => {
+  // Debounce effect for price calculation based on individual fields
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      // Only calculate if basic fields exist
+      if (formData.pickup_location && formData.dropoff_location) {
+        calculatePricing(formData);
+      }
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [
+    formData.pickup_location?.lat,
+    formData.pickup_location?.lng,
+    formData.dropoff_location?.lat,
+    formData.dropoff_location?.lng,
+    formData.package_details?.weight_kg,
+    formData.package_details?.dimensions?.length,
+    formData.package_details?.dimensions?.width,
+    formData.package_details?.dimensions?.height,
+    formData.has_insurance,
+    formData.item_value,
+    calculatePricing
+  ]);
+
+  const handleFormChange = useCallback((data: Partial<OrderFormValues>, valid: boolean) => {
     setFormData(data);
     setIsValid(valid);
-  };
+  }, []);
 
   const handleSubmit = async (data: OrderFormValues) => {
     if (!pricing) return;
