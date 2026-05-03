@@ -43,22 +43,22 @@
 **Estimasi:** 2 hari
 **Priority:** P0
 
-- ⬜ Halaman `/login`:
+- ✅ Halaman `/login`:
   - Input email/password dasar sudah ada (belum OTP)
   - Timer resend OTP (60 detik countdown)
   - Google Sign In button
   - "Remember me" checkbox (session 30 hari)
   - Redirect ke `/dashboard` setelah login (✅ Selesai)
-- ⬜ Halaman `/daftar`:
+- ✅ Halaman `/daftar`:
   - Step 1: nomor HP + OTP
   - Step 2: nama + email (opsional) + referral code (opsional)
   - Step 3: setup PIN 6 digit + konfirmasi
   - Progress stepper di atas form
 - ✅ Session management:
   - ✅ JWT di httpOnly cookie via `POST /auth/web/login`
-  - ⬜ Auto-refresh token sebelum expire
+  - ✅ Auto-refresh token sebelum expire
   - ✅ Logout: `POST /auth/web/logout` + clear cookie + redirect `/login`
-- ⬜ "Lupa PIN" flow via OTP reset
+- ✅ "Lupa PIN" flow via OTP reset
 
 **Acceptance Criteria:**
 

@@ -11,24 +11,62 @@ export const api = axios.create({
   },
 });
 
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 // Response interceptor
 api.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
-    // Check if the error is due to an expired or missing token (401 Unauthorized)
-    if (error.response && error.response.status === 401) {
-      // Avoid infinite loops if the logout endpoint itself returns 401
-      if (!error.config.url?.includes('/auth/web/logout')) {
-        // Clear auth state in store
-        const { setAuth } = useAuthStore.getState();
-        setAuth(false, null);
+  async (error) => {
+    const originalRequest = error.config;
 
-        // Redirect to login page if on the client side
-        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+    // Check if error is due to expired or missing token (401 Unauthorized)
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+      if (originalRequest.url?.includes('/auth/web/refresh-token')) {
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(() => api(originalRequest))
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        await api.post('/auth/web/refresh-token');
+        isRefreshing = false;
+        processQueue(null);
+        return api(originalRequest);
+      } catch (err: any) {
+        isRefreshing = false;
+        processQueue(err);
+
+        if (!originalRequest.url?.includes('/auth/web/logout')) {
+          const { setAuth } = useAuthStore.getState();
+          setAuth(false, null);
+          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
             window.location.href = '/login';
+          }
         }
+        return Promise.reject(err);
       }
     }
     return Promise.reject(error);
