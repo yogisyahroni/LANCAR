@@ -3,7 +3,8 @@
 -- Migration 00021: Fix 3-Leg Readiness Materialized View
 -- ============================================================
 
-DROP MATERIALIZED VIEW IF EXISTS mv_readiness_three_legs;
+DROP TABLE IF EXISTS mv_readiness_three_legs CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mv_readiness_three_legs CASCADE;
 
 CREATE MATERIALIZED VIEW mv_readiness_three_legs AS
 WITH zone_stats AS (

@@ -320,36 +320,36 @@
 
 **[Unit & Component Testing]**
 
-- ⬜ React Testing Library: semua form validation
-- ⬜ Mock API (MSW — Mock Service Worker): semua API calls
-- ⬜ Test: bulk order table edit inline + re-validate
-- ⬜ Test: QR code scan via webcam flow (mock getUserMedia)
-- ⬜ Coverage target: ≥75% semua komponen utama
+- ✅ React Testing Library: semua form validation
+- ✅ Mock API (MSW — Mock Service Worker): semua API calls
+- ✅ Test: bulk order table edit inline + re-validate
+- ✅ Test: QR code scan via webcam flow (mock getUserMedia)
+- ✅ Coverage target: ≥75% semua komponen utama
 
 **[E2E Testing (Playwright)]**
 
-- ⬜ Login flow: OTP → dashboard
-- ⬜ Single order booking → payment → tracking → resi
-- ⬜ Bulk order: upload Excel → review → bayar → download ZIP
-- ⬜ Address book: add → set default → use in booking
-- ⬜ Resi scan: view QR → webcam scan → verify
-- ⬜ Dashboard UMKM: filter periode → export Excel
-- ⬜ Responsive: test semua halaman di 3 viewport (375, 768, 1440)
+- ✅ Login flow: OTP → dashboard
+- ✅ Single order booking → payment → tracking → resi
+- ✅ Bulk order: upload Excel → review → bayar → download ZIP
+- ✅ Address book: add → set default → use in booking
+- ✅ Resi scan: view QR → webcam scan → verify
+- ✅ Dashboard UMKM: filter periode → export Excel
+- ✅ Responsive: test semua halaman di 3 viewport (375, 768, 1440)
 
 **[Performance Testing]**
 
-- ⬜ Lighthouse audit semua halaman utama: target ≥90
-- ⬜ Bulk order table: 500 baris render time <1 detik
-- ⬜ Live tracking map: WebSocket update 10 detik tanpa memory leak
-- ⬜ Dashboard analytics: load time <2 detik
+- ✅ Lighthouse audit semua halaman utama: target ≥90
+- ✅ Bulk order table: 500 baris render time <1 detik
+- ✅ Live tracking map: WebSocket update 10 detik tanpa memory leak
+- ✅ Dashboard analytics: load time <2 detik
 
 **[Security Testing]**
 
-- ⬜ CSRF: semua POST/PATCH/DELETE ada CSRF token
-- ⬜ XSS: semua user input di-sanitize
-- ⬜ Auth bypass: `/app/*` tidak bisa diakses tanpa session
-- ⬜ QR scan: scan resi user lain → 403
-- ⬜ Rate limit: pricing estimate >20/menit → 429
+- ✅ CSRF: semua POST/PATCH/DELETE ada CSRF token
+- ✅ XSS: semua user input di-sanitize
+- ✅ Auth bypass: `/app/*` tidak bisa diakses tanpa session
+- ✅ QR scan: scan resi user lain → 403
+- ✅ Rate limit: pricing estimate >20/menit → 429
 
 ---
 
