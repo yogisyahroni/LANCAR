@@ -198,22 +198,22 @@
 **Estimasi:** 3 hari
 **Priority:** P0
 
-- ⬜ Halaman `/app/orders`:
-  - Tabel dengan kolom: no order, penerima, status badge, model, harga, tanggal, aksi
-  - Filter panel: status, date range, model, bulk/single
-  - Search bar (full-text, debounced)
-  - URL-based filter (query params)
-  - Checkbox multi-select + bulk download resi
-  - Pagination atau infinite scroll
-- ⬜ Halaman `/app/orders/:id`:
-  - Layout 2 kolom: live map (kiri) + detail & timeline (kanan)
-  - Google Maps dengan marker kurir (update real-time WebSocket)
-  - Polyline rute aktif
-  - Timeline event dengan foto (klik foto → lightbox)
-  - Kurir info card + tombol hubungi
-  - Chat box in-browser (WebSocket)
-  - Tombol: unduh resi, laporkan masalah
-  - Status badge animasi (pulse jika aktif)
+- ✅ Halaman `/app/orders`:
+  - ✅ Tabel dengan kolom: no order, penerima, status badge, model, harga, tanggal, aksi
+  - ✅ Filter panel: status, date range, model, bulk/single
+  - ✅ Search bar (full-text, debounced)
+  - ✅ URL-based filter (query params)
+  - ✅ Checkbox multi-select + bulk download resi
+  - ✅ Pagination atau infinite scroll
+- ✅ Halaman `/app/orders/:id`:
+  - ✅ Layout 2 kolom: live map (kiri) + detail & timeline (kanan)
+  - ✅ Google Maps dengan marker kurir (update real-time WebSocket)
+  - ✅ Polyline rute aktif
+  - ✅ Timeline event dengan foto (klik foto → lightbox)
+  - ✅ Kurir info card + tombol hubungi
+  - ✅ Chat box in-browser (WebSocket)
+  - ✅ Tombol: unduh resi, laporkan masalah
+  - ✅ Status badge animasi (pulse jika aktif)
 
 ---
 

@@ -21,6 +21,9 @@ routes.get('/auth/web/me', verifyWebSession, (req, res) => controllers.me(req, r
 // Web Portal Order Routes
 routes.post('/auth/web/orders/calculate', verifyWebSession, (req, res) => controllers.customerOrder.calculatePrice(req, res));
 routes.post('/auth/web/orders', verifyWebSession, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
+routes.get('/auth/web/orders', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrders(req, res));
+routes.get('/auth/web/orders/:id', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderById(req, res));
+
 
 // Bulk Order Routes
 routes.post('/auth/web/orders/bulk/upload', verifyWebSession, upload.single('file'), (req, res) => controllers.bulkOrder.uploadBulkExcel(req, res));

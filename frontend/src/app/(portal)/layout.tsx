@@ -60,8 +60,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Kirim Paket', href: '/orders/new', icon: Package },
     { name: 'Kirim Massal', href: '/orders/bulk', icon: Layers },
+    { name: 'Riwayat Order', href: '/orders', icon: Package },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: Settings },
+
   ];
 
   return (

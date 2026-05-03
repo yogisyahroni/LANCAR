@@ -190,3 +190,104 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     client.release();
   }
 };
+
+export const getCustomerOrders = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customer_id = req.user?.id;
+    if (!customer_id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { status, search, startDate, endDate, model, limit, offset } = req.query;
+
+    let queryStr = `
+      SELECT id, order_number, pickup_address, dropoff_address, recipient_name, model, status, distance_km, total_price_idr, created_at
+      FROM orders
+      WHERE customer_id = $1
+    `;
+    const params: any[] = [customer_id];
+
+    if (status && status !== 'all') {
+      params.push(status);
+      queryStr += ` AND status = $${params.length}`;
+    }
+
+    if (model && model !== 'all') {
+      params.push(model);
+      queryStr += ` AND model = $${params.length}`;
+    }
+
+    if (startDate) {
+      params.push(new Date(startDate as string));
+      queryStr += ` AND created_at >= $${params.length}`;
+    }
+
+    if (endDate) {
+      params.push(new Date(endDate as string));
+      queryStr += ` AND created_at <= $${params.length}`;
+    }
+
+    if (search) {
+      params.push(`%${search}%`);
+      queryStr += ` AND (order_number ILIKE $${params.length} OR recipient_name ILIKE $${params.length} OR dropoff_address ILIKE $${params.length} OR pickup_address ILIKE $${params.length})`;
+    }
+
+    queryStr += ` ORDER BY created_at DESC`;
+
+    const limitVal = parseInt(limit as string) || 50;
+    const offsetVal = parseInt(offset as string) || 0;
+
+    params.push(limitVal);
+    queryStr += ` LIMIT $${params.length}`;
+
+    params.push(offsetVal);
+    queryStr += ` OFFSET $${params.length}`;
+
+    const { rows } = await db.query(queryStr, params);
+
+    res.json({ success: true, orders: rows });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getCustomerOrderById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customer_id = req.user?.id;
+    const { id } = req.params;
+    if (!customer_id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const queryStr = `
+      SELECT id, order_number, pickup_address, dropoff_address, recipient_name, recipient_phone_masked, model, status, distance_km, 
+             base_price_idr, volumetric_surcharge_idr, insurance_premium_idr, total_price_idr, has_insurance, insured_value_idr, 
+             package_details, customer_notes, schedule_type, scheduled_at, created_at
+      FROM orders
+      WHERE customer_id = $1 AND id = $2
+    `;
+
+    const { rows } = await db.query(queryStr, [customer_id, id]);
+    if (rows.length === 0) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    const order = rows[0];
+
+    // Get order events for timeline
+    const eventQuery = `
+      SELECT id, event_type, description, created_at
+      FROM order_events
+      WHERE order_id = $1
+      ORDER BY created_at ASC
+    `;
+    const { rows: events } = await db.query(eventQuery, [id]);
+
+    res.json({ success: true, order, events });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
