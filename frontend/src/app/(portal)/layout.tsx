@@ -36,6 +36,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     { name: 'Kirim Paket', href: '/orders/new', icon: Package },
     { name: 'Kirim Massal', href: '/orders/bulk', icon: Layers },
     { name: 'Riwayat Order', href: '/orders', icon: Package },
+    { name: 'Resi Management', href: '/resi', icon: Layers },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
