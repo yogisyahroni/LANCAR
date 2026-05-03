@@ -389,3 +389,50 @@ jobs:
           echo "  Routing: ghcr.io/${GITHUB_REPOSITORY,,}/routing-service:staging-${GITHUB_SHA}"
           echo ""
           echo "⏳ When server is ready: replace this with SSH deploy or docker-compose pull + up"
+
+  e2e-browser-validation:
+    name: E2E Browser Validation
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.ref == 'refs/heads/staging'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Install Playwright
+        working-directory: ./frontend
+        run: npx playwright install --with-deps chromium
+      
+      - name: Run E2E against Staging
+        working-directory: ./frontend
+        run: npx playwright test
+        env:
+          BASE_URL: ${{ vars.STAGING_URL }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+      
+      - name: Upload Playwright Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+      - name: Upload Test Results to PR
+        if: failure()
+        uses: mshick/add-pr-comment@v2
+        with:
+          message: |
+            ❌ **E2E Test Failed** atau terdeteksi console error di browser.
+            Lihat report: [Playwright Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
