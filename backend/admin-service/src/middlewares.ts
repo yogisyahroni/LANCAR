@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-
+import { db } from './db';
 // Extend Express Request interface to include mock user
 declare module 'express-serve-static-core' {
   interface Request {
@@ -44,3 +44,39 @@ export const requireTotp = (req: Request, res: Response, next: NextFunction) => 
   }
   next();
 };
+
+export const verifyWebSession = async (req: Request, res: Response, next: NextFunction) => {
+  const sessionToken = req.cookies?.web_session;
+
+  if (!sessionToken) {
+    res.status(401).json({ error: 'Unauthorized: No session token provided' });
+    return;
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT w.user_id, u.role 
+       FROM web_sessions w
+       JOIN users u ON w.user_id = u.id
+       WHERE w.session_token = $1 AND w.expires_at > NOW()`,
+      [sessionToken]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
+      return;
+    }
+
+    req.user = {
+      id: result.rows[0].user_id,
+      role: result.rows[0].role,
+      totp_verified: true, // Assuming true for now, can be updated later if needed
+    };
+
+    next();
+  } catch (error) {
+    console.error('Session verification error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+

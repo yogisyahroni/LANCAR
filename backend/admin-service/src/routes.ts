@@ -1,10 +1,32 @@
 import { Router } from 'express';
 import * as controllers from './controllers/index';
-import { requireAuth, requireRole, requireTotp } from './middlewares';
+import { requireAuth, requireRole, requireTotp, verifyWebSession } from './middlewares';
 import { toggleRateLimiter } from './rateLimit';
+import multer from 'multer';
 
+// Multer setup for memory storage (max 5MB)
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
 
 export const routes = Router();
+
+
+// Web Portal Auth Routes
+routes.post('/auth/web/login', (req, res) => controllers.loginWeb(req, res));
+routes.post('/auth/web/logout', (req, res) => controllers.logoutWeb(req, res));
+routes.get('/auth/web/me', verifyWebSession, (req, res) => controllers.me(req, res));
+
+// Web Portal Order Routes
+routes.post('/auth/web/orders/calculate', verifyWebSession, (req, res) => controllers.customerOrder.calculatePrice(req, res));
+routes.post('/auth/web/orders', verifyWebSession, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
+
+// Bulk Order Routes
+routes.post('/auth/web/orders/bulk/upload', verifyWebSession, upload.single('file'), (req, res) => controllers.bulkOrder.uploadBulkExcel(req, res));
+routes.get('/auth/web/orders/bulk/status/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.getBulkJobStatus(req, res));
+routes.post('/auth/web/orders/bulk/validate/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.validateBulkRow(req, res));
+routes.post('/auth/web/orders/bulk/process', verifyWebSession, (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
 
 
 // Apply auth and role middleware to all admin routes

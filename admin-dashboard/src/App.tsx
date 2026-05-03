@@ -16,6 +16,7 @@ import Notifications from './pages/Notifications'
 import Finance from './pages/Finance'
 import Settings from './pages/Settings'
 import AuditLogs from './pages/AuditLogs'
+import FeatureFlags from './pages/FeatureFlags'
 import DashboardLayout from './components/DashboardLayout'
 
 import { useEffect } from 'react'
@@ -152,6 +153,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AuditLogs />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/feature-flags" 
+            element={
+              <ProtectedRoute>
+                <FeatureFlags />
               </ProtectedRoute>
             } 
           />

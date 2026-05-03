@@ -17,7 +17,8 @@ import {
   Ticket,
   Map,
   LogOut,
-  History
+  History,
+  Activity
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation } from 'react-router-dom'
@@ -68,6 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: Package, label: "Orders", path: "/orders" },
     { icon: Truck, label: "Couriers", path: "/couriers" },
     { icon: BarChart3, label: "3-Leg Readiness", path: "/three-legs-readiness" },
+    { icon: Activity, label: "Feature Flags", path: "/feature-flags" },
     { icon: DollarSign, label: "Pricing", path: "/pricing" },
     { icon: AlertTriangle, label: "Disputes", path: "/disputes" },
     { icon: Users, label: "Customers", path: "/customers" },
