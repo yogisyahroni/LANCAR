@@ -58,7 +58,7 @@ export default function ActiveOrdersTable() {
   // Mutations
   const reassignMutation = useMutation({
     mutationFn: async (orderId: string) => {
-      return api.post(`/admin/orders/${orderId}/reassign`)
+      return api.post(`/admin/orders/${orderId}/reassign`, { courier_id: 'pending', reason: 'Admin manual trigger' })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
@@ -71,8 +71,8 @@ export default function ActiveOrdersTable() {
   })
 
   const flagIssueMutation = useMutation({
-    mutationFn: async ({ orderId, reason }: { orderId: string, reason: string }) => {
-      return api.post(`/admin/orders/${orderId}/flag`, { reason })
+    mutationFn: async ({ orderId, type, description }: { orderId: string, type: string, description: string }) => {
+      return api.post(`/admin/orders/${orderId}/flag`, { type, description })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-orders'] })
@@ -84,7 +84,12 @@ export default function ActiveOrdersTable() {
     }
   })
 
-  const orders = ordersData?.data || []
+  // Dedup by id sebagai defensive layer — backend seharusnya sudah unik,
+  // ini mencegah React key warning jika ada edge case duplikasi dari network.
+  const rawOrders = ordersData?.data || []
+  const orders = rawOrders.filter((order: any, index: number, self: any[]) =>
+    index === self.findIndex((o: any) => o.id === order.id)
+  )
   const total = ordersData?.total || 0
   const totalPages = Math.ceil(total / limit)
 
@@ -143,7 +148,7 @@ export default function ActiveOrdersTable() {
             <tbody className="divide-y divide-white/5">
               {orders.map((order: any, i: number) => (
                 <motion.tr 
-                  key={order.id}
+                  key={`order-${order.id}-${i}`}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.03 }}
@@ -363,9 +368,9 @@ export default function ActiveOrdersTable() {
                                 <div className="flex items-start justify-between">
                                   <div className="space-y-1">
                                     <p className={cn("text-lg font-black tracking-tight", i === 0 ? "text-zinc-100" : "text-zinc-500")}>
-                                      {event.event_type.replace('_', ' ').toUpperCase()}
+                                      {event.event_type.replace(/_/g, ' ').toUpperCase()}
                                     </p>
-                                    <p className="text-xs text-zinc-600 font-bold italic leading-relaxed">{event.details?.message || 'System automatic log entry'}</p>
+                                    <p className="text-xs text-zinc-600 font-bold italic leading-relaxed">{event.description || 'System automatic log entry'}</p>
                                   </div>
                                   <p className="text-sm font-black text-zinc-600 font-mono bg-white/5 px-3 py-1 rounded-lg">
                                     {format(new Date(event.created_at), 'HH:mm:ss')}
@@ -415,9 +420,9 @@ export default function ActiveOrdersTable() {
                           </button>
                           <button 
                             onClick={() => {
-                              const reason = prompt('Reason for flagging this order?')
-                              if (reason) {
-                                flagIssueMutation.mutate({ orderId: orderDetail.id, reason })
+                              const description = prompt('Reason for flagging this order?')
+                              if (description) {
+                                flagIssueMutation.mutate({ orderId: orderDetail.id, type: 'manual_flag', description })
                               }
                             }}
                             disabled={flagIssueMutation.isPending}

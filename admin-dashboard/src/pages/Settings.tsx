@@ -104,7 +104,16 @@ export default function Settings() {
     queryKey: ['system-health'],
     queryFn: async () => {
       const res = await api.get('/admin/health')
-      return res.data
+      // Normalize: backend lama return object, backend baru return array
+      const raw = res.data
+      if (Array.isArray(raw)) return raw
+      // Convert object shape lama {api_gateway:'UP', database:'UP'} ke array
+      return [
+        { label: 'API Gateway', version: 'v2.x', status: raw.api_gateway === 'UP' ? 'Stable' : 'Degraded', metrics: 'OK' },
+        { label: 'PostgreSQL', version: '17.x', status: raw.database === 'UP' ? 'Healthy' : 'Degraded', metrics: 'OK' },
+        { label: 'Redis Cache', version: '7.x', status: raw.redis === 'UP' ? 'Live' : 'Degraded', metrics: 'OK' },
+        { label: 'WebSocket', version: 'Socket.io 4', status: raw.storage === 'UP' ? 'Optimal' : 'Unknown', metrics: 'OK' },
+      ]
     }
   })
 
@@ -241,7 +250,9 @@ export default function Settings() {
     ]
   })
 
-  if (isLoadingFlags || isLoadingConfigs || isLoadingAdmins || isLoadingHealth || isLoadingLogs) {
+  // Hanya block di loading awal pertama kali — flags adalah data paling critical
+  // Query lain (configs, admins, health, logs) punya default `[]` sehingga aman dirender
+  if (isLoadingFlags && isLoadingConfigs) {
     return (
       <div className="h-[60vh] flex flex-col items-center justify-center space-y-4">
         <Loader2 className="w-12 h-12 text-primary animate-spin" />
@@ -338,7 +349,7 @@ export default function Settings() {
                     System Health
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    {healthData.map((app: any) => (
+                    {(Array.isArray(healthData) ? healthData : []).map((app: any) => (
                       <div key={app.label} className="p-6 rounded-[32px] bg-white/[0.02] border border-white/5 space-y-2">
                         <div className="flex items-center justify-between">
                           <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{app.label}</p>

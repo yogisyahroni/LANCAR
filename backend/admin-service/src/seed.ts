@@ -26,7 +26,7 @@ export const seedDashboardData = async () => {
 
     // 2. Create courier profile
     await db.query(`
-      INSERT INTO courier_profiles (id, user_id, verification_status, vehicle_type, tier, is_online)
+      INSERT INTO courier_profiles (id, user_id, status, vehicle_type, tier, is_online)
       VALUES ($1, $2, 'approved', 'matic', 'regular', true)
       ON CONFLICT DO NOTHING
     `, [uuidv4(), courierId]);

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import * as controllers from './controllers';
+import * as controllers from './controllers/index';
 import { requireAuth, requireRole, requireTotp } from './middlewares';
 import { toggleRateLimiter } from './rateLimit';
 
@@ -80,6 +80,15 @@ routes.patch('/admin/customers/:id/status', (req, res) => controllers.updateCust
 routes.post('/admin/customers/bulk-email', (req, res) => controllers.bulkEmailCustomers(req, res));
 
 
+// Zone Management
+routes.get('/admin/zones', (req, res) => controllers.getZones(req, res));
+routes.get('/admin/zones/:id', (req, res) => controllers.getZoneById(req, res));
+routes.post('/admin/zones', (req, res) => controllers.createZone(req, res));
+routes.patch('/admin/zones/:id', (req, res) => controllers.updateZone(req, res));
+routes.delete('/admin/zones/:id', (req, res) => controllers.deleteZone(req, res));
+
+
+
 // Notification Templates
 routes.get('/admin/notifications/templates', (req, res) => controllers.getNotificationTemplates(req, res));
 routes.get('/admin/notifications/templates/:id', (req, res) => controllers.getNotificationTemplateById(req, res));
@@ -90,4 +99,47 @@ routes.delete('/admin/notifications/templates/:id', requireTotp, (req, res) => c
 
 // Voucher Engine
 routes.get('/admin/vouchers', (req, res) => controllers.getVouchers(req, res));
+routes.get('/admin/vouchers/stats', (req, res) => controllers.getVoucherStats(req, res));
+routes.get('/admin/vouchers/:id', (req, res) => controllers.getVoucherById(req, res));
 routes.post('/admin/vouchers', (req, res) => controllers.createVoucher(req, res));
+routes.patch('/admin/vouchers/:id', (req, res) => controllers.updateVoucher(req, res));
+routes.delete('/admin/vouchers/:id', (req, res) => controllers.deleteVoucher(req, res));
+
+
+// Pricing Configuration
+routes.get('/admin/pricing', (req, res) => controllers.getPricingConfig(req, res));
+routes.put('/admin/pricing', (req, res) => controllers.updatePricingConfig(req, res));
+
+// SLA Configuration
+routes.get('/admin/sla-configs', (req, res) => controllers.getSLAConfigs(req, res));
+routes.patch('/admin/sla-configs', (req, res) => controllers.updateSLAConfig(req, res));
+
+// Analytics
+routes.get('/admin/analytics/kpis', (req, res) => controllers.getAnalyticsKPIs(req, res));
+routes.get('/admin/analytics/sla', (req, res) => controllers.getAnalyticsSLA(req, res));
+routes.get('/admin/analytics/surge', (req, res) => controllers.getAnalyticsSurge(req, res));
+routes.get('/admin/analytics/scan-accuracy', (req, res) => controllers.getAnalyticsScanAccuracy(req, res));
+routes.get('/admin/analytics/retention', (req, res) => controllers.getAnalyticsRetention(req, res));
+routes.get('/admin/analytics/heat-data', (req, res) => controllers.getHeatData(req, res));
+routes.get('/admin/analytics/export', (req, res) => controllers.exportAnalytics(req, res));
+
+// Scheduled Reports — dua path alias agar compatible dengan frontend Analytics.tsx
+// Path /admin/analytics/reports dipakai Analytics.tsx
+// Path /admin/reports/scheduled dipakai PricingConfig & internal
+routes.get('/admin/analytics/reports', (req, res) => controllers.getScheduledReports(req, res));
+routes.post('/admin/analytics/reports', (req, res) => controllers.createScheduledReport(req, res));
+routes.patch('/admin/analytics/reports/:id', (req, res) => controllers.updateScheduledReport(req, res));
+routes.delete('/admin/analytics/reports/:id', (req, res) => controllers.deleteScheduledReport(req, res));
+
+// Alias path lama tetap aktif
+routes.get('/admin/reports/scheduled', (req, res) => controllers.getScheduledReports(req, res));
+routes.post('/admin/reports/scheduled', (req, res) => controllers.createScheduledReport(req, res));
+routes.patch('/admin/reports/scheduled/:id', (req, res) => controllers.updateScheduledReport(req, res));
+routes.delete('/admin/reports/scheduled/:id', (req, res) => controllers.deleteScheduledReport(req, res));
+
+// Finance extras
+routes.get('/admin/finance/summary', (req, res) => controllers.getFinancialSummary(req, res));
+routes.get('/admin/finance/revenue-breakdown', (req, res) => controllers.getRevenueBreakdown(req, res));
+routes.get('/admin/finance/cost-breakdown', (req, res) => controllers.getCostBreakdown(req, res));
+routes.get('/admin/finance/emergency-fund', (req, res) => controllers.getEmergencyFund(req, res));
+
