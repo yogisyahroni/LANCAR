@@ -20,7 +20,7 @@ export default function NewOrderPage() {
   const [orderData, setOrderData] = useState<any>(null);
 
   const router = useRouter();
-  const addNotification = useNotificationStore((state: ReturnType<typeof useNotificationStore.getState>) => state.addNotification);
+  const { addNotification } = useNotificationStore();
 
   // Debounce effect for price calculation
   useEffect(() => {
