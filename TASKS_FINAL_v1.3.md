@@ -223,20 +223,20 @@
 **Estimasi:** 3 hari
 **Priority:** P0
 
-- ⬜ Halaman `/app/resi`:
-  - Tabel resi dengan filter + search
-  - Bulk select + download ZIP (POST /orders/bulk-download)
-  - Status ZIP download: polling → selesai → tombol unduh
-- ⬜ Halaman `/app/resi/:id`:
-  - Layout resi sesuai PDF (visual konsisten)
-  - QR code besar (qrcode.react component)
-  - Tombol: Unduh PDF, Unduh PNG, Bagikan, Cetak
-  - Tombol "Scan QR via Webcam" → modal kamera → verifikasi → tampilkan konfirmasi
-  - Status order badge
-- ⬜ Share resi:
-  - Copy link public (limited info) ke clipboard
-  - Share via WhatsApp (wa.me link dengan text)
-  - Print-friendly CSS media query
+- ✅ Halaman `/app/resi`:
+  - ✅ Tabel resi dengan filter + search
+  - ✅ Bulk select + download ZIP (POST /orders/bulk-download)
+  - ✅ Status ZIP download: polling → selesai → tombol unduh
+- ✅ Halaman `/app/resi/:id`:
+  - ✅ Layout resi sesuai PDF (visual konsisten)
+  - ✅ QR code besar (qrcode.react component)
+  - ✅ Tombol: Unduh PDF, Unduh PNG, Bagikan, Cetak
+  - ✅ Tombol "Scan QR via Webcam" → modal kamera → verifikasi → tampilkan konfirmasi
+  - ✅ Status order badge
+- ✅ Share resi:
+  - ✅ Copy link public (limited info) ke clipboard
+  - ✅ Share via WhatsApp (wa.me link dengan text)
+  - ✅ Print-friendly CSS media query
 
 ---
 
