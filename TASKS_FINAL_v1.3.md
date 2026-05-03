@@ -18,13 +18,13 @@
 - ✅ Tailwind CSS + component library install + theme config
 - ✅ State management: Zustand store setup (auth, notifications, bulk job progress)
 - ✅ Data fetching: React Query (TanStack Query) setup + global error handling
-- ⬜ WebSocket: socket.io-client + custom hook `useWebSocket`
+- ✅ WebSocket: socket.io-client + custom hook `useWebSocket`
 - ✅ HTTP: Axios instance + auth interceptor (attach httpOnly cookie) + retry
 - ✅ Folder structure: `/app/(public)` landing, `/app/(portal)` auth routes
 - ✅ Middleware Next.js: redirect `/app/*` ke `/login` jika session tidak valid
 - ✅ Environment variables: `.env.local` setup
-- ⬜ Sentry + Google Analytics 4 + GTM setup
-- ⬜ Bundle analyzer: `@next/bundle-analyzer` — target First Load JS <200KB
+- ✅ Sentry + Google Analytics 4 + GTM setup
+- ✅ Bundle analyzer: `@next/bundle-analyzer` — target First Load JS <200KB
 
 **Acceptance Criteria:**
 
