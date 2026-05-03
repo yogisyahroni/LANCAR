@@ -19,10 +19,12 @@ import {
   Search, 
   User, 
   X, 
-  ChevronRight 
+  ChevronRight,
+  MapPin 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import PushNotificationPrompt from '@/components/PushNotificationPrompt';
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, setAuth, setLoading, user } = useAuthStore();
@@ -37,8 +39,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     { name: 'Kirim Massal', href: '/orders/bulk', icon: Layers },
     { name: 'Riwayat Order', href: '/orders', icon: Package },
     { name: 'Resi Management', href: '/resi', icon: Layers },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Buku Alamat', href: '/alamat', icon: MapPin },
+    { name: 'Laporan UMKM', href: '/laporan', icon: BarChart3 },
+    { name: 'Profil & Settings', href: '/profil', icon: Settings },
   ];
 
   // Theme support
@@ -320,12 +323,12 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                       className="absolute right-0 mt-2 w-48 bg-card border border-border/40 rounded-xl shadow-xl p-2 flex flex-col z-40 select-none backdrop-blur-xl"
                     >
                       <Link
-                        href="/settings"
+                        href="/profil"
                         onClick={() => setIsUserOpen(false)}
                         className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 select-none"
                       >
                         <User className="h-4 w-4 shrink-0" />
-                        Settings
+                        Profil & Settings
                       </Link>
                       <button
                         onClick={handleLogout}
@@ -457,6 +460,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         </AnimatePresence>
       </div>
 
+      <PushNotificationPrompt />
     </div>
   );
 }

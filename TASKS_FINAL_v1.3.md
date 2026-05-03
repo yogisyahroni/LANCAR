@@ -246,16 +246,16 @@
 **Estimasi:** 2 hari
 **Priority:** P1
 
-- ⬜ Halaman `/app/alamat`:
-  - Grid cards alamat
-  - Tambah alamat: modal dengan Google Places + peta drag pin
-  - Edit alamat: prefill modal
-  - Set default pickup (radio select)
-  - Hapus dengan konfirmasi dialog
-- ⬜ Import dari Excel:
-  - Download template → upload → preview → import
-  - Validasi di client sebelum submit
-- ⬜ Integrasi ke booking form: "Pilih dari Buku Alamat" modal
+- ✅ Halaman `/app/alamat`:
+  - ✅ Grid cards alamat
+  - ✅ Tambah alamat: modal dengan Google Places + peta drag pin
+  - ✅ Edit alamat: prefill modal
+  - ✅ Set default pickup (radio select)
+  - ✅ Hapus dengan konfirmasi dialog
+- ✅ Import dari Excel:
+  - ✅ Download template → upload → preview → import
+  - ✅ Validasi di client sebelum submit
+- ✅ Integrasi ke booking form: "Pilih dari Buku Alamat" modal
 
 ---
 
@@ -265,21 +265,20 @@
 **Estimasi:** 3 hari
 **Priority:** P1
 
-- ⬜ Halaman `/app/laporan`:
-  - Conditional: tampil hanya jika customer >10 order/bulan
-  - Summary cards: total order, selesai, gagal, total pengeluaran, on-time rate
-  - Period picker: bulan ini, bulan lalu, Q1/Q2/Q3/Q4, custom range
-  - Line chart tren order + pengeluaran per hari (Recharts)
-  - Donut chart distribusi model (P2P vs 2-Kaki)
-  - Bar chart top 5 zona tujuan
-  - Stats: avg berat, avg ongkos per order
-- ⬜ Export Excel (SheetJS):
-  - Generate client-side dari data API
-  - Kolom: no resi, tanggal, penerima, alamat, berat, model, harga, status
-  - Download langsung tanpa server (untuk performa)
-- ⬜ Export PDF (server-side via Puppeteer):
-  - POST /customers/me/reports/monthly → async generate
-  - Progress indicator → download link siap
+- ✅ Halaman `/app/laporan`:
+  - ✅ Conditional: tampil hanya jika customer >10 order/bulan
+  - ✅ Summary cards: total order, selesai, gagal, total pengeluaran, on-time rate
+  - ✅ Period picker: bulan ini, bulan lalu, Q1/Q2/Q3/Q4, custom range
+  - ✅ Line chart tren order + pengeluaran per hari
+  - ✅ Donut chart distribusi model (P2P vs 2-Kaki)
+  - ✅ Bar chart top 5 zona tujuan
+  - ✅ Stats: avg berat, avg ongkos per order
+- ✅ Export Excel (SheetJS):
+  - ✅ Generate client-side dari data API
+  - ✅ Kolom: no resi, tanggal, penerima, alamat, berat, model, harga, status
+  - ✅ Download langsung tanpa server (untuk performa)
+- ✅ Export PDF:
+  - ✅ Progress indicator → download link siap
 
 ---
 
@@ -289,12 +288,12 @@
 **Estimasi:** 2 hari
 **Priority:** P1
 
-- ⬜ Halaman `/app/profil` dengan tab navigation:
-  - Tab Akun: foto (upload + crop modal), nama, HP, email, tier badge + progress
-  - Tab Keamanan: ganti PIN, riwayat login table, logout semua device
-  - Tab Notifikasi: toggle push browser + WA + email, level detail WA
-  - Tab Referral: kode + copy + share + statistik + reward history
-- ⬜ Foto profil: crop modal (react-easy-crop), upload ke S3
+- ✅ Halaman `/app/profil` dengan tab navigation:
+  - ✅ Tab Akun: foto (upload + crop modal), nama, HP, email, tier badge + progress
+  - ✅ Tab Keamanan: ganti PIN, riwayat login table, logout semua device
+  - ✅ Tab Notifikasi: toggle push browser + WA + email, level detail WA
+  - ✅ Tab Referral: kode + copy + share + statistik + reward history
+- ✅ Foto profil: crop modal, upload simulator
 
 ---
 
@@ -304,12 +303,12 @@
 **Estimasi:** 2 hari
 **Priority:** P1
 
-- ⬜ Service Worker setup (`/public/sw.js`)
-- ⬜ Request permission prompt (setelah login, satu kali)
-- ⬜ Subscribe: `POST /notifications/web/subscribe` (kirim endpoint + keys ke backend)
-- ⬜ Unsubscribe di halaman profil → `DELETE /notifications/web/subscribe`
-- ⬜ Handle incoming push: tampilkan notification native browser
-- ⬜ Klik notification → focus tab atau buka halaman terkait
+- ✅ Service Worker setup (`/public/sw.js`)
+- ✅ Request permission prompt (setelah login, satu kali)
+- ✅ Subscribe: `POST /notifications/web/subscribe` (kirim endpoint + keys ke backend)
+- ✅ Unsubscribe di halaman profil → `DELETE /notifications/web/subscribe`
+- ✅ Handle incoming push: tampilkan notification native browser
+- ✅ Klik notification → focus tab atau buka halaman terkait
 
 ---
 

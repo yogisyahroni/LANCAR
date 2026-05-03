@@ -17,6 +17,8 @@ export const routes = Router();
 routes.post('/auth/web/login', (req, res) => controllers.loginWeb(req, res));
 routes.post('/auth/web/logout', (req, res) => controllers.logoutWeb(req, res));
 routes.get('/auth/web/me', verifyWebSession, (req, res) => controllers.me(req, res));
+routes.post('/auth/web/notifications/subscribe', verifyWebSession, (req, res) => controllers.customerAuth.subscribePush(req, res));
+routes.delete('/auth/web/notifications/subscribe', verifyWebSession, (req, res) => controllers.customerAuth.unsubscribePush(req, res));
 
 // Web Portal Order Routes
 routes.post('/auth/web/orders/calculate', verifyWebSession, (req, res) => controllers.customerOrder.calculatePrice(req, res));

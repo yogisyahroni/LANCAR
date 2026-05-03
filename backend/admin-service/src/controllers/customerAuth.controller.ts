@@ -77,3 +77,41 @@ export const me = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+export const subscribePush = async (req: Request, res: Response) => {
+  const { endpoint, keys } = req.body;
+  if (!endpoint || !keys) {
+    res.status(400).json({ error: 'Endpoint and keys are required' });
+    return;
+  }
+
+  try {
+    await db.query(
+      `INSERT INTO web_push_subscriptions (user_id, endpoint, auth_keys)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (endpoint) DO UPDATE SET auth_keys = EXCLUDED.auth_keys, updated_at = NOW()`,
+      [req.user?.id, endpoint, JSON.stringify(keys)]
+    );
+    res.json({ success: true, message: 'Push subscription saved successfully' });
+  } catch (error: any) {
+    console.error('Subscribe push error:', error);
+    res.status(500).json({ error: error.message || 'Internal Server Error' });
+  }
+};
+
+export const unsubscribePush = async (req: Request, res: Response) => {
+  const { endpoint } = req.body;
+  if (!endpoint) {
+    res.status(400).json({ error: 'Endpoint is required to unsubscribe' });
+    return;
+  }
+
+  try {
+    await db.query('DELETE FROM web_push_subscriptions WHERE user_id = $1 AND endpoint = $2', [req.user?.id, endpoint]);
+    res.json({ success: true, message: 'Push subscription removed successfully' });
+  } catch (error: any) {
+    console.error('Unsubscribe push error:', error);
+    res.status(500).json({ error: error.message || 'Internal Server Error' });
+  }
+};
+
