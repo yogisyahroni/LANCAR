@@ -14,7 +14,12 @@ const app = express();
 const logger = pino();
 
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-role']
+}));
 app.use(logger);
 
 // Middleware to parse JSON only for specific routes that need validation in the gateway
@@ -22,7 +27,7 @@ const jsonParser = express.json();
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service:8081';
 const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://order-service:8083';
-const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://admin-service:3000';
+const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://localhost:3001';
 const ROUTING_SERVICE_URL = process.env.ROUTING_SERVICE_URL || 'http://routing-service:8082';
 
 // Helper for proxying with body fix
@@ -31,7 +36,13 @@ const proxyWithBodyFix = (target: string) =>
     target,
     changeOrigin: true,
     on: {
-      proxyReq: fixRequestBody,
+      proxyReq: (proxyReq, req: any, res) => {
+        // Transform 'phone' to 'phone_number' if present in the body
+        if (req.body && req.body.phone && !req.body.phone_number) {
+          req.body.phone_number = req.body.phone;
+        }
+        fixRequestBody(proxyReq, req);
+      },
       error: (err: Error, req: any, res: any) => {
         console.error(`Proxy Error (${target}):`, err);
         if (res && typeof res.status === 'function') {
@@ -91,6 +102,17 @@ app.post(
 
 // Auth Service (other routes)
 app.use(
+  '/api/v1/auth/web',
+  createProxyMiddleware({
+    target: ADMIN_SERVICE_URL,
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/v1/auth/web': '/auth/web',
+    },
+  })
+);
+
+app.use(
   '/api/v1/auth',
   createProxyMiddleware({
     target: AUTH_SERVICE_URL,
@@ -113,6 +135,9 @@ app.use(
   createProxyMiddleware({
     target: ADMIN_SERVICE_URL,
     changeOrigin: true,
+    pathRewrite: {
+      '^/api/v1/admin': '/admin',
+    },
   })
 );
 

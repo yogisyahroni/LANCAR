@@ -8,9 +8,10 @@ import { routes } from './routes';
 
 const app = express();
 
-// CORS — allow admin dashboard (local dev + staging)
+// CORS — allow admin dashboard & customer portal (local dev + staging)
 app.use(cors({
   origin: [
+    'http://localhost:3000', // Customer Portal
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:5175',
@@ -36,7 +37,7 @@ app.use(routes);
 import http from 'http';
 import { initWebSocket } from './websocket';
 
-const port = process.env.PORT || 3000;
+const port = process.env.ADMIN_PORT || process.env.PORT || 3000;
 
 const server = http.createServer(app);
 initWebSocket(server);

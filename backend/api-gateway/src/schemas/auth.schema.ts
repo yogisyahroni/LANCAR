@@ -2,13 +2,13 @@ import { z } from 'zod';
 
 export const OTPSendSchema = z.object({
   body: z.object({
-    phone: z.string().min(10).max(15).regex(/^\+?[0-9]+$/),
+    phone_number: z.string().min(10).max(15).regex(/^\+?[0-9]+$/),
   }),
 });
 
 export const OTPVerifySchema = z.object({
   body: z.object({
-    phone: z.string().min(10).max(15).regex(/^\+?[0-9]+$/),
+    phone_number: z.string().min(10).max(15).regex(/^\+?[0-9]+$/),
     code: z.string().length(6),
   }),
 });

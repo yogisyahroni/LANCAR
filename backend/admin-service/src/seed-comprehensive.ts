@@ -24,6 +24,7 @@ const runSeed = async () => {
     await client.query('DELETE FROM payout_records');
     await client.query('DELETE FROM payments');
     await client.query('DELETE FROM order_events');
+    await client.query('DELETE FROM order_legs');
     await client.query('DELETE FROM orders');
     await client.query('DELETE FROM courier_profiles');
     await client.query("DELETE FROM users WHERE role IN ('customer', 'courier')");
@@ -184,7 +185,7 @@ const runSeed = async () => {
 
       // 6. Order Events
       await client.query(`
-        INSERT INTO order_events (id, order_id, user_id, status, message, created_at)
+        INSERT INTO order_events (id, order_id, user_id, event_type, description, created_at)
         VALUES ($1, $2, $3, $4, $5, $6)
       `, [uuidv4(), orderId, customerId, status, `Order moved to ${status}`, createdAt]);
     }

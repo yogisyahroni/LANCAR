@@ -64,8 +64,8 @@ export default function LoginPage() {
     setApiError(null);
     setIsSendingOtp(true);
     try {
-      // Mock / Actual API call to send OTP
-      await api.post('/auth/web/send-otp', { phone: phoneValue });
+      // Actual API call to send OTP through Gateway
+      await api.post('/auth/otp/send', { phone_number: phoneValue });
       setOtpSent(true);
       setCountdown(60);
     } catch (error: any) {
@@ -98,9 +98,9 @@ export default function LoginPage() {
           setApiError('Phone and OTP are required for OTP login');
           return;
         }
-        const response = await api.post('/auth/web/verify-otp', {
-          phone: data.phone,
-          otp: data.otp,
+        const response = await api.post('/auth/otp/verify', {
+          phone_number: data.phone,
+          code: data.otp,
           rememberMe
         });
         setAuth(true, response.data.user);

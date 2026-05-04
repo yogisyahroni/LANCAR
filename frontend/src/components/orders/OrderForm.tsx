@@ -96,6 +96,8 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
     setValue(field, { lat: -6.200000, lng: 106.816666 }, { shouldValidate: true });
     if (field === 'pickup_location') {
       setValue('pickup_address', "Jalan Jend. Sudirman, Senayan, Kebayoran Baru, Jakarta Selatan", { shouldValidate: true });
+    } else {
+      setValue('dropoff_address', "Jalan Merdeka No. 1, Gambir, Jakarta Pusat", { shouldValidate: true });
     }
   };
 
@@ -161,6 +163,16 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
             />
           </div>
           {errors.dropoff_address && <p className="text-xs text-destructive">{errors.dropoff_address.message}</p>}
+
+          <div className="flex gap-2">
+            <button 
+              type="button" 
+              onClick={() => handleGetMyLocation('dropoff_location')}
+              className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
+            >
+              Gunakan Lokasi Saya
+            </button>
+          </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
