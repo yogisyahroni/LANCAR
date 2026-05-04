@@ -251,7 +251,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.1 }}
-          className="p-5 bg-card/60 backdrop-blur-xl border border-border/40 rounded-2xl shadow-sm flex flex-col justify-between h-36 relative overflow-hidden group hover:shadow-md transition-all duration-300"
+          className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group transition-all duration-300"
         >
           <div className="flex items-start justify-between z-10">
             <div>
@@ -272,7 +272,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
-          className="p-5 bg-card/60 backdrop-blur-xl border border-border/40 rounded-2xl shadow-sm flex flex-col justify-between h-36 relative overflow-hidden group hover:shadow-md transition-all duration-300"
+          className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group transition-all duration-300"
         >
           <div className="flex items-start justify-between z-10">
             <div>
@@ -293,7 +293,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.3 }}
-          className="p-5 bg-card/60 backdrop-blur-xl border border-border/40 rounded-2xl shadow-sm flex flex-col justify-between h-36 relative overflow-hidden group hover:shadow-md transition-all duration-300"
+          className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group transition-all duration-300"
         >
           <div className="flex items-start justify-between z-10">
             <div>
@@ -316,7 +316,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.4 }}
-          className="p-5 bg-card/60 backdrop-blur-xl border border-border/40 rounded-2xl shadow-sm flex flex-col justify-between h-36 relative overflow-hidden group hover:shadow-md transition-all duration-300"
+          className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group transition-all duration-300"
         >
           <div className="flex items-start justify-between z-10">
             <div>
@@ -347,7 +347,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.5 }}
-          className="lg:col-span-2 bg-card/60 backdrop-blur-xl border border-border/40 rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-[400px]"
+          className="lg:col-span-2 glass-card rounded-2xl p-6 flex flex-col justify-between min-h-[400px]"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
@@ -410,7 +410,7 @@ export default function DashboardPage() {
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.6 }}
-          className="bg-card/60 backdrop-blur-xl border border-border/40 rounded-2xl p-6 shadow-sm flex flex-col min-h-[400px] overflow-hidden"
+          className="glass-card rounded-2xl p-6 flex flex-col min-h-[400px] overflow-hidden"
         >
           <div className="flex items-center justify-between gap-4 mb-4 select-none">
             <div>
@@ -429,7 +429,7 @@ export default function DashboardPage() {
             {orders.map((order) => (
               <div
                 key={order.id}
-                className="p-3.5 bg-card/60 border border-border/40 rounded-xl hover:bg-muted/40 transition-all flex flex-col gap-2 select-none"
+                className="p-3.5 glass-card rounded-xl hover:bg-white/10 dark:hover:bg-white/10 transition-all flex flex-col gap-2 select-none"
               >
                 <div className="flex items-center justify-between">
                   <div>

@@ -37,6 +37,22 @@ interface OrderFormProps {
 }
 
 export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
+  const customZodResolver = async (data: any) => {
+    const result = orderSchema.safeParse(data);
+    if (result.success) {
+      return { values: result.data, errors: {} };
+    } else {
+      const formErrors: Record<string, any> = {};
+      result.error.issues.forEach((issue) => {
+        const path = issue.path.join(".");
+        if (!formErrors[path]) {
+          formErrors[path] = { type: issue.code, message: issue.message };
+        }
+      });
+      return { values: {}, errors: formErrors };
+    }
+  };
+
   const {
     register,
     handleSubmit,
@@ -46,12 +62,17 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
     getValues,
     formState: { errors, isValid }
   } = useForm<OrderFormValues>({
-    resolver: zodResolver(orderSchema),
+    resolver: customZodResolver,
     mode: "onChange",
     defaultValues: {
+      pickup_address: "",
+      dropoff_address: "",
+      recipient_name: "",
+      recipient_phone: "",
       schedule_type: "now",
       has_insurance: false,
       package_details: {
+        category: "",
         weight_kg: 1,
         dimensions: { length: 10, width: 10, height: 10 }
       }

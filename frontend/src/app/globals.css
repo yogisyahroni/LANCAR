@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
+  --color-primary: #006437;
+  --color-primary-light: #22C55E;
+  --color-primary-dark: #004d2a;
+  
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  
+  --animate-in: animate-in 0.3s ease-out;
+  --animate-out: animate-out 0.3s ease-in;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Light mode background and foreground (like zinc-50 and zinc-900) */
+    --background: #fafafa;
+    --foreground: #18181b;
+  }
+
+  .dark {
+    /* Dark mode background and foreground (like zinc-950 and zinc-100) */
+    --background: #09090b;
+    --foreground: #f4f4f5;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary-light transition-colors duration-200;
+  font-family: var(--font-sans);
+}
+
+/* Glassmorphism utilities adapted for light/dark mode */
+.glass-card {
+  @apply bg-white/60 dark:bg-white/5 backdrop-blur-md border border-black/10 dark:border-white/10 shadow-xl;
+}
+
+.glass-button {
+  @apply bg-primary/10 dark:bg-primary/20 backdrop-blur-sm border border-primary/20 dark:border-primary/30 hover:bg-primary/20 dark:hover:bg-primary/30 transition-all duration-200 active:scale-95;
+}
+
+.text-gradient {
+  @apply bg-gradient-to-r from-primary to-emerald-600 dark:from-primary-light dark:to-emerald-400 bg-clip-text text-transparent font-bold;
+}
+
+@keyframes animate-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes animate-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(10px); }
 }

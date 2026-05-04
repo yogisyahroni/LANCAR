@@ -34,6 +34,10 @@ routes.post('/auth/web/orders/bulk/validate/:job_id', verifyWebSession, (req, re
 routes.post('/auth/web/orders/bulk/process', verifyWebSession, (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
 
 
+// Public routes (no auth required)
+routes.get('/health', (req, res) => controllers.getSystemHealth(req, res));
+routes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res));
+
 // Apply auth and role middleware to all admin routes
 routes.use('/admin', requireAuth, requireRole(['super_admin']));
 
@@ -60,7 +64,6 @@ routes.patch('/admin/settings/:key', requireTotp, (req, res) => controllers.upda
 routes.get('/admin/admins', (req, res) => controllers.getAllAdmins(req, res));
 routes.post('/admin/admins', (req, res) => controllers.inviteAdmin(req, res));
 routes.delete('/admin/admins/:id', (req, res) => controllers.deleteAdmin(req, res));
-routes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res));
 
 
 // Orders Management

@@ -74,4 +74,8 @@ func main() {
 
 	log.Println("Routing service initialized. Feature flag reader is active (Dual-DB mode).")
 	// Ready to plug into HTTP or gRPC server...
+	log.Println("Routing service is running...")
+	
+	// Keep the service alive
+	select {}
 }

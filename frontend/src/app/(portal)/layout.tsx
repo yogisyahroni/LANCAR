@@ -20,17 +20,23 @@ import {
   User, 
   X, 
   ChevronRight,
-  MapPin 
+  MapPin,
+  Menu,
+  ChevronLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import PushNotificationPrompt from '@/components/PushNotificationPrompt';
+import { cn } from '@/lib/utils';
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, setAuth, setLoading, user } = useAuthStore();
   const { notifications, removeNotification } = useNotificationStore();
   const router = useRouter();
   const pathname = usePathname();
+
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Navigation Items
   const navItems = [
@@ -117,10 +123,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Notifications dropdown
+  // Notifications & User dropdowns
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  
-  // User dropdown
   const [isUserOpen, setIsUserOpen] = useState(false);
 
   const handleLogout = async () => {
@@ -151,8 +155,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   }
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden text-foreground antialiased transition-colors duration-200">
+    <div className="min-h-screen bg-background text-foreground flex overflow-hidden transition-colors duration-300">
       
+      {/* Background decoration */}
+      <div className="fixed top-0 left-0 w-full h-full pointer-events-none opacity-20">
+        <div className="absolute top-[-10%] right-[-10%] w-[30%] h-[30%] bg-primary/20 rounded-full blur-[100px]" />
+      </div>
+
       {/* Top fake progress bar */}
       <AnimatePresence>
         {isNavigating && (
@@ -161,103 +170,174 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             animate={{ width: '100%' }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: 'easeInOut' }}
-            className="fixed top-0 left-0 h-1 bg-primary z-50 pointer-events-none"
+            className="fixed top-0 left-0 h-1 bg-primary z-[120] pointer-events-none shadow-[0_0_10px_rgba(34,197,94,0.7)]"
           />
         )}
       </AnimatePresence>
 
-      {/* Sidebar - Tablet: collapsed (w-20), Desktop: full (w-64) */}
-      <aside className="hidden md:flex md:w-20 lg:w-64 border-r border-border/40 bg-card/60 backdrop-blur-xl flex-col shrink-0 transition-all duration-300 select-none z-30">
-        <div className="h-16 flex items-center px-4 lg:px-6 border-b border-border/40 select-none shrink-0">
-          <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-bold shrink-0 shadow-sm border border-primary/20">
-              L
+      {/* Sidebar - Desktop */}
+      <motion.aside
+        initial={false}
+        animate={{ width: isCollapsed ? 80 : 280 }}
+        className="hidden lg:flex flex-col border-r border-black/5 dark:border-white/5 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-xl relative z-30 transition-colors duration-300"
+      >
+        <div className="p-6 h-20 flex items-center justify-between shrink-0">
+          {!isCollapsed ? (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-center gap-3"
+            >
+              <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
+                <Package className="h-6 w-6 text-white" />
+              </div>
+              <span className="font-bold text-2xl tracking-tight">LAN<span className="text-primary-light">CAR</span></span>
+            </motion.div>
+          ) : (
+            <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center mx-auto shadow-lg shadow-primary/20">
+              <Package className="h-6 w-6 text-white" />
             </div>
-            <span className="text-lg font-bold tracking-tight text-foreground hidden lg:inline select-none">
-              Lancar Portal
-            </span>
-          </Link>
+          )}
         </div>
 
-        <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto mt-2">
+        <nav className="flex-1 px-4 space-y-1 mt-6 overflow-y-auto">
           {navItems.map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const active = pathname.startsWith(item.href);
             return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-200 select-none cursor-pointer ${
-                  isActive
-                    ? 'bg-primary/10 text-primary font-semibold shadow-sm'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-              >
-                <item.icon className={`h-5 w-5 shrink-0 ${isActive ? 'text-primary animate-pulse' : ''}`} />
-                <span className="hidden lg:inline text-sm select-none">{item.name}</span>
-                {item.name === 'Riwayat Order' && (
-                  <span className="ml-auto hidden lg:inline-flex items-center justify-center h-5 w-5 bg-primary text-white text-[10px] rounded-full shadow-sm">
-                    3
-                  </span>
-                )}
+              <Link key={item.path || item.href} href={item.href}>
+                <motion.div
+                  whileHover={{ x: 4, scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={cn(
+                    "flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 group mb-1",
+                    active 
+                      ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                      : "text-zinc-600 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/5 hover:text-foreground"
+                  )}
+                >
+                  <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-colors", active ? "text-white" : "group-hover:text-primary-light")} />
+                  {!isCollapsed && <span className="font-medium whitespace-nowrap">{item.name}</span>}
+                </motion.div>
               </Link>
-            );
+            )
           })}
         </nav>
 
-        <div className="p-4 border-t border-border/40 shrink-0">
-          <button
-            onClick={handleLogout}
-            className="flex w-full items-center gap-3 px-3.5 py-2.5 rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-200 cursor-pointer select-none"
+        <div className="p-4 border-t border-black/5 dark:border-white/5 shrink-0">
+          <button 
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="w-full flex items-center justify-center p-3 rounded-xl bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-zinc-500 dark:text-zinc-400 hover:text-foreground transition-all group"
           >
-            <LogOut className="h-5 w-5 shrink-0" />
-            <span className="hidden lg:inline text-sm font-medium select-none">Logout</span>
+            <ChevronLeft className={cn("h-5 w-5 transition-transform duration-300 group-hover:scale-110", isCollapsed && "rotate-180")} />
           </button>
         </div>
-      </aside>
+      </motion.aside>
 
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0 h-full relative">
-        {/* Top Navbar */}
-        <header className="h-16 border-b border-border/40 bg-card/60 backdrop-blur-xl flex items-center justify-between px-4 md:px-8 shrink-0 transition-colors duration-200 select-none z-20">
-          
-          {/* Mobile hamburger menu placeholder or empty space */}
-          <div className="flex items-center gap-3">
-            {/* Tablet/Desktop Search activation via click or text */}
-            <button
-              onClick={() => setIsSearchOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-muted/60 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-all border border-border/40 cursor-pointer shadow-sm min-w-[140px] md:min-w-[180px] lg:min-w-[240px] select-none"
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] lg:hidden"
+            />
+            <motion.aside
+              initial={{ x: -280 }}
+              animate={{ x: 0 }}
+              exit={{ x: -280 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed top-0 left-0 bottom-0 w-[280px] bg-background z-[101] lg:hidden flex flex-col p-6 border-r border-border/40"
             >
-              <Search className="h-4 w-4 shrink-0" />
-              <span className="text-xs">Search...</span>
-              <kbd className="hidden sm:inline-flex ml-auto items-center gap-1 text-[10px] bg-card/60 px-1.5 py-0.5 rounded border border-border/40 text-muted-foreground select-none font-mono">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center">
+                    <Package className="h-6 w-6 text-white" />
+                  </div>
+                  <span className="font-bold text-2xl tracking-tight">LAN<span className="text-primary-light">CAR</span></span>
+                </div>
+                <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-muted-foreground hover:bg-muted rounded-xl transition-all">
+                  <X size={24} />
+                </button>
+              </div>
+              <nav className="space-y-1 overflow-y-auto flex-1">
+                {navItems.map((item) => {
+                  const active = pathname.startsWith(item.href);
+                  return (
+                    <Link key={item.path || item.href} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
+                      <div className={cn(
+                          "flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 mb-1",
+                          active 
+                            ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                            : "text-zinc-600 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/5 hover:text-foreground"
+                        )}
+                      >
+                        <item.icon className={cn("h-5 w-5 flex-shrink-0", active ? "text-white" : "text-zinc-500 dark:text-zinc-400")} />
+                        <span className="font-medium whitespace-nowrap">{item.name}</span>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </nav>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative">
+        {/* Topbar */}
+        <header className="h-20 border-b border-black/5 dark:border-white/5 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20 transition-colors duration-300">
+          <div className="flex items-center gap-4 flex-1">
+            <button 
+              className="lg:hidden p-2.5 text-zinc-500 dark:text-zinc-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all"
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
+              <Menu className="h-6 w-6" />
+            </button>
+            <div className="relative max-w-md w-full hidden md:block">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <input 
+                type="text" 
+                placeholder="Cari order, resi, atau menu..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  if (e.target.value.length > 0) setIsSearchOpen(true);
+                  else setIsSearchOpen(false);
+                }}
+                className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-zinc-500 dark:placeholder:text-zinc-600 text-foreground"
+              />
+              <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-black/10 dark:border-white/10 text-zinc-500 font-mono">
                 Ctrl K
               </kbd>
-            </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 md:gap-4">
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-all border border-border/40 cursor-pointer shadow-sm select-none"
+              className="relative p-2.5 text-zinc-500 dark:text-zinc-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all"
               title="Toggle theme"
             >
-              {isDark ? <Sun className="h-5 w-5 shrink-0" /> : <Moon className="h-5 w-5 shrink-0" />}
+              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
 
-            {/* Notification Bell with Badge and Dropdown */}
+            {/* Notification */}
             <div className="relative">
-              <button
+              <button 
                 onClick={() => {
                   setIsNotifOpen(!isNotifOpen);
                   setIsUserOpen(false);
                 }}
-                className="p-2 rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-all border border-border/40 cursor-pointer shadow-sm select-none relative"
+                className="relative p-2.5 text-zinc-500 dark:text-zinc-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all"
               >
-                <Bell className="h-5 w-5 shrink-0" />
-                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-primary ring-2 ring-card animate-pulse" />
+                <Bell className="h-5 w-5" />
+                <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-primary-light rounded-full border-2 border-background" />
               </button>
-
               <AnimatePresence>
                 {isNotifOpen && (
                   <>
@@ -267,22 +347,17 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-80 bg-card border border-border/40 rounded-xl shadow-xl p-4 flex flex-col max-h-[380px] z-40 select-none backdrop-blur-xl"
+                      className="absolute right-0 mt-2 w-80 glass-card rounded-2xl p-4 flex flex-col max-h-[380px] z-40 select-none"
                     >
-                      <div className="flex items-center justify-between border-b border-border/40 pb-2 mb-2">
+                      <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-2 mb-2">
                         <span className="text-xs font-semibold text-foreground">Notifications</span>
                         <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">New</span>
                       </div>
                       <div className="overflow-y-auto space-y-2 flex-1">
-                        <div className="p-2.5 bg-muted/40 hover:bg-muted rounded-xl transition-all duration-200">
+                        <div className="p-2.5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-xl transition-all duration-200">
                           <h4 className="text-xs font-semibold text-foreground">Order sukses dibuat</h4>
-                          <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">Paket ke Bandung sedang diproses.</p>
-                          <span className="text-[9px] text-muted-foreground mt-1 block">Just now</span>
-                        </div>
-                        <div className="p-2.5 bg-muted/40 hover:bg-muted rounded-xl transition-all duration-200">
-                          <h4 className="text-xs font-semibold text-foreground">Kurir Pickup OTW</h4>
-                          <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">Kurir siap mengambil paket.</p>
-                          <span className="text-[9px] text-muted-foreground mt-1 block">15 mins ago</span>
+                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">Paket ke Bandung sedang diproses.</p>
+                          <span className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 block">Just now</span>
                         </div>
                       </div>
                     </motion.div>
@@ -291,25 +366,27 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               </AnimatePresence>
             </div>
 
-            {/* Profile / Avatar Dropdown */}
+            <div className="h-8 w-px bg-black/10 dark:bg-white/10 mx-1 md:mx-2 hidden sm:block" />
+
+            {/* Profile Dropdown */}
             <div className="relative">
-              <button
+              <div 
+                className="flex items-center gap-3 group p-1.5 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all cursor-pointer"
                 onClick={() => {
                   setIsUserOpen(!isUserOpen);
                   setIsNotifOpen(false);
                 }}
-                className="flex items-center gap-2 p-1 pl-3 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-all border border-border/40 cursor-pointer shadow-sm select-none"
               >
-                <div className="hidden sm:flex flex-col items-end shrink-0">
-                  <span className="text-xs font-semibold text-foreground">
-                    {user?.name || 'Customer'}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">Standard Tier</span>
+                <div className="text-right hidden sm:block">
+                  <p className="text-sm font-bold text-foreground group-hover:text-primary-light transition-colors">{user?.name || 'Customer Lancar'}</p>
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Standard Tier</p>
                 </div>
-                <div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center text-primary font-bold shadow-sm shrink-0 border border-primary/20">
-                  {user?.name?.charAt(0).toUpperCase() || 'C'}
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 p-[1px] shadow-lg shadow-primary/10">
+                  <div className="h-full w-full rounded-[11px] bg-background flex items-center justify-center overflow-hidden">
+                     <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Customer')}&background=006437&color=fff`} alt="Avatar" className="w-full h-full object-cover" />
+                  </div>
                 </div>
-              </button>
+              </div>
 
               <AnimatePresence>
                 {isUserOpen && (
@@ -320,19 +397,19 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-48 bg-card border border-border/40 rounded-xl shadow-xl p-2 flex flex-col z-40 select-none backdrop-blur-xl"
+                      className="absolute right-0 mt-2 w-48 glass-card rounded-2xl p-2 flex flex-col z-40 select-none"
                     >
                       <Link
                         href="/profil"
                         onClick={() => setIsUserOpen(false)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200 select-none"
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-zinc-600 dark:text-zinc-400 hover:bg-black/5 dark:hover:bg-white/5 hover:text-foreground transition-all duration-200 select-none"
                       >
                         <User className="h-4 w-4 shrink-0" />
                         Profil & Settings
                       </Link>
                       <button
                         onClick={handleLogout}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all duration-200 select-none cursor-pointer text-left w-full"
+                        className="flex items-center gap-2 px-3 py-2 mt-1 rounded-xl text-sm text-zinc-600 dark:text-zinc-400 hover:bg-red-500/10 hover:text-red-500 transition-all duration-200 select-none cursor-pointer text-left w-full"
                       >
                         <LogOut className="h-4 w-4 shrink-0" />
                         Logout
@@ -345,55 +422,55 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           </div>
         </header>
 
-        {/* Dynamic Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 bg-background/30 select-none relative pb-20 md:pb-8">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-6 lg:p-8 scroll-smooth pb-24 md:pb-8">
           {children}
-        </main>
-
+        </div>
+        
         {/* Mobile Bottom Navigation Bar (≤ 767px) */}
-        <nav className="fixed bottom-0 left-0 right-0 h-16 border-t border-border/40 bg-card/80 backdrop-blur-xl flex justify-around items-center px-2 z-50 md:hidden select-none">
+        <nav className="fixed bottom-0 left-0 right-0 h-16 border-t border-black/10 dark:border-white/10 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl flex justify-around items-center px-2 z-50 md:hidden select-none pb-safe">
           {navItems.slice(0, 5).map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex flex-col items-center justify-center gap-0.5 px-3 py-1 rounded-xl transition-all duration-200 select-none ${
-                  isActive ? 'text-primary font-bold animate-pulse' : 'text-muted-foreground hover:text-foreground'
+                className={`flex flex-col items-center justify-center gap-1 px-3 py-1 rounded-xl transition-all duration-200 select-none ${
+                  isActive ? 'text-primary font-bold' : 'text-zinc-500 dark:text-zinc-400'
                 }`}
               >
-                <item.icon className="h-5 w-5 shrink-0" />
+                <item.icon className={cn("h-5 w-5 shrink-0", isActive && "text-primary animate-pulse")} />
                 <span className="text-[10px] tracking-tight">{item.name}</span>
               </Link>
             );
           })}
         </nav>
-      </div>
+      </main>
 
       {/* Global Command Palette / Search Dialog */}
       <AnimatePresence>
         {isSearchOpen && (
-          <div className="fixed inset-0 bg-background/60 backdrop-blur-sm flex items-start justify-center pt-[15vh] px-4 z-50 select-none transition-all duration-300">
+          <div className="fixed inset-0 bg-background/60 backdrop-blur-sm flex items-start justify-center pt-[15vh] px-4 z-[150] select-none transition-all duration-300">
             <motion.div
               initial={{ opacity: 0, y: -20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-lg bg-card/90 border border-border/40 rounded-2xl shadow-2xl p-4 flex flex-col gap-3 select-none backdrop-blur-xl overflow-hidden"
+              className="w-full max-w-lg glass-card rounded-2xl shadow-2xl p-4 flex flex-col gap-3 select-none overflow-hidden"
             >
-              <div className="flex items-center gap-3 border border-border/40 bg-muted/40 rounded-xl px-3 py-2.5 transition-all shadow-sm">
-                <Search className="h-4 w-4 text-muted-foreground shrink-0 animate-pulse" />
+              <div className="flex items-center gap-3 border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 rounded-xl px-3 py-2.5 transition-all shadow-sm">
+                <Search className="h-4 w-4 text-zinc-500 shrink-0" />
                 <input
                   type="text"
-                  placeholder="Type to search pages..."
-                  className="flex-1 text-sm bg-transparent border-none focus:outline-none text-foreground placeholder:text-muted-foreground select-text"
+                  placeholder="Cari fitur Lancar..."
+                  className="flex-1 text-sm bg-transparent border-none focus:outline-none text-foreground placeholder:text-zinc-500 select-text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   autoFocus
                 />
                 <button
                   onClick={() => setIsSearchOpen(false)}
-                  className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all cursor-pointer select-none"
+                  className="p-1.5 rounded-lg text-zinc-500 hover:bg-black/10 dark:hover:bg-white/10 hover:text-foreground transition-all cursor-pointer select-none"
                 >
                   <X className="h-4 w-4 shrink-0" />
                 </button>
@@ -409,18 +486,18 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                       setIsSearchOpen(false);
                       setSearchQuery('');
                     }}
-                    className="flex items-center justify-between p-3 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-all cursor-pointer border border-transparent hover:border-border/40 select-none"
+                    className="flex items-center justify-between p-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 text-zinc-600 dark:text-zinc-400 hover:text-foreground transition-all cursor-pointer border border-transparent hover:border-black/10 dark:hover:border-white/10 select-none"
                   >
                     <div className="flex items-center gap-3">
                       <item.icon className="h-4 w-4 shrink-0" />
                       <span className="text-sm font-medium">{item.name}</span>
                     </div>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-zinc-500" />
                   </Link>
                 ))}
                 {filteredSearchItems.length === 0 && (
                   <div className="text-center p-6">
-                    <span className="text-xs text-muted-foreground select-none">No pages found matching search query.</span>
+                    <span className="text-xs text-zinc-500 select-none">No pages found matching search query.</span>
                   </div>
                 )}
               </div>
@@ -430,7 +507,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       </AnimatePresence>
 
       {/* Global Toast Notifications (Right-Top Corner) */}
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none select-none">
+      <div className="fixed top-24 right-4 z-[150] flex flex-col gap-2 max-w-sm pointer-events-none select-none">
         <AnimatePresence>
           {notifications.map((notif) => (
             <motion.div
@@ -439,19 +516,19 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 20, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="p-4 bg-card/90 backdrop-blur-xl border border-border/40 rounded-2xl shadow-xl pointer-events-auto flex justify-between gap-3 select-none"
+              className="p-4 glass-card rounded-2xl shadow-xl pointer-events-auto flex justify-between gap-3 select-none"
             >
               <div className="flex-1 min-w-0">
                 <h4 className="text-xs font-semibold text-foreground truncate">
                   {notif.title || 'Notification'}
                 </h4>
-                <p className="text-[11px] text-muted-foreground mt-0.5 leading-normal">
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-normal">
                   {notif.message}
                 </p>
               </div>
               <button
                 onClick={() => removeNotification(notif.id)}
-                className="p-1.5 h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all cursor-pointer shrink-0 select-none"
+                className="p-1.5 h-7 w-7 flex items-center justify-center rounded-lg text-zinc-500 hover:bg-black/5 dark:hover:bg-white/5 hover:text-foreground transition-all cursor-pointer shrink-0 select-none"
               >
                 <X className="h-3.5 w-3.5 shrink-0" />
               </button>

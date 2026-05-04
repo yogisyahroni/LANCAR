@@ -15,10 +15,29 @@ const logger = pino();
 
 app.use(helmet());
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:3000', 'http://127.0.0.1:5173'],
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'http://localhost:3000', 
+      'http://localhost:3001', 
+      'http://localhost:5173', 
+      'http://localhost:5174', 
+      'http://localhost:5175', 
+      'http://localhost:5176', 
+      'http://127.0.0.1:3000', 
+      'http://127.0.0.1:3001', 
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5175',
+      'http://localhost:8080'
+    ];
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-role']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-role', 'x-totp-verified']
 }));
 app.use(logger);
 
@@ -27,7 +46,7 @@ const jsonParser = express.json();
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service:8081';
 const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://order-service:8083';
-const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://localhost:3001';
+const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://admin-service:3000';
 const ROUTING_SERVICE_URL = process.env.ROUTING_SERVICE_URL || 'http://routing-service:8082';
 
 // Helper for proxying with body fix
@@ -57,6 +76,19 @@ const proxyWithBodyFix = (target: string) =>
       }
     }
   });
+
+// WebSocket Proxy for Admin Service (Socket.io)
+const adminWsProxy = createProxyMiddleware({
+  target: ADMIN_SERVICE_URL,
+  ws: true,
+  changeOrigin: true,
+  pathRewrite: {
+    '^/socket.io': '/socket.io',
+  },
+});
+
+// Use the proxy for socket.io path
+app.use('/socket.io', adminWsProxy);
 
 // --- VALIDATED ROUTES ---
 
@@ -106,9 +138,13 @@ app.use(
   createProxyMiddleware({
     target: ADMIN_SERVICE_URL,
     changeOrigin: true,
+    // No pathRewrite needed here as service expects /auth/web/...
     pathRewrite: {
       '^/api/v1/auth/web': '/auth/web',
     },
+    on: {
+      proxyReq: fixRequestBody
+    }
   })
 );
 
@@ -135,9 +171,13 @@ app.use(
   createProxyMiddleware({
     target: ADMIN_SERVICE_URL,
     changeOrigin: true,
+    // No pathRewrite needed here as service expects /admin/...
     pathRewrite: {
       '^/api/v1/admin': '/admin',
     },
+    on: {
+      proxyReq: fixRequestBody
+    }
   })
 );
 
@@ -166,7 +206,18 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 });
 
 const PORT = process.env.GATEWAY_PORT || 8080;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`API Gateway is running on port ${PORT}`);
 });
+
+
+// Handle WebSocket upgrades
+server.on('upgrade', (req, socket, head) => {
+  if (req.url?.startsWith('/socket.io')) {
+    adminWsProxy.upgrade(req, socket as any, head);
+  }
+});
+
+
+
 

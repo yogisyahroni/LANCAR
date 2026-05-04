@@ -8,29 +8,25 @@ import { routes } from './routes';
 
 const app = express();
 
-// CORS — allow admin dashboard & customer portal (local dev + staging)
-app.use(cors({
-  origin: [
-    'http://localhost:3000', // Customer Portal
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://localhost:5175',
-    'http://localhost:5176',
-    'http://localhost:3001',
-    process.env.FRONTEND_URL || 'http://localhost:5175',
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'x-user-id',
-    'x-user-role',
-    'x-totp-verified',
-  ],
-}));
+// CORS is now handled by the API Gateway to prevent double headers.
+// app.use(cors({...}));
+
 
 app.use(express.json());
+
+// JSON Syntax Error Handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof SyntaxError && 'body' in err) {
+    res.status(400).json({ 
+      status: 'error',
+      code: 'ERR_BAD_REQUEST',
+      message: 'Invalid JSON payload' 
+    });
+    return;
+  }
+  next();
+});
+
 app.use(cookieParser());
 app.use(routes);
 
