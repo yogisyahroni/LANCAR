@@ -51,6 +51,7 @@ export const updateSystemConfig = async (req: Request, res: Response): Promise<v
   const { value, description, category } = req.body;
 
   if (typeof value === 'number' && isNaN(value)) {
+    console.error(`[updateSystemConfig] ERROR: Invalid config value (NaN) for key=${key}`);
     res.status(400).json({ error: 'Invalid config value: NaN' });
     return;
   }
@@ -87,6 +88,7 @@ export const updateSystemConfig = async (req: Request, res: Response): Promise<v
 
     res.json(updateRes.rows[0]);
   } catch (error: any) {
+    console.error(`[updateSystemConfig] FATAL ERROR: ${error.message}`, error.stack);
     await client.query('ROLLBACK');
     res.status(500).json({ error: error.message });
   } finally {
@@ -106,40 +108,52 @@ export const getSystemHealth = async (req: Request, res: Response) => {
     await redis.ping();
     const redisLatency = Date.now() - redisStart;
 
-    // Return sebagai array agar compatible dengan frontend Settings.tsx healthData.map()
-    res.json([
-      {
-        label: 'API Gateway',
-        version: 'v2.4.1',
-        status: 'Stable',
-        metrics: '~12ms avg'
-      },
-      {
-        label: 'PostgreSQL',
-        version: '17.6.1',
-        status: dbLatency < 100 ? 'Healthy' : 'Degraded',
-        metrics: `${dbLatency}ms`
-      },
-      {
-        label: 'Redis Cache',
-        version: '7.x',
-        status: redisLatency < 50 ? 'Live' : 'Degraded',
-        metrics: `${redisLatency}ms`
-      },
-      {
-        label: 'WebSocket',
-        version: 'Socket.io 4',
-        status: 'Optimal',
-        metrics: 'Active'
-      }
-    ]);
+    // Return sebagai object agar compatible dengan Dashboard.tsx
+    res.json({
+      api_gateway: 'UP',
+      database: dbLatency < 100 ? 'UP' : 'DEGRADED',
+      redis: redisLatency < 50 ? 'UP' : 'DEGRADED',
+      storage: 'UP',
+      components: [
+        {
+          label: 'API Gateway',
+          version: 'v2.4.1',
+          status: 'Stable',
+          metrics: '~12ms avg'
+        },
+        {
+          label: 'PostgreSQL',
+          version: '17.6.1',
+          status: dbLatency < 100 ? 'Healthy' : 'Degraded',
+          metrics: `${dbLatency}ms`
+        },
+        {
+          label: 'Redis Cache',
+          version: '7.x',
+          status: redisLatency < 50 ? 'Live' : 'Degraded',
+          metrics: `${redisLatency}ms`
+        },
+        {
+          label: 'WebSocket',
+          version: 'Socket.io 4',
+          status: 'Optimal',
+          metrics: 'Active'
+        }
+      ]
+    });
   } catch (error: any) {
-    // Jika DB/Redis error, tetap return array (jangan biarkan frontend blank)
-    res.json([
-      { label: 'API Gateway', version: 'v2.4.1', status: 'Stable', metrics: 'OK' },
-      { label: 'PostgreSQL', version: '17.x', status: 'Error', metrics: error.message?.substring(0, 20) },
-      { label: 'Redis Cache', version: '7.x', status: 'Unknown', metrics: '---' },
-      { label: 'WebSocket', version: 'Socket.io 4', status: 'Unknown', metrics: '---' }
-    ]);
+    // Fallback object
+    res.json({
+      api_gateway: 'UP',
+      database: 'DOWN',
+      redis: 'DOWN',
+      storage: 'UP',
+      components: [
+        { label: 'API Gateway', version: 'v2.4.1', status: 'Stable', metrics: 'OK' },
+        { label: 'PostgreSQL', version: '17.x', status: 'Error', metrics: error.message?.substring(0, 20) },
+        { label: 'Redis Cache', version: '7.x', status: 'Unknown', metrics: '---' },
+        { label: 'WebSocket', version: 'Socket.io 4', status: 'Unknown', metrics: '---' }
+      ]
+    });
   }
 };

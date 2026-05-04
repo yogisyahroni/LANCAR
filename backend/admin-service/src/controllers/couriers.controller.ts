@@ -17,7 +17,7 @@ export const getAllCouriers = async (req: Request, res: Response) => {
         cp.vehicle_plate,
         cp.vehicle_cc,
         cp.relay_score as avg_rating,
-        cp.status,
+        cp.verification_status,
         cp.tier,
         cp.is_online,
         cp.acceptance_rate_pct,
@@ -29,7 +29,7 @@ export const getAllCouriers = async (req: Request, res: Response) => {
         u.email, 
         u.phone_number,
         CASE 
-          WHEN cp.status = 'pending' THEN 'Pending'
+          WHEN cp.verification_status = 'pending' THEN 'Pending'
           WHEN u.status = 'suspended' THEN 'Suspended'
           WHEN u.status = 'active' THEN 'Active'
           ELSE 'Inactive'
@@ -47,9 +47,9 @@ export const getAllCouriers = async (req: Request, res: Response) => {
 
     if (status) {
       if (status === 'Pending') {
-        query += ` AND cp.status = 'pending'`;
+        query += ` AND cp.verification_status = 'pending'`;
       } else if (status === 'Active') {
-        query += ` AND u.status = 'active' AND cp.status != 'pending'`;
+        query += ` AND u.status = 'active' AND cp.verification_status != 'pending'`;
       } else if (status === 'Suspended') {
         query += ` AND u.status = 'suspended'`;
       }
@@ -81,7 +81,7 @@ export const getCourierStats = async (req: Request, res: Response) => {
       SELECT 
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE u.status = 'active') as active,
-        COUNT(*) FILTER (WHERE cp.status = 'pending') as pending,
+        COUNT(*) FILTER (WHERE cp.verification_status = 'pending') as pending,
         COUNT(*) FILTER (WHERE u.status = 'suspended') as suspended
       FROM courier_profiles cp
       JOIN users u ON cp.user_id = u.id
@@ -106,7 +106,7 @@ export const getCourierById = async (req: Request, res: Response): Promise<void>
         u.phone_number, 
         u.photo_url,
         CASE 
-          WHEN cp.status = 'pending' THEN 'Pending'
+          WHEN cp.verification_status = 'pending' THEN 'Pending'
           WHEN u.status = 'suspended' THEN 'Suspended'
           WHEN u.status = 'active' THEN 'Active'
           ELSE 'Inactive'
@@ -169,7 +169,7 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
 
     if (status === 'Active') {
       await client.query(
-        'UPDATE courier_profiles SET status = $1, updated_at = NOW() WHERE id = $2',
+        'UPDATE courier_profiles SET verification_status = $1, updated_at = NOW() WHERE id = $2',
         ['approved', id]
       );
     }
@@ -178,7 +178,7 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
       SELECT 
         cp.*,
         CASE 
-          WHEN cp.status = 'pending' THEN 'Pending'
+          WHEN cp.verification_status = 'pending' THEN 'Pending'
           WHEN u.status = 'suspended' THEN 'Suspended'
           WHEN u.status = 'active' THEN 'Active'
           ELSE 'Inactive'

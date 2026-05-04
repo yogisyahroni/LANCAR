@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import Link from 'next/link';
 import { useNotificationStore } from '@/store/useNotificationStore';
+import { useAuthStore } from '@/store/authStore';
+import { getSocket } from '@/lib/socket';
 import { ArrowLeft, MapPin, Truck, Calendar, Phone, CheckCircle2, MessageSquare, Download, AlertTriangle, Send, Loader2, Sparkles, Navigation } from 'lucide-react';
 
 interface Event {
@@ -35,11 +37,27 @@ interface Order {
   schedule_type: string;
   scheduled_at: string;
   created_at: string;
+  courier_name?: string;
+  courier_vehicle?: string;
+  courier_plate?: string;
+  courier_rating?: number;
+}
+
+interface ChatMessage {
+  id: string;
+  sender_id: string;
+  sender_name: string;
+  sender_role: string;
+  message: string;
+  message_type: string;
+  created_at: string;
+  order_id?: string;
 }
 
 export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuthStore();
   const { addNotification } = useNotificationStore();
 
   const id = params?.id as string;
@@ -47,15 +65,36 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chatsLoading, setChatsLoading] = useState(false);
 
   // For lightbox
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
 
   // Chat
   const [chatInput, setChatInput] = useState('');
-  const [chatMessages, setChatMessages] = useState<Array<{ sender: 'customer' | 'courier'; text: string; time: string }>>([
-    { sender: 'courier', text: 'Halo, saya kurir Anda. Saya sedang menuju ke lokasi pickup.', time: '14:35' }
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+
+  // Real-time chat listener
+  useEffect(() => {
+    if (user?.id && id) {
+      const socket = getSocket(user.id);
+      if (socket) {
+        const handleNewMessage = (chat: ChatMessage) => {
+          if (chat.order_id === id) {
+            setChatMessages(prev => {
+              if (prev.some(m => m.id === chat.id)) return prev;
+              return [...prev, chat];
+            });
+          }
+        };
+
+        socket.on('new_chat_message', handleNewMessage);
+        return () => {
+          socket.off('new_chat_message', handleNewMessage);
+        };
+      }
+    }
+  }, [user?.id, id]);
 
   const fetchOrderDetail = async () => {
     if (!id) return;
@@ -65,6 +104,7 @@ export default function OrderDetailPage() {
       if (res.data && res.data.success) {
         setOrder(res.data.order);
         setEvents(res.data.events || []);
+        fetchOrderChats(); // Fetch chats after order detail
       }
     } catch (error: any) {
       console.error('Failed to fetch order detail:', error);
@@ -74,18 +114,42 @@ export default function OrderDetailPage() {
     }
   };
 
+  const fetchOrderChats = async () => {
+    if (!id) return;
+    setChatsLoading(true);
+    try {
+      const res = await api.get(`/auth/web/orders/${id}/chats`);
+      if (res.data && res.data.success) {
+        setChatMessages(res.data.chats || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch chats:', error);
+    } finally {
+      setChatsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchOrderDetail();
   }, [id]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
-    const now = new Date();
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    setChatMessages([...chatMessages, { sender: 'customer', text: chatInput, time: timeStr }]);
+    
+    const messageToSend = chatInput;
     setChatInput('');
-    addNotification({ title: 'Terkirim', message: 'Pesan terkirim ke kurir.', type: 'success' });
+
+    try {
+      const res = await api.post(`/auth/web/orders/${id}/chats`, { message: messageToSend });
+      if (res.data && res.data.success) {
+        setChatMessages([...chatMessages, res.data.chat]);
+        addNotification({ title: 'Terkirim', message: 'Pesan terkirim ke kurir.', type: 'success' });
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      addNotification({ title: 'Gagal', message: 'Gagal mengirim pesan.', type: 'error' });
+    }
   };
 
   const handleDownloadResi = () => {
@@ -95,9 +159,25 @@ export default function OrderDetailPage() {
     }, 1200);
   };
 
-  const handleReportIssue = () => {
-    addNotification({ title: 'Terkirim', message: 'Masalah telah dilaporkan. CS kami akan segera menghubungi Anda.', type: 'success' });
+  const handleReportIssue = async () => {
+    const reason = window.prompt('Jelaskan masalah yang Anda hadapi (misal: barang rusak, terlambat, dll):');
+    if (!reason) return;
+
+    try {
+      const res = await api.post('/auth/web/disputes', {
+        order_id: id,
+        category: 'Customer Report',
+        description: reason
+      });
+      if (res.data && res.data.success) {
+        addNotification({ title: 'Terkirim', message: 'Laporan Anda telah kami terima dan akan segera diproses.', type: 'success' });
+      }
+    } catch (error) {
+      console.error('Failed to report issue:', error);
+      addNotification({ title: 'Gagal', message: 'Terjadi kesalahan saat mengirim laporan.', type: 'error' });
+    }
   };
+
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -112,6 +192,14 @@ export default function OrderDetailPage() {
     const date = new Date(dateStr);
     return new Intl.DateTimeFormat('id-ID', {
       dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  };
+
+  const formatTime = (dateStr: string) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return new Intl.DateTimeFormat('id-ID', {
       timeStyle: 'short',
     }).format(date);
   };
@@ -253,22 +341,33 @@ export default function OrderDetailPage() {
 
             {/* Premium Courier Info Overlay Card */}
             <div className="p-4 bg-background/90 backdrop-blur-md border-t border-white/10 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="h-11 w-11 rounded-full bg-primary/20 border border-primary/20 flex items-center justify-center font-bold text-primary select-none text-base">
-                  AP
+              {order.courier_name ? (
+                <>
+                  <div className="flex items-center gap-3">
+                    <div className="h-11 w-11 rounded-full bg-primary/20 border border-primary/20 flex items-center justify-center font-bold text-primary select-none text-base">
+                      {order.courier_name.split(' ').map(n => n[0]).join('')}
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground leading-tight">Kurir Terpilih</p>
+                      <p className="text-sm font-bold text-white">{order.courier_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        ⭐ {order.courier_rating || '5.0'} | {order.courier_vehicle || 'Motor'} ({order.courier_plate || '-'})
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href={`tel:${order.recipient_phone_masked}`}
+                    className="p-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl transition duration-200 select-none shadow-sm"
+                  >
+                    <Phone className="h-4 w-4" />
+                  </a>
+                </>
+              ) : (
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <p className="text-sm font-medium italic">Mencari kurir terbaik untuk Anda...</p>
                 </div>
-                <div>
-                  <p className="text-xs text-muted-foreground leading-tight">Kurir Terpilih</p>
-                  <p className="text-sm font-bold text-white">Andi Pratama</p>
-                  <p className="text-xs text-muted-foreground">⭐ 4.8 | Motor Matic (B 1234 XYZ)</p>
-                </div>
-              </div>
-              <a
-                href={`tel:${order.recipient_phone_masked}`}
-                className="p-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl transition duration-200 select-none shadow-sm"
-              >
-                <Phone className="h-4 w-4" />
-              </a>
+              )}
             </div>
           </div>
 
@@ -279,37 +378,50 @@ export default function OrderDetailPage() {
               <h4 className="text-sm font-bold">Obrolan dengan Kurir</h4>
             </div>
             <div className="h-[210px] bg-background/40 border border-white/5 rounded-xl p-3.5 overflow-y-auto space-y-3.5">
-              {chatMessages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex flex-col max-w-[80%] space-y-1 ${
-                    msg.sender === 'customer' ? 'ml-auto items-end' : 'items-start'
-                  }`}
-                >
+              {chatsLoading && chatMessages.length === 0 ? (
+                <div className="h-full flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/30" />
+                </div>
+              ) : chatMessages.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center space-y-2 opacity-30">
+                  <MessageSquare className="h-8 w-8" />
+                  <p className="text-[10px] font-medium uppercase tracking-widest">Belum ada percakapan</p>
+                </div>
+              ) : (
+                chatMessages.map((msg) => (
                   <div
-                    className={`px-3.5 py-2.5 rounded-2xl text-xs font-normal leading-relaxed ${
-                      msg.sender === 'customer'
-                        ? 'bg-primary text-primary-foreground rounded-tr-none'
-                        : 'bg-white/5 border border-white/5 text-white rounded-tl-none'
+                    key={msg.id}
+                    className={`flex flex-col max-w-[80%] space-y-1 ${
+                      msg.sender_role === 'customer' ? 'ml-auto items-end' : 'items-start'
                     }`}
                   >
-                    {msg.text}
+                    <div
+                      className={`px-3.5 py-2.5 rounded-2xl text-xs font-normal leading-relaxed ${
+                        msg.sender_role === 'customer'
+                          ? 'bg-primary text-primary-foreground rounded-tr-none shadow-md shadow-primary/20'
+                          : 'bg-white/5 border border-white/5 text-white rounded-tl-none'
+                      }`}
+                    >
+                      {msg.message}
+                    </div>
+                    <span className="text-[10px] text-muted-foreground px-1 select-none">{formatTime(msg.created_at)}</span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground px-1 select-none">{msg.time}</span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
             <form onSubmit={handleSendMessage} className="flex gap-2">
               <input
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Ketik pesan Anda di sini..."
-                className="flex-1 bg-background/50 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition duration-200"
+                disabled={!order.courier_name}
+                placeholder={order.courier_name ? "Ketik pesan Anda di sini..." : "Menunggu kurir ditugaskan..."}
+                className="flex-1 bg-background/50 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition duration-200 disabled:opacity-50"
               />
               <button
                 type="submit"
-                className="p-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl transition duration-200 shadow-sm"
+                disabled={!chatInput.trim() || !order.courier_name}
+                className="p-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl transition duration-200 shadow-sm disabled:opacity-50 disabled:grayscale"
               >
                 <Send className="h-4 w-4" />
               </button>

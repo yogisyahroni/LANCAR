@@ -1,3 +1,46 @@
+import { db } from './db';
+import { getIO } from './websocket';
+
+export interface NotificationPayload {
+  user_id: string;
+  title: string;
+  body: string;
+  type: string;
+  order_id?: string;
+  metadata?: any;
+  deep_link?: string;
+}
+
+export const createNotification = async (payload: NotificationPayload) => {
+  try {
+    const { user_id, title, body, type, order_id, metadata, deep_link } = payload;
+    
+    const query = `
+      INSERT INTO notifications (user_id, title, body, type, order_id, metadata, deep_link, channel)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'in_app')
+      RETURNING *
+    `;
+    const values = [user_id, title, body, type, order_id, metadata ? JSON.stringify(metadata) : null, deep_link];
+    
+    const result = await db.query(query, values);
+    const notification = result.rows[0];
+
+    // Emit via WebSocket
+    try {
+      const io = getIO();
+      io.to(user_id).emit('new_notification', notification);
+      console.log(`[WebSocket] Notification emitted to user ${user_id}`);
+    } catch (wsError) {
+      console.warn('[WebSocket] Could not emit notification:', wsError);
+    }
+
+    return notification;
+  } catch (error) {
+    console.error('Error creating notification:', error);
+    throw error;
+  }
+};
+
 export const sendEmailAlert = async (flagKey: string, oldState: boolean, newState: boolean, reason: string, user: string) => {
   const statusColor = newState ? '#22c55e' : '#ef4444';
   const htmlTemplate = `

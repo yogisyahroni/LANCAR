@@ -1,5 +1,5 @@
 # ================================================================
-# lancar.ps1 - Script helper Lancar untuk Podman Desktop (WSL mode)
+# lancar.ps1 - Script helper Lancar untuk Docker Compose
 #
 # CARA PAKAI (buka PowerShell di folder LANCAR):
 #   powershell -ExecutionPolicy Bypass -File lancar.ps1 up
@@ -21,64 +21,23 @@ function Write-Red    { param($msg) Write-Host $msg -ForegroundColor Red }
 function Write-Cyan   { param($msg) Write-Host $msg -ForegroundColor Cyan }
 
 # Konfigurasi
-$WSL_DISTRO = "podman-machine-default"
+$COMPOSE_FILE = "docker-compose.yml"
+$MIGRATIONS_DIR = "database/migrations"
 
-# Tambah Podman ke PATH sesi ini
-if ($env:PATH -notlike "*Programs\Podman*") {
-    $env:PATH += ";$env:LOCALAPPDATA\Programs\Podman"
-}
-
-# Konversi path Windows ke WSL path (pakai wslpath agar spasi aman)
-function Get-WslPath {
-    param([string]$WinPath)
-    # Pakai wslpath langsung dari WSL untuk konversi yang akurat
-    $result = wsl -d $WSL_DISTRO -- wslpath -a ($WinPath.Replace("\", "/")) 2>$null
-    if ($LASTEXITCODE -eq 0 -and $result) {
-        return $result.Trim()
-    }
-    # Fallback manual
-    $clean = $WinPath.Replace("\", "/")
-    $drive = $clean.Substring(0, 1).ToLower()
-    $rest  = $clean.Substring(2) -replace ' ', '\ '
-    return "/mnt/$drive$rest"
-}
-
-$PROJECT_DIR_WIN = (Get-Location).Path
-# Gunakan wslpath untuk escape path dengan spasi
-$PROJECT_DIR_WSL = wsl -d $WSL_DISTRO -- wslpath -a ($PROJECT_DIR_WIN.Replace("\", "/")) 2>$null
-if (-not $PROJECT_DIR_WSL) {
-    $d = $PROJECT_DIR_WIN.Substring(0,1).ToLower()
-    $r = $PROJECT_DIR_WIN.Substring(2).Replace("\", "/")
-    $PROJECT_DIR_WSL = "/mnt/$d$r"
-}
-$PROJECT_DIR_WSL = $PROJECT_DIR_WSL.Trim()
-
-# Jalankan podman compose via WSL — path dibungkus single quote agar spasi aman
+# Helper function to run docker compose
 function Invoke-Compose {
     param([string]$Arguments)
-    # bash single quotes melindungi spasi di path
-    $escaped = $PROJECT_DIR_WSL -replace "'", "'\"'\"'"
-    wsl -d $WSL_DISTRO -- bash -c "cd '$escaped' && podman compose $Arguments"
+    docker compose -f $COMPOSE_FILE $Arguments
 }
 
-# Cek apakah WSL machine sudah running
-function Assert-MachineRunning {
-    $raw = wsl --list --running 2>&1 | Out-String
-    # wsl output berisi null bytes, bersihkan
-    $clean = $raw -replace "`0", ""
-    if ($clean -notmatch $WSL_DISTRO) {
-        Write-Yellow "Podman machine belum running. Mencoba start..."
-        wsl -d $WSL_DISTRO -- bash -c "exit 0" 2>$null
-        Start-Sleep -Seconds 5
-        $raw2  = wsl --list --running 2>&1 | Out-String
-        $clean2 = $raw2 -replace "`0", ""
-        if ($clean2 -notmatch $WSL_DISTRO) {
-            Write-Red "GAGAL: Podman machine tidak bisa start."
-            Write-Yellow "Buka Podman Desktop dan klik tombol Start pada machine."
-            exit 1
-        }
+# Cek apakah Docker running
+function Assert-DockerRunning {
+    docker ps > $null 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Red "GAGAL: Docker tidak ditemukan atau tidak sedang berjalan."
+        Write-Yellow "Pastikan Docker Desktop sudah running."
+        exit 1
     }
-    Write-Green "OK: Podman machine running."
 }
 
 # Cek .env
@@ -87,7 +46,6 @@ function Ensure-EnvFile {
         if (Test-Path ".env.example") {
             Copy-Item ".env.example" ".env"
             Write-Yellow "File .env dibuat dari .env.example."
-            Write-Yellow "Edit .env dan isi JWT_SECRET (minimal 32 karakter)!"
         } else {
             Write-Red "Tidak ada file .env! Buat manual terlebih dahulu."
             exit 1
@@ -102,39 +60,23 @@ switch ($Command.ToLower()) {
 
     "up" {
         Write-Cyan ""
-        Write-Cyan "=== Menjalankan Lancar Backend Stack dengan Podman ==="
-        Assert-MachineRunning
+        Write-Cyan "=== Menjalankan Lancar Backend Stack dengan Docker ==="
+        Assert-DockerRunning
         Ensure-EnvFile
 
         Write-Yellow ""
-        Write-Yellow "[1/4] Memulai Database dan Redis..."
-        Invoke-Compose "up -d db redis"
+        Write-Yellow "[1/3] Memulai Infrastructure..."
+        Invoke-Compose "up -d db db-read redis rabbitmq"
 
         Write-Yellow ""
-        Write-Yellow "[2/4] Menunggu database sehat (maks 60 detik)..."
-        $dbReady = $false
-        for ($i = 1; $i -le 20; $i++) {
-            $escaped = $PROJECT_DIR_WSL -replace "'", "'\"'\"'"
-            $out = wsl -d $WSL_DISTRO -- bash -c "cd '$escaped' && podman compose ps db" 2>&1 | Out-String
-            if ($out -match "healthy") {
-                Write-Green "   Database siap!"
-                $dbReady = $true
-                break
-            }
-            Write-Yellow "   Percobaan $i/20 - menunggu 3 detik..."
-            Start-Sleep -Seconds 3
-        }
-        if (-not $dbReady) {
-            Write-Yellow "   Timeout health check, melanjutkan..."
-        }
+        Write-Yellow "[2/3] Menjalankan migrasi database..."
+        Write-Yellow "   Menunggu database siap..."
+        Start-Sleep -Seconds 5
+        goose -dir "$MIGRATIONS_DIR" postgres "host=localhost port=5432 user=postgres password=1234 dbname=lancar sslmode=disable" up
 
         Write-Yellow ""
-        Write-Yellow "[3/4] Menjalankan migrasi database..."
-        Invoke-Compose "--profile migrate up migrate"
-
-        Write-Yellow ""
-        Write-Yellow "[4/4] Memulai semua backend service..."
-        Invoke-Compose "up -d auth-service admin-service order-service routing-service api-gateway rabbitmq"
+        Write-Yellow "[3/3] Memulai semua backend service..."
+        Invoke-Compose "up -d auth-service admin-service order-service routing-service api-gateway"
 
         Write-Green ""
         Write-Green "=== Semua service berjalan! ==="
@@ -157,7 +99,6 @@ switch ($Command.ToLower()) {
 
     "down" {
         Write-Yellow "Menghentikan semua service..."
-        Assert-MachineRunning
         Invoke-Compose "down"
         Write-Green "Semua service dihentikan. Data volume tetap aman."
     }
@@ -167,7 +108,6 @@ switch ($Command.ToLower()) {
         Write-Red "PERINGATAN: Reset akan MENGHAPUS semua data database!"
         $confirm = Read-Host "Ketik 'ya' untuk konfirmasi"
         if ($confirm -eq "ya") {
-            Assert-MachineRunning
             Write-Yellow "Menghapus semua container dan volume..."
             Invoke-Compose "down -v"
             Write-Green "Reset selesai. Jalankan 'up' untuk mulai ulang."
@@ -178,20 +118,17 @@ switch ($Command.ToLower()) {
 
     "migrate" {
         Write-Yellow "Menjalankan migrasi database..."
-        Assert-MachineRunning
-        Invoke-Compose "--profile migrate up migrate"
+        goose -dir "$MIGRATIONS_DIR" postgres "host=localhost port=5432 user=postgres password=1234 dbname=lancar sslmode=disable" up
         Write-Green "Migrasi selesai."
     }
 
     "logs" {
         $svc = if ($args.Count -gt 1) { $args[1] } else { "" }
-        Assert-MachineRunning
         Write-Cyan "Menampilkan logs $svc (Ctrl+C untuk berhenti)..."
         Invoke-Compose "logs -f --tail=150 $svc"
     }
 
     "status" {
-        Assert-MachineRunning
         Write-Cyan "Status Container Lancar:"
         Invoke-Compose "ps"
     }
@@ -209,8 +146,7 @@ switch ($Command.ToLower()) {
 
     "build" {
         Write-Yellow "Build ulang semua images..."
-        Assert-MachineRunning
-        Invoke-Compose "build --parallel"
+        Invoke-Compose "build"
         Write-Green "Build selesai."
     }
 
@@ -234,7 +170,7 @@ switch ($Command.ToLower()) {
 
     default {
         Write-Cyan ""
-        Write-Cyan "LANCAR - Podman Helper Script"
+        Write-Cyan "LANCAR - Docker Helper Script"
         Write-Host ""
         Write-Host "Penggunaan: powershell -ExecutionPolicy Bypass -File lancar.ps1 [command]"
         Write-Host ""

@@ -1,3 +1,5 @@
+-- +goose Up
+-- +goose StatementBegin
 -- Migration 00024 (UP only): Add bank account info and performance stats to courier_profiles
 -- Run: psql -U postgres -d lancar -f run_00024.sql
 
@@ -29,18 +31,19 @@ COMMENT ON COLUMN courier_profiles.complaint_ratio_pct IS 'Ratio of complaint_co
 COMMENT ON COLUMN courier_profiles.last_score_calculated_at IS 'Timestamp of the last relay score calculation';
 
 CREATE INDEX IF NOT EXISTS idx_courier_bank_code ON courier_profiles(bank_code) WHERE bank_code IS NOT NULL;
+-- +goose StatementEnd
 
-SELECT 
-    column_name, 
-    data_type, 
-    column_default,
-    is_nullable
-FROM information_schema.columns
-WHERE table_name = 'courier_profiles'
-  AND column_name IN (
-    'bank_code', 'bank_account_number', 'bank_account_name',
-    'ontime_deliveries_count', 'total_deliveries_count',
-    'docs_complete_pct', 'avg_partner_rating',
-    'complaint_count', 'complaint_ratio_pct', 'last_score_calculated_at'
-  )
-ORDER BY column_name;
+-- +goose Down
+-- +goose StatementBegin
+ALTER TABLE courier_profiles 
+    DROP COLUMN IF EXISTS bank_code,
+    DROP COLUMN IF EXISTS bank_account_number,
+    DROP COLUMN IF EXISTS bank_account_name,
+    DROP COLUMN IF EXISTS ontime_deliveries_count,
+    DROP COLUMN IF EXISTS total_deliveries_count,
+    DROP COLUMN IF EXISTS docs_complete_pct,
+    DROP COLUMN IF EXISTS avg_partner_rating,
+    DROP COLUMN IF EXISTS complaint_count,
+    DROP COLUMN IF EXISTS complaint_ratio_pct,
+    DROP COLUMN IF EXISTS last_score_calculated_at;
+-- +goose StatementEnd

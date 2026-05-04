@@ -19,6 +19,9 @@ routes.post('/auth/web/logout', (req, res) => controllers.logoutWeb(req, res));
 routes.post('/auth/web/refresh-token', (req, res) => controllers.refreshToken(req, res));
 
 routes.get('/auth/web/me', verifyWebSession, (req, res) => controllers.me(req, res));
+routes.get('/auth/web/notifications', verifyWebSession, (req, res) => controllers.getUserNotifications(req, res));
+routes.patch('/auth/web/notifications/:id/read', verifyWebSession, (req, res) => controllers.markNotificationRead(req, res));
+routes.delete('/auth/web/notifications', verifyWebSession, (req, res) => controllers.clearNotifications(req, res));
 routes.post('/auth/web/notifications/subscribe', verifyWebSession, (req, res) => controllers.subscribePush(req, res));
 routes.delete('/auth/web/notifications/subscribe', verifyWebSession, (req, res) => controllers.unsubscribePush(req, res));
 
@@ -27,6 +30,10 @@ routes.post('/auth/web/orders/calculate', verifyWebSession, (req, res) => contro
 routes.post('/auth/web/orders', verifyWebSession, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
 routes.get('/auth/web/orders', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrders(req, res));
 routes.get('/auth/web/orders/:id', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderById(req, res));
+routes.get('/auth/web/orders/:id/chats', verifyWebSession, (req, res) => controllers.customerOrder.getOrderChats(req, res));
+routes.post('/auth/web/orders/:id/chats', verifyWebSession, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
+routes.post('/auth/web/disputes', verifyWebSession, (req, res) => controllers.createDispute(req, res));
+
 
 
 // Bulk Order Routes

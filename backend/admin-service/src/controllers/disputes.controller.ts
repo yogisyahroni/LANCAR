@@ -112,3 +112,33 @@ export const assignDispute = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const createDispute = async (req: Request, res: Response) => {
+  const { order_id, category, description, evidence_urls } = req.body;
+  const user_id = (req as any).user?.id;
+
+  if (!order_id || !category || !description) {
+    return res.status(400).json({ error: 'Order ID, category, and description are required' });
+  }
+
+  try {
+    const query = `
+      INSERT INTO disputes (order_id, opened_by, category, description, evidence_urls, status)
+      VALUES ($1, $2, $3, $4, $5, 'open')
+      RETURNING *
+    `;
+    const result = await db.query(query, [order_id, user_id, category, description, evidence_urls || []]);
+    
+    // Add an audit log or order event if needed
+    await db.query(`
+      INSERT INTO order_events (order_id, event_type, description)
+      VALUES ($1, 'DISPUTE_OPENED', $2)
+    `, [order_id, `Dispute opened for ${category}: ${description.substring(0, 50)}...`]);
+
+    res.status(201).json({ success: true, data: result.rows[0] });
+  } catch (error: any) {
+    console.error('Error creating dispute:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+

@@ -28,15 +28,124 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import PushNotificationPrompt from '@/components/PushNotificationPrompt';
 import { cn } from '@/lib/utils';
+import { getSocket, disconnectSocket } from '@/lib/socket';
+
+interface DBNotification {
+  id: string;
+  title: string;
+  body: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+  order_id?: string;
+  metadata?: any;
+  deep_link?: string;
+}
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, setAuth, setLoading, user } = useAuthStore();
-  const { notifications, removeNotification } = useNotificationStore();
+  const { notifications, addNotification, removeNotification } = useNotificationStore();
   const router = useRouter();
   const pathname = usePathname();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [bellNotifications, setBellNotifications] = useState<DBNotification[]>([]);
+
+  // Socket initialization
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      const socket = getSocket(user.id);
+      if (socket) {
+        socket.on('new_notification', (notif: DBNotification) => {
+          console.log('📡 [WebSocket] New notification received:', notif);
+          // Add to toast
+          addNotification({
+            title: notif.title,
+            message: notif.body,
+            type: 'info'
+          });
+          // Add to bell list
+          setBellNotifications(prev => [notif, ...prev]);
+        });
+      }
+    }
+
+    return () => {
+      // We don't necessarily want to disconnect on every re-render, 
+      // but if the layout unmounts or auth changes, we might.
+      // For a persistent layout, this runs on unmount.
+    };
+  }, [isAuthenticated, user?.id, addNotification]);
+
+  // Auth check
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await api.get('/auth/web/me');
+        setAuth(true, response.data.user);
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setAuth(false, null);
+        router.push('/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (!isAuthenticated && isLoading) {
+      checkAuth();
+    } else if (!isAuthenticated && !isLoading) {
+      router.push('/login');
+    }
+  }, [isAuthenticated, isLoading, router, setAuth, setLoading]);
+
+  // Initial fetch for notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (isAuthenticated) {
+        try {
+          const res = await api.get('/auth/web/notifications');
+          setBellNotifications(res.data.notifications || []);
+        } catch (error) {
+          console.error('Failed to fetch notifications:', error);
+        }
+      }
+    };
+    fetchNotifications();
+  }, [isAuthenticated]);
+
+  // Command palette state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+      if (e.key === 'Escape') {
+        setIsSearchOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Notifications & User dropdowns
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isUserOpen, setIsUserOpen] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/web/logout');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    } finally {
+      setAuth(false, null);
+      router.push('/login');
+    }
+  };
 
   // Navigation Items
   const navItems = [
@@ -83,60 +192,6 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     const timer = setTimeout(() => setIsNavigating(false), 500);
     return () => clearTimeout(timer);
   }, [pathname]);
-
-  // Auth check
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const response = await api.get('/auth/web/me');
-        setAuth(true, response.data.user);
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        setAuth(false, null);
-        router.push('/login');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (!isAuthenticated && isLoading) {
-      checkAuth();
-    } else if (!isAuthenticated && !isLoading) {
-      router.push('/login');
-    }
-  }, [isAuthenticated, isLoading, router, setAuth, setLoading]);
-
-  // Command palette state
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsSearchOpen((prev) => !prev);
-      }
-      if (e.key === 'Escape') {
-        setIsSearchOpen(false);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  // Notifications & User dropdowns
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [isUserOpen, setIsUserOpen] = useState(false);
-
-  const handleLogout = async () => {
-    try {
-      await api.post('/auth/web/logout');
-    } catch (error) {
-      console.error('Logout failed:', error);
-    } finally {
-      setAuth(false, null);
-      router.push('/login');
-    }
-  };
 
   const filteredSearchItems = navItems.filter((item) =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -336,7 +391,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 className="relative p-2.5 text-zinc-500 dark:text-zinc-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all"
               >
                 <Bell className="h-5 w-5" />
-                <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-primary-light rounded-full border-2 border-background" />
+                {bellNotifications.some(n => !n.is_read) && (
+                  <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-primary-light rounded-full border-2 border-background" />
+                )}
               </button>
               <AnimatePresence>
                 {isNotifOpen && (
@@ -351,14 +408,58 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                     >
                       <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-2 mb-2">
                         <span className="text-xs font-semibold text-foreground">Notifications</span>
-                        <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">New</span>
+                        <button 
+                          onClick={async () => {
+                            try {
+                              await api.delete('/auth/web/notifications');
+                              setBellNotifications([]);
+                            } catch (e) { console.error(e); }
+                          }}
+                          className="text-[10px] text-primary hover:underline"
+                        >
+                          Clear All
+                        </button>
                       </div>
-                      <div className="overflow-y-auto space-y-2 flex-1">
-                        <div className="p-2.5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 rounded-xl transition-all duration-200">
-                          <h4 className="text-xs font-semibold text-foreground">Order sukses dibuat</h4>
-                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">Paket ke Bandung sedang diproses.</p>
-                          <span className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 block">Just now</span>
-                        </div>
+                      <div className="overflow-y-auto space-y-2 flex-1 scrollbar-hide">
+                        {bellNotifications.length > 0 ? (
+                          bellNotifications.map((notif) => (
+                            <div 
+                              key={notif.id} 
+                              className={cn(
+                                "p-2.5 rounded-xl transition-all duration-200 cursor-pointer",
+                                notif.is_read ? "bg-transparent opacity-60" : "bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10"
+                              )}
+                              onClick={async () => {
+                                if (!notif.is_read) {
+                                  try {
+                                    await api.patch(`/auth/web/notifications/${notif.id}/read`);
+                                    setBellNotifications(prev => 
+                                      prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n)
+                                    );
+                                  } catch (e) { console.error(e); }
+                                }
+                                if (notif.deep_link) {
+                                  router.push(notif.deep_link);
+                                  setIsNotifOpen(false);
+                                }
+                              }}
+                            >
+                              <div className="flex items-start justify-between">
+                                <h4 className="text-xs font-semibold text-foreground">{notif.title}</h4>
+                                {!notif.is_read && <span className="w-2 h-2 bg-primary rounded-full mt-1" />}
+                              </div>
+                              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-relaxed">{notif.body}</p>
+                              <span className="text-[9px] text-zinc-400 dark:text-zinc-500 mt-1 block">
+                                {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex flex-col items-center justify-center py-8 text-center">
+                            <Bell className="h-8 w-8 text-zinc-300 dark:text-zinc-700 mb-2" />
+                            <p className="text-xs text-zinc-500">Tidak ada notifikasi baru</p>
+                          </div>
+                        )}
                       </div>
                     </motion.div>
                   </>

@@ -1,12 +1,8 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-set "DISTRO=podman-machine-default"
-set "COMPOSE_BIN=/usr/sbin/podman-compose"
-set "PODMAN_BIN=/usr/bin/podman"
-set "GOOSE_BIN=/usr/local/bin/goose"
-set "COMPOSE_FILE=/mnt/e/antigraviti google/SUDAH DEPLOY/LANCAR/podman-compose.yml"
-set "MIGRATIONS_DIR=/mnt/e/antigraviti google/SUDAH DEPLOY/LANCAR/database/migrations"
+set "COMPOSE_FILE=docker-compose.yml"
+set "MIGRATIONS_DIR=database/migrations"
 set "CMD=%~1"
 
 if "%CMD%"=="" set "CMD=help"
@@ -24,33 +20,30 @@ if "%CMD%"=="shell"    goto :cmd_shell
 goto :cmd_help
 
 :run_compose
-    wsl -d %DISTRO% -- bash -c "PODMAN_IGNORE_CGROUPSV1_WARNING=1 %COMPOSE_BIN% --podman-path %PODMAN_BIN% -f '%COMPOSE_FILE%' %~1"
+    docker compose -f "%COMPOSE_FILE%" %~1
     exit /b %errorlevel%
 
 :cmd_up
     echo.
-    echo === Menjalankan Lancar Backend Stack (Podman Host Network) ===
+    echo === Menjalankan Lancar Backend Stack (Docker) ===
     echo.
 
-    echo [1/4] Memulai Database dan Redis...
+    echo [1/3] Memulai Infrastructure (DB, Redis, RabbitMQ)...
     call :run_compose "up -d db db-read redis rabbitmq"
 
     echo.
-    echo [2/4] Menunggu database siap (20 detik)...
-    timeout /t 20 /nobreak >nul
-    echo    Database siap!
-
-    echo.
-    echo [3/4] Menjalankan migrasi database (goose v3)...
-    wsl -d %DISTRO% -- bash -c "GOOSE_DRIVER=postgres GOOSE_DBSTRING='host=localhost port=5432 user=postgres password=1234 dbname=lancar sslmode=disable' %GOOSE_BIN% -dir '%MIGRATIONS_DIR%' up 2>&1"
+    echo [2/3] Menjalankan migrasi database (goose)...
+    echo    Menunggu database siap...
+    timeout /t 5 /nobreak >nul
+    goose -dir "%MIGRATIONS_DIR%" postgres "host=localhost port=5432 user=postgres password=1234 dbname=lancar sslmode=disable" up
     if !errorlevel! neq 0 (
-        echo    WARN: Migrasi gagal, cek koneksi DB
+        echo    WARN: Migrasi gagal, pastikan database sudah siap.
     ) else (
         echo    Migrasi berhasil!
     )
 
     echo.
-    echo [4/4] Memulai semua backend service...
+    echo [3/3] Memulai semua backend service...
     call :run_compose "up -d auth-service admin-service order-service routing-service api-gateway"
 
     echo.
@@ -78,7 +71,7 @@ goto :cmd_help
 
 :cmd_status
     echo Status Container Lancar:
-    wsl -d %DISTRO% -- bash -c "PODMAN_IGNORE_CGROUPSV1_WARNING=1 %PODMAN_BIN% ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' 2>&1"
+    docker compose -f "%COMPOSE_FILE%" ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
     goto :eof
 
 :cmd_logs
@@ -89,8 +82,8 @@ goto :cmd_help
     goto :eof
 
 :cmd_migrate
-    echo Menjalankan migrasi database dengan goose...
-    wsl -d %DISTRO% -- bash -c "GOOSE_DRIVER=postgres GOOSE_DBSTRING='host=localhost port=5432 user=postgres password=1234 dbname=lancar sslmode=disable' %GOOSE_BIN% -dir '%MIGRATIONS_DIR%' up 2>&1"
+    echo Menjalankan migrasi database...
+    goose -dir "%MIGRATIONS_DIR%" postgres "host=localhost port=5432 user=postgres password=1234 dbname=lancar sslmode=disable" up
     echo Migrasi selesai.
     goto :eof
 
@@ -137,17 +130,17 @@ goto :cmd_help
 :cmd_shell
     set "SVC=%~2"
     if "%SVC%"=="" (
-        echo Usage: lancar.bat shell [container_name]
-        echo Contoh: lancar.bat shell lancar-db
+        echo Usage: lancar.bat shell [service_name]
+        echo Contoh: lancar.bat shell db
         goto :eof
     )
-    wsl -d %DISTRO% -- bash -c "%PODMAN_BIN% exec -it %SVC% /bin/sh 2>/dev/null || %PODMAN_BIN% exec -it %SVC% /bin/bash"
+    docker compose -f "%COMPOSE_FILE%" exec -it %SVC% sh || docker compose -f "%COMPOSE_FILE%" exec -it %SVC% bash
     goto :eof
 
 :cmd_help
     echo.
-    echo LANCAR - Podman Host Network Stack
-    echo ====================================
+    echo LANCAR - Docker Stack Helper
+    echo ============================
     echo.
     echo   lancar.bat up              Jalankan semua backend service
     echo   lancar.bat down            Stop semua service (data aman)
@@ -159,6 +152,6 @@ goto :cmd_help
     echo   lancar.bat frontend        Jalankan frontend Next.js
     echo   lancar.bat build           Build ulang semua images
     echo   lancar.bat health          Health check semua endpoint
-    echo   lancar.bat shell [svc]     Shell ke dalam container
+    echo   lancar.bat shell [svc]     Shell ke dalam service
     echo.
     goto :eof

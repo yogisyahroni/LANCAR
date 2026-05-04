@@ -151,7 +151,7 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SEED_DB: "true"
     ports:
-      - "${ADMIN_PORT:-3000}:3000"
+      - "${ADMIN_PORT:-3001}:3000"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
       interval: 10s

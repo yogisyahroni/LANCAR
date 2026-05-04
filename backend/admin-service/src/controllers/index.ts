@@ -45,3 +45,4 @@ export * from './customerAuth.controller';
 // Customer Web Portal Orders
 export * as customerOrder from './customerOrder.controller';
 export * as bulkOrder from './bulkOrder.controller';
+export * from './userNotifications.controller';

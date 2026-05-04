@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { db } from '../db';
+import { createNotification } from '../notifications';
+import { getIO } from '../websocket';
 
 // Helper to calculate distance based on coordinates (Haversine formula mock)
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -262,11 +264,15 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
     }
 
     const queryStr = `
-      SELECT id, order_number, pickup_address, dropoff_address, recipient_name, recipient_phone_masked, model, status, distance_km, 
-             base_price_idr, volumetric_surcharge_idr, insurance_premium_idr, total_price_idr, has_insurance, insured_value_idr, 
-             package_details, customer_notes, schedule_type, scheduled_at, created_at
-      FROM orders
-      WHERE customer_id = $1 AND id = $2
+      SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name, o.recipient_phone_masked, o.model, o.status, o.distance_km, 
+             o.base_price_idr, o.volumetric_surcharge_idr, o.insurance_premium_idr, o.total_price_idr, o.has_insurance, o.insured_value_idr, 
+             o.package_details, o.customer_notes, o.schedule_type, o.scheduled_at, o.created_at,
+             u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate, cp.avg_partner_rating as courier_rating
+      FROM orders o
+      LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
+      LEFT JOIN users u ON ol.courier_id = u.id
+      LEFT JOIN courier_profiles cp ON u.id = cp.user_id
+      WHERE o.customer_id = $1 AND o.id = $2
     `;
 
     const { rows } = await db.query(queryStr, [customer_id, id]);
@@ -287,6 +293,104 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
     const { rows: events } = await db.query(eventQuery, [id]);
 
     res.json({ success: true, order, events });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getOrderChats = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customer_id = req.user?.id;
+    const { id } = req.params;
+    
+    // Check if order belongs to customer
+    const orderCheck = await db.query('SELECT id FROM orders WHERE id = $1 AND customer_id = $2', [id, customer_id]);
+    if (orderCheck.rows.length === 0) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    const { rows } = await db.query(`
+      SELECT c.id, c.sender_id, u.full_name as sender_name, u.role as sender_role, c.message, c.message_type, c.created_at
+      FROM order_chats c
+      JOIN users u ON c.sender_id = u.id
+      WHERE c.order_id = $1
+      ORDER BY c.created_at ASC
+    `, [id]);
+
+    res.json({ success: true, chats: rows });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const sendOrderChat = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const sender_id = req.user?.id;
+    const id = req.params.id as string;
+    const { message } = req.body;
+
+    if (!message) {
+      res.status(400).json({ error: 'Message is required' });
+      return;
+    }
+
+    // Check if order belongs to customer and find assigned courier
+    const orderQuery = `
+      SELECT o.id, o.order_number, o.customer_id, ol.courier_id
+      FROM orders o
+      LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
+      WHERE o.id = $1 AND (o.customer_id = $2 OR ol.courier_id = $2)
+    `;
+    const orderRes = await db.query(orderQuery, [id, sender_id]);
+    
+    if (orderRes.rows.length === 0) {
+      res.status(404).json({ error: 'Order not found or access denied' });
+      return;
+    }
+
+    const order = orderRes.rows[0];
+    const isCustomerSender = order.customer_id === sender_id;
+    const recipient_id = isCustomerSender ? order.courier_id : order.customer_id;
+
+    const { rows } = await db.query(`
+      INSERT INTO order_chats (order_id, sender_id, message)
+      VALUES ($1, $2, $3)
+      RETURNING *
+    `, [id, sender_id, message]);
+
+    const chatMessage = rows[0];
+
+    // Emit chat message to both sender and recipient rooms for real-time UI update
+    if (sender_id && recipient_id) {
+      try {
+        const io = getIO();
+        io.to(sender_id).to(recipient_id).emit('new_chat_message', {
+          ...chatMessage,
+          order_number: order.order_number
+        });
+      } catch (wsError) {
+        console.warn('[WebSocket] Could not emit chat message:', wsError);
+      }
+    }
+
+    // Create notification for recipient if they are not the sender
+    if (recipient_id) {
+      await createNotification({
+        user_id: recipient_id,
+        title: `Pesan Baru - ${order.order_number}`,
+        body: message.length > 50 ? message.substring(0, 47) + '...' : message,
+        type: 'chat',
+        order_id: id,
+        metadata: {
+          chat_id: chatMessage.id,
+          sender_name: req.user?.full_name || 'User'
+        },
+        deep_link: `/orders/${id}`
+      });
+    }
+
+    res.status(201).json({ success: true, chat: chatMessage });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

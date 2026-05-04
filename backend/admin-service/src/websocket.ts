@@ -25,7 +25,13 @@ export const initWebSocket = (server: HttpServer) => {
   });
 
   io.on('connection', (socket) => {
-    console.log(`[WebSocket] Client connected: ${socket.id}`);
+    const userId = socket.handshake.query.userId as string;
+    if (userId) {
+      socket.join(userId);
+      console.log(`[WebSocket] User ${userId} joined room. Socket: ${socket.id}`);
+    } else {
+      console.log(`[WebSocket] Client connected without userId: ${socket.id}`);
+    }
 
     socket.on('disconnect', () => {
       console.log(`[WebSocket] Client disconnected: ${socket.id}`);

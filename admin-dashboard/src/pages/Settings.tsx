@@ -107,6 +107,8 @@ export default function Settings() {
       // Normalize: backend lama return object, backend baru return array
       const raw = res.data
       if (Array.isArray(raw)) return raw
+      if (raw.components && Array.isArray(raw.components)) return raw.components
+      
       // Convert object shape lama {api_gateway:'UP', database:'UP'} ke array
       return [
         { label: 'API Gateway', version: 'v2.x', status: raw.api_gateway === 'UP' ? 'Stable' : 'Degraded', metrics: 'OK' },

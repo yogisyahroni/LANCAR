@@ -8,38 +8,47 @@ import { validate } from './middleware/validator';
 import { PricingEstimateSchema, CreateOrderSchema } from './schemas/order.schema';
 import { OTPSendSchema, OTPVerifySchema, RegisterSchema } from './schemas/auth.schema';
 
-dotenv.config({ path: '../../.env' });
+dotenv.config({ path: '../../../.env' });
 
 const app = express();
 const logger = pino();
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false, // Disable CSP in dev to avoid issues
+}));
+
+// Robust CORS with logging and preflight handling
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    console.log(`\x1b[36m[CORS Debug]\x1b[0m Origin: ${origin} - Method: ${req.method} - Path: ${req.path}`);
+  }
+  
+  // Explicitly handle preflight for any localhost or 127.0.0.1
+  if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-user-role, x-totp-verified, Cookie');
+    
+    if (req.method === 'OPTIONS') {
+      console.log(`\x1b[32m[CORS Preflight Success]\x1b[0m Returning 204 for ${origin}`);
+      return res.sendStatus(204);
+    }
+  }
+  next();
+});
+
 app.use(cors({
   origin: (origin, callback) => {
-    const allowedOrigins = [
-      'http://localhost:3000', // frontend (customer portal)
-      'http://localhost:3001', // admin-service backend
-      'http://localhost:3002', // admin-dashboard UI
-      'http://localhost:5173', 
-      'http://localhost:5174', 
-      'http://localhost:5175', 
-      'http://localhost:5176', 
-      'http://127.0.0.1:3000', 
-      'http://127.0.0.1:3001', 
-      'http://127.0.0.1:3002', // admin-dashboard UI (127)
-      'http://127.0.0.1:5173',
-      'http://127.0.0.1:5175',
-      'http://localhost:8080'
-    ];
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0')) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, true); // Allow all for now to fix login
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-role', 'x-totp-verified']
 }));
 app.use(logger);
 app.use((req, res, next) => {
@@ -61,10 +70,14 @@ app.use((req, res, next) => {
 // Middleware to parse JSON only for specific routes that need validation in the gateway
 const jsonParser = express.json();
 
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://auth-service:8081';
-const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://order-service:8083';
-const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://admin-service:3000';
-const ROUTING_SERVICE_URL = process.env.ROUTING_SERVICE_URL || 'http://routing-service:8082';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:8081';
+const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://localhost:8083';
+const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://localhost:3000';
+const ROUTING_SERVICE_URL = process.env.ROUTING_SERVICE_URL || 'http://localhost:8082';
+
+console.log(`\x1b[32m[Gateway Config]\x1b[0m Auth Service: ${AUTH_SERVICE_URL}`);
+console.log(`\x1b[32m[Gateway Config]\x1b[0m Admin Service: ${ADMIN_SERVICE_URL}`);
+console.log(`\x1b[32m[Gateway Config]\x1b[0m Order Service: ${ORDER_SERVICE_URL}`);
 
 // Helper for proxying with body fix
 const proxyWithBodyFix = (target: string) => 
@@ -72,7 +85,7 @@ const proxyWithBodyFix = (target: string) =>
     target,
     changeOrigin: true,
     on: {
-      proxyReq: (proxyReq, req: any, res) => {
+      proxyReq: (proxyReq: any, req: any, res: any) => {
         // Transform 'phone' to 'phone_number' if present in the body
         if (req.body && req.body.phone && !req.body.phone_number) {
           req.body.phone_number = req.body.phone;
@@ -149,49 +162,64 @@ app.post(
 
 // --- PROXY ROUTES (Pass-through) ---
 
-// Auth Service (other routes)
-app.use('/api/v1/auth/web', createProxyMiddleware({
+// Auth Service - Web/Admin Auth Routes (High Priority)
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/auth/web',
   target: ADMIN_SERVICE_URL,
   changeOrigin: true,
   pathRewrite: {
-    '^/api/v1/auth/web': '/auth/web',
+    '^/api/v1/auth/web': '/auth/web'
   },
   on: {
-    proxyReq: fixRequestBody,
-    proxyRes: (proxyRes, req, res) => {
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[35m[Proxy Admin Auth]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any, req: any, res: any) => {
       if (proxyRes.headers['set-cookie']) {
-        console.log(`[Proxy] Set-Cookie detected for ${req.url}:`, proxyRes.headers['set-cookie']);
+        console.log(`[Proxy Admin Auth] Set-Cookie detected:`, proxyRes.headers['set-cookie']);
       }
     }
   }
 }));
 
+// Auth Service - General Routes
 app.use('/api/v1/auth', createProxyMiddleware({
   target: AUTH_SERVICE_URL,
   changeOrigin: true,
   on: {
-    proxyReq: fixRequestBody
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[34m[Proxy Auth]\x1b[0m Forwarding ${req.method} ${req.url} to ${AUTH_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    }
   }
 }));
 
-// Orders Service (other routes)
+// Orders Service
 app.use('/api/v1/orders', createProxyMiddleware({
   target: ORDER_SERVICE_URL,
   changeOrigin: true,
   on: {
-    proxyReq: fixRequestBody
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[32m[Proxy Order]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    }
   }
 }));
 
-// Admin Service
-app.use('/api/v1/admin', createProxyMiddleware({
+// Admin Service General Routes (Management API)
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/admin',
   target: ADMIN_SERVICE_URL,
   changeOrigin: true,
   pathRewrite: {
-    '^/api/v1/admin': '/admin',
+    '^/api/v1/admin': '/admin'
   },
   on: {
-    proxyReq: fixRequestBody
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[35m[Proxy Admin]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    }
   }
 }));
 
@@ -200,7 +228,10 @@ app.use('/api/v1/routing', createProxyMiddleware({
   target: ROUTING_SERVICE_URL,
   changeOrigin: true,
   on: {
-    proxyReq: fixRequestBody
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[36m[Proxy Routing]\x1b[0m Forwarding ${req.method} ${req.url} to ${ROUTING_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    }
   }
 }));
 
