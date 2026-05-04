@@ -1,0 +1,69 @@
+# ============================================================
+# LANCAR - Podman Compose Override untuk WSL Rootless
+# 
+# MASALAH: aardvark-dns gagal di WSL karena tidak ada dbus/systemd
+# SOLUSI: network_mode: host + ganti semua hostname service ke localhost
+# ============================================================
+
+services:
+
+  db:
+    restart: "no"
+    network_mode: host
+
+  db-read:
+    restart: "no"
+    network_mode: host
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_PORT: "5433"
+
+  redis:
+    restart: "no"
+    network_mode: host
+
+  auth-service:
+    restart: "no"
+    network_mode: host
+    environment:
+      DATABASE_URL: "postgres://postgres:1234@localhost:5432/lancar?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://postgres:1234@localhost:5433/lancar?sslmode=disable&search_path=public"
+      REDIS_URL: "redis://localhost:6379"
+
+  admin-service:
+    restart: "no"
+    network_mode: host
+    environment:
+      DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable&search_path=public"
+      REDIS_URL: "redis://localhost:6379"
+
+  routing-service:
+    restart: "no"
+    network_mode: host
+    environment:
+      DATABASE_URL: "postgres://postgres:1234@localhost:5432/lancar?sslmode=disable&search_path=public"
+      REDIS_URL: "redis://localhost:6379"
+
+  order-service:
+    restart: "no"
+    network_mode: host
+    environment:
+      DATABASE_URL: "postgres://postgres:1234@localhost:5432/lancar?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://postgres:1234@localhost:5433/lancar?sslmode=disable&search_path=public"
+      REDIS_URL: "redis://localhost:6379"
+      RABBITMQ_URL: "amqp://guest:guest@localhost:5672/"
+
+  api-gateway:
+    restart: "no"
+    network_mode: host
+
+  rabbitmq:
+    restart: "no"
+    network_mode: host
+
+  migrate:
+    image: docker.io/gomicro/goose:latest
+    restart: "no"
+    network_mode: host

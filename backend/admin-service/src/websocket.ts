@@ -26,11 +26,20 @@ export const initWebSocket = (server: HttpServer) => {
 
   io.on('connection', (socket) => {
     const userId = socket.handshake.query.userId as string;
+    const role = socket.handshake.query.role as string;
+    
     if (userId) {
       socket.join(userId);
       console.log(`[WebSocket] User ${userId} joined room. Socket: ${socket.id}`);
-    } else {
-      console.log(`[WebSocket] Client connected without userId: ${socket.id}`);
+    }
+    
+    if (role) {
+      socket.join(role);
+      console.log(`[WebSocket] User joined role room: ${role}. Socket: ${socket.id}`);
+    }
+
+    if (!userId && !role) {
+      console.log(`[WebSocket] Client connected without identification: ${socket.id}`);
     }
 
     socket.on('disconnect', () => {

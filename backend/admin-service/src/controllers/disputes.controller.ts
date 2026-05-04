@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { db, readDb } from '../db';
+import { createNotification } from '../notifications';
 
 export const getDisputes = async (req: Request, res: Response) => {
   try {
@@ -134,6 +135,32 @@ export const createDispute = async (req: Request, res: Response) => {
       INSERT INTO order_events (order_id, event_type, description)
       VALUES ($1, 'DISPUTE_OPENED', $2)
     `, [order_id, `Dispute opened for ${category}: ${description.substring(0, 50)}...`]);
+
+    // Notify Admins
+    try {
+      const adminRes = await db.query(`
+        SELECT id FROM users WHERE role IN ('ops_admin', 'super_admin', 'cs_agent') AND status = 'active'
+      `);
+      
+      const adminNotifications = adminRes.rows.map((admin: any) => 
+        createNotification({
+          user_id: admin.id,
+          title: 'Tiket Dispute Baru',
+          body: `Order ${order_id.substring(0, 8)}: ${category}`,
+          type: 'dispute',
+          order_id: order_id,
+          metadata: {
+            dispute_id: result.rows[0].id,
+            category
+          },
+          deep_link: '/disputes'
+        })
+      );
+      
+      await Promise.all(adminNotifications);
+    } catch (notifError) {
+      console.warn('[Dispute] Failed to notify admins:', notifError);
+    }
 
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error: any) {

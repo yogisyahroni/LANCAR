@@ -6,10 +6,11 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:8080'
 class SocketService {
   private socket: Socket | null = null
 
-  connect() {
+  connect(userId?: string, role?: string) {
     if (this.socket) return
 
     this.socket = io(SOCKET_URL, {
+      query: { userId, role },
       withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -18,7 +19,7 @@ class SocketService {
     })
 
     this.socket.on('connect', () => {
-      console.log('📡 [WebSocket] Connected to server')
+      console.log('📡 [WebSocket] Connected to server as:', role || 'unknown')
     })
 
     this.socket.on('disconnect', (reason) => {
