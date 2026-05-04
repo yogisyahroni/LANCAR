@@ -1,0 +1,40 @@
+# ============================================================
+# LANCAR — Podman Compose Override
+# File ini di-merge otomatis oleh podman-compose jika nama file
+# adalah podman-compose.override.yml atau di-pass manual:
+#
+#   podman-compose -f docker-compose.yml -f podman-compose.override.yml up -d
+#
+# Atau pakai shortcut dari Makefile / script lancar.ps1
+# ============================================================
+
+services:
+
+  # Podman rootless tidak support restart: unless-stopped di semua versi.
+  # Override ke "always" agar kompatibel.
+  db:
+    restart: "no"
+
+  db-read:
+    restart: "no"
+
+  redis:
+    restart: "no"
+
+  auth-service:
+    restart: "no"
+
+  admin-service:
+    restart: "no"
+
+  routing-service:
+    restart: "no"
+
+  order-service:
+    restart: "no"
+
+  api-gateway:
+    restart: "no"
+
+  rabbitmq:
+    restart: "no"
