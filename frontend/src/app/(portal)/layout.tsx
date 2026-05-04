@@ -266,7 +266,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 {navItems.map((item) => {
                   const active = pathname.startsWith(item.href);
                   return (
-                    <Link key={item.path || item.href} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
+                    <Link key={item.href} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
                       <div className={cn(
                           "flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 mb-1",
                           active 
