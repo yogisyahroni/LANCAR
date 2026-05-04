@@ -271,6 +271,48 @@ services:
     networks:
       - lancar-net
 
+  # ─────────────────────────────────────────────
+  # FRONTEND — Next.js (Customer Portal)
+  # Akses: http://localhost:3000
+  # ─────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lancar-frontend
+    restart: unless-stopped
+    depends_on:
+      - api-gateway
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:8080/api/v1"
+      NEXT_PUBLIC_WS_URL: "ws://localhost:8080"
+      NEXT_PUBLIC_MIDTRANS_CLIENT_KEY: ${NEXT_PUBLIC_MIDTRANS_CLIENT_KEY:-}
+      NEXT_PUBLIC_MIDTRANS_SNAP_URL: ${NEXT_PUBLIC_MIDTRANS_SNAP_URL:-https://app.sandbox.midtrans.com/snap/snap.js}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    networks:
+      - lancar-net
+
+  # ─────────────────────────────────────────────
+  # ADMIN DASHBOARD — Vite / React
+  # Akses: http://localhost:3002
+  # ─────────────────────────────────────────────
+  admin-dashboard:
+    build:
+      context: ./admin-dashboard
+      dockerfile: Dockerfile
+    container_name: lancar-admin-ui
+    restart: unless-stopped
+    depends_on:
+      - api-gateway
+    environment:
+      VITE_API_URL: "http://localhost:8080/api/v1"
+      VITE_WS_URL: "ws://localhost:8080"
+    ports:
+      - "${ADMIN_DASHBOARD_PORT:-3002}:3001"
+    networks:
+      - lancar-net
+
   rabbitmq:
     image: rabbitmq:3.12-management
     container_name: rabbitmq

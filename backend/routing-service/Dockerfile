@@ -32,7 +32,7 @@ RUN apk --no-cache add ca-certificates tzdata && \
 WORKDIR /app
 
 COPY --from=builder /bin/routing-service ./routing-service
-RUN chmod 550 ./routing-service
+RUN chmod 755 ./routing-service
 
 USER appuser
 

@@ -39,7 +39,7 @@ WORKDIR /app
 COPY --from=builder /bin/order-service ./order-service
 
 # Set proper permissions
-RUN chmod 550 ./order-service
+RUN chmod 755 ./order-service
 
 # Run as non-root
 USER appuser

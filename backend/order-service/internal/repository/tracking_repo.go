@@ -108,3 +108,95 @@ func (r *PostgresTrackingRepo) GetActiveCourierForOrder(ctx context.Context, ord
 	}
 	return &courierID, nil
 }
+
+// CheckGeofence performs a PostGIS ST_Contains spatial query to determine whether
+// the courier's current position falls within their assigned zone polygon.
+//
+// Algorithm:
+//  1. Find the active order leg for this courier and its assigned zone.
+//  2. Use ST_Contains(zone.boundary, ST_SetSRID(ST_MakePoint(lng, lat), 4326)) to check.
+//  3. If outside, calculate how many minutes ago the courier first left the zone by
+//     scanning the recent GPS log for the earliest consecutive out-of-zone reading.
+func (r *PostgresTrackingRepo) CheckGeofence(ctx context.Context, courierID uuid.UUID, lat, lng float64) (*domain.GeofenceCheckResult, error) {
+	// Find the active order leg and its zone boundary for this courier
+	type geofenceRow struct {
+		IsInside bool    `db:"is_inside"`
+		ZoneID   *string `db:"zone_id"`
+	}
+
+	var row geofenceRow
+	checkQuery := `
+		SELECT 
+			ST_Contains(
+				z.boundary::geometry,
+				ST_SetSRID(ST_MakePoint($2, $1), 4326)
+			) AS is_inside,
+			z.id::text AS zone_id
+		FROM order_legs ol
+		JOIN zones z ON z.id = ol.zone_id
+		WHERE ol.courier_id = $3
+		  AND ol.status IN ('pending', 'in_progress')
+		ORDER BY ol.created_at DESC
+		LIMIT 1
+	`
+
+	err := r.db.GetContext(ctx, &row, checkQuery, lat, lng, courierID)
+	if err != nil {
+		// No active leg or zone found — treat as inside zone to avoid false alerts
+		return &domain.GeofenceCheckResult{IsInsideZone: true}, nil
+	}
+
+	if row.IsInside {
+		return &domain.GeofenceCheckResult{
+			IsInsideZone:     true,
+			OutOfZoneMinutes: 0,
+			AssignedZoneID:   row.ZoneID,
+		}, nil
+	}
+
+	// Courier is outside the zone — calculate how long they've been out
+	// Find the earliest consecutive GPS log reading that was also outside the zone
+	outDurationQuery := `
+		WITH ranked_logs AS (
+			SELECT
+				recorded_at,
+				ST_Contains(
+					z.boundary::geometry,
+					location::geometry
+				) AS was_inside,
+				ROW_NUMBER() OVER (ORDER BY recorded_at DESC) AS rn
+			FROM courier_gps_logs gl
+			JOIN order_legs ol ON ol.courier_id = gl.courier_id
+				AND ol.status IN ('pending', 'in_progress')
+			JOIN zones z ON z.id = ol.zone_id
+			WHERE gl.courier_id = $1
+			  AND gl.recorded_at > NOW() - INTERVAL '2 hours'
+			ORDER BY gl.recorded_at DESC
+		)
+		SELECT COALESCE(
+			EXTRACT(EPOCH FROM (NOW() - MIN(recorded_at))) / 60,
+			0
+		)::INT AS out_of_zone_minutes
+		FROM ranked_logs
+		WHERE was_inside = FALSE
+		  AND rn <= (
+			-- Find the first row where the courier was inside, then take all rows before it
+			SELECT COALESCE(MIN(rn) - 1, 9999)
+			FROM ranked_logs
+			WHERE was_inside = TRUE
+		  )
+	`
+
+	var outMinutes int
+	if durationErr := r.db.GetContext(ctx, &outMinutes, outDurationQuery, courierID); durationErr != nil {
+		// If we can't calculate duration, default to 0 (won't trigger alert)
+		outMinutes = 0
+	}
+
+	return &domain.GeofenceCheckResult{
+		IsInsideZone:     false,
+		OutOfZoneMinutes: outMinutes,
+		AssignedZoneID:   row.ZoneID,
+	}, nil
+}
+

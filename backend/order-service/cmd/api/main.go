@@ -118,7 +118,7 @@ func main() {
 	meetingPointSvc := service.NewMeetingPointService(pgRepo, mapsRepo, redisRepo)
 	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, eb, tq, flagReader, notificationSvc)
 	paymentSvc := service.NewPaymentService(paymentRepo, pgRepo, paymentGw)
-	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw)
+	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw, relayRepo)
 	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw)
 	slaSvc := service.NewSLAService(slaRepo, notificationSvc, payoutRepo)
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc)

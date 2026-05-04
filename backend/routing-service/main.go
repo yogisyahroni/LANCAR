@@ -11,16 +11,18 @@ import (
 	"github.com/redis/go-redis/v9"
 	
 	"lancar-backend/internal/featureflags"
+	"net/http"
 )
 
 func main() {
 	// Centralized .env loading. We go up two directories to find the root .env
 	envPath := filepath.Join("..", "..", ".env")
 	if err := godotenv.Load(envPath); err != nil {
-		log.Printf("Warning: Error loading .env file from %s: %v", envPath, err)
+		log.Printf("Info: No .env file found at %s, relying on environment variables", envPath)
 	}
 
 	dbUrl := os.Getenv("DATABASE_URL")
+	log.Printf("DATABASE_URL present: %v", dbUrl != "")
 	if dbUrl == "" {
 		log.Fatal("DATABASE_URL is not set")
 	}
@@ -31,6 +33,7 @@ func main() {
 	}
 
 	redisUrl := os.Getenv("REDIS_URL")
+	log.Printf("REDIS_URL present: %v", redisUrl != "")
 	if redisUrl == "" {
 		log.Fatal("REDIS_URL is not set")
 	}
@@ -73,9 +76,21 @@ func main() {
 	_ = featureflags.NewFlagReader(db, readDB, rdb)
 
 	log.Println("Routing service initialized. Feature flag reader is active (Dual-DB mode).")
-	// Ready to plug into HTTP or gRPC server...
-	log.Println("Routing service is running...")
 	
-	// Keep the service alive
-	select {}
+	// Start minimal HTTP server for health checks
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status": "UP", "service": "routing-service"}`))
+	})
+
+	port := os.Getenv("ROUTING_SERVICE_PORT")
+	if port == "" {
+		port = "8082"
+	}
+
+	log.Printf("Routing service is running on port %s...", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		log.Fatalf("Failed to start HTTP server: %v", err)
+	}
 }

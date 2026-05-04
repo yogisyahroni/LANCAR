@@ -16,6 +16,8 @@ export const routes = Router();
 // Web Portal Auth Routes
 routes.post('/auth/web/login', (req, res) => controllers.loginWeb(req, res));
 routes.post('/auth/web/logout', (req, res) => controllers.logoutWeb(req, res));
+routes.post('/auth/web/refresh-token', (req, res) => controllers.refreshToken(req, res));
+
 routes.get('/auth/web/me', verifyWebSession, (req, res) => controllers.me(req, res));
 routes.post('/auth/web/notifications/subscribe', verifyWebSession, (req, res) => controllers.subscribePush(req, res));
 routes.delete('/auth/web/notifications/subscribe', verifyWebSession, (req, res) => controllers.unsubscribePush(req, res));

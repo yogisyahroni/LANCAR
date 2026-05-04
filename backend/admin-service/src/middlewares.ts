@@ -47,6 +47,7 @@ export const requireTotp = (req: Request, res: Response, next: NextFunction) => 
 
 export const verifyWebSession = async (req: Request, res: Response, next: NextFunction) => {
   const sessionToken = req.cookies?.web_session;
+  console.log(`[verifyWebSession] URL: ${req.url}, Session Token present: ${!!sessionToken}`);
 
   if (!sessionToken) {
     res.status(401).json({ error: 'Unauthorized: No session token provided' });

@@ -42,7 +42,7 @@ WORKDIR /app
 COPY --from=builder /bin/auth-service ./auth-service
 
 # Set proper permissions
-RUN chmod 550 ./auth-service
+RUN chmod 755 ./auth-service
 
 # Run as non-root
 USER appuser

@@ -38,21 +38,26 @@ func (s *TrackingServiceImpl) UpdateLocation(ctx context.Context, req domain.Cou
 		return fmt.Errorf("failed to update courier location: %w", err)
 	}
 
-	// 2.5 Geofencing Check
-	// Note: In a real implementation, fetch Courier's assigned zone polygon from DB using postgis `ST_Contains`
-	// For now, we mock a breach if they have been out of zone for >5 mins
-	outOfZoneDuration := 0 // Mock: duration out of zone in minutes
-	if outOfZoneDuration > 5 {
-		// Alert courier and admin
+	// 3. Real PostGIS Geofencing Check via ST_Contains
+	// Queries whether the courier's lat/lng point falls within their assigned zone polygon.
+	geofenceResult, geoErr := s.repo.CheckGeofence(ctx, req.CourierID, req.Location.Latitude, req.Location.Longitude)
+	if geoErr != nil {
+		// Non-fatal: log and continue. Don't block location updates on geofence check failures.
+		// In production this should be sent to a structured logger (e.g. pino/zap).
+		fmt.Printf("[TrackingService] WARN: geofence check failed for courier %s: %v\n", req.CourierID, geoErr)
+	} else if !geofenceResult.IsInsideZone && geofenceResult.OutOfZoneMinutes > 5 {
+		// Courier has been out of their assigned zone for more than 5 minutes — alert
 		topic := fmt.Sprintf("alert:geofence:%s", req.CourierID.String())
 		s.eventBus.Publish(ctx, topic, map[string]interface{}{
-			"courier_id": req.CourierID.String(),
-			"alert":      "Courier has been out of assigned zone for >5 minutes",
-			"location":   req.Location,
+			"courier_id":         req.CourierID.String(),
+			"alert":              "Courier has been out of assigned zone for >5 minutes",
+			"out_of_zone_minutes": geofenceResult.OutOfZoneMinutes,
+			"zone_id":            geofenceResult.AssignedZoneID,
+			"location":           req.Location,
 		})
 	}
 
-	// 3. Publish to Redis Pub/Sub for real-time tracking
+	// 4. Publish to Redis Pub/Sub for real-time tracking
 	topic := fmt.Sprintf("tracking:courier:%s", req.CourierID.String())
 	payload := map[string]interface{}{
 		"courier_id": req.CourierID.String(),

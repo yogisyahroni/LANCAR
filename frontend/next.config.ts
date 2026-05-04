@@ -3,6 +3,7 @@ import withBundleAnalyzer from '@next/bundle-analyzer';
 
 const nextConfig: any = {
   /* config options here */
+  output: 'standalone',
   turbopack: {}
 };
 

@@ -59,63 +59,19 @@ export default function ResiPage() {
       if (res.data && res.data.success && res.data.orders) {
         setOrders(res.data.orders);
       } else {
-        // Mock fallback if empty
-        setOrders([
-          {
-            id: 'ord-1',
-            order_number: 'ORD/2026/05/0001',
-            pickup_address: 'Jl. Jend. Sudirman No. 12, Jakarta Pusat',
-            dropoff_address: 'Jl. Asia Afrika No. 89, Bandung',
-            recipient_name: 'Budi Santoso',
-            model: 'instant',
-            status: 'pickup',
-            distance_km: 154.2,
-            total_price_idr: 450000,
-            created_at: new Date().toISOString(),
-          },
-          {
-            id: 'ord-2',
-            order_number: 'ORD/2026/05/0002',
-            pickup_address: 'Gedung Wisma Mandiri No. 34, Jakarta Pusat',
-            dropoff_address: 'Pondok Indah Mall No. 1, Jakarta Selatan',
-            recipient_name: 'Anita Rahma',
-            model: 'same_day',
-            status: 'in_transit',
-            distance_km: 14.5,
-            total_price_idr: 25000,
-            created_at: new Date().toISOString(),
-          },
-        ]);
+        // API returned success:false or no orders — set empty, don't use mock data
+        setOrders([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch orders:', error);
-      // Premium Mock fallback data
-      setOrders([
-        {
-          id: 'ord-1',
-          order_number: 'ORD/2026/05/0001',
-          pickup_address: 'Jl. Jend. Sudirman No. 12, Jakarta Pusat',
-          dropoff_address: 'Jl. Asia Afrika No. 89, Bandung',
-          recipient_name: 'Budi Santoso',
-          model: 'instant',
-          status: 'pickup',
-          distance_km: 154.2,
-          total_price_idr: 450000,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: 'ord-2',
-          order_number: 'ORD/2026/05/0002',
-          pickup_address: 'Gedung Wisma Mandiri No. 34, Jakarta Pusat',
-          dropoff_address: 'Pondok Indah Mall No. 1, Jakarta Selatan',
-          recipient_name: 'Anita Rahma',
-          model: 'same_day',
-          status: 'in_transit',
-          distance_km: 14.5,
-          total_price_idr: 25000,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      // Surface the real error to the user so they know something is wrong
+      addNotification({
+        title: 'Gagal Memuat Data',
+        message: error?.response?.data?.error || 'Tidak dapat memuat daftar resi. Periksa koneksi internet Anda.',
+        type: 'error',
+      });
+      // Show empty state — no mock data
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -151,8 +107,8 @@ export default function ResiPage() {
     }
   };
 
-  // Status ZIP download polling simulation
-  const handleDownloadZip = () => {
+  // Trigger backend ZIP generation and poll for completion
+  const handleDownloadZip = async () => {
     if (selectedOrderIds.length === 0) {
       addNotification({ title: 'Gagal', message: 'Silakan pilih resi terlebih dahulu.', type: 'error' });
       return;
@@ -162,48 +118,77 @@ export default function ResiPage() {
     setZipProgress(0);
     setIsZipFinished(false);
 
-    // Polling simulation up to 100%
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 20;
-      setZipProgress(progress);
-      if (progress >= 100) {
-        clearInterval(interval);
-        setIsZipFinished(true);
-        addNotification({ 
-          title: 'Selesai', 
-          message: 'ZIP Resi berhasil dibuat. Silakan klik tombol unduh ZIP.', 
-          type: 'success' 
-        });
-      }
-    }, 500);
+    try {
+      // Request ZIP generation job from backend
+      const res = await api.post('/auth/web/orders/resi/bulk/generate', {
+        order_ids: selectedOrderIds,
+      });
+      const jobId: string = res.data.job_id;
+
+      // Poll backend for job completion
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await api.get(`/auth/web/orders/resi/bulk/status?job_id=${jobId}`);
+          const { progress, status } = statusRes.data;
+          setZipProgress(progress ?? 0);
+
+          if (status === 'completed') {
+            clearInterval(pollInterval);
+            setIsZipFinished(true);
+            addNotification({
+              title: 'Selesai',
+              message: 'ZIP Resi berhasil dibuat. Silakan klik tombol unduh ZIP.',
+              type: 'success',
+            });
+          } else if (status === 'failed') {
+            clearInterval(pollInterval);
+            setIsDownloadingZip(false);
+            addNotification({
+              title: 'Gagal',
+              message: 'Gagal memproses ZIP resi. Silakan coba lagi.',
+              type: 'error',
+            });
+          }
+        } catch {
+          clearInterval(pollInterval);
+          setIsDownloadingZip(false);
+          addNotification({ title: 'Error', message: 'Koneksi terputus saat memproses ZIP.', type: 'error' });
+        }
+      }, 1500);
+    } catch (error: any) {
+      setIsDownloadingZip(false);
+      addNotification({
+        title: 'Gagal',
+        message: error?.response?.data?.error || 'Tidak dapat memulai proses ZIP.',
+        type: 'error',
+      });
+    }
   };
 
-  const executeZipDownload = () => {
-    // Premium instant ZIP/Bundle downloading text simulation
-    const blob = new Blob(
-      [
-        `=== LANCAR RESI ARCHIVE BUNDLE ===\n\nTotal Resi: ${selectedOrderIds.length}\nResi Numbers: ${orders
-          .filter((o) => selectedOrderIds.includes(o.id))
-          .map((o) => o.order_number)
-          .join(', ')}`
-      ],
-      { type: 'text/plain' }
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `resi_bundle_${Date.now()}.zip`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  // Trigger actual file download from backend-generated ZIP
+  const executeZipDownload = async () => {
+    try {
+      const res = await api.get('/auth/web/orders/resi/bulk/download', {
+        params: { order_ids: selectedOrderIds.join(',') },
+        responseType: 'blob',
+      });
 
-    // Reset polling modal state
-    setIsDownloadingZip(false);
-    setZipProgress(0);
-    setIsZipFinished(false);
-    setSelectedOrderIds([]);
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `resi_bundle_${Date.now()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      addNotification({ title: 'Error', message: 'Gagal mengunduh file ZIP.', type: 'error' });
+    } finally {
+      setIsDownloadingZip(false);
+      setZipProgress(0);
+      setIsZipFinished(false);
+      setSelectedOrderIds([]);
+    }
   };
 
   const formatIDR = (val: number) => {

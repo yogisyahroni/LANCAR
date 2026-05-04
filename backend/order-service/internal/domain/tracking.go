@@ -29,6 +29,13 @@ type TrackingResponse struct {
 	RoutePolyline string      `json:"route_polyline,omitempty"`
 }
 
+// GeofenceCheckResult contains the result of a PostGIS geofence spatial query.
+type GeofenceCheckResult struct {
+	IsInsideZone     bool    `db:"is_inside_zone"`
+	OutOfZoneMinutes int     `db:"out_of_zone_minutes"` // minutes since first out-of-zone GPS log, 0 if inside
+	AssignedZoneID   *string `db:"zone_id"`
+}
+
 type TrackingRepository interface {
 	SaveGPSLog(ctx context.Context, courierID uuid.UUID, orderID *uuid.UUID, loc GPSLocation, isSpoofed bool) error
 	UpdateCourierLocation(ctx context.Context, courierID uuid.UUID, loc GPSLocation) error
@@ -36,6 +43,11 @@ type TrackingRepository interface {
 	GetIdleCouriers(ctx context.Context, thresholdMinutes int) ([]uuid.UUID, error)
 	SetCourierOffline(ctx context.Context, courierID uuid.UUID) error
 	GetActiveCourierForOrder(ctx context.Context, orderID uuid.UUID) (*uuid.UUID, error)
+
+	// CheckGeofence performs a PostGIS ST_Contains spatial query to verify if the courier
+	// is inside their assigned zone polygon. Returns IsInsideZone=true (safe default)
+	// if the courier has no active order leg with an assigned zone.
+	CheckGeofence(ctx context.Context, courierID uuid.UUID, lat, lng float64) (*GeofenceCheckResult, error)
 }
 
 type TrackingService interface {

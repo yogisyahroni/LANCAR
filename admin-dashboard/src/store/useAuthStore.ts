@@ -5,7 +5,8 @@ interface User {
   id: string
   name: string
   email: string
-  role: 'admin' | 'superadmin'
+  // Backend returns 'super_admin', 'admin', 'manager', etc.
+  role: string
 }
 
 interface AuthState {
@@ -13,7 +14,7 @@ interface AuthState {
   isLoading: boolean
   isAuthenticated: boolean
   checkAuth: () => Promise<void>
-  login: (credentials: any) => Promise<void>
+  login: (credentials: { email: string; password: string }) => Promise<void>
   logout: () => Promise<void>
 }
 
@@ -24,56 +25,26 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   checkAuth: async () => {
     set({ isLoading: true })
-    
-    // Check for mock session first
-    if (localStorage.getItem('auth_mock') === 'true') {
-      set({ 
-        user: {
-          id: 'admin-mock-1',
-          name: 'Master Admin',
-          email: 'admin@lancar.com',
-          role: 'superadmin'
-        }, 
-        isAuthenticated: true, 
-        isLoading: false 
-      });
-      return;
-    }
-
     try {
-      const { data } = await api.get('/auth/verify')
+      // Correct endpoint: GET /auth/web/me (via gateway → admin-service)
+      const { data } = await api.get('/auth/web/me')
       set({ user: data.user, isAuthenticated: true, isLoading: false })
-    } catch (error) {
+    } catch {
       set({ user: null, isAuthenticated: false, isLoading: false })
     }
   },
 
   login: async (credentials) => {
-    // Mock Bypass for testing
-    if (credentials.email === 'admin@lancar.com' && credentials.password === 'admin123') {
-      const mockUser: User = {
-        id: 'admin-mock-1',
-        name: 'Master Admin',
-        email: 'admin@lancar.com',
-        role: 'superadmin'
-      };
-      localStorage.setItem('auth_mock', 'true');
-      set({ user: mockUser, isAuthenticated: true });
-      return;
-    }
-
-    const { data } = await api.post('/auth/login', credentials)
+    // Correct endpoint: POST /auth/web/login (via gateway → admin-service)
+    const { data } = await api.post('/auth/web/login', credentials)
     set({ user: data.user, isAuthenticated: true })
   },
 
   logout: async () => {
-    localStorage.removeItem('auth_mock');
     try {
-      await api.post('/auth/logout')
-      set({ user: null, isAuthenticated: false })
-      window.location.href = '/login'
-    } catch (error) {
-      // Still clear local state on error
+      // Correct endpoint: POST /auth/web/logout (via gateway → admin-service)
+      await api.post('/auth/web/logout')
+    } finally {
       set({ user: null, isAuthenticated: false })
       window.location.href = '/login'
     }

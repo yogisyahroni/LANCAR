@@ -20,7 +20,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
     `);
 
     const couriersResult = await readDb.query(`
-      SELECT COUNT(*) as total FROM courier_profiles WHERE status = 'approved'
+      SELECT COUNT(*) as total FROM courier_profiles WHERE verification_status = 'approved'
     `);
 
     const slaResult = await readDb.query(`
@@ -84,7 +84,7 @@ export const getAnalyticsKPIs = async (req: Request, res: Response) => {
       WITH stats AS (
         SELECT 
           (SELECT COUNT(*) FROM orders WHERE status = 'pending') as pending_orders,
-          (SELECT COUNT(*) FROM courier_profiles WHERE status = 'approved' AND is_online = TRUE) as online_couriers
+          (SELECT COUNT(*) FROM courier_profiles WHERE verification_status = 'approved' AND is_online = TRUE) as online_couriers
       )
       SELECT 
         CASE 
@@ -95,7 +95,7 @@ export const getAnalyticsKPIs = async (req: Request, res: Response) => {
     `);
 
     const courierRes = await readDb.query(`
-      SELECT COUNT(*) as total FROM courier_profiles WHERE status = 'approved'
+      SELECT COUNT(*) as total FROM courier_profiles WHERE verification_status = 'approved'
     `);
 
     const avgDeliveryRes = await readDb.query(`
@@ -262,7 +262,7 @@ export const getHeatData = async (req: Request, res: Response) => {
           ELSE 0.5
         END as weight
       FROM courier_profiles
-      WHERE status = 'approved' AND current_location IS NOT NULL
+      WHERE verification_status = 'approved' AND current_location IS NOT NULL
     `);
     res.json(result.rows);
   } catch (error: any) {

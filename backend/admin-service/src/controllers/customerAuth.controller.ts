@@ -38,11 +38,13 @@ export const loginWeb = async (req: Request, res: Response) => {
       [user.id, sessionToken, expiresAt, req.ip, req.headers['user-agent']]
     );
 
-    // Set HttpOnly cookie
+    // Set HttpOnly cookie with explicit path for gateway cross-path support
+    console.log(`\x1b[32m[Auth Success]\x1b[0m User: ${user.email}, Token: ${sessionToken.substring(0, 8)}...`);
     res.cookie('web_session', sessionToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax', // Use 'none' if backend and frontend are on different domains
+      secure: false, // Force false for local http development
+      sameSite: 'lax',
+      path: '/', // Crucial: must be root so it's sent for /api/v1/auth AND /api/v1/admin
       expires: expiresAt,
     });
 
@@ -55,6 +57,52 @@ export const loginWeb = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+export const refreshToken = async (req: Request, res: Response) => {
+  const sessionToken = req.cookies?.web_session;
+
+  if (!sessionToken) {
+    res.status(401).json({ error: 'Unauthorized: No session' });
+    return;
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT w.user_id, w.expires_at, u.email 
+       FROM web_sessions w
+       JOIN users u ON w.user_id = u.id
+       WHERE w.session_token = $1 AND w.expires_at > NOW()`,
+      [sessionToken]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(401).json({ error: 'Unauthorized: Session expired' });
+      return;
+    }
+
+    // Refresh expiry: Add another 7 days from now
+    const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await db.query(
+      'UPDATE web_sessions SET expires_at = $1 WHERE session_token = $2',
+      [newExpiresAt, sessionToken]
+    );
+
+    console.log(`\x1b[36m[Auth Refresh]\x1b[0m User: ${result.rows[0].email}`);
+
+    res.cookie('web_session', sessionToken, {
+      httpOnly: true,
+      secure: false, 
+      sameSite: 'lax',
+      path: '/',
+      expires: newExpiresAt,
+    });
+
+    res.json({ message: 'Session refreshed' });
+  } catch (error) {
+    console.error('Refresh token error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
 
 export const logoutWeb = async (req: Request, res: Response) => {
   const sessionToken = req.cookies?.web_session;

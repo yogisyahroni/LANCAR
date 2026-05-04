@@ -348,6 +348,28 @@ jobs:
             ghcr.io/${{ env.REPO_LOWER }}/admin-service:staging
             ghcr.io/${{ env.REPO_LOWER }}/admin-service:staging-${{ github.sha }}
 
+      - name: Build and Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:staging
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:staging-${{ github.sha }}
+
+      - name: Build and Push Admin Dashboard
+        uses: docker/build-push-action@v5
+        with:
+          context: ./admin-dashboard
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/admin-dashboard:staging
+            ghcr.io/${{ env.REPO_LOWER }}/admin-dashboard:staging-${{ github.sha }}
+
       # ── Trivy: scan pushed images for vulnerabilities ─────
       - name: Trivy scan (admin-service)
         uses: aquasecurity/trivy-action@master
@@ -378,6 +400,8 @@ jobs:
           echo "  Auth:    ghcr.io/${GITHUB_REPOSITORY,,}/auth-service:staging-${GITHUB_SHA}"
           echo "  Admin:   ghcr.io/${GITHUB_REPOSITORY,,}/admin-service:staging-${GITHUB_SHA}"
           echo "  Routing: ghcr.io/${GITHUB_REPOSITORY,,}/routing-service:staging-${GITHUB_SHA}"
+          echo "  Frontend: ghcr.io/${GITHUB_REPOSITORY,,}/frontend:staging-${GITHUB_SHA}"
+          echo "  Admin UI: ghcr.io/${GITHUB_REPOSITORY,,}/admin-dashboard:staging-${GITHUB_SHA}"
           echo ""
           echo "⏳ When server is ready: replace this with SSH deploy or docker-compose pull + up"
 

@@ -13,11 +13,23 @@ type mapsRepo struct {
 }
 
 func NewMapsRepository(apiKey string) (domain.MapsRepository, error) {
+	if apiKey == "" {
+		// Return a mock repository if no API key is provided
+		return &mockMapsRepo{}, nil
+	}
+
 	c, err := maps.NewClient(maps.WithAPIKey(apiKey))
 	if err != nil {
 		return nil, err
 	}
 	return &mapsRepo{client: c}, nil
+}
+
+type mockMapsRepo struct{}
+
+func (m *mockMapsRepo) GetDistanceMatrix(ctx context.Context, originLat, originLng, destLat, destLng float64) (float64, float64, string, string, error) {
+	// Return some mock values
+	return 5.0, 15.0, "Mock Origin", "Mock Destination", nil
 }
 
 func (r *mapsRepo) GetDistanceMatrix(ctx context.Context, originLat, originLng, destLat, destLng float64) (float64, float64, string, string, error) {
