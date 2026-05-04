@@ -1,3 +1,4 @@
+-- +goose Up
 INSERT INTO system_configs (key, value, category, description)
 VALUES ('sla_config', '{
     "P2P": [
@@ -16,3 +17,6 @@ VALUES ('sla_config', '{
       { "stage": "Final Leg Delivery", "target": "30m", "critical": "45m" }
     ]
 }', 'logistics', 'System-wide SLA thresholds');
+
+-- +goose Down
+DELETE FROM system_configs WHERE key = 'sla_config';

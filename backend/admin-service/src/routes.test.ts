@@ -124,7 +124,9 @@ jest.mock('./db', () => ({
 describe('Admin Service Routes', () => {
   it('should return all flags', async () => {
     const res = await request(app).get('/admin/feature-flags')
+      .set('x-user-id', 'test-user-id')
       .set('x-user-role', 'super_admin')
+      .set('x-user-full-name', 'Test User')
       .set('x-totp-verified', 'true');
     expect(res.status).toBe(200);
     expect(res.body).toEqual([{ key: 'test-flag' }]);
@@ -132,7 +134,9 @@ describe('Admin Service Routes', () => {
 
   it('should toggle flag', async () => {
     const res = await request(app).patch('/admin/feature-flags/test-flag/toggle')
+      .set('x-user-id', 'test-user-id')
       .set('x-user-role', 'super_admin')
+      .set('x-user-full-name', 'Test User')
       .set('x-totp-verified', 'true')
       .send({
         enabled: true,
@@ -145,7 +149,9 @@ describe('Admin Service Routes', () => {
 
   it('should get 3-legs readiness', async () => {
     const res = await request(app).get('/admin/feature-flags/readiness/three-legs')
+      .set('x-user-id', 'test-user-id')
       .set('x-user-role', 'super_admin')
+      .set('x-user-full-name', 'Test User')
       .set('x-totp-verified', 'true');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ readiness: true });
@@ -153,7 +159,9 @@ describe('Admin Service Routes', () => {
   
   it('should get notification template by id', async () => {
     const res = await request(app).get('/admin/notifications/templates/1')
+      .set('x-user-id', 'test-user-id')
       .set('x-user-role', 'super_admin')
+      .set('x-user-full-name', 'Test User')
       .set('x-totp-verified', 'true');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ id: '1' });
@@ -161,7 +169,9 @@ describe('Admin Service Routes', () => {
 
   it('should create notification template', async () => {
     const res = await request(app).post('/admin/notifications/templates')
+      .set('x-user-id', 'test-user-id')
       .set('x-user-role', 'super_admin')
+      .set('x-user-full-name', 'Test User')
       .set('x-totp-verified', 'true')
       .send({ trigger: 'test', subject: 'test', content: 'test' });
     expect(res.status).toBe(201);
@@ -170,7 +180,9 @@ describe('Admin Service Routes', () => {
 
   it('should delete notification template', async () => {
     const res = await request(app).delete('/admin/notifications/templates/1')
+      .set('x-user-id', 'test-user-id')
       .set('x-user-role', 'super_admin')
+      .set('x-user-full-name', 'Test User')
       .set('x-totp-verified', 'true');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: 'deleted' });
