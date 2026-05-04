@@ -204,7 +204,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           {navItems.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
-              <Link key={item.path || item.href} href={item.href}>
+              <Link key={item.href} href={item.href}>
                 <motion.div
                   whileHover={{ x: 4, scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
