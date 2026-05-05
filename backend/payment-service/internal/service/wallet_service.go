@@ -113,8 +113,11 @@ func (s *walletService) Deposit(ctx context.Context, userID uuid.UUID, amount fl
 	return tx.Commit()
 }
 
-func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, amount float64, bankDetails map[string]any) error {
-	const withdrawalFee = 5000.0
+func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole string, amount float64, bankDetails map[string]any) error {
+	withdrawalFee := 5000.0
+	if userRole == "courier" {
+		withdrawalFee = 0.0
+	}
 	
 	totalDeduction := amount + withdrawalFee
 

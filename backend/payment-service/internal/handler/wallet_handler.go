@@ -88,6 +88,7 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 
 func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 	userIDStr := r.Header.Get("X-User-ID")
+	userRole := r.Header.Get("X-User-Role")
 	userID, _ := uuid.Parse(userIDStr)
 
 	var req struct {
@@ -99,7 +100,7 @@ func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.svc.Withdraw(r.Context(), userID, req.Amount, req.BankDetails)
+	err := h.svc.Withdraw(r.Context(), userID, userRole, req.Amount, req.BankDetails)
 	if err != nil {
 		h.respondError(w, err.Error(), http.StatusInternalServerError)
 		return

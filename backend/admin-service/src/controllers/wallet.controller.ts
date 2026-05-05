@@ -74,6 +74,7 @@ export const requestWithdrawal = async (req: Request, res: Response) => {
       method: 'POST',
       headers: {
         'X-User-ID': user.id,
+        'X-User-Role': user.role,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ 
