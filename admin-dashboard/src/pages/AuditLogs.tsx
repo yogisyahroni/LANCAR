@@ -168,11 +168,24 @@ export default function AuditLogs() {
                       </span>
                     </td>
                     <td className="px-8 py-6">
-                      <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-md bg-zinc-800 flex items-center justify-center">
-                          <User size={12} className="text-zinc-500" />
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "h-7 w-7 rounded-full flex items-center justify-center",
+                          log.updated_by_name ? "bg-primary/20 text-primary-light" : "bg-zinc-800 text-zinc-500"
+                        )}>
+                          <User size={14} />
                         </div>
-                        <span className="text-xs font-bold text-zinc-400">{log.updated_by || 'System'}</span>
+                        <div className="flex flex-col">
+                          <span className={cn(
+                            "text-sm font-bold tracking-tight",
+                            log.updated_by_name ? "text-zinc-200" : "text-zinc-500 italic"
+                          )}>
+                            {log.updated_by_name || 'Automated System'}
+                          </span>
+                          {log.updated_by_name && (
+                            <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">Administrator</span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-8 py-6 max-w-xs">

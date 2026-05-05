@@ -16,9 +16,13 @@ import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
+import DisputeChat from '../components/DisputeChat'
+import { useAuthStore } from '../store/useAuthStore'
 
 export default function Disputes() {
   const [selectedDispute, setSelectedDispute] = useState<any>(null)
+  const [showChat, setShowChat] = useState(false)
+  const { user } = useAuthStore()
   const [filter, setFilter] = useState('All')
   const [page, setPage] = useState(1)
   const LIMIT = 10
@@ -303,9 +307,17 @@ export default function Disputes() {
                               {resolveMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle size={18} />}
                               Resolve & Close
                            </button>
-                           <button className="w-full py-4 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 font-black uppercase tracking-widest text-xs hover:bg-amber-500/20 transition-all flex items-center justify-center gap-3">
+                           <button 
+                            onClick={() => setShowChat(true)}
+                            className={cn(
+                              "w-full py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-3",
+                              showChat 
+                                ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                                : "bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20"
+                            )}
+                           >
                               <MessageSquare size={18} />
-                              Contact Customer
+                              {showChat ? 'Chat Active' : 'Contact Customer'}
                            </button>
                            <button 
                             onClick={() => resolveMutation.mutate({ id: selectedDispute.id, status: 'investigating' })}
@@ -315,10 +327,27 @@ export default function Disputes() {
                               Escalate / Investigate
                            </button>
                         </div>
-                     </div>
+                      </div>
                   </div>
                 </div>
-              </div>
+
+                <AnimatePresence>
+                   {showChat && (
+                     <motion.div
+                       initial={{ opacity: 0, height: 0 }}
+                       animate={{ opacity: 1, height: 'auto' }}
+                       exit={{ opacity: 0, height: 0 }}
+                       className="pt-12 border-t border-white/5 overflow-hidden"
+                     >
+                       <DisputeChat 
+                         disputeId={selectedDispute.id} 
+                         onClose={() => setShowChat(false)}
+                         currentUserId={user?.id || ''}
+                       />
+                     </motion.div>
+                   )}
+                 </AnimatePresence>
+               </div>
             </motion.div>
           </div>
         )}

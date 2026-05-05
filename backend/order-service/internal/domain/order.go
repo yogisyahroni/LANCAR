@@ -54,6 +54,7 @@ type OrderService interface {
 	GetOrder(ctx context.Context, orderID string) (*Order, error)
 	ListOrders(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, orderID string, status OrderStatus) error
+	AcceptOrder(ctx context.Context, orderID string, courierID string) error
 	FindAndAssignCourier(ctx context.Context, orderID string) error
 	ListEvents(ctx context.Context, userID string, since time.Time) ([]OrderEvent, error)
 }

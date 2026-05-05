@@ -7,7 +7,16 @@ class SocketService {
   private socket: Socket | null = null
 
   connect(userId?: string, role?: string) {
-    if (this.socket) return
+    // If socket exists, check if identity matches
+    if (this.socket) {
+      const currentQuery = this.socket.io.opts.query as any;
+      if (currentQuery?.userId === userId && currentQuery?.role === role) {
+        return;
+      }
+      // If identity changed, disconnect first
+      console.log('📡 [WebSocket] Identity changed, reconnecting...');
+      this.disconnect();
+    }
 
     this.socket = io(SOCKET_URL, {
       query: { userId, role },

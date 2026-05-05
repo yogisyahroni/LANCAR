@@ -23,9 +23,30 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
+	_ "lancar/order-service/internal/handler/docs"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
+// @title LANCAR Order Service API
+// @version 1.0
+// @description API for Order Management, Courier Dispatch, and Tracking.
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.lancar.id/support
+// @contact.email support@lancar.id
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8083
+// @BasePath /api/v1
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
+
 func main() {
+	// ... (imports remain the same but I need to add docs import)
 	// Load environment variables
 	godotenv.Load("../../.env", "../../../.env")
 
@@ -166,6 +187,9 @@ func main() {
 	mux.HandleFunc("/health", handler.HealthHandler)
 	mux.HandleFunc("/ready", handler.ReadinessHandlerFunc(db))
 	
+	// Swagger Documentation (Secure in Production)
+	mux.Handle("/swagger/", httpSwagger.WrapHandler)
+	
 	// WebSocket Route
 	mux.HandleFunc("/ws", middleware.AuthMiddleware(wsHandler.ServeHTTP))
 	
@@ -187,6 +211,10 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetOrder)))
 	mux.HandleFunc("/api/v1/orders/poll", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.PollOrderUpdates)))
 	mux.HandleFunc("/api/v1/meeting-points/suggest", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.SuggestMeetingPoints)))
+
+	// Courier Workflow Routes
+	mux.HandleFunc("/api/v1/couriers/orders/accept", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AcceptOrder)))
+	mux.HandleFunc("/api/v1/orders/status", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.UpdateStatus)))
 
 	// Tracking Routes
 	mux.HandleFunc("/api/v1/tracking/location", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.UpdateLocation)))

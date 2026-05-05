@@ -22,7 +22,8 @@ import {
   ChevronRight,
   MapPin,
   Menu,
-  ChevronLeft
+  ChevronLeft,
+  AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -66,7 +67,17 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             type: 'info'
           });
           // Add to bell list
-          setBellNotifications(prev => [notif, ...prev]);
+          setBellNotifications(prev => {
+            // Avoid duplicates
+            if (prev.find(n => n.id === notif.id)) return prev;
+            return [notif, ...prev];
+          });
+          
+          // If it's a dispute chat, we might want to refresh current chat view if open
+          if (notif.type === 'dispute_chat') {
+             // Dispatch a custom event for local components to listen to
+             window.dispatchEvent(new CustomEvent('new_dispute_chat_notification', { detail: notif }));
+          }
         });
       }
     }
@@ -153,6 +164,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     { name: 'Kirim Paket', href: '/orders/new', icon: Package },
     { name: 'Kirim Massal', href: '/orders/bulk', icon: Layers },
     { name: 'Riwayat Order', href: '/orders', icon: Package },
+    { name: 'Pusat Bantuan', href: '/disputes', icon: AlertTriangle },
     { name: 'Resi Management', href: '/resi', icon: Layers },
     { name: 'Buku Alamat', href: '/alamat', icon: MapPin },
     { name: 'Laporan UMKM', href: '/laporan', icon: BarChart3 },

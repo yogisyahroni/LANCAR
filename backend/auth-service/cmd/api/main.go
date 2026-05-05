@@ -16,7 +16,27 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
+	_ "lancar/auth-service/internal/handler/docs"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
+
+// @title LANCAR Identity Service API
+// @version 1.0
+// @description API for Authentication, Courier Onboarding, and User Management.
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.lancar.id/support
+// @contact.email support@lancar.id
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8081
+// @BasePath /api/v1
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
 
 func main() {
 	// Load environment variables
@@ -145,6 +165,9 @@ func main() {
 	// ─────────────────────────────────────────────
 	mux.HandleFunc("/health", handler.HealthHandler)
 	mux.HandleFunc("/ready", handler.ReadinessHandlerFunc(db)) // Check writer for readiness
+
+	// Swagger Documentation (Secure in Production)
+	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 
 	// ─────────────────────────────────────────────
 	// API v1 — OTP Endpoints (public + rate limited)

@@ -1,0 +1,381 @@
+basePath: /api/v1
+definitions:
+  lancar_order-service_internal_domain.CreateOrderRequest:
+    properties:
+      estimate_id:
+        type: string
+    required:
+    - estimate_id
+    type: object
+  lancar_order-service_internal_domain.Order:
+    properties:
+      base_price_idr:
+        type: integer
+      cancellation_reason:
+        type: string
+      created_at:
+        type: string
+      customer_id:
+        type: string
+      dispatch_expiry:
+        type: string
+      distance_km:
+        type: number
+      dropoff_address:
+        type: string
+      dropoff_lat:
+        type: number
+      dropoff_lng:
+        type: number
+      dynamic_price_idr:
+        type: integer
+      handover_token:
+        type: string
+      id:
+        type: string
+      model:
+        type: string
+      order_number:
+        type: string
+      pickup_address:
+        type: string
+      pickup_lat:
+        type: number
+      pickup_lng:
+        type: number
+      qr_code_url:
+        type: string
+      status:
+        $ref: '#/definitions/lancar_order-service_internal_domain.OrderStatus'
+      total_price_idr:
+        type: integer
+      updated_at:
+        type: string
+      volumetric_surcharge_idr:
+        type: integer
+    type: object
+  lancar_order-service_internal_domain.OrderEvent:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      message:
+        type: string
+      order_id:
+        type: string
+      status:
+        $ref: '#/definitions/lancar_order-service_internal_domain.OrderStatus'
+      user_id:
+        type: string
+    type: object
+  lancar_order-service_internal_domain.OrderStatus:
+    enum:
+    - pending_payment
+    - pending
+    - pending_assignment
+    - searching
+    - accepted
+    - picking_up
+    - picked_up
+    - delivering
+    - delivered
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - StatusPendingPayment
+    - StatusPending
+    - StatusPendingAssignment
+    - StatusSearching
+    - StatusAccepted
+    - StatusPickingUp
+    - StatusPickedUp
+    - StatusDelivering
+    - StatusDelivered
+    - StatusCancelled
+  lancar_order-service_internal_domain.PricingEstimateRequest:
+    properties:
+      dropoff_lat:
+        type: number
+      dropoff_lng:
+        type: number
+      height:
+        type: number
+      length:
+        type: number
+      models:
+        description: Requested delivery models
+        items:
+          type: string
+        type: array
+      pickup_lat:
+        type: number
+      pickup_lng:
+        type: number
+      weight:
+        type: number
+      width:
+        type: number
+    required:
+    - dropoff_lat
+    - dropoff_lng
+    - height
+    - length
+    - models
+    - pickup_lat
+    - pickup_lng
+    - weight
+    - width
+    type: object
+  lancar_order-service_internal_domain.PricingEstimateResponse:
+    properties:
+      base_price_idr:
+        type: integer
+      distance_km:
+        type: number
+      dropoff_address:
+        type: string
+      dropoff_lat:
+        type: number
+      dropoff_lng:
+        type: number
+      duration_min:
+        type: number
+      dynamic_price_idr:
+        type: integer
+      estimate_id:
+        type: string
+      expires_at:
+        type: string
+      model:
+        description: Selected delivery model
+        type: string
+      pickup_address:
+        type: string
+      pickup_lat:
+        description: Original coords for order creation
+        type: number
+      pickup_lng:
+        type: number
+      total_price_idr:
+        type: integer
+      volumetric_surcharge_idr:
+        type: integer
+    type: object
+host: localhost:8083
+info:
+  contact:
+    email: support@lancar.id
+    name: API Support
+    url: http://www.lancar.id/support
+  description: API for Order Management, Courier Dispatch, and Tracking.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: LANCAR Order Service API
+  version: "1.0"
+paths:
+  /couriers/orders/{id}/accept:
+    post:
+      consumes:
+      - application/json
+      description: Accept a pending delivery order
+      parameters:
+      - description: Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: Accept an order (Courier)
+      tags:
+      - couriers
+  /meeting-points/suggest:
+    get:
+      description: Suggest best meeting points for a route
+      parameters:
+      - description: Pickup Latitude
+        in: query
+        name: pickup_lat
+        required: true
+        type: number
+      - description: Pickup Longitude
+        in: query
+        name: pickup_lng
+        required: true
+        type: number
+      - description: Dropoff Latitude
+        in: query
+        name: dropoff_lat
+        required: true
+        type: number
+      - description: Dropoff Longitude
+        in: query
+        name: dropoff_lng
+        required: true
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+      summary: Suggest meeting points
+      tags:
+      - orders
+  /orders:
+    get:
+      description: Get a list of orders for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/lancar_order-service_internal_domain.Order'
+            type: array
+      security:
+      - Bearer: []
+      summary: List customer orders
+      tags:
+      - orders
+    post:
+      consumes:
+      - application/json
+      description: Create a new delivery order
+      parameters:
+      - description: Create Order Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/lancar_order-service_internal_domain.CreateOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/lancar_order-service_internal_domain.Order'
+      security:
+      - Bearer: []
+      summary: Create a new order
+      tags:
+      - orders
+  /orders/detail:
+    get:
+      description: Get full details of a specific order
+      parameters:
+      - description: Order ID
+        in: query
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/lancar_order-service_internal_domain.Order'
+      security:
+      - Bearer: []
+      summary: Get order details
+      tags:
+      - orders
+  /orders/poll:
+    get:
+      description: Fallback mechanism for WebSocket failures
+      parameters:
+      - description: ISO8601 timestamp
+        in: query
+        name: since
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/lancar_order-service_internal_domain.OrderEvent'
+            type: array
+      security:
+      - Bearer: []
+      summary: Poll for order status updates
+      tags:
+      - orders
+  /orders/status:
+    patch:
+      consumes:
+      - application/json
+      description: Update the status of an order
+      parameters:
+      - description: Order ID
+        in: query
+        name: id
+        required: true
+        type: string
+      - description: New Status
+        in: query
+        name: status
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: Update order status (Courier/Admin)
+      tags:
+      - orders
+  /pricing/estimate:
+    post:
+      consumes:
+      - application/json
+      description: Get pricing estimate for an order without creating it
+      parameters:
+      - description: Pricing Estimate Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/lancar_order-service_internal_domain.PricingEstimateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/lancar_order-service_internal_domain.PricingEstimateResponse'
+      summary: Estimate pricing
+      tags:
+      - pricing
+securityDefinitions:
+  Bearer:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

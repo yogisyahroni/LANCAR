@@ -18,7 +18,8 @@ import {
   Map,
   LogOut,
   History,
-  Activity
+  Activity,
+  ChevronRight
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -28,11 +29,13 @@ import { toast } from 'sonner'
 
 import { useAuthStore } from '../store/useAuthStore'
 
+import { createPortal } from 'react-dom'
+
 interface SidebarItemProps {
-  icon: React.ElementType
+  icon: any
   label: string
   path: string
-  collapsed?: boolean
+  collapsed: boolean
 }
 
 const SidebarItem = ({ icon: Icon, label, path, collapsed }: SidebarItemProps) => {
@@ -73,20 +76,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, logout } = useAuthStore()
   const socket = useSocket()
   const navigate = useNavigate()
+  const location = useLocation()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isNotifOpen, setIsNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState<DBNotification[]>([])
+  const [activeToasts, setActiveToasts] = useState<DBNotification[]>([])
 
   const fetchNotifications = async () => {
     try {
       const res = await api.get('/auth/web/notifications')
-      if (res.data && res.data.success) {
-        setNotifications(res.data.notifications || [])
+      if (res.data && Array.isArray(res.data.notifications)) {
+        setNotifications(res.data.notifications)
       }
     } catch (e) {
       console.error('Failed to fetch notifications:', e)
     }
+  }
+
+  const removeToast = (id: string) => {
+    setActiveToasts(prev => prev.filter(t => t.id !== id))
   }
 
   useEffect(() => {
@@ -95,13 +104,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       const handleNewNotif = (notif: DBNotification) => {
         console.log('📡 [WebSocket] Admin notification:', notif)
-        setNotifications(prev => [notif, ...prev])
-        toast(notif.title, {
+        
+        // 1. Update list
+        setNotifications(prev => {
+          if (prev.find(n => n.id === notif.id)) return prev;
+          return [notif, ...prev];
+        })
+
+        // 2. Trigger Custom Toast Popup (Like Customer Side)
+        setActiveToasts(prev => [notif, ...prev])
+        
+        // Auto-remove toast after 6 seconds
+        setTimeout(() => {
+          removeToast(notif.id)
+        }, 6000)
+
+        // 3. Keep Sonner as backup/standard fallback
+        toast.info(notif.title, {
           description: notif.body,
-          action: notif.deep_link ? {
-            label: 'Lihat',
-            onClick: () => navigate(notif.deep_link!)
-          } : undefined
         })
       }
 
@@ -111,6 +131,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       }
     }
   }, [user?.id, socket, navigate])
+
+  useEffect(() => {
+    setIsNotifOpen(false)
+  }, [location.pathname])
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -136,7 +160,61 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="absolute top-[-10%] right-[-10%] w-[30%] h-[30%] bg-primary/20 rounded-full blur-[100px]" />
       </div>
 
-      {/* Sidebar - Desktop */}
+      {/* Global Custom Toast Notifications (Floating Popups - Matching Customer Portal) */}
+      <div className="fixed top-24 right-6 z-[10000] flex flex-col gap-3 max-w-sm pointer-events-none select-none">
+        <AnimatePresence mode="popLayout">
+          {activeToasts.map((toastNotif) => (
+            <motion.div
+              layout
+              key={toastNotif.id}
+              initial={{ opacity: 0, x: 50, scale: 0.9, y: 0 }}
+              animate={{ opacity: 1, x: 0, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.1 } }}
+              whileHover={{ scale: 1.02 }}
+              className="p-4 bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl pointer-events-auto flex justify-between gap-4 group cursor-pointer"
+              onClick={() => {
+                if (toastNotif.deep_link) navigate(toastNotif.deep_link)
+                removeToast(toastNotif.id)
+              }}
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="p-2 rounded-xl bg-primary/20 text-primary-light shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]">
+                    <Bell size={14} className="animate-bounce" />
+                  </div>
+                  <h4 className="text-[14px] font-black text-zinc-100 uppercase tracking-tighter truncate">
+                    {toastNotif.title || 'Notification'}
+                  </h4>
+                </div>
+                <p className="text-[12px] text-zinc-400 mt-2 leading-relaxed font-medium">
+                  {toastNotif.body}
+                </p>
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/5 border border-white/5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-primary-light animate-pulse" />
+                    <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">Baru Saja</span>
+                  </div>
+                  {toastNotif.deep_link && (
+                    <span className="text-[9px] text-primary-light font-black uppercase tracking-widest flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                      Lihat Detail <ChevronRight size={10} />
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  removeToast(toastNotif.id)
+                }}
+                className="p-1.5 h-7 w-7 flex items-center justify-center rounded-xl text-zinc-600 hover:bg-white/10 hover:text-white transition-all shrink-0"
+              >
+                <X size={14} />
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
       <motion.aside
         initial={false}
         animate={{ width: isCollapsed ? 80 : 280 }}
@@ -180,7 +258,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </motion.aside>
 
-      {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
         {isMobileMenuOpen && (
           <>
@@ -203,7 +280,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center">
                     <Package className="h-6 w-6 text-white" />
                   </div>
-                  <span className="font-bold text-2xl">LANCAR</span>
+                  <span className="font-bold text-2xl tracking-tight">LANCAR</span>
                 </div>
                 <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-zinc-500">
                   <X size={24} />
@@ -211,7 +288,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
               <nav className="space-y-2">
                 {navItems.map((item) => (
-                  <SidebarItem key={item.path} {...item} />
+                  <SidebarItem key={item.path} {...item} collapsed={false} />
                 ))}
               </nav>
             </motion.aside>
@@ -219,12 +296,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
       </AnimatePresence>
 
-      {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* Topbar */}
-        <header className="h-20 border-b border-white/5 bg-zinc-950/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20">
-          <div className="flex items-center gap-4 flex-1">
+        <header className="h-20 border-b border-white/5 bg-zinc-950/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-[999]">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
             <button 
+              type="button"
               className="lg:hidden p-2 text-zinc-400 hover:text-white"
               onClick={() => setIsMobileMenuOpen(true)}
             >
@@ -240,50 +316,70 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-shrink-0">
             <div className="relative">
               <button 
+                type="button"
                 onClick={() => setIsNotifOpen(!isNotifOpen)}
-                className="relative p-2.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                className={cn(
+                  "p-2.5 rounded-xl transition-all duration-200",
+                  isNotifOpen 
+                    ? "bg-primary/20 text-primary-light" 
+                    : "text-zinc-400 hover:text-white hover:bg-white/5"
+                )}
+                aria-label="Notifications"
               >
-                <Bell className="h-5 w-5" />
+                <Bell className={cn("h-5 w-5 transition-transform", isNotifOpen && "scale-110")} />
                 {notifications.some(n => !n.is_read) && (
-                  <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-primary-light rounded-full border-2 border-zinc-950" />
+                  <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-zinc-950 animate-pulse" />
                 )}
               </button>
 
               <AnimatePresence>
                 {isNotifOpen && (
                   <>
-                    <div className="fixed inset-0 z-30" onClick={() => setIsNotifOpen(false)} />
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setIsNotifOpen(false)} 
+                    />
                     <motion.div
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-2 w-80 bg-zinc-900 border border-white/10 rounded-2xl p-4 flex flex-col max-h-[420px] z-40 shadow-2xl"
+                      transition={{ duration: 0.2 }}
+                      className="absolute right-0 mt-3 w-80 bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-3xl p-4 flex flex-col max-h-[500px] z-20 shadow-2xl shadow-black/80 overflow-hidden"
                     >
-                      <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-2">
-                        <span className="text-xs font-semibold text-zinc-300">Notifications</span>
-                        <button 
-                          onClick={async () => {
-                            try {
-                              await api.delete('/auth/web/notifications')
-                              setNotifications([])
-                            } catch (e) { console.error(e) }
-                          }}
-                          className="text-[10px] text-primary-light hover:underline"
-                        >
-                          Clear All
-                        </button>
+                      <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-3">
+                        <div className="flex items-center gap-2">
+                          <Bell size={14} className="text-primary-light" />
+                          <span className="text-[11px] font-black text-zinc-300 uppercase tracking-[0.2em]">Notifications</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button 
+                            onClick={async () => {
+                              try {
+                                await api.delete('/auth/web/notifications')
+                                setNotifications([])
+                              } catch (e) { console.error(e) }
+                            }}
+                            className="text-[9px] font-bold text-primary-light hover:text-white uppercase tracking-wider transition-colors"
+                          >
+                            Clear All
+                          </button>
+                          <button onClick={() => setIsNotifOpen(false)}>
+                            <X size={14} className="text-zinc-500 hover:text-white transition-colors" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="overflow-y-auto space-y-2 flex-1 scrollbar-hide">
+                      
+                      <div className="overflow-y-auto space-y-2 flex-1 scrollbar-hide pr-1">
                         {notifications.length > 0 ? (
                           notifications.map((notif) => (
                             <div 
                               key={notif.id} 
                               className={cn(
-                                "p-3 rounded-xl transition-all cursor-pointer border border-transparent",
-                                notif.is_read ? "opacity-50" : "bg-white/5 hover:bg-white/10 border-white/5"
+                                "p-3.5 rounded-2xl border transition-all cursor-pointer group relative",
+                                notif.is_read ? "bg-white/2 border-transparent opacity-60" : "bg-white/5 border-white/5 shadow-lg hover:bg-white/10"
                               )}
                               onClick={async () => {
                                 if (!notif.is_read) {
@@ -301,19 +397,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                               }}
                             >
                               <div className="flex items-start justify-between gap-2">
-                                <h4 className="text-xs font-bold text-zinc-200">{notif.title}</h4>
-                                {!notif.is_read && <span className="w-1.5 h-1.5 bg-primary-light rounded-full mt-1 shrink-0" />}
+                                <h4 className="text-[11px] font-black text-zinc-100 uppercase tracking-widest">{notif.title}</h4>
+                                {!notif.is_read && <span className="w-2 h-2 bg-emerald-500 rounded-full mt-1 shrink-0 animate-pulse" />}
                               </div>
-                              <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">{notif.body}</p>
-                              <span className="text-[9px] text-zinc-500 mt-2 block">
-                                {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
+                              <p className="text-[11px] text-zinc-400 mt-1.5 leading-relaxed line-clamp-2 font-medium">{notif.body}</p>
+                              <div className="flex items-center justify-between mt-3">
+                                <span className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest bg-black/20 px-1.5 py-0.5 rounded">
+                                  {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                {notif.type === 'dispute_chat' && (
+                                  <span className="text-[8px] bg-red-500/10 text-red-400 px-2 py-0.5 rounded-full uppercase font-black tracking-[0.1em] border border-red-500/20">Dispute</span>
+                                )}
+                              </div>
                             </div>
                           ))
                         ) : (
-                          <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <Bell className="h-8 w-8 text-zinc-700 mb-2" />
-                            <p className="text-xs text-zinc-500">No new notifications</p>
+                          <div className="flex flex-col items-center justify-center py-12 text-center opacity-40">
+                            <div className="h-14 w-14 bg-white/5 rounded-full flex items-center justify-center mb-4 border border-white/5">
+                              <Bell className="h-7 w-7 text-zinc-400" />
+                            </div>
+                            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">No new notifications</p>
                           </div>
                         )}
                       </div>
@@ -322,6 +425,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </AnimatePresence>
             </div>
+
             <div className="h-8 w-px bg-white/10 mx-2" />
             <div className="flex items-center gap-3 group p-1.5 hover:bg-white/5 rounded-xl transition-all">
               <div className="text-right hidden sm:block">
@@ -350,6 +454,5 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </main>
     </div>
-
   )
 }

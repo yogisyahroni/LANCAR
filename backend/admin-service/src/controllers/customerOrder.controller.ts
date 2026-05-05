@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import { db } from '../db';
 import { createNotification } from '../notifications';
 import { getIO } from '../websocket';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 
 // Helper to calculate distance based on coordinates (Haversine formula mock)
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -328,7 +331,7 @@ export const sendOrderChat = async (req: Request, res: Response): Promise<void> 
   try {
     const sender_id = req.user?.id;
     const id = req.params.id as string;
-    const { message } = req.body;
+    const { message, message_type = 'text' } = req.body;
 
     if (!message) {
       res.status(400).json({ error: 'Message is required' });
@@ -354,10 +357,10 @@ export const sendOrderChat = async (req: Request, res: Response): Promise<void> 
     const recipient_id = isCustomerSender ? order.courier_id : order.customer_id;
 
     const { rows } = await db.query(`
-      INSERT INTO order_chats (order_id, sender_id, message)
-      VALUES ($1, $2, $3)
+      INSERT INTO order_chats (order_id, sender_id, message, message_type)
+      VALUES ($1, $2, $3, $4)
       RETURNING *
-    `, [id, sender_id, message]);
+    `, [id, sender_id, message, message_type]);
 
     const chatMessage = rows[0];
 
@@ -367,7 +370,8 @@ export const sendOrderChat = async (req: Request, res: Response): Promise<void> 
         const io = getIO();
         io.to(sender_id).to(recipient_id).emit('new_chat_message', {
           ...chatMessage,
-          order_number: order.order_number
+          order_number: order.order_number,
+          sender_name: req.user?.full_name || 'User'
         });
       } catch (wsError) {
         console.warn('[WebSocket] Could not emit chat message:', wsError);
@@ -376,10 +380,11 @@ export const sendOrderChat = async (req: Request, res: Response): Promise<void> 
 
     // Create notification for recipient if they are not the sender
     if (recipient_id) {
+      const notificationBody = message_type === 'image' ? '📸 [Gambar]' : (message.length > 50 ? message.substring(0, 47) + '...' : message);
       await createNotification({
         user_id: recipient_id,
         title: `Pesan Baru - ${order.order_number}`,
-        body: message.length > 50 ? message.substring(0, 47) + '...' : message,
+        body: notificationBody,
         type: 'chat',
         order_id: id,
         metadata: {
@@ -392,6 +397,29 @@ export const sendOrderChat = async (req: Request, res: Response): Promise<void> 
 
     res.status(201).json({ success: true, chat: chatMessage });
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const uploadOrderFile = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const file = req.file;
+    const ext = path.extname(file.originalname);
+    const filename = `${crypto.randomUUID()}${ext}`;
+
+    const uploadPath = path.join(process.cwd(), 'public/uploads', filename);
+
+    // Save file from memory to disk
+    fs.writeFileSync(uploadPath, file.buffer);
+
+    const fileUrl = `/uploads/${filename}`;
+    res.json({ success: true, url: fileUrl });
+  } catch (error: any) {
+    console.error('Error uploading order file:', error);
     res.status(500).json({ error: error.message });
   }
 };

@@ -1,6 +1,12 @@
 import { Request, Response } from 'express';
 import { db, readDb } from '../db';
 import { createNotification } from '../notifications';
+import { getIO } from '../websocket';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+
+
 
 export const getDisputes = async (req: Request, res: Response) => {
   try {
@@ -65,6 +71,8 @@ export const getDisputeStats = async (req: Request, res: Response) => {
 export const updateDisputeStatus = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { status, resolution_note } = req.body;
+  const admin_id = (req as any).user?.id;
+
   try {
     const query = `
       UPDATE disputes 
@@ -82,7 +90,38 @@ export const updateDisputeStatus = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Dispute not found' });
     }
 
-    res.json(result.rows[0]);
+    const dispute = result.rows[0];
+
+    // Notify Customer about status change
+    try {
+      let title = 'Update Status Dispute';
+      let body = `Status tiket dispute Anda berubah menjadi: ${status.toUpperCase()}`;
+      
+      if (status === 'resolved') {
+        title = 'Dispute Terselesaikan';
+        body = `Tiket dispute Anda telah diselesaikan oleh Admin. Catatan: ${resolution_note || 'Tidak ada catatan'}`;
+      } else if (status === 'investigating') {
+        title = 'Dispute Sedang Diinvestigasi';
+        body = 'Admin sedang meninjau laporan Anda. Mohon tunggu update selanjutnya.';
+      }
+
+      await createNotification({
+        user_id: dispute.opened_by,
+        title,
+        body,
+        type: 'dispute_update',
+        order_id: dispute.order_id,
+        metadata: {
+          dispute_id: id,
+          status
+        },
+        deep_link: `/orders/${dispute.order_id}`
+      });
+    } catch (notifError) {
+      console.warn('[Dispute] Failed to notify customer:', notifError);
+    }
+
+    res.json(dispute);
   } catch (error: any) {
     console.error('Error updating dispute status:', error);
     res.status(500).json({ error: error.message });
@@ -165,6 +204,147 @@ export const createDispute = async (req: Request, res: Response) => {
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error: any) {
     console.error('Error creating dispute:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getCustomerDisputes = async (req: Request, res: Response) => {
+  const user_id = (req as any).user?.id;
+  try {
+    const result = await readDb.query(`
+      SELECT d.*, o.order_number 
+      FROM disputes d
+      JOIN orders o ON d.order_id = o.id
+      WHERE d.opened_by = $1
+      ORDER BY d.created_at DESC
+    `, [user_id]);
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getDisputeChats = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  try {
+    const result = await readDb.query(`
+      SELECT c.*, u.full_name as sender_name, u.role as sender_role
+      FROM dispute_chats c
+      JOIN users u ON c.sender_id = u.id
+      WHERE c.dispute_id = $1
+      ORDER BY c.created_at ASC
+    `, [id]);
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const uploadDisputeFile = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const file = req.file;
+    const ext = path.extname(file.originalname);
+    const filename = `${crypto.randomUUID()}${ext}`;
+
+    const uploadPath = path.join(process.cwd(), 'public/uploads', filename);
+
+    // Save file from memory to disk
+    fs.writeFileSync(uploadPath, file.buffer);
+
+    const fileUrl = `/uploads/${filename}`;
+    res.json({ success: true, url: fileUrl });
+  } catch (error: any) {
+    console.error('Error uploading dispute file:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const sendDisputeChat = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { message, message_type = 'text' } = req.body;
+  const sender_id = (req as any).user?.id;
+
+  try {
+    const result = await db.query(`
+      INSERT INTO dispute_chats (dispute_id, sender_id, message, message_type)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `, [id, sender_id, message, message_type]);
+
+    const chatMsg = result.rows[0];
+
+    const disputeRes = await db.query(`
+      SELECT d.*, o.order_number 
+      FROM disputes d
+      JOIN orders o ON d.order_id = o.id
+      WHERE d.id = $1
+    `, [id]);
+    
+    if (disputeRes.rowCount === 0) return res.status(404).json({ error: 'Dispute not found' });
+    const dispute = disputeRes.rows[0];
+
+    const isCustomerSender = sender_id === dispute.opened_by;
+
+    // Emit via Socket to the dispute room
+    try {
+      const io = getIO();
+      io.to(id).emit('new_dispute_chat', {
+        ...chatMsg,
+        sender_name: (req as any).user?.full_name || 'User',
+        sender_role: (req as any).user?.role
+      });
+    } catch (wsError) {
+      console.warn('[WebSocket] Could not emit dispute chat message:', wsError);
+    }
+
+    // Bidirectional Notification Logic
+    const notificationBody = message_type === 'image' ? '📸 [Gambar]' : message.substring(0, 50) + '...';
+
+    if (isCustomerSender) {
+        // Customer -> Admin
+        if (dispute.assigned_to) {
+            await createNotification({
+                user_id: dispute.assigned_to,
+                title: 'Pesan Dispute Baru',
+                body: `Customer: ${notificationBody}`,
+                type: 'dispute_chat',
+                order_id: dispute.order_id,
+                metadata: { dispute_id: id },
+                deep_link: '/disputes'
+            });
+        } else {
+            const adminRes = await db.query("SELECT id FROM users WHERE role IN ('ops_admin', 'super_admin', 'cs_agent') AND status = 'active'");
+            for (const admin of adminRes.rows) {
+                await createNotification({
+                    user_id: admin.id,
+                    title: 'Pesan Dispute (Unassigned)',
+                    body: `Order ${dispute.order_number}: ${notificationBody}`,
+                    type: 'dispute_chat',
+                    order_id: dispute.order_id,
+                    metadata: { dispute_id: id },
+                    deep_link: '/disputes'
+                });
+            }
+        }
+    } else {
+        // Admin -> Customer
+        await createNotification({
+            user_id: dispute.opened_by,
+            title: 'Pesan Baru dari Admin',
+            body: `Admin: ${notificationBody}`,
+            type: 'dispute_chat',
+            order_id: dispute.order_id,
+            metadata: { dispute_id: id },
+            deep_link: `/orders/${dispute.order_id}`
+        });
+    }
+
+    res.json({ success: true, data: chatMsg });
+  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 };

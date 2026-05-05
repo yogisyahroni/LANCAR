@@ -245,3 +245,78 @@ func (h *OrderHandler) SuggestMeetingPoints(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(suggestions)
 }
+
+// AcceptOrder godoc
+// @Summary Accept an order (Courier)
+// @Description Accept a pending delivery order
+// @Tags couriers
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param id path string true "Order ID"
+// @Success 200 {object} map[string]string
+// @Router /couriers/orders/{id}/accept [post]
+func (h *OrderHandler) AcceptOrder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	orderID := r.URL.Query().Get("id")
+	if orderID == "" {
+		http.Error(w, "Order ID is required", http.StatusBadRequest)
+		return
+	}
+
+	courierID := middleware.GetUserIDFromContext(r.Context())
+	if courierID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	err := h.orderSvc.AcceptOrder(r.Context(), orderID, courierID)
+	if err != nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_ACCEPT_ORDER", err.Error(), correlationID)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "accepted", "order_id": orderID})
+}
+
+// UpdateStatus godoc
+// @Summary Update order status (Courier/Admin)
+// @Description Update the status of an order
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param id query string true "Order ID"
+// @Param status query string true "New Status"
+// @Success 200 {object} map[string]string
+// @Router /orders/status [patch]
+func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPatch {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	orderID := r.URL.Query().Get("id")
+	status := domain.OrderStatus(r.URL.Query().Get("status"))
+
+	if orderID == "" || status == "" {
+		http.Error(w, "Order ID and status are required", http.StatusBadRequest)
+		return
+	}
+
+	err := h.orderSvc.UpdateStatus(r.Context(), orderID, status)
+	if err != nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_UPDATE_STATUS", err.Error(), correlationID)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": string(status), "order_id": orderID})
+}

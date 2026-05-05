@@ -13,6 +13,9 @@ const app = express();
 
 
 app.use(express.json());
+app.use('/uploads', express.static('public/uploads'));
+
+
 
 // JSON Syntax Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -30,7 +33,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 app.use(cookieParser());
-app.use((req, res, next) => {
+app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (req.url.includes('/auth/web')) {
     console.log(`\x1b[36m[Admin Debug]\x1b[0m ${req.method} ${req.url} - Cookie Header: ${req.headers.cookie || 'none'}`);
     console.log(`[Admin Debug] Cookies Parsed:`, req.cookies);

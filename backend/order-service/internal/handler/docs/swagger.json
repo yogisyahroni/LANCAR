@@ -1,0 +1,572 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API for Order Management, Courier Dispatch, and Tracking.",
+        "title": "LANCAR Order Service API",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "url": "http://www.lancar.id/support",
+            "email": "support@lancar.id"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8083",
+    "basePath": "/api/v1",
+    "paths": {
+        "/couriers/orders/{id}/accept": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Accept a pending delivery order",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "couriers"
+                ],
+                "summary": "Accept an order (Courier)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/meeting-points/suggest": {
+            "get": {
+                "description": "Suggest best meeting points for a route",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Suggest meeting points",
+                "parameters": [
+                    {
+                        "type": "number",
+                        "description": "Pickup Latitude",
+                        "name": "pickup_lat",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "Pickup Longitude",
+                        "name": "pickup_lng",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "Dropoff Latitude",
+                        "name": "dropoff_lat",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "Dropoff Longitude",
+                        "name": "dropoff_lng",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Get a list of orders for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "List customer orders",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/lancar_order-service_internal_domain.Order"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Create a new delivery order",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Create a new order",
+                "parameters": [
+                    {
+                        "description": "Create Order Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/lancar_order-service_internal_domain.CreateOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/lancar_order-service_internal_domain.Order"
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/detail": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Get full details of a specific order",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Get order details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/lancar_order-service_internal_domain.Order"
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/poll": {
+            "get": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Fallback mechanism for WebSocket failures",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Poll for order status updates",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ISO8601 timestamp",
+                        "name": "since",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/lancar_order-service_internal_domain.OrderEvent"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/orders/status": {
+            "patch": {
+                "security": [
+                    {
+                        "Bearer": []
+                    }
+                ],
+                "description": "Update the status of an order",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Update order status (Courier/Admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "New Status",
+                        "name": "status",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/pricing/estimate": {
+            "post": {
+                "description": "Get pricing estimate for an order without creating it",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "pricing"
+                ],
+                "summary": "Estimate pricing",
+                "parameters": [
+                    {
+                        "description": "Pricing Estimate Request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/lancar_order-service_internal_domain.PricingEstimateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/lancar_order-service_internal_domain.PricingEstimateResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "lancar_order-service_internal_domain.CreateOrderRequest": {
+            "type": "object",
+            "required": [
+                "estimate_id"
+            ],
+            "properties": {
+                "estimate_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "lancar_order-service_internal_domain.Order": {
+            "type": "object",
+            "properties": {
+                "base_price_idr": {
+                    "type": "integer"
+                },
+                "cancellation_reason": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "customer_id": {
+                    "type": "string"
+                },
+                "dispatch_expiry": {
+                    "type": "string"
+                },
+                "distance_km": {
+                    "type": "number"
+                },
+                "dropoff_address": {
+                    "type": "string"
+                },
+                "dropoff_lat": {
+                    "type": "number"
+                },
+                "dropoff_lng": {
+                    "type": "number"
+                },
+                "dynamic_price_idr": {
+                    "type": "integer"
+                },
+                "handover_token": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "order_number": {
+                    "type": "string"
+                },
+                "pickup_address": {
+                    "type": "string"
+                },
+                "pickup_lat": {
+                    "type": "number"
+                },
+                "pickup_lng": {
+                    "type": "number"
+                },
+                "qr_code_url": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/lancar_order-service_internal_domain.OrderStatus"
+                },
+                "total_price_idr": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "volumetric_surcharge_idr": {
+                    "type": "integer"
+                }
+            }
+        },
+        "lancar_order-service_internal_domain.OrderEvent": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "order_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/lancar_order-service_internal_domain.OrderStatus"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "lancar_order-service_internal_domain.OrderStatus": {
+            "type": "string",
+            "enum": [
+                "pending_payment",
+                "pending",
+                "pending_assignment",
+                "searching",
+                "accepted",
+                "picking_up",
+                "picked_up",
+                "delivering",
+                "delivered",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "StatusPendingPayment",
+                "StatusPending",
+                "StatusPendingAssignment",
+                "StatusSearching",
+                "StatusAccepted",
+                "StatusPickingUp",
+                "StatusPickedUp",
+                "StatusDelivering",
+                "StatusDelivered",
+                "StatusCancelled"
+            ]
+        },
+        "lancar_order-service_internal_domain.PricingEstimateRequest": {
+            "type": "object",
+            "required": [
+                "dropoff_lat",
+                "dropoff_lng",
+                "height",
+                "length",
+                "models",
+                "pickup_lat",
+                "pickup_lng",
+                "weight",
+                "width"
+            ],
+            "properties": {
+                "dropoff_lat": {
+                    "type": "number"
+                },
+                "dropoff_lng": {
+                    "type": "number"
+                },
+                "height": {
+                    "type": "number"
+                },
+                "length": {
+                    "type": "number"
+                },
+                "models": {
+                    "description": "Requested delivery models",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "pickup_lat": {
+                    "type": "number"
+                },
+                "pickup_lng": {
+                    "type": "number"
+                },
+                "weight": {
+                    "type": "number"
+                },
+                "width": {
+                    "type": "number"
+                }
+            }
+        },
+        "lancar_order-service_internal_domain.PricingEstimateResponse": {
+            "type": "object",
+            "properties": {
+                "base_price_idr": {
+                    "type": "integer"
+                },
+                "distance_km": {
+                    "type": "number"
+                },
+                "dropoff_address": {
+                    "type": "string"
+                },
+                "dropoff_lat": {
+                    "type": "number"
+                },
+                "dropoff_lng": {
+                    "type": "number"
+                },
+                "duration_min": {
+                    "type": "number"
+                },
+                "dynamic_price_idr": {
+                    "type": "integer"
+                },
+                "estimate_id": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "model": {
+                    "description": "Selected delivery model",
+                    "type": "string"
+                },
+                "pickup_address": {
+                    "type": "string"
+                },
+                "pickup_lat": {
+                    "description": "Original coords for order creation",
+                    "type": "number"
+                },
+                "pickup_lng": {
+                    "type": "number"
+                },
+                "total_price_idr": {
+                    "type": "integer"
+                },
+                "volumetric_surcharge_idr": {
+                    "type": "integer"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}

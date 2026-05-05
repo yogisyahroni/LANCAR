@@ -89,7 +89,8 @@ export default function LoginPage() {
         const response = await api.post('/auth/web/login', {
           email: data.email,
           password: data.password,
-          rememberMe
+          rememberMe,
+          portal: 'customer'
         });
         setAuth(true, response.data.user);
         router.push('/dashboard');

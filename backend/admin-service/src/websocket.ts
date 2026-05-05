@@ -42,6 +42,17 @@ export const initWebSocket = (server: HttpServer) => {
       console.log(`[WebSocket] Client connected without identification: ${socket.id}`);
     }
 
+    // Dispute Rooms
+    socket.on('join_dispute_room', ({ dispute_id }) => {
+      socket.join(dispute_id);
+      console.log(`[Socket] User ${userId} joined dispute room: ${dispute_id}`);
+    });
+
+    socket.on('leave_dispute_room', ({ dispute_id }) => {
+      socket.leave(dispute_id);
+      console.log(`[Socket] User ${userId} left dispute room: ${dispute_id}`);
+    });
+
     socket.on('disconnect', () => {
       console.log(`[WebSocket] Client disconnected: ${socket.id}`);
     });

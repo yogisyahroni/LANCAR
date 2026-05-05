@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import Link from 'next/link';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { useAuthStore } from '@/store/authStore';
 import { getSocket } from '@/lib/socket';
-import { ArrowLeft, MapPin, Truck, Calendar, Phone, CheckCircle2, MessageSquare, Download, AlertTriangle, Send, Loader2, Sparkles, Navigation } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, Calendar, Phone, CheckCircle2, MessageSquare, Download, AlertTriangle, Send, Loader2, Sparkles, Navigation, Image as ImageIcon, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 interface Event {
   id: string;
@@ -73,6 +75,11 @@ export default function OrderDetailPage() {
   // Chat
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Real-time chat listener
   useEffect(() => {
@@ -133,23 +140,72 @@ export default function OrderDetailPage() {
     fetchOrderDetail();
   }, [id]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-    
-    const messageToSend = chatInput;
-    setChatInput('');
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
 
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
     try {
-      const res = await api.post(`/auth/web/orders/${id}/chats`, { message: messageToSend });
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const res = await api.post(`/auth/web/orders/${id}/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      if (res.data.success) {
+        await sendMessage(res.data.url, 'image');
+      }
+    } catch (error) {
+      addNotification({ title: 'Gagal', message: 'Gagal mengunggah gambar', type: 'error' });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          setSelectedFile(file);
+          setPreviewImage(URL.createObjectURL(file));
+        }
+      }
+    }
+  };
+
+  const sendMessage = async (text: string, type: string = 'text') => {
+    try {
+      const res = await api.post(`/auth/web/orders/${id}/chats`, { 
+        message: text, 
+        message_type: type 
+      });
       if (res.data && res.data.success) {
-        setChatMessages([...chatMessages, res.data.chat]);
-        addNotification({ title: 'Terkirim', message: 'Pesan terkirim ke kurir.', type: 'success' });
+        setChatMessages(prev => [...prev, res.data.chat]);
+        setChatInput('');
+        setPreviewImage(null);
+        setSelectedFile(null);
+        addNotification({ title: 'Terkirim', message: 'Pesan terkirim.', type: 'success' });
       }
     } catch (error) {
       console.error('Failed to send message:', error);
       addNotification({ title: 'Gagal', message: 'Gagal mengirim pesan.', type: 'error' });
     }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (previewImage && selectedFile) {
+      handleFileUpload(selectedFile);
+      return;
+    }
+    if (!chatInput.trim()) return;
+    await sendMessage(chatInput, 'text');
   };
 
   const handleDownloadResi = () => {
@@ -377,7 +433,10 @@ export default function OrderDetailPage() {
               <MessageSquare className="h-5 w-5 text-primary" />
               <h4 className="text-sm font-bold">Obrolan dengan Kurir</h4>
             </div>
-            <div className="h-[210px] bg-background/40 border border-white/5 rounded-xl p-3.5 overflow-y-auto space-y-3.5">
+            <div 
+              ref={chatScrollRef}
+              className="h-[210px] bg-background/40 border border-white/5 rounded-xl p-3.5 overflow-y-auto space-y-3.5 scroll-smooth"
+            >
               {chatsLoading && chatMessages.length === 0 ? (
                 <div className="h-full flex items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/30" />
@@ -388,42 +447,105 @@ export default function OrderDetailPage() {
                   <p className="text-[10px] font-medium uppercase tracking-widest">Belum ada percakapan</p>
                 </div>
               ) : (
-                chatMessages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex flex-col max-w-[80%] space-y-1 ${
-                      msg.sender_role === 'customer' ? 'ml-auto items-end' : 'items-start'
-                    }`}
-                  >
+                chatMessages.map((msg) => {
+                  const isMe = msg.sender_role === 'customer';
+                  const isImage = msg.message_type === 'image';
+                  return (
                     <div
-                      className={`px-3.5 py-2.5 rounded-2xl text-xs font-normal leading-relaxed ${
-                        msg.sender_role === 'customer'
-                          ? 'bg-primary text-primary-foreground rounded-tr-none shadow-md shadow-primary/20'
-                          : 'bg-white/5 border border-white/5 text-white rounded-tl-none'
+                      key={msg.id}
+                      className={`flex flex-col max-w-[80%] space-y-1 ${
+                        isMe ? 'ml-auto items-end' : 'items-start'
                       }`}
                     >
-                      {msg.message}
+                      <div
+                        className={cn(
+                          "px-3.5 py-2.5 rounded-2xl text-xs font-normal leading-relaxed overflow-hidden",
+                          isMe
+                            ? 'bg-primary text-primary-foreground rounded-tr-none shadow-md shadow-primary/20'
+                            : 'bg-white/5 border border-white/5 text-white rounded-tl-none',
+                          isImage && "p-1"
+                        )}
+                      >
+                        {isImage ? (
+                          <img 
+                            src={`${api.defaults.baseURL}${msg.message}`} 
+                            alt="Attachment" 
+                            className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => window.open(`${api.defaults.baseURL}${msg.message}`, '_blank')}
+                          />
+                        ) : (
+                          msg.message
+                        )}
+                      </div>
+                      <span className="text-[10px] text-muted-foreground px-1 select-none">{formatTime(msg.created_at)}</span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground px-1 select-none">{formatTime(msg.created_at)}</span>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
+
+            <AnimatePresence>
+              {previewImage && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="p-3 bg-muted/20 border border-white/5 rounded-xl flex items-center gap-3 mb-2"
+                >
+                  <div className="relative group">
+                    <img src={previewImage} alt="Preview" className="h-14 w-14 object-cover rounded-lg border border-white/10" />
+                    <button 
+                      onClick={() => { setPreviewImage(null); setSelectedFile(null); }}
+                      className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-lg"
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold text-primary uppercase">Gambar siap kirim</p>
+                    <p className="text-[10px] text-muted-foreground">Klik kirim untuk mengunggah</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <form onSubmit={handleSendMessage} className="flex gap-2">
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                className="hidden" 
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setSelectedFile(file);
+                    setPreviewImage(URL.createObjectURL(file));
+                  }
+                }}
+              />
+              <button 
+                type="button"
+                disabled={!order.courier_name}
+                onClick={() => fileInputRef.current?.click()}
+                className="p-3 rounded-xl bg-white/5 border border-white/10 text-muted-foreground hover:text-white transition-all disabled:opacity-50"
+              >
+                <ImageIcon size={18} />
+              </button>
               <input
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
+                onPaste={handlePaste}
                 disabled={!order.courier_name}
-                placeholder={order.courier_name ? "Ketik pesan Anda di sini..." : "Menunggu kurir ditugaskan..."}
+                placeholder={previewImage ? "Tambah keterangan..." : (order.courier_name ? "Ketik pesan atau paste gambar..." : "Menunggu kurir ditugaskan...")}
                 className="flex-1 bg-background/50 border border-white/10 rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition duration-200 disabled:opacity-50"
               />
               <button
                 type="submit"
-                disabled={!chatInput.trim() || !order.courier_name}
+                disabled={(!chatInput.trim() && !previewImage) || !order.courier_name || uploading}
                 className="p-3 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl transition duration-200 shadow-sm disabled:opacity-50 disabled:grayscale"
               >
-                <Send className="h-4 w-4" />
+                {uploading ? <Loader2 className="animate-spin h-4 w-4" /> : <Send className="h-4 w-4" />}
               </button>
             </form>
           </div>

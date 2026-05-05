@@ -19,7 +19,7 @@ app.use(helmet({
 }));
 
 // Robust CORS with logging and preflight handling
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin;
   if (origin) {
     console.log(`\x1b[36m[CORS Debug]\x1b[0m Origin: ${origin} - Method: ${req.method} - Path: ${req.path}`);
@@ -34,7 +34,8 @@ app.use((req, res, next) => {
     
     if (req.method === 'OPTIONS') {
       console.log(`\x1b[32m[CORS Preflight Success]\x1b[0m Returning 204 for ${origin}`);
-      return res.sendStatus(204);
+      res.sendStatus(204);
+      return;
     }
   }
   next();
@@ -51,7 +52,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(logger);
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.url.includes('/auth/web')) {
     console.log(`\x1b[35m[Gateway Debug]\x1b[0m ${req.method} ${req.url} - Cookie: ${req.headers.cookie || 'none'}`);
     
@@ -207,6 +208,18 @@ app.use('/api/v1/orders', createProxyMiddleware({
   }
 }));
 
+// Couriers Service (Order-related actions)
+app.use('/api/v1/couriers', createProxyMiddleware({
+  target: ORDER_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[32m[Proxy Courier]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    }
+  }
+}));
+
 // Admin Service General Routes (Management API)
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/admin',
@@ -235,9 +248,33 @@ app.use('/api/v1/routing', createProxyMiddleware({
   }
 }));
 
-// Health Check
-app.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'UP', service: 'api-gateway' });
+// ─────────────────────────────────────────────
+// API DOCUMENTATION ROUTES (SWAGGER UI)
+// ─────────────────────────────────────────────
+
+// Automatic redirects for clean URLs
+app.get('/docs/auth', (req, res) => res.redirect('/docs/auth/swagger/index.html'));
+app.get('/docs/orders', (req, res) => res.redirect('/docs/orders/swagger/index.html'));
+
+// Auth Service Documentation
+app.use('/docs/auth', createProxyMiddleware({
+  target: AUTH_SERVICE_URL,
+  pathRewrite: { '^/docs/auth': '/swagger' },
+  changeOrigin: true
+}));
+
+// Order Service Documentation
+app.use('/docs/orders', createProxyMiddleware({
+  target: ORDER_SERVICE_URL,
+  pathRewrite: { '^/docs/orders': '/swagger' },
+  changeOrigin: true
+}));
+
+// ─────────────────────────────────────────────
+// HEALTH & UTILS
+// ─────────────────────────────────────────────
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 // Global Error Handler
@@ -257,9 +294,9 @@ const server = app.listen(PORT, () => {
 
 
 // Handle WebSocket upgrades
-server.on('upgrade', (req, socket, head) => {
+server.on('upgrade', (req: any, socket: any, head: any) => {
   if (req.url?.startsWith('/socket.io')) {
-    adminWsProxy.upgrade(req, socket as any, head);
+    adminWsProxy.upgrade(req, socket, head);
   }
 });
 

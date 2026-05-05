@@ -183,6 +183,59 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 	return nil
 }
 
+func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, courierID string) error {
+	// 1. Check order status
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+	if order == nil {
+		return errors.New("order not found")
+	}
+
+	// Only allow acceptance if searching
+	if order.Status != domain.StatusSearching {
+		return fmt.Errorf("order cannot be accepted in current status: %s", order.Status)
+	}
+
+	// 2. Assign Courier in DB
+	err = s.orderRepo.AssignCourier(ctx, orderID, courierID)
+	if err != nil {
+		return fmt.Errorf("failed to assign courier: %w", err)
+	}
+
+	// 3. Update Status to Accepted
+	err = s.orderRepo.UpdateStatus(ctx, orderID, domain.StatusAccepted)
+	if err != nil {
+		return fmt.Errorf("failed to update status: %w", err)
+	}
+
+	// 4. Record Event
+	event := domain.OrderEvent{
+		OrderID:   order.ID,
+		UserID:    order.CustomerID,
+		Status:    domain.StatusAccepted,
+		Message:   "Courier has accepted your order",
+		CreatedAt: time.Now(),
+	}
+	s.eventRepo.SaveEvent(ctx, event)
+	s.eventBus.Publish(ctx, "order.updates", event)
+
+	// 5. Notify Customer
+	s.notificationSvc.Send(ctx, domain.NotificationRequest{
+		UserID:  order.CustomerID,
+		Title:   "Courier Found!",
+		Message: "A courier has accepted your order and is heading to the pickup location.",
+		Channel: domain.ChannelPush,
+		Data: map[string]string{
+			"order_id": order.ID,
+			"type":     "order_accepted",
+		},
+	})
+
+	return nil
+}
+
 func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID string) error {
 	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err != nil {

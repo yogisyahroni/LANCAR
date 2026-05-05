@@ -8,8 +8,9 @@ import { getIO } from '../websocket';
 export const exportAuditLogs = async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await readDb.query(`
-      SELECT l.created_at, l.key, l.category, l.updated_by, l.change_reason, l.is_enabled
+      SELECT l.created_at, l.key, l.category, u.full_name as updated_by_name, l.change_reason, l.is_enabled
       FROM feature_flag_logs l
+      LEFT JOIN users u ON l.updated_by = u.id
       ORDER BY l.created_at DESC
     `);
 
@@ -19,7 +20,7 @@ export const exportAuditLogs = async (req: Request, res: Response): Promise<void
         r.created_at.toISOString(),
         r.key,
         r.category || 'general',
-        r.updated_by || 'System',
+        r.updated_by_name || 'System',
         r.is_enabled ? 'ENABLED/UPDATED' : 'DISABLED',
         `"${(r.change_reason || '').replace(/"/g, '""')}"`
       ].join(','))
@@ -138,6 +139,9 @@ export const toggleFlag = async (req: Request, res: Response): Promise<void> => 
     );
 
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    if (!req.user?.id) {
+      console.warn('[AuditLog] No user ID found in request for flag update! Using fallback.');
+    }
 
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
@@ -243,7 +247,13 @@ export const getFlagLogs = async (req: Request, res: Response) => {
 
 export const getAllLogs = async (req: Request, res: Response) => {
   try {
-    const result = await readDb.query('SELECT * FROM feature_flag_logs ORDER BY created_at DESC LIMIT 100');
+    const result = await readDb.query(`
+      SELECT l.*, u.full_name as updated_by_name
+      FROM feature_flag_logs l
+      LEFT JOIN users u ON l.updated_by = u.id
+      ORDER BY l.created_at DESC
+      LIMIT 100
+    `);
     res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ error: error.message });

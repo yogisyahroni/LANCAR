@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as controllers from './controllers/index';
-import { requireAuth, requireRole, requireTotp, verifyWebSession } from './middlewares';
+import { requireAuth, requireRole, requireTotp, verifyWebSession, verifySession } from './middlewares';
 import { toggleRateLimiter } from './rateLimit';
 import multer from 'multer';
 
@@ -18,8 +18,8 @@ routes.post('/auth/web/login', (req, res) => controllers.loginWeb(req, res));
 routes.post('/auth/web/logout', (req, res) => controllers.logoutWeb(req, res));
 routes.post('/auth/web/refresh-token', (req, res) => controllers.refreshToken(req, res));
 
-routes.get('/auth/web/me', verifyWebSession, (req, res) => controllers.me(req, res));
-routes.get('/auth/web/notifications', verifyWebSession, (req, res) => controllers.getUserNotifications(req, res));
+routes.get('/auth/web/me', verifySession, (req, res) => controllers.me(req, res));
+routes.get('/auth/web/notifications', verifySession, (req, res) => controllers.getUserNotifications(req, res));
 routes.patch('/auth/web/notifications/:id/read', verifyWebSession, (req, res) => controllers.markNotificationRead(req, res));
 routes.delete('/auth/web/notifications', verifyWebSession, (req, res) => controllers.clearNotifications(req, res));
 routes.post('/auth/web/notifications/subscribe', verifyWebSession, (req, res) => controllers.subscribePush(req, res));
@@ -32,7 +32,12 @@ routes.get('/auth/web/orders', verifyWebSession, (req, res) => controllers.custo
 routes.get('/auth/web/orders/:id', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderById(req, res));
 routes.get('/auth/web/orders/:id/chats', verifyWebSession, (req, res) => controllers.customerOrder.getOrderChats(req, res));
 routes.post('/auth/web/orders/:id/chats', verifyWebSession, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
+routes.post('/auth/web/orders/:id/upload', verifyWebSession, upload.single('file'), (req, res) => controllers.customerOrder.uploadOrderFile(req, res));
+routes.get('/auth/web/disputes', verifyWebSession, (req, res) => controllers.getCustomerDisputes(req, res));
 routes.post('/auth/web/disputes', verifyWebSession, (req, res) => controllers.createDispute(req, res));
+routes.get('/auth/web/disputes/:id/chats', verifyWebSession, (req, res) => controllers.getDisputeChats(req, res));
+routes.post('/auth/web/disputes/:id/chats', verifyWebSession, (req, res) => controllers.sendDisputeChat(req, res));
+routes.post('/auth/web/disputes/:id/upload', verifyWebSession, upload.single('file'), (req, res) => controllers.uploadDisputeFile(req, res));
 
 
 
@@ -99,6 +104,9 @@ routes.get('/admin/disputes', (req, res) => controllers.getDisputes(req, res));
 routes.get('/admin/disputes/stats', (req, res) => controllers.getDisputeStats(req, res));
 routes.patch('/admin/disputes/:id/status', (req, res) => controllers.updateDisputeStatus(req, res));
 routes.post('/admin/disputes/:id/assign', (req, res) => controllers.assignDispute(req, res));
+routes.get('/admin/disputes/:id/chats', (req, res) => controllers.getDisputeChats(req, res));
+routes.post('/admin/disputes/:id/chats', (req, res) => controllers.sendDisputeChat(req, res));
+routes.post('/admin/disputes/:id/upload', upload.single('file'), (req, res) => controllers.uploadDisputeFile(req, res));
 
 
 // Finance Management

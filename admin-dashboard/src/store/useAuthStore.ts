@@ -36,7 +36,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   login: async (credentials) => {
     // Correct endpoint: POST /auth/web/login (via gateway → admin-service)
-    const { data } = await api.post('/auth/web/login', credentials)
+    // Sending portal: 'admin' to enforce strict role check in backend
+    const { data } = await api.post('/auth/web/login', { ...credentials, portal: 'admin' })
     set({ user: data.user, isAuthenticated: true })
   },
 

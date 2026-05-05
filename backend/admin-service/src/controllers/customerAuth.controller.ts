@@ -43,15 +43,34 @@ export const loginWeb = async (req: Request, res: Response) => {
       [user.id, sessionToken, expiresAt, req.ip, req.headers['user-agent']]
     );
 
+    // Determine cookie name based on role and optionally portal requirement
+    const isAdminRole = ['super_admin', 'admin', 'manager', 'finance'].includes(user.role);
+    const { portal } = req.body; // 'admin' or 'customer'
+
+    if (portal === 'admin' && !isAdminRole) {
+      res.status(403).json({ error: 'Access denied: Customer account cannot log in to Admin Dashboard' });
+      return;
+    }
+
+    if (portal === 'customer' && isAdminRole) {
+      res.status(403).json({ error: 'Access denied: Admin account cannot log in to Customer Portal' });
+      return;
+    }
+
+    const cookieName = isAdminRole ? 'admin_session' : 'customer_session';
+
     // Set HttpOnly cookie with explicit path for gateway cross-path support
-    console.log(`\x1b[32m[Auth Success]\x1b[0m User: ${user.email}, Token: ${sessionToken.substring(0, 8)}...`);
-    res.cookie('web_session', sessionToken, {
+    console.log(`\x1b[32m[Auth Success]\x1b[0m User: ${user.email}, Role: ${user.role}, Portal: ${portal || 'default'}, Setting cookie: ${cookieName}`);
+    
+    const cookieOptions = {
       httpOnly: true,
       secure: false, // Force false for local http development
-      sameSite: 'lax',
-      path: '/', // Crucial: must be root so it's sent for /api/v1/auth AND /api/v1/admin
+      sameSite: 'lax' as const,
+      path: '/', // Crucial: must be root
       expires: expiresAt,
-    });
+    };
+
+    res.cookie(cookieName, sessionToken, cookieOptions);
 
     // Remove sensitive fields
     delete user.pin_hash;
@@ -62,8 +81,10 @@ export const loginWeb = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
 export const refreshToken = async (req: Request, res: Response) => {
-  const sessionToken = req.cookies?.web_session;
+  // Check all possible session cookies
+  const sessionToken = req.cookies?.admin_session || req.cookies?.customer_session || req.cookies?.web_session;
 
   if (!sessionToken) {
     res.status(401).json({ error: 'Unauthorized: No session' });
@@ -72,7 +93,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
   try {
     const result = await db.query(
-      `SELECT w.user_id, w.expires_at, u.email 
+      `SELECT w.user_id, w.expires_at, u.email, u.role 
        FROM web_sessions w
        JOIN users u ON w.user_id = u.id
        WHERE w.session_token = $1 AND w.expires_at > NOW()`,
@@ -84,6 +105,10 @@ export const refreshToken = async (req: Request, res: Response) => {
       return;
     }
 
+    const user = result.rows[0];
+    const isAdmin = ['super_admin', 'admin', 'manager', 'finance'].includes(user.role);
+    const cookieName = isAdmin ? 'admin_session' : 'customer_session';
+
     // Refresh expiry: Add another 7 days from now
     const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await db.query(
@@ -91,15 +116,17 @@ export const refreshToken = async (req: Request, res: Response) => {
       [newExpiresAt, sessionToken]
     );
 
-    console.log(`\x1b[36m[Auth Refresh]\x1b[0m User: ${result.rows[0].email}`);
+    console.log(`\x1b[36m[Auth Refresh]\x1b[0m User: ${user.email}, Refreshing cookie: ${cookieName}`);
 
-    res.cookie('web_session', sessionToken, {
+    const cookieOptions = {
       httpOnly: true,
       secure: false, 
-      sameSite: 'lax',
+      sameSite: 'lax' as const,
       path: '/',
       expires: newExpiresAt,
-    });
+    };
+
+    res.cookie(cookieName, sessionToken, cookieOptions);
 
     res.json({ message: 'Session refreshed' });
   } catch (error) {
@@ -108,9 +135,8 @@ export const refreshToken = async (req: Request, res: Response) => {
   }
 };
 
-
 export const logoutWeb = async (req: Request, res: Response) => {
-  const sessionToken = req.cookies?.web_session;
+  const sessionToken = req.cookies?.admin_session || req.cookies?.customer_session || req.cookies?.web_session;
 
   if (sessionToken) {
     try {
@@ -120,7 +146,8 @@ export const logoutWeb = async (req: Request, res: Response) => {
     }
   }
 
-  res.clearCookie('web_session');
+  res.clearCookie('admin_session');
+  res.clearCookie('customer_session');
   res.json({ message: 'Logout successful' });
 };
 

@@ -42,6 +42,15 @@ func NewAuthHandler(svc *service.AuthService) *AuthHandler {
 	return &AuthHandler{svc: svc}
 }
 
+// RequestOTP godoc
+// @Summary Request OTP (Mobile)
+// @Description Send OTP to phone number
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body object true "Phone Number"
+// @Success 200 {object} map[string]string
+// @Router /auth/request-otp [post]
 func (h *AuthHandler) RequestOTP(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		PhoneNumber string `json:"phone_number"`
@@ -66,6 +75,15 @@ func (h *AuthHandler) RequestOTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "OTP sent successfully"})
 }
 
+// VerifyOTP godoc
+// @Summary Verify OTP (Mobile)
+// @Description Verify OTP and receive JWT tokens
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body object true "OTP Verification"
+// @Success 200 {object} service.AuthResponse
+// @Router /auth/verify-otp [post]
 func (h *AuthHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		PhoneNumber string          `json:"phone_number"`
@@ -89,6 +107,15 @@ func (h *AuthHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
+// RefreshToken godoc
+// @Summary Refresh Token (Mobile)
+// @Description Get new access token using refresh token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body object true "Refresh Token Request"
+// @Success 200 {object} service.AuthResponse
+// @Router /auth/refresh [post]
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		RefreshToken string `json:"refresh_token"`
@@ -110,6 +137,15 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(res)
 }
 
+// Logout godoc
+// @Summary Logout (Mobile)
+// @Description Invalidate refresh token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body object true "Logout Request"
+// @Success 200 {object} map[string]string
+// @Router /auth/logout [post]
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		RefreshToken string `json:"refresh_token"`
@@ -129,6 +165,16 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Logged out successfully"})
 }
 
+// Register godoc
+// @Summary Update Profile / Register (Mobile)
+// @Description Update user details after first login
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body object true "Registration Details"
+// @Success 200 {object} map[string]string
+// @Router /auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserIDFromContext(r.Context())
 	if userID == "" {
@@ -258,6 +304,16 @@ func (h *AuthHandler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "User role updated successfully"})
 }
 
+// RegisterCourier godoc
+// @Summary Register as Courier (Mobile)
+// @Description Upgrade customer account to courier account
+// @Tags couriers
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body object true "Courier Details"
+// @Success 201 {object} map[string]string
+// @Router /couriers/register [post]
 func (h *AuthHandler) RegisterCourier(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserIDFromContext(r.Context())
 	if userID == "" {
@@ -284,6 +340,17 @@ func (h *AuthHandler) RegisterCourier(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Courier profile created successfully"})
 }
 
+// UploadCourierDocument godoc
+// @Summary Upload Courier Documents (Mobile)
+// @Description Upload SIM, STNK, or KTP for verification
+// @Tags couriers
+// @Accept multipart/form-data
+// @Produce json
+// @Security Bearer
+// @Param document_type formData string true "Type of document (sim, stnk, ktp)"
+// @Param document formData file true "Document file"
+// @Success 200 {object} map[string]string
+// @Router /couriers/documents [post]
 func (h *AuthHandler) UploadCourierDocument(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserIDFromContext(r.Context())
 	if userID == "" {
@@ -518,6 +585,16 @@ func (h *AuthHandler) CreateAdminUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
+// VerifyLiveness godoc
+// @Summary Courier Liveness Verification (Mobile)
+// @Description Verify courier is a real person via face capture
+// @Tags couriers
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body object true "Liveness Image"
+// @Success 200 {object} map[string]string
+// @Router /couriers/liveness [post]
 func (h *AuthHandler) VerifyLiveness(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserIDFromContext(r.Context())
 	if userID == "" {
