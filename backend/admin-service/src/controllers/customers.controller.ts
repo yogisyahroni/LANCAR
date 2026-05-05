@@ -9,7 +9,7 @@ export const getCustomers = async (req: Request, res: Response): Promise<void> =
     const search = req.query.search as string;
 
     let baseQuery = `
-      FROM users u
+      FROM customers u
       WHERE u.role = 'customer' AND u.deleted_at IS NULL
     `;
     const params: any[] = [];
@@ -41,7 +41,7 @@ export const getCustomers = async (req: Request, res: Response): Promise<void> =
 
 export const getCustomerStats = async (req: Request, res: Response): Promise<void> => {
   try {
-    const totalResult = await readDb.query("SELECT COUNT(*) FROM users WHERE role = 'customer'");
+    const totalResult = await readDb.query("SELECT COUNT(*) FROM customers WHERE deleted_at IS NULL");
     const revenueResult = await readDb.query("SELECT SUM(total_price_idr) FROM orders WHERE status = 'delivered'");
 
     res.json({
@@ -60,7 +60,7 @@ export const exportCustomers = async (req: Request, res: Response): Promise<void
     const result = await readDb.query(`
       SELECT u.id, u.full_name, u.email, u.phone_number, u.status, u.created_at,
              COALESCE((SELECT COUNT(*) FROM orders o WHERE o.customer_id = u.id), 0) as orders_count
-      FROM users u
+      FROM customers u
       WHERE u.role = 'customer' AND u.deleted_at IS NULL
       ORDER BY u.created_at DESC
     `);

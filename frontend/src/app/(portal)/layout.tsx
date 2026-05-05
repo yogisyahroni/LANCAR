@@ -28,7 +28,9 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import PushNotificationPrompt from '@/components/PushNotificationPrompt';
+import WalletWidget from '@/components/WalletWidget';
 import { cn } from '@/lib/utils';
+
 import { getSocket, disconnectSocket } from '@/lib/socket';
 
 interface DBNotification {
@@ -266,8 +268,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             </div>
           )}
         </div>
-
-        <nav className="flex-1 px-4 space-y-1 mt-6 overflow-y-auto">
+        
+        <WalletWidget isCollapsed={isCollapsed} />
+        
+        <nav className="flex-1 px-4 space-y-1 mt-2 overflow-y-auto">
           {navItems.map((item) => {
             const active = pathname.startsWith(item.href);
             return (
@@ -329,7 +333,10 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                   <X size={24} />
                 </button>
               </div>
-              <nav className="space-y-1 overflow-y-auto flex-1">
+              
+              <WalletWidget />
+              
+              <nav className="space-y-1 overflow-y-auto flex-1 mt-4">
                 {navItems.map((item) => {
                   const active = pathname.startsWith(item.href);
                   return (

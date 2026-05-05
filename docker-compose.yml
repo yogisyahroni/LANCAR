@@ -150,6 +150,7 @@ services:
       PORT: 3000
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SEED_DB: "true"
+      PAYMENT_SERVICE_URL: "http://payment-service:8084"
     ports:
       - "${ADMIN_PORT:-3001}:3000"
     healthcheck:
@@ -225,6 +226,36 @@ services:
     networks:
       - lancar-net
 
+  # ─────────────────────────────────────────────
+  # PAYMENT SERVICE — Go (Wallet & Fees)
+  # ─────────────────────────────────────────────
+  payment-service:
+    build:
+      context: ./backend/payment-service
+      dockerfile: Dockerfile
+    container_name: lancar-payment
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      REDIS_URL: "redis://redis:6379"
+      PAYMENT_PORT: ${PAYMENT_PORT:-8084}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+    ports:
+      - "${PAYMENT_PORT:-8084}:8084"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - lancar-net
+
 
   # ─────────────────────────────────────────────
   # REDIS COMMANDER — Web UI untuk Redis (dev only)
@@ -260,12 +291,15 @@ services:
       - order-service
       - admin-service
       - routing-service
+      - payment-service
     environment:
       AUTH_SERVICE_URL: "http://auth-service:8081"
       ORDER_SERVICE_URL: "http://order-service:8083"
       ADMIN_SERVICE_URL: "http://admin-service:3000"
       ROUTING_SERVICE_URL: "http://routing-service:8082"
+      PAYMENT_SERVICE_URL: "http://payment-service:8084"
       GATEWAY_PORT: 8080
+
     ports:
       - "8080:8080"
     networks:

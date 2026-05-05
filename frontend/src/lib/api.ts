@@ -8,6 +8,7 @@ export const api = axios.create({
   withCredentials: true, // Important for HttpOnly cookies
   headers: {
     'Content-Type': 'application/json',
+    'X-Portal': 'customer',
   },
 });
 

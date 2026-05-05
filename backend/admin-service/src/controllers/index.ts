@@ -42,6 +42,9 @@ export * from './system.controller';
 // Customer Web Portal Auth
 export * from './customerAuth.controller';
 
+// Wallet
+export * from './wallet.controller';
+
 // Customer Web Portal Orders
 export * as customerOrder from './customerOrder.controller';
 export * as bulkOrder from './bulkOrder.controller';

@@ -62,7 +62,6 @@ export const requireTotp = (req: Request, res: Response, next: NextFunction) => 
 
 // Specifically for Customer Portal
 export const verifyWebSession = async (req: Request, res: Response, next: NextFunction) => {
-  // Use customer_session to avoid collision with admin_session
   const sessionToken = req.cookies?.customer_session;
   console.log(`[verifyWebSession] URL: ${req.url}, Session Token present: ${!!sessionToken}`);
 
@@ -72,11 +71,12 @@ export const verifyWebSession = async (req: Request, res: Response, next: NextFu
   }
 
   try {
+    // STRICT: Only query customer_sessions joined with customers table
     const result = await db.query(
-      `SELECT w.user_id, u.role, u.full_name 
-       FROM web_sessions w
-       JOIN users u ON w.user_id = u.id
-       WHERE w.session_token = $1 AND w.expires_at > NOW()`,
+      `SELECT s.user_id, u.role, u.full_name 
+       FROM customer_sessions s
+       JOIN customers u ON s.user_id = u.id
+       WHERE s.session_token = $1 AND s.expires_at > NOW()`,
       [sessionToken]
     );
 
@@ -86,13 +86,6 @@ export const verifyWebSession = async (req: Request, res: Response, next: NextFu
     }
 
     const user = result.rows[0];
-
-    // CRITICAL: Ensure this session belongs to a customer ONLY
-    if (['super_admin', 'admin', 'manager', 'finance'].includes(user.role)) {
-      console.warn(`[verifyWebSession] FORBIDDEN: Admin user ${user.user_id} tried to use customer portal`);
-      res.status(403).json({ error: 'Forbidden: Admin cannot access customer portal' });
-      return;
-    }
 
     req.user = {
       id: user.user_id,
@@ -110,7 +103,6 @@ export const verifyWebSession = async (req: Request, res: Response, next: NextFu
 
 // Specifically for Admin Dashboard
 export const verifyAdminSession = async (req: Request, res: Response, next: NextFunction) => {
-  // Use admin_session to avoid collision with customer_session
   const sessionToken = req.cookies?.admin_session;
   console.log(`[verifyAdminSession] URL: ${req.url}, Session Token present: ${!!sessionToken}`);
 
@@ -120,11 +112,12 @@ export const verifyAdminSession = async (req: Request, res: Response, next: Next
   }
 
   try {
+    // STRICT: Only query admin_sessions joined with staff table
     const result = await db.query(
-      `SELECT w.user_id, u.role, u.full_name 
-       FROM web_sessions w
-       JOIN users u ON w.user_id = u.id
-       WHERE w.session_token = $1 AND w.expires_at > NOW()`,
+      `SELECT s.user_id, u.role, u.full_name 
+       FROM admin_sessions s
+       JOIN staff u ON s.user_id = u.id
+       WHERE s.session_token = $1 AND s.expires_at > NOW()`,
       [sessionToken]
     );
 
@@ -134,13 +127,6 @@ export const verifyAdminSession = async (req: Request, res: Response, next: Next
     }
 
     const user = result.rows[0];
-
-    // CRITICAL: Ensure this is an admin session
-    if (!['super_admin', 'admin', 'manager', 'finance'].includes(user.role)) {
-      console.warn(`[verifyAdminSession] FORBIDDEN: User ${user.user_id} with role ${user.role} tried to use admin session`);
-      res.status(403).json({ error: 'Forbidden: Admin access required' });
-      return;
-    }
 
     req.user = {
       id: user.user_id,
@@ -156,42 +142,64 @@ export const verifyAdminSession = async (req: Request, res: Response, next: Next
   }
 };
 
-// Generic session verification for shared routes (like /me)
+// Generic session verification for shared routes (hardened)
 export const verifySession = async (req: Request, res: Response, next: NextFunction) => {
-  const sessionToken = req.cookies?.admin_session || req.cookies?.customer_session;
-  console.log(`[verifySession] URL: ${req.url}, Session Token present: ${!!sessionToken}`);
+  const portal = req.headers['x-portal'] as string;
+  const adminToken = req.cookies?.admin_session;
+  const customerToken = req.cookies?.customer_session;
 
-  if (!sessionToken) {
-    res.status(401).json({ error: 'Unauthorized: No session token provided' });
-    return;
-  }
+  console.log(`[verifySession] Portal: ${portal}, URL: ${req.url}`);
 
   try {
-    const result = await db.query(
-      `SELECT w.user_id, u.role, u.full_name 
-       FROM web_sessions w
-       JOIN users u ON w.user_id = u.id
-       WHERE w.session_token = $1 AND w.expires_at > NOW()`,
-      [sessionToken]
-    );
-
-    if (result.rows.length === 0) {
-      res.status(401).json({ error: 'Unauthorized: Invalid or expired session' });
-      return;
+    // 1. If Portal is explicitly Admin
+    if (portal === 'admin') {
+      if (!adminToken) {
+        return res.status(401).json({ error: 'Unauthorized: No admin session' });
+      }
+      const adminResult = await db.query(
+        `SELECT s.user_id, u.role, u.full_name FROM admin_sessions s JOIN staff u ON s.user_id = u.id WHERE s.session_token = $1 AND s.expires_at > NOW()`,
+        [adminToken]
+      );
+      if (adminResult.rows.length > 0) {
+        const user = adminResult.rows[0];
+        req.user = { id: user.user_id, role: user.role, full_name: user.full_name, totp_verified: true };
+        return next();
+      }
+      return res.status(401).json({ error: 'Unauthorized: Invalid admin session' });
     }
 
-    const user = result.rows[0];
+    // 2. If Portal is explicitly Customer
+    if (portal === 'customer') {
+      if (!customerToken) {
+        return res.status(401).json({ error: 'Unauthorized: No customer session' });
+      }
+      const customerResult = await db.query(
+        `SELECT s.user_id, u.role, u.full_name FROM customer_sessions s JOIN customers u ON s.user_id = u.id WHERE s.session_token = $1 AND s.expires_at > NOW()`,
+        [customerToken]
+      );
+      if (customerResult.rows.length > 0) {
+        const user = customerResult.rows[0];
+        req.user = { id: user.user_id, role: user.role, full_name: user.full_name, totp_verified: true };
+        return next();
+      }
+      return res.status(401).json({ error: 'Unauthorized: Invalid customer session' });
+    }
 
-    req.user = {
-      id: user.user_id,
-      role: user.role,
-      full_name: user.full_name,
-      totp_verified: true,
-    };
+    // 3. Fallback/Legacy: If no X-Portal header, try to infer from Referer
+    const referer = req.headers.referer || '';
+    if (referer.includes(':3002') || referer.includes('/admin')) {
+       // Likely Admin
+       console.log('[verifySession] Inferring ADMIN portal from referer');
+       // ... repeat admin check logic if we want to be permissive during transition
+    }
 
-    next();
+    // For security, if no portal is specified, we reject or require one
+    res.status(400).json({ error: 'Bad Request: X-Portal header is required for session verification' });
   } catch (error) {
-    console.error('Session verification error:', error);
+    console.error('Generic session verification error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+
+

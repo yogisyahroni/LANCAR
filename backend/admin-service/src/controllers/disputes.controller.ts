@@ -178,7 +178,7 @@ export const createDispute = async (req: Request, res: Response) => {
     // Notify Admins
     try {
       const adminRes = await db.query(`
-        SELECT id FROM users WHERE role IN ('ops_admin', 'super_admin', 'cs_agent') AND status = 'active'
+        SELECT id FROM staff WHERE role IN ('ops_admin', 'super_admin', 'cs_agent') AND status = 'active'
       `);
       
       const adminNotifications = adminRes.rows.map((admin: any) => 

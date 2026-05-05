@@ -8,6 +8,8 @@ import { rateLimit } from 'express-rate-limit';
 import { Registry, collectDefaultMetrics, Counter, Histogram } from 'prom-client';
 import CircuitBreaker from 'opossum';
 import { validate } from './middleware/validator';
+import jwt from 'jsonwebtoken';
+
 
 
 import { PricingEstimateSchema, CreateOrderSchema } from './schemas/order.schema';
@@ -74,6 +76,8 @@ const createServiceBreaker = (serviceName: string) => {
 const authBreaker = createServiceBreaker('auth-service');
 const orderBreaker = createServiceBreaker('order-service');
 const adminBreaker = createServiceBreaker('admin-service');
+const paymentBreaker = createServiceBreaker('payment-service');
+
 
 
 app.use(helmet({
@@ -116,6 +120,29 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// JWT Authentication Middleware
+const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader) {
+    const token = authHeader.split(' ')[1];
+    const secret = process.env.JWT_SECRET || 'your-secret-key';
+
+    jwt.verify(token, secret, (err: any, user: any) => {
+      if (err) {
+        return res.status(403).json({ status: 'error', code: 'ERR_FORBIDDEN', message: 'Invalid or expired token' });
+      }
+      // Inject User ID into headers for downstream services
+      if (user && (user.user_id || user.id)) {
+        req.headers['x-user-id'] = user.user_id || user.id;
+      }
+      next();
+    });
+  } else {
+    res.status(401).json({ status: 'error', code: 'ERR_UNAUTHORIZED', message: 'Authentication required' });
+  }
+};
+
+
 
 // Robust CORS with logging and preflight handling
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -129,7 +156,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-user-role, x-totp-verified, Cookie');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-user-role, x-totp-verified, x-portal, Cookie');
     
     if (req.method === 'OPTIONS') {
       console.log(`\x1b[32m[CORS Preflight Success]\x1b[0m Returning 204 for ${origin}`);
@@ -172,6 +199,7 @@ const jsonParser = express.json();
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:8081';
 const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://localhost:8083';
+const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://localhost:8084';
 const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://localhost:3000';
 const ROUTING_SERVICE_URL = process.env.ROUTING_SERVICE_URL || 'http://localhost:8082';
 
@@ -359,6 +387,12 @@ app.use('/docs/orders', createProxyMiddleware({
   pathRewrite: { '^/docs/orders': '/swagger' },
   changeOrigin: true
 }));
+
+// ─────────────────────────────────────────────
+// Wallet Routes (Payment Service)
+// ─────────────────────────────────────────────
+app.use('/api/v1/wallet', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_URL, paymentBreaker));
+
 
 // ─────────────────────────────────────────────
 // HEALTH & UTILS

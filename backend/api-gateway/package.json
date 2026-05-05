@@ -19,6 +19,7 @@
     "express-rate-limit": "^8.5.0",
     "helmet": "^8.1.0",
     "http-proxy-middleware": "^3.0.5",
+    "jsonwebtoken": "^9.0.3",
     "opossum": "^9.0.0",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.6.0",
     "@types/opossum": "^8.1.9",
     "ts-node-dev": "^2.0.0",

@@ -4,13 +4,11 @@ import { db } from '../db';
 export const getAllAdmins = async (req: any, res: any) => {
   const client = await db.connect();
   try {
-    const adminRoles = ['ops_admin', 'finance_admin', 'cs_agent', 'zone_manager', 'super_admin'];
     const { rows } = await client.query(
       `SELECT id, full_name, email, role, status, photo_url, created_at, last_login_at 
-       FROM users 
-       WHERE role = ANY($1) AND deleted_at IS NULL
-       ORDER BY created_at DESC`,
-      [adminRoles]
+       FROM staff 
+       WHERE deleted_at IS NULL
+       ORDER BY created_at DESC`
     );
     res.json(rows);
   } catch (error: any) {
@@ -27,7 +25,7 @@ export const deleteAdmin = async (req: Request, res: Response): Promise<void> =>
     await client.query('BEGIN');
 
     const result = await client.query(
-      'UPDATE users SET deleted_at = NOW() WHERE id = $1 AND role != \'super_admin\' RETURNING *',
+      'UPDATE staff SET deleted_at = NOW() WHERE id = $1 AND role != \'super_admin\' RETURNING *',
       [id]
     );
 
@@ -55,7 +53,7 @@ export const inviteAdmin = async (req: Request, res: Response) => {
 
   try {
     const result = await db.query(
-      'INSERT INTO users (email, full_name, role, phone_number, status) VALUES ($1, $2, $3, $4, \'active\') RETURNING id, email, full_name, role, phone_number',
+      'INSERT INTO staff (email, full_name, role, phone_number, status) VALUES ($1, $2, $3, $4, \'active\') RETURNING id, email, full_name, role, phone_number',
       [email || null, full_name, role, phone_number]
     );
     res.status(201).json(result.rows[0]);
