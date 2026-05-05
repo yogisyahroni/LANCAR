@@ -37,6 +37,36 @@ func (s *walletService) GetBalance(ctx context.Context, userID uuid.UUID) (*doma
 	return wallet, nil
 }
 
+func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amount float64) (string, error) {
+	// 1. Get Wallet
+	wallet, err := s.GetBalance(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+
+	// 2. Create Transaction (Status: PENDING)
+	orderID := fmt.Sprintf("TOPUP-%d-%d", time.Now().Unix(), uuid.New().ID())
+	walletTx := &domain.WalletTransaction{
+		WalletID:    wallet.ID,
+		Type:        domain.TypeDeposit,
+		Amount:      amount,
+		Fee:         0,
+		Status:      domain.StatusPending,
+		ReferenceID: orderID,
+		Metadata:    map[string]any{"source": "web_portal"},
+	}
+	err = s.repo.CreateTransaction(ctx, walletTx)
+	if err != nil {
+		return "", err
+	}
+
+	// 3. TODO: Call Midtrans Snap API to get real snap_token
+	// For now, we return a mock token or the OrderID
+	snapToken := fmt.Sprintf("mock_snap_token_%s", orderID)
+	
+	return snapToken, nil
+}
+
 func (s *walletService) Deposit(ctx context.Context, userID uuid.UUID, amount float64, referenceID string) error {
 	const adminFee = 2500.0 // Standard bank/gateway fee
 	

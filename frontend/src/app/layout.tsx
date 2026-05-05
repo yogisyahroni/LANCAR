@@ -23,6 +23,11 @@ export default function RootLayout({
           {children}
         </QueryProvider>
         <Analytics />
+        <script 
+          src="https://app.sandbox.midtrans.com/snap/snap.js" 
+          data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
+          async
+        />
       </body>
     </html>
   );

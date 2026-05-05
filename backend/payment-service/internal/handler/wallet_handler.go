@@ -38,6 +38,27 @@ func (h *WalletHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, wallet, http.StatusOK)
 }
 
+func (h *WalletHandler) TopUp(w http.ResponseWriter, r *http.Request) {
+	userIDStr := r.Header.Get("X-User-ID")
+	userID, _ := uuid.Parse(userIDStr)
+
+	var req struct {
+		Amount float64 `json:"amount"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	snapToken, err := h.svc.CreateTopUp(r.Context(), userID, req.Amount)
+	if err != nil {
+		h.respondError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.respondJSON(w, map[string]string{"snap_token": snapToken}, http.StatusOK)
+}
+
 func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 	userIDStr := r.Header.Get("X-User-ID")
 	userID, _ := uuid.Parse(userIDStr)

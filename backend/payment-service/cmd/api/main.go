@@ -51,6 +51,7 @@ func main() {
 	
 	// API v1 — Wallet Endpoints
 	mux.HandleFunc("/api/v1/wallet/balance", h.GetBalance)
+	mux.HandleFunc("/api/v1/wallet/topup", h.TopUp)
 	mux.HandleFunc("/api/v1/wallet/deposit", h.Deposit)
 	mux.HandleFunc("/api/v1/wallet/withdraw", h.Withdraw)
 

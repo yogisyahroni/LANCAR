@@ -56,6 +56,7 @@ type WalletRepository interface {
 
 type WalletService interface {
 	GetBalance(ctx context.Context, userID uuid.UUID) (*Wallet, error)
+	CreateTopUp(ctx context.Context, userID uuid.UUID, amount float64) (string, error)
 	Deposit(ctx context.Context, userID uuid.UUID, amount float64, referenceID string) error
 	Withdraw(ctx context.Context, userID uuid.UUID, amount float64, bankDetails map[string]any) error
 	ProcessPayment(ctx context.Context, userID uuid.UUID, amount float64, orderID string) error
