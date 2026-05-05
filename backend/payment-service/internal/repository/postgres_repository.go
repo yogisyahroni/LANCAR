@@ -176,7 +176,8 @@ func (r *postgresWalletRepository) GetTransactions(ctx context.Context, walletID
 // Settings Repository
 func (r *postgresWalletRepository) GetSetting(ctx context.Context, key string) (string, error) {
 	var value string
-	err := r.readDB.QueryRowContext(ctx, "SELECT value FROM system_settings WHERE key = $1", key).Scan(&value)
+	// system_configs stores value as JSONB, we use #>> '{}' to get it as text
+	err := r.readDB.QueryRowContext(ctx, "SELECT value #>> '{}' FROM system_configs WHERE key = $1", key).Scan(&value)
 	return value, err
 }
 

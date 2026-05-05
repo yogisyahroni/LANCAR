@@ -66,6 +66,7 @@ export default function Settings() {
     { id: 'Feature Flags', icon: Flag },
     { id: 'SLA Config', icon: Timer },
     { id: 'Insurance', icon: Umbrella },
+    { id: 'Wallet & Fees', icon: DollarSign },
     { id: 'Parameters', icon: Sliders },
     { id: 'Security', icon: Shield },
     { id: 'Team', icon: Users },
@@ -587,6 +588,126 @@ export default function Settings() {
                         <option>AXA Mandiri (Relay)</option>
                       </select>
                       <p className="text-[10px] text-zinc-600 font-bold italic">Active partner for claim settlements.</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'Wallet & Fees' && (
+              <motion.div 
+                key="wallet"
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -10 }}
+                className="glass-card p-10 rounded-[48px] border-white/5 space-y-12"
+              >
+                {/* Withdrawal Fees */}
+                <div className="space-y-8">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <DollarSign className="text-primary-light" size={24} />
+                    Withdrawal Fees
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-4">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Customer Withdrawal Fee (IDR)</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">Rp</span>
+                        <input 
+                          type="number" 
+                          defaultValue={getConfig('withdrawal_fee_customer', 5000)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'withdrawal_fee_customer', value: Number(e.target.value) })}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Courier Withdrawal Fee (IDR)</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">Rp</span>
+                        <input 
+                          type="number" 
+                          defaultValue={getConfig('withdrawal_fee_courier', 0)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'withdrawal_fee_courier', value: Number(e.target.value) })}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Topup & Service Fees */}
+                <div className="pt-12 border-t border-white/5 space-y-8">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <Zap className="text-primary-light" size={24} />
+                    Top-Up & Service Fees
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Top-Up Fixed Fee (IDR)</label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('topup_fee_fixed', 1000)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'topup_fee_fixed', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Top-Up Percentage (%)</label>
+                      <input 
+                        type="number" 
+                        step="0.1"
+                        defaultValue={getConfig('topup_fee_percent', 0)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'topup_fee_percent', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Direct Service Fee (IDR)</label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('service_fee_fixed', 2000)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'service_fee_fixed', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Thresholds */}
+                <div className="pt-12 border-t border-white/5 space-y-8">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <Shield className="text-primary-light" size={24} />
+                    Financial Thresholds
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Min. Top-Up (IDR)</label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('topup_min_amount', 10000)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'topup_min_amount', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Min. Withdrawal (IDR)</label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('withdrawal_min_amount', 50000)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'withdrawal_min_amount', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Auto Disbursement Limit</label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('auto_disbursement_threshold', 1000000)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'auto_disbursement_threshold', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                      <p className="text-[10px] text-zinc-600 font-bold italic">Threshold for automated payouts.</p>
                     </div>
                   </div>
                 </div>
