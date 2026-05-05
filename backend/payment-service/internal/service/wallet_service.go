@@ -50,37 +50,45 @@ func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amoun
 		return "", err
 	}
 
-	// 2. Create Transaction (Status: PENDING)
+	// 2. Calculate Fees
+	feeFixedStr, _ := s.settingsRepo.GetSetting(ctx, "topup_fee_fixed")
+	feePercentStr, _ := s.settingsRepo.GetSetting(ctx, "topup_fee_percent")
+	
+	feeFixed, _ := strconv.ParseFloat(feeFixedStr, 64)
+	feePercent, _ := strconv.ParseFloat(feePercentStr, 64)
+	
+	adminFee := feeFixed + (amount * feePercent / 100)
+	totalAmount := amount + adminFee
+
+	// 3. Create Transaction (Status: PENDING)
 	orderID := fmt.Sprintf("TOPUP-%d-%d", time.Now().Unix(), uuid.New().ID())
 	walletTx := &domain.WalletTransaction{
 		WalletID:    wallet.ID,
 		Type:        domain.TypeDeposit,
-		Amount:      amount,
-		Fee:         0,
+		Amount:      amount, // The net amount to be added to wallet
+		Fee:         adminFee,
 		Status:      domain.StatusPending,
 		ReferenceID: orderID,
-		Metadata:    map[string]any{"source": "web_portal"},
+		Metadata:    map[string]any{"source": "web_portal", "total_paid": totalAmount},
 	}
 	err = s.repo.CreateTransaction(ctx, walletTx)
 	if err != nil {
 		return "", err
 	}
 
-	// 3. TODO: Call Midtrans Snap API to get real snap_token
-	// For now, we return a mock token or the OrderID
+	// 4. TODO: Call Midtrans Snap API with `totalAmount`
+	// The snap_token should be for the total amount including fees.
 	snapToken := fmt.Sprintf("mock_snap_token_%s", orderID)
 	
 	return snapToken, nil
 }
 
 func (s *walletService) Deposit(ctx context.Context, userID uuid.UUID, amount float64, referenceID string) error {
-	const adminFee = 2500.0 // Standard bank/gateway fee
+	// Logic: amount received from gateway should match (TargetAmount + Fee)
+	// We should check the original transaction to get the net amount
 	
-	if amount <= adminFee {
-		return errors.New("deposit amount must be greater than admin fee")
-	}
-
-	netAmount := amount - adminFee
+	netAmount := amount // Default if no fee logic applied
+	adminFee := 0.0
 
 	// Start Transaction
 	tx, err := s.db.BeginTx(ctx, nil)

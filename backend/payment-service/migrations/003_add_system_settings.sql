@@ -10,6 +10,9 @@ CREATE TABLE IF NOT EXISTS system_settings (
 INSERT INTO system_settings (key, value, description) VALUES 
 ('withdrawal_fee_customer', '5000', 'Admin fee for customer withdrawals'),
 ('withdrawal_fee_courier', '0', 'Admin fee for courier withdrawals'),
+('topup_fee_fixed', '1000', 'Fixed admin fee for every top-up transaction'),
+('topup_fee_percent', '0', 'Percentage fee for top-up (e.g. for Credit Card coverage)'),
+('service_fee_fixed', '2000', 'Service fee for direct payment/checkout'),
 ('topup_min_amount', '10000', 'Minimum topup amount'),
 ('withdrawal_min_amount', '50000', 'Minimum withdrawal amount'),
 ('auto_disbursement_threshold', '1000000', 'Amount threshold for automatic disbursement without manual approval')
