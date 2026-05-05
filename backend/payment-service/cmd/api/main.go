@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"lancar/payment-service/internal/domain"
 	"lancar/payment-service/internal/handler"
 	"lancar/payment-service/internal/repository"
 	"lancar/payment-service/internal/service"
@@ -43,7 +44,7 @@ func main() {
 
 	// Wire Layers
 	repo := repository.NewPostgresWalletRepository(db, db) // Using same DB for R/W in this simple setup
-	svc := service.NewWalletService(repo, db)
+	svc := service.NewWalletService(repo, repo.(domain.SettingsRepository), db)
 	h := handler.NewWalletHandler(svc)
 
 	// Router

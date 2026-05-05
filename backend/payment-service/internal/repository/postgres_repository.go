@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"lancar/payment-service/internal/domain"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -170,4 +171,26 @@ func (r *postgresWalletRepository) GetTransactions(ctx context.Context, walletID
 	}
 	
 	return txs, nil
+}
+
+// Settings Repository
+func (r *postgresWalletRepository) GetSetting(ctx context.Context, key string) (string, error) {
+	var value string
+	err := r.readDB.QueryRowContext(ctx, "SELECT value FROM system_settings WHERE key = $1", key).Scan(&value)
+	return value, err
+}
+
+func (r *postgresWalletRepository) GetFee(ctx context.Context, role string) (float64, error) {
+	key := "withdrawal_fee_customer"
+	if role == "courier" {
+		key = "withdrawal_fee_courier"
+	}
+	
+	val, err := r.GetSetting(ctx, key)
+	if err != nil {
+		return 5000.0, nil // Fallback to safe default
+	}
+	
+	fee, _ := strconv.ParseFloat(val, 64)
+	return fee, nil
 }

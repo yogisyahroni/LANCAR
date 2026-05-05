@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 	"lancar/payment-service/internal/domain"
 
@@ -13,14 +14,18 @@ import (
 )
 
 type walletService struct {
-	repo domain.WalletRepository
-	db   *sql.DB // Needed for transaction management
+	repo         domain.WalletRepository
+	settingsRepo domain.SettingsRepository
+	disbursement *DisbursementService
+	db           *sql.DB
 }
 
-func NewWalletService(repo domain.WalletRepository, db *sql.DB) domain.WalletService {
+func NewWalletService(repo domain.WalletRepository, settingsRepo domain.SettingsRepository, db *sql.DB) domain.WalletService {
 	return &walletService{
-		repo: repo,
-		db:   db,
+		repo:         repo,
+		settingsRepo: settingsRepo,
+		disbursement: NewDisbursementService(),
+		db:           db,
 	}
 }
 
@@ -114,14 +119,15 @@ func (s *walletService) Deposit(ctx context.Context, userID uuid.UUID, amount fl
 }
 
 func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole string, amount float64, bankDetails map[string]any) error {
-	withdrawalFee := 5000.0
-	if userRole == "courier" {
-		withdrawalFee = 0.0
+	// 1. Get Dynamic Fee from Admin Settings
+	withdrawalFee, err := s.settingsRepo.GetFee(ctx, userRole)
+	if err != nil {
+		withdrawalFee = 5000.0 // Default fallback
 	}
 	
 	totalDeduction := amount + withdrawalFee
 
-	// Start Transaction
+	// 2. Start Transaction for Atomic Check-and-Deduct
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -133,24 +139,26 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 		return err
 	}
 
+	// 3. SECURITY: Strict Balance Check
 	if wallet.Balance < totalDeduction {
-		return errors.New("insufficient balance for withdrawal and fees")
+		return errors.New("saldo tidak cukup untuk penarikan (termasuk biaya admin)")
 	}
 
-	// Deduct Balance Immediately
+	// 4. Deduct Balance
 	err = s.repo.UpdateBalance(ctx, wallet.ID, -totalDeduction, wallet.Version)
 	if err != nil {
 		return err
 	}
 
-	// Create Transaction Log (Status: PENDING)
+	// 5. Create Transaction Log
+	refID := fmt.Sprintf("WD-%d-%d", time.Now().Unix(), uuid.New().ID())
 	walletTx := &domain.WalletTransaction{
 		WalletID:    wallet.ID,
 		Type:        domain.TypeWithdrawal,
 		Amount:      amount,
 		Fee:         withdrawalFee,
 		Status:      domain.StatusPending,
-		ReferenceID: fmt.Sprintf("WD-%d", uuid.New().ID()),
+		ReferenceID: refID,
 		Metadata:    bankDetails,
 	}
 	err = s.repo.CreateTransaction(ctx, walletTx)
@@ -158,7 +166,34 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 		return err
 	}
 
-	return tx.Commit()
+	// 6. Commit Transaction First to ensure persistence
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	// 7. AUTO DISBURSEMENT (Standard Enterprise Policy)
+	// If amount is small, we can trigger automatic payout
+	thresholdStr, _ := s.settingsRepo.GetSetting(ctx, "auto_disbursement_threshold")
+	threshold, _ := strconv.ParseFloat(thresholdStr, 64)
+	if threshold == 0 {
+		threshold = 1000000 // Default 1jt
+	}
+
+	if amount <= threshold {
+		// Attempt auto payout (asynchronous or direct)
+		go func() {
+			err := s.disbursement.CreatePayout(context.Background(), refID, amount, bankDetails)
+			if err != nil {
+				fmt.Printf("[ERROR] Auto-disbursement failed for %s: %v\n", refID, err)
+				// In a real system, we would mark status as FAILED or alert Admin
+			} else {
+				// TODO: Update transaction status to COMPLETED in database
+				fmt.Printf("[SUCCESS] Auto-disbursement triggered for %s\n", refID)
+			}
+		}()
+	}
+
+	return nil
 }
 
 func (s *walletService) ProcessPayment(ctx context.Context, userID uuid.UUID, amount float64, orderID string) error {

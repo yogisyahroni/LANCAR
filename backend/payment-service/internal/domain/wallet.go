@@ -54,6 +54,11 @@ type WalletRepository interface {
 	GetTransactions(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]*WalletTransaction, error)
 }
 
+type SettingsRepository interface {
+	GetSetting(ctx context.Context, key string) (string, error)
+	GetFee(ctx context.Context, role string) (float64, error)
+}
+
 type WalletService interface {
 	GetBalance(ctx context.Context, userID uuid.UUID) (*Wallet, error)
 	CreateTopUp(ctx context.Context, userID uuid.UUID, amount float64) (string, error)
