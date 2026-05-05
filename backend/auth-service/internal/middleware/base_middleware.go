@@ -2,10 +2,11 @@ package middleware
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
+	"math/big"
 	"net/http"
 	"runtime/debug"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"lancar/auth-service/internal/domain"
 )
+
 
 // -------------------------------------------------------
 // Correlation ID Middleware
@@ -46,13 +48,18 @@ func GetCorrelationID(ctx context.Context) string {
 
 func generateCorrelationID() string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, 12)
 	for i := range b {
-		b[i] = charset[rng.Intn(len(charset))]
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			b[i] = charset[0] // Fallback
+		} else {
+			b[i] = charset[num.Int64()]
+		}
 	}
 	return fmt.Sprintf("lnc-%s-%d", string(b), time.Now().UnixMilli()%10000)
 }
+
 
 // -------------------------------------------------------
 // Request Logger Middleware
@@ -85,17 +92,18 @@ func RequestLoggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		duration := time.Since(start)
 		correlationID := GetCorrelationID(r.Context())
 
-		log.Printf("[REQUEST] correlation_id=%s method=%s path=%s status=%d duration=%s ip=%s user_agent=%s",
+		log.Printf(`{"level":"info","msg":"request completed","correlation_id":"%s","method":"%s","path":"%s","status":%d,"duration_ms":%d,"ip":"%s","user_agent":"%s"}`,
 			correlationID,
 			r.Method,
 			r.URL.Path,
 			rw.statusCode,
-			duration.Round(time.Millisecond),
+			duration.Milliseconds(),
 			realIP(r),
 			r.UserAgent(),
 		)
 	}
 }
+
 
 func realIP(r *http.Request) string {
 	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
@@ -195,13 +203,16 @@ type ErrorResponse struct {
 func WriteError(w http.ResponseWriter, status int, code, message, correlationID string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(ErrorResponse{
+	if err := json.NewEncoder(w).Encode(ErrorResponse{
 		Success:       false,
 		Code:          code,
 		Message:       message,
 		CorrelationID: correlationID,
-	})
+	}); err != nil {
+		log.Printf("[ERROR] Failed to encode error response: %v", err)
+	}
 }
+
 
 // SuccessResponse is the canonical success format for all LANCAR APIs.
 type SuccessResponse struct {
@@ -213,11 +224,14 @@ type SuccessResponse struct {
 func WriteSuccess(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(SuccessResponse{
+	if err := json.NewEncoder(w).Encode(SuccessResponse{
 		Success: true,
 		Data:    data,
-	})
+	}); err != nil {
+		log.Printf("[ERROR] Failed to encode success response: %v", err)
+	}
 }
+
 
 // -------------------------------------------------------
 // Chain helper — compose multiple middlewares

@@ -2,8 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
-	"math/rand"
+	"math/big"
 	"time"
 )
 
@@ -11,14 +12,10 @@ type LivenessService interface {
 	Verify(ctx context.Context, imageBase64 string) (bool, error)
 }
 
-type mockLivenessService struct {
-	rng *rand.Rand
-}
+type mockLivenessService struct{}
 
 func NewLivenessService() LivenessService {
-	return &mockLivenessService{
-		rng: rand.New(rand.NewSource(time.Now().UnixNano())),
-	}
+	return &mockLivenessService{}
 }
 
 func (s *mockLivenessService) Verify(ctx context.Context, imageBase64 string) (bool, error) {
@@ -34,6 +31,12 @@ func (s *mockLivenessService) Verify(ctx context.Context, imageBase64 string) (b
 	}
 
 	// In production, this would call an external KYC provider (e.g., Advance.ai or Verihubs)
-	// For testing, we succeed 90% of the time
-	return s.rng.Float32() > 0.1, nil 
+	// For testing, we succeed 90% of the time using crypto/rand
+	num, err := rand.Int(rand.Reader, big.NewInt(100))
+	if err != nil {
+		return true, nil // Fail safe: assume success if RNG fails
+	}
+
+	return num.Int64() >= 10, nil 
 }
+

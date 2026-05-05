@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
+
 
 	"lancar/auth-service/internal/domain"
 	"lancar/auth-service/internal/handler"
@@ -17,8 +19,10 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	_ "lancar/auth-service/internal/handler/docs"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
+
 
 // @title LANCAR Identity Service API
 // @version 1.0
@@ -251,6 +255,11 @@ func main() {
 	}
 
 	// ─────────────────────────────────────────────
+	// Prometheus Metrics
+	// ─────────────────────────────────────────────
+	mux.Handle("/metrics", promhttp.Handler())
+
+	// ─────────────────────────────────────────────
 	// Start Server
 	// ─────────────────────────────────────────────
 	port := os.Getenv("AUTH_PORT")
@@ -258,6 +267,15 @@ func main() {
 		port = "8081"
 	}
 
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
 	fmt.Printf("[auth-service] Starting on :%s (API v1 + Redis rate limiting ready)\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, mux))
+	log.Fatal(server.ListenAndServe())
 }
+

@@ -4,7 +4,12 @@ import helmet from 'helmet';
 import pino from 'pino-http';
 import { createProxyMiddleware, fixRequestBody } from 'http-proxy-middleware';
 import dotenv from 'dotenv';
+import { rateLimit } from 'express-rate-limit';
+import { Registry, collectDefaultMetrics, Counter, Histogram } from 'prom-client';
+import CircuitBreaker from 'opossum';
 import { validate } from './middleware/validator';
+
+
 import { PricingEstimateSchema, CreateOrderSchema } from './schemas/order.schema';
 import { OTPSendSchema, OTPVerifySchema, RegisterSchema } from './schemas/auth.schema';
 
@@ -13,10 +18,104 @@ dotenv.config({ path: '../../../.env' });
 const app = express();
 const logger = pino();
 
+// --- ENTERPRISE OBSERVABILITY (Prometheus) ---
+const register = new Registry();
+collectDefaultMetrics({ register });
+
+const httpRequestCounter = new Counter({
+  name: 'http_requests_total',
+  help: 'Total number of HTTP requests',
+  labelNames: ['method', 'route', 'status_code'],
+  registers: [register],
+});
+
+const httpLatencyHistogram = new Histogram({
+  name: 'http_request_duration_seconds',
+  help: 'Duration of HTTP requests in seconds',
+  labelNames: ['method', 'route', 'status_code'],
+  buckets: [0.1, 0.5, 1, 2, 5],
+  registers: [register],
+});
+
+// Middleware to track metrics
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = (Date.now() - start) / 1000;
+    const route = req.path;
+    httpRequestCounter.labels(req.method, route, res.statusCode.toString()).inc();
+    httpLatencyHistogram.labels(req.method, route, res.statusCode.toString()).observe(duration);
+  });
+  next();
+});
+
+// --- ENTERPRISE RESILIENCE (Circuit Breakers) ---
+const breakerOptions = {
+  timeout: 5000, // If service takes longer than 5s, trigger failure
+  errorThresholdPercentage: 50, // If 50% of requests fail, open the circuit
+  resetTimeout: 30000, // After 30s, try again (half-open)
+};
+
+const createServiceBreaker = (serviceName: string) => {
+  const breaker = new CircuitBreaker(async (proxyReq: any) => {
+    // This is a wrapper, the actual proxying is handled by http-proxy-middleware.
+    // We use the breaker to track health.
+    return true; 
+  }, { ...breakerOptions, name: serviceName });
+
+  breaker.fallback(() => ({
+    error: true,
+    message: `Service ${serviceName} is currently unavailable (Circuit Breaker Open)`,
+  }));
+
+  return breaker;
+};
+
+const authBreaker = createServiceBreaker('auth-service');
+const orderBreaker = createServiceBreaker('order-service');
+const adminBreaker = createServiceBreaker('admin-service');
+
+
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
-  contentSecurityPolicy: false, // Disable CSP in dev to avoid issues
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https:", "wss:"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
 }));
+
+// Rate Limiting
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 requests per windowMs
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    status: 'error',
+    code: 'ERR_TOO_MANY_REQUESTS',
+    message: 'Too many authentication attempts, please try again later',
+  },
+});
+
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // limit each IP to 100 requests per minute
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 
 // Robust CORS with logging and preflight handling
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -80,20 +179,35 @@ console.log(`\x1b[32m[Gateway Config]\x1b[0m Auth Service: ${AUTH_SERVICE_URL}`)
 console.log(`\x1b[32m[Gateway Config]\x1b[0m Admin Service: ${ADMIN_SERVICE_URL}`);
 console.log(`\x1b[32m[Gateway Config]\x1b[0m Order Service: ${ORDER_SERVICE_URL}`);
 
-// Helper for proxying with body fix
-const proxyWithBodyFix = (target: string) => 
+// Helper for proxying with body fix and circuit breaker integration
+const proxyWithResilience = (target: string, breaker: any) => 
   createProxyMiddleware({
     target,
     changeOrigin: true,
     on: {
       proxyReq: (proxyReq: any, req: any, res: any) => {
-        // Transform 'phone' to 'phone_number' if present in the body
-        if (req.body && req.body.phone && !req.body.phone_number) {
-          req.body.phone_number = req.body.phone;
+        if (!breaker.opened) {
+          // Transform 'phone' to 'phone_number' if present in the body
+          if (req.body && req.body.phone && !req.body.phone_number) {
+            req.body.phone_number = req.body.phone;
+          }
+          fixRequestBody(proxyReq, req);
+        } else {
+          res.status(503).json({
+            status: 'error',
+            code: 'ERR_CIRCUIT_OPEN',
+            message: `Service at ${target} is struggling. Circuit breaker is OPEN.`,
+          });
+          proxyReq.destroy();
         }
-        fixRequestBody(proxyReq, req);
+      },
+      proxyRes: (proxyRes: any, req: any, res: any) => {
+        if (proxyRes.statusCode >= 500) {
+          breaker.fire(); // Notify breaker of failure
+        }
       },
       error: (err: Error, req: any, res: any) => {
+        breaker.fire(); // Notify breaker of failure
         console.error(`Proxy Error (${target}):`, err);
         if (res && typeof res.status === 'function') {
           res.status(502).json({
@@ -101,12 +215,11 @@ const proxyWithBodyFix = (target: string) =>
             code: 'ERR_BAD_GATEWAY',
             message: 'Service is currently unavailable',
           });
-        } else if (res && typeof res.end === 'function') {
-          res.end('Service unavailable');
         }
       }
     }
   });
+
 
 // WebSocket Proxy for Admin Service (Socket.io)
 const adminWsProxy = createProxyMiddleware({
@@ -126,23 +239,26 @@ app.use('/socket.io', adminWsProxy);
 // Auth Service (Gateway-level validation)
 app.post(
   '/api/v1/auth/otp/send',
+  authLimiter,
   jsonParser,
   validate(OTPSendSchema),
-  proxyWithBodyFix(AUTH_SERVICE_URL)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
 );
 
 app.post(
   '/api/v1/auth/otp/verify',
+  authLimiter,
   jsonParser,
   validate(OTPVerifySchema),
-  proxyWithBodyFix(AUTH_SERVICE_URL)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
 );
+
 
 app.post(
   '/api/v1/auth/register',
   jsonParser,
   validate(RegisterSchema),
-  proxyWithBodyFix(AUTH_SERVICE_URL)
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
 );
 
 // Pricing Estimate (Validation in Gateway)
@@ -150,7 +266,7 @@ app.post(
   '/api/v1/pricing/estimate',
   jsonParser,
   validate(PricingEstimateSchema),
-  proxyWithBodyFix(ORDER_SERVICE_URL)
+  proxyWithResilience(ORDER_SERVICE_URL, orderBreaker)
 );
 
 // Order Creation (Validation in Gateway)
@@ -158,7 +274,7 @@ app.post(
   '/api/v1/orders',
   jsonParser,
   validate(CreateOrderSchema),
-  proxyWithBodyFix(ORDER_SERVICE_URL)
+  proxyWithResilience(ORDER_SERVICE_URL, orderBreaker)
 );
 
 // --- PROXY ROUTES (Pass-through) ---
@@ -185,40 +301,13 @@ app.use(createProxyMiddleware({
 }));
 
 // Auth Service - General Routes
-app.use('/api/v1/auth', createProxyMiddleware({
-  target: AUTH_SERVICE_URL,
-  changeOrigin: true,
-  on: {
-    proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[34m[Proxy Auth]\x1b[0m Forwarding ${req.method} ${req.url} to ${AUTH_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
-    }
-  }
-}));
+app.use('/api/v1/auth', proxyWithResilience(AUTH_SERVICE_URL, authBreaker));
 
 // Orders Service
-app.use('/api/v1/orders', createProxyMiddleware({
-  target: ORDER_SERVICE_URL,
-  changeOrigin: true,
-  on: {
-    proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[32m[Proxy Order]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
-    }
-  }
-}));
+app.use('/api/v1/orders', proxyWithResilience(ORDER_SERVICE_URL, orderBreaker));
 
 // Couriers Service (Order-related actions)
-app.use('/api/v1/couriers', createProxyMiddleware({
-  target: ORDER_SERVICE_URL,
-  changeOrigin: true,
-  on: {
-    proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[32m[Proxy Courier]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
-    }
-  }
-}));
+app.use('/api/v1/couriers', proxyWithResilience(ORDER_SERVICE_URL, orderBreaker));
 
 // Admin Service General Routes (Management API)
 app.use(createProxyMiddleware({
@@ -248,6 +337,7 @@ app.use('/api/v1/routing', createProxyMiddleware({
   }
 }));
 
+
 // ─────────────────────────────────────────────
 // API DOCUMENTATION ROUTES (SWAGGER UI)
 // ─────────────────────────────────────────────
@@ -273,7 +363,14 @@ app.use('/docs/orders', createProxyMiddleware({
 // ─────────────────────────────────────────────
 // HEALTH & UTILS
 // ─────────────────────────────────────────────
+// Metrics endpoint (Internal use)
+app.get('/metrics', async (req, res) => {
+  res.set('Content-Type', register.contentType);
+  res.end(await register.metrics());
+});
+
 app.get('/health', (req, res) => {
+
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 

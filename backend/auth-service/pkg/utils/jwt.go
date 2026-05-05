@@ -23,8 +23,9 @@ type Claims struct {
 func GenerateToken(userID string, role string, totpVerified bool, duration time.Duration) (string, error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "lancar_secret_key_change_me"
+		return "", errors.New("JWT_SECRET environment variable is not set")
 	}
+
 
 	claims := &Claims{
 		UserID:       userID,
@@ -44,8 +45,9 @@ func GenerateToken(userID string, role string, totpVerified bool, duration time.
 func ValidateToken(tokenString string) (*Claims, error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "lancar_secret_key_change_me"
+		return nil, errors.New("JWT_SECRET environment variable is not set")
 	}
+
 
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(secret), nil

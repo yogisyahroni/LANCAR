@@ -16,10 +16,11 @@ type LocalStorage struct {
 }
 
 func NewLocalStorage(basePath, baseURL string) (*LocalStorage, error) {
-	// Ensure directory exists
-	if err := os.MkdirAll(basePath, 0755); err != nil {
+	// Ensure directory exists with restrictive permissions (0750)
+	if err := os.MkdirAll(basePath, 0750); err != nil {
 		return nil, fmt.Errorf("failed to create upload directory: %w", err)
 	}
+
 	return &LocalStorage{
 		basePath: basePath,
 		baseURL:  baseURL,

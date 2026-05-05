@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
+
 
 type VerihubsLiveness struct {
 	appID     string
@@ -18,15 +20,21 @@ type VerihubsLiveness struct {
 }
 
 func NewVerihubsLiveness(appID, apiKey string) *VerihubsLiveness {
+	apiURL := os.Getenv("VERIHUBS_API_URL")
+	if apiURL == "" {
+		apiURL = "https://api.verihubs.com/v1/liveness" // Default
+	}
+
 	return &VerihubsLiveness{
 		appID:  appID,
 		apiKey: apiKey,
-		apiURL: os.Getenv("VERIHUBS_API_URL"), // e.g., https://api.verihubs.com/v1/liveness
+		apiURL: apiURL,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 	}
 }
+
 
 type verihubsRequest struct {
 	Image string `json:"image"` // Base64
@@ -47,8 +55,13 @@ func (s *VerihubsLiveness) Verify(ctx context.Context, imageBase64 string) (bool
 		return false, fmt.Errorf("verihubs credentials not configured")
 	}
 
+	if !strings.HasPrefix(s.apiURL, "https://") {
+		return false, fmt.Errorf("insecure or invalid API URL: %s", s.apiURL)
+	}
+
 	reqBody, _ := json.Marshal(verihubsRequest{Image: imageBase64})
 	req, err := http.NewRequestWithContext(ctx, "POST", s.apiURL, bytes.NewBuffer(reqBody))
+
 	if err != nil {
 		return false, err
 	}
