@@ -1,3 +1,4 @@
+-- +goose Up
 -- Migration to create the package_scans table for multi-leg warehouse tracking and ePOD.
 CREATE TABLE IF NOT EXISTS package_scans (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -12,3 +13,6 @@ CREATE TABLE IF NOT EXISTS package_scans (
 );
 
 CREATE INDEX IF NOT EXISTS idx_package_scans_order_id ON package_scans(order_id);
+
+-- +goose Down
+DROP TABLE IF EXISTS package_scans;
