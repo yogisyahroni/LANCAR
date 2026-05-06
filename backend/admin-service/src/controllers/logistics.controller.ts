@@ -114,6 +114,10 @@ export const deleteZone = async (req: Request, res: Response) => {
     }
     const zone = checkRes.rows[0];
 
+    await client.query('UPDATE order_legs SET zone_id = NULL, pickup_meeting_point_id = NULL, dropoff_meeting_point_id = NULL WHERE zone_id = $1', [id]);
+    await client.query('DELETE FROM courier_zones WHERE zone_id = $1', [id]);
+    await client.query('DELETE FROM weather_logs WHERE zone_id = $1', [id]);
+    await client.query('DELETE FROM dynamic_pricing_logs WHERE zone_id = $1', [id]);
     await client.query('DELETE FROM meeting_points WHERE zone_id = $1', [id]);
     await client.query('DELETE FROM zones WHERE id = $1', [id]);
 
