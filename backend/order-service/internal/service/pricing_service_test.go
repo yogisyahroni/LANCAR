@@ -15,7 +15,7 @@ type MockPricingRepo struct {
 	Err    error
 }
 
-func (m *MockPricingRepo) GetActiveConfig(ctx context.Context) (*domain.PricingConfig, error) {
+func (m *MockPricingRepo) GetActiveConfig(ctx context.Context, model string) (*domain.PricingConfig, error) {
 	return m.Config, m.Err
 }
 func (m *MockPricingRepo) UpdateConfig(ctx context.Context, config *domain.PricingConfig) error {

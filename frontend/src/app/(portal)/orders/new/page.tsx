@@ -7,6 +7,7 @@ import { PaymentModal } from "@/components/orders/PaymentModal";
 import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useNotificationStore } from "@/store/useNotificationStore";
+import { Info } from "lucide-react";
 
 export default function NewOrderPage() {
   const [formData, setFormData] = useState<Partial<OrderFormValues>>({});
@@ -14,6 +15,7 @@ export default function NewOrderPage() {
   const [isCalculating, setIsCalculating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pricing, setPricing] = useState<any>(null);
+  const [coverageError, setCoverageError] = useState<string | null>(null);
   
   const [showPayment, setShowPayment] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
@@ -24,6 +26,7 @@ export default function NewOrderPage() {
 
   const calculatePricing = useCallback(async (data: Partial<OrderFormValues>) => {
     setIsCalculating(true);
+    setCoverageError(null);
     try {
       const res = await api.post('/orders/calculate', {
         pickup: data.pickup_location,
@@ -34,8 +37,14 @@ export default function NewOrderPage() {
         item_value: data.item_value
       });
       setPricing(res.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to calculate pricing", error);
+      if (error.response?.data?.code === 'ERR_LOCATION_NOT_COVERED') {
+        setCoverageError(error.response.data.message);
+        setPricing(null);
+      } else {
+        setCoverageError(null);
+      }
     } finally {
       setIsCalculating(false);
     }
@@ -112,6 +121,18 @@ export default function NewOrderPage() {
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Kirim Paket Baru</h1>
         <p className="mt-2 text-muted-foreground">Isi detail pengambilan dan tujuan dengan lengkap.</p>
       </div>
+
+      {coverageError && (
+        <div className="mb-6 p-6 rounded-2xl bg-red-500/10 border border-red-500/20 backdrop-blur-md flex items-start gap-4 animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="p-3 bg-red-500/20 rounded-xl text-red-400">
+            <Info className="h-6 w-6" />
+          </div>
+          <div>
+            <h4 className="font-bold text-zinc-100 tracking-tight">Wilayah Pengiriman Tidak Tercover</h4>
+            <p className="text-sm text-muted-foreground mt-1">{coverageError}</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         {/* Left Col - Form (takes 2/3 space) */}

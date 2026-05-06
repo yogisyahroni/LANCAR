@@ -42,6 +42,23 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		return nil, fmt.Errorf("flag error: %w", err)
 	}
 
+	// 0.1 Check Coverage for Pickup and Dropoff
+	pickupCovered, err := s.pricingRepo.CheckCoverage(ctx, req.PickupLat, req.PickupLng)
+	if err != nil {
+		return nil, fmt.Errorf("coverage check error: %w", err)
+	}
+	if !pickupCovered {
+		return nil, domain.ErrLocationNotCovered
+	}
+
+	dropoffCovered, err := s.pricingRepo.CheckCoverage(ctx, req.DropoffLat, req.DropoffLng)
+	if err != nil {
+		return nil, fmt.Errorf("coverage check error: %w", err)
+	}
+	if !dropoffCovered {
+		return nil, domain.ErrLocationNotCovered
+	}
+
 	// 1. Get Distance and Duration from Google Maps
 	distKM, durMin, originAddr, destAddr, err := s.mapsRepo.GetDistanceMatrix(ctx, req.PickupLat, req.PickupLng, req.DropoffLat, req.DropoffLng)
 	if err != nil {
@@ -77,7 +94,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	}
 
 	// 3. Get Pricing Configuration
-	config, err := s.pricingRepo.GetActiveConfig(ctx)
+	config, err := s.pricingRepo.GetActiveConfig(ctx, selectedModel)
 	if err != nil {
 		return nil, fmt.Errorf("config error: %w", err)
 	}
@@ -146,7 +163,7 @@ func (s *pricingServiceImpl) EstimatePrice(ctx context.Context, req *domain.Pric
 }
 
 func (s *pricingServiceImpl) GetConfig(ctx context.Context) (*domain.PricingConfig, error) {
-	return s.pricingRepo.GetActiveConfig(ctx)
+	return s.pricingRepo.GetActiveConfig(ctx, "p2p")
 }
 
 func (s *pricingServiceImpl) UpdateConfig(ctx context.Context, config *domain.PricingConfig) error {

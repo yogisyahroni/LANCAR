@@ -15,15 +15,30 @@ export const orderSchema = z.object({
   recipient_phone: z.string().min(10, "Nomor HP tidak valid"),
   package_details: z.object({
     category: z.string().min(1, "Pilih kategori paket"),
-    weight_kg: z.number().min(0.1, "Berat wajib diisi"),
+    weight_kg: z.preprocess(
+      (val) => (val === "" || val === null || val === undefined) ? undefined : Number(val),
+      z.number({ message: "Berat wajib diisi" }).min(0.1, "Berat minimal 0.1 kg")
+    ),
     dimensions: z.object({
-      length: z.number().min(1, "Panjang wajib diisi"),
-      width: z.number().min(1, "Lebar wajib diisi"),
-      height: z.number().min(1, "Tinggi wajib diisi"),
+      length: z.preprocess(
+        (val) => (val === "" || val === null || val === undefined) ? undefined : Number(val),
+        z.number({ message: "Panjang wajib diisi" }).min(1, "Panjang minimal 1 cm")
+      ),
+      width: z.preprocess(
+        (val) => (val === "" || val === null || val === undefined) ? undefined : Number(val),
+        z.number({ message: "Lebar wajib diisi" }).min(1, "Lebar minimal 1 cm")
+      ),
+      height: z.preprocess(
+        (val) => (val === "" || val === null || val === undefined) ? undefined : Number(val),
+        z.number({ message: "Tinggi wajib diisi" }).min(1, "Tinggi minimal 1 cm")
+      ),
     })
   }),
   has_insurance: z.boolean().default(false),
-  item_value: z.number().optional(),
+  item_value: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined) ? undefined : Number(val),
+    z.number({ message: "Nilai barang harus berupa angka" }).min(1000, "Nilai barang minimal Rp 1.000").optional()
+  ).optional(),
   schedule_type: z.enum(["now", "scheduled"]).default("now"),
   scheduled_at: z.string().optional(),
   customer_notes: z.string().max(200).optional()
@@ -251,11 +266,12 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
           <div>
             <label className="mb-1 block text-sm font-medium text-muted-foreground">Berat Aktual (kg)</label>
             <input 
-              {...register("package_details.weight_kg", { valueAsNumber: true })}
+              {...register("package_details.weight_kg", { setValueAs: (v) => v === "" ? "" : Number(v) })}
               type="number"
               step="0.1"
               className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
             />
+            {errors.package_details?.weight_kg && <p className="mt-1 text-xs text-destructive">{errors.package_details.weight_kg.message}</p>}
           </div>
         </div>
 
@@ -264,10 +280,15 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
             Dimensi Paket (cm) <Maximize className="h-3.5 w-3.5" />
           </label>
           <div className="grid grid-cols-3 gap-3">
-            <input {...register("package_details.dimensions.length", { valueAsNumber: true })} type="number" placeholder="P" className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2 text-sm text-center" />
-            <input {...register("package_details.dimensions.width", { valueAsNumber: true })} type="number" placeholder="L" className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2 text-sm text-center" />
-            <input {...register("package_details.dimensions.height", { valueAsNumber: true })} type="number" placeholder="T" className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2 text-sm text-center" />
+            <input {...register("package_details.dimensions.length", { setValueAs: (v) => v === "" ? "" : Number(v) })} type="number" placeholder="P" className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2 text-sm text-center" />
+            <input {...register("package_details.dimensions.width", { setValueAs: (v) => v === "" ? "" : Number(v) })} type="number" placeholder="L" className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2 text-sm text-center" />
+            <input {...register("package_details.dimensions.height", { setValueAs: (v) => v === "" ? "" : Number(v) })} type="number" placeholder="T" className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2 text-sm text-center" />
           </div>
+          {(errors.package_details?.dimensions?.length || errors.package_details?.dimensions?.width || errors.package_details?.dimensions?.height) && (
+            <p className="mt-1 text-xs text-destructive">
+              {errors.package_details.dimensions.length?.message || errors.package_details.dimensions.width?.message || errors.package_details.dimensions.height?.message}
+            </p>
+          )}
         </div>
 
         {/* Asuransi */}
@@ -283,11 +304,12 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
             <div className="ml-7 mt-3">
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Nilai Barang (Rp)</label>
               <input 
-                {...register("item_value", { valueAsNumber: true })}
+                {...register("item_value", { setValueAs: (v) => v === "" ? "" : Number(v) })}
                 type="number"
                 placeholder="Mis: 1000000"
                 className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2 text-sm"
               />
+              {errors.item_value && <p className="mt-1 text-xs text-destructive">{errors.item_value.message}</p>}
             </div>
           )}
         </div>

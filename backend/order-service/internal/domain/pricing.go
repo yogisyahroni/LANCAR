@@ -56,8 +56,9 @@ type PricingService interface {
 }
 
 type PricingRepository interface {
-	GetActiveConfig(ctx context.Context) (*PricingConfig, error)
+	GetActiveConfig(ctx context.Context, model string) (*PricingConfig, error)
 	UpdateConfig(ctx context.Context, config *PricingConfig) error
+	CheckCoverage(ctx context.Context, lat, lng float64) (bool, error)
 }
 
 type MapsRepository interface {

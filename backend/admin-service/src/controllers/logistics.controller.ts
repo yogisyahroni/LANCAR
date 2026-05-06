@@ -114,6 +114,7 @@ export const deleteZone = async (req: Request, res: Response) => {
     }
     const zone = checkRes.rows[0];
 
+    await client.query('DELETE FROM meeting_points WHERE zone_id = $1', [id]);
     await client.query('DELETE FROM zones WHERE id = $1', [id]);
 
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
@@ -137,14 +138,28 @@ export const getPricingConfig = async (req: Request, res: Response): Promise<voi
   try {
     const result = await readDb.query(`
       SELECT 
-        model as service_type, 
+        model, 
         base_fee as base_fare, 
         per_km_fee as per_km_rate,
+        volumetric_div,
         updated_at
       FROM pricing_configs 
       ORDER BY model ASC
     `);
-    res.json(result.rows);
+    const mapped = result.rows.map(row => {
+      let service_type = row.model;
+      if (row.model === 'p2p') service_type = 'standard';
+      else if (row.model === 'two_legs') service_type = 'relay';
+      else if (row.model === 'three_legs') service_type = 'express';
+      return {
+        service_type,
+        base_fare: row.base_fare,
+        per_km_rate: row.per_km_rate,
+        volumetric_div: row.volumetric_div,
+        updated_at: row.updated_at
+      };
+    });
+    res.json(mapped);
   } catch (error: any) {
     console.error('Error fetching pricing config:', error);
     res.status(500).json({ error: error.message });
@@ -152,20 +167,45 @@ export const getPricingConfig = async (req: Request, res: Response): Promise<voi
 };
 
 export const updatePricingConfig = async (req: Request, res: Response): Promise<void> => {
-  const { service_type, base_fare, per_km_rate } = req.body;
+  const { service_type, base_fare, per_km_rate, volumetric_div } = req.body;
   if (isNaN(base_fare) || isNaN(per_km_rate)) {
     res.status(400).json({ error: 'Invalid pricing values: NaN' });
     return;
   }
+
+  let dbModel = service_type;
+  if (service_type === 'standard' || service_type === 'Standard') dbModel = 'p2p';
+  else if (service_type === 'relay' || service_type === 'Relay') dbModel = 'two_legs';
+  else if (service_type === 'express' || service_type === 'Express') dbModel = 'three_legs';
+
+  const volDiv = (volumetric_div !== undefined && volumetric_div !== null && !isNaN(volumetric_div)) ? Number(volumetric_div) : 5000;
+
   try {
     const result = await db.query(
       `UPDATE pricing_configs 
-       SET base_fee = $1, per_km_fee = $2, updated_at = NOW() 
-       WHERE model = $3 
-       RETURNING model as service_type, base_fee as base_fare, per_km_fee as per_km_rate`,
-      [base_fare, per_km_rate, service_type]
+       SET base_fee = $1, per_km_fee = $2, volumetric_div = $3, updated_at = NOW() 
+       WHERE model = $4 
+       RETURNING model, base_fee as base_fare, per_km_fee as per_km_rate, volumetric_div`,
+      [base_fare, per_km_rate, volDiv, dbModel]
     );
-    res.json(result.rows[0]);
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: `Pricing config model '${dbModel}' not found` });
+      return;
+    }
+
+    const row = result.rows[0];
+    let res_service_type = row.model;
+    if (row.model === 'p2p') res_service_type = 'standard';
+    else if (row.model === 'two_legs') res_service_type = 'relay';
+    else if (row.model === 'three_legs') res_service_type = 'express';
+
+    res.json({
+      service_type: res_service_type,
+      base_fare: row.base_fare,
+      per_km_rate: row.per_km_rate,
+      volumetric_div: row.volumetric_div
+    });
   } catch (error: any) {
     console.error('Error updating pricing config:', error);
     res.status(500).json({ error: error.message });

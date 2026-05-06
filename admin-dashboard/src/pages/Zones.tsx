@@ -51,12 +51,21 @@ const coordsToWKT = (latlngs: any) => {
 // Helper to parse WKT to Leaflet coordinates
 const WKTToCoords = (wkt: string): L.LatLngTuple[] => {
   if (!wkt) return [];
-  const matches = wkt.match(/\(\((.*)\)\)/);
-  if (!matches) return [];
-  return matches[1].split(', ').map(pair => {
-    const [lng, lat] = pair.split(' ');
-    return [parseFloat(lat), parseFloat(lng)] as L.LatLngTuple;
-  });
+  const cleanStr = wkt
+    .replace(/^[A-Za-z]+\s*/, '') // Remove geometry type name
+    .replace(/[()]/g, '')        // Strip all parentheses
+    .trim();
+  
+  if (!cleanStr) return [];
+  
+  return cleanStr.split(',').map(pair => {
+    const parts = pair.trim().split(/\s+/);
+    if (parts.length < 2) return null;
+    const lng = parseFloat(parts[0]);
+    const lat = parseFloat(parts[1]);
+    if (isNaN(lng) || isNaN(lat)) return null;
+    return [lat, lng] as L.LatLngTuple;
+  }).filter((coord): coord is L.LatLngTuple => coord !== null);
 };
 
 export default function Zones() {
@@ -126,16 +135,28 @@ export default function Zones() {
           <h1 className="text-3xl font-black text-zinc-100 tracking-tight italic uppercase">Zone Management</h1>
           <p className="text-zinc-500 mt-1">Define operational boundaries and manage meeting points.</p>
         </div>
-        <button 
-          onClick={() => setIsDrawing(!isDrawing)}
-          className={cn(
-            "px-6 py-3 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]",
-            isDrawing ? "bg-red-500 text-white" : "bg-primary text-white shadow-primary/20 hover:bg-primary-light"
-          )}
-        >
-          {isDrawing ? <X size={18} /> : <Plus size={18} />}
-          {isDrawing ? "Cancel Drawing" : "Create New Zone"}
-        </button>
+        <div className="flex gap-4">
+          <button 
+            onClick={() => {
+              setSelectedZone({ polygon_wkt: '' });
+              setIsModalOpen(true);
+            }}
+            className="px-6 py-3 rounded-2xl bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary-light font-black text-sm uppercase tracking-widest transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+          >
+            <Plus size={18} />
+            Create Zone
+          </button>
+          <button 
+            onClick={() => setIsDrawing(!isDrawing)}
+            className={cn(
+              "px-6 py-3 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg transition-all flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]",
+              isDrawing ? "bg-red-500 text-white" : "bg-white/5 border border-white/10 text-zinc-300 hover:text-white"
+            )}
+          >
+            {isDrawing ? <X size={18} /> : <MapIcon size={18} />}
+            {isDrawing ? "Cancel Drawing" : "Draw Manual"}
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -230,16 +251,29 @@ export default function Zones() {
                   key={zone.id}
                   positions={WKTToCoords(zone.polygon || zone.polygon_wkt)}
                   pathOptions={{
-                    color: '#006437',
-                    fillColor: '#006437',
-                    fillOpacity: selectedZone?.id === zone.id ? 0.4 : 0.1,
-                    weight: selectedZone?.id === zone.id ? 3 : 1
+                    color: '#10b981', // Premium bright emerald green outline
+                    fillColor: '#10b981',
+                    fillOpacity: selectedZone?.id === zone.id ? 0.35 : 0.08,
+                    weight: selectedZone?.id === zone.id ? 4 : 1.5
                   }}
                   eventHandlers={{
                     click: () => setSelectedZone(zone)
                   }}
                 />
               ))}
+
+              {selectedZone && !selectedZone.id && selectedZone.polygon_wkt && (
+                <Polygon
+                  positions={WKTToCoords(selectedZone.polygon_wkt)}
+                  pathOptions={{
+                    color: '#10b981', // Translucent emerald preview outline
+                    fillColor: '#10b981',
+                    fillOpacity: 0.4,
+                    weight: 4,
+                    dashArray: '6, 6' // Premium dashed look for unsaved preview
+                  }}
+                />
+              )}
 
               <MapEvents center={mapCenter} selectedZone={selectedZone} />
            </MapContainer>
@@ -303,6 +337,7 @@ export default function Zones() {
           if (!selectedZone?.id) setSelectedZone(null);
         }}
         zone={selectedZone}
+        onUpdatePolygon={(wkt: string) => setSelectedZone({ ...selectedZone, polygon_wkt: wkt })}
         onSave={(data: any) => {
           if (selectedZone?.id) {
             updateMutation.mutate({ id: selectedZone.id, data });
@@ -372,13 +407,84 @@ function GeomanControl({ isDrawing, onCreated }: { isDrawing: boolean, onCreated
   return null;
 }
 
-function ZoneModal({ isOpen, onClose, zone, onSave, isSaving }: any) {
+function ZoneModal({ isOpen, onClose, zone, onUpdatePolygon, onSave, isSaving }: any) {
   const [formData, setFormData] = useState<any>({
     name: '',
     code: '',
     max_couriers: 10,
     is_active: true
   });
+
+  const [searchRegion, setSearchRegion] = useState('');
+  const [isFetchingRegion, setIsFetchingRegion] = useState(false);
+
+  const handleFetchBoundary = async () => {
+    if (!searchRegion) {
+      toast.error('Please enter a region name first (e.g. Surabaya)');
+      return;
+    }
+    setIsFetchingRegion(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchRegion)}&format=json&polygon_geojson=1&limit=10`);
+      const data = await res.json();
+      if (!data || data.length === 0) {
+        toast.error('No administrative region found for that name.');
+        return;
+      }
+      // Find the first result that is a Polygon or MultiPolygon
+      let item = data.find((d: any) => {
+        const geo = d.geojson || d.polygon_geojson;
+        return geo && (geo.type === 'Polygon' || geo.type === 'MultiPolygon');
+      });
+      if (!item) {
+        // Fallback to first item that has geojson
+        item = data.find((d: any) => d.geojson || d.polygon_geojson);
+      }
+      if (!item) {
+        toast.error('The selected location does not provide polygon boundary data.');
+        return;
+      }
+      
+      // Convert to WKT
+      const geojson = item.geojson || item.polygon_geojson;
+      let wkt = '';
+      if (geojson.type === 'Polygon') {
+        const ring = geojson.coordinates[0];
+        const pts = ring.map((pt: any) => `${pt[0]} ${pt[1]}`).join(', ');
+        wkt = `POLYGON((${pts}))`;
+      } else if (geojson.type === 'MultiPolygon') {
+        const polys = geojson.coordinates;
+        let largestPoly = polys[0];
+        let maxLen = 0;
+        polys.forEach((poly: any) => {
+          if (poly[0].length > maxLen) {
+            maxLen = poly[0].length;
+            largestPoly = poly;
+          }
+        });
+        const ring = largestPoly[0];
+        const pts = ring.map((pt: any) => `${pt[0]} ${pt[1]}`).join(', ');
+        wkt = `POLYGON((${pts}))`;
+      }
+
+      if (!wkt) {
+        toast.error('Unable to convert region boundary geometry to WKT format.');
+        return;
+      }
+
+      onUpdatePolygon(wkt);
+      setFormData((prev: any) => ({
+        ...prev,
+        name: prev.name || item.name || item.display_name.split(',')[0],
+        code: prev.code || (item.name || item.display_name.split(',')[0]).substring(0, 4).toUpperCase()
+      }));
+      toast.success(`Successfully fetched boundary for ${item.name || item.display_name.split(',')[0]}`);
+    } catch (err: any) {
+      toast.error(`Error querying Nominatim API: ${err.message}`);
+    } finally {
+      setIsFetchingRegion(false);
+    }
+  };
 
   useEffect(() => {
     if (zone?.id) {
@@ -395,6 +501,7 @@ function ZoneModal({ isOpen, onClose, zone, onSave, isSaving }: any) {
         max_couriers: 10,
         is_active: true
       });
+      setSearchRegion('');
     }
   }, [zone]);
 
@@ -414,6 +521,30 @@ function ZoneModal({ isOpen, onClose, zone, onSave, isSaving }: any) {
           </div>
 
           <div className="space-y-6">
+            {!zone?.id && (
+              <div className="p-6 rounded-3xl bg-primary/5 border border-primary/10 space-y-3">
+                <label className="text-[10px] font-black text-primary-light uppercase tracking-widest">Auto-Fetch Boundary</label>
+                <div className="flex gap-3">
+                  <input 
+                    placeholder="Enter city/region (e.g. Surabaya)"
+                    value={searchRegion}
+                    onChange={e => setSearchRegion(e.target.value)}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-xs text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-zinc-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleFetchBoundary}
+                    disabled={isFetchingRegion}
+                    className="px-4 py-3 rounded-xl bg-primary/20 hover:bg-primary/30 border border-primary/30 text-primary-light font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-1.5 active:scale-[0.98]"
+                  >
+                    {isFetchingRegion ? <Loader2 size={12} className="animate-spin" /> : <Search size={12} />}
+                    Fetch
+                  </button>
+                </div>
+                <p className="text-[9px] text-zinc-500 font-medium italic">Queries OpenStreetMap for verified administrative boundaries automatically.</p>
+              </div>
+            )}
+
             <div className="space-y-2">
               <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Zone Name</label>
               <input 

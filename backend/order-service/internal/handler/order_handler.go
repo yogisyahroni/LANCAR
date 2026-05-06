@@ -49,6 +49,10 @@ func (h *OrderHandler) Estimate(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.pricingSvc.EstimatePrice(r.Context(), req)
 	if err != nil {
 		correlationID := middleware.GetCorrelationID(r.Context())
+		if errors.Is(err, domain.ErrLocationNotCovered) {
+			middleware.WriteError(w, http.StatusBadRequest, "ERR_LOCATION_NOT_COVERED", "Alamat pickup atau tujuan tidak tercover oleh layanan kami", correlationID)
+			return
+		}
 		var modelErr *domain.ModelUnavailableError
 		if errors.As(err, &modelErr) {
 			middleware.WriteError(w, http.StatusServiceUnavailable, modelErr.MessageID, modelErr.UserMsg, correlationID)

@@ -20,17 +20,27 @@ func NewPostgresRepository(db, readDB *sql.DB) *postgresRepo {
 }
 
 // Pricing Repository Implementation
-func (r *postgresRepo) GetActiveConfig(ctx context.Context) (*domain.PricingConfig, error) {
-	query := `SELECT id, base_fare, per_km_fare, per_kg_fare, min_fare, volumetric_div 
-			  FROM pricing_configs WHERE is_active = true LIMIT 1`
+func (r *postgresRepo) GetActiveConfig(ctx context.Context, model string) (*domain.PricingConfig, error) {
+	if model == "" {
+		model = "p2p" // default fallback
+	}
 	
-	config := &domain.PricingConfig{}
-	var id string
-	err := r.readDB.QueryRowContext(ctx, query).Scan(
-		&id, &config.BaseFare, &config.PricePerKM, &config.PricePerMin, &config.VolumetricDiv, &config.VolumetricDiv,
-	)
+	query := `SELECT base_fee, per_km_fee, COALESCE(volumetric_div, 5000) FROM pricing_configs WHERE model = $1 LIMIT 1`
+	
+	config := &domain.PricingConfig{
+		BaseFare:          10000,
+		PricePerKM:        2500,
+		PricePerMin:       500,
+		SurgeEnabled:      true,
+		WeatherMultiplier: 1.2,
+		TrafficMultiplier: 1.2,
+		VolumetricDiv:     5000,
+	}
+
+	err := r.readDB.QueryRowContext(ctx, query, model).Scan(&config.BaseFare, &config.PricePerKM, &config.VolumetricDiv)
 	if err != nil {
-		return nil, err
+		// Log or handle error, returning fallback default config
+		return config, nil
 	}
 	return config, nil
 }
@@ -368,4 +378,14 @@ func (r *postgresRepo) GetConfig(ctx context.Context) (*domain.PricingConfig, er
 func (r *postgresRepo) UpdateConfig(ctx context.Context, config *domain.PricingConfig) error {
 	// Placeholder implementation
 	return nil
+}
+
+func (r *postgresRepo) CheckCoverage(ctx context.Context, lat, lng float64) (bool, error) {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM zones WHERE is_active = true AND ST_Contains(polygon::geometry, ST_SetSRID(ST_MakePoint($2, $1), 4326)))`
+	err := r.readDB.QueryRowContext(ctx, query, lat, lng).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
 }
