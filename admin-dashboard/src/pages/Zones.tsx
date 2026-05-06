@@ -342,6 +342,10 @@ export default function Zones() {
           if (selectedZone?.id) {
             updateMutation.mutate({ id: selectedZone.id, data });
           } else {
+            if (!selectedZone?.polygon_wkt) {
+              toast.error('Perimeter boundary is required. Please fetch or draw a boundary first!');
+              return;
+            }
             createMutation.mutate({ ...data, polygon: selectedZone.polygon_wkt });
           }
         }}

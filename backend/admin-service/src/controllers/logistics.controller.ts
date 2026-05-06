@@ -33,6 +33,9 @@ export const getZoneById = async (req: Request, res: Response): Promise<void> =>
 
 export const createZone = async (req: Request, res: Response) => {
   const { name, code, polygon, max_couriers, reason } = req.body;
+  if (!polygon || typeof polygon !== 'string' || polygon.trim() === '') {
+    return res.status(400).json({ error: 'Perimeter boundary (polygon) is required. Please fetch or draw a valid boundary.' });
+  }
   const client = await db.connect();
   try {
     await client.query('BEGIN');
