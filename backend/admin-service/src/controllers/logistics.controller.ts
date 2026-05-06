@@ -102,7 +102,7 @@ export const updateZone = async (req: Request, res: Response) => {
 
 export const deleteZone = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { reason } = req.body;
+  const { reason } = req.body || {};
   const client = await db.connect();
   try {
     await client.query('BEGIN');
