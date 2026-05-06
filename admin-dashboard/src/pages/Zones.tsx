@@ -75,6 +75,7 @@ export default function Zones() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [mapCenter] = useState<[number, number]>([-6.2088, 106.8456]) // Jakarta
   const [isDrawing, setIsDrawing] = useState(false)
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
   
   const { data: zones, isLoading } = useQuery({
     queryKey: ['zones'],
@@ -315,10 +316,8 @@ export default function Zones() {
                            Edit Parameters
                         </button>
                         <button 
-                          onClick={() => {
-                            if (window.confirm('Delete this operational zone?')) deleteMutation.mutate(selectedZone.id);
-                          }}
-                          className="px-6 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all"
+                          onClick={() => setIsDeleteConfirmOpen(true)}
+                          className="px-6 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all hover:scale-[1.02] active:scale-[0.98]"
                         >
                            Delete Zone
                         </button>
@@ -351,6 +350,55 @@ export default function Zones() {
         }}
         isSaving={createMutation.isPending || updateMutation.isPending}
       />
+
+      {/* Premium Custom Delete Confirmation Modal */}
+      {isDeleteConfirmOpen && (
+        <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-md">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md bg-zinc-900 border border-red-500/20 rounded-[40px] overflow-hidden shadow-2xl shadow-red-500/5"
+          >
+            <div className="p-10 space-y-8 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500">
+                <svg className="w-8 h-8 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="text-xl font-black text-zinc-100 uppercase italic tracking-tight">Delete Zone?</h3>
+                <p className="text-sm text-zinc-400 font-medium leading-relaxed">
+                  Are you absolutely sure you want to delete <span className="text-red-400 font-bold">"{selectedZone?.name}"</span>? This action is permanent and will cascade to all related records.
+                </p>
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setIsDeleteConfirmOpen(false)}
+                  className="flex-1 py-4 rounded-2xl bg-zinc-800 text-zinc-400 font-black text-xs uppercase tracking-widest transition-all hover:bg-zinc-700 active:scale-[0.98]"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    deleteMutation.mutate(selectedZone.id, {
+                      onSuccess: () => {
+                        setIsDeleteConfirmOpen(false);
+                      }
+                    });
+                  }}
+                  disabled={deleteMutation.isPending}
+                  className="flex-1 py-4 rounded-2xl bg-red-500 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-red-500/20 flex items-center justify-center gap-2 transition-all hover:bg-red-600 active:scale-[0.98]"
+                >
+                  {deleteMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : null}
+                  Delete Now
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
