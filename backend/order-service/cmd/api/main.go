@@ -215,6 +215,13 @@ func main() {
 	// Courier Workflow Routes
 	mux.HandleFunc("/api/v1/couriers/orders/accept", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AcceptOrder)))
 	mux.HandleFunc("/api/v1/orders/status", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.UpdateStatus)))
+	mux.HandleFunc("/api/v1/orders/scan", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ScanPackage)))
+	mux.HandleFunc("/api/v1/orders/scans", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetPackageScans)))
+	mux.HandleFunc("/api/v1/orders/bags", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CreateConsolidationBag)))
+	mux.HandleFunc("/api/v1/orders/bags/open", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.OpenConsolidationBag)))
+	mux.HandleFunc("/api/v1/orders/bags/detail", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetConsolidationBag)))
+	mux.HandleFunc("/api/v1/orders/scan/auto-detect", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AutoDetectScanType)))
+
 
 	// Tracking Routes
 	mux.HandleFunc("/api/v1/tracking/location", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.UpdateLocation)))

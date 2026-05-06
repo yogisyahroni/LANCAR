@@ -17,6 +17,7 @@ import Finance from './pages/Finance'
 import Settings from './pages/Settings'
 import AuditLogs from './pages/AuditLogs'
 import FeatureFlags from './pages/FeatureFlags'
+import WarehouseOperations from './pages/WarehouseOperations'
 import DashboardLayout from './components/DashboardLayout'
 
 import { useEffect } from 'react'
@@ -128,6 +129,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Zones />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/warehouse-operations" 
+            element={
+              <ProtectedRoute>
+                <WarehouseOperations />
               </ProtectedRoute>
             } 
           />

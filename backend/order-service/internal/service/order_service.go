@@ -390,3 +390,227 @@ func (s *orderServiceImpl) notifyCustomerNoCourier(ctx context.Context, order *d
 func (s *orderServiceImpl) ListEvents(ctx context.Context, userID string, since time.Time) ([]domain.OrderEvent, error) {
 	return s.eventRepo.ListEventsByUserID(ctx, userID, since)
 }
+
+func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, scan *domain.PackageScan) error {
+	order, err := s.orderRepo.GetByID(ctx, scan.OrderID)
+	if err != nil {
+		return err
+	}
+	if order == nil {
+		return errors.New("order not found")
+	}
+
+	var targetStatus domain.OrderStatus
+	switch scan.ScanType {
+	case "pickup":
+		if order.Status != domain.StatusAccepted && order.Status != domain.StatusPickingUp {
+			return fmt.Errorf("invalid state transition: cannot perform pickup on order in status %s", order.Status)
+		}
+		targetStatus = domain.StatusPickedUp
+	case "inbound_origin":
+		if order.Status != domain.StatusPickedUp {
+			return fmt.Errorf("invalid state transition: cannot inbound to origin hub on order in status %s", order.Status)
+		}
+		targetStatus = domain.StatusInboundOrigin
+	case "outbound_origin":
+		if order.Status != domain.StatusInboundOrigin {
+			return fmt.Errorf("invalid state transition: cannot outbound from origin hub on order in status %s", order.Status)
+		}
+		if scan.BagNumber != nil && *scan.BagNumber != "" {
+			bag, err := s.orderRepo.GetConsolidationBag(ctx, *scan.BagNumber)
+			if err != nil {
+				return fmt.Errorf("failed to check consolidation bag: %w", err)
+			}
+			if bag == nil {
+				return fmt.Errorf("consolidation bag %s not found. Please create and seal it first before bagging packages.", *scan.BagNumber)
+			}
+			if bag.Status != "sealed" {
+				return fmt.Errorf("consolidation bag %s is not sealed (current status: %s). Only sealed bags can accept outbound package consolidation.", *scan.BagNumber, bag.Status)
+			}
+		}
+		targetStatus = domain.StatusOutboundOrigin
+	case "inbound_destination":
+		if order.Status != domain.StatusOutboundOrigin {
+			return fmt.Errorf("invalid state transition: cannot inbound to destination hub on order in status %s", order.Status)
+		}
+		// Retrieve package scans to find if this order was consolidated in a bag during outbound_origin
+		scans, err := s.orderRepo.GetScansForOrder(ctx, order.ID)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve package scans: %w", err)
+		}
+		var assocBagNumber *string
+		for i := len(scans) - 1; i >= 0; i-- {
+			if scans[i].ScanType == "outbound_origin" && scans[i].BagNumber != nil && *scans[i].BagNumber != "" {
+				assocBagNumber = scans[i].BagNumber
+				break
+			}
+		}
+		if assocBagNumber != nil {
+			bag, err := s.orderRepo.GetConsolidationBag(ctx, *assocBagNumber)
+			if err != nil {
+				return fmt.Errorf("failed to verify consolidation bag: %w", err)
+			}
+			if bag != nil && bag.Status == "sealed" {
+				return fmt.Errorf("cannot inbound package. Consolidation bag %s must be unbagged (Bag Out) at destination first.", *assocBagNumber)
+			}
+		}
+		targetStatus = domain.StatusInboundDestination
+	case "outbound_destination":
+		if order.Status != domain.StatusInboundDestination {
+			return fmt.Errorf("invalid state transition: cannot outbound from destination hub on order in status %s", order.Status)
+		}
+		targetStatus = domain.StatusOutboundDestination
+	case "out_for_delivery":
+		if order.Status != domain.StatusOutboundDestination {
+			return fmt.Errorf("invalid state transition: cannot dispatch for delivery on order in status %s", order.Status)
+		}
+		targetStatus = domain.StatusDelivering
+	case "delivered":
+		if order.Status != domain.StatusDelivering {
+			return fmt.Errorf("invalid state transition: cannot deliver order in status %s", order.Status)
+		}
+		targetStatus = domain.StatusDelivered
+	default:
+		return fmt.Errorf("unknown scan type: %s", scan.ScanType)
+	}
+
+	// 1. Update order status in DB
+	err = s.orderRepo.UpdateStatus(ctx, order.ID, targetStatus)
+	if err != nil {
+		return fmt.Errorf("failed to update order status: %w", err)
+	}
+
+	// 2. Save scan log
+	scan.ScannedBy = scannedBy
+	err = s.orderRepo.SaveScan(ctx, scan)
+	if err != nil {
+		return fmt.Errorf("failed to save scan record: %w", err)
+	}
+
+	// 3. Save order event
+	eventMsg := fmt.Sprintf("Package scan recorded: %s", scan.ScanType)
+	if scan.ScanType == "delivered" {
+		eventMsg = "Package delivered successfully. ePOD recorded."
+	}
+	event := domain.OrderEvent{
+		OrderID:   order.ID,
+		UserID:    order.CustomerID,
+		Status:    targetStatus,
+		Message:   eventMsg,
+		CreatedAt: time.Now(),
+	}
+	s.eventRepo.SaveEvent(ctx, event)
+	s.eventBus.Publish(ctx, "order.updates", event)
+
+	// 4. Notify customer
+	title := "Package Scan Event"
+	msg := fmt.Sprintf("Your package is currently in state: %s", scan.ScanType)
+	switch scan.ScanType {
+	case "pickup":
+		title = "Package Picked Up!"
+		msg = "Your courier has picked up the package."
+	case "inbound_origin":
+		title = "Arrived at Origin Hub"
+		msg = "Your package has arrived at the origin sorting center."
+	case "outbound_origin":
+		title = "Departed Origin Hub"
+		msg = "Your package is on its way to the destination city."
+	case "inbound_destination":
+		title = "Arrived at Destination Hub"
+		msg = "Your package has arrived at the destination city sorting center."
+	case "outbound_destination":
+		title = "Sorting Complete"
+		msg = "Your package is ready to be dispatched for local delivery."
+	case "out_for_delivery":
+		title = "Out for Delivery!"
+		msg = "The courier is on their way to deliver your package today."
+	case "delivered":
+		title = "Delivered Successfully!"
+		msg = "Your package has been delivered. Thank you for using Lancar!"
+	}
+
+	s.notificationSvc.Send(ctx, domain.NotificationRequest{
+		UserID:  order.CustomerID,
+		Title:   title,
+		Message: msg,
+		Channel: domain.ChannelPush,
+		Data: map[string]string{
+			"order_id":  order.ID,
+			"scan_type": scan.ScanType,
+			"type":      "package_scan",
+		},
+	})
+
+	return nil
+}
+
+func (s *orderServiceImpl) GetPackageScans(ctx context.Context, orderID string) ([]*domain.PackageScan, error) {
+	return s.orderRepo.GetScansForOrder(ctx, orderID)
+}
+
+func (s *orderServiceImpl) CreateConsolidationBag(ctx context.Context, createdBy string, bag *domain.ConsolidationBag) error {
+	if bag.BagNumber == "" {
+		return errors.New("bag number is required")
+	}
+	bag.Status = "sealed"
+	bag.CreatedBy = createdBy
+	return s.orderRepo.CreateConsolidationBag(ctx, bag)
+}
+
+func (s *orderServiceImpl) OpenConsolidationBag(ctx context.Context, unbaggedBy string, bagNumber string) error {
+	bag, err := s.orderRepo.GetConsolidationBag(ctx, bagNumber)
+	if err != nil {
+		return err
+	}
+	if bag == nil {
+		return fmt.Errorf("consolidation bag %s not found", bagNumber)
+	}
+	if bag.Status == "opened" {
+		return nil // Already unbagged
+	}
+	return s.orderRepo.UpdateConsolidationBagStatus(ctx, bagNumber, "opened")
+}
+
+func (s *orderServiceImpl) GetConsolidationBag(ctx context.Context, bagNumber string) (*domain.ConsolidationBag, []*domain.PackageScan, error) {
+	bag, err := s.orderRepo.GetConsolidationBag(ctx, bagNumber)
+	if err != nil {
+		return nil, nil, err
+	}
+	if bag == nil {
+		return nil, nil, fmt.Errorf("consolidation bag %s not found", bagNumber)
+	}
+	scans, err := s.orderRepo.GetScansByBagNumber(ctx, bagNumber)
+	if err != nil {
+		return nil, nil, err
+	}
+	return bag, scans, nil
+}
+
+func (s *orderServiceImpl) AutoDetectScanType(ctx context.Context, orderID string, warehouseID string) (string, error) {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return "", err
+	}
+	if order == nil {
+		return "", fmt.Errorf("order %s not found", orderID)
+	}
+
+	switch order.Status {
+	case domain.StatusPickedUp:
+		return "inbound_origin", nil
+	case domain.StatusInboundOrigin:
+		return "outbound_origin", nil
+	case domain.StatusOutboundOrigin:
+		return "inbound_destination", nil
+	case domain.StatusInboundDestination:
+		return "outbound_destination", nil
+	case domain.StatusOutboundDestination:
+		return "out_for_delivery", nil
+	case domain.StatusDelivering:
+		return "delivered", nil
+	default:
+		return string(order.Status), nil
+	}
+}
+
+

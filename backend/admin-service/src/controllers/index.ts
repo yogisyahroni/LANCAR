@@ -49,3 +49,4 @@ export * from './wallet.controller';
 export * as customerOrder from './customerOrder.controller';
 export * as bulkOrder from './bulkOrder.controller';
 export * from './userNotifications.controller';
+export * from './warehouse.controller';

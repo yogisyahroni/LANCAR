@@ -137,6 +137,14 @@ routes.post('/admin/zones', (req, res) => controllers.createZone(req, res));
 routes.patch('/admin/zones/:id', (req, res) => controllers.updateZone(req, res));
 routes.delete('/admin/zones/:id', (req, res) => controllers.deleteZone(req, res));
 
+// Warehouse Operations
+routes.get('/admin/warehouse/bags', (req, res) => controllers.getConsolidationBags(req, res));
+routes.get('/admin/warehouse/bags/:bag_number', (req, res) => controllers.getConsolidationBagDetail(req, res));
+routes.post('/admin/warehouse/bags', (req, res) => controllers.createConsolidationBag(req, res));
+routes.post('/admin/warehouse/bags/open', (req, res) => controllers.openConsolidationBag(req, res));
+routes.post('/admin/warehouse/scan', (req, res) => controllers.scanPackageInboundOutbound(req, res));
+routes.post('/admin/warehouse/scan/auto-detect', (req, res) => controllers.autoDetectScanType(req, res));
+
 
 
 // Notification Templates

@@ -15,6 +15,10 @@ const (
 	StatusAccepted          OrderStatus = "accepted"
 	StatusPickingUp         OrderStatus = "picking_up"
 	StatusPickedUp          OrderStatus = "picked_up"
+	StatusInboundOrigin     OrderStatus = "inbound_origin"
+	StatusOutboundOrigin    OrderStatus = "outbound_origin"
+	StatusInboundDestination OrderStatus = "inbound_destination"
+	StatusOutboundDestination OrderStatus = "outbound_destination"
 	StatusDelivering        OrderStatus = "delivering"
 	StatusDelivered         OrderStatus = "delivered"
 	StatusCancelled         OrderStatus = "cancelled"
@@ -57,6 +61,12 @@ type OrderService interface {
 	AcceptOrder(ctx context.Context, orderID string, courierID string) error
 	FindAndAssignCourier(ctx context.Context, orderID string) error
 	ListEvents(ctx context.Context, userID string, since time.Time) ([]OrderEvent, error)
+	ScanPackage(ctx context.Context, scannedBy string, scan *PackageScan) error
+	GetPackageScans(ctx context.Context, orderID string) ([]*PackageScan, error)
+	CreateConsolidationBag(ctx context.Context, createdBy string, bag *ConsolidationBag) error
+	OpenConsolidationBag(ctx context.Context, unbaggedBy string, bagNumber string) error
+	GetConsolidationBag(ctx context.Context, bagNumber string) (*ConsolidationBag, []*PackageScan, error)
+	AutoDetectScanType(ctx context.Context, orderID string, warehouseID string) (string, error)
 }
 
 type OrderRepository interface {
@@ -74,6 +84,13 @@ type OrderRepository interface {
 	UpdateMeetingPoint(ctx context.Context, mp *MeetingPoint) error
 	DeleteMeetingPoint(ctx context.Context, id string) error
 	GetMeetingPointAnalytics(ctx context.Context) ([]MeetingPointAnalytics, error)
+	SaveScan(ctx context.Context, scan *PackageScan) error
+	GetScansForOrder(ctx context.Context, orderID string) ([]*PackageScan, error)
+	CreateConsolidationBag(ctx context.Context, bag *ConsolidationBag) error
+	GetConsolidationBag(ctx context.Context, bagNumber string) (*ConsolidationBag, error)
+	UpdateConsolidationBagStatus(ctx context.Context, bagNumber string, status string) error
+	GetLatestScanForOrder(ctx context.Context, orderID string) (*PackageScan, error)
+	GetScansByBagNumber(ctx context.Context, bagNumber string) ([]*PackageScan, error)
 }
 
 type MeetingPoint struct {
@@ -117,3 +134,31 @@ type MeetingPointService interface {
 	DeleteMeetingPoint(ctx context.Context, id string) error
 	GetAnalytics(ctx context.Context) ([]MeetingPointAnalytics, error)
 }
+
+type PackageScan struct {
+	ID          string    `json:"id"`
+	OrderID     string    `json:"order_id"`
+	ScanType    string    `json:"scan_type"`
+	ScannedBy   string    `json:"scanned_by"`
+	Latitude    float64   `json:"latitude"`
+	Longitude   float64   `json:"longitude"`
+	WarehouseID *string   `json:"warehouse_id,omitempty"`
+	PhotoURL    *string   `json:"photo_url,omitempty"`
+	BagNumber   *string   `json:"bag_number,omitempty"`
+	RecordedAt  time.Time `json:"recorded_at"`
+}
+
+type ConsolidationBag struct {
+	ID                     string    `json:"id"`
+	BagNumber              string    `json:"bag_number"`
+	VehiclePlate           *string   `json:"vehicle_plate,omitempty"`
+	FlightNumber           *string   `json:"flight_number,omitempty"`
+	OriginWarehouseID      *string   `json:"origin_warehouse_id,omitempty"`
+	DestinationWarehouseID *string   `json:"destination_warehouse_id,omitempty"`
+	Status                 string    `json:"status"` // 'sealed', 'opened'
+	CreatedBy              string    `json:"created_by"`
+	CreatedAt              time.Time `json:"created_at"`
+	UpdatedAt              time.Time `json:"updated_at"`
+}
+
+

@@ -389,3 +389,128 @@ func (r *postgresRepo) CheckCoverage(ctx context.Context, lat, lng float64) (boo
 	}
 	return exists, nil
 }
+
+func (r *postgresRepo) SaveScan(ctx context.Context, scan *domain.PackageScan) error {
+	query := `INSERT INTO package_scans (
+				order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number
+			  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			  RETURNING id, recorded_at`
+	
+	err := r.db.QueryRowContext(ctx, query,
+		scan.OrderID, scan.ScanType, scan.ScannedBy, scan.Latitude, scan.Longitude, scan.WarehouseID, scan.PhotoURL, scan.BagNumber,
+	).Scan(&scan.ID, &scan.RecordedAt)
+	return err
+}
+
+func (r *postgresRepo) GetScansForOrder(ctx context.Context, orderID string) ([]*domain.PackageScan, error) {
+	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number, recorded_at
+			  FROM package_scans
+			  WHERE order_id = $1
+			  ORDER BY recorded_at ASC`
+	
+	rows, err := r.readDB.QueryContext(ctx, query, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var scans []*domain.PackageScan
+	for rows.Next() {
+		scan := &domain.PackageScan{}
+		err := rows.Scan(
+			&scan.ID, &scan.OrderID, &scan.ScanType, &scan.ScannedBy,
+			&scan.Latitude, &scan.Longitude, &scan.WarehouseID, &scan.PhotoURL, &scan.BagNumber, &scan.RecordedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		scans = append(scans, scan)
+	}
+	return scans, nil
+}
+
+func (r *postgresRepo) CreateConsolidationBag(ctx context.Context, bag *domain.ConsolidationBag) error {
+	query := `INSERT INTO consolidation_bags (
+				bag_number, vehicle_plate, flight_number, origin_warehouse_id, destination_warehouse_id, status, created_by
+			  ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+			  RETURNING id, created_at, updated_at`
+	
+	err := r.db.QueryRowContext(ctx, query,
+		bag.BagNumber, bag.VehiclePlate, bag.FlightNumber, bag.OriginWarehouseID, bag.DestinationWarehouseID, bag.Status, bag.CreatedBy,
+	).Scan(&bag.ID, &bag.CreatedAt, &bag.UpdatedAt)
+	return err
+}
+
+func (r *postgresRepo) GetConsolidationBag(ctx context.Context, bagNumber string) (*domain.ConsolidationBag, error) {
+	query := `SELECT id, bag_number, vehicle_plate, flight_number, origin_warehouse_id, destination_warehouse_id, status, created_by, created_at, updated_at
+			  FROM consolidation_bags
+			  WHERE bag_number = $1`
+	
+	bag := &domain.ConsolidationBag{}
+	err := r.readDB.QueryRowContext(ctx, query, bagNumber).Scan(
+		&bag.ID, &bag.BagNumber, &bag.VehiclePlate, &bag.FlightNumber, &bag.OriginWarehouseID, &bag.DestinationWarehouseID, &bag.Status, &bag.CreatedBy, &bag.CreatedAt, &bag.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return bag, nil
+}
+
+func (r *postgresRepo) UpdateConsolidationBagStatus(ctx context.Context, bagNumber string, status string) error {
+	query := `UPDATE consolidation_bags SET status = $1, updated_at = NOW() WHERE bag_number = $2`
+	_, err := r.db.ExecContext(ctx, query, status, bagNumber)
+	return err
+}
+
+func (r *postgresRepo) GetLatestScanForOrder(ctx context.Context, orderID string) (*domain.PackageScan, error) {
+	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number, recorded_at
+			  FROM package_scans
+			  WHERE order_id = $1
+			  ORDER BY recorded_at DESC
+			  LIMIT 1`
+	
+	scan := &domain.PackageScan{}
+	err := r.readDB.QueryRowContext(ctx, query, orderID).Scan(
+		&scan.ID, &scan.OrderID, &scan.ScanType, &scan.ScannedBy,
+		&scan.Latitude, &scan.Longitude, &scan.WarehouseID, &scan.PhotoURL, &scan.BagNumber, &scan.RecordedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return scan, nil
+}
+
+func (r *postgresRepo) GetScansByBagNumber(ctx context.Context, bagNumber string) ([]*domain.PackageScan, error) {
+	query := `SELECT id, order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number, recorded_at
+			  FROM package_scans
+			  WHERE bag_number = $1
+			  ORDER BY recorded_at ASC`
+	
+	rows, err := r.readDB.QueryContext(ctx, query, bagNumber)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var scans []*domain.PackageScan
+	for rows.Next() {
+		scan := &domain.PackageScan{}
+		err := rows.Scan(
+			&scan.ID, &scan.OrderID, &scan.ScanType, &scan.ScannedBy,
+			&scan.Latitude, &scan.Longitude, &scan.WarehouseID, &scan.PhotoURL, &scan.BagNumber, &scan.RecordedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		scans = append(scans, scan)
+	}
+	return scans, nil
+}
+
+
