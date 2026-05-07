@@ -1,3 +1,4 @@
+-- +goose Up
 ALTER TABLE delivery_service_products
   ADD COLUMN IF NOT EXISTS platform_commission_percent NUMERIC(6,3) NOT NULL DEFAULT 20,
   ADD COLUMN IF NOT EXISTS courier_payout_percent NUMERIC(6,3) NOT NULL DEFAULT 75,
@@ -37,3 +38,18 @@ UPDATE delivery_service_products SET
   ppn_percent = 11,
   show_customer_price_to_courier = FALSE
 WHERE code = 'lancar_mobil';
+
+-- +goose Down
+ALTER TABLE delivery_service_products
+  DROP COLUMN IF EXISTS platform_commission_percent,
+  DROP COLUMN IF EXISTS courier_payout_percent,
+  DROP COLUMN IF EXISTS courier_min_payout_idr,
+  DROP COLUMN IF EXISTS mdr_percent,
+  DROP COLUMN IF EXISTS ppn_percent,
+  DROP COLUMN IF EXISTS show_customer_price_to_courier;
+
+ALTER TABLE orders
+  DROP COLUMN IF EXISTS platform_commission_idr,
+  DROP COLUMN IF EXISTS courier_payout_estimate_idr,
+  DROP COLUMN IF EXISTS settlement_snapshot;
+

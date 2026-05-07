@@ -1,3 +1,4 @@
+-- +goose Up
 CREATE TABLE IF NOT EXISTS delivery_service_products (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   code VARCHAR(50) UNIQUE NOT NULL,
@@ -206,3 +207,9 @@ ON CONFLICT (code) DO UPDATE SET
   dimension_rules = EXCLUDED.dimension_rules,
   metadata = EXCLUDED.metadata,
   updated_at = NOW();
+
+-- +goose Down
+DROP TABLE IF EXISTS delivery_service_products;
+ALTER TABLE orders DROP COLUMN IF EXISTS service_code;
+ALTER TABLE orders DROP COLUMN IF EXISTS service_snapshot;
+
