@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { OrderForm, OrderFormValues } from "@/components/orders/OrderForm";
+import { DeliveryService, OrderForm, OrderFormValues } from "@/components/orders/OrderForm";
 import { OrderSummary } from "@/components/orders/OrderSummary";
 import { PaymentModal } from "@/components/orders/PaymentModal";
 import { api } from "@/lib/api";
@@ -16,6 +16,8 @@ export default function NewOrderPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pricing, setPricing] = useState<any>(null);
   const [coverageError, setCoverageError] = useState<string | null>(null);
+  const [selectedService, setSelectedService] = useState<DeliveryService | undefined>();
+  const [scanRequired, setScanRequired] = useState(false);
   
   const [showPayment, setShowPayment] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
@@ -28,23 +30,26 @@ export default function NewOrderPage() {
     setIsCalculating(true);
     setCoverageError(null);
     try {
-      const res = await api.post('/orders/calculate', {
+      const res = await api.post('/auth/web/orders/calculate', {
+        service_code: data.service_code,
+        size_tier: data.size_tier,
         pickup: data.pickup_location,
         dropoff: data.dropoff_location,
         weight_kg: data.package_details?.weight_kg,
         dimensions: data.package_details?.dimensions,
+        dimension_scan_verified: data.package_details?.dimensions_scanned,
         has_insurance: data.has_insurance,
         item_value: data.item_value
       });
       setPricing(res.data);
     } catch (error: any) {
       console.error("Failed to calculate pricing", error);
-      if (error.response?.data?.code === 'ERR_LOCATION_NOT_COVERED') {
-        setCoverageError(error.response.data.message);
-        setPricing(null);
-      } else {
-        setCoverageError(null);
-      }
+      setCoverageError(
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Harga belum bisa dihitung. Periksa layanan, jarak, berat, dan ukuran paket."
+      );
+      setPricing(null);
     } finally {
       setIsCalculating(false);
     }
@@ -53,9 +58,17 @@ export default function NewOrderPage() {
   // Debounce effect for price calculation based on individual fields
   useEffect(() => {
     const handler = setTimeout(() => {
-      // Only calculate if basic fields exist
-      if (formData.pickup_location && formData.dropoff_location) {
+      const needsScan = scanRequired && !formData.package_details?.dimensions_scanned;
+      if (formData.service_code && formData.pickup_location && formData.dropoff_location && formData.package_details?.category) {
+        if (needsScan) {
+          setPricing(null);
+          setCoverageError(null);
+          setIsCalculating(false);
+          return;
+        }
         calculatePricing(formData);
+      } else {
+        setPricing(null);
       }
     }, 500);
 
@@ -65,18 +78,26 @@ export default function NewOrderPage() {
     formData.pickup_location?.lng,
     formData.dropoff_location?.lat,
     formData.dropoff_location?.lng,
+    formData.service_code,
+    formData.size_tier,
+    formData.package_details?.category,
     formData.package_details?.weight_kg,
     formData.package_details?.dimensions?.length,
     formData.package_details?.dimensions?.width,
     formData.package_details?.dimensions?.height,
+    formData.package_details?.dimensions_scanned,
     formData.has_insurance,
     formData.item_value,
+    selectedService?.name,
+    scanRequired,
     calculatePricing
   ]);
 
-  const handleFormChange = useCallback((data: Partial<OrderFormValues>, valid: boolean) => {
+  const handleFormChange = useCallback((data: Partial<OrderFormValues>, valid: boolean, context?: { selectedService?: DeliveryService; scanRequired: boolean }) => {
     setFormData(data);
     setIsValid(valid);
+    setSelectedService(context?.selectedService);
+    setScanRequired(Boolean(context?.scanRequired));
   }, []);
 
   const handleSubmit = async (data: OrderFormValues) => {
@@ -88,7 +109,7 @@ export default function NewOrderPage() {
         price_breakdown: pricing
       };
       
-      const res = await api.post('/orders', payload);
+      const res = await api.post('/auth/web/orders', payload);
       
       setOrderData(res.data.order);
       setPaymentData(res.data.payment);
@@ -128,7 +149,7 @@ export default function NewOrderPage() {
             <Info className="h-6 w-6" />
           </div>
           <div>
-            <h4 className="font-bold text-zinc-100 tracking-tight">Wilayah Pengiriman Tidak Tercover</h4>
+            <h4 className="font-bold text-zinc-100 tracking-tight">Harga Belum Bisa Dihitung</h4>
             <p className="text-sm text-muted-foreground mt-1">{coverageError}</p>
           </div>
         </div>
@@ -157,7 +178,11 @@ export default function NewOrderPage() {
         <PaymentModal
           isOpen={showPayment}
           onClose={() => setShowPayment(false)}
-          qrisString={paymentData.qris_string}
+          orderId={orderData?.id}
+          snapToken={paymentData.snap_token}
+          snapJsUrl={paymentData.snap_js_url}
+          clientKey={paymentData.client_key}
+          redirectUrl={paymentData.redirect_url}
           amount={pricing?.total_price_idr || 0}
           onSuccess={handlePaymentSuccess}
         />

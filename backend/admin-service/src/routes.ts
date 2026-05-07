@@ -27,11 +27,14 @@ routes.delete('/auth/web/notifications/subscribe', verifyWebSession, (req, res) 
 routes.get('/auth/web/wallet/balance', verifyWebSession, (req, res) => controllers.getWalletBalance(req, res));
 routes.post('/auth/web/wallet/topup', verifyWebSession, (req, res) => controllers.createTopUp(req, res));
 routes.post('/auth/web/wallet/withdraw', verifyWebSession, (req, res) => controllers.requestWithdrawal(req, res));
+routes.get('/auth/web/delivery-services', (req, res) => controllers.deliveryServices.listCustomerDeliveryServices(req, res));
 
 // Web Portal Order Routes
 routes.post('/auth/web/orders/calculate', verifyWebSession, (req, res) => controllers.customerOrder.calculatePrice(req, res));
 routes.post('/auth/web/orders', verifyWebSession, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
 routes.get('/auth/web/orders', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrders(req, res));
+routes.get('/auth/web/orders/:id/payment/status', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderPaymentStatus(req, res));
+routes.post('/auth/web/orders/:id/payment/check', verifyWebSession, (req, res) => controllers.customerOrder.confirmCustomerOrderPayment(req, res));
 routes.get('/auth/web/orders/:id', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderById(req, res));
 routes.get('/auth/web/orders/:id/chats', verifyWebSession, (req, res) => controllers.customerOrder.getOrderChats(req, res));
 routes.post('/auth/web/orders/:id/chats', verifyWebSession, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
@@ -48,12 +51,16 @@ routes.post('/auth/web/disputes/:id/upload', verifyWebSession, upload.single('fi
 routes.post('/auth/web/orders/bulk/upload', verifyWebSession, upload.single('file'), (req, res) => controllers.bulkOrder.uploadBulkExcel(req, res));
 routes.get('/auth/web/orders/bulk/status/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.getBulkJobStatus(req, res));
 routes.post('/auth/web/orders/bulk/validate/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.validateBulkRow(req, res));
+routes.put('/auth/web/orders/bulk/row/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.validateBulkRow(req, res));
+routes.delete('/auth/web/orders/bulk/rows/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.deleteBulkRows(req, res));
 routes.post('/auth/web/orders/bulk/process', verifyWebSession, (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
+routes.post('/auth/web/orders/bulk/pay', verifyWebSession, (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
 
 
 // Public routes (no auth required)
 routes.get('/health', (req, res) => controllers.getSystemHealth(req, res));
 routes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res));
+routes.post('/payments/midtrans/notification', (req, res) => controllers.customerOrder.handleMidtransNotification(req, res));
 
 // Apply auth and role middleware to all admin routes
 routes.use('/admin', requireAuth, requireRole(['super_admin']));
@@ -81,6 +88,11 @@ routes.patch('/admin/settings/:key', requireTotp, (req, res) => controllers.upda
 routes.get('/admin/admins', (req, res) => controllers.getAllAdmins(req, res));
 routes.post('/admin/admins', (req, res) => controllers.inviteAdmin(req, res));
 routes.delete('/admin/admins/:id', (req, res) => controllers.deleteAdmin(req, res));
+
+// Delivery Services Catalog
+routes.get('/admin/delivery-services', (req, res) => controllers.deliveryServices.listAdminDeliveryServices(req, res));
+routes.post('/admin/delivery-services', (req, res) => controllers.deliveryServices.createAdminDeliveryService(req, res));
+routes.put('/admin/delivery-services/:code', (req, res) => controllers.deliveryServices.updateAdminDeliveryService(req, res));
 
 
 // Orders Management

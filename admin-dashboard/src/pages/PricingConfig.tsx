@@ -25,6 +25,7 @@ import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
+import DeliveryServices from './DeliveryServices'
 
 import { useNavigate } from 'react-router-dom'
 
@@ -481,6 +482,16 @@ export default function PricingConfig() {
              </div>
           </button>
         </div>
+      </div>
+
+      <div className="pt-4">
+        <div className="mb-6">
+          <h2 className="text-2xl font-black text-zinc-100 tracking-tight">Service Product Pricing</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Konfigurasi harga per layanan customer: Instant, Prioritas, Hemat, Same Day, Mobil, dan layanan baru berikutnya.
+          </p>
+        </div>
+        <DeliveryServices embedded />
       </div>
     </div>
   )

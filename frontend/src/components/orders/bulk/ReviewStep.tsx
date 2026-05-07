@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 import {
   createColumnHelper,
@@ -8,7 +8,7 @@ import {
   getCoreRowModel,
   useReactTable
 } from '@tanstack/react-table';
-import { AlertCircle, CheckCircle2, Edit2, Loader2, Save, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Edit2, Loader2, Save, Search, Trash2, X } from 'lucide-react';
 
 interface ReviewStepProps {
   jobId: string;
@@ -24,6 +24,8 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'valid' | 'error'>('all');
 
   const startEdit = (row: any) => {
     setEditingRowId(row.id);
@@ -31,7 +33,12 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
       recipient_name: row.recipient_name,
       recipient_phone: row.recipient_phone,
       dropoff_address: row.dropoff_address,
-      weight_kg: row.weight_kg
+      category: row.category,
+      weight_kg: row.weight_kg,
+      dimensions: row.dimensions || { length: 0, width: 0, height: 0 },
+      has_insurance: row.has_insurance,
+      item_value: row.item_value,
+      customer_notes: row.customer_notes || ''
     });
   };
 
@@ -63,12 +70,35 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
     }
   };
 
+  const deleteRows = async (payload: { row_ids?: string[]; delete_errors?: boolean }) => {
+    setIsSaving(true);
+    try {
+      const res = await api.delete(`/auth/web/orders/bulk/rows/${jobId}`, { data: payload });
+      setData(res.data);
+    } catch {
+      alert('Gagal menghapus baris');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const filteredRows = useMemo(() => {
+    const rows = data.rows || [];
+    return rows.filter((row: any) => {
+      const matchStatus = statusFilter === 'all' || row.status === statusFilter;
+      const q = search.toLowerCase();
+      const matchSearch = !q || [row.recipient_name, row.recipient_phone, row.dropoff_address, row.category]
+        .some((value) => String(value || '').toLowerCase().includes(q));
+      return matchStatus && matchSearch;
+    });
+  }, [data.rows, search, statusFilter]);
+
   const columns = [
     columnHelper.accessor('status', {
       header: 'Status',
       cell: info => {
         const status = info.getValue();
-        const errors = info.row.original.errors;
+        const errors = info.row.original.error_messages || info.row.original.errors;
         return (
           <div className="flex items-center gap-2">
             {status === 'valid' ? (
@@ -130,6 +160,28 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         return <div className="max-w-[200px] truncate" title={info.getValue()}>{info.getValue()}</div>;
       }
     }),
+    columnHelper.accessor('category', {
+      header: 'Kategori',
+      cell: info => {
+        if (editingRowId === info.row.original.id) {
+          return (
+            <select
+              value={editForm.category}
+              onChange={e => setEditForm({...editForm, category: e.target.value})}
+              className="w-32 rounded border border-white/10 bg-background/50 px-2 py-1 text-sm"
+            >
+              <option value="document">document</option>
+              <option value="food">food</option>
+              <option value="electronics">electronics</option>
+              <option value="clothes">clothes</option>
+              <option value="fashion">fashion</option>
+              <option value="other">other</option>
+            </select>
+          );
+        }
+        return info.getValue() || 'other';
+      }
+    }),
     columnHelper.accessor('weight_kg', {
       header: 'Berat (kg)',
       cell: info => {
@@ -146,6 +198,37 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
         }
         return info.getValue();
       }
+    }),
+    columnHelper.display({
+      id: 'dimensions',
+      header: 'Dimensi',
+      cell: info => {
+        const dims = info.row.original.dimensions || {};
+        if (editingRowId === info.row.original.id) {
+          return (
+            <div className="flex gap-1">
+              {(['length', 'width', 'height'] as const).map((key) => (
+                <input
+                  key={key}
+                  type="number"
+                  value={editForm.dimensions?.[key] || 0}
+                  onChange={e => setEditForm({
+                    ...editForm,
+                    dimensions: { ...editForm.dimensions, [key]: Number(e.target.value) }
+                  })}
+                  className="w-14 rounded border border-white/10 bg-background/50 px-1 py-1 text-xs"
+                />
+              ))}
+            </div>
+          );
+        }
+        return `${dims.length || 0}x${dims.width || 0}x${dims.height || 0}`;
+      }
+    }),
+    columnHelper.display({
+      id: 'price',
+      header: 'Harga',
+      cell: info => `Rp ${(info.row.original.price_breakdown?.total_price_idr || 0).toLocaleString('id-ID')}`
     }),
     columnHelper.display({
       id: 'actions',
@@ -165,16 +248,21 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
           );
         }
         return (
-          <button onClick={() => startEdit(info.row.original)} className="text-primary hover:text-primary/80">
-            <Edit2 className="w-4 h-4" />
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => startEdit(info.row.original)} className="text-primary hover:text-primary/80" title="Edit">
+              <Edit2 className="w-4 h-4" />
+            </button>
+            <button onClick={() => deleteRows({ row_ids: [rowId] })} className="text-destructive hover:text-destructive/80" title="Hapus">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
         );
       }
     })
   ];
 
   const table = useReactTable({
-    data: data.rows || [],
+    data: filteredRows,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
@@ -182,6 +270,7 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
   const validCount = data.rows?.filter((r: any) => r.status === 'valid').length || 0;
   const errorCount = (data.rows?.length || 0) - validCount;
   const canProceed = errorCount === 0 && validCount > 0;
+  const totalPrice = data.rows?.filter((r: any) => r.status === 'valid').reduce((sum: number, row: any) => sum + (row.price_breakdown?.total_price_idr || 0), 0) || 0;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -201,6 +290,40 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
             <span className="text-xs uppercase tracking-wider">Error</span>
           </div>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4 md:flex-row md:items-center md:justify-between">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Cari penerima, HP, alamat, kategori..."
+            className="w-full rounded-lg border border-white/10 bg-background/50 py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value as any)}
+          className="rounded-lg border border-white/10 bg-background/50 px-3 py-2.5 text-sm"
+        >
+          <option value="all">Semua</option>
+          <option value="valid">Valid</option>
+          <option value="error">Error</option>
+        </select>
+        <button
+          type="button"
+          onClick={() => deleteRows({ delete_errors: true })}
+          disabled={errorCount === 0 || isSaving}
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm font-semibold text-destructive hover:bg-destructive/15 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Trash2 className="h-4 w-4" />
+          Hapus Semua Error
+        </button>
+      </div>
+
+      <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm">
+        Total valid: <b>{validCount} order</b> dengan estimasi pembayaran <b>Rp {totalPrice.toLocaleString('id-ID')}</b>.
       </div>
 
       <div className="rounded-xl border border-white/10 bg-background/50 overflow-hidden">
@@ -232,7 +355,7 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
               ))}
             </tbody>
           </table>
-          {data.rows?.length === 0 && (
+          {filteredRows.length === 0 && (
             <div className="p-8 text-center text-muted-foreground">
               Tidak ada data ditemukan.
             </div>

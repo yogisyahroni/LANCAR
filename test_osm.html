@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>OSM Nominatim Tester</title>
+</head>
+<body>
+  <h1>OSM Nominatim Tester</h1>
+  <button id="test">Fetch Surabaya</button>
+  <pre id="output">Click button to test...</pre>
+
+  <script>
+    document.getElementById('test').addEventListener('click', async () => {
+      document.getElementById('output').textContent = 'Fetching...';
+      try {
+        const res = await fetch('https://nominatim.openstreetmap.org/search?q=surabaya&format=json&polygon_geojson=1&limit=10');
+        const data = await res.json();
+        document.getElementById('output').textContent = JSON.stringify(data.map(d => ({
+          display_name: d.display_name,
+          geojson_keys: d.geojson ? Object.keys(d.geojson) : null,
+          geojson_type: d.geojson ? d.geojson.type : null,
+          polygon_geojson_keys: d.polygon_geojson ? Object.keys(d.polygon_geojson) : null,
+          keys: Object.keys(d)
+        })), null, 2);
+      } catch (err) {
+        document.getElementById('output').textContent = err.toString();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { api } from '@/lib/api';
-import { UploadCloud, AlertCircle, CheckCircle2, Loader2, MapPin, Search } from 'lucide-react';
+import { UploadCloud, AlertCircle, CheckCircle2, Download, Loader2, MapPin, Navigation, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface UploadStepProps {
@@ -17,9 +17,9 @@ export function UploadStep({ onComplete }: UploadStepProps) {
   const [pollingJobId, setPollingJobId] = useState<string | null>(null);
   const [progress, setProgress] = useState({ total: 0, processed: 0 });
   const [pickupAddress, setPickupAddress] = useState('');
-
-  const pickupLat = -6.200000;
-  const pickupLng = 106.816666;
+  const [pickupLat, setPickupLat] = useState(-6.200000);
+  const [pickupLng, setPickupLng] = useState(106.816666);
+  const [isLocating, setIsLocating] = useState(false);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -70,17 +70,102 @@ export function UploadStep({ onComplete }: UploadStepProps) {
   };
 
   const downloadTemplate = () => {
+    const wb = XLSX.utils.book_new();
+    const guide = XLSX.utils.aoa_to_sheet([
+      ['TEMPLATE KIRIM MASSAL LANCAR'],
+      ['Isi data pada sheet "Orders". Jangan ubah nama kolom di baris pertama.'],
+      ['Kolom wajib: recipient_name, recipient_phone, dropoff_address, weight_kg.'],
+      ['Kolom opsional: category, length_cm, width_cm, height_cm, has_insurance, item_value, customer_notes, dropoff_lat, dropoff_lng.'],
+      ['Format nomor HP: 08xxxxxxxxxx atau +628xxxxxxxxxx.'],
+      ['category: document, food, electronics, clothes, fashion, other.'],
+      ['has_insurance isi Ya/Tidak. Jika Ya, item_value wajib minimal Rp1.000.'],
+      ['Maksimal 500 baris dan ukuran file maksimal 5MB.'],
+      ['Jika dropoff_lat/dropoff_lng kosong, sistem akan estimasi titik dan bisa dikoreksi di review.'],
+    ]);
+    guide['!cols'] = [{ wch: 120 }];
+    XLSX.utils.book_append_sheet(wb, guide, 'Panduan');
+
     const ws = XLSX.utils.json_to_sheet([
       {
         recipient_name: 'Budi Santoso',
         recipient_phone: '08123456789',
-        dropoff_address: 'Jl. Sudirman No 1',
-        weight_kg: 1
+        dropoff_address: 'Jl. Merdeka No. 10, Gambir, Jakarta Pusat',
+        category: 'fashion',
+        weight_kg: 1.2,
+        length_cm: 30,
+        width_cm: 20,
+        height_cm: 15,
+        has_insurance: 'Tidak',
+        item_value: '',
+        customer_notes: 'Titip ke resepsionis',
+        dropoff_lat: '',
+        dropoff_lng: ''
+      },
+      {
+        recipient_name: 'Siti Rahayu',
+        recipient_phone: '+6285566778899',
+        dropoff_address: 'Jl. Kelapa Gading Boulevard, Jakarta Utara',
+        category: 'document',
+        weight_kg: 0.5,
+        length_cm: 24,
+        width_cm: 18,
+        height_cm: 2,
+        has_insurance: 'Ya',
+        item_value: 250000,
+        customer_notes: '',
+        dropoff_lat: -6.158493,
+        dropoff_lng: 106.904972
       }
     ]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Orders");
-    XLSX.writeFile(wb, "Template_Lancar_Bulk.xlsx");
+    ws['!cols'] = [
+      { wch: 24 }, { wch: 18 }, { wch: 50 }, { wch: 16 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 16 },
+      { wch: 32 }, { wch: 14 }, { wch: 14 }
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+
+    const ref = XLSX.utils.aoa_to_sheet([
+      ['category', 'Keterangan'],
+      ['document', 'Dokumen, surat, invoice'],
+      ['food', 'Makanan/minuman siap antar'],
+      ['electronics', 'Elektronik kecil'],
+      ['clothes', 'Pakaian'],
+      ['fashion', 'Produk fashion'],
+      ['other', 'Lainnya'],
+      [],
+      ['Aturan validasi'],
+      ['recipient_name', 'Wajib, minimal 3 karakter'],
+      ['recipient_phone', 'Wajib, format 08... atau +628...'],
+      ['dropoff_address', 'Wajib, alamat lengkap tujuan'],
+      ['weight_kg', 'Wajib, minimal 0.1 kg'],
+      ['customer_notes', 'Opsional, maksimal 200 karakter'],
+    ]);
+    ref['!cols'] = [{ wch: 24 }, { wch: 56 }];
+    XLSX.utils.book_append_sheet(wb, ref, 'Referensi');
+    XLSX.writeFile(wb, "Template_Lancar_Kirim_Massal.xlsx");
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Browser tidak mendukung geolocation. Isi alamat pickup manual.');
+      return;
+    }
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setPickupLat(position.coords.latitude);
+        setPickupLng(position.coords.longitude);
+        if (!pickupAddress) {
+          setPickupAddress(`Lokasi saat ini (${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)})`);
+        }
+        setIsLocating(false);
+      },
+      () => {
+        setError('Izin lokasi ditolak. Isi alamat pickup manual.');
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
   };
 
   useEffect(() => {
@@ -92,7 +177,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
         const res = await api.get(`/auth/web/orders/bulk/status/${pollingJobId}`);
         const data = res.data;
 
-        setProgress({ total: data.total_rows, processed: data.processed_rows });
+        setProgress({ total: data.total_rows || data.total || 0, processed: data.processed_rows || data.total || 0 });
 
         if (data.status === 'completed') {
           clearInterval(interval);
@@ -127,9 +212,10 @@ export function UploadStep({ onComplete }: UploadStepProps) {
         <p className="text-sm text-muted-foreground">Unduh template, isi dengan data penerima, lalu unggah kembali.</p>
         <button
           onClick={downloadTemplate}
-          className="text-primary text-sm font-medium hover:underline inline-flex items-center gap-1"
+          className="inline-flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary hover:bg-primary/15"
         >
-          Download Template Excel
+          <Download className="h-4 w-4" />
+          Download Template Excel Standar
         </button>
       </div>
 
@@ -154,12 +240,16 @@ export function UploadStep({ onComplete }: UploadStepProps) {
           </div>
           <button
             type="button"
-            onClick={() => setPickupAddress("Jalan Jend. Sudirman, Senayan, Kebayoran Baru, Jakarta Selatan")}
-            className="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
+            onClick={useCurrentLocation}
+            className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
             disabled={isUploading}
           >
-            Gunakan Lokasi Saya (Mock)
+            {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
+            Gunakan Lokasi Saya
           </button>
+          <p className="text-xs text-muted-foreground">
+            Koordinat pickup: {pickupLat.toFixed(5)}, {pickupLng.toFixed(5)}
+          </p>
         </div>
       </section>
 
@@ -190,7 +280,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
             </div>
             <div>
               <p className="font-semibold text-foreground text-lg">Tarik &amp; Lepas file Excel di sini</p>
-              <p className="text-sm text-muted-foreground mt-1">atau klik untuk menelusuri file (Maks 5MB)</p>
+              <p className="text-sm text-muted-foreground mt-1">atau klik untuk menelusuri file .xlsx (Maks 5MB, 500 baris)</p>
             </div>
           </div>
         )}

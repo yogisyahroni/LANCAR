@@ -48,5 +48,6 @@ export * from './wallet.controller';
 // Customer Web Portal Orders
 export * as customerOrder from './customerOrder.controller';
 export * as bulkOrder from './bulkOrder.controller';
+export * as deliveryServices from './deliveryServices.controller';
 export * from './userNotifications.controller';
 export * from './warehouse.controller';

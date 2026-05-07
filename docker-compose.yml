@@ -151,6 +151,10 @@ services:
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SEED_DB: "true"
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
+      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
+      MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
+      MIDTRANS_ENV: ${MIDTRANS_ENV:-sandbox}
+      MIDTRANS_FINISH_URL: ${MIDTRANS_FINISH_URL:-http://localhost:3000/orders}
     ports:
       - "${ADMIN_PORT:-3001}:3000"
     healthcheck:

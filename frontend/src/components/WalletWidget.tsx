@@ -12,7 +12,7 @@ interface WalletWidgetProps {
 
 declare global {
   interface Window {
-    snap: any;
+    snap?: any;
   }
 }
 

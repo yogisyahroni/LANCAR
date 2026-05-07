@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { AlertCircle, CheckCircle2, CreditCard, Loader2, Package, QrCode, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle2, CreditCard, ExternalLink, Loader2, Package, RefreshCw } from 'lucide-react';
 
 interface PaymentStepProps {
   jobId: string;
@@ -11,118 +11,102 @@ interface PaymentStepProps {
   onComplete: () => void;
 }
 
-type PaymentStatus = 'idle' | 'awaiting_snap' | 'pending_payment' | 'paid' | 'expired' | 'error';
+type PaymentStatus = 'idle' | 'creating' | 'opening_snap' | 'pending_payment' | 'paid' | 'error';
+
+declare global {
+  interface Window {
+    snap?: any;
+  }
+}
+
+function loadSnapScript(src: string, clientKey: string): Promise<void> {
+  const existing = document.querySelector<HTMLScriptElement>('script[data-midtrans-snap="true"]');
+  if (existing?.dataset.clientKey === clientKey && existing.src === src) {
+    return Promise.resolve();
+  }
+
+  existing?.remove();
+
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.dataset.midtransSnap = 'true';
+    script.dataset.clientKey = clientKey;
+    script.setAttribute('data-client-key', clientKey);
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Gagal memuat Midtrans Snap.js.'));
+    document.body.appendChild(script);
+  });
+}
 
 export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
   const router = useRouter();
-
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('idle');
-  const [snapToken, setSnapToken] = useState<string | null>(null);
-  const [snapLoaded, setSnapLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const [payment, setPayment] = useState<any>(null);
 
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
-  const snapScriptRef = useRef<boolean>(false);
+  const validRows = useMemo(() => data.rows?.filter((row: any) => row.status === 'valid') || [], [data.rows]);
+  const totalOrders = validRows.length;
+  const totalPrice = validRows.reduce((acc: number, row: any) => acc + (row.price_breakdown?.total_price_idr || 0), 0);
+  const totalDistance = validRows.reduce((acc: number, row: any) => acc + (row.price_breakdown?.distance_km || 0), 0);
 
-  const totalOrders = data.rows?.length || 0;
-  const totalPrice = data.total_price || 0;
-  const totalDistance = data.rows?.reduce((acc: number, row: any) => acc + (row.distance_km || 0), 0) || 0;
+  const formatCurrency = (value: number) => `Rp ${value.toLocaleString('id-ID')}`;
 
-  // Load Midtrans Snap.js script on mount
-  useEffect(() => {
-    if (snapScriptRef.current) return;
-    snapScriptRef.current = true;
+  const completePayment = () => {
+    setPaymentStatus('paid');
+    onComplete();
+    setTimeout(() => router.push('/orders'), 1600);
+  };
 
-    const script = document.createElement('script');
-    script.src = process.env.NEXT_PUBLIC_MIDTRANS_SNAP_URL || 'https://app.midtrans.com/snap/snap.js';
-    script.setAttribute('data-client-key', process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY || '');
-    script.async = true;
-    script.onload = () => setSnapLoaded(true);
-    script.onerror = () => {
-      setError('Gagal memuat library pembayaran Midtrans. Periksa koneksi internet Anda.');
-    };
-    document.head.appendChild(script);
+  const openSnap = async (snapPayment: any) => {
+    if (!snapPayment?.snap_token || !snapPayment?.snap_js_url || !snapPayment?.client_key) {
+      throw new Error('Response Midtrans belum lengkap. Pastikan MIDTRANS_SERVER_KEY dan MIDTRANS_CLIENT_KEY sudah diisi.');
+    }
 
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
-    };
-  }, []);
+    setPaymentStatus('opening_snap');
+    await loadSnapScript(snapPayment.snap_js_url, snapPayment.client_key);
 
-  // Step 1: Create the bulk order via API and get a Snap token
+    if (!window.snap) {
+      throw new Error('Midtrans Snap belum tersedia di browser.');
+    }
+
+    window.snap.pay(snapPayment.snap_token, {
+      onSuccess: () => completePayment(),
+      onPending: () => setPaymentStatus('pending_payment'),
+      onError: () => {
+        setPaymentStatus('error');
+        setError('Pembayaran gagal diproses oleh Midtrans. Silakan coba lagi.');
+      },
+      onClose: () => setPaymentStatus('pending_payment')
+    });
+  };
+
   const handleInitiatePayment = async () => {
-    setIsCreatingOrder(true);
+    setPaymentStatus('creating');
     setError(null);
 
     try {
-      const res = await api.post('/auth/web/orders/bulk/pay', { job_id: jobId });
-      const token: string = res.data.snap_token;
-      const orderId: string = res.data.payment_order_id;
-
-      if (!token) {
-        setError('Server tidak mengembalikan token pembayaran. Silakan coba lagi.');
-        setIsCreatingOrder(false);
-        return;
-      }
-
-      setSnapToken(token);
-      setPaymentStatus('awaiting_snap');
-      setIsCreatingOrder(false);
-
-      // Step 2: Open Midtrans Snap popup with the real token
-      (window as any).snap.pay(token, {
-        onSuccess: () => {
-          setPaymentStatus('paid');
-          onComplete();
-          setTimeout(() => router.push('/orders'), 2500);
-        },
-        onPending: () => {
-          setPaymentStatus('pending_payment');
-          // Start polling for payment confirmation
-          startPaymentPolling(orderId);
-        },
-        onError: () => {
-          setPaymentStatus('error');
-          setError('Terjadi kesalahan pada gateway pembayaran. Silakan coba lagi.');
-        },
-        onClose: () => {
-          // User closed the popup — don't reset, let them retry
-          setPaymentStatus('idle');
-        },
-      });
+      const res = await api.post('/auth/web/orders/bulk/process', { job_id: jobId });
+      const snapPayment = res.data.payment;
+      setPayment(snapPayment);
+      await openSnap(snapPayment);
     } catch (err: any) {
-      setIsCreatingOrder(false);
       setPaymentStatus('error');
-      setError(err.response?.data?.error || 'Gagal membuat pesanan. Silakan coba lagi.');
+      setError(err.response?.data?.error || err.message || 'Gagal memproses order massal. Silakan coba lagi.');
     }
   };
 
-  // Poll payment status when user has pending payment (e.g., bank transfer)
-  const startPaymentPolling = (orderId: string) => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
+  const handleOpenExistingPayment = async () => {
+    if (!payment) return;
 
-    pollingRef.current = setInterval(async () => {
-      try {
-        const res = await api.get(`/auth/web/orders/payment/status?order_id=${orderId}`);
-        const status: string = res.data.payment_status;
-
-        if (status === 'settlement' || status === 'capture') {
-          clearInterval(pollingRef.current!);
-          setPaymentStatus('paid');
-          onComplete();
-          setTimeout(() => router.push('/orders'), 2500);
-        } else if (status === 'expire' || status === 'cancel' || status === 'deny') {
-          clearInterval(pollingRef.current!);
-          setPaymentStatus('expired');
-          setError('Pembayaran telah kadaluarsa atau dibatalkan. Silakan buat pesanan baru.');
-        }
-      } catch {
-        // Network error during polling — continue polling, don't abort
-        console.warn('Payment status poll failed, retrying...');
-      }
-    }, 5000); // Poll every 5 seconds
+    try {
+      setError(null);
+      await openSnap(payment);
+    } catch (err: any) {
+      setPaymentStatus('error');
+      setError(err.message || 'Gagal membuka Midtrans Snap.');
+    }
   };
 
   if (paymentStatus === 'paid') {
@@ -133,22 +117,20 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
         </div>
         <h2 className="text-2xl font-bold text-emerald-500 mb-2">Pembayaran Berhasil!</h2>
         <p className="text-muted-foreground text-center max-w-md">
-          {totalOrders} pesanan telah berhasil dibuat dan siap untuk dipickup. Mengalihkan ke halaman riwayat pesanan...
+          {totalOrders} pesanan sudah dibuat dan masuk antrean dispatch. Mengalihkan ke riwayat pesanan...
         </p>
       </div>
     );
   }
 
-  const isLoading = isCreatingOrder || paymentStatus === 'awaiting_snap';
-  const canPay = snapLoaded && paymentStatus === 'idle' && !isCreatingOrder;
+  const isBusy = paymentStatus === 'creating' || paymentStatus === 'opening_snap';
 
   return (
     <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Order Summary */}
       <div className="space-y-6">
         <div>
           <h2 className="text-xl font-semibold">Langkah 3: Pembayaran</h2>
-          <p className="text-sm text-muted-foreground mt-1">Selesaikan pembayaran untuk memproses pesanan massal Anda.</p>
+          <p className="text-sm text-muted-foreground mt-1">Selesaikan pembayaran Midtrans Snap untuk memproses pesanan massal Anda.</p>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm space-y-6">
@@ -159,20 +141,17 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
 
           <div className="space-y-4">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground">Total Pesanan</span>
+              <span className="text-muted-foreground">Total Pesanan Valid</span>
               <span className="font-semibold text-lg">{totalOrders} Paket</span>
             </div>
             <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground">Total Jarak (Est.)</span>
+              <span className="text-muted-foreground">Total Jarak Estimasi</span>
               <span className="font-medium">{totalDistance.toFixed(1)} km</span>
             </div>
-
             <div className="pt-4 border-t border-white/10">
               <div className="flex justify-between items-center">
                 <span className="text-foreground font-medium">Total Pembayaran</span>
-                <span className="text-2xl font-bold text-primary">
-                  Rp {totalPrice.toLocaleString('id-ID')}
-                </span>
+                <span className="text-2xl font-bold text-primary">{formatCurrency(totalPrice)}</span>
               </div>
             </div>
           </div>
@@ -186,70 +165,66 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
         )}
 
         {paymentStatus === 'pending_payment' && (
-          <div className="p-3 bg-amber-500/10 text-amber-400 rounded-lg text-sm flex items-center gap-2">
+          <div className="p-3 bg-amber-500/10 text-amber-300 rounded-lg text-sm flex items-center gap-2">
             <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
-            Menunggu konfirmasi pembayaran...
+            Menunggu pembayaran atau notifikasi dari Midtrans.
           </div>
         )}
       </div>
 
-      {/* Payment Method Panel */}
       <div className="rounded-xl border border-white/10 bg-background/50 p-6 flex flex-col items-center justify-center text-center space-y-6">
-        <div className="w-full max-w-xs space-y-4">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <QrCode className="w-6 h-6 text-primary" />
-            <h3 className="font-semibold">Pembayaran via Midtrans</h3>
-          </div>
+        <div className="w-20 h-20 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+          <CreditCard className="h-10 w-10" />
+        </div>
 
-          {/* Real payment method icons instead of Wikipedia QR */}
-          <div className="aspect-square w-full bg-muted/20 rounded-xl border border-border/40 flex flex-col items-center justify-center gap-4 p-6">
-            <div className="grid grid-cols-3 gap-3 w-full">
-              {['GoPay', 'OVO', 'DANA', 'BCA VA', 'Mandiri VA', 'QRIS'].map((method) => (
-                <div
-                  key={method}
-                  className="aspect-square rounded-lg bg-card border border-border/40 flex items-center justify-center text-[10px] font-bold text-muted-foreground p-1"
-                >
-                  {method}
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Pilih metode pembayaran di popup Midtrans
-            </p>
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            Sistem menggunakan Midtrans Snap untuk pembayaran yang aman dan terenkripsi.
-            Pilih metode pembayaran (QRIS, VA, e-wallet) setelah klik tombol di bawah.
+        <div className="space-y-2">
+          <h3 className="text-lg font-semibold">Midtrans Snap</h3>
+          <p className="text-sm text-muted-foreground">
+            Customer akan memilih metode pembayaran langsung di halaman Snap: QRIS, VA, kartu, atau e-wallet sesuai konfigurasi Midtrans.
           </p>
         </div>
 
-        <div className="w-full pt-4 border-t border-white/10">
-          {!snapLoaded && (
-            <p className="text-xs text-muted-foreground mb-3 flex items-center justify-center gap-1">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Memuat library pembayaran...
-            </p>
-          )}
-          <button
-            id="btn-initiate-payment"
-            onClick={handleInitiatePayment}
-            disabled={!canPay}
-            className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Memproses...
-              </>
-            ) : (
-              <>
-                <CreditCard className="w-5 h-5" />
-                Bayar Sekarang
-              </>
-            )}
-          </button>
+        <div className="w-full rounded-lg border border-white/10 bg-white/5 p-4 text-sm space-y-3">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Total</span>
+            <b>{formatCurrency(totalPrice)}</b>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Gateway</span>
+            <b>Midtrans Snap</b>
+          </div>
         </div>
+
+        <button
+          id="btn-initiate-payment"
+          onClick={payment ? handleOpenExistingPayment : handleInitiatePayment}
+          disabled={isBusy || totalOrders === 0}
+          className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-primary/20"
+        >
+          {isBusy ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              {paymentStatus === 'creating' ? 'Membuat transaksi...' : 'Membuka Snap...'}
+            </>
+          ) : (
+            <>
+              <CreditCard className="w-5 h-5" />
+              {payment ? 'Buka Midtrans Snap' : 'Bayar dengan Midtrans Snap'}
+            </>
+          )}
+        </button>
+
+        {payment?.redirect_url && (
+          <a
+            href={payment.redirect_url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+          >
+            Buka halaman pembayaran
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        )}
       </div>
     </div>
   );

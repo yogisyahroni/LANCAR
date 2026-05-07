@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import { db } from '../db';
 import { createNotification } from '../notifications';
 import { getIO } from '../websocket';
+import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../midtrans';
+import { isExpiredOrFailedTransaction, isSuccessfulTransaction } from '../midtrans';
+import { calculateServiceSettlement, customerFacingService, DeliveryServiceProduct, findDeliveryServiceByCode } from './deliveryServices.controller';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -24,56 +27,134 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   return Math.max(1, parseFloat(dist.toFixed(2))); // Min 1km
 };
 
+const toNumber = (value: any, fallback = 0) => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+};
+
+const roundRupiah = (value: number) => Math.ceil(value);
+
+const publicServiceSnapshot = (service: DeliveryServiceProduct) => customerFacingService(service);
+
+const resolveSizeTier = (service: DeliveryServiceProduct, requestedCode?: string) => {
+  if (!service.uses_size_tier || service.size_tiers.length === 0) return null;
+  return service.size_tiers.find((tier) => tier.code === requestedCode) || service.size_tiers[0];
+};
+
 export const calculatePrice = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { pickup, dropoff, dimensions, weight_kg, has_insurance, item_value } = req.body;
+    const {
+      pickup,
+      dropoff,
+      dimensions,
+      weight_kg,
+      has_insurance,
+      item_value,
+      dimension_scan_verified,
+      service_code,
+      size_tier
+    } = req.body;
 
-    // Default coordinates if not provided (for mock)
+    const service = await findDeliveryServiceByCode(service_code);
+    if (!service) {
+      res.status(400).json({
+        code: 'ERR_SERVICE_NOT_AVAILABLE',
+        message: 'Layanan pengiriman tidak tersedia'
+      });
+      return;
+    }
+
+    if (service.requires_dimension_scan && !dimension_scan_verified) {
+      res.status(400).json({
+        code: 'ERR_DIMENSION_SCAN_REQUIRED',
+        message: `${service.name} wajib scan dimensi sebelum menghitung harga`
+      });
+      return;
+    }
+
     const pLat = pickup?.lat || -6.200000;
     const pLon = pickup?.lng || 106.816666;
     const dLat = dropoff?.lat || -6.210000;
     const dLon = dropoff?.lng || 106.820000;
 
     const distance = calculateDistance(pLat, pLon, dLat, dLon);
-    
-    // Pricing Rules
-    const BASE_FARE_FIRST_KM = 10000;
-    const PRICE_PER_KM = 4000;
-    
-    let base_price = BASE_FARE_FIRST_KM;
-    if (distance > 1) {
-      base_price += Math.ceil(distance - 1) * PRICE_PER_KM;
+
+    if (service.max_distance_km && distance > service.max_distance_km) {
+      res.status(400).json({
+        code: 'ERR_SERVICE_DISTANCE_LIMIT',
+        message: `${service.name} maksimal ${service.max_distance_km} km. Jarak order ini ${distance} km.`
+      });
+      return;
     }
 
-    // Volumetric Weight Calculation
-    let volumetric_surcharge = 0;
-    if (dimensions && dimensions.length && dimensions.width && dimensions.height) {
-      const volumetricWeight = (dimensions.length * dimensions.width * dimensions.height) / 6000;
-      const actualWeight = parseFloat(weight_kg) || 0;
-      const chargeableWeight = Math.max(volumetricWeight, actualWeight);
-      
-      // If chargeable weight > 5kg, add surcharge
-      if (chargeableWeight > 5) {
-        volumetric_surcharge = Math.ceil(chargeableWeight - 5) * 2000; // Rp 2,000 per extra kg
-      }
+    const selectedTier = resolveSizeTier(service, size_tier);
+    const divisor = toNumber(service.dimension_rules?.volumetric_divisor, 6000);
+    const surchargeThreshold = toNumber(service.dimension_rules?.surcharge_threshold_kg, service.max_weight_kg || 20);
+    const surchargePerKg = toNumber(service.dimension_rules?.surcharge_per_kg_idr, 2000);
+
+    let volumetricWeight = 0;
+    const actualWeight = toNumber(weight_kg, 0);
+    if (selectedTier?.max_weight_kg && actualWeight > toNumber(selectedTier.max_weight_kg)) {
+      res.status(400).json({
+        code: 'ERR_SIZE_TIER_WEIGHT_LIMIT',
+        message: `Berat aktual melewati tier ${selectedTier.name}. Pilih tier yang lebih besar.`
+      });
+      return;
     }
 
-    // Insurance
+    let chargeableWeight = actualWeight;
+    if (dimensions?.length && dimensions?.width && dimensions?.height) {
+      volumetricWeight = (toNumber(dimensions.length) * toNumber(dimensions.width) * toNumber(dimensions.height)) / divisor;
+      chargeableWeight = Math.max(volumetricWeight, actualWeight);
+    }
+
+    if (service.max_weight_kg && chargeableWeight > service.max_weight_kg) {
+      res.status(400).json({
+        code: 'ERR_SERVICE_WEIGHT_LIMIT',
+        message: `${service.name} maksimal ${service.max_weight_kg} kg. Berat hitung order ini ${chargeableWeight.toFixed(2)} kg.`
+      });
+      return;
+    }
+
+    const distanceChargeKm = Math.max(0, Math.ceil(distance - service.included_distance_km));
+    const tierMultiplier = toNumber(selectedTier?.multiplier, 1);
+    const tierDelta = toNumber(selectedTier?.price_delta_idr, 0);
+    const baseBeforeMultiplier = service.base_fare_idr + (distanceChargeKm * service.per_km_idr) + tierDelta;
+    const base_price = roundRupiah(baseBeforeMultiplier * service.service_multiplier * tierMultiplier);
+    const volumetric_surcharge = chargeableWeight > surchargeThreshold
+      ? Math.ceil(chargeableWeight - surchargeThreshold) * surchargePerKg
+      : 0;
+
     let insurance_premium = 0;
     if (has_insurance && item_value) {
-      // 0.2% of item value
       insurance_premium = Math.ceil((item_value * 0.2) / 100);
-      // Min insurance Rp 1,000
       if (insurance_premium < 1000) insurance_premium = 1000;
     }
 
-    const total_price = base_price + volumetric_surcharge + insurance_premium;
+    const hour = new Date().getHours();
+    const isPeakHour = (hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 20);
+    const dynamic_price = isPeakHour ? Math.ceil(base_price * 0.15) : 0;
+    const delivery_model = service.route_model;
+    const calculatedEta = Math.ceil(20 + (distance * 3.5) + (service.batching_allowed ? 120 : 0));
+    const eta_minutes = Math.min(service.max_eta_minutes, Math.max(20, calculatedEta));
+
+    const total_price = base_price + volumetric_surcharge + insurance_premium + dynamic_price;
 
     res.json({
+      service_code: service.code,
+      service_name: service.name,
+      service_snapshot: publicServiceSnapshot(service),
+      selected_size_tier: selectedTier,
       distance_km: distance,
       base_price_idr: base_price,
+      actual_weight_kg: Number(actualWeight.toFixed(2)),
+      dimensional_weight_kg: Number(volumetricWeight.toFixed(2)),
+      chargeable_weight_kg: Number(chargeableWeight.toFixed(2)),
       volumetric_surcharge_idr: volumetric_surcharge,
       insurance_premium_idr: insurance_premium,
+      dynamic_price_idr: dynamic_price,
+      delivery_model,
+      eta_minutes,
       total_price_idr: total_price
     });
   } catch (error: any) {
@@ -103,8 +184,26 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       schedule_type,
       scheduled_at,
       customer_notes,
-      price_breakdown
+      price_breakdown,
+      service_code
     } = req.body;
+
+    const service = await findDeliveryServiceByCode(price_breakdown?.service_code || service_code);
+    if (!service) {
+      res.status(400).json({
+        code: 'ERR_SERVICE_NOT_AVAILABLE',
+        error: 'Layanan pengiriman tidak tersedia'
+      });
+      return;
+    }
+
+    if (service.requires_dimension_scan && !package_details?.dimensions_scanned) {
+      res.status(400).json({
+        code: 'ERR_DIMENSION_SCAN_REQUIRED',
+        error: `${service.name} wajib scan dimensi sebelum order dibuat`
+      });
+      return;
+    }
 
     await client.query('BEGIN');
 
@@ -122,12 +221,20 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         recipient_name,
         recipient_phone_masked,
         model, 
+        service_code,
+        service_snapshot,
         status, 
         distance_km,
         base_price_idr,
         volumetric_surcharge_idr,
         insurance_premium_idr,
+        dynamic_price_idr,
         total_price_idr,
+        ppn_idr,
+        mdr_idr,
+        platform_commission_idr,
+        courier_payout_estimate_idr,
+        settlement_snapshot,
         has_insurance,
         insured_value_idr,
         package_details,
@@ -138,9 +245,16 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       ) VALUES (
         $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
         $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
-        'relay', 'pending', $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, NOW()
+        $11, $12, $13, 'pending_payment', $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, NOW()
       ) RETURNING id, order_number, total_price_idr
     `;
+
+    const totalPrice = price_breakdown?.total_price_idr || 0;
+    const settlement = calculateServiceSettlement(
+      service,
+      totalPrice,
+      price_breakdown?.insurance_premium_idr || 0
+    );
 
     const values = [
       customer_id,
@@ -153,11 +267,20 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       dropoff_location?.lat || -6.210000,
       recipient_name,
       recipient_phone?.replace(/\\d(?=\\d{4})/g, "*") || '*****', // masking phone simple
+      service.route_model,
+      service.code,
+      JSON.stringify(price_breakdown?.service_snapshot || publicServiceSnapshot(service)),
       price_breakdown?.distance_km || 0,
       price_breakdown?.base_price_idr || 0,
       price_breakdown?.volumetric_surcharge_idr || 0,
       price_breakdown?.insurance_premium_idr || 0,
-      price_breakdown?.total_price_idr || 0,
+      price_breakdown?.dynamic_price_idr || 0,
+      totalPrice,
+      settlement.ppn_idr,
+      settlement.mdr_idr,
+      settlement.platform_commission_idr,
+      settlement.courier_payout_estimate_idr,
+      JSON.stringify(settlement.settlement_snapshot),
       has_insurance || false,
       item_value || 0,
       JSON.stringify(package_details || {}),
@@ -168,6 +291,54 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
     const result = await client.query(insertQuery, values);
     const newOrder = result.rows[0];
+
+    const midtransOrderId = `${order_number}-${Date.now()}`;
+    const snap = await createSnapTransaction({
+      orderId: midtransOrderId,
+      grossAmount: totalPrice,
+      itemDetails: [
+        {
+          id: order_number,
+          price: totalPrice,
+          quantity: 1,
+          name: `LANCAR Delivery ${order_number}`
+        }
+      ],
+      customerDetails: {
+        first_name: recipient_name,
+        phone: recipient_phone
+      },
+      customFields: {
+        custom_field1: String(newOrder.id),
+        custom_field2: 'single_order',
+        custom_field3: String(customer_id)
+      },
+      expiryMinutes: 30
+    });
+
+    await client.query(`
+      INSERT INTO payments (
+        order_id, payment_number, provider, method, status, amount_idr,
+        mdr_amount_idr, ppn_amount_idr, weather_reserve_idr, insurance_reserve_idr,
+        net_operational_idr, provider_reference, expires_at
+      ) VALUES ($1, $2, 'midtrans', 'snap', 'pending', $3, $4, $5, 0, $6, $7, $8, $9)
+      ON CONFLICT (order_id) DO UPDATE SET
+        provider_reference = EXCLUDED.provider_reference,
+        status = 'pending',
+        amount_idr = EXCLUDED.amount_idr,
+        expires_at = EXCLUDED.expires_at,
+        updated_at = NOW()
+    `, [
+      newOrder.id,
+      `PAY-${order_number}`,
+      totalPrice,
+      settlement.mdr_idr,
+      settlement.ppn_idr,
+      settlement.insurance_reserve_idr,
+      settlement.net_operational_idr,
+      midtransOrderId,
+      snap.expires_at
+    ]);
 
     // Create Order Event
     await client.query(`
@@ -183,10 +354,133 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       success: true,
       order: newOrder,
       payment: {
-        method: 'QRIS',
-        qris_string: '00020101021126590013ID.CO.GOJEK.WWW011893600915300000001020900000000000052045499530336054061200005802ID5914LANCAR LOGISTIK6015JAKARTA SELATAN61051212062330729QRIS202405030000000000000000016304',
-        expires_in: 900 // 15 mins
+        id: `PAY-${newOrder.order_number}`,
+        method: 'MIDTRANS_SNAP',
+        snap_token: snap.token,
+        redirect_url: snap.redirect_url,
+        midtrans_order_id: snap.midtrans_order_id,
+        client_key: getMidtransClientKey(),
+        snap_js_url: getMidtransSnapJsUrl(),
+        expires_in: 1800,
+        expires_at: snap.expires_at
       }
+    });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const getCustomerOrderPaymentStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customer_id = req.user?.id;
+    const id = String(req.params.id);
+
+    if (!customer_id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { rows } = await db.query(
+      `SELECT o.id, o.status, o.created_at, p.status as payment_status, p.expires_at, p.provider_reference
+       FROM orders o
+       LEFT JOIN payments p ON p.order_id = o.id
+       WHERE o.id = $1 AND o.customer_id = $2`,
+      [id, customer_id]
+    );
+
+    if (rows.length === 0) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    const order = rows[0];
+    const expired = order.expires_at ? new Date(order.expires_at).getTime() < Date.now() : false;
+
+    res.json({
+      success: true,
+      payment_status: order.payment_status === 'paid' ? 'paid' : (expired ? 'expired' : 'pending'),
+      order_status: order.status,
+      midtrans_order_id: order.provider_reference,
+      expires_in: order.expires_at ? Math.max(0, Math.ceil((new Date(order.expires_at).getTime() - Date.now()) / 1000)) : 0
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const confirmCustomerOrderPayment = async (req: Request, res: Response): Promise<void> => {
+  const client = await db.connect();
+  try {
+    const customer_id = req.user?.id;
+    const id = String(req.params.id);
+
+    if (!customer_id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
+      `SELECT o.id, o.order_number, o.status, o.created_at, p.expires_at, p.status as payment_status
+       FROM orders o
+       LEFT JOIN payments p ON p.order_id = o.id
+       WHERE o.id = $1 AND o.customer_id = $2
+       FOR UPDATE OF o`,
+      [id, customer_id]
+    );
+
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    const order = rows[0];
+    if (order.status === 'pending_payment' && order.expires_at && new Date(order.expires_at).getTime() < Date.now()) {
+      await client.query('ROLLBACK');
+      res.status(410).json({ error: 'Pembayaran sudah kedaluwarsa', payment_status: 'expired' });
+      return;
+    }
+
+    if (order.status === 'pending_payment') {
+      await client.query(
+        `UPDATE orders SET status = 'pending', updated_at = NOW() WHERE id = $1`,
+        [id]
+      );
+      await client.query(
+        `UPDATE payments SET status = 'paid', paid_at = NOW(), updated_at = NOW() WHERE order_id = $1`,
+        [id]
+      );
+      await client.query(
+        `INSERT INTO order_events (order_id, user_id, event_type, description)
+         VALUES ($1, $2, 'payment_confirmed', 'Customer confirmed QRIS payment via Web Portal')`,
+        [id, customer_id]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    try {
+      await createNotification({
+        user_id: customer_id,
+        title: `Pembayaran diterima - ${order.order_number}`,
+        body: 'Order Anda sedang masuk antrean dispatch.',
+        type: 'payment',
+        order_id: id,
+        deep_link: `/orders/${id}`
+      });
+    } catch (notificationError) {
+      console.warn('Failed to create payment notification:', notificationError);
+    }
+
+    res.json({
+      success: true,
+      payment_status: 'paid',
+      order_status: 'pending'
     });
   } catch (error: any) {
     await client.query('ROLLBACK');
@@ -421,5 +715,102 @@ export const uploadOrderFile = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error uploading order file:', error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const handleMidtransNotification = async (req: Request, res: Response): Promise<void> => {
+  const client = await db.connect();
+  try {
+    const payload = req.body || {};
+    const {
+      order_id,
+      transaction_status,
+      fraud_status,
+      status_code,
+      gross_amount,
+      signature_key
+    } = payload;
+
+    if (!order_id || !transaction_status) {
+      res.status(400).json({ error: 'Invalid Midtrans notification payload' });
+      return;
+    }
+
+    const serverKey = process.env.MIDTRANS_SERVER_KEY || '';
+    if (serverKey && signature_key) {
+      const expectedSignature = crypto
+        .createHash('sha512')
+        .update(`${order_id}${status_code}${gross_amount}${serverKey}`)
+        .digest('hex');
+
+      if (expectedSignature !== signature_key) {
+        res.status(403).json({ error: 'Invalid Midtrans signature' });
+        return;
+      }
+    }
+
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
+      `SELECT p.order_id, o.customer_id, o.order_number
+       FROM payments p
+       JOIN orders o ON o.id = p.order_id
+       WHERE p.provider_reference = $1
+       FOR UPDATE OF p`,
+      [order_id]
+    );
+
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(200).json({ success: true, ignored: true, reason: 'payment_not_found' });
+      return;
+    }
+
+    const orderIds = rows.map((row) => row.order_id);
+    const customerId = rows[0].customer_id;
+
+    if (isSuccessfulTransaction(transaction_status, fraud_status)) {
+      await client.query(
+        `UPDATE payments
+         SET status = 'paid', paid_at = COALESCE(paid_at, NOW()), webhook_payload = $2, updated_at = NOW()
+         WHERE provider_reference = $1`,
+        [order_id, payload]
+      );
+      await client.query(
+        `UPDATE orders SET status = 'pending', updated_at = NOW() WHERE id = ANY($1::uuid[]) AND status = 'pending_payment'`,
+        [orderIds]
+      );
+      for (const orderId of orderIds) {
+        await client.query(
+          `INSERT INTO order_events (order_id, user_id, event_type, description)
+           VALUES ($1, $2, 'payment_confirmed', 'Midtrans confirmed payment')`,
+          [orderId, customerId]
+        );
+      }
+    } else if (isExpiredOrFailedTransaction(transaction_status)) {
+      await client.query(
+        `UPDATE payments
+         SET status = $2, webhook_payload = $3, updated_at = NOW()
+         WHERE provider_reference = $1`,
+        [order_id, transaction_status === 'expire' ? 'expired' : 'failed', payload]
+      );
+      await client.query(
+        `UPDATE orders SET status = 'payment_failed', updated_at = NOW() WHERE id = ANY($1::uuid[]) AND status = 'pending_payment'`,
+        [orderIds]
+      );
+    } else {
+      await client.query(
+        `UPDATE payments SET webhook_payload = $2, updated_at = NOW() WHERE provider_reference = $1`,
+        [order_id, payload]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
   }
 };

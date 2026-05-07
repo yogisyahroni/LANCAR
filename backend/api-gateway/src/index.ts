@@ -353,6 +353,22 @@ app.use(createProxyMiddleware({
   }
 }));
 
+// Public payment webhooks handled by Admin Service
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/payments/midtrans',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api/v1/payments/midtrans': '/payments/midtrans'
+  },
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[35m[Proxy Payment Webhook]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    }
+  }
+}));
+
 // Routing Service
 app.use('/api/v1/routing', createProxyMiddleware({
   target: ROUTING_SERVICE_URL,
@@ -430,7 +446,6 @@ server.on('upgrade', (req: any, socket: any, head: any) => {
     adminWsProxy.upgrade(req, socket, head);
   }
 });
-
 
 
 

@@ -1,0 +1,39 @@
+ALTER TABLE delivery_service_products
+  ADD COLUMN IF NOT EXISTS platform_commission_percent NUMERIC(6,3) NOT NULL DEFAULT 20,
+  ADD COLUMN IF NOT EXISTS courier_payout_percent NUMERIC(6,3) NOT NULL DEFAULT 75,
+  ADD COLUMN IF NOT EXISTS courier_min_payout_idr INTEGER NOT NULL DEFAULT 8000,
+  ADD COLUMN IF NOT EXISTS mdr_percent NUMERIC(6,3) NOT NULL DEFAULT 0.7,
+  ADD COLUMN IF NOT EXISTS ppn_percent NUMERIC(6,3) NOT NULL DEFAULT 11,
+  ADD COLUMN IF NOT EXISTS show_customer_price_to_courier BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE orders
+  ADD COLUMN IF NOT EXISTS platform_commission_idr INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS courier_payout_estimate_idr INTEGER NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS settlement_snapshot JSONB;
+
+UPDATE delivery_service_products SET
+  platform_commission_percent = 20,
+  courier_payout_percent = 75,
+  courier_min_payout_idr = 9000,
+  mdr_percent = 0.7,
+  ppn_percent = 11,
+  show_customer_price_to_courier = FALSE
+WHERE code IN ('lancar_priority', 'lancar_instant');
+
+UPDATE delivery_service_products SET
+  platform_commission_percent = 18,
+  courier_payout_percent = 78,
+  courier_min_payout_idr = 8000,
+  mdr_percent = 0.7,
+  ppn_percent = 11,
+  show_customer_price_to_courier = FALSE
+WHERE code IN ('lancar_hemat', 'lancar_same_day');
+
+UPDATE delivery_service_products SET
+  platform_commission_percent = 18,
+  courier_payout_percent = 76,
+  courier_min_payout_idr = 25000,
+  mdr_percent = 0.7,
+  ppn_percent = 11,
+  show_customer_price_to_courier = FALSE
+WHERE code = 'lancar_mobil';

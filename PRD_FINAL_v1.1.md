@@ -32,8 +32,8 @@
 ### 1.1 Tujuan Produk
 Membangun platform logistik hyperlocal berbasis teknologi hybrid relay (P2P, 2-Kaki, 3-Kaki) yang terdiri dari:
 - **Web Admin Dashboard** — manajemen operasional, analytics, keuangan
-- **Mobile Customer App** (Android + iOS) — pemesanan, tracking, pembayaran
-- **Mobile Courier App** (Android + iOS) — penerimaan order, navigasi, handover, scan barang
+- **Mobile Customer App** (Android native + iOS native) — pemesanan, tracking, pembayaran
+- **Mobile Courier App** (Android native + iOS native) — penerimaan order, navigasi, handover, scan barang
 
 ### 1.2 Scope Fitur Utama
 - Identifikasi dimensi paket via kamera (AR Volumetric Scanning) → kalkulasi berat volumetrik P×L×T/5000
@@ -50,8 +50,8 @@ Membangun platform logistik hyperlocal berbasis teknologi hybrid relay (P2P, 2-K
 | Platform | Tech Stack | Target Device |
 |---|---|---|
 | Web Admin | React.js + TypeScript | Desktop/Laptop Chrome/Firefox |
-| Mobile Customer | Flutter (cross-platform) | Android 8.0+ / iOS 14+ |
-| Mobile Courier | Flutter (cross-platform) | Android 8.0+ (prioritas) |
+| Mobile Customer | Native Android (Kotlin + Jetpack Compose) dan Native iOS (Swift + SwiftUI) | Android 8.0+ / iOS 14+ |
+| Mobile Courier | Native Android (Kotlin + Jetpack Compose) dan Native iOS (Swift + SwiftUI) | Android 8.0+ / iOS 14+ |
 | Backend | Node.js / Go (microservices) | AWS / GCP |
 
 ---
@@ -109,7 +109,8 @@ Membangun platform logistik hyperlocal berbasis teknologi hybrid relay (P2P, 2-K
 │                        CLIENT LAYER                              │
 │  ┌──────────────┐  ┌──────────────────┐  ┌──────────────────┐  │
 │  │ Web Dashboard │  │  Customer App    │  │   Courier App    │  │
-│  │  (React.js)   │  │   (Flutter)      │  │   (Flutter)      │  │
+│  │  (React.js)   │  │ Native Android/  │  │ Native Android/  │  │
+│  │               │  │ Native iOS       │  │ Native iOS       │  │
 │  └──────┬───────┘  └────────┬─────────┘  └────────┬─────────┘  │
 └─────────┼────────────────────┼─────────────────────┼────────────┘
           │                    │                     │
@@ -315,6 +316,18 @@ Membangun platform logistik hyperlocal berbasis teknologi hybrid relay (P2P, 2-K
 
 ## 5. FEATURE REQUIREMENTS — MOBILE CUSTOMER APP
 
+### 5.0 Platform & Native Implementation Requirement
+
+**FR-CUST-NATIVE-001:** Mobile Customer App wajib dibangun sebagai aplikasi native terpisah:
+- Android: Kotlin + Jetpack Compose
+- iOS: Swift + SwiftUI
+
+**FR-CUST-NATIVE-002:** Flutter, React Native, Ionic, Cordova, WebView wrapper, atau framework cross-platform lain tidak diperbolehkan untuk aplikasi mobile customer production.
+
+**FR-CUST-NATIVE-003:** Fitur yang bergantung pada kapabilitas perangkat harus memakai API native masing-masing platform, termasuk kamera, GPS/background location, push notification, biometric/PIN, secure storage, ARCore/ARKit, file upload, deep link, dan permission handling.
+
+---
+
 ### 5.1 Onboarding & Authentication
 
 **FR-CUST-001:** Registrasi via nomor HP (OTP WhatsApp atau SMS)  
@@ -422,6 +435,18 @@ Membangun platform logistik hyperlocal berbasis teknologi hybrid relay (P2P, 2-K
 ---
 
 ## 6. FEATURE REQUIREMENTS — MOBILE COURIER APP
+
+### 6.0 Platform & Native Implementation Requirement
+
+**FR-COUR-NATIVE-001:** Mobile Courier App wajib dibangun sebagai aplikasi native terpisah:
+- Android: Kotlin + Jetpack Compose
+- iOS: Swift + SwiftUI
+
+**FR-COUR-NATIVE-002:** Flutter, React Native, Ionic, Cordova, WebView wrapper, atau framework cross-platform lain tidak diperbolehkan untuk aplikasi mobile courier production.
+
+**FR-COUR-NATIVE-003:** Fitur operasional kurir wajib memakai API native masing-masing platform, termasuk background GPS tracking, geofencing, kamera/QR scan, liveness/selfie verification, push notification, offline queue, secure storage, foreground service Android, background modes iOS, dan permission handling.
+
+---
 
 ### 6.1 Onboarding & Verifikasi
 
