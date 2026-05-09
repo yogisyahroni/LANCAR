@@ -43,3 +43,13 @@ coverage/
 
 # Local Scratch
 scratch/
+
+# AI Agents & Tools
+.agents/
+.claude/
+.agent/
+
+# Android build artifacts
+**/.gradle/
+**/build/
+
