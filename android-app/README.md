@@ -1,0 +1,113 @@
+# LANCAR Courier - Android Native App
+
+Native Android application for LANCAR logistics courier drivers, built with Kotlin and Jetpack Compose.
+
+## Features
+
+- **Push Notifications (FCM)**: Real-time order assignment alerts
+- **Foreground & Background Handling**: Notification states handled for all app states
+- **Material Design 3 UI**: Modern Jetpack Compose interface
+- **API Integration**: Retrofit-based backend communication
+
+## Setup
+
+### 1. Prerequisites
+- Android Studio Hedgehog or later
+- Kotlin 1.9+
+- Android SDK 34
+- Firebase account (for FCM)
+
+### 2. Firebase Configuration
+
+1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com)
+2. Add an Android app with package name `com.lancar.courier`
+3. Download `google-services.json` and place in `app/` directory
+4. Enable Cloud Messaging in Firebase Console
+
+### 3. Build
+
+```bash
+./gradlew assembleDebug
+```
+
+### 4. Install on Device
+
+```bash
+adb install app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Project Structure
+
+```
+android-app/
+├── app/
+│   └── src/main/
+│       ├── java/com/lancar/courier/
+│       │   ├── LANCARApplication.kt      # App initialization, notification channels
+│       │   ├── service/
+│       │   │   ├── LANCARFirebaseMessagingService.kt  # FCM message handling
+│       │   │   └── NotificationDismissReceiver.kt
+│       │   ├── receiver/
+│       │   │   ├── BootReceiver.kt        # Re-registers FCM after boot
+│       │   │   └── NotificationReceiver.kt
+│       │   ├── ui/
+│       │   │   ├── MainActivity.kt        # Entry point
+│       │   │   ├── screens/MainScreen.kt  # Dashboard UI
+│       │   │   └── theme/                 # Material 3 theming
+│       │   ├── data/
+│       │   │   ├── model/Models.kt        # Data classes
+│       │   │   ├── api/                   # Retrofit API
+│       │   │   └── repository/            # FCM token management
+│       │   └── util/
+│       │       └── NotificationHelper.kt   # Notification utilities
+│       └── res/
+│           ├── values/                    # Colors, strings, themes
+│           ├── drawable/                  # Icons
+│           └── xml/                       # Network config
+├── build.gradle.kts
+└── settings.gradle.kts
+```
+
+## Push Notification Flow
+
+1. **App Start**: MainActivity requests POST_NOTIFICATIONS permission (Android 13+)
+2. **FCM Token**: Obtained via FirebaseMessaging.getInstance().token
+3. **Backend Registration**: Token sent to `POST /api/v1/courier/fcm/register`
+4. **Notification Received**: LANCARFirebaseMessagingService.onMessageReceived()
+5. **Display**: High-priority notification shown with LANCAR branding
+
+## Backend Integration
+
+The app expects these API endpoints:
+- `POST /api/v1/courier/fcm/register` - Register FCM token
+- `POST /api/v1/courier/fcm/unregister` - Unregister FCM token
+
+FCM payload format (type: "order_assignment"):
+```json
+{
+  "type": "order_assignment",
+  "title": "New Order Assigned!",
+  "body": "Pickup: Jl. Sudirman. Tap to view.",
+  "order_id": "ORD-12345",
+  "priority": 1
+}
+```
+
+## Notification Channels
+
+| Channel | ID | Priority |
+|---------|-----|----------|
+| Order Assignments | lancar_orders | HIGH |
+| General Updates | lancar_general | DEFAULT |
+
+## TODO
+
+- [ ] Add unit tests for FCM handling
+- [ ] Implement order list screen
+- [ ] Add WebSocket for real-time updates
+- [ ] Integrate with auth service for courier login
+- [ ] Add offline queue for order sync
+
+## License
+
+Proprietary - PT. Lancar Logistic Indonesia
