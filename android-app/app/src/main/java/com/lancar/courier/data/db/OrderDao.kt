@@ -32,6 +32,18 @@ interface OrderDao {
     fun getPendingOrders(): Flow<List<Order>>
 
     /**
+     * Get pending scans (needs scan sync)
+     */
+    @Query("SELECT * FROM orders WHERE needsScanSync = 1 ORDER BY created_at ASC")
+    fun getPendingScans(): Flow<List<Order>>
+
+    /**
+     * Get pending PoDs (needs PoD sync)
+     */
+    @Query("SELECT * FROM orders WHERE needsPodSync = 1 ORDER BY created_at ASC")
+    fun getPendingPods(): Flow<List<Order>>
+
+    /**
      * Get order by order ID
      */
     @Query("SELECT * FROM orders WHERE order_id = :orderId LIMIT 1")
@@ -90,4 +102,16 @@ interface OrderDao {
      */
     @Query("UPDATE orders SET needsSync = 0 WHERE order_id IN (:orderIds)")
     suspend fun markAsSynced(orderIds: List<String>)
+
+    /**
+     * Mark scans as synced
+     */
+    @Query("UPDATE orders SET needsScanSync = 0 WHERE order_id IN (:orderIds)")
+    suspend fun markScanAsSynced(orderIds: List<String>)
+
+    /**
+     * Mark PoDs as synced
+     */
+    @Query("UPDATE orders SET needsPodSync = 0 WHERE order_id IN (:orderIds)")
+    suspend fun markPodAsSynced(orderIds: List<String>)
 }

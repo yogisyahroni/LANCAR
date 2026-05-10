@@ -2,10 +2,14 @@ package com.lancar.courier.data.api
 
 import com.lancar.courier.data.model.ApiResponse
 import com.lancar.courier.data.model.FCMTokenRequest
+import com.lancar.courier.data.model.Order
+import com.lancar.courier.data.model.ScanRequest
+import com.lancar.courier.data.model.ScanResponse
+import com.lancar.courier.data.model.StatusUpdateRequest
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Response
-import retrofit2.http.Body
-import retrofit2.http.Header
-import retrofit2.http.POST
+import retrofit2.http.*
 
 /**
  * LANCAR API Service Interface
@@ -17,21 +21,49 @@ interface LANCARApiService {
 
     /**
      * Register FCM token with backend
-     * Called when app starts or FCM token is refreshed
      */
     @POST("api/v1/courier/fcm/register")
     suspend fun registerFCMToken(
-        @Header("Authorization") authToken: String,
         @Body request: FCMTokenRequest
     ): Response<ApiResponse<Boolean>>
 
     /**
      * Unregister FCM token from backend
-     * Called when user logs out
      */
     @POST("api/v1/courier/fcm/unregister")
     suspend fun unregisterFCMToken(
-        @Header("Authorization") authToken: String,
         @Body request: FCMTokenRequest
     ): Response<ApiResponse<Boolean>>
+
+    /**
+     * Get assigned orders for current courier
+     */
+    @GET("api/v1/orders")
+    suspend fun getOrders(): Response<ApiResponse<List<Order>>>
+
+    /**
+     * Update order status
+     */
+    @POST("api/v1/orders/status")
+    suspend fun updateStatus(
+        @Body request: StatusUpdateRequest
+    ): Response<ApiResponse<Boolean>>
+
+    /**
+     * Scan package
+     */
+    @POST("api/v1/orders/scan")
+    suspend fun scanPackage(
+        @Body request: ScanRequest
+    ): Response<ApiResponse<ScanResponse>>
+
+    /**
+     * Upload Proof of Delivery image
+     */
+    @Multipart
+    @POST("api/v1/orders/pod/upload")
+    suspend fun uploadPod(
+        @Part("order_id") orderId: RequestBody,
+        @Part photo: MultipartBody.Part
+    ): Response<ApiResponse<String>>
 }

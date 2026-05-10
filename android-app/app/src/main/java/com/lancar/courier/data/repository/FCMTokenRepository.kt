@@ -58,7 +58,7 @@ class FCMTokenRepository(private val context: Context) {
                     appVersion = getAppVersion()
                 )
 
-                val response = apiService.registerFCMToken(session.authToken, request)
+                val response = apiService.registerFCMToken(request)
                 
                 if (response.isSuccessful) {
                     Log.d(TAG, "FCM token registered successfully")
@@ -102,7 +102,7 @@ class FCMTokenRepository(private val context: Context) {
                     deviceId = getDeviceId()
                 )
 
-                val response = apiService.unregisterFCMToken(session.authToken, request)
+                val response = apiService.unregisterFCMToken(request)
                 
                 if (response.isSuccessful) {
                     Log.d(TAG, "FCM token unregistered successfully")

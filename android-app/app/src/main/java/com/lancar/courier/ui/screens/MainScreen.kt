@@ -15,6 +15,7 @@ import com.lancar.courier.data.model.Order
 import com.lancar.courier.ui.screens.order.OrderDetailScreen
 import com.lancar.courier.ui.screens.order.OrderScreen
 import com.lancar.courier.ui.screens.pod.ProofOfDeliveryScreen
+import com.lancar.courier.ui.screens.scan.ScanScreen
 import com.lancar.courier.ui.theme.Primary
 
 /**
@@ -29,6 +30,7 @@ fun MainScreen(navController: NavHostController? = null) {
     var selectedTab by remember { mutableStateOf(0) }
     var showPodScreen by remember { mutableStateOf(false) }
     var showOrderDetail by remember { mutableStateOf(false) }
+    var showScanScreen by remember { mutableStateOf(false) }
     var selectedOrder by remember { mutableStateOf<Order?>(null) }
     
     // Handle PoD screen
@@ -65,6 +67,21 @@ fun MainScreen(navController: NavHostController? = null) {
             onCapturePod = {
                 showOrderDetail = false
                 showPodScreen = true
+            }
+        )
+        return
+    }
+
+    // Handle Scan Screen
+    if (showScanScreen) {
+        ScanScreen(
+            onScanSuccess = { orderId ->
+                showScanScreen = false
+                selectedOrder = createDemoOrder(orderId)
+                showOrderDetail = true
+            },
+            onBack = {
+                showScanScreen = false
             }
         )
         return
@@ -130,7 +147,8 @@ fun MainScreen(navController: NavHostController? = null) {
                         selectedOrder = createDemoOrder(orderId)
                         showPodScreen = true
                     },
-                    onViewOrders = { selectedTab = 1 }
+                    onViewOrders = { selectedTab = 1 },
+                    onScanPackage = { showScanScreen = true }
                 )
                 1 -> OrdersContent(
                     onOrderClick = { order ->
@@ -148,7 +166,8 @@ fun MainScreen(navController: NavHostController? = null) {
 @Composable
 private fun HomeContent(
     onCapturePod: (String) -> Unit,
-    onViewOrders: () -> Unit
+    onViewOrders: () -> Unit,
+    onScanPackage: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -191,6 +210,15 @@ private fun HomeContent(
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onScanPackage,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.QrCodeScanner, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Scan Package")
+            }
+            Spacer(modifier = Modifier.height(8.dp))
             Button(
                 onClick = { onCapturePod("DEMO-ORDER-001") },
                 modifier = Modifier.fillMaxWidth()

@@ -40,7 +40,7 @@ class OrderSyncWorker(
         }
 
         // Sync pending orders
-        val result = orderRepository.syncPendingOrders(session.authToken)
+        val result = orderRepository.syncPendingOrders()
         
         return result.fold(
             onSuccess = { syncedIds ->

@@ -6,9 +6,10 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import androidx.camera.core.ImageCapture
+import android.app.Application
 import androidx.camera.core.ImageCaptureException
 import androidx.exifinterface.media.ExifInterface
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,12 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.Executor
+import com.lancar.courier.data.api.ApiClient
+import com.lancar.courier.data.repository.OrderRepository
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * ViewModel for Proof of Delivery (PoD) Camera feature.
@@ -42,8 +49,10 @@ data class PodUiState(
     val uploadSuccess: Boolean = false
 )
 
-class ProofOfDeliveryViewModel : ViewModel() {
+class ProofOfDeliveryViewModel(application: Application) : AndroidViewModel(application) {
     
+    private val orderRepository = OrderRepository(application)
+
     private val _uiState = MutableStateFlow(PodUiState())
     val uiState: StateFlow<PodUiState> = _uiState.asStateFlow()
     
@@ -257,13 +266,50 @@ class ProofOfDeliveryViewModel : ViewModel() {
     }
     
     /**
-     * Marks upload as complete (for integration with actual upload logic).
+     * Uploads the PoD image to the backend.
      */
-    fun onUploadComplete(success: Boolean) {
-        _uiState.value = _uiState.value.copy(
-            isUploading = false,
-            uploadSuccess = success
-        )
+    fun uploadPod(orderId: String) {
+        val prepared = prepareForUpload()
+        if (prepared == null) {
+            _uiState.value = _uiState.value.copy(error = "No image to upload")
+            return
+        }
+        
+        val (file, contentType) = prepared
+        _uiState.value = _uiState.value.copy(isUploading = true, error = null)
+        
+        viewModelScope.launch {
+            try {
+                // Offline first: Save locally
+                orderRepository.savePodLocally(orderId, file.absolutePath)
+
+                // Then try to upload immediately
+                val requestFile = file.asRequestBody(contentType.toMediaTypeOrNull())
+                val body = MultipartBody.Part.createFormData("photo", file.name, requestFile)
+                val orderIdPart = orderId.toRequestBody("text/plain".toMediaTypeOrNull())
+                
+                val response = ApiClient.apiService.uploadPod(orderIdPart, body)
+                
+                if (response.isSuccessful && response.body()?.success == true) {
+                    _uiState.value = _uiState.value.copy(
+                        isUploading = false,
+                        uploadSuccess = true
+                    )
+                } else {
+                    // API failed, but we saved locally, so it's a success for offline-first.
+                    _uiState.value = _uiState.value.copy(
+                        isUploading = false,
+                        uploadSuccess = true
+                    )
+                }
+            } catch (e: Exception) {
+                // Network error, but we saved locally.
+                _uiState.value = _uiState.value.copy(
+                    isUploading = false,
+                    uploadSuccess = true
+                )
+            }
+        }
     }
     
     /**

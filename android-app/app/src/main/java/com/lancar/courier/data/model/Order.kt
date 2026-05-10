@@ -55,11 +55,35 @@ data class Order(
     @SerializedName("updated_at")
     var updatedAt: Long = System.currentTimeMillis(),
 
-    /**
-     * Flag indicating if order needs to be synced with backend
-     * true = needs sync, false = synced
-     */
     var needsSync: Boolean = true,
+
+    /**
+     * Flag indicating if scan data needs to be synced with backend
+     */
+    var needsScanSync: Boolean = false,
+
+    /**
+     * Flag indicating if PoD data needs to be synced with backend
+     */
+    var needsPodSync: Boolean = false,
+
+    /**
+     * Latitude of scan
+     */
+    @SerializedName("scan_latitude")
+    var scanLatitude: Double? = null,
+
+    /**
+     * Longitude of scan
+     */
+    @SerializedName("scan_longitude")
+    var scanLongitude: Double? = null,
+
+    /**
+     * Type of scan (e.g. 'pickup')
+     */
+    @SerializedName("scan_type")
+    var scanType: String? = null,
 
     /**
      * Proof of delivery image URI (local file path)

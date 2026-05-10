@@ -2,7 +2,9 @@ package com.lancar.courier.data.repository
 
 import android.content.Context
 import com.lancar.courier.data.db.OrderDatabase
+import com.lancar.courier.data.api.ApiClient
 import com.lancar.courier.data.model.Order
+import com.lancar.courier.data.model.StatusUpdateRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -17,6 +19,7 @@ import kotlinx.coroutines.withContext
 class OrderRepository(private val context: Context) {
 
     private val orderDao = OrderDatabase.getDatabase(context).orderDao()
+    private val apiService = ApiClient.apiService
 
     /**
      * Get all orders from local database
@@ -62,6 +65,38 @@ class OrderRepository(private val context: Context) {
     }
 
     /**
+     * Save scan locally
+     */
+    suspend fun saveScanLocally(orderId: String, latitude: Double, longitude: Double, scanType: String) = withContext(Dispatchers.IO) {
+        val order = orderDao.getOrderById(orderId) ?: return@withContext
+        orderDao.update(
+            order.copy(
+                needsScanSync = true,
+                scanLatitude = latitude,
+                scanLongitude = longitude,
+                scanType = scanType,
+                status = "picked_up",
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    /**
+     * Save PoD locally
+     */
+    suspend fun savePodLocally(orderId: String, imageUri: String) = withContext(Dispatchers.IO) {
+        val order = orderDao.getOrderById(orderId) ?: return@withContext
+        orderDao.update(
+            order.copy(
+                needsPodSync = true,
+                podImageUri = imageUri,
+                status = "delivered",
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+    }
+
+    /**
      * Update order with new data
      */
     suspend fun updateOrder(order: Order) = withContext(Dispatchers.IO) {
@@ -86,24 +121,68 @@ class OrderRepository(private val context: Context) {
      * Sync pending orders with backend
      * Returns list of successfully synced order IDs
      */
-    suspend fun syncPendingOrders(authToken: String): Result<List<String>> = withContext(Dispatchers.IO) {
+    suspend fun syncPendingOrders(): Result<List<String>> = withContext(Dispatchers.IO) {
         try {
             val pendingOrders = orderDao.getPendingOrders().first()
+            val pendingScans = orderDao.getPendingScans().first()
+            val pendingPods = orderDao.getPendingPods().first()
             
-            if (pendingOrders.isEmpty()) {
+            if (pendingOrders.isEmpty() && pendingScans.isEmpty() && pendingPods.isEmpty()) {
                 return@withContext Result.success(emptyList())
             }
 
-            val syncedOrderIds = mutableListOf<String>()
+            val syncedOrderIds = mutableSetOf<String>()
 
+            // Sync statuses
             for (order in pendingOrders) {
-                // In production, this would call backend API to sync order
-                // For now, mark as synced locally
-                orderDao.markAsSynced(listOf(order.orderId))
-                syncedOrderIds.add(order.orderId)
+                val request = StatusUpdateRequest(
+                    orderId = order.orderId,
+                    status = order.status,
+                    notes = order.deliveryNotes
+                )
+                val response = apiService.updateStatus(request)
+                if (response.isSuccessful && response.body()?.success == true) {
+                    orderDao.markAsSynced(listOf(order.orderId))
+                    syncedOrderIds.add(order.orderId)
+                }
             }
 
-            Result.success(syncedOrderIds)
+            // Sync scans
+            for (order in pendingScans) {
+                if (order.scanLatitude != null && order.scanLongitude != null) {
+                    val request = com.lancar.courier.data.model.ScanRequest(
+                        orderId = order.orderId,
+                        scanType = order.scanType ?: "pickup",
+                        latitude = order.scanLatitude!!,
+                        longitude = order.scanLongitude!!
+                    )
+                    val response = apiService.scanPackage(request)
+                    if (response.isSuccessful && response.body()?.success == true) {
+                        orderDao.markScanAsSynced(listOf(order.orderId))
+                        syncedOrderIds.add(order.orderId)
+                    }
+                }
+            }
+
+            // Sync PoDs
+            for (order in pendingPods) {
+                if (order.podImageUri != null) {
+                    val file = java.io.File(android.net.Uri.parse(order.podImageUri).path ?: "")
+                    if (file.exists()) {
+                        val requestFile = okhttp3.RequestBody.create(okhttp3.MediaType.parse("image/jpeg"), file)
+                        val body = okhttp3.MultipartBody.Part.createFormData("photo", file.name, requestFile)
+                        val orderIdBody = okhttp3.RequestBody.create(okhttp3.MediaType.parse("text/plain"), order.orderId)
+                        
+                        val response = apiService.uploadPod(orderIdBody, body)
+                        if (response.isSuccessful && response.body()?.success == true) {
+                            orderDao.markPodAsSynced(listOf(order.orderId))
+                            syncedOrderIds.add(order.orderId)
+                        }
+                    }
+                }
+            }
+
+            Result.success(syncedOrderIds.toList())
         } catch (e: Exception) {
             Result.failure(e)
         }

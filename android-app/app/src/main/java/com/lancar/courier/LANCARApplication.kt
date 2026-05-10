@@ -6,8 +6,10 @@ import android.app.NotificationManager
 import android.util.Log
 import androidx.work.Configuration
 import androidx.work.WorkManager
+import com.lancar.courier.data.api.ApiClient
 import com.lancar.courier.data.repository.FCMTokenRepository
 import com.lancar.courier.data.repository.OrderRepository
+import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.receiver.OrderSyncWorker
 
 /**
@@ -23,6 +25,10 @@ class LANCARApplication : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Application created")
+
+        // Initialize session manager and API client
+        val authSessionManager = AuthSessionManager(applicationContext)
+        ApiClient.init(authSessionManager)
 
         // Initialize notification channels
         createNotificationChannels()

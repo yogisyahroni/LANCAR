@@ -126,9 +126,7 @@ fun ProofOfDeliveryScreen(
                         uiState = uiState,
                         onRetake = { viewModel.clearImage() },
                         onConfirm = {
-                            viewModel.compressImage(context)
-                            // In production, this would trigger upload to backend
-                            onImageConfirmed(uiState.capturedImageUri!!)
+                            viewModel.uploadPod(orderId)
                         }
                     )
                 }

@@ -51,9 +51,9 @@ class OrderViewModel(
     /**
      * Sync pending orders with backend
      */
-    fun syncPendingOrders(authToken: String) {
+    fun syncPendingOrders() {
         viewModelScope.launch {
-            orderRepository.syncPendingOrders(authToken)
+            orderRepository.syncPendingOrders()
         }
     }
 
