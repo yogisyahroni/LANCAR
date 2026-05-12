@@ -133,6 +133,7 @@ private fun OrderActions(
     onStatusClick: () -> Unit,
     onCapturePod: () -> Unit
 ) {
+    val context = LocalContext.current
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
@@ -188,9 +189,10 @@ private fun OrderActions(
 private fun ActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        leadingIcon = { Icon(icon, contentDescription = null) }
+        modifier = Modifier.fillMaxWidth()
     ) {
+        Icon(icon, contentDescription = null)
+        Spacer(modifier = Modifier.width(8.dp))
         Text(label)
     }
     Spacer(modifier = Modifier.height(8.dp))

@@ -153,5 +153,5 @@ class OrderViewModel(
     fun getOrdersByStatus(status: String) = orderRepository.getOrdersByStatus(status)
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    fun getPendingCount() = orderRepository.getPendingCount()
+    suspend fun getPendingCount(): Int = orderRepository.getPendingCount()
 }

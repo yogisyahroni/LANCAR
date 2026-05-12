@@ -9,10 +9,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.ui.theme.Primary
+import com.lancar.courier.ui.theme.Warning
+import com.lancar.courier.ui.theme.Success
+import com.lancar.courier.ui.theme.Info
+import com.lancar.courier.ui.theme.OnPrimary
 
 /**
  * Order List Screen
@@ -89,6 +94,7 @@ private fun OrderList(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun OrderCard(order: Order, onClick: () -> Unit) {
     Card(
@@ -155,13 +161,13 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
                         Icons.Default.SyncDisabled,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.warning
+                        tint = Warning
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Pending sync",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.warning
+                        color = Warning
                     )
                 }
             }
@@ -174,9 +180,9 @@ private fun OrderStatusChip(status: String) {
     val (containerColor, contentColor) = when (status) {
         "pending" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
         "assigned" -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        "picked_up" -> MaterialTheme.colorScheme.infoContainer to MaterialTheme.colorScheme.onInfoContainer
+        "picked_up" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
         "in_transit" -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
-        "delivered" -> MaterialTheme.colorScheme.successContainer to MaterialTheme.colorScheme.onSuccessContainer
+        "delivered" -> Success to Color.White
         "failed" -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
         else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
     }
@@ -186,7 +192,7 @@ private fun OrderStatusChip(status: String) {
         label = { Text(status.replace("_", " ").uppercase()) },
         colors = AssistChipDefaults.assistChipColors(
             containerColor = containerColor,
-            labelContentColor = contentColor
+            labelColor = contentColor
         )
     )
 }
