@@ -51,16 +51,10 @@ object NetworkModule {
         sessionManager: AuthSessionManager,
         tokenRefreshInterceptor: TokenRefreshInterceptor
     ): OkHttpClient {
-        val pinner = CertificatePinner.Builder()
-            // Note: Ganti hash ini dengan hash SHA-256 asli dari sertifikat SSL domain API Lancar Anda saat naik produksi
-            .add("api.lancar.com", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
-            .build()
-
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
             .addInterceptor(AuthInterceptor(sessionManager))
             .addInterceptor(tokenRefreshInterceptor)
-            .certificatePinner(pinner) // AKTIFKAN PENGAMANAN SSL PINNING DI SINI
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)

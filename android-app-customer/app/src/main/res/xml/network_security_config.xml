@@ -5,6 +5,15 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+    <domain-config>
+        <domain includeSubdomains="true">api.lancar.com</domain>
+        <pin-set expiration="2027-12-31">
+            <!-- Placeholder untuk Production, ganti dengan SHA-256 asli sesuai instruksi logcat/openssl -->
+            <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
+            <!-- Tambahkan pin backup di sini -->
+        </pin-set>
+    </domain-config>
+
     <!-- Allow cleartext for local development - remove in production -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">10.0.2.2</domain>
