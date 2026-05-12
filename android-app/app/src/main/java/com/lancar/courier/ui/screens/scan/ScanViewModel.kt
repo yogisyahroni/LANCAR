@@ -51,17 +51,35 @@ class ScanViewModel(application: Application) : AndroidViewModel(application) {
                         _uiState.value = ScanUiState.Success(scanData)
                     } else {
                         // Even if response format is invalid, we saved locally.
-                        val fallbackData = ScanResponse(orderId = orderId, scanType = scanType, timestamp = System.currentTimeMillis().toString(), status = "picked_up")
+                        val fallbackData = ScanResponse(
+                            scanId = "local_${System.currentTimeMillis()}",
+                            orderId = orderId,
+                            scanType = scanType,
+                            status = "picked_up",
+                            recordedAt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
+                        )
                         _uiState.value = ScanUiState.Success(fallbackData)
                     }
                 } else {
                     // API failed, but we saved locally, so it's a success for offline-first.
-                    val fallbackData = ScanResponse(orderId = orderId, scanType = scanType, timestamp = System.currentTimeMillis().toString(), status = "picked_up")
+                    val fallbackData = ScanResponse(
+                        scanId = "local_${System.currentTimeMillis()}",
+                        orderId = orderId,
+                        scanType = scanType,
+                        status = "picked_up",
+                        recordedAt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
+                    )
                     _uiState.value = ScanUiState.Success(fallbackData)
                 }
             } catch (e: Exception) {
                 // Network error, but we saved locally.
-                val fallbackData = ScanResponse(orderId = orderId, scanType = scanType, timestamp = System.currentTimeMillis().toString(), status = "picked_up")
+                val fallbackData = ScanResponse(
+                    scanId = "local_${System.currentTimeMillis()}",
+                    orderId = orderId,
+                    scanType = scanType,
+                    status = "picked_up",
+                    recordedAt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
+                )
                 _uiState.value = ScanUiState.Success(fallbackData)
             }
         }

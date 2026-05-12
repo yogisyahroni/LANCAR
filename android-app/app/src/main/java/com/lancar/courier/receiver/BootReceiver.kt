@@ -5,20 +5,24 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import com.lancar.courier.LANCARApplication
 import com.lancar.courier.data.repository.FCMTokenRepository
 import com.lancar.courier.data.repository.LocationRepository
+import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.service.LocationTrackerService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
  * Boot Receiver
- * 
- * Re-registers FCM token with backend after device reboot.
- * Restarts location tracking service after device restart.
- * Ensures push notifications and GPS tracking continue to work after device restart.
+ *
+ * After device reboot:
+ * 1. Re-registers FCM token with backend
+ * 2. Restarts LocationTrackerService if courier is logged in
+ * WorkManager periodic jobs are automatically rescheduled by WorkManager itself.
  */
 class BootReceiver : BroadcastReceiver() {
     

@@ -9,6 +9,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * Order Repository
@@ -169,9 +173,9 @@ class OrderRepository(private val context: Context) {
                 if (order.podImageUri != null) {
                     val file = java.io.File(android.net.Uri.parse(order.podImageUri).path ?: "")
                     if (file.exists()) {
-                        val requestFile = okhttp3.RequestBody.create(okhttp3.MediaType.parse("image/jpeg"), file)
-                        val body = okhttp3.MultipartBody.Part.createFormData("photo", file.name, requestFile)
-                        val orderIdBody = okhttp3.RequestBody.create(okhttp3.MediaType.parse("text/plain"), order.orderId)
+                        val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
+                        val body = MultipartBody.Part.createFormData("photo", file.name, requestFile)
+                        val orderIdBody = order.orderId.toRequestBody("text/plain".toMediaTypeOrNull())
 
                         val response = apiService.uploadPod(orderIdBody, body)
                         if (response.isSuccessful && response.body()?.success == true) {

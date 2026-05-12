@@ -7,8 +7,11 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.Location
 import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.BatteryManager
 import android.os.Build
 import android.os.IBinder
+import android.provider.Settings
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
@@ -305,11 +308,12 @@ class LocationTrackerService : Service() {
      */
     private fun getNetworkType(): String {
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val activeNetwork = connectivityManager.activeNetworkInfo
+        val network = connectivityManager.activeNetwork ?: return "NONE"
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return "NONE"
         return when {
-            activeNetwork?.type == android.net.ConnectivityManager.TYPE_WIFI -> "WIFI"
-            activeNetwork?.type == android.net.ConnectivityManager.TYPE_MOBILE -> "MOBILE"
-            else -> "NONE"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "WIFI"
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "MOBILE"
+            else -> "OTHER"
         }
     }
 
@@ -317,9 +321,8 @@ class LocationTrackerService : Service() {
      * Get unique device ID
      */
     private fun getDeviceId(): String {
-        // In production, use Firebase Installations or generate a unique ID
-        // For now, use a simple approach
-        return Build.SERIAL.takeIf { it != "unknown" } ?: Build.FINGERPRINT
+        // Secure.ANDROID_ID is unique per app signing key and user.
+        return Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown_device"
     }
 
     /**
