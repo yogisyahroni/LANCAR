@@ -6,8 +6,9 @@ import com.lancar.courier.data.repository.OrderRepository
 
 /**
  * Order ViewModel Factory
- * 
- * Provides OrderViewModel instances with proper dependencies.
+ *
+ * Provides OrderViewModel with proper dependency injection.
+ * Accepts an already-constructed OrderRepository.
  */
 class OrderViewModelFactory(
     private val orderRepository: OrderRepository
@@ -18,6 +19,6 @@ class OrderViewModelFactory(
         if (modelClass.isAssignableFrom(OrderViewModel::class.java)) {
             return OrderViewModel(orderRepository) as T
         }
-        throw IllegalArgumentException("Unknown ViewModel class")
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }

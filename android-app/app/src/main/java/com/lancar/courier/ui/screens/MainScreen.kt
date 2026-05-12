@@ -1,59 +1,101 @@
 package com.lancar.courier.ui.screens
 
-import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.repository.OrderRepository
+import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.ui.screens.order.OrderDetailScreen
 import com.lancar.courier.ui.screens.order.OrderScreen
+import com.lancar.courier.ui.screens.order.OrderViewModel
+import com.lancar.courier.ui.screens.order.OrderViewModelFactory
 import com.lancar.courier.ui.screens.pod.ProofOfDeliveryScreen
 import com.lancar.courier.ui.screens.scan.ScanScreen
 import com.lancar.courier.ui.theme.Primary
+import kotlinx.coroutines.launch
 
 /**
- * Main Screen - Dashboard for the Courier App
- * 
- * Shows available orders and notification status.
- * This is the entry point after notification handling.
+ * Main Screen — Courier Dashboard
+ *
+ * Uses real data from OrderViewModel backed by Room DB + backend sync.
+ * No more demo/hardcoded data.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     navController: NavHostController? = null,
-    initialOrderId: String? = null
+    initialOrderId: String? = null,
+    onLogout: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Real ViewModel backed by Room DB
+    val orderViewModel: OrderViewModel = viewModel(
+        factory = OrderViewModelFactory(OrderRepository(context))
+    )
+
+    val allOrders by orderViewModel.allOrders.collectAsState()
+    val pendingOrders by orderViewModel.pendingOrders.collectAsState()
+    val deliveredToday by orderViewModel.deliveredTodayOrders.collectAsState()
+    val isSyncing by orderViewModel.isSyncing.collectAsState()
+    val error by orderViewModel.error.collectAsState()
+
+    val authSessionManager = remember { AuthSessionManager(context) }
+    val courierName by authSessionManager.courierName.collectAsState(initial = "Courier")
+
     var selectedTab by remember { mutableStateOf(0) }
     var showPodScreen by remember { mutableStateOf(false) }
     var showOrderDetail by remember { mutableStateOf(false) }
     var showScanScreen by remember { mutableStateOf(false) }
     var selectedOrder by remember { mutableStateOf<Order?>(null) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
-    // Handle initial order selection from notification
+    // Navigate to order detail if app was opened from notification
     LaunchedEffect(initialOrderId) {
         if (initialOrderId != null) {
-            // TODO: Load actual order from repository
-            // For demo, create a dummy order
-            selectedOrder = createDemoOrder(initialOrderId)
-            showOrderDetail = true
+            val order = orderViewModel.getOrderById(initialOrderId)
+            if (order != null) {
+                selectedOrder = order
+                showOrderDetail = true
+            }
         }
     }
-    
-    // Handle PoD screen
+
+    // Show error as Snackbar
+    LaunchedEffect(error) {
+        error?.let { msg ->
+            snackbarHostState.showSnackbar(
+                message = msg,
+                duration = SnackbarDuration.Short
+            )
+            orderViewModel.clearError()
+        }
+    }
+
+    // ── PoD Screen ─────────────────────────────────────────────
     if (showPodScreen && selectedOrder != null) {
         ProofOfDeliveryScreen(
             order = selectedOrder!!,
-            onImageConfirmed = { uri ->
-                // Handle the confirmed PoD image
-                // In production, this would upload to backend
+            onImageConfirmed = { _ ->
+                // PoD saved in ProofOfDeliveryViewModel — refresh orders
+                orderViewModel.fetchOrdersFromBackend()
                 showPodScreen = false
                 selectedOrder = null
             },
@@ -64,8 +106,8 @@ fun MainScreen(
         )
         return
     }
-    
-    // Handle Order Detail screen
+
+    // ── Order Detail Screen ────────────────────────────────────
     if (showOrderDetail && selectedOrder != null) {
         OrderDetailScreen(
             order = selectedOrder!!,
@@ -74,8 +116,11 @@ fun MainScreen(
                 selectedOrder = null
             },
             onUpdateStatus = { newStatus ->
-                // Update order status
-                // In production, this would update locally and sync with backend
+                // Optimistic local update + backend sync
+                orderViewModel.updateOrderStatusAndSync(
+                    orderId = selectedOrder!!.orderId,
+                    status = newStatus
+                )
                 selectedOrder = selectedOrder?.copy(status = newStatus)
             },
             onCapturePod = {
@@ -86,25 +131,60 @@ fun MainScreen(
         return
     }
 
-    // Handle Scan Screen
+    // ── Scan Screen ────────────────────────────────────────────
     if (showScanScreen) {
         ScanScreen(
             onScanSuccess = { orderId ->
                 showScanScreen = false
-                selectedOrder = createDemoOrder(orderId)
-                showOrderDetail = true
+                scope.launch {
+                    // Load real order from DB (may have been added by notification)
+                    val order = orderViewModel.getOrderById(orderId)
+                    if (order != null) {
+                        selectedOrder = order
+                        showOrderDetail = true
+                    } else {
+                        snackbarHostState.showSnackbar("Order $orderId tidak ditemukan")
+                    }
+                }
             },
-            onBack = {
-                showScanScreen = false
-            }
+            onBack = { showScanScreen = false }
         )
         return
     }
-    
+
+    // ── Logout Confirmation Dialog ─────────────────────────────
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Keluar Aplikasi") },
+            text = { Text("Kamu yakin ingin keluar? Semua data offline akan tetap tersimpan.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        scope.launch {
+                            orderViewModel.clearAllOrders()
+                            authSessionManager.clearSession()
+                            onLogout()
+                        }
+                    }
+                ) {
+                    Text("Keluar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Text(
                         text = "LANCAR Courier",
                         fontWeight = FontWeight.Bold
@@ -112,14 +192,30 @@ fun MainScreen(
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 actions = {
-                    IconButton(onClick = { /* Notifications */ }) {
+                    // Sync indicator
+                    AnimatedVisibility(visible = isSyncing, enter = fadeIn(), exit = fadeOut()) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .padding(end = 8.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    IconButton(onClick = { orderViewModel.fetchOrdersFromBackend() }) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh"
+                        )
+                    }
+                    IconButton(onClick = { /* notifications */ }) {
                         Icon(
                             imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications",
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            contentDescription = "Notifications"
                         )
                     }
                 }
@@ -134,7 +230,17 @@ fun MainScreen(
                     onClick = { selectedTab = 0 }
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Default.LocalShipping, contentDescription = "Orders") },
+                    icon = {
+                        BadgedBox(
+                            badge = {
+                                if (pendingOrders.isNotEmpty()) {
+                                    Badge { Text("${pendingOrders.size}") }
+                                }
+                            }
+                        ) {
+                            Icon(Icons.Default.LocalShipping, contentDescription = "Orders")
+                        }
+                    },
                     label = { Text("Orders") },
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 }
@@ -157,21 +263,33 @@ fun MainScreen(
         ) {
             when (selectedTab) {
                 0 -> HomeContent(
-                    onCapturePod = { orderId ->
-                        selectedOrder = createDemoOrder(orderId)
+                    courierName = courierName ?: "Courier",
+                    totalOrders = allOrders.size,
+                    pendingCount = pendingOrders.size,
+                    deliveredCount = deliveredToday.size,
+                    onCapturePod = { order ->
+                        selectedOrder = order
                         showPodScreen = true
                     },
                     onViewOrders = { selectedTab = 1 },
-                    onScanPackage = { showScanScreen = true }
+                    onScanPackage = { showScanScreen = true },
+                    orders = allOrders
                 )
                 1 -> OrdersContent(
+                    orders = allOrders,
+                    isSyncing = isSyncing,
                     onOrderClick = { order ->
                         selectedOrder = order
                         showOrderDetail = true
                     },
-                    onSync = { /* Sync orders */ }
+                    onSync = { orderViewModel.syncPendingOrders() },
+                    onRefresh = { orderViewModel.fetchOrdersFromBackend() }
                 )
-                2 -> ProfileContent()
+                2 -> ProfileContent(
+                    courierName = courierName ?: "Courier",
+                    pendingSyncCount = pendingOrders.size,
+                    onLogout = { showLogoutDialog = true }
+                )
             }
         }
     }
@@ -179,47 +297,54 @@ fun MainScreen(
 
 @Composable
 private fun HomeContent(
-    onCapturePod: (String) -> Unit,
+    courierName: String,
+    totalOrders: Int,
+    pendingCount: Int,
+    deliveredCount: Int,
+    orders: List<Order>,
+    onCapturePod: (Order) -> Unit,
     onViewOrders: () -> Unit,
     onScanPackage: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Welcome, Courier!",
+                text = "Halo, $courierName! 👋",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Push notifications are enabled for new order assignments.",
+                text = "Semangat mengantar hari ini!",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                StatCard(title = "Today", value = "0")
-                StatCard(title = "Pending", value = "0")
-                StatCard(title = "Completed", value = "0")
+                StatCard(title = "Total", value = "$totalOrders")
+                StatCard(title = "Pending", value = "$pendingCount")
+                StatCard(title = "Selesai", value = "$deliveredCount")
             }
         }
     }
-    
-    // Quick PoD capture for demo
+
+    // Quick Actions
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Quick Actions",
+                text = "Aksi Cepat",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -230,16 +355,19 @@ private fun HomeContent(
             ) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Scan Package")
+                Text("Scan Paket")
             }
             Spacer(modifier = Modifier.height(8.dp))
+            // PoD: only if there's an order in_transit or picked_up
+            val podOrder = orders.firstOrNull { it.status == "in_transit" || it.status == "picked_up" }
             Button(
-                onClick = { onCapturePod("DEMO-ORDER-001") },
-                modifier = Modifier.fillMaxWidth()
+                onClick = { podOrder?.let { onCapturePod(it) } },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = podOrder != null
             ) {
                 Icon(Icons.Default.CameraAlt, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Capture Proof of Delivery")
+                Text(if (podOrder != null) "Foto Bukti Pengiriman" else "Tidak Ada Order Aktif")
             }
             Spacer(modifier = Modifier.height(8.dp))
             Button(
@@ -248,7 +376,7 @@ private fun HomeContent(
             ) {
                 Icon(Icons.Default.LocalShipping, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("View Orders")
+                Text("Lihat Semua Order")
             }
         }
     }
@@ -273,53 +401,122 @@ private fun StatCard(title: String, value: String) {
 
 @Composable
 private fun OrdersContent(
+    orders: List<Order>,
+    isSyncing: Boolean,
     onOrderClick: (Order) -> Unit,
-    onSync: () -> Unit
+    onSync: () -> Unit,
+    onRefresh: () -> Unit
 ) {
-    val demoOrders = listOf(
-        createDemoOrder("ORD-2024-001"),
-        createDemoOrder("ORD-2024-002"),
-        createDemoOrder("ORD-2024-003")
-    )
-    
-    OrderScreen(
-        orders = demoOrders,
-        onOrderClick = onOrderClick,
-        onSync = onSync
-    )
-}
-
-@Composable
-private fun ProfileContent() {
-    Column {
-        Text(
-            text = "Courier Profile",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = "Name: Courier", style = MaterialTheme.typography.bodyLarge)
-                Text(text = "Status: Online", style = MaterialTheme.typography.bodyMedium)
-                Text(text = "FCM: Connected", style = MaterialTheme.typography.bodySmall)
+    if (orders.isEmpty() && !isSyncing) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(
+                    imageVector = Icons.Default.LocalShipping,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Belum ada order",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "Offline Queue: Ready", style = MaterialTheme.typography.bodySmall)
+                OutlinedButton(onClick = onRefresh) {
+                    Icon(Icons.Default.Refresh, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Refresh")
+                }
             }
         }
+    } else {
+        OrderScreen(
+            orders = orders,
+            onOrderClick = onOrderClick,
+            onSync = onSync
+        )
     }
 }
 
-private fun createDemoOrder(orderId: String): Order {
-    return Order(
-        orderId = orderId,
-        pickupAddress = "Jl. Sudirman No. 123, Jakarta",
-        pickupTime = "14:00",
-        dropAddress = "Jl. Gatot Subroto, Jakarta",
-        distance = "5.2 km",
-        fee = "Rp 25,000",
-        customerName = "John Doe",
-        phoneNumber = "+62 812-3456-7890",
-        status = "assigned"
-    )
+@Composable
+private fun ProfileContent(
+    courierName: String,
+    pendingSyncCount: Int,
+    onLogout: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(
+            text = "Profil Kurir",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        tint = Primary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = courierName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "Kurir Aktif",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                HorizontalDivider()
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Antrian Sinkronisasi", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "$pendingSyncCount item",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (pendingSyncCount > 0)
+                            MaterialTheme.colorScheme.error
+                        else
+                            MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+
+        OutlinedButton(
+            onClick = onLogout,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.error
+            )
+        ) {
+            Icon(Icons.Default.Logout, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Keluar Aplikasi")
+        }
+    }
 }

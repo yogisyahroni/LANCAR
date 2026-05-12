@@ -2,36 +2,124 @@ package com.lancar.courier.ui.screens.order
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lancar.courier.data.api.ApiClient
 import com.lancar.courier.data.model.Order
+import com.lancar.courier.data.model.StatusUpdateRequest
 import com.lancar.courier.data.repository.OrderRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
  * Order ViewModel
- * 
+ *
  * Manages order state for UI screens.
- * Handles offline queue operations and sync.
+ * - Fetches orders from backend on demand
+ * - Maintains local Room DB as offline cache (single source of truth)
+ * - Handles status updates with optimistic local write + backend sync
  */
 class OrderViewModel(
     private val orderRepository: OrderRepository
 ) : ViewModel() {
 
-    // All orders from local database
+    // ── State ─────────────────────────────────────────────────────
+
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    // All orders from local Room DB (reactive)
     val allOrders = orderRepository.getAllOrders()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    // Pending orders (needs sync)
+    // Pending orders that need sync
     val pendingOrders = orderRepository.getPendingOrders()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    // Orders by status
-    fun getOrdersByStatus(status: String) = orderRepository.getOrdersByStatus(status)
+    // Today's delivered orders
+    val deliveredTodayOrders = orderRepository.getOrdersByStatus("delivered")
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    init {
+        // Fetch fresh data from backend as soon as ViewModel starts
+        fetchOrdersFromBackend()
+    }
+
+    fun clearError() {
+        _error.update { null }
+    }
+
+    // ── Remote ────────────────────────────────────────────────────
+
     /**
-     * Add new order to offline queue
+     * Fetch all assigned orders from backend and upsert into local DB.
+     * UI observes Room DB which updates reactively.
+     */
+    fun fetchOrdersFromBackend() {
+        viewModelScope.launch {
+            _isSyncing.update { true }
+            try {
+                val response = ApiClient.apiService.getOrders()
+                if (response.isSuccessful && response.body()?.success == true) {
+                    val orders = response.body()!!.data ?: emptyList()
+                    // Mark as synced since they came from the server
+                    val syncedOrders = orders.map { it.copy(needsSync = false) }
+                    orderRepository.addOrders(syncedOrders)
+                } else {
+                    _error.update {
+                        "Gagal memuat orders: ${response.body()?.message ?: "HTTP ${response.code()}"}"
+                    }
+                }
+            } catch (e: java.net.UnknownHostException) {
+                _error.update { "Tidak ada koneksi. Menampilkan data offline." }
+            } catch (e: java.net.SocketTimeoutException) {
+                _error.update { "Server tidak merespons. Coba lagi." }
+            } catch (e: Exception) {
+                _error.update { "Error: ${e.message}" }
+            } finally {
+                _isSyncing.update { false }
+            }
+        }
+    }
+
+    /**
+     * Update order status — write locally first (optimistic), then sync to backend.
+     * If backend fails, needsSync stays true and WorkManager will retry.
+     */
+    fun updateOrderStatusAndSync(orderId: String, status: String, notes: String? = null) {
+        viewModelScope.launch {
+            // 1. Optimistic local update immediately visible in UI
+            orderRepository.updateOrderStatus(orderId, status)
+
+            // 2. Try to sync to backend
+            try {
+                val response = ApiClient.apiService.updateStatus(
+                    StatusUpdateRequest(orderId = orderId, status = status, notes = notes)
+                )
+                if (response.isSuccessful && response.body()?.success == true) {
+                    // Mark as synced in local DB
+                    val order = orderRepository.getOrderById(orderId)
+                    if (order != null) {
+                        orderRepository.updateOrder(order.copy(needsSync = false))
+                    }
+                }
+                // If backend fails silently, needsSync=true allows WorkManager retry
+            } catch (e: Exception) {
+                // Network error — already saved locally, WorkManager will retry
+            }
+        }
+    }
+
+    // ── Local ─────────────────────────────────────────────────────
+
+    /**
+     * Add new order from FCM notification acceptance
      */
     fun addOrder(order: Order) {
         viewModelScope.launch {
@@ -40,25 +128,21 @@ class OrderViewModel(
     }
 
     /**
-     * Update order status
-     */
-    fun updateOrderStatus(orderId: String, status: String) {
-        viewModelScope.launch {
-            orderRepository.updateOrderStatus(orderId, status)
-        }
-    }
-
-    /**
-     * Sync pending orders with backend
+     * Sync all pending offline operations to backend
      */
     fun syncPendingOrders() {
         viewModelScope.launch {
-            orderRepository.syncPendingOrders()
+            _isSyncing.update { true }
+            val result = orderRepository.syncPendingOrders()
+            result.onFailure { e ->
+                _error.update { "Sync gagal: ${e.message}" }
+            }
+            _isSyncing.update { false }
         }
     }
 
     /**
-     * Clear all orders
+     * Clear all orders — called on logout
      */
     fun clearAllOrders() {
         viewModelScope.launch {
@@ -66,8 +150,8 @@ class OrderViewModel(
         }
     }
 
-    /**
-     * Get pending order count
-     */
+    fun getOrdersByStatus(status: String) = orderRepository.getOrdersByStatus(status)
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     fun getPendingCount() = orderRepository.getPendingCount()
 }
