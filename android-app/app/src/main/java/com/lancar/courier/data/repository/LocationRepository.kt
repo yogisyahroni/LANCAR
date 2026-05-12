@@ -1,16 +1,15 @@
 package com.lancar.courier.data.repository
 
 import android.content.Context
-import com.lancar.courier.data.api.ApiClient
+import com.lancar.courier.data.api.LANCARApiService
 import com.lancar.courier.data.db.LocationDao
-import com.lancar.courier.data.db.OrderDatabase
 import com.lancar.courier.data.model.Location
 import com.lancar.courier.data.model.LocationData
 import com.lancar.courier.data.model.LocationRequest
-import com.lancar.courier.data.model.ApiResponse as BaseApiResponse
 import java.util.Date
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
-import retrofit2.Response
 
 /**
  * Location Repository
@@ -18,11 +17,11 @@ import retrofit2.Response
  * Manages GPS location data storage and synchronization with backend.
  * Handles both local persistence and remote API calls.
  */
-class LocationRepository(private val context: Context) {
-
-    private val database = OrderDatabase.getDatabase(context)
-    private val locationDao = database.locationDao()
-    private val apiService = ApiClient.apiService
+@Singleton
+class LocationRepository @Inject constructor(
+    private val locationDao: LocationDao,
+    private val apiService: LANCARApiService
+) {
 
     /**
      * Get all unsynced locations as Flow
@@ -90,7 +89,7 @@ class LocationRepository(private val context: Context) {
                     speed = location.speed,
                     bearing = location.bearing,
                     altitude = location.altitude,
-                    timestamp = Date(location.timestamp),
+                    timestamp = location.timestamp,
                     batteryLevel = location.batteryLevel,
                     networkType = location.networkType,
                     orderId = location.orderId

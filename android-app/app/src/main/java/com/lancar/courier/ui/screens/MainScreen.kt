@@ -15,15 +15,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.lancar.courier.data.model.Order
-import com.lancar.courier.data.repository.OrderRepository
 import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.ui.screens.order.OrderDetailScreen
 import com.lancar.courier.ui.screens.order.OrderScreen
 import com.lancar.courier.ui.screens.order.OrderViewModel
-import com.lancar.courier.ui.screens.order.OrderViewModelFactory
 import com.lancar.courier.ui.screens.pod.ProofOfDeliveryScreen
 import com.lancar.courier.ui.screens.scan.ScanScreen
 import com.lancar.courier.ui.theme.Primary
@@ -46,10 +44,8 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Real ViewModel backed by Room DB
-    val orderViewModel: OrderViewModel = viewModel(
-        factory = OrderViewModelFactory(OrderRepository(context))
-    )
+    // Real ViewModel backed by Hilt/Room DB
+    val orderViewModel: OrderViewModel = hiltViewModel()
 
     val allOrders by orderViewModel.allOrders.collectAsState()
     val pendingOrders by orderViewModel.pendingOrders.collectAsState()
@@ -485,7 +481,7 @@ private fun ProfileContent(
                     }
                 }
 
-                HorizontalDivider()
+                Divider()
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),

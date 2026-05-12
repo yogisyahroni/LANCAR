@@ -4,13 +4,16 @@ import android.content.Context
 import android.provider.Settings
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
-import com.lancar.courier.data.api.ApiClient
+import com.lancar.courier.data.api.LANCARApiService
 import com.lancar.courier.data.model.FCMTokenRequest
 import com.lancar.courier.data.session.AuthSessionManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * FCM Token Repository
@@ -18,10 +21,13 @@ import kotlinx.coroutines.withContext
  * Handles FCM token lifecycle: registration, refresh, and unregistration.
  * Coordinates with backend API to keep token synchronized.
  */
-class FCMTokenRepository(private val context: Context) {
+@Singleton
+class FCMTokenRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val authSessionManager: AuthSessionManager,
+    private val apiService: LANCARApiService
+) {
 
-    private val authSessionManager = AuthSessionManager(context)
-    private val apiService = ApiClient.apiService
     private val TAG = "FCMTokenRepository"
 
     /**

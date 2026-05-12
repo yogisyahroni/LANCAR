@@ -11,12 +11,15 @@ import com.google.firebase.messaging.RemoteMessage
 import com.lancar.courier.LANCARApplication
 import com.lancar.courier.R
 import com.lancar.courier.data.repository.FCMTokenRepository
-import com.lancar.courier.receiver.NotificationDismissReceiver
+import com.lancar.courier.receiver.NotificationReceiver
+import com.lancar.courier.service.NotificationDismissReceiver
 import com.lancar.courier.ui.MainActivity
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * LANCAR Firebase Messaging Service
@@ -24,8 +27,13 @@ import kotlinx.coroutines.launch
  * Handles incoming FCM messages for both foreground and background states.
  * Creates notification channels and displays notifications for order assignments.
  */
+@AndroidEntryPoint
 class LANCARFirebaseMessagingService : FirebaseMessagingService() {
 
+    @Inject
+    lateinit var fcmTokenRepository: FCMTokenRepository
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val TAG = "FCM_LANCAR"
 
     override fun onCreate() {
@@ -62,8 +70,8 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
         super.onNewToken(token)
         Log.d(TAG, "Refreshed FCM token: $token")
         // Register new token with backend if courier is logged in
-        CoroutineScope(Dispatchers.IO + Job()).launch {
-            val fcmTokenRepository = FCMTokenRepository(applicationContext)
+        // Register new token with backend if courier is logged in
+        serviceScope.launch {
             val result = fcmTokenRepository.registerTokenIfLoggedIn()
             if (result.isSuccess) {
                 Log.d(TAG, "New FCM token registered with backend")

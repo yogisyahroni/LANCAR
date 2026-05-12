@@ -1,19 +1,21 @@
 package com.lancar.courier.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * Location Sync Request
  *
  * Sent to backend to sync multiple location points for a courier.
  */
+@Serializable
 data class LocationRequest(
-    @SerializedName("courier_id")
+    @SerialName("courier_id")
     val courierId: String,
 
-    @SerializedName("locations")
+    @SerialName("locations")
     val locations: List<LocationData>,
 
-    @SerializedName("device_id")
+    @SerialName("device_id")
     val deviceId: String
 )

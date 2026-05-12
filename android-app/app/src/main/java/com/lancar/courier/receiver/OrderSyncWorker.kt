@@ -2,10 +2,13 @@ package com.lancar.courier.receiver
 
 import android.content.Context
 import android.util.Log
+import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.lancar.courier.data.repository.OrderRepository
 import com.lancar.courier.data.session.AuthSessionManager
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 
 /**
@@ -14,17 +17,17 @@ import kotlinx.coroutines.flow.first
  * Background worker to sync pending orders with backend.
  * Runs periodically or when triggered by network changes.
  */
-class OrderSyncWorker(
-    context: Context,
-    params: WorkerParameters
+@HiltWorker
+class OrderSyncWorker @AssistedInject constructor(
+    @Assisted context: Context,
+    @Assisted params: WorkerParameters,
+    private val orderRepository: OrderRepository,
+    private val authSessionManager: AuthSessionManager
 ) : CoroutineWorker(context, params) {
 
     private val TAG = "OrderSyncWorker"
 
     override suspend fun doWork(): Result {
-        val applicationContext = applicationContext
-        val authSessionManager = AuthSessionManager(applicationContext)
-        val orderRepository = OrderRepository(applicationContext)
 
         // Check if courier is logged in
         val isLoggedIn = authSessionManager.isLoggedIn.first()

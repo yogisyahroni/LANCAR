@@ -10,12 +10,16 @@
     @retrofit2.http.* <methods>;
 }
 
-# Gson
--keepattributes Signature
--keep class com.google.gson.** { *; }
--keep class * implements com.google.gson.TypeAdapterFactory
--keep class * implements com.google.gson.JsonSerializer
--keep class * implements com.google.gson.JsonDeserializer
+# Kotlinx Serialization
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.AnnotationsKt
+-keep,includedescriptorclasses class com.lancar.courier.data.model.** { *; }
+-keepclassmembers class com.lancar.courier.data.model.** {
+    *** Companion;
+}
+-keepclasseswithmembers class com.lancar.courier.data.model.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
 
 # Keep data classes
 -keep class com.lancar.courier.data.model.** { *; }

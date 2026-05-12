@@ -1,6 +1,7 @@
 package com.lancar.courier.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import java.util.Date
 
 /**
@@ -8,34 +9,35 @@ import java.util.Date
  *
  * Represents a single GPS location reading to be sent to the backend.
  */
+@Serializable
 data class LocationData(
-    @SerializedName("latitude")
+    @SerialName("latitude")
     val latitude: Double,
 
-    @SerializedName("longitude")
+    @SerialName("longitude")
     val longitude: Double,
 
-    @SerializedName("accuracy")
+    @SerialName("accuracy")
     val accuracy: Float = 0f,
 
-    @SerializedName("speed")
+    @SerialName("speed")
     val speed: Float = 0f,
 
-    @SerializedName("heading")
+    @SerialName("heading")
     val bearing: Float = 0f,
 
-    @SerializedName("altitude")
+    @SerialName("altitude")
     val altitude: Double = 0.0,
 
-    @SerializedName("timestamp")
-    val timestamp: Date = Date(),
+    @SerialName("timestamp")
+    val timestamp: Long = System.currentTimeMillis(),
 
-    @SerializedName("battery_level")
+    @SerialName("battery_level")
     val batteryLevel: Int = 100,
 
-    @SerializedName("network_type")
+    @SerialName("network_type")
     val networkType: String = "UNKNOWN",
 
-    @SerializedName("order_id")
+    @SerialName("order_id")
     val orderId: String? = null
 )

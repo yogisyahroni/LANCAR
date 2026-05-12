@@ -21,8 +21,11 @@ import com.lancar.courier.data.model.Location as LocationModel
 import com.lancar.courier.data.repository.LocationRepository
 import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.ui.MainActivity
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 /**
  * Location Tracker Service
@@ -36,6 +39,7 @@ import java.util.concurrent.TimeUnit
  * - Background fetch with activity recognition
  * - Automatic sync to backend
  */
+@AndroidEntryPoint
 class LocationTrackerService : Service() {
 
     private val TAG = "LocationTrackerService"
@@ -53,8 +57,11 @@ class LocationTrackerService : Service() {
     private var deviceId: String? = null
 
     // Repository
-    private lateinit var locationRepository: LocationRepository
-    private lateinit var authSessionManager: AuthSessionManager
+    @Inject
+    lateinit var locationRepository: LocationRepository
+    
+    @Inject
+    lateinit var authSessionManager: AuthSessionManager
 
     // Update interval (configurable)
     private val UPDATE_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1) // 1 minute
@@ -66,11 +73,9 @@ class LocationTrackerService : Service() {
         Log.d(TAG, "Service created")
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        locationRepository = LocationRepository(applicationContext)
-        authSessionManager = AuthSessionManager(applicationContext)
 
         // Get device ID (use installation ID or generate once)
-        deviceId = getDeviceId()
+        deviceId = getUniqueDeviceId()
 
         // Start tracking if courier is logged in
         checkAndStartTracking()
@@ -148,18 +153,19 @@ class LocationTrackerService : Service() {
         startForeground(NOTIFICATION_ID, createNotification())
 
         // Build location request
-        locationRequest = LocationRequest.Builder(
+        val request = LocationRequest.Builder(
             Priority.PRIORITY_BALANCED_POWER_ACCURACY,
             UPDATE_INTERVAL_MS
         ).apply {
             setMinUpdateIntervalMillis(FASTEST_UPDATE_INTERVAL_MS)
-            setMaxWaitTimeMillis(MAX_WAIT_TIME_MS)
-            setFastestIntervalMillis(FASTEST_UPDATE_INTERVAL_MS)
-            setSmallestDisplacementMeters(50f) // 50 meters
+            setMaxUpdateDelayMillis(MAX_WAIT_TIME_MS)
+            setMinUpdateDistanceMeters(50f) // 50 meters
         }.build()
+        
+        locationRequest = request
 
         // Set up location callback
-        locationCallback = object : LocationCallback() {
+        val callback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
                 locationResult.lastLocation?.let { location ->
@@ -167,6 +173,8 @@ class LocationTrackerService : Service() {
                 }
             }
         }
+        
+        locationCallback = callback
 
         // Request location updates
         if (ActivityCompat.checkSelfPermission(
@@ -178,13 +186,17 @@ class LocationTrackerService : Service() {
                 android.Manifest.permission.ACCESS_COARSE_LOCATION
             ) == PackageManager.PERMISSION_GRANTED
         ) {
-            fusedLocationClient?.requestLocationUpdates(
-                locationRequest,
-                locationCallback,
-                null
-            )
-            isTracking = true
-            Log.d(TAG, "Location tracking started")
+            val req = locationRequest
+            val cb = locationCallback
+            if (req != null && cb != null) {
+                fusedLocationClient?.requestLocationUpdates(
+                    req,
+                    cb,
+                    android.os.Looper.getMainLooper()
+                )
+                isTracking = true
+                Log.d(TAG, "Location tracking started")
+            }
         } else {
             Log.w(TAG, "Location permissions not granted")
             stopSelf()
@@ -200,7 +212,9 @@ class LocationTrackerService : Service() {
         }
 
         // Remove location updates
-        fusedLocationClient?.removeLocationUpdates(locationCallback)
+        locationCallback?.let { cb ->
+            fusedLocationClient?.removeLocationUpdates(cb)
+        }
         locationCallback = null
         locationRequest = null
 
@@ -320,7 +334,7 @@ class LocationTrackerService : Service() {
     /**
      * Get unique device ID
      */
-    private fun getDeviceId(): String {
+    private fun getUniqueDeviceId(): String {
         // Secure.ANDROID_ID is unique per app signing key and user.
         return Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown_device"
     }

@@ -1,6 +1,7 @@
 package com.lancar.courier.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * FCM Notification Payload Model
@@ -8,51 +9,53 @@ import com.google.gson.annotations.SerializedName
  * Represents the structure of push notification data sent from the backend.
  * Maps to backend notification-service's SendNotificationRequest.
  */
+@Serializable
 data class FCMNotificationPayload(
-    @SerializedName("type")
+    @SerialName("type")
     val type: String,           // "order_assignment", "order_status_update", etc.
     
-    @SerializedName("title")
+    @SerialName("title")
     val title: String,
     
-    @SerializedName("body")
+    @SerialName("body")
     val body: String,
     
-    @SerializedName("order_id")
+    @SerialName("order_id")
     val orderId: String? = null,
     
-    @SerializedName("priority")
+    @SerialName("priority")
     val priority: Int = 0,      // 0=normal, 1=high, 2=urgent
     
-    @SerializedName("data")
+    @SerialName("data")
     val data: Map<String, String>? = null
 )
 
 /**
- * Order Assignment Data
+ * Order Assignment Payload
  * 
  * Parsed from FCM notification payload when type="order_assignment"
  */
+@Serializable
 data class OrderAssignment(
-    @SerializedName("order_id")
+    @SerialName("order_id")
     val orderId: String,
     
-    @SerializedName("pickup_address")
+    @SerialName("pickup_address")
     val pickupAddress: String,
     
-    @SerializedName("pickup_time")
+    @SerialName("pickup_time")
     val pickupTime: String,
     
-    @SerializedName("drop_address")
+    @SerialName("drop_address")
     val dropAddress: String,
     
-    @SerializedName("distance")
+    @SerialName("distance")
     val distance: String,
     
-    @SerializedName("fee")
+    @SerialName("fee")
     val fee: String,
     
-    @SerializedName("customer_name")
+    @SerialName("customer_name")
     val customerName: String
 )
 
@@ -61,96 +64,101 @@ data class OrderAssignment(
  * 
  * Sent to backend to register this device for push notifications.
  */
+@Serializable
 data class FCMTokenRequest(
-    @SerializedName("courier_id")
+    @SerialName("courier_id")
     val courierId: String,
     
-    @SerializedName("fcm_token")
+    @SerialName("fcm_token")
     val fcmToken: String,
     
-    @SerializedName("device_id")
+    @SerialName("device_id")
     val deviceId: String,
     
-    @SerializedName("platform")
+    @SerialName("platform")
     val platform: String = "android",
     
-    @SerializedName("app_version")
-    val appVersion: String
+    @SerialName("app_version")
+    val appVersion: String = "1.0.0"
 )
 
 /**
  * API Response wrapper
  */
+@Serializable
 data class ApiResponse<T>(
-    @SerializedName("success")
+    @SerialName("success")
     val success: Boolean,
     
-    @SerializedName("data")
+    @SerialName("data")
     val data: T?,
     
-    @SerializedName("message")
+    @SerialName("message")
     val message: String?,
 
-    @SerializedName("code")
+    @SerialName("code")
     val code: String? = null
 )
 
 /**
  * Package Scan Request
  */
+@Serializable
 data class ScanRequest(
-    @SerializedName("order_id")
+    @SerialName("order_id")
     val orderId: String,
     
-    @SerializedName("scan_type")
+    @SerialName("scan_type")
     val scanType: String,
     
-    @SerializedName("latitude")
+    @SerialName("latitude")
     val latitude: Double,
     
-    @SerializedName("longitude")
+    @SerialName("longitude")
     val longitude: Double,
     
-    @SerializedName("warehouse_id")
+    @SerialName("warehouse_id")
     val warehouseId: String? = null,
     
-    @SerializedName("photo_url")
+    @SerialName("photo_url")
     val photoUrl: String? = null,
     
-    @SerializedName("bag_number")
+    @SerialName("bag_number")
     val bagNumber: String? = null
 )
 
 /**
  * Package Scan Response
  */
+@Serializable
 data class ScanResponse(
-    @SerializedName("status")
+    @SerialName("status")
     val status: String,
     
-    @SerializedName("scan_id")
+    @SerialName("scan_id")
     val scanId: String,
     
-    @SerializedName("scan_type")
+    @SerialName("scan_type")
     val scanType: String,
     
-    @SerializedName("order_id")
+    @SerialName("order_id")
     val orderId: String,
     
-    @SerializedName("recorded_at")
+    @SerialName("recorded_at")
     val recordedAt: String
 )
 
 /**
  * Order Status Update Request
  */
+@Serializable
 data class StatusUpdateRequest(
-    @SerializedName("order_id")
+    @SerialName("order_id")
     val orderId: String,
     
-    @SerializedName("status")
+    @SerialName("status")
     val status: String,
 
-    @SerializedName("notes")
+    @SerialName("notes")
     val notes: String? = null
 )

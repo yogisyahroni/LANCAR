@@ -30,8 +30,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.lancar.courier.data.session.AuthSessionManager
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.lancar.courier.ui.theme.Primary
 
 /**
@@ -44,9 +43,7 @@ import com.lancar.courier.ui.theme.Primary
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
-    viewModel: LoginViewModel = viewModel(
-        factory = LoginViewModel.Factory(AuthSessionManager(LocalContext.current))
-    )
+    viewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current

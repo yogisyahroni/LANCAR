@@ -2,10 +2,11 @@ package com.lancar.courier.ui.screens.order
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lancar.courier.data.api.ApiClient
+import com.lancar.courier.data.api.LANCARApiService
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.StatusUpdateRequest
 import com.lancar.courier.data.repository.OrderRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Order ViewModel
@@ -22,8 +24,10 @@ import kotlinx.coroutines.launch
  * - Maintains local Room DB as offline cache (single source of truth)
  * - Handles status updates with optimistic local write + backend sync
  */
-class OrderViewModel(
-    private val orderRepository: OrderRepository
+@HiltViewModel
+class OrderViewModel @Inject constructor(
+    private val orderRepository: OrderRepository,
+    private val apiService: LANCARApiService
 ) : ViewModel() {
 
     // ── State ─────────────────────────────────────────────────────
@@ -65,7 +69,7 @@ class OrderViewModel(
         viewModelScope.launch {
             _isSyncing.update { true }
             try {
-                val response = ApiClient.apiService.getOrders()
+                val response = apiService.getOrders()
                 if (response.isSuccessful && response.body()?.success == true) {
                     val orders = response.body()!!.data ?: emptyList()
                     // Mark as synced since they came from the server
@@ -99,7 +103,7 @@ class OrderViewModel(
 
             // 2. Try to sync to backend
             try {
-                val response = ApiClient.apiService.updateStatus(
+                val response = apiService.updateStatus(
                     StatusUpdateRequest(orderId = orderId, status = status, notes = notes)
                 )
                 if (response.isSuccessful && response.body()?.success == true) {
@@ -154,4 +158,6 @@ class OrderViewModel(
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     suspend fun getPendingCount(): Int = orderRepository.getPendingCount()
+
+    suspend fun getOrderById(orderId: String): Order? = orderRepository.getOrderById(orderId)
 }

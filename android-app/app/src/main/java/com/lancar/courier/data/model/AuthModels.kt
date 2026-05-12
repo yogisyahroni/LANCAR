@@ -1,17 +1,19 @@
 package com.lancar.courier.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * Login Request
  *
  * Payload for POST /api/v1/auth/courier/login
  */
+@Serializable
 data class LoginRequest(
-    @SerializedName("username")
+    @SerialName("username")
     val username: String,
 
-    @SerializedName("password")
+    @SerialName("password")
     val password: String
 )
 
@@ -20,23 +22,24 @@ data class LoginRequest(
  *
  * Returned by auth-service on successful login.
  */
+@Serializable
 data class LoginData(
-    @SerializedName("token")
+    @SerialName("token")
     val token: String,
 
-    @SerializedName("courier_id")
+    @SerialName("courier_id")
     val courierId: String,
 
-    @SerializedName("name")
+    @SerialName("name")
     val name: String,
 
-    @SerializedName("phone")
+    @SerialName("phone")
     val phone: String? = null,
 
-    @SerializedName("vehicle_type")
+    @SerialName("vehicle_type")
     val vehicleType: String? = null,
 
-    @SerializedName("profile_photo_url")
+    @SerialName("profile_photo_url")
     val profilePhotoUrl: String? = null
 )
 
@@ -45,28 +48,29 @@ data class LoginData(
  *
  * Returned by GET /api/v1/courier/profile
  */
+@Serializable
 data class CourierProfile(
-    @SerializedName("courier_id")
+    @SerialName("courier_id")
     val courierId: String,
 
-    @SerializedName("name")
+    @SerialName("name")
     val name: String,
 
-    @SerializedName("phone")
+    @SerialName("phone")
     val phone: String? = null,
 
-    @SerializedName("vehicle_type")
+    @SerialName("vehicle_type")
     val vehicleType: String? = null,
 
-    @SerializedName("status")
+    @SerialName("status")
     val status: String = "offline",
 
-    @SerializedName("profile_photo_url")
+    @SerialName("profile_photo_url")
     val profilePhotoUrl: String? = null,
 
-    @SerializedName("total_deliveries")
+    @SerialName("total_deliveries")
     val totalDeliveries: Int = 0,
 
-    @SerializedName("today_deliveries")
+    @SerialName("today_deliveries")
     val todayDeliveries: Int = 0
 )

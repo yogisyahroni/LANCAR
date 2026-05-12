@@ -15,17 +15,20 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessaging
+import com.lancar.courier.data.repository.FCMTokenRepository
 import com.lancar.courier.data.repository.OrderRepository
 import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.service.LocationTrackerService
 import com.lancar.courier.ui.screens.MainScreen
 import com.lancar.courier.ui.screens.auth.LoginScreen
 import com.lancar.courier.ui.theme.LANCARCourierTheme
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Main Activity for LANCAR Courier App
@@ -36,12 +39,19 @@ import kotlinx.coroutines.launch
  * 3. Registers FCM token with backend
  * 4. Triggers background sync of pending orders on startup
  */
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private lateinit var fcmTokenRepository: FCMTokenRepository
-    private lateinit var orderRepository: OrderRepository
-    private lateinit var authSessionManager: AuthSessionManager
+    
+    @Inject
+    lateinit var fcmTokenRepository: FCMTokenRepository
+    
+    @Inject
+    lateinit var orderRepository: OrderRepository
+    
+    @Inject
+    lateinit var authSessionManager: AuthSessionManager
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -63,10 +73,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        authSessionManager = AuthSessionManager(applicationContext)
-        fcmTokenRepository = FCMTokenRepository(applicationContext)
-        orderRepository = OrderRepository(applicationContext)
 
         askNotificationPermission()
         askLocationPermission()

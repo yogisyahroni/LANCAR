@@ -1,16 +1,17 @@
 package com.lancar.courier.ui.screens.auth
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.lancar.courier.data.api.ApiClient
+import com.lancar.courier.data.api.LANCARApiService
 import com.lancar.courier.data.model.LoginRequest
 import com.lancar.courier.data.session.AuthSessionManager
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class LoginUiState(
     val username: String = "",
@@ -29,8 +30,10 @@ data class LoginUiState(
  * Validates input, calls POST /api/v1/auth/courier/login,
  * and persists the session via AuthSessionManager.
  */
-class LoginViewModel(
-    private val authSessionManager: AuthSessionManager
+@HiltViewModel
+class LoginViewModel @Inject constructor(
+    private val authSessionManager: AuthSessionManager,
+    private val apiService: LANCARApiService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -79,7 +82,7 @@ class LoginViewModel(
 
         viewModelScope.launch {
             try {
-                val response = ApiClient.apiService.login(
+                val response = apiService.login(
                     LoginRequest(
                         username = state.username.trim(),
                         password = state.password
@@ -119,11 +122,5 @@ class LoginViewModel(
                 }
             }
         }
-    }
-
-    class Factory(private val authSessionManager: AuthSessionManager) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            LoginViewModel(authSessionManager) as T
     }
 }

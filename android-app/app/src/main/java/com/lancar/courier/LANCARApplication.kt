@@ -10,12 +10,14 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import com.lancar.courier.data.api.ApiClient
 import com.lancar.courier.data.repository.FCMTokenRepository
 import com.lancar.courier.data.repository.OrderRepository
 import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.receiver.OrderSyncWorker
+import androidx.hilt.work.HiltWorkerFactory
+import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 /**
  * LANCAR Application
@@ -25,7 +27,11 @@ import java.util.concurrent.TimeUnit
  * - Notification channels
  * - Periodic WorkManager sync (every 15 minutes, network required)
  */
+@HiltAndroidApp
 class LANCARApplication : Application(), Configuration.Provider {
+
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
 
     private val TAG = "LANCARApplication"
 
@@ -33,10 +39,7 @@ class LANCARApplication : Application(), Configuration.Provider {
         super.onCreate()
         Log.d(TAG, "Application created")
 
-        // Initialize session manager and API client (auth interceptor attached)
-        val authSessionManager = AuthSessionManager(applicationContext)
-        ApiClient.init(authSessionManager)
-
+        // AuthSessionManager & ApiClient will now operate through Hilt
         // Initialize notification channels
         createNotificationChannels()
 
@@ -101,6 +104,7 @@ class LANCARApplication : Application(), Configuration.Provider {
     // WorkManager configuration — custom logger for debugging
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
             .setMinimumLoggingLevel(Log.INFO)
             .build()
 

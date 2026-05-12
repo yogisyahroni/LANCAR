@@ -13,7 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.lancar.courier.ui.theme.Primary
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -21,7 +21,7 @@ import com.lancar.courier.ui.theme.Primary
 fun ScanScreen(
     onScanSuccess: (String) -> Unit,
     onBack: () -> Unit,
-    viewModel: ScanViewModel = viewModel()
+    viewModel: ScanViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()

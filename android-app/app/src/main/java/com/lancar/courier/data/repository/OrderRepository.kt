@@ -1,8 +1,7 @@
 package com.lancar.courier.data.repository
 
-import android.content.Context
-import com.lancar.courier.data.db.OrderDatabase
-import com.lancar.courier.data.api.ApiClient
+import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.db.OrderDao
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.StatusUpdateRequest
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +12,8 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Order Repository
@@ -20,10 +21,11 @@ import okhttp3.RequestBody.Companion.toRequestBody
  * Handles order operations including offline queue management and sync.
  * Coordinates between local database and backend API.
  */
-class OrderRepository(private val context: Context) {
-
-    private val orderDao = OrderDatabase.getDatabase(context).orderDao()
-    private val apiService = ApiClient.apiService
+@Singleton
+class OrderRepository @Inject constructor(
+    private val orderDao: OrderDao,
+    private val apiService: LANCARApiService
+) {
 
     /**
      * Get all orders from local database

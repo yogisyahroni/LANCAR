@@ -5,13 +5,15 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.app.NotificationManagerCompat
-import com.lancar.courier.data.api.ApiClient
+import com.lancar.courier.data.api.LANCARApiService
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.StatusUpdateRequest
 import com.lancar.courier.data.repository.OrderRepository
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Notification Action Receiver
@@ -22,9 +24,18 @@ import kotlinx.coroutines.launch
  *   2. Confirm acceptance to backend via API
  *   3. If backend fails → needsSync=true, WorkManager will retry
  */
+@AndroidEntryPoint
 class NotificationReceiver : BroadcastReceiver() {
 
+    @Inject
+    lateinit var orderRepository: OrderRepository
+    
+    @Inject
+    lateinit var apiService: LANCARApiService
+
     override fun onReceive(context: Context, intent: Intent) {
+        // Must NOT call super.onReceive as BroadcastReceiver.onReceive is abstract.
+        
         val action = intent.action ?: return
 
         when (action) {
@@ -54,15 +65,13 @@ class NotificationReceiver : BroadcastReceiver() {
                 )
 
                 CoroutineScope(Dispatchers.IO).launch {
-                    val orderRepository = OrderRepository(context)
-
                     // 1. Save locally first (offline-first guarantee)
                     orderRepository.addOrder(order)
                     Log.d(TAG, "Order saved locally: $orderId")
 
                     // 2. Confirm acceptance to backend immediately
                     try {
-                        val response = ApiClient.apiService.updateStatus(
+                        val response = apiService.updateStatus(
                             StatusUpdateRequest(
                                 orderId = orderId,
                                 status = "accepted",

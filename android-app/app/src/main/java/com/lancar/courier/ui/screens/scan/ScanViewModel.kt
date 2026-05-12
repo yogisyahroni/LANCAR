@@ -1,26 +1,28 @@
 package com.lancar.courier.ui.screens.scan
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lancar.courier.data.api.ApiClient
+import com.lancar.courier.data.api.LANCARApiService
 import com.lancar.courier.data.model.ScanRequest
 import com.lancar.courier.data.model.ScanResponse
 import com.lancar.courier.data.repository.OrderRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Scan View Model
  * 
  * Manages package scanning state and API calls.
  */
-class ScanViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val apiService = ApiClient.apiService
-    private val orderRepository = OrderRepository(application)
+@HiltViewModel
+class ScanViewModel @Inject constructor(
+    private val orderRepository: OrderRepository,
+    private val apiService: LANCARApiService
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ScanUiState>(ScanUiState.Idle)
     val uiState: StateFlow<ScanUiState> = _uiState.asStateFlow()

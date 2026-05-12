@@ -1,5 +1,8 @@
 package com.lancar.courier.data.model
 
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
+
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
@@ -19,6 +22,7 @@ import androidx.room.PrimaryKey
         Index(value = ["is_synced"])
     ]
 )
+@Serializable
 data class Location(
 
     @PrimaryKey(autoGenerate = true)

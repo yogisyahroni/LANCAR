@@ -6,10 +6,9 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import androidx.camera.core.ImageCapture
-import android.app.Application
 import androidx.camera.core.ImageCaptureException
 import androidx.exifinterface.media.ExifInterface
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,8 +21,10 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.Executor
-import com.lancar.courier.data.api.ApiClient
+import com.lancar.courier.data.api.LANCARApiService
 import com.lancar.courier.data.repository.OrderRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -49,9 +50,11 @@ data class PodUiState(
     val uploadSuccess: Boolean = false
 )
 
-class ProofOfDeliveryViewModel(application: Application) : AndroidViewModel(application) {
-    
-    private val orderRepository = OrderRepository(application)
+@HiltViewModel
+class ProofOfDeliveryViewModel @Inject constructor(
+    private val orderRepository: OrderRepository,
+    private val apiService: LANCARApiService
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PodUiState())
     val uiState: StateFlow<PodUiState> = _uiState.asStateFlow()
@@ -288,7 +291,7 @@ class ProofOfDeliveryViewModel(application: Application) : AndroidViewModel(appl
                 val body = MultipartBody.Part.createFormData("photo", file.name, requestFile)
                 val orderIdPart = orderId.toRequestBody("text/plain".toMediaTypeOrNull())
                 
-                val response = ApiClient.apiService.uploadPod(orderIdPart, body)
+                val response = apiService.uploadPod(orderIdPart, body)
                 
                 if (response.isSuccessful && response.body()?.success == true) {
                     _uiState.value = _uiState.value.copy(

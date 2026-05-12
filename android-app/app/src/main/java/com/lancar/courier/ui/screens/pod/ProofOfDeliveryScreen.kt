@@ -32,7 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -54,13 +54,13 @@ import java.util.concurrent.Executor
  * - Retake and confirm options
  * - Permission handling
  */
-@OptIn(ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ProofOfDeliveryScreen(
     order: Order,
     onImageConfirmed: (Uri) -> Unit,
     onBack: () -> Unit,
-    viewModel: ProofOfDeliveryViewModel = viewModel()
+    viewModel: ProofOfDeliveryViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -143,7 +143,8 @@ fun ProofOfDeliveryScreen(
                                 viewModel.captureImage(capture, context, executor)
                             }
                         },
-                        isCapturing = uiState.isCapturing
+                        isCapturing = uiState.isCapturing,
+                        lifecycleOwner = lifecycleOwner
                     )
                 }
             }
@@ -192,7 +193,8 @@ private fun CameraPreviewContent(
     onPreviewViewReady: (PreviewView) -> Unit,
     onImageCaptureReady: (ImageCapture) -> Unit,
     onCapture: () -> Unit,
-    isCapturing: Boolean
+    isCapturing: Boolean,
+    lifecycleOwner: androidx.lifecycle.LifecycleOwner
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         // Camera Preview
@@ -200,7 +202,7 @@ private fun CameraPreviewContent(
             factory = { ctx ->
                 PreviewView(ctx).also { preview ->
                     onPreviewViewReady(preview)
-                    startCamera(ctx, preview, onImageCaptureReady)
+                    startCamera(ctx, lifecycleOwner, preview, onImageCaptureReady)
                 }
             },
             modifier = Modifier.fillMaxSize()
@@ -400,6 +402,7 @@ private fun ImagePreviewContent(
 
 private fun startCamera(
     context: Context,
+    lifecycleOwner: androidx.lifecycle.LifecycleOwner,
     previewView: PreviewView,
     onImageCaptureReady: (ImageCapture) -> Unit
 ) {
@@ -423,7 +426,7 @@ private fun startCamera(
         try {
             cameraProvider.unbindAll()
             cameraProvider.bindToLifecycle(
-                LocalLifecycleOwner.current,
+                lifecycleOwner,
                 cameraSelector,
                 preview,
                 imageCapture
