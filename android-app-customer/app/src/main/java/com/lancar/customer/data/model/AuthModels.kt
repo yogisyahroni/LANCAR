@@ -1,47 +1,43 @@
 package com.lancar.customer.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
-/**
- * Request payload for POST /auth/customer/otp-request
- */
+@Serializable
 data class OtpRequest(
-    @SerializedName("phone")
+    @SerialName("phone")
     val phone: String
 )
 
-/**
- * Request payload for POST /auth/customer/login
- */
+@Serializable
 data class LoginRequest(
-    @SerializedName("phone")
+    @SerialName("phone")
     val phone: String,
 
-    @SerializedName("otp_code")
+    @SerialName("otp_code")
     val otpCode: String
 )
 
-/**
- * Response payload for Login & OTP
- */
+@Serializable
 data class AuthResponse(
-    @SerializedName("success")
+    @SerialName("success")
     val success: Boolean,
     
-    @SerializedName("message")
+    @SerialName("message")
     val message: String?,
     
-    @SerializedName("data")
+    @SerialName("data")
     val data: AuthData?
 )
 
+@Serializable
 data class AuthData(
-    @SerializedName("token")
+    @SerialName("token")
     val token: String,
     
-    @SerializedName("customer_id")
+    @SerialName("customer_id")
     val customerId: String,
     
-    @SerializedName("name")
+    @SerialName("name")
     val name: String? = null
 )

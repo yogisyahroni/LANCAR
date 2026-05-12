@@ -1,31 +1,34 @@
 package com.lancar.customer.data.model
 
-import com.google.gson.annotations.SerializedName
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class TrackingResponse(
-    @SerializedName("courier_id")
+    @SerialName("courier_id")
     val courierId: String,
     
-    @SerializedName("location")
+    @SerialName("location")
     val location: TrackingLocation,
     
-    @SerializedName("eta")
+    @SerialName("eta")
     val eta: String? = null,
     
-    @SerializedName("route_polyline")
+    @SerialName("route_polyline")
     val routePolyline: String? = null
 )
 
+@Serializable
 data class TrackingLocation(
-    @SerializedName("latitude")
+    @SerialName("latitude")
     val latitude: Double,
     
-    @SerializedName("longitude")
+    @SerialName("longitude")
     val longitude: Double,
     
-    @SerializedName("heading")
+    @SerialName("heading")
     val heading: Double = 0.0,
     
-    @SerializedName("timestamp")
+    @SerialName("timestamp")
     val timestamp: String? = null
 )

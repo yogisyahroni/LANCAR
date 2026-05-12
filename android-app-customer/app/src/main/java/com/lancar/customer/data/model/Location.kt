@@ -4,13 +4,8 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
-/**
- * Location Entity
- *
- * Stores GPS location data for couriers with offline sync support.
- * Uses Room for local persistence.
- */
 @Entity(
     tableName = "locations",
     indices = [
@@ -19,8 +14,8 @@ import androidx.room.PrimaryKey
         Index(value = ["is_synced"])
     ]
 )
+@Serializable
 data class Location(
-
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
 

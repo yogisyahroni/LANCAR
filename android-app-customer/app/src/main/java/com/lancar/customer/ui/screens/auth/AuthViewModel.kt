@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.lancar.customer.config.AppConfig
-import android.util.Patterns
 
 sealed class AuthState {
     object Idle : AuthState()
@@ -43,7 +42,8 @@ class AuthViewModel @Inject constructor(
         val isEmailMode = AppConfig.IS_EMAIL_AUTH_ENABLED
         
         val isValid = if (isEmailMode) {
-            Patterns.EMAIL_ADDRESS.matcher(phone).matches()
+            val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\$")
+            emailRegex.matches(phone)
         } else {
             phone.length >= minLen
         }

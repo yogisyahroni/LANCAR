@@ -1,10 +1,8 @@
 package com.lancar.customer.data.model
 
-/**
- * Location Data Transfer Object
- *
- * Represents a single GPS location reading to be sent to the backend.
- */
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class LocationData(
     val latitude: Double,
     val longitude: Double,

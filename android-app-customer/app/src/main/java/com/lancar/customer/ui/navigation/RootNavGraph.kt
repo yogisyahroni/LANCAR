@@ -1,8 +1,13 @@
 package com.lancar.customer.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -17,6 +22,17 @@ import com.lancar.customer.ui.screens.tracking.TrackingScreen
 import com.lancar.customer.ui.screens.tracking.TrackingViewModel
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
+
+import com.lancar.customer.ui.screens.history.OrderHistoryScreen
+import com.lancar.customer.ui.screens.history.OrderHistoryViewModel
+import com.lancar.customer.ui.screens.profile.ProfileScreen
+import com.lancar.customer.ui.screens.profile.ProfileViewModel
+import com.lancar.customer.ui.screens.detail.OrderDetailScreen
+import com.lancar.customer.ui.screens.detail.OrderDetailViewModel
+
+import com.lancar.customer.ui.screens.payment.PaymentScreen
+import com.lancar.customer.ui.screens.payment.PaymentViewModel
 
 @Composable
 fun RootNavGraph(
@@ -27,7 +43,7 @@ fun RootNavGraph(
     val startDestination by viewModel.startDestination.collectAsState()
 
     if (isLoading) {
-        // Simple Full screen Loader (could be splash)
+        // Preload logic here if needed
         return 
     }
 
@@ -35,46 +51,121 @@ fun RootNavGraph(
         navController = navController,
         startDestination = startDestination
     ) {
-        // Pass a custom handler so that login success switches route.
-        composable("auth_graph") {
+        composable(Screen.AuthGraph.route) {
             AuthNavGraph(
                 onAuthSuccess = {
-                    navController.navigate("dashboard") {
-                        popUpTo("auth_graph") { inclusive = true }
+                    navController.navigate(Screen.Dashboard.route) {
+                        popUpTo(Screen.AuthGraph.route) { inclusive = true }
                     }
                 }
             )
         }
         
-        composable("dashboard") {
+        composable(Screen.Dashboard.route) {
             DashboardScreen(
                 onLogout = {
                     viewModel.logout()
-                    navController.navigate("auth_graph") {
+                    navController.navigate(Screen.AuthGraph.route) {
                         popUpTo(0) { inclusive = true }
                     }
                 },
                 onBookingClick = {
-                    navController.navigate("booking")
+                    navController.navigate(Screen.Booking.route)
                 },
                 onTrackingClick = { orderId ->
-                    navController.navigate("tracking/$orderId")
+                    // Navigate to tracking directly for live tracking
+                    navController.navigate(Screen.Tracking.createRoute(orderId))
+                },
+                onHistoryClick = {
+                    navController.navigate(Screen.History.route)
+                },
+                onProfileClick = {
+                    navController.navigate(Screen.Profile.route)
                 }
             )
         }
 
-        composable("booking") {
+        composable(Screen.Booking.route) {
             val bookingViewModel: BookingViewModel = hiltViewModel()
             BookingScreen(
                 viewModel = bookingViewModel,
                 onBackClick = {
                     navController.popBackStack()
+                },
+                onBookingSuccess = { orderId ->
+                    // Direct to payment right after booking creation successfully
+                    navController.navigate(Screen.Payment.createRoute(orderId)) {
+                        popUpTo(Screen.Dashboard.route)
+                    }
+                }
+            )
+        }
+
+        composable(Screen.History.route) {
+            val historyViewModel: OrderHistoryViewModel = hiltViewModel()
+            OrderHistoryScreen(
+                viewModel = historyViewModel,
+                onBackClick = { navController.popBackStack() },
+                onOrderClick = { orderId ->
+                    navController.navigate(Screen.OrderDetail.createRoute(orderId))
+                }
+            )
+        }
+
+        composable(Screen.Profile.route) {
+            val profileViewModel: ProfileViewModel = hiltViewModel()
+            ProfileScreen(
+                viewModel = profileViewModel,
+                onBackClick = { navController.popBackStack() },
+                onLogout = {
+                    viewModel.logout() // ensure cleaning main vm session
+                    navController.navigate(Screen.AuthGraph.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
 
         composable(
-            route = "tracking/{orderId}",
+            route = Screen.OrderDetail.route,
+            arguments = listOf(navArgument("orderId") { type = NavType.StringType }),
+            deepLinks = listOf(
+                navDeepLink { uriPattern = "lancar://order/{orderId}" }
+            )
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+            val detailViewModel: OrderDetailViewModel = hiltViewModel()
+            OrderDetailScreen(
+                orderId = orderId,
+                viewModel = detailViewModel,
+                onBackClick = { navController.popBackStack() },
+                onTrackClick = { id ->
+                    navController.navigate(Screen.Tracking.createRoute(id))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.Payment.route,
+            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+            val payVm: PaymentViewModel = hiltViewModel()
+            PaymentScreen(
+                orderId = orderId,
+                viewModel = payVm,
+                onClose = { navController.popBackStack() },
+                onPaymentSuccess = {
+                    // Redirect to order status/detail on generic success callback detected in url
+                    navController.navigate(Screen.OrderDetail.createRoute(orderId)) {
+                        popUpTo(Screen.Dashboard.route)
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = Screen.Tracking.route,
             arguments = listOf(navArgument("orderId") { type = NavType.StringType })
         ) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
@@ -89,3 +180,11 @@ fun RootNavGraph(
         }
     }
 }
+
+@Composable
+fun PlaceholderScreen(title: String) {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(title)
+    }
+}
+

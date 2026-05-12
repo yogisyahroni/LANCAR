@@ -1,20 +1,22 @@
 package com.lancar.customer.di
 
 import android.content.Context
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import com.lancar.customer.BuildConfig
 import com.lancar.customer.data.api.AuthInterceptor
 import com.lancar.customer.data.api.LANCARApiService
+import com.lancar.customer.data.api.TokenRefreshInterceptor
 import com.lancar.customer.data.session.AuthSessionManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.serialization.json.Json
+import okhttp3.CertificatePinner
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
@@ -22,27 +24,23 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    private const val BASE_URL = "http://10.0.2.2:8080/" // Placeholder loopback server
-
     @Provides
     @Singleton
-    fun provideAuthSessionManager(@ApplicationContext context: Context): AuthSessionManager {
-        return AuthSessionManager(context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideGson(): Gson {
-        return GsonBuilder()
-            .setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-            .create()
+    fun provideJson(): Json {
+        return Json {
+            ignoreUnknownKeys = true
+            isLenient = true
+            encodeDefaults = true
+            prettyPrint = true
+            coerceInputValues = true
+        }
     }
 
     @Provides
     @Singleton
     fun provideLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
         }
     }
 
@@ -50,11 +48,19 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         loggingInterceptor: HttpLoggingInterceptor,
-        sessionManager: AuthSessionManager
+        sessionManager: AuthSessionManager,
+        tokenRefreshInterceptor: TokenRefreshInterceptor
     ): OkHttpClient {
+        val pinner = CertificatePinner.Builder()
+            // Note: Ganti hash ini dengan hash SHA-256 asli dari sertifikat SSL domain API Lancar Anda saat naik produksi
+            .add("api.lancar.com", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+            .build()
+
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
             .addInterceptor(AuthInterceptor(sessionManager))
+            .addInterceptor(tokenRefreshInterceptor)
+            .certificatePinner(pinner) // AKTIFKAN PENGAMANAN SSL PINNING DI SINI
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
@@ -65,12 +71,13 @@ object NetworkModule {
     @Singleton
     fun provideRetrofit(
         okHttpClient: OkHttpClient,
-        gson: Gson
+        json: Json
     ): Retrofit {
+        val contentType = "application/json".toMediaType()
         return Retrofit.Builder()
-            .baseUrl(BASE_URL)
+            .baseUrl(BuildConfig.BASE_URL)
             .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create(gson))
+            .addConverterFactory(json.asConverterFactory(contentType))
             .build()
     }
 

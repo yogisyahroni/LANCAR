@@ -1,10 +1,8 @@
 package com.lancar.customer.data.model
 
-/**
- * Location Sync Request
- *
- * Sent to backend to sync multiple location points for a courier.
- */
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class LocationRequest(
     val courierId: String,
     val locations: List<LocationData>,

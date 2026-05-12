@@ -1,6 +1,7 @@
 package com.lancar.customer.ui.screens.booking
 
 import android.Manifest
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
@@ -21,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,14 +33,17 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import com.lancar.customer.ui.theme.Primary
+import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun BookingScreen(
     viewModel: BookingViewModel,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onBookingSuccess: (String) -> Unit
 ) {
     val uiState by viewModel.bookingState.collectAsState()
+    val context = LocalContext.current
     
     // Default starting position (Jakarta center) if GPS not available yet
     val defaultJakarta = remember { LatLng(-6.2088, 106.8456) }
@@ -55,6 +60,22 @@ fun BookingScreen(
         }
     }
 
+    // Listen for booking success navigation
+    LaunchedEffect(viewModel) {
+        viewModel.bookingSuccess.collectLatest { orderId ->
+            Toast.makeText(context, "Order berhasil dibuat!", Toast.LENGTH_SHORT).show()
+            onBookingSuccess(orderId)
+        }
+    }
+
+    // Error handling
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let { error ->
+            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+            viewModel.clearError()
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // THE BASE LAYER: Google Map rendering
         GoogleMap(
@@ -62,12 +83,21 @@ fun BookingScreen(
             cameraPositionState = cameraPositionState,
             properties = MapProperties(
                 isMyLocationEnabled = locationPermissionState.status.isGranted,
-                mapStyleOptions = null // Optional: Custom Dark mode map style can go here
+                mapStyleOptions = null
             ),
             uiSettings = MapUiSettings(
                 zoomControlsEnabled = false,
-                myLocationButtonEnabled = false // Custom floating button later
-            )
+                myLocationButtonEnabled = true
+            ),
+            onMapClick = { latLng ->
+                // In a real app, this selects the active input.
+                // For demo logic: if pickup is null set pickup, else set destination
+                if (uiState.pickupLocation == null) {
+                    viewModel.setPickup(latLng, "Lokasi Dipilih (${latLng.latitude.toString().take(7)}, ${latLng.longitude.toString().take(7)})")
+                } else {
+                    viewModel.setDestination(latLng, "Tujuan Dipilih (${latLng.latitude.toString().take(7)}, ${latLng.longitude.toString().take(7)})")
+                }
+            }
         ) {
             // Marker injection based on VM state
             uiState.pickupLocation?.let { loc ->
@@ -92,8 +122,19 @@ fun BookingScreen(
         // BOTTOM LAYER: Premium Booking Input Card
         FloatingBookingCard(
             modifier = Modifier.align(Alignment.BottomCenter),
-            uiState = uiState
+            uiState = uiState,
+            onConfirmClick = { viewModel.confirmBooking() }
         )
+
+        // Loading overlay during API interaction
+        if (uiState.isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Color.White)
+            }
+        }
     }
 }
 
@@ -106,7 +147,6 @@ private fun TopControls(onBackClick: () -> Unit) {
                 .padding(20.dp),
             verticalAlignment = Alignment.Top
         ) {
-            // Circular Shadowed Back Button
             IconButton(
                 onClick = onBackClick,
                 modifier = Modifier
@@ -128,7 +168,8 @@ private fun TopControls(onBackClick: () -> Unit) {
 @Composable
 private fun FloatingBookingCard(
     modifier: Modifier = Modifier,
-    uiState: BookingState
+    uiState: BookingState,
+    onConfirmClick: () -> Unit
 ) {
     AnimatedVisibility(
         visible = true,
@@ -148,7 +189,7 @@ private fun FloatingBookingCard(
                 modifier = Modifier.padding(20.dp)
             ) {
                 Text(
-                    text = "Mau kirim kemana hari ini?",
+                    text = "Konfirmasi Rute Anda",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -161,8 +202,8 @@ private fun FloatingBookingCard(
                 LocationInputRow(
                     icon = Icons.Default.LocationOn,
                     iconColor = Primary,
-                    label = if (uiState.pickupAddress.isEmpty()) "Lokasi Saya Saat Ini" else uiState.pickupAddress,
-                    placeholder = true
+                    label = if (uiState.pickupAddress.isEmpty()) "Ketuk peta untuk titik jemput" else uiState.pickupAddress,
+                    placeholder = uiState.pickupAddress.isEmpty()
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -171,24 +212,42 @@ private fun FloatingBookingCard(
                 LocationInputRow(
                     icon = Icons.Default.Search,
                     iconColor = Color.Gray,
-                    label = if (uiState.destinationAddress.isEmpty()) "Masukkan Alamat Tujuan" else uiState.destinationAddress,
+                    label = if (uiState.destinationAddress.isEmpty()) "Ketuk peta untuk tujuan" else uiState.destinationAddress,
                     placeholder = uiState.destinationAddress.isEmpty(),
                     active = true
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Dynamic CTA Button based on flow
+                if (uiState.estimatedPrice > 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Estimasi Harga:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                        Text(
+                            "Rp ${uiState.estimatedPrice}",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 18.sp,
+                            color = Primary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Dynamic CTA Button
                 Button(
-                    onClick = { /* Trigger address search flow modal */ },
+                    onClick = onConfirmClick,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
+                    enabled = uiState.pickupLocation != null && uiState.destinationLocation != null,
                     colors = ButtonDefaults.buttonColors(containerColor = Primary)
                 ) {
                     Text(
-                        text = "Pilih di Peta",
+                        text = if (uiState.estimatedPrice > 0) "Pesan Sekarang" else "Pilih di Peta",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -211,7 +270,6 @@ private fun LocationInputRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-            .clickable { /* Open Address Autocomplete */ }
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -224,18 +282,18 @@ private fun LocationInputRow(
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = label,
-            fontSize = 15.sp,
+            fontSize = 14.sp,
             color = if (placeholder) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
-            maxLines = 1
+            maxLines = 2
         )
     }
 }
 
 @Composable
 private fun SafeArea(content: @Composable () -> Unit) {
-    // Simple placeholder wrapper since standard system windows inset depends on outer theme config
     Box(modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
         content()
     }
 }
+

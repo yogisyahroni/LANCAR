@@ -2,29 +2,36 @@ package com.lancar.customer.ui.screens.main
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.lancar.customer.ui.theme.Primary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
+    viewModel: DashboardViewModel = hiltViewModel(),
     onLogout: () -> Unit = {},
     onBookingClick: () -> Unit = {},
-    onTrackingClick: (String) -> Unit = {}
+    onTrackingClick: (String) -> Unit = {},
+    onHistoryClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {}
 ) {
+    val customerName by viewModel.customerName.collectAsState()
+    val activeOrder by viewModel.activeOrder.collectAsState()
+
     Scaffold(
         bottomBar = {
             NavigationBar(
@@ -35,19 +42,19 @@ fun DashboardScreen(
                     icon = { Icon(Icons.Default.Home, "Home") },
                     label = { Text("Beranda") },
                     selected = true,
-                    onClick = { }
+                    onClick = { /* Stay here */ }
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.History, "Riwayat") },
                     label = { Text("Riwayat") },
                     selected = false,
-                    onClick = { }
+                    onClick = onHistoryClick
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Person, "Profil") },
                     label = { Text("Profil") },
                     selected = false,
-                    onClick = { }
+                    onClick = onProfileClick
                 )
             }
         }
@@ -71,7 +78,6 @@ fun DashboardScreen(
                         )
                     )
             ) {
-                // Just some aesthetic "streets" lines mock
                 Spacer(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -106,7 +112,7 @@ fun DashboardScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Halo, Pelanggan 👋",
+                            text = "Halo, ${customerName ?: "Pelanggan"} 👋",
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                             letterSpacing = (-0.5).sp
@@ -127,41 +133,44 @@ fun DashboardScreen(
                 }
             }
 
-            // Mock "Active Order" Overlay Pill (Demo purpose)
-            Card(
-                modifier = Modifier
-                    .padding(top = 110.dp, start = 24.dp, end = 24.dp)
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)), // Light Green
-                elevation = CardDefaults.cardElevation(4.dp),
-                onClick = { onTrackingClick("mock-order-id-123") } // Simulate click
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            // Actual Active Order Overlay (Only visible if present)
+            activeOrder?.let { order ->
+                Card(
+                    modifier = Modifier
+                        .padding(top = 110.dp, start = 24.dp, end = 24.dp)
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                    elevation = CardDefaults.cardElevation(4.dp),
+                    onClick = { onTrackingClick(order.orderId) }
                 ) {
-                    Icon(
-                        Icons.Default.DirectionsBike, 
-                        contentDescription = null, 
-                        tint = Color(0xFF2E7D32),
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        "Ada 1 Pengiriman Sedang Berjalan",
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF2E7D32),
-                        fontSize = 13.sp,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        "Lacak >",
-                        color = Color(0xFF2E7D32),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.DirectionsBike, 
+                            contentDescription = null, 
+                            tint = Color(0xFF2E7D32),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "Order ${order.orderId} sedang berjalan",
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF2E7D32),
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            "Lacak >",
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
                 }
             }
 
@@ -219,3 +228,4 @@ fun DashboardScreen(
         }
     }
 }
+

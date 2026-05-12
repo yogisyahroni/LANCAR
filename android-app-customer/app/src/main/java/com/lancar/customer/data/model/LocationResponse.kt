@@ -1,10 +1,8 @@
 package com.lancar.customer.data.model
 
-/**
- * Location Sync Response
- *
- * Response from backend confirming location sync.
- */
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class LocationResponse(
     val success: Boolean = true,
     val message: String? = null,
