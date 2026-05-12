@@ -5,6 +5,23 @@ plugins {
     id("com.google.devtools.ksp") version "1.9.20-1.0.14"
 }
 
+
+fun getEnvVariable(key: String): String {
+    val envFile = rootProject.file("../.env")
+    if (!envFile.exists()) return ""
+    
+    envFile.readLines().forEach { line ->
+        val trimmed = line.trim()
+        if (!trimmed.startsWith("#") && trimmed.contains("=")) {
+            val parts = trimmed.split("=", limit = 2)
+            if (parts[0].trim() == key) {
+                return parts[1].trim().removeSurrounding("\"").removeSurrounding("'")
+            }
+        }
+    }
+    return ""
+}
+
 android {
     namespace = "com.lancar.courier"
     compileSdk = 34
@@ -18,6 +35,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = getEnvVariable("GOOGLE_MAPS_API_KEY")
     }
 
     buildTypes {
@@ -95,6 +114,11 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
     
+    // Google Maps Engine for Order Tracking
+    implementation("com.google.maps.android:maps-compose:4.3.3")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("com.google.android.gms:play-services-location:21.1.0")
+
     // ExifInterface for image rotation correction
     implementation("androidx.exifinterface:exifinterface:1.3.6")
     

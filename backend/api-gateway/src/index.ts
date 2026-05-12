@@ -337,6 +337,9 @@ app.use('/api/v1/orders', proxyWithResilience(ORDER_SERVICE_URL, orderBreaker));
 // Couriers Service (Order-related actions)
 app.use('/api/v1/couriers', proxyWithResilience(ORDER_SERVICE_URL, orderBreaker));
 
+// Tracking Service (Order & Courier tracking)
+app.use('/api/v1/tracking', proxyWithResilience(ORDER_SERVICE_URL, orderBreaker));
+
 // Admin Service General Routes (Management API)
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/admin',

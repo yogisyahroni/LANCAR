@@ -225,6 +225,7 @@ func main() {
 
 	// Tracking Routes
 	mux.HandleFunc("/api/v1/tracking/location", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.UpdateLocation)))
+	mux.HandleFunc("/api/v1/tracking/sync", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.SyncLocations)))
 	mux.HandleFunc("/api/v1/tracking", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			trackingHandler.GetTracking(w, r)

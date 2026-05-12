@@ -8,6 +8,7 @@ import (
 	"io"
 	"lancar/auth-service/internal/domain"
 	"lancar/auth-service/pkg/utils"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -103,6 +104,10 @@ func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID
 			IsVerified:  true,
 			CreatedAt:   time.Now(),
 			UpdatedAt:   time.Now(),
+		}
+		if strings.Contains(phoneNumber, "@") {
+			emailVal := phoneNumber
+			user.Email = &emailVal
 		}
 		err = s.userRepo.Create(ctx, user)
 		if err != nil {

@@ -1,13 +1,14 @@
 package com.lancar.courier.data.repository
 
 import android.content.Context
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.ApiClient
 import com.lancar.courier.data.db.LocationDao
 import com.lancar.courier.data.db.OrderDatabase
 import com.lancar.courier.data.model.Location
 import com.lancar.courier.data.model.LocationData
 import com.lancar.courier.data.model.LocationRequest
 import com.lancar.courier.data.model.ApiResponse as BaseApiResponse
+import java.util.Date
 import kotlinx.coroutines.flow.Flow
 import retrofit2.Response
 
@@ -21,7 +22,7 @@ class LocationRepository(private val context: Context) {
 
     private val database = OrderDatabase.getDatabase(context)
     private val locationDao = database.locationDao()
-    private val apiService = LANCARApiService()
+    private val apiService = ApiClient.apiService
 
     /**
      * Get all unsynced locations as Flow
@@ -89,9 +90,10 @@ class LocationRepository(private val context: Context) {
                     speed = location.speed,
                     bearing = location.bearing,
                     altitude = location.altitude,
-                    timestamp = location.timestamp,
+                    timestamp = Date(location.timestamp),
                     batteryLevel = location.batteryLevel,
-                    networkType = location.networkType
+                    networkType = location.networkType,
+                    orderId = location.orderId
                 )
             }
 

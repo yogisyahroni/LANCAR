@@ -57,6 +57,15 @@ data class Location(
     @ColumnInfo(name = "order_id")
     val orderId: String? = null,
 
+    @ColumnInfo(name = "device_id")
+    val deviceId: String = "",
+
+    @ColumnInfo(name = "battery_level")
+    val batteryLevel: Int = 100,
+
+    @ColumnInfo(name = "network_type")
+    val networkType: String = "UNKNOWN",
+
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
 )

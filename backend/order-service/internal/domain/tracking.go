@@ -8,12 +8,19 @@ import (
 )
 
 type GPSLocation struct {
-	Latitude  float64   `json:"latitude" validate:"required,latitude"`
-	Longitude float64   `json:"longitude" validate:"required,longitude"`
-	Accuracy  float64   `json:"accuracy"` // in meters
-	Heading   float64   `json:"heading"`  // in degrees
-	Speed     float64   `json:"speed"`    // in km/h
-	Timestamp time.Time `json:"timestamp" validate:"required"`
+	Latitude  float64    `json:"latitude" validate:"required,latitude"`
+	Longitude float64    `json:"longitude" validate:"required,longitude"`
+	Accuracy  float64    `json:"accuracy"` // in meters
+	Heading   float64    `json:"heading"`  // in degrees
+	Speed     float64    `json:"speed"`    // in km/h
+	Timestamp time.Time  `json:"timestamp" validate:"required"`
+	OrderID   *uuid.UUID `json:"order_id,omitempty"` // Link to delivery context if active
+}
+
+type CourierLocationSyncRequest struct {
+	CourierID uuid.UUID     `json:"courier_id" validate:"required"`
+	DeviceID  string        `json:"device_id"`
+	Locations []GPSLocation `json:"locations" validate:"required,min=1"`
 }
 
 type CourierLocationUpdate struct {
@@ -52,6 +59,7 @@ type TrackingRepository interface {
 
 type TrackingService interface {
 	UpdateLocation(ctx context.Context, req CourierLocationUpdate) error
+	SyncLocations(ctx context.Context, req CourierLocationSyncRequest) error
 	GetTrackingByOrder(ctx context.Context, orderID uuid.UUID) (*TrackingResponse, error)
 	ProcessIdleCouriers(ctx context.Context) error
 }

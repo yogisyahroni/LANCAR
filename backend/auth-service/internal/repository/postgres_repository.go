@@ -33,7 +33,7 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 			UNION ALL
 			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, pin_hash, is_verified, 
 				   NULL as totp_secret, NULL as is_2fa_enabled, NULL as totp_backup_codes, last_login_at, created_at, updated_at FROM couriers
-		) users_combined WHERE phone_number = $1`
+		) users_combined WHERE phone_number = $1 OR email = $1`
 	user := &domain.User{}
 	err := r.readDB.QueryRowContext(ctx, query, phoneNumber).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status, 
@@ -80,10 +80,10 @@ func (r *postgresRepo) Create(ctx context.Context, user *domain.User) error {
 		table = "staff"
 	}
 
-	query := `INSERT INTO ` + table + ` (phone_number, full_name, role, status, is_verified, referral_code, created_at, updated_at) 
-			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`
+	query := `INSERT INTO ` + table + ` (phone_number, email, full_name, role, status, is_verified, referral_code, created_at, updated_at) 
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`
 	return r.db.QueryRowContext(ctx, query, 
-		user.PhoneNumber, user.FullName, user.Role, user.Status, user.IsVerified, user.ReferralCode, time.Now(), time.Now(),
+		user.PhoneNumber, user.Email, user.FullName, user.Role, user.Status, user.IsVerified, user.ReferralCode, time.Now(), time.Now(),
 	).Scan(&user.ID)
 }
 

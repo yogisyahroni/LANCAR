@@ -97,7 +97,7 @@ interface LANCARApiService {
     /**
      * Sync courier location batch to backend
      */
-    @POST("api/v1/courier/location/sync")
+    @POST("api/v1/tracking/sync")
     suspend fun syncLocations(
         @Body request: LocationRequest
     ): Response<ApiResponse<LocationResponse>>

@@ -3,70 +3,45 @@ package com.lancar.customer.data.model
 import com.google.gson.annotations.SerializedName
 
 /**
- * Login Request
- *
- * Payload for POST /api/v1/auth/courier/login
+ * Request payload for POST /auth/customer/otp-request
+ */
+data class OtpRequest(
+    @SerializedName("phone")
+    val phone: String
+)
+
+/**
+ * Request payload for POST /auth/customer/login
  */
 data class LoginRequest(
-    @SerializedName("username")
-    val username: String,
+    @SerializedName("phone")
+    val phone: String,
 
-    @SerializedName("password")
-    val password: String
+    @SerializedName("otp_code")
+    val otpCode: String
 )
 
 /**
- * Login Response Data
- *
- * Returned by auth-service on successful login.
+ * Response payload for Login & OTP
  */
-data class LoginData(
+data class AuthResponse(
+    @SerializedName("success")
+    val success: Boolean,
+    
+    @SerializedName("message")
+    val message: String?,
+    
+    @SerializedName("data")
+    val data: AuthData?
+)
+
+data class AuthData(
     @SerializedName("token")
     val token: String,
-
-    @SerializedName("courier_id")
-    val courierId: String,
-
+    
+    @SerializedName("customer_id")
+    val customerId: String,
+    
     @SerializedName("name")
-    val name: String,
-
-    @SerializedName("phone")
-    val phone: String? = null,
-
-    @SerializedName("vehicle_type")
-    val vehicleType: String? = null,
-
-    @SerializedName("profile_photo_url")
-    val profilePhotoUrl: String? = null
-)
-
-/**
- * Courier Profile Data
- *
- * Returned by GET /api/v1/courier/profile
- */
-data class CourierProfile(
-    @SerializedName("courier_id")
-    val courierId: String,
-
-    @SerializedName("name")
-    val name: String,
-
-    @SerializedName("phone")
-    val phone: String? = null,
-
-    @SerializedName("vehicle_type")
-    val vehicleType: String? = null,
-
-    @SerializedName("status")
-    val status: String = "offline",
-
-    @SerializedName("profile_photo_url")
-    val profilePhotoUrl: String? = null,
-
-    @SerializedName("total_deliveries")
-    val totalDeliveries: Int = 0,
-
-    @SerializedName("today_deliveries")
-    val todayDeliveries: Int = 0
+    val name: String? = null
 )

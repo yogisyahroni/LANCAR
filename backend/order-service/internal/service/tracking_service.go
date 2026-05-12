@@ -73,6 +73,73 @@ func (s *TrackingServiceImpl) UpdateLocation(ctx context.Context, req domain.Cou
 	return nil
 }
 
+func (s *TrackingServiceImpl) SyncLocations(ctx context.Context, req domain.CourierLocationSyncRequest) error {
+	if len(req.Locations) == 0 {
+		return nil
+	}
+
+	var latestLoc *domain.GPSLocation
+	
+	// 1. Iterate and save all GPS logs for comprehensive audit trail
+	for i := range req.Locations {
+		loc := req.Locations[i]
+		
+		// Track the physically most recent point by timestamp
+		if latestLoc == nil || loc.Timestamp.After(latestLoc.Timestamp) {
+			latestLoc = &req.Locations[i]
+		}
+
+		isSpoofed := loc.Speed > 150
+		
+		// Persist individual log. Uses OrderID embedded in loc itself.
+		// We log errors but continue loop if one individual entry fails insertion.
+		if err := s.repo.SaveGPSLog(ctx, req.CourierID, loc.OrderID, loc, isSpoofed); err != nil {
+			fmt.Printf("[TrackingService] Sync ERROR: failed to save sub-log: %v\n", err)
+		}
+	}
+
+	// If all saves somehow failed and no location data surfaced (should not happen)
+	if latestLoc == nil {
+		latestLoc = &req.Locations[len(req.Locations)-1] // fallback
+	}
+
+	// 2. Perform heavy state updates ONLY for the single latest point
+	
+	// A. Update current location in primary courier profile
+	if err := s.repo.UpdateCourierLocation(ctx, req.CourierID, *latestLoc); err != nil {
+		fmt.Printf("[TrackingService] Sync WARN: failed updating courier profile map: %v\n", err)
+	}
+
+	// B. Run spatial analysis geofencing check for latest position
+	geofenceResult, geoErr := s.repo.CheckGeofence(ctx, req.CourierID, latestLoc.Latitude, latestLoc.Longitude)
+	if geoErr == nil && !geofenceResult.IsInsideZone && geofenceResult.OutOfZoneMinutes > 5 {
+		topic := fmt.Sprintf("alert:geofence:%s", req.CourierID.String())
+		s.eventBus.Publish(ctx, topic, map[string]interface{}{
+			"courier_id":         req.CourierID.String(),
+			"alert":              "Courier has been out of assigned zone for >5 minutes",
+			"out_of_zone_minutes": geofenceResult.OutOfZoneMinutes,
+			"zone_id":            geofenceResult.AssignedZoneID,
+			"location":           *latestLoc,
+		})
+	}
+
+	// C. Announce new coordinate via live streaming pubsub layer
+	topic := fmt.Sprintf("tracking:courier:%s", req.CourierID.String())
+	payload := map[string]interface{}{
+		"courier_id": req.CourierID.String(),
+		"location":   *latestLoc,
+	}
+	s.eventBus.Publish(ctx, topic, payload)
+
+	// If we have a bound order, announce to order channel as well
+	if latestLoc.OrderID != nil {
+		orderTopic := fmt.Sprintf("tracking:order:%s", latestLoc.OrderID.String())
+		s.eventBus.Publish(ctx, orderTopic, payload)
+	}
+
+	return nil
+}
+
 func (s *TrackingServiceImpl) GetTrackingByOrder(ctx context.Context, orderID uuid.UUID) (*domain.TrackingResponse, error) {
 	// 1. Get active courier for this order
 	courierID, err := s.repo.GetActiveCourierForOrder(ctx, orderID)

@@ -48,6 +48,37 @@ func (h *TrackingHandler) UpdateLocation(w http.ResponseWriter, r *http.Request)
 	middleware.WriteSuccess(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+func (h *TrackingHandler) SyncLocations(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	var req domain.CourierLocationSyncRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "Invalid JSON payload", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	// Authenticated session mapping for automatic CourierID locking
+	userID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if ok && userID != "" {
+		if u, err := uuid.Parse(userID); err == nil {
+			req.CourierID = u
+		}
+	}
+
+	if err := h.trackingSvc.SyncLocations(r.Context(), req); err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", err.Error(), middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	middleware.WriteSuccess(w, http.StatusOK, map[string]interface{}{
+		"success":      true,
+		"synced_count": len(req.Locations),
+	})
+}
+
 func (h *TrackingHandler) GetTracking(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))

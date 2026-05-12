@@ -3,6 +3,24 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("com.google.gms.google-services")
     id("com.google.devtools.ksp") version "1.9.20-1.0.14"
+    id("com.google.dagger.hilt.android")
+}
+
+
+fun getEnvVariable(key: String): String {
+    val envFile = rootProject.file("../.env")
+    if (!envFile.exists()) return ""
+    
+    envFile.readLines().forEach { line ->
+        val trimmed = line.trim()
+        if (!trimmed.startsWith("#") && trimmed.contains("=")) {
+            val parts = trimmed.split("=", limit = 2)
+            if (parts[0].trim() == key) {
+                return parts[1].trim().removeSurrounding("\"").removeSurrounding("'")
+            }
+        }
+    }
+    return ""
 }
 
 android {
@@ -18,6 +36,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = getEnvVariable("GOOGLE_MAPS_API_KEY")
     }
 
     buildTypes {
@@ -104,6 +124,11 @@ dependencies {
     // Accompanist for runtime permissions in Compose
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
 
+    // Google Maps & Location Engine
+    implementation("com.google.maps.android:maps-compose:4.3.3")
+    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    implementation("com.google.android.gms:play-services-location:21.1.0")
+
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
@@ -112,4 +137,9 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    // Hilt
+    implementation("com.google.dagger:hilt-android:2.48")
+    ksp("com.google.dagger:hilt-android-compiler:2.48")
+    implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
 }
