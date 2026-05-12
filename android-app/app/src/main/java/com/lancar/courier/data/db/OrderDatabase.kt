@@ -16,7 +16,6 @@ import com.lancar.courier.data.model.Order
     version = 1,
     exportSchema = false
 )
-@TypeConverters(Converters::class)
 abstract class OrderDatabase : RoomDatabase() {
 
     abstract fun orderDao(): OrderDao

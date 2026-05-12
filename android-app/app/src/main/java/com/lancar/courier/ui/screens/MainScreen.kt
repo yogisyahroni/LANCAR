@@ -12,6 +12,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.lancar.courier.data.model.Order
+import com.lancar.courier.data.repository.OrderRepository
 import com.lancar.courier.ui.screens.order.OrderDetailScreen
 import com.lancar.courier.ui.screens.order.OrderScreen
 import com.lancar.courier.ui.screens.pod.ProofOfDeliveryScreen
@@ -26,17 +27,30 @@ import com.lancar.courier.ui.theme.Primary
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(navController: NavHostController? = null) {
+fun MainScreen(
+    navController: NavHostController? = null,
+    initialOrderId: String? = null
+) {
     var selectedTab by remember { mutableStateOf(0) }
     var showPodScreen by remember { mutableStateOf(false) }
     var showOrderDetail by remember { mutableStateOf(false) }
     var showScanScreen by remember { mutableStateOf(false) }
     var selectedOrder by remember { mutableStateOf<Order?>(null) }
+
+    // Handle initial order selection from notification
+    LaunchedEffect(initialOrderId) {
+        if (initialOrderId != null) {
+            // TODO: Load actual order from repository
+            // For demo, create a dummy order
+            selectedOrder = createDemoOrder(initialOrderId)
+            showOrderDetail = true
+        }
+    }
     
     // Handle PoD screen
     if (showPodScreen && selectedOrder != null) {
         ProofOfDeliveryScreen(
-            orderId = selectedOrder!!.orderId,
+            order = selectedOrder!!,
             onImageConfirmed = { uri ->
                 // Handle the confirmed PoD image
                 // In production, this would upload to backend
@@ -305,6 +319,7 @@ private fun createDemoOrder(orderId: String): Order {
         distance = "5.2 km",
         fee = "Rp 25,000",
         customerName = "John Doe",
+        phoneNumber = "+62 812-3456-7890",
         status = "assigned"
     )
 }

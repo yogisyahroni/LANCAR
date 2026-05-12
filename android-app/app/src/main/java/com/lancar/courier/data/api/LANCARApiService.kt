@@ -2,6 +2,8 @@ package com.lancar.courier.data.api
 
 import com.lancar.courier.data.model.ApiResponse
 import com.lancar.courier.data.model.FCMTokenRequest
+import com.lancar.courier.data.model.LocationRequest
+import com.lancar.courier.data.model.LocationResponse
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.ScanRequest
 import com.lancar.courier.data.model.ScanResponse
@@ -66,4 +68,12 @@ interface LANCARApiService {
         @Part("order_id") orderId: RequestBody,
         @Part photo: MultipartBody.Part
     ): Response<ApiResponse<String>>
+
+    /**
+     * Sync courier location data
+     */
+    @POST("api/v1/courier/location/sync")
+    suspend fun syncLocations(
+        @Body request: LocationRequest
+    ): Response<ApiResponse<LocationResponse>>
 }

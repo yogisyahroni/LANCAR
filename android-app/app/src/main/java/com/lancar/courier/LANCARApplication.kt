@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.util.Log
 import androidx.work.Configuration
-import androidx.work.WorkManager
 import com.lancar.courier.data.api.ApiClient
 import com.lancar.courier.data.repository.FCMTokenRepository
 import com.lancar.courier.data.repository.OrderRepository
@@ -33,8 +32,7 @@ class LANCARApplication : Application(), Configuration.Provider {
         // Initialize notification channels
         createNotificationChannels()
 
-        // Initialize WorkManager
-        WorkManager.initialize(this, Configuration.Builder().build())
+        // WorkManager is initialized automatically via Configuration.Provider interface
 
         // Initialize repositories
         val orderRepository = OrderRepository(applicationContext)
@@ -70,9 +68,8 @@ class LANCARApplication : Application(), Configuration.Provider {
         notificationManager.createNotificationChannels(listOf(ordersChannel, generalChannel))
     }
 
-    override fun getWorkManagerConfiguration(): Configuration {
-        return Configuration.Builder().build()
-    }
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder().build()
 
     companion object {
         const val CHANNEL_ORDERS = "lancar_orders"

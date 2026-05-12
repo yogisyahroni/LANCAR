@@ -121,12 +121,12 @@ class OrderRepository(private val context: Context) {
      * Sync pending orders with backend
      * Returns list of successfully synced order IDs
      */
-    suspend fun syncPendingOrders(): Result<List<String>> = withContext(Dispatchers.IO) {
+    suspend fun syncPendingOrders(authToken: String = ""): Result<List<String>> = withContext(Dispatchers.IO) {
         try {
             val pendingOrders = orderDao.getPendingOrders().first()
             val pendingScans = orderDao.getPendingScans().first()
             val pendingPods = orderDao.getPendingPods().first()
-            
+
             if (pendingOrders.isEmpty() && pendingScans.isEmpty() && pendingPods.isEmpty()) {
                 return@withContext Result.success(emptyList())
             }
@@ -172,7 +172,7 @@ class OrderRepository(private val context: Context) {
                         val requestFile = okhttp3.RequestBody.create(okhttp3.MediaType.parse("image/jpeg"), file)
                         val body = okhttp3.MultipartBody.Part.createFormData("photo", file.name, requestFile)
                         val orderIdBody = okhttp3.RequestBody.create(okhttp3.MediaType.parse("text/plain"), order.orderId)
-                        
+
                         val response = apiService.uploadPod(orderIdBody, body)
                         if (response.isSuccessful && response.body()?.success == true) {
                             orderDao.markPodAsSynced(listOf(order.orderId))

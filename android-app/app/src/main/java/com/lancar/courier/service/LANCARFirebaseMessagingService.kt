@@ -111,6 +111,23 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val acceptIntent = Intent(applicationContext, NotificationReceiver::class.java).apply {
+            action = NotificationReceiver.ACTION_ACCEPT
+            putExtra(NotificationReceiver.EXTRA_ORDER_ID, data["order_id"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_PICKUP_ADDRESS, data["pickup_address"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_PICKUP_TIME, data["pickup_time"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_DROP_ADDRESS, data["drop_address"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_DISTANCE, data["distance"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_FEE, data["fee"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_CUSTOMER_NAME, data["customer_name"] ?: "")
+        }
+        val acceptPendingIntent = PendingIntent.getBroadcast(
+            applicationContext,
+            1,
+            acceptIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         val notification = NotificationCompat.Builder(applicationContext, LANCARApplication.CHANNEL_ORDERS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
@@ -129,6 +146,13 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
                             .putExtra("notification_id", data["notification_id"] ?: ""),
                         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                     )
+                ).build()
+            )
+            .addAction(
+                NotificationCompat.Action.Builder(
+                    R.drawable.ic_notification,
+                    "Accept",
+                    acceptPendingIntent
                 ).build()
             )
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))

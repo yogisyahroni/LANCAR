@@ -62,27 +62,28 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         // Initialize repositories
         fcmTokenRepository = FCMTokenRepository(applicationContext)
         orderRepository = OrderRepository(applicationContext)
-        
+
         // Initialize OrderRepository in Application (alternative approach)
         // LANCARApplication.OrderModule.init(applicationContext)
-        
+
         // Request notification permission for Android 13+
         askNotificationPermission()
-        
+
         // Request location permission for GPS tracking (PTLAAA-46)
         askLocationPermission()
 
         setContent {
+            val orderId = intent?.getStringExtra("selected_order_id")
             LANCARCourierTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MainScreen()
+                    MainScreen(initialOrderId = orderId)
                 }
             }
         }

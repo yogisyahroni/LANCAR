@@ -4,8 +4,14 @@ Native Android application for LANCAR logistics courier drivers, built with Kotl
 
 ## Features
 
-- **Push Notifications (FCM)**: Real-time order assignment alerts
+- **Push Notifications (FCM)**: Real-time order assignment alerts with Accept/Dismiss actions
+- **Order Acceptance**: Accept orders directly from notification with full order data
+- **View Map**: Open delivery location in Google Maps
+- **Call Customer**: Initiate phone call to customer from order detail
+- **Proof of Delivery**: Camera capture with order info overlay
 - **Foreground & Background Handling**: Notification states handled for all app states
+- **Location Sync**: Real-time GPS tracking with backend synchronization
+- **Offline Queue**: Orders stored locally and synced when online
 - **Material Design 3 UI**: Modern Jetpack Compose interface
 - **API Integration**: Retrofit-based backend communication
 

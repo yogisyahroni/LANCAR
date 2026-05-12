@@ -39,13 +39,14 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
+import com.lancar.courier.data.model.Order
 import com.lancar.courier.ui.theme.Primary
 import java.io.File
 import java.util.concurrent.Executor
 
 /**
  * Proof of Delivery Screen
- * 
+ *
  * Provides camera interface for drivers to capture proof of delivery images.
  * Features:
  * - Camera preview with capture button
@@ -56,7 +57,7 @@ import java.util.concurrent.Executor
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun ProofOfDeliveryScreen(
-    orderId: String,
+    order: Order,
     onImageConfirmed: (Uri) -> Unit,
     onBack: () -> Unit,
     viewModel: ProofOfDeliveryViewModel = viewModel()
@@ -64,18 +65,18 @@ fun ProofOfDeliveryScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsState()
-    
+
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
-    
+
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
     var previewView by remember { mutableStateOf<PreviewView?>(null) }
-    
+
     LaunchedEffect(Unit) {
         if (!cameraPermissionState.status.isGranted) {
             cameraPermissionState.launchPermissionRequest()
         }
     }
-    
+
     // Handle errors
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
@@ -83,7 +84,7 @@ fun ProofOfDeliveryScreen(
             viewModel.clearError()
         }
     }
-    
+
     // Handle upload success
     LaunchedEffect(uiState.uploadSuccess) {
         if (uiState.uploadSuccess && uiState.capturedImageUri != null) {
@@ -91,7 +92,7 @@ fun ProofOfDeliveryScreen(
             onImageConfirmed(uiState.capturedImageUri!!)
         }
     }
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -126,12 +127,13 @@ fun ProofOfDeliveryScreen(
                         uiState = uiState,
                         onRetake = { viewModel.clearImage() },
                         onConfirm = {
-                            viewModel.uploadPod(orderId)
+                            viewModel.uploadPod(order.orderId)
                         }
                     )
                 }
                 else -> {
                     CameraPreviewContent(
+                        order = order,
                         previewView = previewView,
                         onPreviewViewReady = { previewView = it },
                         onImageCaptureReady = { imageCapture = it },
@@ -169,9 +171,9 @@ private fun CameraPermissionContent(
         )
         Spacer(modifier = Modifier.height(24.dp))
         Text(
-            text = if (shouldShowRationale) 
-                "Camera permission is required to capture proof of delivery photos." 
-            else 
+            text = if (shouldShowRationale)
+                "Camera permission is required to capture proof of delivery photos."
+            else
                 "Please grant camera permission to take photos.",
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center
@@ -185,15 +187,13 @@ private fun CameraPermissionContent(
 
 @Composable
 private fun CameraPreviewContent(
+    order: Order,
     previewView: PreviewView?,
     onPreviewViewReady: (PreviewView) -> Unit,
     onImageCaptureReady: (ImageCapture) -> Unit,
     onCapture: () -> Unit,
     isCapturing: Boolean
 ) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    
     Box(modifier = Modifier.fillMaxSize()) {
         // Camera Preview
         AndroidView(
@@ -205,33 +205,55 @@ private fun CameraPreviewContent(
             },
             modifier = Modifier.fillMaxSize()
         )
-        
-        // Capture overlay
+
+        // Capture overlay with order info
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = 100.dp),
             contentAlignment = Alignment.BottomCenter
         ) {
-            // Order info placeholder
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 32.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color.Black.copy(alpha = 0.6f)
-                )
+                    containerColor = Color.Black.copy(alpha = 0.7f)
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    text = "Take a clear photo of the package delivered",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White,
-                    modifier = Modifier.padding(16.dp),
-                    textAlign = TextAlign.Center
-                )
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Order: ${order.orderId}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Customer: ${order.customerName}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "To: ${order.dropAddress}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Take a clear photo of the delivered package",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.6f),
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
-            
+
             // Capture button
             Box(
                 modifier = Modifier
@@ -294,9 +316,9 @@ private fun ImagePreviewContent(
                 contentScale = ContentScale.Fit
             )
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Compression info
         if (uiState.originalFileSize > 0) {
             Card(
@@ -339,9 +361,9 @@ private fun ImagePreviewContent(
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Action buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -355,7 +377,7 @@ private fun ImagePreviewContent(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Retake")
             }
-            
+
             Button(
                 onClick = onConfirm,
                 modifier = Modifier.weight(1f),
@@ -382,22 +404,22 @@ private fun startCamera(
     onImageCaptureReady: (ImageCapture) -> Unit
 ) {
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-    
+
     cameraProviderFuture.addListener({
         val cameraProvider = cameraProviderFuture.get()
-        
+
         val preview = Preview.Builder().build().also {
             it.setSurfaceProvider(previewView.surfaceProvider)
         }
-        
+
         val imageCapture = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             .build()
-        
+
         onImageCaptureReady(imageCapture)
-        
+
         val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
-        
+
         try {
             cameraProvider.unbindAll()
             cameraProvider.bindToLifecycle(

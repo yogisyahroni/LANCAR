@@ -7,14 +7,13 @@ import com.lancar.courier.data.db.OrderDatabase
 import com.lancar.courier.data.model.Location
 import com.lancar.courier.data.model.LocationData
 import com.lancar.courier.data.model.LocationRequest
-import com.lancar.courier.data.model.LocationResponse
 import com.lancar.courier.data.model.ApiResponse as BaseApiResponse
 import kotlinx.coroutines.flow.Flow
 import retrofit2.Response
 
 /**
  * Location Repository
- * 
+ *
  * Manages GPS location data storage and synchronization with backend.
  * Handles both local persistence and remote API calls.
  */
@@ -32,7 +31,7 @@ class LocationRepository(private val context: Context) {
     /**
      * Get latest location for a courier as Flow
      */
-    fun getLatestLocationFlow(courierId: String): Flow<Location?> = 
+    fun getLatestLocationFlow(courierId: String): Flow<Location?> =
         locationDao.getLatestLocationFlow(courierId)
 
     /**
@@ -77,7 +76,7 @@ class LocationRepository(private val context: Context) {
     suspend fun syncLocations(authToken: String, courierId: String, deviceId: String): Result<List<Long>> {
         return try {
             val unsynced = locationDao.getUnsyncedLocations(100)
-            
+
             if (unsynced.isEmpty()) {
                 return Result.success(emptyList())
             }
@@ -102,15 +101,14 @@ class LocationRepository(private val context: Context) {
                 deviceId = deviceId
             )
 
-            // Note: This API endpoint needs to be added to LANCARApiService
-            // For now, we'll use a placeholder response
-            // In production, add: @POST("api/v1/courier/location/sync")
-            
-            // Simulate successful sync
-            val syncedIds = unsynced.map { it.id }
-            locationDao.markAsSynced(syncedIds)
-            
-            Result.success(syncedIds)
+            val response = apiService.syncLocations(request)
+            if (response.isSuccessful && response.body()?.success == true) {
+                val syncedIds = unsynced.map { it.id }
+                locationDao.markAsSynced(syncedIds)
+                Result.success(syncedIds)
+            } else {
+                Result.failure(Exception("Location sync failed: ${response.message()}"))
+            }
         } catch (e: Exception) {
             // Increment sync attempts for failed locations
             val unsynced = locationDao.getUnsyncedLocations(100)

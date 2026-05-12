@@ -1,5 +1,7 @@
 package com.lancar.courier.ui.screens.order
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -7,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lancar.courier.data.model.Order
@@ -142,13 +145,28 @@ private fun OrderActions(
             ActionButton(
                 icon = Icons.Default.LocationOn,
                 label = "View Map",
-                onClick = { /* TODO */ }
+                onClick = {
+                    val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(order.dropAddress)}")
+                    val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                    mapIntent.setPackage("com.google.android.apps.maps")
+                    if (mapIntent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(mapIntent)
+                    }
+                }
             )
-            
+
             ActionButton(
                 icon = Icons.Default.Phone,
                 label = "Call Customer",
-                onClick = { /* TODO */ }
+                onClick = {
+                    val phone = order.phoneNumber ?: ""
+                    if (phone.isNotBlank()) {
+                        val callIntent = Intent(Intent.ACTION_DIAL).apply {
+                            data = Uri.parse("tel:$phone")
+                        }
+                        context.startActivity(callIntent)
+                    }
+                }
             )
 
             ActionButton(
