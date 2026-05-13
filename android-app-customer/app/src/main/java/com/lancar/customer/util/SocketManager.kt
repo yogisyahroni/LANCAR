@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
 import org.json.JSONObject
 import java.net.URISyntaxException
 import javax.inject.Inject
@@ -22,7 +23,8 @@ import javax.inject.Singleton
 @Singleton
 class SocketManager @Inject constructor(
     private val sessionManager: AuthSessionManager,
-    private val json: Json
+    private val json: Json,
+    private val okHttpClient: OkHttpClient
 ) {
     private var mSocket: Socket? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -54,6 +56,10 @@ class SocketManager @Inject constructor(
                 .setQuery("userId=$userId&role=customer")
                 .setReconnection(true)
                 .build()
+
+            // 🛡️ Force secure transport utilizing our pinned OkHttpClient
+            opts.callFactory = okHttpClient
+            opts.webSocketFactory = okHttpClient
 
             val socketUrl = BuildConfig.BASE_URL
             Log.d(TAG, "Initializing Socket.IO connection to: $socketUrl (User: $userId)")

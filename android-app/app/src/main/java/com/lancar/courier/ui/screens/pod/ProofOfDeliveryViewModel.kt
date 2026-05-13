@@ -51,7 +51,12 @@ data class PodUiState(
     val originalFileSize: Long = 0L,
     val compressedFileSize: Long = 0L,
     val error: String? = null,
-    val uploadSuccess: Boolean = false,
+    // Idempotency flag: true = PoD already submitted, reject any further upload attempts
+    val isUploadSubmitted: Boolean = false,
+    // True when saved to local Room DB (offline-first guarantee)
+    val podSavedLocally: Boolean = false,
+    // True ONLY when backend confirmed receipt (may be false while offline)
+    val serverSyncSuccess: Boolean = false,
     val isTorchEnabled: Boolean = false
 )
 
@@ -402,47 +407,80 @@ class ProofOfDeliveryViewModel @Inject constructor(
     }
 
     /**
-     * Uploads the PoD image to the backend.
+     * Uploads the PoD image to the backend (Offline-First).
+     *
+     * IDEMPOTENCY GUARD: Rejects duplicate calls if submission already in progress or completed.
+     * This prevents double-submit race conditions on rapid button taps.
      */
     fun uploadPod(orderId: String) {
-        val prepared = prepareForUpload()
-        if (prepared == null) {
-            _uiState.value = _uiState.value.copy(error = "No image to upload")
+        // ── Idempotency Check ──────────────────────────────────────────────────
+        val currentState = _uiState.value
+        if (currentState.isUploading || currentState.isUploadSubmitted) {
+            // Already submitted or currently uploading — silently reject duplicate call
             return
         }
-        
-        val (file, contentType) = prepared
-        _uiState.value = _uiState.value.copy(isUploading = true, error = null)
-        
-        viewModelScope.launch {
-            try {
-                // Offline first: Save locally
-                orderRepository.savePodLocally(orderId, file.absolutePath)
 
-                // Then try to upload immediately
+        val prepared = prepareForUpload()
+        if (prepared == null) {
+            _uiState.value = currentState.copy(error = "Tidak ada foto yang dipilih")
+            return
+        }
+
+        val (file, contentType) = prepared
+        // Mark as submitted IMMEDIATELY to prevent any concurrent calls from slipping through
+        _uiState.value = currentState.copy(
+            isUploading = true,
+            isUploadSubmitted = true,
+            error = null
+        )
+
+        viewModelScope.launch {
+            // ── Step 1: Offline-First — Save to Local Room DB ──────────────────
+            try {
+                orderRepository.savePodLocally(orderId, file.absolutePath)
+                _uiState.value = _uiState.value.copy(podSavedLocally = true)
+            } catch (dbException: Exception) {
+                // If even local save fails, this is a critical error — abort
+                _uiState.value = _uiState.value.copy(
+                    isUploading = false,
+                    isUploadSubmitted = false, // Reset guard so user can retry
+                    error = "Gagal menyimpan bukti pengiriman: ${dbException.message}"
+                )
+                return@launch
+            }
+
+            // ── Step 2: Attempt immediate backend sync ─────────────────────────
+            try {
                 val requestFile = file.asRequestBody(contentType.toMediaTypeOrNull())
                 val body = MultipartBody.Part.createFormData("photo", file.name, requestFile)
                 val orderIdPart = orderId.toRequestBody("text/plain".toMediaTypeOrNull())
-                
+
                 val response = apiService.uploadPod(orderIdPart, body)
-                
+
                 if (response.isSuccessful && response.body()?.success == true) {
+                    // ✅ Full success: saved locally AND synced to server
                     _uiState.value = _uiState.value.copy(
                         isUploading = false,
-                        uploadSuccess = true
+                        serverSyncSuccess = true
                     )
                 } else {
-                    // API failed, but we saved locally, so it's a success for offline-first.
+                    // ⚠️ Server rejected or returned non-success:
+                    // PoD IS saved locally — WorkManager will retry the upload.
+                    // Do NOT show this as a failure to user — it will auto-sync.
                     _uiState.value = _uiState.value.copy(
                         isUploading = false,
-                        uploadSuccess = true
+                        serverSyncSuccess = false
+                        // podSavedLocally=true remains — the data is safe
                     )
                 }
-            } catch (e: Exception) {
-                // Network error, but we saved locally.
+            } catch (networkException: Exception) {
+                // 📶 Network error — PoD IS safely stored locally.
+                // WorkManager will upload it when connectivity is restored.
+                // This is correct offline-first behavior, NOT a failure.
                 _uiState.value = _uiState.value.copy(
                     isUploading = false,
-                    uploadSuccess = true
+                    serverSyncSuccess = false
+                    // podSavedLocally=true remains — the data is safe
                 )
             }
         }

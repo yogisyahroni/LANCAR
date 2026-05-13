@@ -64,37 +64,46 @@ class NotificationReceiver : BroadcastReceiver() {
                     needsSync = true // mark for backend confirmation
                 )
 
+                // goAsync() extends the BroadcastReceiver lifecycle window beyond 10s.
+                // Without this, Android kills the receiver before the coroutine completes,
+                // causing silent order acceptance failures or Room DB write corruption.
+                val pendingResult = goAsync()
                 CoroutineScope(Dispatchers.IO).launch {
-                    // 1. Save locally first (offline-first guarantee)
-                    orderRepository.addOrder(order)
-                    Log.d(TAG, "Order saved locally: $orderId")
-
-                    // 2. Confirm acceptance to backend immediately
                     try {
-                        val response = apiService.updateStatus(
-                            StatusUpdateRequest(
-                                orderId = orderId,
-                                status = "accepted",
-                                notes = null
+                        // 1. Save locally first (offline-first guarantee)
+                        orderRepository.addOrder(order)
+                        Log.d(TAG, "Order saved locally: $orderId")
+
+                        // 2. Confirm acceptance to backend immediately
+                        try {
+                            val response = apiService.updateStatus(
+                                StatusUpdateRequest(
+                                    orderId = orderId,
+                                    status = "accepted",
+                                    notes = null
+                                )
                             )
-                        )
-                        if (response.isSuccessful && response.body()?.success == true) {
-                            // Mark as synced — no need for WorkManager retry
-                            val saved = orderRepository.getOrderById(orderId)
-                            if (saved != null) {
-                                orderRepository.updateOrder(saved.copy(needsSync = false))
+                            if (response.isSuccessful && response.body()?.success == true) {
+                                // Mark as synced — no need for WorkManager retry
+                                val saved = orderRepository.getOrderById(orderId)
+                                if (saved != null) {
+                                    orderRepository.updateOrder(saved.copy(needsSync = false))
+                                }
+                                Log.d(TAG, "Order acceptance confirmed to backend: $orderId")
+                            } else {
+                                Log.w(TAG, "Backend accept failed (${response.code()}), WorkManager will retry")
                             }
-                            Log.d(TAG, "Order acceptance confirmed to backend: $orderId")
-                        } else {
-                            Log.w(TAG, "Backend accept failed (${response.code()}), WorkManager will retry")
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Network error on accept confirm, WorkManager will retry: ${e.message}")
+                            // needsSync=true is already set — WorkManager handles the retry
                         }
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Network error on accept confirm, WorkManager will retry: ${e.message}")
-                        // needsSync=true is already set — WorkManager handles the retry
+                    } finally {
+                        // CRITICAL: Must call finish() to release the wakelock held by goAsync()
+                        pendingResult.finish()
                     }
                 }
 
-                // 3. Open the app to show order detail
+                // 3. Open the app to show order detail (fire-and-forget, doesn't need goAsync)
                 val mainIntent = Intent(context, com.lancar.courier.ui.MainActivity::class.java).apply {
                     flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                     putExtra("selected_order_id", orderId)

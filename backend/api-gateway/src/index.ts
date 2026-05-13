@@ -120,14 +120,24 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// 🛡️ Global DDoS & Brute-Force Defense Layer
+app.use(generalLimiter);
+
 // JWT Authentication Middleware
 const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (authHeader) {
     const token = authHeader.split(' ')[1];
-    const secret = process.env.JWT_SECRET || 'your-secret-key';
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      console.error('[Gateway Security Warning] JWT_SECRET is NOT defined in current environment variables!');
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(500).json({ status: 'error', code: 'ERR_CONFIG', message: 'Secure authentication configuration missing.' });
+      }
+    }
+    const verifyKey = secret || 'your-secret-key';
 
-    jwt.verify(token, secret, (err: any, user: any) => {
+    jwt.verify(token, verifyKey, (err: any, user: any) => {
       if (err) {
         return res.status(403).json({ status: 'error', code: 'ERR_FORBIDDEN', message: 'Invalid or expired token' });
       }
@@ -172,7 +182,13 @@ app.use(cors({
     if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0')) {
       callback(null, true);
     } else {
-      callback(null, true); // Allow all for now to fix login
+      const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`[Gateway Security Alert] Permissive CORS blocked for unauthorized origin: ${origin}`);
+        callback(new Error('Blocked by CORS'));
+      }
     }
   },
   credentials: true,

@@ -85,10 +85,15 @@ fun ProofOfDeliveryScreen(
         }
     }
 
-    // Handle upload success
-    LaunchedEffect(uiState.uploadSuccess) {
-        if (uiState.uploadSuccess && uiState.capturedImageUri != null) {
-            Toast.makeText(context, "PoD uploaded successfully!", Toast.LENGTH_SHORT).show()
+    // Handle upload completion — triggered when PoD is safely saved to local DB (offline-first)
+    LaunchedEffect(uiState.podSavedLocally) {
+        if (uiState.podSavedLocally && uiState.capturedImageUri != null) {
+            val message = if (uiState.serverSyncSuccess) {
+                "Bukti pengiriman berhasil terkirim ✓"
+            } else {
+                "Bukti pengiriman tersimpan. Akan tersinkronisasi otomatis."
+            }
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             onImageConfirmed(uiState.capturedImageUri!!)
         }
     }

@@ -5,6 +5,7 @@ plugins {
     id("com.google.devtools.ksp") version "1.9.20-1.0.14"
     id("com.google.dagger.hilt.android")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.firebase.crashlytics")
 }
 
 
@@ -44,6 +45,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "BASE_URL", "\"https://api.lancar.com/\"")
         }
@@ -93,6 +95,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-messaging-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.google.firebase:firebase-crashlytics-ktx")
 
     // WorkManager for background handling
     implementation("androidx.work:work-runtime-ktx:2.9.0")
@@ -106,6 +109,9 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
+    // 🔒 Security Enhancement: SQLCipher for on-disk Room DB encryption
+    implementation("androidx.sqlite:sqlite-ktx:2.4.0")
+    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
 
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

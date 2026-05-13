@@ -441,6 +441,17 @@ class LocationTrackerService : Service() {
             override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
                 locationResult.lastLocation?.let { location ->
+                    val isMock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        location.isMock
+                    } else {
+                        @Suppress("DEPRECATION")
+                        location.isFromMockProvider
+                    }
+                    
+                    if (isMock) {
+                        Log.w("LocationTracker", "[Security Warning] Spoofed/Mock GPS coordinates detected. Dropping update.")
+                        return@let
+                    }
                     handleLocationUpdate(location)
                 }
             }

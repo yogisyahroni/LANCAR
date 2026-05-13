@@ -51,14 +51,22 @@ object NetworkModule {
         sessionManager: AuthSessionManager,
         tokenRefreshInterceptor: TokenRefreshInterceptor
     ): OkHttpClient {
-        return OkHttpClient.Builder()
+        val builder = OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
             .addInterceptor(AuthInterceptor(sessionManager))
             .addInterceptor(tokenRefreshInterceptor)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
-            .build()
+
+        if (!BuildConfig.DEBUG) {
+            val certificatePinner = CertificatePinner.Builder()
+                .add("api.lancar.com", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=") // Substitute with real production cert pin
+                .build()
+            builder.certificatePinner(certificatePinner)
+        }
+
+        return builder.build()
     }
 
     @Provides

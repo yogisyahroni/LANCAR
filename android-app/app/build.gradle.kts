@@ -111,6 +111,9 @@ dependencies {
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
+    // 🔒 Security Enhancement: SQLCipher for on-disk Room DB encryption
+    implementation("androidx.sqlite:sqlite-ktx:2.4.0")
+    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
 
     // Networking & Serialization (Modern Data Stack)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
