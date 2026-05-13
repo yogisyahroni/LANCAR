@@ -5,6 +5,7 @@ plugins {
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.firebase.crashlytics")
 }
 
 
@@ -46,6 +47,8 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = true
+            // 📦 OPTIMIZATION: Automatically strip unused resources to reduce production APK bloat
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         debug { isMinifyEnabled = false }
@@ -91,6 +94,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-messaging-ktx")
     implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.google.firebase:firebase-crashlytics-ktx")
 
     // WorkManager for background handling
     implementation("androidx.work:work-runtime-ktx:2.9.0")

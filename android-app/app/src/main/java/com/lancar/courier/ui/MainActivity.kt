@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -90,6 +91,9 @@ class MainActivity : ComponentActivity() {
         // Ingest startup deep-links
         processIntentExtras(intent)
 
+        // 🎨 VISUAL ELEVATION: Enable transparent edge-to-edge Canvas
+        enableEdgeToEdge()
+
         askNotificationPermission()
         askLocationPermission()
 
@@ -101,6 +105,13 @@ class MainActivity : ComponentActivity() {
                 ) {
                     // Auth gate — observe login state reactively
                     val isLoggedIn by authSessionManager.isLoggedIn.collectAsState(initial = false)
+                    
+                    // 🔋 SECURITY ENHANCEMENT: Trigger OS Battery Optimization Whitelisting on active duty session to protect background GPS
+                    LaunchedEffect(isLoggedIn) {
+                        if (isLoggedIn) {
+                            checkAndRequestBatteryWhitelist()
+                        }
+                    }
                     
                     // Collect active deep links reactively
                     val deepLinkOrderId by selectedOrderIdFlow.collectAsState()

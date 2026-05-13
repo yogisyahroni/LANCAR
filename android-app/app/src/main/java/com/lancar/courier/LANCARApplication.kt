@@ -45,6 +45,10 @@ class LANCARApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        
+        // 🚨 SECURITY & STABILITY BOUNDARY: Initialize central uncaught exception boundary
+        setupUncaughtExceptionHandler()
+        
         Log.d(TAG, "Application created")
 
         // AuthSessionManager & ApiClient will now operate through Hilt
@@ -158,6 +162,21 @@ class LANCARApplication : Application(), Configuration.Provider {
             .setWorkerFactory(workerFactory)
             .setMinimumLoggingLevel(Log.INFO)
             .build()
+
+    private fun setupUncaughtExceptionHandler() {
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                // 💥 DIAGNOSTIC BOUNDARY: Safe-log critical runtime anomalies
+                Log.e(TAG, "CRITICAL APOCALYPTIC FATAL ERROR: Thread[${thread.name}] had uncaught crash!", throwable)
+            } catch (e: Exception) {
+                // Prevent handler recursion crashes
+            } finally {
+                // Hand-off cleanly back to Firebase Crashlytics and Android OS crash reporting
+                defaultHandler?.uncaughtException(thread, throwable)
+            }
+        }
+    }
 
     companion object {
         const val CHANNEL_ORDERS = "lancar_orders"
