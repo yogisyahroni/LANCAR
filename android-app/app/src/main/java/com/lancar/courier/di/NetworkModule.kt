@@ -4,6 +4,7 @@ import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFact
 import com.lancar.courier.BuildConfig
 import com.lancar.courier.data.api.AuthInterceptor
 import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TokenExpiryInterceptor
 import com.lancar.courier.data.session.AuthSessionManager
 import dagger.Module
 import dagger.Provides
@@ -36,7 +37,12 @@ object NetworkModule {
     @Singleton
     fun provideHttpLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            // 🔒 Security Enhancement: Leak zero payloads in production logcat logs
+            level = if (BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         }
     }
 
@@ -49,6 +55,8 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
             .addInterceptor(AuthInterceptor(sessionManager))
+            // 🛡️ Auto-logout on Token Expiration (HTTP 401)
+            .addInterceptor(TokenExpiryInterceptor(sessionManager))
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)

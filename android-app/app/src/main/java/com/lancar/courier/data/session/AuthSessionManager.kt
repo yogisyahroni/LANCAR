@@ -126,9 +126,10 @@ class AuthSessionManager(private val context: Context) {
     }
 
     /**
-     * Clear session securely on logout
+     * Synchronously clear session data immediately.
+     * Optimized for execution on background threads/interceptors.
      */
-    suspend fun clearSession() {
+    fun clearSessionSync() {
         sharedPreferences.edit().apply {
             remove(KEY_AUTH_TOKEN)
             remove(KEY_COURIER_ID)
@@ -136,11 +137,20 @@ class AuthSessionManager(private val context: Context) {
             apply()
         }
 
-        // Flush memory cache
+        // Flush memory cache instantly
         _authTokenFlow.value = null
         _courierIdFlow.value = null
         _courierNameFlow.value = null
         _isLoggedInFlow.value = false
+        
+        Log.d("AuthSessionManager", "Sesi kurir berhasil dihapus secara sinkron.")
+    }
+
+    /**
+     * Clear session securely on logout (Suspendable bridge for UI flows)
+     */
+    suspend fun clearSession() {
+        clearSessionSync()
     }
 
     /**

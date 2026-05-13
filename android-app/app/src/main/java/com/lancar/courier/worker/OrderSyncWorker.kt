@@ -1,4 +1,4 @@
-package com.lancar.courier.receiver
+package com.lancar.courier.worker
 
 import android.content.Context
 import android.util.Log

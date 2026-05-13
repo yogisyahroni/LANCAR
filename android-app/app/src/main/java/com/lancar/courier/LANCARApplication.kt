@@ -13,7 +13,7 @@ import androidx.work.WorkManager
 import com.lancar.courier.data.repository.FCMTokenRepository
 import com.lancar.courier.data.repository.OrderRepository
 import com.lancar.courier.data.session.AuthSessionManager
-import com.lancar.courier.receiver.OrderSyncWorker
+import com.lancar.courier.worker.OrderSyncWorker
 import androidx.hilt.work.HiltWorkerFactory
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit

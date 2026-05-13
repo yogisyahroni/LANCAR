@@ -1,7 +1,9 @@
 package com.lancar.courier.ui.screens.order
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.view.WindowManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -28,6 +30,17 @@ fun OrderDetailScreen(
     onUpdateStatus: (String) -> Unit,
     onCapturePod: () -> Unit
 ) {
+    val context = LocalContext.current
+    
+    // 🛡️ SECURITY: Prevent customer PII screenshots and background system captures
+    val activity = remember(context) { context as? Activity }
+    DisposableEffect(activity) {
+        activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose {
+            activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
     var showStatusDialog by remember { mutableStateOf(false) }
     var newStatus by remember { mutableStateOf(order.status) }
 
