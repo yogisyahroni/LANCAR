@@ -23,6 +23,9 @@ import com.lancar.courier.service.LocationTrackerService
 import com.lancar.courier.ui.screens.MainScreen
 import com.lancar.courier.ui.screens.auth.LoginScreen
 import com.lancar.courier.ui.theme.LANCARCourierTheme
+import com.lancar.courier.ui.components.UpdateDialog
+import com.lancar.courier.data.model.AppVersion
+
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,6 +62,10 @@ class MainActivity : ComponentActivity() {
     
     @Inject
     lateinit var authSessionManager: AuthSessionManager
+    
+    @Inject
+    lateinit var updateManager: UpdateManager
+
 
     // Reactive state flows for deterministic notification deep-linking
     private val selectedOrderIdFlow = MutableStateFlow<String?>(null)
@@ -117,7 +124,21 @@ class MainActivity : ComponentActivity() {
                     val deepLinkOrderId by selectedOrderIdFlow.collectAsState()
                     val deepLinkChatOrderId by selectedChatOrderIdFlow.collectAsState()
 
+                    // 📱 SYSTEM: App Update Logic
+                    var updateInfo by remember { mutableStateOf<AppVersion?>(null) }
+                    LaunchedEffect(Unit) {
+                        updateInfo = updateManager.checkUpdate()
+                    }
+
+                    updateInfo?.let { info ->
+                        UpdateDialog(
+                            version = info,
+                            onDismiss = { updateInfo = null }
+                        )
+                    }
+
                     if (isLoggedIn) {
+
                         MainScreen(
                             initialOrderId = deepLinkOrderId,
                             initialChatOrderId = deepLinkChatOrderId,

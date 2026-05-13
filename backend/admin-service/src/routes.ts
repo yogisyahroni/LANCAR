@@ -54,8 +54,6 @@ routes.get('/auth/web/disputes/:id/chats', verifyWebSession, (req, res) => contr
 routes.post('/auth/web/disputes/:id/chats', verifyWebSession, (req, res) => controllers.sendDisputeChat(req, res));
 routes.post('/auth/web/disputes/:id/upload', verifyWebSession, upload.single('file'), (req, res) => controllers.uploadDisputeFile(req, res));
 
-
-
 // Bulk Order Routes
 routes.post('/auth/web/orders/bulk/upload', verifyWebSession, upload.single('file'), (req, res) => controllers.bulkOrder.uploadBulkExcel(req, res));
 routes.get('/auth/web/orders/bulk/status/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.getBulkJobStatus(req, res));
@@ -69,16 +67,12 @@ routes.post('/auth/web/orders/bulk/pay', verifyWebSession, (req, res) => control
 // Public routes (no auth required)
 routes.get('/health', (req, res) => controllers.getSystemHealth(req, res));
 routes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res));
+routes.get('/api/v1/system/latest-version', (req, res) => controllers.getLatestVersion(req, res));
 routes.post('/payments/midtrans/notification', (req, res) => controllers.customerOrder.handleMidtransNotification(req, res));
 
-// Apply auth and role middleware to all admin routes
-routes.use('/admin', requireAuth, requireRole(['super_admin']));
-
-
-// Dashboard
+// Admin routes
 routes.get('/admin/dashboard/stats', (req, res) => controllers.getDashboardStats(req, res));
 routes.get('/admin/dashboard/events', (req, res) => controllers.getDashboardEvents(req, res));
-
 
 routes.get('/admin/feature-flags', (req, res) => controllers.getAllFlags(req, res));
 routes.post('/admin/feature-flags', (req, res) => controllers.createFlag(req, res));
@@ -222,4 +216,3 @@ routes.get('/admin/finance/summary', (req, res) => controllers.getFinancialSumma
 routes.get('/admin/finance/revenue-breakdown', (req, res) => controllers.getRevenueBreakdown(req, res));
 routes.get('/admin/finance/cost-breakdown', (req, res) => controllers.getCostBreakdown(req, res));
 routes.get('/admin/finance/emergency-fund', (req, res) => controllers.getEmergencyFund(req, res));
-

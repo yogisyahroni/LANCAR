@@ -1,6 +1,8 @@
 package com.lancar.courier.data.api
 
+import com.lancar.courier.data.model.AppVersion
 import com.lancar.courier.data.model.ApiResponse
+
 import com.lancar.courier.data.model.CourierProfile
 import com.lancar.courier.data.model.FCMTokenRequest
 import com.lancar.courier.data.model.LocationRequest
@@ -26,8 +28,19 @@ import retrofit2.http.*
  * Handles auth, FCM token registration, order operations, and location sync.
  */
 interface LANCARApiService {
+    
+    // ── SYSTEM ──────────────────────────────────────────────────
+    
+    /**
+     * Get latest app version info
+     */
+    @GET("api/v1/system/latest-version")
+    suspend fun getLatestVersion(
+        @Query("type") type: String = "courier"
+    ): Response<AppVersion>
 
     // ── AUTH ────────────────────────────────────────────────────
+
 
     /**
      * Courier login — returns JWT token and courier info

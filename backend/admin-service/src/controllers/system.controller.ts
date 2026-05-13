@@ -46,6 +46,40 @@ export const getSystemConfigs = async (req: Request, res: Response) => {
   }
 };
 
+export const getLatestVersion = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const type = req.query.type as string; // 'courier' or 'customer'
+    if (!type || (type !== 'courier' && type !== 'customer')) {
+      res.status(400).json({ error: 'Invalid app type' });
+      return;
+    }
+
+    const versionKey = `mobile_${type}_version`;
+    const result = await readDb.query(
+      'SELECT value FROM system_configs WHERE key = $1',
+      [versionKey]
+    );
+
+    const updateUrlResult = await readDb.query(
+      'SELECT value FROM system_configs WHERE key = $1',
+      ['mobile_update_url']
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Version info not found' });
+      return;
+    }
+
+    res.json({
+      ...result.rows[0].value,
+      update_url: updateUrlResult.rows[0]?.value || 'https://github.com/yogisyahroni/LANCAR/releases'
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 export const updateSystemConfig = async (req: Request, res: Response): Promise<void> => {
   const key = req.params.key as string;
   const { value, description, category } = req.body;

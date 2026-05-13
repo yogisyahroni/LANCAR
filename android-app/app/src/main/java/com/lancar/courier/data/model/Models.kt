@@ -174,3 +174,22 @@ data class StatusUpdateRequest(
     @SerialName("weight")
     val weight: Double? = null
 )
+
+/**
+ * App Version Info
+ */
+@Serializable
+data class AppVersion(
+    @SerialName("code")
+    val code: Int,
+    
+    @SerialName("name")
+    val name: String,
+    
+    @SerialName("force")
+    val force: Boolean = false,
+    
+    @SerialName("update_url")
+    val updateUrl: String
+)
+

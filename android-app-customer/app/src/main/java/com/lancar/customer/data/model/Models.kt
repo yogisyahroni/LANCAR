@@ -134,3 +134,22 @@ data class StatusUpdateRequest(
     @SerialName("notes")
     val notes: String? = null
 )
+
+/**
+ * App Version Info
+ */
+@Serializable
+data class AppVersion(
+    @SerialName("code")
+    val code: Int,
+    
+    @SerialName("name")
+    val name: String,
+    
+    @SerialName("force")
+    val force: Boolean = false,
+    
+    @SerialName("update_url")
+    val updateUrl: String
+)
+

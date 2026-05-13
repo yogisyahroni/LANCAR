@@ -13,8 +13,18 @@ import com.lancar.customer.ui.theme.LANCARCustomerTheme
 import com.scottyab.rootbeer.RootBeer
 import dagger.hilt.android.AndroidEntryPoint
 
+import androidx.compose.runtime.*
+import com.lancar.customer.util.UpdateManager
+import com.lancar.customer.ui.components.UpdateDialog
+import com.lancar.customer.data.model.AppVersion
+import javax.inject.Inject
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var updateManager: UpdateManager
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,8 +46,22 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    // 📱 SYSTEM: App Update Logic
+                    var updateInfo by remember { mutableStateOf<AppVersion?>(null) }
+                    LaunchedEffect(Unit) {
+                        updateInfo = updateManager.checkUpdate()
+                    }
+
+                    updateInfo?.let { info ->
+                        UpdateDialog(
+                            version = info,
+                            onDismiss = { updateInfo = null }
+                        )
+                    }
+
                     com.lancar.customer.ui.navigation.RootNavGraph()
                 }
+
             }
         }
     }

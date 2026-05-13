@@ -55,22 +55,36 @@ jobs:
         run: ./gradlew testDebugUnitTest
         working-directory: ./${{ matrix.working_dir }}
 
-      # 3. Build Artifacts (Debug for Staging)
+      # 3. Build Artifacts with Auto-Versioning
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
+        run: |
+          ./gradlew assembleDebug \
+            -PversionCode=${{ github.run_number }} \
+            -PversionName="1.0.${{ github.run_number }}-staging"
         working-directory: ./${{ matrix.working_dir }}
 
-      # 4. Enterprise Security Scan (Placeholder - usually requires setup)
-      - name: Security Check (Dependency Check)
+      # 4. Enterprise Security Scan (Placeholder)
+      - name: Security Check
         run: echo "🚀 Running Security Scan for ${{ matrix.app_name }}..."
 
-      # 5. Upload APK to GitHub Artifacts
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      # 5. Create GitHub Release & Upload APK
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
         with:
-          name: ${{ matrix.app_name }}-debug-apk
-          path: ./${{ matrix.working_dir }}/app/build/outputs/apk/debug/*.apk
-          retention-days: 7
+          tag_name: "v1.0.${{ github.run_number }}"
+          name: "Release v1.0.${{ github.run_number }} - ${{ matrix.app_name }}"
+          files: ./${{ matrix.working_dir }}/app/build/outputs/apk/debug/*.apk
+          draft: false
+          prerelease: true
+          body: |
+            Automated Staging Build for ${{ matrix.app_name }}
+            - Build Number: ${{ github.run_number }}
+            - Branch: ${{ github.ref_name }}
+            - Commit: ${{ github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
       # 6. Optional: Firebase App Distribution (Requires FIREBASE_TOKEN secret)
       # - name: Upload to Firebase App Distribution

@@ -5,8 +5,15 @@ import retrofit2.Response
 import retrofit2.http.*
 
 interface LANCARApiService {
+    
+    // System Endpoints
+    @GET("api/v1/system/latest-version")
+    suspend fun getLatestVersion(
+        @Query("type") type: String = "customer"
+    ): Response<AppVersion>
 
     // Auth Endpoints
+
     @POST("auth/customer/otp-request")
     suspend fun requestOtp(@Body request: OtpRequest): Response<AuthResponse>
 
