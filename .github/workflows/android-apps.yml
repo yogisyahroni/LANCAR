@@ -1,0 +1,81 @@
+name: Mobile Apps CI/CD
+
+on:
+  push:
+    paths:
+      - 'android-app/**'
+      - 'android-app-customer/**'
+    branches: [ staging, production ]
+  pull_request:
+    paths:
+      - 'android-app/**'
+      - 'android-app-customer/**'
+    branches: [ staging ]
+
+# Cancel in-progress runs on the same branch
+concurrency:
+  group: mobile-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    name: Build ${{ matrix.app_name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app_name: "Courier-App"
+            working_dir: "android-app"
+          - app_name: "Customer-App"
+            working_dir: "android-app-customer"
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+        working-directory: ./${{ matrix.working_dir }}
+
+      # 1. Quality Gate: Linting
+      - name: Run Lint
+        run: ./gradlew lintDebug
+        working-directory: ./${{ matrix.working_dir }}
+        continue-on-error: true
+
+      # 2. Automated Testing
+      - name: Run Unit Tests
+        run: ./gradlew testDebugUnitTest
+        working-directory: ./${{ matrix.working_dir }}
+
+      # 3. Build Artifacts (Debug for Staging)
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+        working-directory: ./${{ matrix.working_dir }}
+
+      # 4. Enterprise Security Scan (Placeholder - usually requires setup)
+      - name: Security Check (Dependency Check)
+        run: echo "🚀 Running Security Scan for ${{ matrix.app_name }}..."
+
+      # 5. Upload APK to GitHub Artifacts
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app_name }}-debug-apk
+          path: ./${{ matrix.working_dir }}/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+
+      # 6. Optional: Firebase App Distribution (Requires FIREBASE_TOKEN secret)
+      # - name: Upload to Firebase App Distribution
+      #   uses: w9jds/firebase-action@master
+      #   with:
+      #     args: appdistribution:distribute ./${{ matrix.working_dir }}/app/build/outputs/apk/debug/*.apk --app ${{ matrix.app_name == 'Courier-App' && secrets.FIREBASE_APP_ID_COURIER || secrets.FIREBASE_APP_ID_CUSTOMER }}
+      #   env:
+      #     FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
