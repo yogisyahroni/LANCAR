@@ -183,6 +183,15 @@ class OrderRepository @Inject constructor(
                         if (response.isSuccessful && response.body()?.success == true) {
                             orderDao.markPodAsSynced(listOf(order.orderId))
                             syncedOrderIds.add(order.orderId)
+                            
+                            // 💾 OPTIMIZATION: Delete stitched local image after successful sync to prevent cache bloat
+                            try {
+                                if (file.exists()) {
+                                    file.delete()
+                                }
+                            } catch (e: Exception) {
+                                // Silent, non-blocking
+                            }
                         }
                     }
                 }

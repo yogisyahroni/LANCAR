@@ -160,11 +160,40 @@ private fun OrderActions(
                 icon = Icons.Default.LocationOn,
                 label = "View Map",
                 onClick = {
-                    val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(order.dropAddress)}")
-                    val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
-                    mapIntent.setPackage("com.google.android.apps.maps")
-                    if (mapIntent.resolveActivity(context.packageManager) != null) {
-                        context.startActivity(mapIntent)
+                    try {
+                        val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(order.dropAddress)}")
+                        val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                        // Remove Rigid Package Constraint: allow Waze, Google Maps Go, and device default navigators
+                        val chooser = Intent.createChooser(mapIntent, "Pilih Aplikasi Peta/Navigasi")
+                        context.startActivity(chooser)
+                    } catch (e: Exception) {
+                        android.widget.Toast.makeText(context, "Tidak ada aplikasi peta terinstall.", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+
+            ActionButton(
+                icon = Icons.Default.Message,
+                label = "Chat WhatsApp",
+                onClick = {
+                    val phone = order.phoneNumber ?: ""
+                    if (phone.isNotBlank()) {
+                        try {
+                            val clean = phone.replace(Regex("[^0-9]"), "")
+                            val formattedPhone = when {
+                                clean.startsWith("0") -> "62" + clean.substring(1)
+                                clean.startsWith("62") -> clean
+                                else -> "62$clean"
+                            }
+                            val message = "Halo ${order.customerName}, saya Kurir LANCAR sedang menuju ke alamat pengantaran Anda (Pesanan: ${order.orderId})."
+                            val waUri = Uri.parse("https://api.whatsapp.com/send?phone=$formattedPhone&text=${Uri.encode(message)}")
+                            val waIntent = Intent(Intent.ACTION_VIEW, waUri)
+                            context.startActivity(waIntent)
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, "WhatsApp tidak terinstall atau nomor tidak valid.", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        android.widget.Toast.makeText(context, "Nomor telepon pelanggan tidak tersedia.", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
             )
@@ -175,10 +204,14 @@ private fun OrderActions(
                 onClick = {
                     val phone = order.phoneNumber ?: ""
                     if (phone.isNotBlank()) {
-                        val callIntent = Intent(Intent.ACTION_DIAL).apply {
-                            data = Uri.parse("tel:$phone")
+                        try {
+                            val callIntent = Intent(Intent.ACTION_DIAL).apply {
+                                data = Uri.parse("tel:$phone")
+                            }
+                            context.startActivity(callIntent)
+                        } catch (e: Exception) {
+                            android.widget.Toast.makeText(context, "Gagal membuka tombol telepon.", android.widget.Toast.LENGTH_SHORT).show()
                         }
-                        context.startActivity(callIntent)
                     }
                 }
             )

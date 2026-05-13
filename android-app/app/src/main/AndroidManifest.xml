@@ -20,6 +20,23 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
 
+    <!-- Modern Android 11+ (API 30) Package Visibility Permissions (CRITICAL GAP-1) -->
+    <queries>
+        <!-- Geo URI Intent resolution support for Google Maps/Waze -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
+        </intent>
+        <!-- Dialing resolution support -->
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+        </intent>
+        <!-- Direct integration support for WhatsApp (Official) -->
+        <package android:name="com.whatsapp" />
+        <!-- Direct integration support for WhatsApp Business -->
+        <package android:name="com.whatsapp.w4b" />
+    </queries>
+
     <application
         android:name=".LANCARApplication"
         android:allowBackup="false"
