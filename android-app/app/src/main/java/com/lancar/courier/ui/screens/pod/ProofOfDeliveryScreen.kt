@@ -123,13 +123,22 @@ fun ProofOfDeliveryScreen(
                     )
                 }
                 uiState.capturedImageUri != null -> {
-                    ImagePreviewContent(
-                        uiState = uiState,
-                        onRetake = { viewModel.clearImage() },
-                        onConfirm = {
-                            viewModel.uploadPod(order.orderId)
-                        }
-                    )
+                    if (!uiState.isSignatureCaptured) {
+                        SignatureCaptureContent(
+                            onSignatureCaptured = { bitmap ->
+                                viewModel.combinePhotoAndSignature(context, bitmap)
+                            },
+                            onCancel = { viewModel.clearImage() }
+                        )
+                    } else {
+                        ImagePreviewContent(
+                            uiState = uiState,
+                            onRetake = { viewModel.clearImage() },
+                            onConfirm = {
+                                viewModel.uploadPod(order.orderId)
+                            }
+                        )
+                    }
                 }
                 else -> {
                     CameraPreviewContent(
@@ -442,5 +451,51 @@ private fun formatFileSize(bytes: Long): String {
         bytes < 1024 -> "$bytes B"
         bytes < 1024 * 1024 -> "${bytes / 1024} KB"
         else -> String.format("%.1f MB", bytes / (1024.0 * 1024.0))
+    }
+}
+
+@Composable
+private fun SignatureCaptureContent(
+    onSignatureCaptured: (android.graphics.Bitmap) -> Unit,
+    onCancel: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Default.Edit,
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = Primary
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Tanda Tangan Digital",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Minta penerima paket menuliskan tanda tangannya langsung pada kanvas kotak di bawah ini untuk menyelesaikan pengiriman.",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 28.dp)
+        )
+
+        SignaturePad(
+            onSignatureCaptured = onSignatureCaptured,
+            onClear = {}
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        TextButton(onClick = onCancel) {
+            Text("Batal & Foto Ulang", color = MaterialTheme.colorScheme.error)
+        }
     }
 }

@@ -72,12 +72,14 @@ class AuthSessionManager(private val context: Context) {
     private val _courierIdFlow = MutableStateFlow<String?>(null)
     private val _courierNameFlow = MutableStateFlow<String?>(null)
     private val _isLoggedInFlow = MutableStateFlow(false)
+    private val _isOnlineFlow = MutableStateFlow(false)
 
     // Public Reactive API matching original signatures
     val authToken: Flow<String?> = _authTokenFlow.asStateFlow()
     val courierId: Flow<String?> = _courierIdFlow.asStateFlow()
     val courierName: Flow<String?> = _courierNameFlow.asStateFlow()
     val isLoggedIn: Flow<Boolean> = _isLoggedInFlow.asStateFlow()
+    val isOnline: Flow<Boolean> = _isOnlineFlow.asStateFlow()
 
     init {
         // 1. Load existing credentials into memory synchronously
@@ -93,11 +95,13 @@ class AuthSessionManager(private val context: Context) {
         val token = sharedPreferences.getString(KEY_AUTH_TOKEN, null)
         val cid = sharedPreferences.getString(KEY_COURIER_ID, null)
         val name = sharedPreferences.getString(KEY_COURIER_NAME, null) ?: ""
+        val online = sharedPreferences.getBoolean(KEY_IS_ONLINE, false)
 
         _authTokenFlow.value = token
         _courierIdFlow.value = cid
         _courierNameFlow.value = name
         _isLoggedInFlow.value = !token.isNullOrEmpty() && !cid.isNullOrEmpty()
+        _isOnlineFlow.value = online
     }
 
     /**
@@ -126,6 +130,18 @@ class AuthSessionManager(private val context: Context) {
     }
 
     /**
+     * Update the active duty status (Online/Offline)
+     */
+    suspend fun setOnlineStatus(online: Boolean) {
+        sharedPreferences.edit().apply {
+            putBoolean(KEY_IS_ONLINE, online)
+            apply()
+        }
+        _isOnlineFlow.value = online
+        Log.d("AuthSessionManager", "Status online diubah menjadi: $online")
+    }
+
+    /**
      * Synchronously clear session data immediately.
      * Optimized for execution on background threads/interceptors.
      */
@@ -134,6 +150,7 @@ class AuthSessionManager(private val context: Context) {
             remove(KEY_AUTH_TOKEN)
             remove(KEY_COURIER_ID)
             remove(KEY_COURIER_NAME)
+            remove(KEY_IS_ONLINE)
             apply()
         }
 
@@ -142,6 +159,7 @@ class AuthSessionManager(private val context: Context) {
         _courierIdFlow.value = null
         _courierNameFlow.value = null
         _isLoggedInFlow.value = false
+        _isOnlineFlow.value = false
         
         Log.d("AuthSessionManager", "Sesi kurir berhasil dihapus secara sinkron.")
     }
@@ -205,6 +223,7 @@ class AuthSessionManager(private val context: Context) {
         private const val KEY_AUTH_TOKEN = "secure_auth_token"
         private const val KEY_COURIER_ID = "secure_courier_id"
         private const val KEY_COURIER_NAME = "secure_courier_name"
+        private const val KEY_IS_ONLINE = "secure_is_online"
 
         // Legacy keys to clean up
         private val LEGACY_KEY_AUTH_TOKEN = stringPreferencesKey("auth_token")

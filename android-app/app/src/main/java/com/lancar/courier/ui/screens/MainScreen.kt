@@ -19,6 +19,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.session.AuthSessionManager
+import com.lancar.courier.service.LocationTrackerService
 import com.lancar.courier.ui.screens.order.OrderDetailScreen
 import com.lancar.courier.ui.screens.order.OrderScreen
 import com.lancar.courier.ui.screens.order.OrderViewModel
@@ -55,6 +56,7 @@ fun MainScreen(
 
     val authSessionManager = remember { AuthSessionManager(context) }
     val courierName by authSessionManager.courierName.collectAsState(initial = "Courier")
+    val isOnline by authSessionManager.isOnline.collectAsState(initial = false)
 
     var selectedTab by remember { mutableStateOf(0) }
     var showPodScreen by remember { mutableStateOf(false) }
@@ -263,13 +265,31 @@ fun MainScreen(
                     totalOrders = allOrders.size,
                     pendingCount = pendingOrders.size,
                     deliveredCount = deliveredToday.size,
+                    orders = allOrders,
+                    isOnline = isOnline,
+                    onOnlineToggle = { online ->
+                        scope.launch {
+                            authSessionManager.setOnlineStatus(online)
+                            try {
+                                if (online) {
+                                    val intent = LocationTrackerService.startIntent(context)
+                                    androidx.core.content.ContextCompat.startForegroundService(context, intent)
+                                    snackbarHostState.showSnackbar("Status Berhasil Diubah Ke: ON DUTY. GPS Aktif.")
+                                } else {
+                                    context.stopService(LocationTrackerService.stopIntent(context))
+                                    snackbarHostState.showSnackbar("Status Berhasil Diubah Ke: OFF DUTY. GPS Berhenti.")
+                                }
+                            } catch (e: Exception) {
+                                snackbarHostState.showSnackbar("Gagal merubah status tracking.")
+                            }
+                        }
+                    },
                     onCapturePod = { order ->
                         selectedOrder = order
                         showPodScreen = true
                     },
                     onViewOrders = { selectedTab = 1 },
-                    onScanPackage = { showScanScreen = true },
-                    orders = allOrders
+                    onScanPackage = { showScanScreen = true }
                 )
                 1 -> OrdersContent(
                     orders = allOrders,
@@ -284,7 +304,21 @@ fun MainScreen(
                 2 -> ProfileContent(
                     courierName = courierName ?: "Courier",
                     pendingSyncCount = pendingOrders.size,
-                    onLogout = { showLogoutDialog = true }
+                    onLogout = { showLogoutDialog = true },
+                    onSyncNow = { orderViewModel.syncPendingOrders() },
+                    onClearCache = {
+                        try {
+                            val deleted = context.cacheDir.deleteRecursively()
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    if (deleted) "Optimalisasi: Berhasil membersihkan berkas cache."
+                                    else "Beberapa cache sedang digunakan dan dilewati."
+                                )
+                            }
+                        } catch (e: Exception) {
+                            scope.launch { snackbarHostState.showSnackbar("Gagal merestart cache.") }
+                        }
+                    }
                 )
             }
         }
@@ -298,10 +332,66 @@ private fun HomeContent(
     pendingCount: Int,
     deliveredCount: Int,
     orders: List<Order>,
+    isOnline: Boolean,
+    onOnlineToggle: (Boolean) -> Unit,
     onCapturePod: (Order) -> Unit,
     onViewOrders: () -> Unit,
     onScanPackage: () -> Unit
 ) {
+    // Duty Status Card
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isOnline) 
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            else 
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
+        ),
+        shape = RoundedCornerShape(16.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isOnline) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            else MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Icon(
+                    imageVector = if (isOnline) Icons.Default.CircleNotifications else Icons.Default.NotificationsPaused,
+                    contentDescription = null,
+                    tint = if (isOnline) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = if (isOnline) "Status: AKTIF (On Duty)" else "Status: NONAKTIF (Off Duty)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isOnline) Color(0xFF1B5E20) else MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        text = if (isOnline) "GPS & Sinkronisasi Latar Aktif." else "Aktifkan switch untuk kirim paket.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Switch(
+                checked = isOnline,
+                onCheckedChange = onOnlineToggle,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Color(0xFF2E7D32)
+                )
+            )
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -442,7 +532,9 @@ private fun OrdersContent(
 private fun ProfileContent(
     courierName: String,
     pendingSyncCount: Int,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onSyncNow: () -> Unit,
+    onClearCache: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(
@@ -451,6 +543,7 @@ private fun ProfileContent(
             fontWeight = FontWeight.Bold
         )
 
+        // User Info Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp)
@@ -501,7 +594,86 @@ private fun ProfileContent(
             }
         }
 
+        // Diagnostics & Self-Healing Card
+        Text(
+            text = "Pemeliharaan Aplikasi",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(16.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Build, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Self-Healing Diagnostik", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                }
+
+                Text(
+                    text = "Gunakan tombol di bawah untuk memperbaiki masalah sinkronisasi atau membersihkan penyimpanan cache gambar PoD.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onSyncNow,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Paksa Sync", style = MaterialTheme.typography.labelMedium)
+                    }
+
+                    OutlinedButton(
+                        onClick = onClearCache,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Hapus Cache", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.weight(1f))
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "App Stable Architecture v2.1.0",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+            Text(
+                text = "LANCAR LOGISTICS ENTERPRISE",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+            )
+        }
 
         OutlinedButton(
             onClick = onLogout,

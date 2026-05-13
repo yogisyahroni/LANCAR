@@ -3,7 +3,10 @@ package com.lancar.courier.ui.screens.pod
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.net.Uri
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -43,6 +46,7 @@ data class PodUiState(
     val isCapturing: Boolean = false,
     val isUploading: Boolean = false,
     val isCompressed: Boolean = false,
+    val isSignatureCaptured: Boolean = false, // Tracks UI stage switch
     val compressionRatio: Float = 1.0f,
     val originalFileSize: Long = 0L,
     val compressedFileSize: Long = 0L,
@@ -268,6 +272,103 @@ class ProofOfDeliveryViewModel @Inject constructor(
         }
     }
     
+    /**
+     * Async stitches signature onto captured POD photo dynamically.
+     */
+    fun combinePhotoAndSignature(context: Context, signature: Bitmap) {
+        val uri = _uiState.value.capturedImageUri ?: return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isUploading = true, error = null)
+            try {
+                val resultUri = withContext(Dispatchers.IO) {
+                    combinePhotoAndSignatureInternal(context, uri, signature)
+                }
+                _uiState.value = _uiState.value.copy(
+                    capturedImageUri = resultUri,
+                    isSignatureCaptured = true,
+                    isUploading = false,
+                    // Force recompute of size properties
+                    originalFileSize = File(resultUri.path ?: "").length()
+                )
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isUploading = false,
+                    error = "Failed compiling PoD documentation: ${e.localizedMessage}"
+                )
+            }
+        }
+    }
+
+    private suspend fun combinePhotoAndSignatureInternal(
+        context: Context,
+        photoUri: Uri,
+        signature: Bitmap
+    ): Uri {
+        return withContext(Dispatchers.IO) {
+            val inputStream = context.contentResolver.openInputStream(photoUri)
+            val original = BitmapFactory.decodeStream(inputStream)
+            inputStream?.close()
+
+            // Safety sanity guard
+            if (original == null) throw IllegalStateException("Invalid backing bitmap source.")
+
+            // Append the signature area beneath the photo
+            // Scale signature preserving aspect ratio to match photo width
+            val targetSigHeight = (original.width * (signature.height.toFloat() / signature.width.toFloat())).toInt()
+            val scaledSignature = Bitmap.createScaledBitmap(signature, original.width, targetSigHeight, true)
+
+            val labelSectionHeight = (original.width * 0.06f).coerceAtLeast(60f).toInt()
+            val finalHeight = original.height + targetSigHeight + labelSectionHeight
+
+            val finalBitmap = Bitmap.createBitmap(
+                original.width,
+                finalHeight,
+                Bitmap.Config.ARGB_8888
+            )
+            
+            val canvas = Canvas(finalBitmap)
+            canvas.drawColor(Color.WHITE) // Background fills non-drawn elements
+            
+            // Stage 1: Draw Photo
+            canvas.drawBitmap(original, 0f, 0f, null)
+            
+            // Stage 2: Draw separation dividing border
+            val borderPaint = Paint().apply {
+                color = Color.GRAY
+                strokeWidth = (original.width * 0.005f).coerceAtLeast(2f)
+            }
+            canvas.drawLine(0f, original.height.toFloat(), original.width.toFloat(), original.height.toFloat(), borderPaint)
+            
+            // Stage 3: Write legal label text
+            val textPaint = Paint().apply {
+                color = Color.DKGRAY
+                textSize = (original.width * 0.03f).coerceAtLeast(28f)
+                isAntiAlias = true
+            }
+            canvas.drawText(
+                "Penerima & Tanda Tangan Bukti Pengiriman:", 
+                20f, 
+                original.height + (textPaint.textSize * 1.2f), 
+                textPaint
+            )
+
+            // Stage 4: Draw signature below label
+            canvas.drawBitmap(scaledSignature, 0f, (original.height + labelSectionHeight).toFloat(), null)
+
+            // Overwrite or cache locally
+            val finalFile = createCompressedImageFile(context)
+            finalFile.outputStream().use { out ->
+                finalBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+            }
+            
+            original.recycle()
+            scaledSignature.recycle()
+            finalBitmap.recycle()
+
+            Uri.fromFile(finalFile)
+        }
+    }
+
     /**
      * Uploads the PoD image to the backend.
      */

@@ -1,6 +1,7 @@
 package com.lancar.courier.service
 
 import android.app.*
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -23,6 +24,7 @@ import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.ui.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -63,10 +65,36 @@ class LocationTrackerService : Service() {
     @Inject
     lateinit var authSessionManager: AuthSessionManager
 
-    // Update interval (configurable)
-    private val UPDATE_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1) // 1 minute
-    private val FASTEST_UPDATE_INTERVAL_MS = TimeUnit.SECONDS.toMillis(30) // 30 seconds
-    private val MAX_WAIT_TIME_MS = TimeUnit.MINUTES.toMillis(2) // 2 minutes
+    // 🔋 Battery-Adaptive Configurable GPS Intervals
+    private val NORMAL_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1) // 1 minute
+    private val NORMAL_FASTEST_INTERVAL_MS = TimeUnit.SECONDS.toMillis(30) // 30 seconds
+
+    private val POWER_SAVER_INTERVAL_MS = TimeUnit.MINUTES.toMillis(5) // 5 minutes
+    private val POWER_SAVER_FASTEST_INTERVAL_MS = TimeUnit.MINUTES.toMillis(2) // 2 minutes
+
+    private var currentIntervalMode = IntervalMode.NORMAL
+    private var isBatteryReceiverRegistered = false
+
+    enum class IntervalMode {
+        NORMAL,
+        POWER_SAVER
+    }
+
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            intent?.let {
+                val level = it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val scale = it.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+                val batteryPct = if (scale > 0) (level * 100 / scale.toFloat()).toInt() else -1
+                
+                val status = it.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || 
+                                 status == BatteryManager.BATTERY_STATUS_FULL
+
+                handleBatteryChanged(batteryPct, isCharging)
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -77,7 +105,7 @@ class LocationTrackerService : Service() {
         // Get device ID (use installation ID or generate once)
         deviceId = getUniqueDeviceId()
 
-        // Start tracking if courier is logged in
+        // Start tracking if courier is logged in AND online
         checkAndStartTracking()
     }
 
@@ -112,12 +140,18 @@ class LocationTrackerService : Service() {
     }
 
     /**
-     * Check if courier is logged in and start tracking
+     * Combine login status and online duty cycle to start/stop tracking re-actively
      */
     private fun checkAndStartTracking() {
         MAIN_THREAD.launch {
-            authSessionManager.isLoggedIn.collect { isLoggedIn ->
-                if (isLoggedIn) {
+            combine(
+                authSessionManager.isLoggedIn,
+                authSessionManager.isOnline
+            ) { loggedIn, online ->
+                loggedIn && online
+            }.collect { shouldTrack ->
+                Log.d(TAG, "Penentuan tracking status: $shouldTrack")
+                if (shouldTrack) {
                     val session = authSessionManager.getSession()
                     if (session != null) {
                         courierId = session.courierId
@@ -152,55 +186,14 @@ class LocationTrackerService : Service() {
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification())
 
-        // Build location request
-        val request = LocationRequest.Builder(
-            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-            UPDATE_INTERVAL_MS
-        ).apply {
-            setMinUpdateIntervalMillis(FASTEST_UPDATE_INTERVAL_MS)
-            setMaxUpdateDelayMillis(MAX_WAIT_TIME_MS)
-            setMinUpdateDistanceMeters(50f) // 50 meters
-        }.build()
-        
-        locationRequest = request
+        // Build location request and start FusedLocation
+        bindLocationUpdates()
 
-        // Set up location callback
-        val callback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                super.onLocationResult(locationResult)
-                locationResult.lastLocation?.let { location ->
-                    handleLocationUpdate(location)
-                }
-            }
-        }
+        // Monitor battery life to trigger dynamic interval throttling
+        registerBatteryReceiver()
         
-        locationCallback = callback
-
-        // Request location updates
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                android.Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED &&
-            ActivityCompat.checkSelfPermission(
-                this,
-                android.Manifest.permission.ACCESS_COARSE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-            val req = locationRequest
-            val cb = locationCallback
-            if (req != null && cb != null) {
-                fusedLocationClient?.requestLocationUpdates(
-                    req,
-                    cb,
-                    android.os.Looper.getMainLooper()
-                )
-                isTracking = true
-                Log.d(TAG, "Location tracking started")
-            }
-        } else {
-            Log.w(TAG, "Location permissions not granted")
-            stopSelf()
-        }
+        isTracking = true
+        Log.d(TAG, "Location tracking started")
     }
 
     /**
@@ -217,6 +210,9 @@ class LocationTrackerService : Service() {
         }
         locationCallback = null
         locationRequest = null
+
+        // Unregister battery monitoring
+        unregisterBatteryReceiver()
 
         // Stop foreground service
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -384,6 +380,118 @@ class LocationTrackerService : Service() {
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
+    }
+
+    /**
+     * Configure and bind fused updates depending on current battery power saving configurations
+     */
+    private fun bindLocationUpdates() {
+        val interval = if (currentIntervalMode == IntervalMode.POWER_SAVER) {
+            POWER_SAVER_INTERVAL_MS
+        } else {
+            NORMAL_INTERVAL_MS
+        }
+        
+        val fastestInterval = if (currentIntervalMode == IntervalMode.POWER_SAVER) {
+            POWER_SAVER_FASTEST_INTERVAL_MS
+        } else {
+            NORMAL_FASTEST_INTERVAL_MS
+        }
+
+        val request = LocationRequest.Builder(
+            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            interval
+        ).apply {
+            setMinUpdateIntervalMillis(fastestInterval)
+            setMaxUpdateDelayMillis(interval * 2)
+            setMinUpdateDistanceMeters(50f) // 50 meters
+        }.build()
+        
+        locationRequest = request
+
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                super.onLocationResult(locationResult)
+                locationResult.lastLocation?.let { location ->
+                    handleLocationUpdate(location)
+                }
+            }
+        }
+        
+        locationCallback = callback
+
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED &&
+            ActivityCompat.checkSelfPermission(
+                this,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            val req = locationRequest
+            val cb = locationCallback
+            if (req != null && cb != null) {
+                fusedLocationClient?.requestLocationUpdates(
+                    req,
+                    cb,
+                    android.os.Looper.getMainLooper()
+                )
+                Log.d(TAG, "Fused location bound. Mode: $currentIntervalMode, Interval: ${interval/1000}s")
+            }
+        }
+    }
+
+    /**
+     * Reconstruct updates upon mode switch
+     */
+    private fun rebuildLocationRequest() {
+        if (!isTracking) return
+        
+        locationCallback?.let { cb ->
+            fusedLocationClient?.removeLocationUpdates(cb)
+        }
+        
+        bindLocationUpdates()
+        Log.d(TAG, "GPS request dynamic rebuilt successfully.")
+    }
+
+    private fun registerBatteryReceiver() {
+        if (!isBatteryReceiverRegistered) {
+            try {
+                registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                isBatteryReceiverRegistered = true
+                Log.d(TAG, "Battery monitor registered.")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed registering battery receiver: ${e.message}")
+            }
+        }
+    }
+
+    private fun unregisterBatteryReceiver() {
+        if (isBatteryReceiverRegistered) {
+            try {
+                unregisterReceiver(batteryReceiver)
+                isBatteryReceiverRegistered = false
+                Log.d(TAG, "Battery monitor unregistered.")
+            } catch (e: Exception) {
+                // Handle already unregistered gracefully
+            }
+        }
+    }
+
+    private fun handleBatteryChanged(pct: Int, isCharging: Boolean) {
+        val targetMode = if (pct > 0 && pct < 20 && !isCharging) {
+            IntervalMode.POWER_SAVER
+        } else {
+            IntervalMode.NORMAL
+        }
+
+        if (targetMode != currentIntervalMode) {
+            currentIntervalMode = targetMode
+            Log.d(TAG, "Battery state threshold crossed. Changing mode to: $currentIntervalMode (Bat: $pct%, Charge: $isCharging)")
+            rebuildLocationRequest()
+        }
     }
 
     companion object {
