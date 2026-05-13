@@ -231,6 +231,10 @@ class LocationTrackerService : Service() {
         val batteryLevel = getBatteryLevel()
         val networkType = getNetworkType()
 
+        // 🛡️ INTEGRATE ANTI-FRAUD TELEMETRY
+        val isMock = com.lancar.courier.util.SecurityUtils.isMockLocation(location)
+        val isRooted = com.lancar.courier.util.SecurityUtils.isDeviceRooted(this)
+
         val locationModel = LocationModel(
             latitude = location.latitude,
             longitude = location.longitude,
@@ -242,7 +246,9 @@ class LocationTrackerService : Service() {
             courierId = courierId ?: "",
             deviceId = deviceId ?: "",
             batteryLevel = batteryLevel,
-            networkType = networkType
+            networkType = networkType,
+            isMock = isMock,
+            isRooted = isRooted
         )
 
         // Save to local database

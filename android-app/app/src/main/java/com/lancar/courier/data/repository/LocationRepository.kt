@@ -92,6 +92,8 @@ class LocationRepository @Inject constructor(
                     timestamp = location.timestamp,
                     batteryLevel = location.batteryLevel,
                     networkType = location.networkType,
+                    isMock = location.isMock,
+                    isRooted = location.isRooted,
                     orderId = location.orderId
                 )
             }

@@ -38,6 +38,12 @@ data class LocationData(
     @SerialName("network_type")
     val networkType: String = "UNKNOWN",
 
+    @SerialName("is_mock")
+    val isMock: Boolean = false,
+
+    @SerialName("is_rooted")
+    val isRooted: Boolean = false,
+
     @SerialName("order_id")
     val orderId: String? = null
 )

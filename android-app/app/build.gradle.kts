@@ -98,6 +98,10 @@ dependencies {
     // DataStore
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
+    // Security & Anti-Fraud
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("com.scottyab:rootbeer-lib:0.1.0")
+
     // Room Database for offline order queue (PTLAAA-45)
     val roomVersion = "2.6.1"
     implementation("androidx.room:room-runtime:$roomVersion")

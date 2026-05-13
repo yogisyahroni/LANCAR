@@ -70,6 +70,12 @@ data class Location(
     @ColumnInfo(name = "network_type")
     val networkType: String = "UNKNOWN",
 
+    @ColumnInfo(name = "is_mock", defaultValue = "0")
+    val isMock: Boolean = false,
+
+    @ColumnInfo(name = "is_rooted", defaultValue = "0")
+    val isRooted: Boolean = false,
+
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
 )

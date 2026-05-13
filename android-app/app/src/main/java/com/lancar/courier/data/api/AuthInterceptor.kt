@@ -1,23 +1,21 @@
 package com.lancar.courier.data.api
 
 import com.lancar.courier.data.session.AuthSessionManager
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.Response
 
 /**
- * Auth Interceptor
+ * Performance-Optimized Auth Interceptor
  * 
  * Automatically injects the Bearer token into the Authorization header
- * of every outgoing request if the user is logged in.
+ * of every outgoing request without blocking threads, using a synchronous 
+ * in-memory token cache.
  */
 class AuthInterceptor(private val sessionManager: AuthSessionManager) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val token = runBlocking {
-            sessionManager.authToken.first()
-        }
+        // ⚡ FAST IN-MEMORY CACHE LOOKUP (Eliminates legacy runBlocking I/O overhead)
+        val token = sessionManager.getAuthTokenSync()
 
         val originalRequest = chain.request()
         
@@ -26,7 +24,7 @@ class AuthInterceptor(private val sessionManager: AuthSessionManager) : Intercep
             return chain.proceed(originalRequest)
         }
 
-        // Add Authorization header
+        // Add Authorization header securely
         val authorizedRequest = originalRequest.newBuilder()
             .header("Authorization", "Bearer $token")
             .header("Accept", "application/json")
