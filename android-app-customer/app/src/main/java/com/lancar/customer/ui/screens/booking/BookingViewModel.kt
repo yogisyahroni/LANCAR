@@ -22,7 +22,11 @@ data class BookingState(
     val destinationAddress: String = "",
     val estimatedPrice: Long = 0,
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val packageLength: Int = 0,
+    val packageWidth: Int = 0,
+    val packageHeight: Int = 0,
+    val packageWeight: Double = 1.0
 )
 
 @HiltViewModel
@@ -52,6 +56,14 @@ class BookingViewModel @Inject constructor(
         calculateRoute()
     }
 
+    fun setDimensions(l: Int, w: Int, h: Int) {
+        _bookingState.value = _bookingState.value.copy(
+            packageLength = l,
+            packageWidth = w,
+            packageHeight = h
+        )
+    }
+
     private fun calculateRoute() {
         val state = _bookingState.value
         if (state.pickupLocation != null && state.destinationLocation != null) {
@@ -77,7 +89,7 @@ class BookingViewModel @Inject constructor(
                 dropAddress = state.destinationAddress,
                 dropLat = state.destinationLocation.latitude,
                 dropLng = state.destinationLocation.longitude,
-                itemDetails = "General Package",
+                itemDetails = "General Package (${state.packageLength}x${state.packageWidth}x${state.packageHeight} cm)",
                 estimatedPrice = state.estimatedPrice
             )
 

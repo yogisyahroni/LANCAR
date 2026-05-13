@@ -65,4 +65,10 @@ interface LANCARApiService {
         @Path("id") id: String,
         @Body request: SendMessageRequest
     ): Response<SendMessageResponse>
+
+    // Notification Endpoints
+    @POST("api/v1/mobile/notifications/register-token")
+    suspend fun registerDeviceToken(
+        @Body request: RegisterTokenRequest
+    ): Response<Unit>
 }

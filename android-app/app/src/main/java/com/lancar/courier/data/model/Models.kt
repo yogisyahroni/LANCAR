@@ -160,5 +160,17 @@ data class StatusUpdateRequest(
     val status: String,
 
     @SerialName("notes")
-    val notes: String? = null
+    val notes: String? = null,
+
+    @SerialName("length")
+    val length: Double? = null,
+
+    @SerialName("width")
+    val width: Double? = null,
+
+    @SerialName("height")
+    val height: Double? = null,
+
+    @SerialName("weight")
+    val weight: Double? = null
 )

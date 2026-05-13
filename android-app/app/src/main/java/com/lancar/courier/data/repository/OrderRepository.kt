@@ -144,7 +144,11 @@ class OrderRepository @Inject constructor(
                 val request = StatusUpdateRequest(
                     orderId = order.orderId,
                     status = order.status,
-                    notes = order.deliveryNotes
+                    notes = order.deliveryNotes,
+                    length = order.length,
+                    width = order.width,
+                    height = order.height,
+                    weight = order.weight
                 )
                 val response = apiService.updateStatus(request)
                 if (response.isSuccessful && response.body()?.success == true) {

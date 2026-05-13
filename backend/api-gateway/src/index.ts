@@ -100,6 +100,14 @@ app.use(helmet({
   },
 }));
 
+// --- ENTERPRISE SECURITY VALIDATION ---
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('\x1b[31m[FATAL ERROR] JWT_SECRET environment variable is not defined!\x1b[0m');
+  console.error('API Gateway cannot start without a secure signing key. Exiting...');
+  process.exit(1);
+}
+
 // Rate Limiting
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -128,20 +136,16 @@ const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (authHeader) {
     const token = authHeader.split(' ')[1];
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      console.error('[Gateway Security Warning] JWT_SECRET is NOT defined in current environment variables!');
-      if (process.env.NODE_ENV === 'production') {
-        return res.status(500).json({ status: 'error', code: 'ERR_CONFIG', message: 'Secure authentication configuration missing.' });
-      }
-    }
-    const verifyKey = secret || 'your-secret-key';
-
-    jwt.verify(token, verifyKey, (err: any, user: any) => {
+    
+    jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
       if (err) {
-        return res.status(403).json({ status: 'error', code: 'ERR_FORBIDDEN', message: 'Invalid or expired token' });
+        return res.status(403).json({ 
+          status: 'error', 
+          code: 'ERR_FORBIDDEN', 
+          message: 'Invalid or expired token' 
+        });
       }
-      // Inject User ID into headers for downstream services
+      
       if (user && (user.user_id || user.id)) {
         req.headers['x-user-id'] = user.user_id || user.id;
       }
@@ -154,45 +158,30 @@ const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
 
 
 
-// Robust CORS with logging and preflight handling
-app.use((req: Request, res: Response, next: NextFunction) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    console.log(`\x1b[36m[CORS Debug]\x1b[0m Origin: ${origin} - Method: ${req.method} - Path: ${req.path}`);
-  }
-  
-  // Explicitly handle preflight for any localhost or 127.0.0.1
-  if (origin && (origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0'))) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-user-role, x-totp-verified, x-portal, Cookie');
-    
-    if (req.method === 'OPTIONS') {
-      console.log(`\x1b[32m[CORS Preflight Success]\x1b[0m Returning 204 for ${origin}`);
-      res.sendStatus(204);
-      return;
-    }
-  }
-  next();
-});
+// --- ENTERPRISE CORS HARDENING ---
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',') 
+  : ['http://localhost:3000', 'http://localhost:5173']; // Defaults for dev
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('0.0.0.0')) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (ALLOWED_ORIGINS.includes(origin) || (process.env.NODE_ENV !== 'production' && origin.includes('localhost'))) {
       callback(null, true);
     } else {
-      const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        console.warn(`[Gateway Security Alert] Permissive CORS blocked for unauthorized origin: ${origin}`);
-        callback(new Error('Blocked by CORS'));
-      }
+      console.warn(`\x1b[31m[CORS Security Alert]\x1b[0m Unauthorized origin blocked: ${origin}`);
+      callback(new Error('Origin not allowed by CORS'));
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-role', 'x-portal', 'Cookie'],
 }));
+
 app.use(logger);
 app.use((req: Request, res: Response, next: NextFunction) => {
   if (req.url.includes('/auth/web')) {
@@ -355,6 +344,10 @@ app.use('/api/v1/couriers', proxyWithResilience(ORDER_SERVICE_URL, orderBreaker)
 
 // Tracking Service (Order & Courier tracking)
 app.use('/api/v1/tracking', proxyWithResilience(ORDER_SERVICE_URL, orderBreaker));
+
+// Admin Service - Mobile & Courier Notifications
+app.use('/api/v1/mobile/notifications', proxyWithResilience(ADMIN_SERVICE_URL, adminBreaker));
+app.use('/api/v1/courier/fcm', proxyWithResilience(ADMIN_SERVICE_URL, adminBreaker));
 
 // Admin Service General Routes (Management API)
 app.use(createProxyMiddleware({

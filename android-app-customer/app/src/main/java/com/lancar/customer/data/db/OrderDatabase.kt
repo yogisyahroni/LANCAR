@@ -27,11 +27,20 @@ abstract class OrderDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): OrderDatabase {
             return INSTANCE ?: synchronized(this) {
+                // 🔐 SECURITY: Implementation of SQLCipher SupportFactory for on-disk encryption
+                // In production, the passkey should be derived from Android Keystore
+                val passkey = android.provider.Settings.Secure.getString(
+                    context.contentResolver,
+                    android.provider.Settings.Secure.ANDROID_ID
+                ).toByteArray()
+                val factory = net.zetetic.database.sqlcipher.SupportFactory(passkey)
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     OrderDatabase::class.java,
                     "order_database"
                 )
+                    .openHelperFactory(factory)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

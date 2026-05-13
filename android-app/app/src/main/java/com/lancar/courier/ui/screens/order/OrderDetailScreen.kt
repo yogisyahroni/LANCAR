@@ -121,6 +121,15 @@ private fun OrderInfoCard(order: Order) {
             InfoRow(label = "Pickup Time", value = order.pickupTime)
             InfoRow(label = "Distance", value = order.distance)
             InfoRow(label = "Fee", value = order.fee)
+            
+            if (order.length != null || order.width != null || order.height != null) {
+                val dims = "${order.length ?: 0} x ${order.width ?: 0} x ${order.height ?: 0} cm"
+                InfoRow(label = "Dimensions", value = dims)
+            }
+            if (order.weight != null) {
+                InfoRow(label = "Weight", value = "${order.weight} kg")
+            }
+
             InfoRow(label = "Status", value = order.status.replace("_", " ").uppercase())
         }
     }

@@ -87,6 +87,10 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		DropoffAddress:         estimate.DropoffAddress,
 		DropoffLat:             estimate.DropoffLat,
 		DropoffLng:             estimate.DropoffLng,
+		Length:                 estimate.Length,
+		Width:                  estimate.Width,
+		Height:                 estimate.Height,
+		Weight:                 estimate.Weight,
 		DistanceKM:             estimate.DistanceKM,
 		BasePriceIDR:           estimate.BasePriceIDR,
 		VolumetricSurchargeIDR: estimate.VolumetricSurchargeIDR,
@@ -183,6 +187,27 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 	return nil
 }
 
+func (s *orderServiceImpl) UpdateDimensions(ctx context.Context, id string, length, width, height, weight *float64) error {
+	order, err := s.orderRepo.GetByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if order == nil {
+		return fmt.Errorf("order %s not found", id)
+	}
+
+	l := order.Length
+	if length != nil { l = *length }
+	w := order.Width
+	if width != nil { w = *width }
+	h := order.Height
+	if height != nil { h = *height }
+	wt := order.Weight
+	if weight != nil { wt = *weight }
+
+	return s.orderRepo.UpdateDimensions(ctx, id, l, w, h, wt)
+}
+
 func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, courierID string) error {
 	// 1. Check order status
 	order, err := s.orderRepo.GetByID(ctx, orderID)
@@ -232,6 +257,35 @@ func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, cour
 			"type":     "order_accepted",
 		},
 	})
+
+	return nil
+}
+
+func (s *orderServiceImpl) StartMatching(ctx context.Context, orderID string) error {
+	err := s.orderRepo.UpdateStatus(ctx, orderID, domain.StatusSearching)
+	if err != nil {
+		return err
+	}
+
+	order, _ := s.orderRepo.GetByID(ctx, orderID)
+	if order != nil {
+		event := domain.OrderEvent{
+			OrderID:   order.ID,
+			UserID:    order.CustomerID,
+			Status:    domain.StatusSearching,
+			Message:   "Searching for nearby couriers",
+			CreatedAt: time.Now(),
+		}
+		s.eventRepo.SaveEvent(ctx, event)
+		s.eventBus.Publish(ctx, "order.updates", event)
+	}
+
+	go func() {
+		err := s.FindAndAssignCourier(context.Background(), orderID)
+		if err != nil {
+			fmt.Printf("Background matching error for order %s: %v\n", orderID, err)
+		}
+	}()
 
 	return nil
 }
@@ -613,4 +667,45 @@ func (s *orderServiceImpl) AutoDetectScanType(ctx context.Context, orderID strin
 	}
 }
 
+func (s *orderServiceImpl) StartMatching(ctx context.Context, orderID string) error {
+	log.Printf("[OrderService] Triggering automated matching for order: %s", orderID)
+	
+	// 1. Get current order state
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+	if order == nil {
+		return fmt.Errorf("order %s not found", orderID)
+	}
 
+	// 2. Validate state (should be pending_payment or similar after confirmation)
+	// Some enterprise flows might skip 'pending_payment' if it's already confirmed via webhook
+	
+	// 3. Update status to 'searching'
+	if err := s.orderRepo.UpdateStatus(ctx, orderID, domain.StatusSearching); err != nil {
+		return fmt.Errorf("failed to update status to searching: %w", err)
+	}
+
+	// 4. Record event
+	event := domain.OrderEvent{
+		OrderID:   orderID,
+		UserID:    order.CustomerID,
+		Status:    domain.StatusSearching,
+		Message:   "Payment confirmed. Searching for nearest courier...",
+		CreatedAt: time.Now(),
+	}
+	s.eventRepo.SaveEvent(ctx, event)
+	s.eventBus.Publish(ctx, "order.updates", event)
+
+	// 5. Trigger finding logic asynchronously to not block the internal API caller
+	go func() {
+		// Use a background context for the async job
+		bgCtx := context.Background()
+		if err := s.FindAndAssignCourier(bgCtx, orderID); err != nil {
+			log.Printf("[OrderService] Async matching failed for %s: %v", orderID, err)
+		}
+	}()
+
+	return nil
+}

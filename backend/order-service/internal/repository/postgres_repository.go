@@ -51,6 +51,7 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 				id, order_number, customer_id, model, status, 
 				pickup_location, pickup_address, 
 				dropoff_location, dropoff_address, 
+				length, width, height, weight,
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, ppn_idr, mdr_idr, handover_token,
 				dispatch_expiry, created_at, updated_at
@@ -58,7 +59,8 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 				$1, $2, $3, $4, $5, 
 				ST_SetSRID(ST_MakePoint($6, $7), 4326), $8, 
 				ST_SetSRID(ST_MakePoint($9, $10), 4326), $11, 
-				$12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
+				$12, $13, $14, $15, 
+				$16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
 			  )`
 	
 	// Default tax/fee for now
@@ -69,6 +71,7 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 		o.ID, o.OrderNumber, o.CustomerID, o.Model, o.Status,
 		o.PickupLng, o.PickupLat, o.PickupAddress,
 		o.DropoffLng, o.DropoffLat, o.DropoffAddress,
+		o.Length, o.Width, o.Height, o.Weight,
 		o.DistanceKM, o.BasePriceIDR, o.VolumetricSurchargeIDR,
 		o.DynamicPriceIDR, o.TotalPriceIDR, ppn, mdr, o.HandoverToken,
 		o.DispatchExpiry, o.CreatedAt, o.UpdatedAt,
@@ -81,6 +84,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				id, order_number, customer_id, model, status, 
 				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
+				length, width, height, weight,
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, created_at, updated_at
 			  FROM orders WHERE id = $1`
@@ -90,6 +94,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
 		&o.PickupLat, &o.PickupLng, &o.PickupAddress,
 		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+		&o.Length, &o.Width, &o.Height, &o.Weight,
 		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
 		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.CreatedAt, &o.UpdatedAt,
 	)
@@ -107,6 +112,7 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 				id, order_number, customer_id, model, status, 
 				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
+				length, width, height, weight,
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, created_at, updated_at
 			  FROM orders WHERE customer_id = $1 ORDER BY created_at DESC`
@@ -124,6 +130,7 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 			&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
 			&o.PickupLat, &o.PickupLng, &o.PickupAddress,
 			&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+			&o.Length, &o.Width, &o.Height, &o.Weight,
 			&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
 			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.CreatedAt, &o.UpdatedAt,
 		)
@@ -138,6 +145,12 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error {
 	query := `UPDATE orders SET status = $1, updated_at = $2 WHERE id = $3`
 	_, err := r.db.ExecContext(ctx, query, status, time.Now(), id)
+	return err
+}
+
+func (r *postgresRepo) UpdateDimensions(ctx context.Context, id string, length, width, height, weight float64) error {
+	query := `UPDATE orders SET length = $1, width = $2, height = $3, weight = $4, updated_at = $5 WHERE id = $6`
+	_, err := r.db.ExecContext(ctx, query, length, width, height, weight, time.Now(), id)
 	return err
 }
 
@@ -202,6 +215,7 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 				id, order_number, customer_id, model, status, 
 				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
+				length, width, height, weight,
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, created_at, updated_at
 			  FROM orders 

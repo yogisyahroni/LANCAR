@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import net.zetetic.database.sqlcipher.SupportFactory
 import com.lancar.courier.data.model.Location
 import com.lancar.courier.data.model.Order
 
@@ -15,7 +16,7 @@ import com.lancar.courier.data.model.Order
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class OrderDatabase : RoomDatabase() {
@@ -37,14 +38,32 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `orders` ADD COLUMN `length` REAL")
+                database.execSQL("ALTER TABLE `orders` ADD COLUMN `width` REAL")
+                database.execSQL("ALTER TABLE `orders` ADD COLUMN `height` REAL")
+                database.execSQL("ALTER TABLE `orders` ADD COLUMN `weight` REAL")
+            }
+        }
+
         fun getDatabase(context: Context): OrderDatabase {
             return INSTANCE ?: synchronized(this) {
+                // 🔐 SECURITY: Implementation of SQLCipher SupportFactory for on-disk encryption
+                // In production, the passkey should be derived from Android Keystore
+                val passkey = android.provider.Settings.Secure.getString(
+                    context.contentResolver,
+                    android.provider.Settings.Secure.ANDROID_ID
+                ).toByteArray()
+                val factory = SupportFactory(passkey)
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     OrderDatabase::class.java,
                     "order_database"
                 )
-                    .addMigrations(MIGRATION_2_3)
+                    .openHelperFactory(factory)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

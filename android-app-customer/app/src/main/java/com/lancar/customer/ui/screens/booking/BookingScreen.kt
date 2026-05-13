@@ -33,6 +33,7 @@ import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import com.lancar.customer.ui.theme.Primary
+import com.lancar.customer.ui.components.VolumetricScanner
 import kotlinx.coroutines.flow.collectLatest
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
@@ -44,6 +45,7 @@ fun BookingScreen(
 ) {
     val uiState by viewModel.bookingState.collectAsState()
     val context = LocalContext.current
+    var showScanner by remember { mutableStateOf(false) }
     
     // Default starting position (Jakarta center) if GPS not available yet
     val defaultJakarta = remember { LatLng(-6.2088, 106.8456) }
@@ -123,8 +125,18 @@ fun BookingScreen(
         FloatingBookingCard(
             modifier = Modifier.align(Alignment.BottomCenter),
             uiState = uiState,
-            onConfirmClick = { viewModel.confirmBooking() }
+            onConfirmClick = { viewModel.confirmBooking() },
+            onScanClick = { showScanner = true }
         )
+
+        if (showScanner) {
+            VolumetricScanner(
+                onDimensionsDetected = { l, w, h ->
+                    viewModel.setDimensions(l, w, h)
+                },
+                onClose = { showScanner = false }
+            )
+        }
 
         // Loading overlay during API interaction
         if (uiState.isLoading) {
@@ -169,7 +181,8 @@ private fun TopControls(onBackClick: () -> Unit) {
 private fun FloatingBookingCard(
     modifier: Modifier = Modifier,
     uiState: BookingState,
-    onConfirmClick: () -> Unit
+    onConfirmClick: () -> Unit,
+    onScanClick: () -> Unit
 ) {
     AnimatedVisibility(
         visible = true,
@@ -217,6 +230,42 @@ private fun FloatingBookingCard(
                     active = true
                 )
 
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Volumetric Scanner Trigger
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
+                        .clickable { onScanClick() }
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = androidx.compose.material.icons.Icons.Default.PhotoCamera,
+                        contentDescription = null,
+                        tint = Primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = if (uiState.packageLength > 0) 
+                                "Dimensi: ${uiState.packageLength}x${uiState.packageWidth}x${uiState.packageHeight} cm" 
+                                else "Estimasi Dimensi Paket",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Gunakan kamera untuk ukur otomatis",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 if (uiState.estimatedPrice > 0) {
@@ -243,14 +292,22 @@ private fun FloatingBookingCard(
                         .fillMaxWidth()
                         .height(54.dp),
                     shape = RoundedCornerShape(14.dp),
-                    enabled = uiState.pickupLocation != null && uiState.destinationLocation != null,
+                    enabled = uiState.pickupLocation != null && uiState.destinationLocation != null && !uiState.isLoading,
                     colors = ButtonDefaults.buttonColors(containerColor = Primary)
                 ) {
-                    Text(
-                        text = if (uiState.estimatedPrice > 0) "Pesan Sekarang" else "Pilih di Peta",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = if (uiState.estimatedPrice > 0) "Pesan Sekarang" else "Pilih di Peta",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }

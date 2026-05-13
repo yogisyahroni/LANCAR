@@ -60,9 +60,31 @@ object NetworkModule {
             .writeTimeout(30, TimeUnit.SECONDS)
 
         if (!BuildConfig.DEBUG) {
+            // =========================================================================
+            // 🛡️ ENTERPRISE SECURITY: DYNAMIC SSL PINNING WITH BACKUP STRATEGY
+            // =========================================================================
+            // Do NOT use hardcoded strings like "api.lancar.com". Use the actual host 
+            // from BuildConfig to support different environments (Staging vs Prod).
+            val hostName = try {
+                java.net.URL(BuildConfig.BASE_URL).host
+            } catch (e: Exception) {
+                "api.lancar.com" // Fallback only if URL parsing fails
+            }
+
+            // CRITICAL ACTION REQUIRED BEFORE PRODUCTION:
+            // Run this command to get the actual SHA-256 pin for your domain:
+            // openssl s_client -servername api.lancar.com -connect api.lancar.com:443 | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64
+            
+            // Note: ALWAYS provide a backup pin (e.g., your next certificate's public key)
+            // If you only have one pin and the certificate expires/is revoked, THE APP WILL BRICK.
+            val PRODUCTION_SHA256_PIN_PRIMARY = "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+            val PRODUCTION_SHA256_PIN_BACKUP = "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB="
+
             val certificatePinner = CertificatePinner.Builder()
-                .add("api.lancar.com", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=") // Substitute with real production cert pin
+                .add(hostName, PRODUCTION_SHA256_PIN_PRIMARY)
+                .add(hostName, PRODUCTION_SHA256_PIN_BACKUP)
                 .build()
+                
             builder.certificatePinner(certificatePinner)
         }
 

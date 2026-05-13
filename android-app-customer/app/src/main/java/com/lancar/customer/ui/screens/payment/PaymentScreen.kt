@@ -79,11 +79,33 @@ fun PaymentWebView(url: String, onPaymentSuccess: () -> Unit) {
         modifier = Modifier.fillMaxSize(),
         factory = { context ->
             WebView(context).apply {
+                // =========================================================================
+                // 🛡️ ENTERPRISE SECURITY: WEBVIEW HARDENING
+                // =========================================================================
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
+                
+                // Block access to local files to prevent local file inclusion (LFI) attacks
+                settings.allowFileAccess = false
+                settings.allowContentAccess = false
+                
+                // Prevent mixed content (HTTP inside HTTPS)
+                settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                
+                // Enable SafeBrowsing
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    settings.safeBrowsingEnabled = true
+                }
+
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                         val loadedUrl = request?.url?.toString() ?: ""
+                        
+                        // Security check: Ensure URL is HTTPS
+                        if (loadedUrl.startsWith("http://")) {
+                            return true // Block cleartext redirects
+                        }
+
                         // Detect gateway success redirect callbacks dynamically
                         if (loadedUrl.contains("/success") || loadedUrl.contains("/finish")) {
                             onPaymentSuccess()
@@ -95,7 +117,10 @@ fun PaymentWebView(url: String, onPaymentSuccess: () -> Unit) {
             }
         },
         update = { webView ->
-            webView.loadUrl(url)
+            // Prevent loading plain http
+            if (url.startsWith("https://")) {
+                webView.loadUrl(url)
+            }
         }
     )
 }

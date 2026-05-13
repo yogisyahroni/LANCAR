@@ -1,5 +1,53 @@
 import { db } from './db';
 import { getIO } from './websocket';
+import * as admin from 'firebase-admin';
+
+// Initialize Firebase Admin SDK
+const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+let firebaseApp: admin.app.App | null = null;
+
+export const ensureUserDevicesTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_devices (
+        id SERIAL PRIMARY KEY,
+        user_id UUID NOT NULL,
+        device_token TEXT NOT NULL UNIQUE,
+        platform TEXT NOT NULL,
+        last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices(user_id);
+    `);
+    console.log('[Notification] user_devices table verified');
+  } catch (error) {
+    console.error('[Notification] Error ensuring user_devices table:', error);
+  }
+};
+
+export const initFirebase = async () => {
+  if (firebaseApp) return firebaseApp;
+
+  if (serviceAccountJson) {
+    try {
+      const serviceAccount = JSON.parse(serviceAccountJson);
+      firebaseApp = admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+      console.log('[Notification] Firebase Admin initialized successfully');
+      
+      // Ensure DB table exists
+      await ensureUserDevicesTable();
+      
+      return firebaseApp;
+    } catch (error) {
+      console.error('[Notification] Failed to parse FIREBASE_SERVICE_ACCOUNT:', error);
+    }
+  } else {
+    console.warn('[Notification] FIREBASE_SERVICE_ACCOUNT not found. Push notifications will be skipped.');
+  }
+  return null;
+};
 
 export interface NotificationPayload {
   user_id: string;
@@ -15,6 +63,7 @@ export const createNotification = async (payload: NotificationPayload) => {
   try {
     const { user_id, title, body, type, order_id, metadata, deep_link } = payload;
     
+    // 1. Save to Database
     const query = `
       INSERT INTO notifications (user_id, title, body, type, order_id, metadata, deep_link, channel)
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'in_app')
@@ -25,13 +74,72 @@ export const createNotification = async (payload: NotificationPayload) => {
     const result = await db.query(query, values);
     const notification = result.rows[0];
 
-    // Emit via WebSocket
+    // 2. Emit via WebSocket for Real-time (Web/Mobile Active)
     try {
       const io = getIO();
       io.to(user_id).emit('new_notification', notification);
       console.log(`[WebSocket] Notification emitted to user ${user_id}`);
     } catch (wsError) {
-      console.warn('[WebSocket] Could not emit notification:', wsError);
+      console.warn('[WebSocket] Could not emit notification via WebSocket');
+    }
+
+    // 3. Send via FCM (Push Notifications)
+    if (firebaseApp) {
+      try {
+        // Fetch user devices
+        const deviceResult = await db.query(
+          'SELECT device_token FROM user_devices WHERE user_id = $1',
+          [user_id]
+        );
+        
+        const tokens = deviceResult.rows.map(r => r.device_token);
+        
+        if (tokens.length > 0) {
+          const message: admin.messaging.MulticastMessage = {
+            tokens: tokens,
+            notification: {
+              title: title,
+              body: body,
+            },
+            data: {
+              type: type,
+              order_id: order_id || '',
+              notification_id: notification.id,
+              deep_link: deep_link || ''
+            },
+            android: {
+              priority: 'high',
+              notification: {
+                clickAction: 'FLUTTER_NOTIFICATION_CLICK', // For common framework compatibility
+                sound: 'default'
+              }
+            }
+          };
+
+          const fcmResponse = await admin.messaging().sendEachForMulticast(message);
+          console.log(`[FCM] Sent to ${fcmResponse.successCount} devices for user ${user_id}. Failures: ${fcmResponse.failureCount}`);
+          
+          // Cleanup invalid tokens
+          if (fcmResponse.failureCount > 0) {
+            const invalidTokens: string[] = [];
+            fcmResponse.responses.forEach((resp, idx) => {
+              if (!resp.success && resp.error?.code === 'messaging/registration-token-not-registered') {
+                invalidTokens.push(tokens[idx]);
+              }
+            });
+            
+            if (invalidTokens.length > 0) {
+              await db.query(
+                'DELETE FROM user_devices WHERE device_token = ANY($1)',
+                [invalidTokens]
+              );
+              console.log(`[FCM] Cleaned up ${invalidTokens.length} invalid tokens`);
+            }
+          }
+        }
+      } catch (fcmError) {
+        console.error('[FCM] Error sending push notification:', fcmError);
+      }
     }
 
     return notification;

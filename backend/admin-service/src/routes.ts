@@ -24,6 +24,15 @@ routes.patch('/auth/web/notifications/:id/read', verifyWebSession, (req, res) =>
 routes.delete('/auth/web/notifications', verifyWebSession, (req, res) => controllers.clearNotifications(req, res));
 routes.post('/auth/web/notifications/subscribe', verifyWebSession, (req, res) => controllers.subscribePush(req, res));
 routes.delete('/auth/web/notifications/subscribe', verifyWebSession, (req, res) => controllers.unsubscribePush(req, res));
+
+// Mobile App Notification Routes
+routes.post('/api/v1/mobile/notifications/register-token', requireMobileOrWebAuth, (req, res) => controllers.registerDeviceToken(req, res));
+routes.post('/api/v1/mobile/notifications/unregister-token', requireMobileOrWebAuth, (req, res) => controllers.unregisterDeviceToken(req, res));
+
+// Courier Specific FCM Aliases (for compatibility with existing Courier App)
+routes.post('/api/v1/courier/fcm/register', requireMobileOrWebAuth, (req, res) => controllers.registerDeviceToken(req, res));
+routes.post('/api/v1/courier/fcm/unregister', requireMobileOrWebAuth, (req, res) => controllers.unregisterDeviceToken(req, res));
+
 routes.get('/auth/web/wallet/balance', verifyWebSession, (req, res) => controllers.getWalletBalance(req, res));
 routes.post('/auth/web/wallet/topup', verifyWebSession, (req, res) => controllers.createTopUp(req, res));
 routes.post('/auth/web/wallet/withdraw', verifyWebSession, (req, res) => controllers.requestWithdrawal(req, res));
@@ -191,6 +200,7 @@ routes.get('/admin/analytics/surge', (req, res) => controllers.getAnalyticsSurge
 routes.get('/admin/analytics/scan-accuracy', (req, res) => controllers.getAnalyticsScanAccuracy(req, res));
 routes.get('/admin/analytics/retention', (req, res) => controllers.getAnalyticsRetention(req, res));
 routes.get('/admin/analytics/heat-data', (req, res) => controllers.getHeatData(req, res));
+routes.get('/admin/analytics/unit-economics', (req, res) => controllers.getUnitEconomics(req, res));
 routes.get('/admin/analytics/export', (req, res) => controllers.exportAnalytics(req, res));
 
 // Scheduled Reports — dua path alias agar compatible dengan frontend Analytics.tsx

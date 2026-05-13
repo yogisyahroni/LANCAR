@@ -141,5 +141,21 @@ data class Order(
      */
     @ColumnInfo(name = "customer_phone")
     @SerialName("customer_phone")
-    var phoneNumber: String? = null
+    var phoneNumber: String? = null,
+
+    @ColumnInfo(name = "length")
+    @SerialName("length")
+    var length: Double? = null,
+
+    @ColumnInfo(name = "width")
+    @SerialName("width")
+    var width: Double? = null,
+
+    @ColumnInfo(name = "height")
+    @SerialName("height")
+    var height: Double? = null,
+
+    @ColumnInfo(name = "weight")
+    @SerialName("weight")
+    var weight: Double? = null
 )

@@ -300,18 +300,61 @@ func (h *OrderHandler) AcceptOrder(w http.ResponseWriter, r *http.Request) {
 // @Param status query string true "New Status"
 // @Success 200 {object} map[string]string
 // @Router /orders/status [patch]
+// UpdateStatusRequest represents the payload for status updates
+type UpdateStatusRequest struct {
+	OrderID string  `json:"id"`
+	Status  string  `json:"status"`
+	Length  *float64 `json:"length,omitempty"`
+	Width   *float64 `json:"width,omitempty"`
+	Height  *float64 `json:"height,omitempty"`
+	Weight  *float64 `json:"weight,omitempty"`
+	Notes   string  `json:"notes,omitempty"`
+}
+
+// UpdateStatus godoc
+// @Summary Update order status (Courier/Admin)
+// @Description Update the status of an order
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param body body UpdateStatusRequest true "Update Status Request"
+// @Router /orders/status [post]
 func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPatch {
+	if r.Method != http.MethodPost && r.Method != http.MethodPatch {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	orderID := r.URL.Query().Get("id")
-	status := domain.OrderStatus(r.URL.Query().Get("status"))
+	var req UpdateStatusRequest
+	var orderID string
+	var status domain.OrderStatus
+
+	// Check if it's a JSON body (as sent by Android)
+	if r.Header.Get("Content-Type") == "application/json" {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		orderID = req.OrderID
+		status = domain.OrderStatus(req.Status)
+	} else {
+		// Fallback to query params for compatibility
+		orderID = r.URL.Query().Get("id")
+		status = domain.OrderStatus(r.URL.Query().Get("status"))
+	}
 
 	if orderID == "" || status == "" {
 		http.Error(w, "Order ID and status are required", http.StatusBadRequest)
 		return
+	}
+
+	// Update dimensions if provided (Enterprise Volumetric Consistency)
+	if req.Length != nil || req.Width != nil || req.Height != nil || req.Weight != nil {
+		err := h.orderSvc.UpdateDimensions(r.Context(), orderID, req.Length, req.Width, req.Height, req.Weight)
+		if err != nil {
+			log.Printf("[OrderHandler] Warning: Failed to update dimensions for %s: %v", orderID, err)
+		}
 	}
 
 	err := h.orderSvc.UpdateStatus(r.Context(), orderID, status)
@@ -323,6 +366,30 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": string(status), "order_id": orderID})
+}
+
+// StartMatching triggers automated courier assignment for an order
+func (h *OrderHandler) StartMatching(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, "Order ID is required", http.StatusBadRequest)
+		return
+	}
+
+	err := h.orderSvc.StartMatching(r.Context(), id)
+	if err != nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_START_MATCHING", err.Error(), correlationID)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
 }
 
 // ScanRequest represents the request payload for scanning a package

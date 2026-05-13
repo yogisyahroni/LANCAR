@@ -103,6 +103,7 @@ dependencies {
     // DataStore & Security
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("com.scottyab:rootbeer-lib:0.1.0") // 🛡️ Anti-fraud root detection
 
     // Room Database for offline order queue (PTLAAA-45)
     val roomVersion = "2.6.1"
@@ -139,6 +140,9 @@ dependencies {
     
     // ExifInterface for image rotation correction
     implementation("androidx.exifinterface:exifinterface:1.3.6")
+
+    // ML Kit for Volumetric Scanning & Object Detection (PTLAAA-88)
+    implementation("com.google.mlkit:object-detection:17.0.0")
     
     // Coil for image loading in Compose
     implementation("io.coil-kt:coil-compose:2.5.0")

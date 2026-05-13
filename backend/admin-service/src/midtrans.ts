@@ -18,6 +18,12 @@ type SnapTransactionInput = {
   customerDetails?: SnapCustomer;
   customFields?: Record<string, string>;
   expiryMinutes?: number;
+  routingDetails?: {
+    ppn_amount: number;
+    reserve_amount: number;
+    insurance_amount: number;
+    operational_amount: number;
+  };
 };
 
 type SnapTransactionResult = {
@@ -72,7 +78,7 @@ export const createSnapTransaction = async (input: SnapTransactionInput): Promis
       finish: process.env.MIDTRANS_FINISH_URL || process.env.FRONTEND_URL || 'http://localhost:3000/orders',
     },
     custom_field1: input.customFields?.custom_field1,
-    custom_field2: input.customFields?.custom_field2,
+    custom_field2: input.routingDetails ? JSON.stringify(input.routingDetails) : input.customFields?.custom_field2,
     custom_field3: input.customFields?.custom_field3,
   };
 

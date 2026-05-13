@@ -5,7 +5,11 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import http from 'http';
 import { routes } from './routes';
+import { initWebSocket } from './websocket';
+import { startWeatherWorker } from './workers/weather-worker';
+import { initFirebase } from './notifications';
 
 const app = express();
 
@@ -59,14 +63,13 @@ app.use((req: express.Request, res: express.Response, next: express.NextFunction
 });
 app.use(routes);
 
-import http from 'http';
-import { initWebSocket } from './websocket';
-
 const port = process.env.ADMIN_PORT || process.env.PORT || 3000;
 
 const server = http.createServer(app);
 initWebSocket(server);
 
-server.listen(port, () => {
+server.listen(port, async () => {
   console.log(`Admin Service listening on port ${port}`);
+  await initFirebase();
+  startWeatherWorker();
 });

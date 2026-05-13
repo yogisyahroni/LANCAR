@@ -5,6 +5,7 @@ import { getIO } from '../websocket';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../midtrans';
 import { isExpiredOrFailedTransaction, isSuccessfulTransaction } from '../midtrans';
 import { calculateServiceSettlement, customerFacingService, DeliveryServiceProduct, findDeliveryServiceByCode } from './deliveryServices.controller';
+import { redis } from '../redis';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -133,7 +134,22 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
 
     const hour = new Date().getHours();
     const isPeakHour = (hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 20);
-    const dynamic_price = isPeakHour ? Math.ceil(base_price * 0.15) : 0;
+    let dynamic_price = isPeakHour ? Math.ceil(base_price * 0.15) : 0;
+
+    // Apply Weather Surge from Worker
+    try {
+      const weatherDataStr = await redis.get('current_weather_surge');
+      if (weatherDataStr) {
+        const weatherData = JSON.parse(weatherDataStr);
+        if (weatherData.surgeMultiplier > 0) {
+          const weatherSurge = Math.ceil(base_price * weatherData.surgeMultiplier);
+          dynamic_price += weatherSurge;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to apply weather surge:', e);
+    }
+
     const delivery_model = service.route_model;
     const calculatedEta = Math.ceil(20 + (distance * 3.5) + (service.batching_allowed ? 120 : 0));
     const eta_minutes = Math.min(service.max_eta_minutes, Math.max(20, calculatedEta));
@@ -293,41 +309,14 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     const newOrder = result.rows[0];
 
     const midtransOrderId = `${order_number}-${Date.now()}`;
-    const snap = await createSnapTransaction({
-      orderId: midtransOrderId,
-      grossAmount: totalPrice,
-      itemDetails: [
-        {
-          id: order_number,
-          price: totalPrice,
-          quantity: 1,
-          name: `LANCAR Delivery ${order_number}`
-        }
-      ],
-      customerDetails: {
-        first_name: recipient_name,
-        phone: recipient_phone
-      },
-      customFields: {
-        custom_field1: String(newOrder.id),
-        custom_field2: 'single_order',
-        custom_field3: String(customer_id)
-      },
-      expiryMinutes: 30
-    });
-
+    
+    // Insert pending payment record BEFORE calling external API
     await client.query(`
       INSERT INTO payments (
         order_id, payment_number, provider, method, status, amount_idr,
         mdr_amount_idr, ppn_amount_idr, weather_reserve_idr, insurance_reserve_idr,
         net_operational_idr, provider_reference, expires_at
-      ) VALUES ($1, $2, 'midtrans', 'snap', 'pending', $3, $4, $5, 0, $6, $7, $8, $9)
-      ON CONFLICT (order_id) DO UPDATE SET
-        provider_reference = EXCLUDED.provider_reference,
-        status = 'pending',
-        amount_idr = EXCLUDED.amount_idr,
-        expires_at = EXCLUDED.expires_at,
-        updated_at = NOW()
+      ) VALUES ($1, $2, 'midtrans', 'snap', 'pending', $3, $4, $5, 0, $6, $7, $8, NOW() + INTERVAL '30 minutes')
     `, [
       newOrder.id,
       `PAY-${order_number}`,
@@ -336,8 +325,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       settlement.ppn_idr,
       settlement.insurance_reserve_idr,
       settlement.net_operational_idr,
-      midtransOrderId,
-      snap.expires_at
+      midtransOrderId
     ]);
 
     // Create Order Event
@@ -346,30 +334,79 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       VALUES ($1, $2, 'created', 'Customer created order via Web Portal')
     `, [newOrder.id, customer_id]);
 
+    // COMMIT the database transaction BEFORE calling external Midtrans API
+    // This prevents ghost transactions in Midtrans if the DB commit fails.
     await client.query('COMMIT');
-    
-    // In a real app, generate QRIS payment intent here with a payment provider.
-    // For now, we return a mock QRIS URL/String.
-    res.status(201).json({
-      success: true,
-      order: newOrder,
-      payment: {
-        id: `PAY-${newOrder.order_number}`,
-        method: 'MIDTRANS_SNAP',
-        snap_token: snap.token,
-        redirect_url: snap.redirect_url,
-        midtrans_order_id: snap.midtrans_order_id,
-        client_key: getMidtransClientKey(),
-        snap_js_url: getMidtransSnapJsUrl(),
-        expires_in: 1800,
-        expires_at: snap.expires_at
-      }
-    });
+    client.release(); // Release client early as DB work is done
+
+    try {
+      const ppn_amount = Math.ceil(totalPrice * 0.011); // 1.1% PPN
+      const reserve_amount = Math.ceil(totalPrice * 0.02); // 2% Cuaca
+      const insurance_amount = price_breakdown?.insurance_premium_idr || 0;
+      const operational_amount = totalPrice - ppn_amount - reserve_amount - insurance_amount;
+
+      const snap = await createSnapTransaction({
+        orderId: midtransOrderId,
+        grossAmount: totalPrice,
+        itemDetails: [
+          {
+            id: order_number,
+            price: totalPrice,
+            quantity: 1,
+            name: `LANCAR Delivery ${order_number}`
+          }
+        ],
+        customerDetails: {
+          first_name: recipient_name,
+          phone: recipient_phone
+        },
+        routingDetails: {
+          ppn_amount,
+          reserve_amount,
+          insurance_amount,
+          operational_amount
+        },
+        customFields: {
+          custom_field1: String(newOrder.id),
+          custom_field3: String(customer_id)
+        },
+        expiryMinutes: 30
+      });
+
+      // Update the expiry time based on actual Snap response (non-blocking, don't strictly need a transaction)
+      db.query(`UPDATE payments SET expires_at = $1 WHERE provider_reference = $2`, [snap.expires_at, midtransOrderId]).catch(console.error);
+
+      res.status(201).json({
+        success: true,
+        order: newOrder,
+        payment: {
+          id: `PAY-${newOrder.order_number}`,
+          method: 'MIDTRANS_SNAP',
+          snap_token: snap.token,
+          redirect_url: snap.redirect_url,
+          midtrans_order_id: snap.midtrans_order_id,
+          client_key: getMidtransClientKey(),
+          snap_js_url: getMidtransSnapJsUrl(),
+          expires_in: 1800,
+          expires_at: snap.expires_at
+        }
+      });
+    } catch (midtransError: any) {
+      // Order and Payment records exist, but Snap token failed. 
+      // User can retry payment later.
+      console.error('[Midtrans Error] Failed to create snap token after DB commit:', midtransError);
+      res.status(201).json({
+        success: true,
+        order: newOrder,
+        payment_setup_error: 'Gagal menghubungi sistem pembayaran. Silakan coba bayar ulang dari menu pesanan.',
+        payment: null
+      });
+    }
+
   } catch (error: any) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: error.message });
-  } finally {
     client.release();
+    res.status(500).json({ error: error.message });
   }
 };
 
@@ -812,6 +849,24 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
     }
 
     await client.query('COMMIT');
+
+    // 🚀 ENTERPRISE ORCHESTRATION: Trigger Courier Matching
+    if (isSuccessfulTransaction(transaction_status, fraud_status)) {
+      const orderServiceClientUrl = process.env.ORDER_SERVICE_URL || 'http://localhost:8083';
+      console.log(`[Orchestration] Triggering courier matching for ${orderIds.length} orders...`);
+      
+      for (const orderId of orderIds) {
+        // Use global fetch (Node 18+)
+        fetch(`${orderServiceClientUrl}/api/v1/internal/orders/matching?id=${orderId}`, { 
+          method: 'POST' 
+        }).then(response => {
+          if (!response.ok) console.warn(`[OrderService] Matching trigger returned status ${response.status} for ${orderId}`);
+        }).catch(err => {
+          console.error(`[OrderService] Failed to reach order-service for matching:`, err.message);
+        });
+      }
+    }
+
     res.json({ success: true });
   } catch (error: any) {
     await client.query('ROLLBACK');

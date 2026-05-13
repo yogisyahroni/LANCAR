@@ -270,6 +270,41 @@ export const getHeatData = async (req: Request, res: Response) => {
   }
 };
 
+export const getUnitEconomics = async (req: Request, res: Response) => {
+  try {
+    const result = await readDb.query(`
+      WITH 
+      marketing_costs AS (
+        -- Asumsi statis untuk CAC jika belum ada integrasi ads API
+        SELECT 5000000 as total_ad_spend, 
+               (SELECT COUNT(DISTINCT customer_id) FROM orders WHERE created_at >= NOW() - INTERVAL '30 days') as new_customers
+      ),
+      revenue_stats AS (
+        SELECT 
+          COUNT(id) as total_orders,
+          SUM(total_price_idr) as gross_revenue,
+          SUM(total_price_idr * 0.011) as total_ppn,
+          SUM(total_price_idr * 0.02) as total_reserve,
+          SUM(total_price_idr * 0.969) as net_operational -- asuransi etc. excluded for simplification
+        FROM orders 
+        WHERE status = 'delivered' AND created_at >= NOW() - INTERVAL '30 days'
+      )
+      SELECT 
+        CASE WHEN m.new_customers > 0 THEN m.total_ad_spend / m.new_customers ELSE 0 END as cac_idr,
+        CASE WHEN m.new_customers > 0 THEN r.gross_revenue / m.new_customers ELSE 0 END as ltv_idr,
+        CASE WHEN r.total_orders > 0 THEN r.gross_revenue / r.total_orders ELSE 0 END as aov_idr,
+        CASE WHEN r.total_orders > 0 THEN (r.net_operational * 0.2) / r.total_orders ELSE 0 END as avg_margin_idr, -- asumsi margin kotor 20%
+        r.total_ppn,
+        r.total_reserve,
+        r.gross_revenue
+      FROM marketing_costs m, revenue_stats r
+    `);
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const exportAnalytics = async (req: Request, res: Response) => {
   try {
     const { range } = req.query;

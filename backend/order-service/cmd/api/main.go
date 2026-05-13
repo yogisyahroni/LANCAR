@@ -222,6 +222,9 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/bags/detail", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetConsolidationBag)))
 	mux.HandleFunc("/api/v1/orders/scan/auto-detect", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AutoDetectScanType)))
 
+	// Internal Orchestration Routes (Should be IP-whitelisted or internally routed)
+	mux.HandleFunc("/api/v1/internal/orders/matching", orderHandler.StartMatching)
+
 
 	// Tracking Routes
 	mux.HandleFunc("/api/v1/tracking/location", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.UpdateLocation)))

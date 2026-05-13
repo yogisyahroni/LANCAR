@@ -36,6 +36,10 @@ type Order struct {
 	DropoffAddress         string      `json:"dropoff_address"`
 	DropoffLat             float64     `json:"dropoff_lat"`
 	DropoffLng             float64     `json:"dropoff_lng"`
+	Length                 float64     `json:"length,omitempty"`
+	Width                  float64     `json:"width,omitempty"`
+	Height                 float64     `json:"height,omitempty"`
+	Weight                 float64     `json:"weight,omitempty"`
 	DistanceKM             float64     `json:"distance_km"`
 	BasePriceIDR           int64       `json:"base_price_idr"`
 	VolumetricSurchargeIDR int64       `json:"volumetric_surcharge_idr"`
@@ -58,6 +62,7 @@ type OrderService interface {
 	GetOrder(ctx context.Context, orderID string) (*Order, error)
 	ListOrders(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, orderID string, status OrderStatus) error
+	UpdateDimensions(ctx context.Context, orderID string, length, width, height, weight *float64) error
 	AcceptOrder(ctx context.Context, orderID string, courierID string) error
 	FindAndAssignCourier(ctx context.Context, orderID string) error
 	ListEvents(ctx context.Context, userID string, since time.Time) ([]OrderEvent, error)
@@ -65,6 +70,7 @@ type OrderService interface {
 	GetPackageScans(ctx context.Context, orderID string) ([]*PackageScan, error)
 	CreateConsolidationBag(ctx context.Context, createdBy string, bag *ConsolidationBag) error
 	OpenConsolidationBag(ctx context.Context, unbaggedBy string, bagNumber string) error
+	StartMatching(ctx context.Context, orderID string) error
 	GetConsolidationBag(ctx context.Context, bagNumber string) (*ConsolidationBag, []*PackageScan, error)
 	AutoDetectScanType(ctx context.Context, orderID string, warehouseID string) (string, error)
 }
@@ -74,6 +80,7 @@ type OrderRepository interface {
 	GetByID(ctx context.Context, id string) (*Order, error)
 	ListByUserID(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, id string, status OrderStatus) error
+	UpdateDimensions(ctx context.Context, id string, length, width, height, weight float64) error
 	CancelExpiredOrders(ctx context.Context, timeout time.Duration) (int64, error)
 	AssignCourier(ctx context.Context, orderID string, courierID string) error
 	GetActiveCourierOrder(ctx context.Context, courierID string) (string, error)

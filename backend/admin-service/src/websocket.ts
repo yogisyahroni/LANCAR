@@ -24,22 +24,57 @@ export const initWebSocket = (server: HttpServer) => {
     },
   });
 
+  io.use((socket, next) => {
+    let token = socket.handshake.auth.token || socket.handshake.query.token;
+    
+    // Try to extract token from cookies if not found in auth/query (for Next.js webapp)
+    if (!token && socket.handshake.headers.cookie) {
+      const cookies = socket.handshake.headers.cookie.split(';').reduce((res: any, c) => {
+        const [key, val] = c.trim().split('=').map(decodeURIComponent);
+        res[key] = val;
+        return res;
+      }, {});
+      token = cookies.accessToken || cookies.access_token || cookies.token || cookies.jwt;
+    }
+
+    if (!token) {
+      return next(new Error('Authentication error: Token missing'));
+    }
+
+    const secret = process.env.JWT_SECRET || 'your-secret-key';
+    import('jsonwebtoken').then(jwt => {
+      jwt.default.verify(token as string, secret, (err: any, decoded: any) => {
+        if (err) return next(new Error('Authentication error: Invalid token'));
+        
+        // Attach verified user info to socket
+        (socket as any).user = decoded;
+        next();
+      });
+    }).catch(err => {
+      console.error('Failed to load jsonwebtoken for websocket auth', err);
+      next(new Error('Internal server error'));
+    });
+  });
+
   io.on('connection', (socket) => {
-    const userId = socket.handshake.query.userId as string;
-    const role = socket.handshake.query.role as string;
+    // Extract userId from verified JWT payload, fallback to query for backward compatibility during transition if needed
+    // However, for strict security, we should ONLY use the decoded token.
+    const user = (socket as any).user;
+    const userId = user?.id || user?.user_id;
+    const role = user?.role || socket.handshake.query.role as string;
     
     if (userId) {
-      socket.join(userId);
+      socket.join(String(userId));
       console.log(`[WebSocket] User ${userId} joined room. Socket: ${socket.id}`);
+    } else {
+      console.warn(`[WebSocket] Client connected without a valid User ID in token: ${socket.id}`);
+      socket.disconnect();
+      return;
     }
     
     if (role) {
-      socket.join(role);
+      socket.join(String(role));
       console.log(`[WebSocket] User joined role room: ${role}. Socket: ${socket.id}`);
-    }
-
-    if (!userId && !role) {
-      console.log(`[WebSocket] Client connected without identification: ${socket.id}`);
     }
 
     // Dispute Rooms

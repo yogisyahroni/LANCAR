@@ -51,10 +51,17 @@ class SocketManager @Inject constructor(
         }
 
         try {
-            // Setup socket with query parameters required by backend initWebSocket
+            val token = sessionManager.getAuthTokenSync()
+            if (token.isNullOrBlank()) {
+                Log.e(TAG, "Cannot connect socket: authToken is null or empty.")
+                return
+            }
+
+            // Setup socket with query parameters AND auth payload for JWT validation
             // Role set specifically to "courier"
             val opts = IO.Options.builder()
                 .setQuery("userId=$courierId&role=courier")
+                .setAuth(mapOf("token" to token))
                 .setReconnection(true)
                 .build()
             
