@@ -269,6 +269,15 @@ fun MainScreen(
                     isOnline = isOnline,
                     onOnlineToggle = { online ->
                         scope.launch {
+                            // Business Rule Guard: Prevent going Off-Duty if there are active jobs
+                            if (!online) {
+                                val hasActiveJobs = allOrders.any { it.status != "delivered" && it.status != "failed" }
+                                if (hasActiveJobs) {
+                                    snackbarHostState.showSnackbar("Peringatan: Selesaikan semua tugas pengiriman sebelum NONAKTIF!")
+                                    return@launch
+                                }
+                            }
+
                             authSessionManager.setOnlineStatus(online)
                             try {
                                 if (online) {
