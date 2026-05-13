@@ -89,5 +89,21 @@ data class Order(
 
     @ColumnInfo(name = "customer_phone")
     @SerialName("customer_phone")
-    var phoneNumber: String? = null
+    var phoneNumber: String? = null,
+
+    @ColumnInfo(name = "courier_name")
+    @SerialName("courier_name")
+    var courierName: String? = null,
+
+    @ColumnInfo(name = "courier_vehicle")
+    @SerialName("courier_vehicle")
+    var courierVehicle: String? = null,
+
+    @ColumnInfo(name = "courier_plate")
+    @SerialName("courier_plate")
+    var courierPlate: String? = null,
+
+    @ColumnInfo(name = "courier_phone")
+    @SerialName("courier_phone")
+    var courierPhone: String? = null
 )

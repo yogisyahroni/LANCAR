@@ -33,6 +33,8 @@ import com.lancar.customer.ui.screens.detail.OrderDetailViewModel
 
 import com.lancar.customer.ui.screens.payment.PaymentScreen
 import com.lancar.customer.ui.screens.payment.PaymentViewModel
+import com.lancar.customer.ui.screens.chat.ChatScreen
+import com.lancar.customer.ui.screens.chat.ChatViewModel
 
 @Composable
 fun RootNavGraph(
@@ -175,7 +177,45 @@ fun RootNavGraph(
                 viewModel = trackingViewModel,
                 onBackClick = {
                     navController.popBackStack()
+                },
+                onChatClick = { id, name, phone ->
+                    // Dynamic launch of full duplex chat view
+                    navController.navigate(Screen.Chat.createRoute(id, name, phone))
                 }
+            )
+        }
+
+        composable(
+            route = Screen.Chat.route,
+            arguments = listOf(
+                navArgument("orderId") { type = NavType.StringType },
+                navArgument("name") { 
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = ""
+                },
+                navArgument("phone") { 
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+            val rawName = backStackEntry.arguments?.getString("name") ?: ""
+            val rawPhone = backStackEntry.arguments?.getString("phone") ?: ""
+            
+            // Decipher URL safety transformations
+            val courierName = if (rawName.isNotBlank()) java.net.URLDecoder.decode(rawName, "UTF-8") else null
+            val courierPhone = if (rawPhone.isNotBlank()) java.net.URLDecoder.decode(rawPhone, "UTF-8") else null
+            
+            val chatVm: ChatViewModel = hiltViewModel()
+            ChatScreen(
+                orderId = orderId,
+                courierName = courierName,
+                courierPhone = courierPhone,
+                onBackClick = { navController.popBackStack() },
+                viewModel = chatVm
             )
         }
     }

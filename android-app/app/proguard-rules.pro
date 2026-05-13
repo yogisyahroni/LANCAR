@@ -23,3 +23,13 @@
 
 # Keep data classes
 -keep class com.lancar.courier.data.model.** { *; }
+
+# Socket.IO & Engine.IO (Real-time Sync Security)
+-keep class io.socket.** { *; }
+-dontwarn io.socket.**
+-keep class okhttp3.internal.ws.** { *; }
+-dontwarn okhttp3.internal.ws.**
+-keep class org.json.** { *; }
+-keep class engine.io.** { *; }
+-dontwarn engine.io.**
+

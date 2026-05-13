@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.lancar.courier.data.repository.LocationRepository
 import com.lancar.courier.data.repository.OrderRepository
 import com.lancar.courier.data.session.AuthSessionManager
 import dagger.assisted.Assisted
@@ -22,6 +23,7 @@ class OrderSyncWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val orderRepository: OrderRepository,
+    private val locationRepository: LocationRepository,
     private val authSessionManager: AuthSessionManager
 ) : CoroutineWorker(context, params) {
 
@@ -40,6 +42,23 @@ class OrderSyncWorker @AssistedInject constructor(
         if (session == null) {
             Log.e(TAG, "Session data unavailable")
             return Result.failure()
+        }
+
+        // 🚨 TELEMETRY SWEEP & DATABASE MAINTENANCE
+        try {
+            val deviceId = android.provider.Settings.Secure.getString(
+                applicationContext.contentResolver, 
+                android.provider.Settings.Secure.ANDROID_ID
+            ) ?: "unknown_worker"
+            
+            // Flush residual locations (<10 items) from DB to prevent courier freezing on dashboard
+            locationRepository.syncLocations(session.authToken, session.courierId, deviceId)
+            
+            // Purge location records older than 7 days to keep storage clean
+            locationRepository.cleanupOldLocations()
+            Log.i(TAG, "Telemetry flush and 7-day local database purging executed successfully.")
+        } catch (e: Exception) {
+            Log.w(TAG, "Background telemetry maintenance skipped or aborted: ${e.message}")
         }
 
         // Sync pending orders

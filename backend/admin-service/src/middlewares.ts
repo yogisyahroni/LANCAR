@@ -36,6 +36,41 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
   return verifyAdminSession(req, res, next);
 };
 
+// Flexible middleware that accepts injected Gateway Headers (Mobile Bearer JWT) 
+// OR Web Customer Cookies OR Web Admin Cookies to protect shared resources.
+export const requireMobileOrWebAuth = async (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.headers['x-user-id'] as string;
+  const role = req.headers['x-user-role'] as string;
+  const fullName = req.headers['x-user-full-name'] as string || 'User';
+
+  // 1. Check for explicit Gateway Injected headers (Mobile Apps authenticated via JWT)
+  if (userId) {
+    req.user = {
+      id: userId,
+      role: role || 'user',
+      full_name: fullName,
+      totp_verified: true,
+    };
+    console.log(`[requireMobileOrWebAuth] Authenticated Mobile via Headers: UserID=${userId}`);
+    return next();
+  }
+
+  // 2. Check for Web Customer Session cookie
+  if (req.cookies?.customer_session) {
+    return verifyWebSession(req, res, next);
+  }
+
+  // 3. Check for Web Admin Session cookie
+  if (req.cookies?.admin_session) {
+    return verifyAdminSession(req, res, next);
+  }
+
+  // 4. Reject if no authentication mechanism provided
+  console.warn(`[requireMobileOrWebAuth] Blocked Access. No headers or sessions provided. URL: ${req.url}`);
+  res.status(401).json({ error: 'Unauthorized: Authentication required' });
+};
+
+
 export const requireRole = (allowedRoles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     console.log(`[requireRole] Checking Role: '${req.user?.role}' against [${allowedRoles.join(', ')}] for ${req.url}`);

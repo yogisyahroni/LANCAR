@@ -5,6 +5,9 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -44,7 +47,8 @@ import kotlinx.coroutines.launch
 fun TrackingScreen(
     orderId: String,
     viewModel: TrackingViewModel,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    onChatClick: (String, String?, String?) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -146,6 +150,28 @@ fun TrackingScreen(
         ) {
             CourierStatusCard(
                 eta = uiState.eta ?: "Menghitung...",
+                order = uiState.order,
+                onCallClick = {
+                    val phone = uiState.order?.courierPhone
+                    if (!phone.isNullOrBlank()) {
+                        try {
+                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Gagal membuka dialer telepon", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(context, "Nomor telepon kurir tidak tersedia", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onChatClick = {
+                    // Seamless navigation into real-time full duplex chat screen passing the courier metadata
+                    onChatClick(
+                        orderId,
+                        uiState.order?.courierName,
+                        uiState.order?.courierPhone
+                    )
+                },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp)
             )
         }
@@ -155,6 +181,9 @@ fun TrackingScreen(
 @Composable
 fun CourierStatusCard(
     eta: String,
+    order: com.lancar.customer.data.model.Order?,
+    onCallClick: () -> Unit,
+    onChatClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -206,20 +235,29 @@ fun CourierStatusCard(
                         .background(Color(0xFFE0E0E0)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("JD", fontWeight = FontWeight.Bold, color = Color.DarkGray)
+                    val initials = remember(order?.courierName) {
+                        val name = order?.courierName ?: "K"
+                        val parts = name.trim().split("\\s+".toRegex())
+                        if (parts.size >= 2) {
+                            "${parts[0].take(1)}${parts[1].take(1)}".uppercase()
+                        } else {
+                            name.take(2).uppercase()
+                        }
+                    }
+                    Text(initials, fontWeight = FontWeight.Bold, color = Color.DarkGray)
                 }
 
                 Spacer(modifier = Modifier.width(16.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "John Doe",
+                        text = order?.courierName ?: "Sedang mencari kurir...",
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         color = Color(0xFF1A1A1A)
                     )
                     Text(
-                        text = "B 1234 XYZ • Honda Vario",
+                        text = if (order?.courierPlate != null) "${order.courierPlate} • ${order.courierVehicle ?: ""}" else "Menghubungkan driver",
                         color = Color.Gray,
                         fontSize = 14.sp
                     )
@@ -228,7 +266,7 @@ fun CourierStatusCard(
                 // Action Buttons (Call / Chat)
                 Row {
                     FilledIconButton(
-                        onClick = { /* Call Intent later */ },
+                        onClick = onCallClick,
                         modifier = Modifier.size(42.dp),
                         shape = CircleShape,
                         colors = IconButtonDefaults.filledIconButtonColors(
@@ -244,7 +282,7 @@ fun CourierStatusCard(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     FilledIconButton(
-                        onClick = { /* Open Chat later */ },
+                        onClick = onChatClick,
                         modifier = Modifier.size(42.dp),
                         shape = CircleShape,
                         colors = IconButtonDefaults.filledIconButtonColors(

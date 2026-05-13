@@ -25,6 +25,7 @@ import com.lancar.courier.ui.screens.order.OrderScreen
 import com.lancar.courier.ui.screens.order.OrderViewModel
 import com.lancar.courier.ui.screens.pod.ProofOfDeliveryScreen
 import com.lancar.courier.ui.screens.scan.ScanScreen
+import com.lancar.courier.ui.screens.chat.ChatScreen
 import com.lancar.courier.ui.theme.Primary
 import kotlinx.coroutines.launch
 
@@ -39,6 +40,8 @@ import kotlinx.coroutines.launch
 fun MainScreen(
     navController: NavHostController? = null,
     initialOrderId: String? = null,
+    initialChatOrderId: String? = null,
+    onConsumedDeepLink: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -62,6 +65,7 @@ fun MainScreen(
     var showPodScreen by remember { mutableStateOf(false) }
     var showOrderDetail by remember { mutableStateOf(false) }
     var showScanScreen by remember { mutableStateOf(false) }
+    var showChatScreen by remember { mutableStateOf(false) }
     var selectedOrder by remember { mutableStateOf<Order?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
@@ -71,7 +75,22 @@ fun MainScreen(
             val order = orderViewModel.getOrderById(initialOrderId)
             if (order != null) {
                 selectedOrder = order
+                showChatScreen = false // Reset Chat focus
                 showOrderDetail = true
+                onConsumedDeepLink()
+            }
+        }
+    }
+
+    // Navigate to Chat Screen directly if app was opened from a Chat notification
+    LaunchedEffect(initialChatOrderId) {
+        if (initialChatOrderId != null) {
+            val order = orderViewModel.getOrderById(initialChatOrderId)
+            if (order != null) {
+                selectedOrder = order
+                showOrderDetail = false // Take directly to chat viewport
+                showChatScreen = true
+                onConsumedDeepLink()
             }
         }
     }
@@ -124,6 +143,22 @@ fun MainScreen(
             onCapturePod = {
                 showOrderDetail = false
                 showPodScreen = true
+            },
+            onChatClick = {
+                showOrderDetail = false
+                showChatScreen = true
+            }
+        )
+        return
+    }
+
+    // ── Chat Screen ────────────────────────────────────────────
+    if (showChatScreen && selectedOrder != null) {
+        ChatScreen(
+            orderId = selectedOrder!!.orderId,
+            onBackClick = {
+                showChatScreen = false
+                showOrderDetail = true // Back to context-sensitive screen
             }
         )
         return
@@ -278,6 +313,15 @@ fun MainScreen(
                                 }
                             }
 
+                            // Security Guard: Prevent going On-Duty if the device is rooted (Anti-GPS Spoofing)
+                            if (online) {
+                                val isRooted = com.lancar.courier.util.SecurityUtils.isDeviceRooted(context)
+                                if (isRooted) {
+                                    snackbarHostState.showSnackbar("⚠️ AKSES DITOLAK: Perangkat terdeteksi ROOTED. Dilarang bekerja demi integritas GPS!")
+                                    return@launch
+                                }
+                            }
+
                             authSessionManager.setOnlineStatus(online)
                             try {
                                 if (online) {
@@ -315,6 +359,9 @@ fun MainScreen(
                     pendingSyncCount = pendingOrders.size,
                     onLogout = { showLogoutDialog = true },
                     onSyncNow = { orderViewModel.syncPendingOrders() },
+                    onOptimizeBattery = {
+                        (context as? com.lancar.courier.ui.MainActivity)?.checkAndRequestBatteryWhitelist()
+                    },
                     onClearCache = {
                         try {
                             val deleted = context.cacheDir.deleteRecursively()
@@ -543,6 +590,7 @@ private fun ProfileContent(
     pendingSyncCount: Int,
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
+    onOptimizeBattery: () -> Unit,
     onClearCache: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -660,6 +708,22 @@ private fun ProfileContent(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Hapus Cache", style = MaterialTheme.typography.labelMedium)
                     }
+                }
+
+                // 🔋 Anti-Kill Optimization Shortcut
+                Button(
+                    onClick = onOptimizeBattery,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary,
+                        contentColor = MaterialTheme.colorScheme.onTertiary
+                    ),
+                    contentPadding = PaddingValues(vertical = 10.dp)
+                ) {
+                    Icon(Icons.Default.BatteryChargingFull, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Optimalkan Latar Belakang (Anti-Kill)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 }
             }
         }

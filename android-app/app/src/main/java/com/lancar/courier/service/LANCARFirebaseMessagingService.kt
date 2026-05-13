@@ -14,6 +14,7 @@ import com.lancar.courier.data.repository.FCMTokenRepository
 import com.lancar.courier.receiver.NotificationReceiver
 import com.lancar.courier.service.NotificationDismissReceiver
 import com.lancar.courier.ui.MainActivity
+import android.media.RingtoneManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -98,6 +99,11 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
                 val body = data["body"] ?: ""
                 showNotification(title, body, data)
             }
+            "chat_message" -> {
+                val title = data["title"] ?: "Pesan Baru Dari Customer 💬"
+                val body = data["body"] ?: "Ketuk untuk membalas pesan customer."
+                showNotification(title, body, data)
+            }
             else -> {
                 val title = data["title"] ?: "Lancar Update"
                 val body = data["body"] ?: ""
@@ -107,14 +113,24 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun showNotification(title: String, body: String, data: Map<String, String>) {
+        val type = data["type"] ?: "unknown"
+        val orderId = data["order_id"] ?: data["orderId"]
+
         val intent = Intent(applicationContext, MainActivity::class.java).apply {
+            // 🔗 DYNAMIC ROUTING INJECTOR
+            if (type == "chat_message") {
+                putExtra("chat_order_id", orderId)
+            } else if (orderId != null) {
+                putExtra("selected_order_id", orderId)
+            }
+            
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             putExtra("notification_data", data.toString())
         }
 
         val pendingIntent = PendingIntent.getActivity(
             applicationContext,
-            0,
+            System.currentTimeMillis().toInt(), // Unique RequestCode prevents caching collisions
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
@@ -136,35 +152,48 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(applicationContext, LANCARApplication.CHANNEL_ORDERS)
+        val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        
+        val builder = NotificationCompat.Builder(applicationContext, LANCARApplication.CHANNEL_ORDERS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(body)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .addAction(
-                NotificationCompat.Action.Builder(
-                    R.drawable.ic_dismiss,
-                    "Dismiss",
-                    PendingIntent.getBroadcast(
-                        applicationContext,
-                        0,
-                        Intent(applicationContext, NotificationDismissReceiver::class.java)
-                            .putExtra("notification_id", data["notification_id"] ?: ""),
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                    )
-                ).build()
-            )
-            .addAction(
-                NotificationCompat.Action.Builder(
-                    R.drawable.ic_notification,
-                    "Accept",
-                    acceptPendingIntent
-                ).build()
-            )
+            .setSound(soundUri)
+            .setVibrate(longArrayOf(0, 800, 400, 800, 400, 1000))
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .build()
+
+        // 🔔 DYNAMIC SYSTEM BEHAVIOR MAPPING
+        if (type == "order_assignment") {
+            builder.setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setFullScreenIntent(pendingIntent, true) // Bring screen alive!
+                .addAction(
+                    NotificationCompat.Action.Builder(
+                        R.drawable.ic_dismiss,
+                        "Tolak",
+                        PendingIntent.getBroadcast(
+                            applicationContext,
+                            2,
+                            Intent(applicationContext, NotificationDismissReceiver::class.java)
+                                .putExtra("notification_id", data["notification_id"] ?: ""),
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                        )
+                    ).build()
+                )
+                .addAction(
+                    NotificationCompat.Action.Builder(
+                        R.drawable.ic_notification,
+                        "Terima",
+                        acceptPendingIntent
+                    ).build()
+                )
+        } else if (type == "chat_message") {
+            builder.setCategory(NotificationCompat.CATEGORY_MESSAGE)
+        }
+
+        val notification = builder.build()
 
         with(NotificationManagerCompat.from(applicationContext)) {
             val notificationId = (title.hashCode() and 0x7FFFFFFF)

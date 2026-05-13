@@ -399,7 +399,7 @@ class LocationTrackerService : Service() {
         }
 
         val request = LocationRequest.Builder(
-            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            Priority.PRIORITY_HIGH_ACCURACY,
             interval
         ).apply {
             setMinUpdateIntervalMillis(fastestInterval)

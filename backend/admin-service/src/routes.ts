@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as controllers from './controllers/index';
-import { requireAuth, requireRole, requireTotp, verifyWebSession, verifySession } from './middlewares';
+import { requireAuth, requireRole, requireTotp, verifyWebSession, verifySession, requireMobileOrWebAuth } from './middlewares';
 import { toggleRateLimiter } from './rateLimit';
 import multer from 'multer';
 
@@ -36,8 +36,8 @@ routes.get('/auth/web/orders', verifyWebSession, (req, res) => controllers.custo
 routes.get('/auth/web/orders/:id/payment/status', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderPaymentStatus(req, res));
 routes.post('/auth/web/orders/:id/payment/check', verifyWebSession, (req, res) => controllers.customerOrder.confirmCustomerOrderPayment(req, res));
 routes.get('/auth/web/orders/:id', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderById(req, res));
-routes.get('/auth/web/orders/:id/chats', verifyWebSession, (req, res) => controllers.customerOrder.getOrderChats(req, res));
-routes.post('/auth/web/orders/:id/chats', verifyWebSession, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
+routes.get('/auth/web/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));
+routes.post('/auth/web/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
 routes.post('/auth/web/orders/:id/upload', verifyWebSession, upload.single('file'), (req, res) => controllers.customerOrder.uploadOrderFile(req, res));
 routes.get('/auth/web/disputes', verifyWebSession, (req, res) => controllers.getCustomerDisputes(req, res));
 routes.post('/auth/web/disputes', verifyWebSession, (req, res) => controllers.createDispute(req, res));

@@ -26,8 +26,14 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import android.os.PowerManager
+import android.content.Context
 import javax.inject.Inject
 
 /**
@@ -53,6 +59,10 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var authSessionManager: AuthSessionManager
 
+    // Reactive state flows for deterministic notification deep-linking
+    private val selectedOrderIdFlow = MutableStateFlow<String?>(null)
+    private val selectedChatOrderIdFlow = MutableStateFlow<String?>(null)
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
@@ -64,15 +74,21 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            Log.d("LOCATION", "Location permission granted")
-            startLocationTrackingIfLoggedIn()
+            Log.d("LOCATION", "Permission step granted - triggering sequential escalation check")
+            // Recurse to process next item in the permissions hierarchy (e.g., Foreground -> Background)
+            askLocationPermission()
         } else {
-            Log.d("LOCATION", "Location permission denied")
+            Log.d("LOCATION", "Permission step denied")
+            // Fallback: attempt tracking anyway with whatever permissions exist
+            startLocationTrackingIfLoggedIn()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Ingest startup deep-links
+        processIntentExtras(intent)
 
         askNotificationPermission()
         askLocationPermission()
@@ -85,11 +101,19 @@ class MainActivity : ComponentActivity() {
                 ) {
                     // Auth gate — observe login state reactively
                     val isLoggedIn by authSessionManager.isLoggedIn.collectAsState(initial = false)
-                    val orderId = intent?.getStringExtra("selected_order_id")
+                    
+                    // Collect active deep links reactively
+                    val deepLinkOrderId by selectedOrderIdFlow.collectAsState()
+                    val deepLinkChatOrderId by selectedChatOrderIdFlow.collectAsState()
 
                     if (isLoggedIn) {
                         MainScreen(
-                            initialOrderId = orderId,
+                            initialOrderId = deepLinkOrderId,
+                            initialChatOrderId = deepLinkChatOrderId,
+                            onConsumedDeepLink = {
+                                selectedOrderIdFlow.value = null
+                                selectedChatOrderIdFlow.value = null
+                            },
                             onLogout = {
                                 // After logout: clear FCM, stop location service
                                 activityScope.launch {
@@ -160,8 +184,8 @@ class MainActivity : ComponentActivity() {
         activityScope.launch {
             val isLoggedIn = authSessionManager.isLoggedIn.first()
             if (isLoggedIn) {
-                startService(LocationTrackerService.startIntent(this@MainActivity))
-                Log.d("LOCATION", "Location tracking service started")
+                ContextCompat.startForegroundService(this@MainActivity, LocationTrackerService.startIntent(this@MainActivity))
+                Log.d("LOCATION", "Location tracking service started with ContextCompat")
             }
         }
     }
@@ -199,6 +223,58 @@ class MainActivity : ComponentActivity() {
                 }
             } else {
                 Log.w("FCM_TOKEN", "Fetching token failed", task.exception)
+            }
+        }
+    }
+
+    /**
+     * Lifecycle Hook: Captures incoming deep links when the Activity resides in background memory
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        processIntentExtras(intent)
+    }
+
+    private fun processIntentExtras(intent: Intent?) {
+        val orderId = intent?.getStringExtra("selected_order_id")
+        val chatOrderId = intent?.getStringExtra("chat_order_id")
+        
+        if (orderId != null) {
+            Log.d("DEEP_LINK", "Order Deep Link Captured: $orderId")
+            selectedOrderIdFlow.value = orderId
+        }
+        
+        if (chatOrderId != null) {
+            Log.d("DEEP_LINK", "Chat Deep Link Captured: $chatOrderId")
+            selectedChatOrderIdFlow.value = chatOrderId
+        }
+    }
+
+    /**
+     * Whitelist Prompt: Instructs OS OEM Battery Optimizations to exclude our GPS services
+     */
+    fun checkAndRequestBatteryWhitelist() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            val pkgName = packageName
+            if (!powerManager.isIgnoringBatteryOptimizations(pkgName)) {
+                try {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$pkgName")
+                    }
+                    startActivity(intent)
+                    Log.d("BATTERY", "Requesting ignore battery optimizations")
+                } catch (e: Exception) {
+                    Log.e("BATTERY", "Failed to trigger request intent: ${e.message}")
+                    // General fallback to battery settings
+                    try {
+                        val fallbackIntent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        startActivity(fallbackIntent)
+                    } catch (ex: Exception) {
+                        Log.e("BATTERY", "Absolute fallback failed: ${ex.message}")
+                    }
+                }
             }
         }
     }

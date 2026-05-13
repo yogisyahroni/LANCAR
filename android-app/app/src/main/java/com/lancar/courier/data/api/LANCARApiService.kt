@@ -11,6 +11,9 @@ import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.ScanRequest
 import com.lancar.courier.data.model.ScanResponse
 import com.lancar.courier.data.model.StatusUpdateRequest
+import com.lancar.courier.data.model.ChatResponse
+import com.lancar.courier.data.model.SendMessageRequest
+import com.lancar.courier.data.model.SendMessageResponse
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
@@ -101,4 +104,23 @@ interface LANCARApiService {
     suspend fun syncLocations(
         @Body request: LocationRequest
     ): Response<ApiResponse<LocationResponse>>
+
+    // ── CHATS ───────────────────────────────────────────────────
+
+    /**
+     * Retrieves the message history of the current active job.
+     */
+    @GET("api/v1/mobile/chats/orders/{id}/chats")
+    suspend fun getOrderChats(
+        @Path("id") id: String
+    ): Response<ChatResponse>
+
+    /**
+     * Dispatches a full-duplex real-time message via REST persistence gateway.
+     */
+    @POST("api/v1/mobile/chats/orders/{id}/chats")
+    suspend fun sendOrderChat(
+        @Path("id") id: String,
+        @Body request: SendMessageRequest
+    ): Response<SendMessageResponse>
 }

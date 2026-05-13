@@ -28,7 +28,8 @@ fun OrderDetailScreen(
     order: Order,
     onBack: () -> Unit,
     onUpdateStatus: (String) -> Unit,
-    onCapturePod: () -> Unit
+    onCapturePod: () -> Unit,
+    onChatClick: () -> Unit
 ) {
     val context = LocalContext.current
     
@@ -95,7 +96,8 @@ fun OrderDetailScreen(
             OrderActions(
                 order = order,
                 onStatusClick = { showStatusDialog = true },
-                onCapturePod = onCapturePod
+                onCapturePod = onCapturePod,
+                onChatClick = onChatClick
             )
         }
     }
@@ -144,7 +146,8 @@ private fun InfoRow(label: String, value: String) {
 private fun OrderActions(
     order: Order,
     onStatusClick: () -> Unit,
-    onCapturePod: () -> Unit
+    onCapturePod: () -> Unit,
+    onChatClick: () -> Unit
 ) {
     val context = LocalContext.current
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -170,6 +173,12 @@ private fun OrderActions(
                         android.widget.Toast.makeText(context, "Tidak ada aplikasi peta terinstall.", android.widget.Toast.LENGTH_SHORT).show()
                     }
                 }
+            )
+
+            ActionButton(
+                icon = Icons.Default.Chat,
+                label = "Chat In-App",
+                onClick = onChatClick
             )
 
             ActionButton(

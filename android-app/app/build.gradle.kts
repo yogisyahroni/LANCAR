@@ -114,6 +114,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
+    // Real-time Duplex Engine (Socket.IO) for In-App Chat sync
+    implementation("io.socket:socket.io-client:2.1.0") {
+        exclude(group = "org.json", module = "json")
+    }
+
     // Dagger Hilt
     val hiltVersion = "2.50"
     val hiltJetpackVersion = "1.1.0"

@@ -564,7 +564,8 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
       SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name, o.recipient_phone_masked, o.model, o.status, o.distance_km, 
              o.base_price_idr, o.volumetric_surcharge_idr, o.insurance_premium_idr, o.total_price_idr, o.has_insurance, o.insured_value_idr, 
              o.package_details, o.customer_notes, o.schedule_type, o.scheduled_at, o.created_at,
-             u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate, cp.avg_partner_rating as courier_rating
+             u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate, cp.avg_partner_rating as courier_rating,
+             u.phone as courier_phone
       FROM orders o
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
@@ -597,13 +598,18 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
 
 export const getOrderChats = async (req: Request, res: Response): Promise<void> => {
   try {
-    const customer_id = req.user?.id;
+    const userId = req.user?.id;
     const { id } = req.params;
     
-    // Check if order belongs to customer
-    const orderCheck = await db.query('SELECT id FROM orders WHERE id = $1 AND customer_id = $2', [id, customer_id]);
+    // Check if order belongs to customer or is assigned to the courier
+    const orderCheckQuery = `
+      SELECT o.id FROM orders o
+      LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
+      WHERE o.id = $1 AND (o.customer_id = $2 OR ol.courier_id = $2)
+    `;
+    const orderCheck = await db.query(orderCheckQuery, [id, userId]);
     if (orderCheck.rows.length === 0) {
-      res.status(404).json({ error: 'Order not found' });
+      res.status(404).json({ error: 'Order not found or access denied' });
       return;
     }
 

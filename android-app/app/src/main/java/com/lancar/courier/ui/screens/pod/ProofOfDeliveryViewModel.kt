@@ -305,9 +305,31 @@ class ProofOfDeliveryViewModel @Inject constructor(
         signature: Bitmap
     ): Uri {
         return withContext(Dispatchers.IO) {
-            val inputStream = context.contentResolver.openInputStream(photoUri)
-            val original = BitmapFactory.decodeStream(inputStream)
-            inputStream?.close()
+            // Step 1: Query dimensions without loading into memory
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            context.contentResolver.openInputStream(photoUri)?.use {
+                BitmapFactory.decodeStream(it, null, options)
+            }
+
+            // Step 2: Compute suitable inSampleSize to target max width of 1280px
+            val reqWidth = 1280
+            var inSampleSize = 1
+            if (options.outWidth > reqWidth) {
+                val halfWidth = options.outWidth / 2
+                while ((halfWidth / inSampleSize) >= reqWidth) {
+                    inSampleSize *= 2
+                }
+            }
+
+            // Step 3: Decode with optimal sub-sampling to keep Heap RAM footprint low
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = inSampleSize
+            }
+            val original = context.contentResolver.openInputStream(photoUri)?.use {
+                BitmapFactory.decodeStream(it, null, decodeOptions)
+            }
 
             // Safety sanity guard
             if (original == null) throw IllegalStateException("Invalid backing bitmap source.")

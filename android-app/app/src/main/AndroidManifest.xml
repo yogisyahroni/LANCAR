@@ -19,6 +19,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- Modern Android 11+ (API 30) Package Visibility Permissions (CRITICAL GAP-1) -->
     <queries>
@@ -101,15 +102,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- Network change receiver for automatic sync -->
-        <receiver
-            android:name=".receiver.NetworkChangeReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
-            </intent-filter>
-        </receiver>
+
 
         <!-- Notification action receiver -->
         <receiver

@@ -13,7 +13,7 @@ import com.lancar.customer.data.model.Order
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class OrderDatabase : RoomDatabase() {

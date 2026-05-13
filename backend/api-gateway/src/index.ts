@@ -408,6 +408,26 @@ app.use('/docs/orders', createProxyMiddleware({
 }));
 
 // ─────────────────────────────────────────────
+// Mobile Chat API Bridge to Admin Service (Authenticated via JWT)
+// ─────────────────────────────────────────────
+app.use(
+  '/api/v1/mobile/chats/orders',
+  authenticateJWT,
+  createProxyMiddleware({
+    target: ADMIN_SERVICE_URL,
+    changeOrigin: true,
+    pathRewrite: {
+      '^/api/v1/mobile/chats/orders': '/auth/web/orders'
+    },
+    on: {
+      proxyReq: (proxyReq: any, req: any) => {
+        fixRequestBody(proxyReq, req);
+      }
+    }
+  })
+);
+
+// ─────────────────────────────────────────────
 // Wallet Routes (Payment Service)
 // ─────────────────────────────────────────────
 app.use('/api/v1/wallet', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_URL, paymentBreaker));

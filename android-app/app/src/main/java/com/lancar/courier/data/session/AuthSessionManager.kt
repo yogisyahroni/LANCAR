@@ -111,6 +111,10 @@ class AuthSessionManager(private val context: Context) {
         return _authTokenFlow.value
     }
 
+    fun getCourierIdSync(): String? {
+        return _courierIdFlow.value
+    }
+
     /**
      * Save session securely
      */

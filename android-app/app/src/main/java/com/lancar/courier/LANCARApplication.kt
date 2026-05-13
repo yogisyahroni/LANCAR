@@ -17,6 +17,14 @@ import com.lancar.courier.worker.OrderSyncWorker
 import androidx.hilt.work.HiltWorkerFactory
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
+import android.net.ConnectivityManager
+import android.net.Network
+import android.media.AudioAttributes
+import android.media.RingtoneManager
+import android.content.Context
+import android.os.Build
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.ExistingWorkPolicy
 import javax.inject.Inject
 
 /**
@@ -46,6 +54,9 @@ class LANCARApplication : Application(), Configuration.Provider {
         // Schedule periodic background sync — runs every 15 min when network available
         scheduleOrderSync()
 
+        // Register modern runtime network change listener
+        registerNetworkCallback()
+
         Log.d(TAG, "Initialization complete")
     }
 
@@ -74,6 +85,36 @@ class LANCARApplication : Application(), Configuration.Provider {
         Log.d(TAG, "OrderSyncWorker scheduled (every 15 min, network required)")
     }
 
+    /**
+     * Dynamic Jaringan Listener: Menghindari limitasi manifest Android modern.
+     * Langsung memicu sinkronisasi instan begitu jaringan online kembali.
+     */
+    private fun registerNetworkCallback() {
+        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            try {
+                connectivityManager.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: Network) {
+                        super.onAvailable(network)
+                        Log.d(TAG, "Jaringan TERHUBUNG. Memulai sinkronisasi data instan (PoD/Status)...")
+                        triggerImmediateOrderSync()
+                    }
+                })
+            } catch (e: Exception) {
+                Log.e(TAG, "Gagal mendaftarkan network callback: ${e.message}")
+            }
+        }
+    }
+
+    private fun triggerImmediateOrderSync() {
+        val syncRequest = OneTimeWorkRequestBuilder<OrderSyncWorker>().build()
+        WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+            "order_sync_immediate",
+            ExistingWorkPolicy.REPLACE,
+            syncRequest
+        )
+    }
+
     private fun createNotificationChannels() {
         val notificationManager = getSystemService(NotificationManager::class.java)
 
@@ -86,6 +127,16 @@ class LANCARApplication : Application(), Configuration.Provider {
             description = "Notifikasi untuk penugasan dan pembaruan order"
             enableVibration(true)
             setShowBadge(true)
+            
+            // 🚨 ELEVASI SUARA: Gunakan nada dering default HP, bukan bunyi notifikasi pelan
+            val audioAttributes = AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                .build()
+            setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE), audioAttributes)
+            vibrationPattern = longArrayOf(0, 800, 400, 800, 400, 1000)
+            enableLights(true)
+            lightColor = android.graphics.Color.RED
         }
 
         // General channel — for other notifications

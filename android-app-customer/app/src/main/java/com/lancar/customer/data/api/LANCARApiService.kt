@@ -53,4 +53,16 @@ interface LANCARApiService {
     suspend fun updateProfile(
         @Body request: UpdateProfileRequest
     ): Response<ApiResponse<ProfileResponse>>
+
+    // Real-Time In-App Chat Sync (Mobile API Bridge)
+    @GET("api/v1/mobile/chats/orders/{id}/chats")
+    suspend fun getOrderChats(
+        @Path("id") id: String
+    ): Response<ChatResponse>
+
+    @POST("api/v1/mobile/chats/orders/{id}/chats")
+    suspend fun sendOrderChat(
+        @Path("id") id: String,
+        @Body request: SendMessageRequest
+    ): Response<SendMessageResponse>
 }

@@ -83,6 +83,10 @@ class AuthSessionManager(private val context: Context) {
         return sharedPreferences.getString(KEY_AUTH_TOKEN, null)
     }
 
+    fun getUserIdSync(): String? {
+        return sharedPreferences.getString(KEY_CUSTOMER_ID, null)
+    }
+
     companion object {
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_CUSTOMER_ID = "customer_id"

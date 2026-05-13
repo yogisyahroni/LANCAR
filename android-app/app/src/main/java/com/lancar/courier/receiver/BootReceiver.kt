@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.core.content.ContextCompat
 import android.util.Log
 import com.lancar.courier.LANCARApplication
 import com.lancar.courier.data.repository.FCMTokenRepository
@@ -54,7 +55,7 @@ class BootReceiver : BroadcastReceiver() {
                 
                 val isLoggedIn = authSessionManager.isLoggedIn.first()
                 if (isLoggedIn) {
-                    context.startService(LocationTrackerService.startIntent(context))
+                    ContextCompat.startForegroundService(context, LocationTrackerService.startIntent(context))
                     Log.d("BootReceiver", "Location tracking service restarted")
                 }
             }
