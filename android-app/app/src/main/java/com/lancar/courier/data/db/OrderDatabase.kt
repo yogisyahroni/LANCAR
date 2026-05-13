@@ -2,6 +2,8 @@ package com.lancar.courier.data.db
 
 import android.content.Context
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.lancar.courier.data.model.Location
 import com.lancar.courier.data.model.Order
 
@@ -13,7 +15,7 @@ import com.lancar.courier.data.model.Order
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class OrderDatabase : RoomDatabase() {
@@ -25,6 +27,16 @@ abstract class OrderDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: OrderDatabase? = null
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_order_id` ON `orders` (`order_id`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_status` ON `orders` (`status`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_needsSync` ON `orders` (`needsSync`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_needsScanSync` ON `orders` (`needsScanSync`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_needsPodSync` ON `orders` (`needsPodSync`)")
+            }
+        }
+
         fun getDatabase(context: Context): OrderDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -32,6 +44,7 @@ abstract class OrderDatabase : RoomDatabase() {
                     OrderDatabase::class.java,
                     "order_database"
                 )
+                    .addMigrations(MIGRATION_2_3)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

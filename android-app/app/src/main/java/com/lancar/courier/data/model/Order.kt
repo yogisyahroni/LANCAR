@@ -2,6 +2,7 @@ package com.lancar.courier.data.model
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -12,7 +13,16 @@ import kotlinx.serialization.Serializable
  * Represents an order assigned to a courier for delivery.
  * Used for both API communication and local database storage.
  */
-@Entity(tableName = "orders")
+@Entity(
+    tableName = "orders",
+    indices = [
+        Index(value = ["order_id"]),
+        Index(value = ["status"]),
+        Index(value = ["needsSync"]),
+        Index(value = ["needsScanSync"]),
+        Index(value = ["needsPodSync"])
+    ]
+)
 @Serializable
 data class Order(
     @PrimaryKey(autoGenerate = true)

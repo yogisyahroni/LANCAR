@@ -51,7 +51,8 @@ data class PodUiState(
     val originalFileSize: Long = 0L,
     val compressedFileSize: Long = 0L,
     val error: String? = null,
-    val uploadSuccess: Boolean = false
+    val uploadSuccess: Boolean = false,
+    val isTorchEnabled: Boolean = false
 )
 
 @HiltViewModel
@@ -64,6 +65,15 @@ class ProofOfDeliveryViewModel @Inject constructor(
     val uiState: StateFlow<PodUiState> = _uiState.asStateFlow()
     
     private var originalBitmap: Bitmap? = null
+
+    /**
+     * Toggles the camera flash/torch state.
+     */
+    fun toggleTorch() {
+        _uiState.value = _uiState.value.copy(
+            isTorchEnabled = !_uiState.value.isTorchEnabled
+        )
+    }
     
     /**
      * Captures an image using CameraX and stores it to the app's cache directory.

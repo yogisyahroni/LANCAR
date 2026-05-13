@@ -123,6 +123,9 @@ class LocationTrackerService : Service() {
                 ACTION_FORCE_SYNC -> {
                     forceSync()
                 }
+                ACTION_GO_OFFLINE -> {
+                    goOffline()
+                }
             }
         }
 
@@ -137,6 +140,16 @@ class LocationTrackerService : Service() {
         stopTracking()
         MAIN_THREAD.cancel()
         IO_THREAD.cancel()
+    }
+
+    /**
+     * Set courier status to offline directly from background service
+     */
+    private fun goOffline() {
+        MAIN_THREAD.launch {
+            authSessionManager.setOnlineStatus(false)
+            Log.d(TAG, "Courier duty status set to OFFLINE via notification action")
+        }
     }
 
     /**
@@ -372,11 +385,26 @@ class LocationTrackerService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val offlineIntent = Intent(this, LocationTrackerService::class.java).apply {
+            action = ACTION_GO_OFFLINE
+        }
+        val offlinePendingIntent = PendingIntent.getService(
+            this,
+            1,
+            offlineIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
         return NotificationCompat.Builder(this, CHANNEL_LOCATION_TRACKING)
             .setContentTitle("LANCAR Courier")
             .setContentText("Tracking your location for real-time shipment updates")
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)
+            .addAction(
+                R.drawable.ic_dismiss,
+                "Go Offline",
+                offlinePendingIntent
+            )
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
@@ -501,6 +529,7 @@ class LocationTrackerService : Service() {
         const val ACTION_START_TRACKING = "com.lancar.courier.ACTION_START_TRACKING"
         const val ACTION_STOP_TRACKING = "com.lancar.courier.ACTION_STOP_TRACKING"
         const val ACTION_FORCE_SYNC = "com.lancar.courier.ACTION_FORCE_SYNC"
+        const val ACTION_GO_OFFLINE = "com.lancar.courier.ACTION_GO_OFFLINE"
 
         fun startIntent(context: Context): Intent =
             Intent(context, LocationTrackerService::class.java).apply {

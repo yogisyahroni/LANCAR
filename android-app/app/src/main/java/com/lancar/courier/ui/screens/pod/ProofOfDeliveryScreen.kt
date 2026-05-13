@@ -153,6 +153,8 @@ fun ProofOfDeliveryScreen(
                             }
                         },
                         isCapturing = uiState.isCapturing,
+                        isTorchEnabled = uiState.isTorchEnabled,
+                        onToggleTorch = { viewModel.toggleTorch() },
                         lifecycleOwner = lifecycleOwner
                     )
                 }
@@ -203,19 +205,48 @@ private fun CameraPreviewContent(
     onImageCaptureReady: (ImageCapture) -> Unit,
     onCapture: () -> Unit,
     isCapturing: Boolean,
+    isTorchEnabled: Boolean,
+    onToggleTorch: () -> Unit,
     lifecycleOwner: androidx.lifecycle.LifecycleOwner
 ) {
+    var activeCamera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
+
+    LaunchedEffect(isTorchEnabled, activeCamera) {
+        activeCamera?.cameraControl?.enableTorch(isTorchEnabled)
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Camera Preview
         AndroidView(
             factory = { ctx ->
                 PreviewView(ctx).also { preview ->
                     onPreviewViewReady(preview)
-                    startCamera(ctx, lifecycleOwner, preview, onImageCaptureReady)
+                    startCamera(
+                        context = ctx,
+                        lifecycleOwner = lifecycleOwner,
+                        previewView = preview,
+                        onImageCaptureReady = onImageCaptureReady,
+                        onCameraReady = { activeCamera = it }
+                    )
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
+
+        // Flash toggle button
+        IconButton(
+            onClick = onToggleTorch,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(16.dp)
+                .background(Color.Black.copy(alpha = 0.4f), CircleShape)
+        ) {
+            Icon(
+                imageVector = if (isTorchEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
+                contentDescription = "Toggle Flash",
+                tint = if (isTorchEnabled) Color.Yellow else Color.White
+            )
+        }
 
         // Capture overlay with order info
         Box(
@@ -413,7 +444,8 @@ private fun startCamera(
     context: Context,
     lifecycleOwner: androidx.lifecycle.LifecycleOwner,
     previewView: PreviewView,
-    onImageCaptureReady: (ImageCapture) -> Unit
+    onImageCaptureReady: (ImageCapture) -> Unit,
+    onCameraReady: (androidx.camera.core.Camera) -> Unit
 ) {
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
 
@@ -434,12 +466,13 @@ private fun startCamera(
 
         try {
             cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(
+            val camera = cameraProvider.bindToLifecycle(
                 lifecycleOwner,
                 cameraSelector,
                 preview,
                 imageCapture
             )
+            onCameraReady(camera)
         } catch (e: Exception) {
             // Handle camera binding failure
         }

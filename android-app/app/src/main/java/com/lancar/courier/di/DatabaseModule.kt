@@ -26,6 +26,7 @@ object DatabaseModule {
             OrderDatabase::class.java,
             "order_database"
         )
+            .addMigrations(OrderDatabase.MIGRATION_2_3)
             .fallbackToDestructiveMigration()
             .build()
     }
