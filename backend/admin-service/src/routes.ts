@@ -70,7 +70,11 @@ routes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res))
 routes.get('/api/v1/system/latest-version', (req, res) => controllers.getLatestVersion(req, res));
 routes.post('/payments/midtrans/notification', (req, res) => controllers.customerOrder.handleMidtransNotification(req, res));
 
-// Admin routes
+// Admin routes - Protected by Admin Auth and Role requirement
+routes.use('/admin', requireAuth, requireRole(['admin', 'super_admin']));
+
+// Admin Dashboard & Stats
+
 routes.get('/admin/dashboard/stats', (req, res) => controllers.getDashboardStats(req, res));
 routes.get('/admin/dashboard/events', (req, res) => controllers.getDashboardEvents(req, res));
 
