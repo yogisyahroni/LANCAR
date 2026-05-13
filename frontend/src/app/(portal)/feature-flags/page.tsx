@@ -48,8 +48,7 @@ export default function FeatureFlagsPage() {
       const res = await api.get('/admin/flags');
       setFlags(res.data || []);
     } catch (error) {
-      console.error('Failed to fetch feature flags:', error);
-      addNotification('Gagal mengambil data Feature Flags', 'error');
+      addNotification({ title: 'Error', message: 'Gagal mengambil data Feature Flags', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -65,7 +64,7 @@ export default function FeatureFlagsPage() {
       if (reason && reason.length >= 10) {
         submitToggle(flag.key, !flag.is_enabled, reason);
       } else if (reason !== null) {
-        addNotification('Alasan minimal 10 karakter', 'error');
+        addNotification({ title: 'Validasi', message: 'Alasan minimal 10 karakter', type: 'error' });
       }
     }
   };
@@ -78,13 +77,13 @@ export default function FeatureFlagsPage() {
         reason,
         checklist_data: checklistData
       });
-      addNotification(`Berhasil mengubah status ${key}`, 'success');
+      addNotification({ title: 'Sukses', message: `Berhasil mengubah status ${key}`, type: 'success' });
       setShowConfirmModal(null);
       setConfirmReason('');
       setChecklistChecks({ sla: false, couriers: false, points: false, orders: false });
       fetchFlags();
     } catch (error: any) {
-      addNotification(error.response?.data?.error || 'Gagal mengubah flag', 'error');
+      addNotification({ title: 'Gagal', message: error.response?.data?.error || 'Gagal mengubah flag', type: 'error' });
     } finally {
       setIsUpdating(false);
     }
@@ -98,7 +97,7 @@ export default function FeatureFlagsPage() {
         config: parsedConfig,
         reason
       });
-      addNotification('Konfigurasi berhasil disimpan', 'success');
+      addNotification({ title: 'Sukses', message: 'Konfigurasi berhasil disimpan', type: 'success' });
       setEditingFlag(null);
       fetchFlags();
     } catch (error: any) {
@@ -159,7 +158,7 @@ export default function FeatureFlagsPage() {
                 <div>
                   <h3 className="font-bold text-lg text-foreground flex items-center gap-2">
                     {flag.key}
-                    {flag.require_checklist && <ShieldAlert className="h-4 w-4 text-amber-500" title="Requires Double Confirmation" />}
+                    {flag.require_checklist && <span title="Requires Double Confirmation"><ShieldAlert className="h-4 w-4 text-amber-500" /></span>}
                   </h3>
                   <span className="text-[10px] font-mono px-2 py-0.5 bg-muted rounded-full mt-1 inline-block text-muted-foreground">
                     {flag.category}

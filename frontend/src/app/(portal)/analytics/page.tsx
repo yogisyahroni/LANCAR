@@ -3,18 +3,19 @@
 import React, { useEffect, useState } from "react";
 import useSWR from "swr";
 import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription 
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Activity, TrendingUp, TrendingDown, DollarSign, Users, Package } from "lucide-react";
+  Activity, 
+  TrendingUp, 
+  TrendingDown, 
+  DollarSign, 
+  Users, 
+  Package,
+  ChevronRight
+} from "lucide-react";
 import { api } from "@/lib/api";
-import { io, Socket } from "socket.io-client";
-import { useAuth } from "@/hooks/useAuth";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid } from "recharts";
+import { useAuthStore } from "@/store/authStore";
+import { getSocket } from "@/lib/socket";
+import { Socket } from "socket.io-client";
+import { motion, AnimatePresence } from "framer-motion";
 
 // TypeScript Interfaces
 interface UnitEconomics {
@@ -37,36 +38,29 @@ interface KPI {
 const fetcher = (url: string) => api.get(url).then(res => res.data);
 
 export default function AnalyticsPage() {
-  const { user, token } = useAuth();
+  const { user, isAuthenticated } = useAuthStore();
   const [socket, setSocket] = useState<Socket | null>(null);
 
   // SWR Hooks
   const { data: kpis, mutate: mutateKPIs } = useSWR<KPI[]>("/admin/analytics/kpis", fetcher);
   const { data: economics, mutate: mutateEconomics } = useSWR<UnitEconomics>("/admin/analytics/unit-economics", fetcher);
-  const { data: heatData } = useSWR("/admin/analytics/heat-data", fetcher);
 
   // Initialize WebSocket connection for Real-time Analytics updates
   useEffect(() => {
-    if (!token || !user) return;
+    if (!isAuthenticated || !user) return;
 
-    const newSocket = io(process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000", {
-      auth: { token },
-      query: { role: user.role }
-    });
+    const newSocket = getSocket(user.id);
+    if (!newSocket) return;
 
-    newSocket.on("connect", () => {
-      console.log("Analytics WebSocket connected");
-    });
-
-    // Listen for real-time order/analytics updates
-    newSocket.on("analytics_update", () => {
-      // Re-fetch data on real-time update
+    const handleAnalyticsUpdate = () => {
       mutateKPIs();
       mutateEconomics();
-    });
+    };
 
-    // Example of order event mapping to analytics
-    newSocket.on("order_created", () => mutateEconomics());
+    const handleOrderEvent = () => mutateEconomics();
+
+    newSocket.on("analytics_update", handleAnalyticsUpdate);
+    newSocket.on("order_created", handleOrderEvent);
     newSocket.on("order_delivered", () => {
       mutateKPIs();
       mutateEconomics();
@@ -75,9 +69,10 @@ export default function AnalyticsPage() {
     setSocket(newSocket);
 
     return () => {
-      newSocket.disconnect();
+      newSocket.off("analytics_update", handleAnalyticsUpdate);
+      newSocket.off("order_created", handleOrderEvent);
     };
-  }, [token, user, mutateKPIs, mutateEconomics]);
+  }, [isAuthenticated, user, mutateKPIs, mutateEconomics]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("id-ID", {
@@ -88,141 +83,179 @@ export default function AnalyticsPage() {
   };
 
   return (
-    <div className="p-8 space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Real-time Analytics</h1>
-        <p className="text-muted-foreground mt-2">
-          Monitor key performance indicators and unit economics in real-time.
-        </p>
-      </div>
+    <div className="space-y-8 select-none pb-10">
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col md:flex-row md:items-center justify-between gap-6"
+      >
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Real-time Analytics</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Monitor key performance indicators and unit economics in real-time.
+          </p>
+        </div>
+      </motion.div>
 
       {/* KPI Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpis ? (
           kpis.map((kpi, index) => (
-            <Card key={index} className="shadow-sm border-white/10 bg-background/80 backdrop-blur-md transition-all duration-200 hover:scale-[1.02]">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {kpi.label}
-                </CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{kpi.value}</div>
-                <div className="flex items-center space-x-2 mt-1">
-                  {kpi.up ? (
-                    <TrendingUp className="h-4 w-4 text-emerald-500" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-rose-500" />
-                  )}
-                  <p className={`text-xs ${kpi.up ? "text-emerald-500" : "text-rose-500"}`}>
-                    {kpi.change} from last period
-                  </p>
+            <motion.div 
+              key={index} 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.1 }}
+              className="p-6 rounded-2xl border border-border/40 glass-card transition-all duration-300 hover:scale-[1.02] shadow-sm"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-medium text-muted-foreground">{kpi.label}</span>
+                <div className="h-8 w-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+                  <Activity className="h-4 w-4" />
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              <div className="text-2xl font-bold text-foreground">{kpi.value}</div>
+              <div className="flex items-center gap-1.5 mt-2">
+                {kpi.up ? (
+                  <TrendingUp className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 text-rose-500" />
+                )}
+                <span className={`text-[10px] font-bold ${kpi.up ? "text-emerald-500" : "text-rose-500"}`}>
+                  {kpi.change} from last period
+                </span>
+              </div>
+            </motion.div>
           ))
         ) : (
-          // Skeleton Loaders
           Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i} className="shadow-sm animate-pulse">
-              <CardHeader className="h-10 bg-muted/50 rounded-t-xl" />
-              <CardContent className="h-20 bg-muted rounded-b-xl" />
-            </Card>
+            <div key={i} className="h-32 bg-muted/40 border border-border/40 rounded-2xl animate-pulse" />
           ))
         )}
       </div>
 
       {/* Unit Economics Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle>Unit Economics & Margins</CardTitle>
-            <CardDescription>Metrics calculated per customer & order over 30 days.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {economics ? (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">CAC (Customer Acquisition Cost)</p>
-                    <p className="text-xl font-semibold text-rose-600">{formatCurrency(economics.cac_idr)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">LTV (Life-Time Value)</p>
-                    <p className="text-xl font-semibold text-emerald-600">{formatCurrency(economics.ltv_idr)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Average Order Value (AOV)</p>
-                    <p className="text-xl font-semibold">{formatCurrency(economics.aov_idr)}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Margin Per Order</p>
-                    <p className="text-xl font-semibold text-blue-600">{formatCurrency(economics.avg_margin_idr)}</p>
-                  </div>
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="glass-card rounded-2xl p-6 border border-border/40 flex flex-col gap-6"
+        >
+          <div>
+            <h3 className="text-lg font-bold text-foreground">Unit Economics & Margins</h3>
+            <p className="text-xs text-muted-foreground mt-1">Metrics calculated per customer & order over 30 days.</p>
+          </div>
 
-                {/* LTV/CAC Ratio Indicator */}
-                <div className="pt-4 border-t">
-                  <p className="text-sm font-medium mb-2">Health Ratio (LTV:CAC)</p>
-                  <div className="flex items-center space-x-4">
-                    <div className="text-2xl font-bold">
+          {economics ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="p-4 bg-black/5 dark:bg-white/5 rounded-xl border border-border/10">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">CAC</p>
+                  <p className="text-xl font-bold text-rose-500">{formatCurrency(economics.cac_idr)}</p>
+                </div>
+                <div className="p-4 bg-black/5 dark:bg-white/5 rounded-xl border border-border/10">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">LTV</p>
+                  <p className="text-xl font-bold text-emerald-500">{formatCurrency(economics.ltv_idr)}</p>
+                </div>
+                <div className="p-4 bg-black/5 dark:bg-white/5 rounded-xl border border-border/10">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">AOV</p>
+                  <p className="text-xl font-bold text-foreground">{formatCurrency(economics.aov_idr)}</p>
+                </div>
+                <div className="p-4 bg-black/5 dark:bg-white/5 rounded-xl border border-border/10">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1">Margin</p>
+                  <p className="text-xl font-bold text-primary">{formatCurrency(economics.avg_margin_idr)}</p>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-border/40">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-bold text-foreground">Health Ratio (LTV:CAC)</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-black text-primary">
                       {economics.cac_idr > 0 ? (economics.ltv_idr / economics.cac_idr).toFixed(2) : "N/A"}x
-                    </div>
+                    </span>
                     {economics.cac_idr > 0 && (economics.ltv_idr / economics.cac_idr) >= 3 ? (
-                      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">Healthy {'>'} 3x</Badge>
+                      <span className="text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-500 rounded-full font-bold">HEALTHY</span>
                     ) : (
-                      <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-100">Needs Attention</Badge>
+                      <span className="text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-500 rounded-full font-bold">ACTION NEEDED</span>
                     )}
                   </div>
                 </div>
+                <div className="h-2 w-full bg-muted/60 rounded-full overflow-hidden">
+                   <div 
+                     className={`h-full rounded-full transition-all duration-1000 ${ (economics.ltv_idr / economics.cac_idr) >= 3 ? 'bg-emerald-500' : 'bg-rose-500' }`} 
+                     style={{ width: `${Math.min((economics.ltv_idr / economics.cac_idr) * 10, 100)}%` }} 
+                   />
+                </div>
               </div>
-            ) : (
-              <div className="h-48 animate-pulse bg-muted rounded-md" />
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          ) : (
+            <div className="h-64 bg-muted/40 animate-pulse rounded-xl" />
+          )}
+        </motion.div>
 
-        {/* Tax & Reserves (PPN, Weather Fund, Operational) */}
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle>Financial Reserves & Tax</CardTitle>
-            <CardDescription>Automatic splitting of PPN and operational funds.</CardDescription>
-          </CardHeader>
-          <CardContent>
-             {economics ? (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center p-3 bg-muted/30 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <DollarSign className="h-5 w-5 text-gray-500" />
-                      <span className="font-medium">Gross Revenue (30D)</span>
-                    </div>
-                    <span className="font-bold">{formatCurrency(economics.gross_revenue)}</span>
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="glass-card rounded-2xl p-6 border border-border/40 flex flex-col gap-6"
+        >
+          <div>
+            <h3 className="text-lg font-bold text-foreground">Financial Reserves & Tax</h3>
+            <p className="text-xs text-muted-foreground mt-1">Automatic splitting of PPN and operational funds.</p>
+          </div>
+
+          {economics ? (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-4 bg-black/5 dark:bg-white/5 rounded-xl border border-border/10 group hover:border-primary/40 transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-zinc-500/10 rounded-lg flex items-center justify-center text-zinc-500">
+                    <DollarSign className="h-5 w-5" />
                   </div>
-
-                  <div className="flex justify-between items-center p-3 bg-rose-50/50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Activity className="h-5 w-5 text-rose-500" />
-                      <span className="font-medium">PPN Collected (1.1%)</span>
-                    </div>
-                    <span className="font-bold text-rose-700">{formatCurrency(economics.total_ppn)}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center p-3 bg-amber-50/50 rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <Package className="h-5 w-5 text-amber-500" />
-                      <span className="font-medium">Weather / Emergency Reserve (2%)</span>
-                    </div>
-                    <span className="font-bold text-amber-700">{formatCurrency(economics.total_reserve)}</span>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Gross Revenue</p>
+                    <p className="text-sm font-bold text-foreground">Last 30 Days</p>
                   </div>
                 </div>
-             ) : (
-               <div className="h-48 animate-pulse bg-muted rounded-md" />
-             )}
-          </CardContent>
-        </Card>
-      </div>
+                <span className="text-lg font-bold text-foreground">{formatCurrency(economics.gross_revenue)}</span>
+              </div>
 
+              <div className="flex justify-between items-center p-4 bg-rose-500/5 rounded-xl border border-rose-500/10 group hover:border-rose-500/40 transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-rose-500/10 rounded-lg flex items-center justify-center text-rose-500">
+                    <TrendingDown className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-rose-500/80">PPN (1.1%)</p>
+                    <p className="text-sm font-bold text-foreground">Tax Collected</p>
+                  </div>
+                </div>
+                <span className="text-lg font-bold text-rose-500">{formatCurrency(economics.total_ppn)}</span>
+              </div>
+
+              <div className="flex justify-between items-center p-4 bg-amber-500/5 rounded-xl border border-amber-500/10 group hover:border-amber-500/40 transition-all">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-amber-500/10 rounded-lg flex items-center justify-center text-amber-500">
+                    <Package className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-amber-500/80">Weather Reserve (2%)</p>
+                    <p className="text-sm font-bold text-foreground">Emergency Fund</p>
+                  </div>
+                </div>
+                <span className="text-lg font-bold text-amber-500">{formatCurrency(economics.total_reserve)}</span>
+              </div>
+
+              <div className="mt-4 p-4 bg-primary/5 rounded-xl border border-primary/20">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Dana cadangan cuaca digunakan secara otomatis untuk insentif kurir saat hujan ekstrem guna menjaga SLA tetap di atas 95%.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="h-64 bg-muted/40 animate-pulse rounded-xl" />
+          )}
+        </motion.div>
+      </div>
     </div>
   );
 }
