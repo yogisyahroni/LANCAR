@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 
+private val Context.legacyDataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_session")
+
 /**
  * Encrypted Auth Session Manager for LANCAR Courier App
  *
@@ -28,9 +30,6 @@ import java.io.File
  * Also provides legacy migration from standard Preferences DataStore to prevent logged out users.
  */
 class AuthSessionManager(private val context: Context) {
-
-    // Legacy DataStore reference for data migration only
-    private val Context.legacyDataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_session")
     
     private val sharedPreferences: SharedPreferences by lazy {
         try {
