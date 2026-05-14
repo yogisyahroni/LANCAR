@@ -36,8 +36,9 @@ interface LANCARApiService {
      */
     @GET("api/v1/system/latest-version")
     suspend fun getLatestVersion(
-        @Query("type") type: String = "courier"
+        @Query("type") type: String
     ): Response<AppVersion>
+
 
     // ── AUTH ────────────────────────────────────────────────────
 

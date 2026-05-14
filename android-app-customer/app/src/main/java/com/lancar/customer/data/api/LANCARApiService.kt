@@ -9,8 +9,9 @@ interface LANCARApiService {
     // System Endpoints
     @GET("api/v1/system/latest-version")
     suspend fun getLatestVersion(
-        @Query("type") type: String = "customer"
+        @Query("type") type: String
     ): Response<AppVersion>
+
 
     // Auth Endpoints
 

@@ -7,7 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
-import com.lancar.customer.MainActivity
+import com.lancar.customer.ui.MainActivity
 import com.lancar.customer.R
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject

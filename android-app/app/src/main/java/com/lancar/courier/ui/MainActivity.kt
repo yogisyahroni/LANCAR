@@ -25,6 +25,8 @@ import com.lancar.courier.ui.screens.auth.LoginScreen
 import com.lancar.courier.ui.theme.LANCARCourierTheme
 import com.lancar.courier.ui.components.UpdateDialog
 import com.lancar.courier.data.model.AppVersion
+import com.lancar.courier.util.UpdateManager
+
 
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope

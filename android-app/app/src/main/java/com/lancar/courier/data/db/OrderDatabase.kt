@@ -4,8 +4,9 @@ import android.content.Context
 import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import net.zetetic.database.sqlcipher.SupportFactory
+import net.sqlcipher.database.SupportFactory
 import com.lancar.courier.data.model.Location
+
 import com.lancar.courier.data.model.Order
 
 /**
