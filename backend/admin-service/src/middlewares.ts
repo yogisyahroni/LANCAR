@@ -55,17 +55,52 @@ export const requireMobileOrWebAuth = async (req: Request, res: Response, next: 
     return next();
   }
 
-  // 2. Check for Web Customer Session cookie
+  // 2. Check for mobile Bearer session token issued by courier login.
+  const authHeader = req.headers.authorization || '';
+  const bearerPrefix = 'Bearer ';
+  if (authHeader.startsWith(bearerPrefix)) {
+    const token = authHeader.slice(bearerPrefix.length).trim();
+
+    try {
+      const result = await db.query(
+        `SELECT s.user_id, u.role, u.full_name
+         FROM user_sessions s
+         JOIN users u ON s.user_id = u.id
+         WHERE s.refresh_token = $1
+           AND s.expires_at > NOW()
+           AND s.is_revoked = false`,
+        [token]
+      );
+
+      if (result.rows.length > 0) {
+        const user = result.rows[0];
+        req.user = {
+          id: user.user_id,
+          role: user.role,
+          full_name: user.full_name,
+          totp_verified: true,
+        };
+        console.log(`[requireMobileOrWebAuth] Authenticated Mobile via Bearer: UserID=${user.user_id}`);
+        return next();
+      }
+    } catch (error) {
+      console.error('Mobile bearer session verification error:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+      return;
+    }
+  }
+
+  // 3. Check for Web Customer Session cookie
   if (req.cookies?.customer_session) {
     return verifyWebSession(req, res, next);
   }
 
-  // 3. Check for Web Admin Session cookie
+  // 4. Check for Web Admin Session cookie
   if (req.cookies?.admin_session) {
     return verifyAdminSession(req, res, next);
   }
 
-  // 4. Reject if no authentication mechanism provided
+  // 5. Reject if no authentication mechanism provided
   console.warn(`[requireMobileOrWebAuth] Blocked Access. No headers or sessions provided. URL: ${req.url}`);
   res.status(401).json({ error: 'Unauthorized: Authentication required' });
 };
@@ -235,6 +270,5 @@ export const verifySession = async (req: Request, res: Response, next: NextFunct
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
-
 
 

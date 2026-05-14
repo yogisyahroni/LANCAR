@@ -30,6 +30,18 @@ async function runMigration() {
       );
     `);
 
+    console.log('Creating user_devices table...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_devices (
+        id SERIAL PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        device_token TEXT NOT NULL UNIQUE,
+        platform TEXT NOT NULL,
+        last_active_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     console.log('Creating bulk_downloads table...');
     await client.query(`
       CREATE TABLE IF NOT EXISTS bulk_downloads (
@@ -59,6 +71,7 @@ async function runMigration() {
       CREATE INDEX IF NOT EXISTS idx_web_sessions_user_id ON web_sessions(user_id);
       CREATE INDEX IF NOT EXISTS idx_web_sessions_token ON web_sessions(session_token);
       CREATE INDEX IF NOT EXISTS idx_web_push_subscriptions_user_id ON web_push_subscriptions(user_id);
+      CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices(user_id);
       CREATE INDEX IF NOT EXISTS idx_bulk_downloads_user_id ON bulk_downloads(user_id);
       CREATE INDEX IF NOT EXISTS idx_customer_analytics_cache_user_report ON customer_analytics_cache(user_id, report_type);
     `);

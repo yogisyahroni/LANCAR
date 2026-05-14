@@ -155,6 +155,7 @@ services:
       MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
       MIDTRANS_ENV: ${MIDTRANS_ENV:-sandbox}
       MIDTRANS_FINISH_URL: ${MIDTRANS_FINISH_URL:-http://localhost:3000/orders}
+      JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
     ports:
       - "${ADMIN_PORT:-3001}:3000"
     healthcheck:
@@ -182,11 +183,13 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db-read:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
-      ROUTING_PORT: ${ROUTING_PORT:-8082}
+      ROUTING_PORT: 8082
+      ROUTING_SERVICE_PORT: 8082
       ENVIRONMENT: ${ENVIRONMENT:-development}
     ports:
-      - "${ROUTING_PORT:-8082}:8082"
+      - "${ROUTING_HOST_PORT:-18082}:8082"
     healthcheck:
       test: ["CMD-SHELL", "exit 0"]
       interval: 30s
@@ -219,6 +222,7 @@ services:
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       ENVIRONMENT: ${ENVIRONMENT:-development}
+      JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
     ports:
       - "${ORDER_PORT:-8083}:8083"
     healthcheck:
@@ -303,6 +307,7 @@ services:
       ROUTING_SERVICE_URL: "http://routing-service:8082"
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
       GATEWAY_PORT: 8080
+      JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
 
     ports:
       - "8080:8080"

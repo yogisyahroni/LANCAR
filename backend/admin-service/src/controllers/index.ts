@@ -42,6 +42,9 @@ export * from './system.controller';
 // Customer Web Portal Auth
 export * from './customerAuth.controller';
 
+// Courier Mobile Auth
+export * from './courierAuth.controller';
+
 // Wallet
 export * from './wallet.controller';
 

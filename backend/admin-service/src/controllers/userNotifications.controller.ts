@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { db, readDb } from '../db';
+import { ensureUserDevicesTable } from '../notifications';
 
 export const getUserNotifications = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -60,8 +61,8 @@ export const clearNotifications = async (req: Request, res: Response): Promise<v
 export const registerDeviceToken = async (req: Request, res: Response): Promise<void> => {
   try {
     const user_id = req.user?.id;
-    const { device_token, fcmToken, platform } = req.body;
-    const finalToken = device_token || fcmToken;
+    const { device_token, fcm_token, fcmToken, platform } = req.body;
+    const finalToken = device_token || fcm_token || fcmToken;
 
     if (!user_id) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -72,6 +73,8 @@ export const registerDeviceToken = async (req: Request, res: Response): Promise<
       res.status(400).json({ error: 'device_token (or fcmToken) and platform are required' });
       return;
     }
+
+    await ensureUserDevicesTable();
 
     // Upsert device token
     await db.query(`
@@ -87,6 +90,12 @@ export const registerDeviceToken = async (req: Request, res: Response): Promise<
     console.log(`[Notification] Device token registered for user ${user_id} (${platform})`);
     res.json({ success: true, message: 'Device token registered successfully' });
   } catch (error: any) {
+    if (error?.code === '42P01') {
+      console.warn('[Notification] user_devices table not found. Skipping device token registration.');
+      res.json({ success: true, message: 'Device token registration skipped: table not available' });
+      return;
+    }
+
     console.error('Error registering device token:', error);
     res.status(500).json({ error: error.message });
   }
@@ -95,8 +104,8 @@ export const registerDeviceToken = async (req: Request, res: Response): Promise<
 export const unregisterDeviceToken = async (req: Request, res: Response): Promise<void> => {
   try {
     const user_id = req.user?.id;
-    const { device_token, fcmToken } = req.body;
-    const finalToken = device_token || fcmToken;
+    const { device_token, fcm_token, fcmToken } = req.body;
+    const finalToken = device_token || fcm_token || fcmToken;
 
     if (!user_id) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -108,6 +117,8 @@ export const unregisterDeviceToken = async (req: Request, res: Response): Promis
       return;
     }
 
+    await ensureUserDevicesTable();
+
     await db.query(`
       DELETE FROM user_devices 
       WHERE device_token = $1 AND user_id = $2
@@ -116,8 +127,13 @@ export const unregisterDeviceToken = async (req: Request, res: Response): Promis
     console.log(`[Notification] Device token unregistered for user ${user_id}`);
     res.json({ success: true, message: 'Device token unregistered successfully' });
   } catch (error: any) {
+    if (error?.code === '42P01') {
+      console.warn('[Notification] user_devices table not found. Skipping device token unregister.');
+      res.json({ success: true, message: 'Device token unregister skipped: table not available' });
+      return;
+    }
+
     console.error('Error unregistering device token:', error);
     res.status(500).json({ error: error.message });
   }
 };
-

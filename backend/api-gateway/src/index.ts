@@ -15,7 +15,7 @@ import jwt from 'jsonwebtoken';
 import { PricingEstimateSchema, CreateOrderSchema } from './schemas/order.schema';
 import { OTPSendSchema, OTPVerifySchema, RegisterSchema } from './schemas/auth.schema';
 
-dotenv.config({ path: '../../../.env' });
+dotenv.config({ path: '../../.env' });
 
 const app = express();
 const logger = pino();
@@ -333,21 +333,89 @@ app.use(createProxyMiddleware({
   }
 }));
 
+// Courier Mobile Auth Routes (compatibility with Android courier app)
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/auth/courier',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[35m[Proxy Courier Auth]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    }
+  }
+}));
+
 // Auth Service - General Routes
 app.use('/api/v1/auth', proxyWithResilience(AUTH_SERVICE_URL, authBreaker));
 
 // Orders Service
-app.use('/api/v1/orders', proxyWithResilience(ORDER_SERVICE_URL, orderBreaker));
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/orders',
+  target: ORDER_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[36m[Proxy Orders]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) {
+        orderBreaker.fire(null);
+      }
+    },
+    error: (err: Error, req: any, res: any) => {
+      orderBreaker.fire(null);
+      console.error(`Proxy Error (${ORDER_SERVICE_URL}):`, err);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({
+          status: 'error',
+          code: 'ERR_BAD_GATEWAY',
+          message: 'Service is currently unavailable',
+        });
+      }
+    }
+  }
+}));
 
 // Couriers Service (Order-related actions)
-app.use('/api/v1/couriers', proxyWithResilience(ORDER_SERVICE_URL, orderBreaker));
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/couriers',
+  target: ORDER_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[36m[Proxy Couriers]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    }
+  }
+}));
 
 // Tracking Service (Order & Courier tracking)
-app.use('/api/v1/tracking', proxyWithResilience(ORDER_SERVICE_URL, orderBreaker));
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/tracking',
+  target: ORDER_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[36m[Proxy Tracking]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    }
+  }
+}));
 
 // Admin Service - Mobile & Courier Notifications
-app.use('/api/v1/mobile/notifications', proxyWithResilience(ADMIN_SERVICE_URL, adminBreaker));
-app.use('/api/v1/courier/fcm', proxyWithResilience(ADMIN_SERVICE_URL, adminBreaker));
+app.use(createProxyMiddleware({
+  pathFilter: ['/api/v1/mobile/notifications', '/api/v1/courier/fcm', '/api/v1/courier/profile', '/api/v1/courier/orders'],
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[35m[Proxy Mobile Admin]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    }
+  }
+}));
 
 // Admin Service General Routes (Management API)
 app.use(createProxyMiddleware({
@@ -478,6 +546,3 @@ server.on('upgrade', (req: any, socket: any, head: any) => {
     adminWsProxy.upgrade(req, socket, head);
   }
 });
-
-
-

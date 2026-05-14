@@ -80,7 +80,7 @@ interface LANCARApiService {
     /**
      * Get all orders assigned to current courier
      */
-    @GET("api/v1/orders")
+    @GET("api/v1/courier/orders")
     suspend fun getOrders(): Response<ApiResponse<List<Order>>>
 
     /**

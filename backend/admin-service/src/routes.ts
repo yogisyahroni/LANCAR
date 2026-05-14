@@ -18,6 +18,11 @@ routes.post('/auth/web/login', (req, res) => controllers.loginWeb(req, res));
 routes.post('/auth/web/logout', (req, res) => controllers.logoutWeb(req, res));
 routes.post('/auth/web/refresh-token', (req, res) => controllers.refreshToken(req, res));
 
+// Courier Mobile Auth Routes
+routes.post('/api/v1/auth/courier/login', (req, res) => controllers.loginCourier(req, res));
+routes.get('/api/v1/courier/profile', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierProfile(req, res));
+routes.get('/api/v1/courier/orders', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOrders(req, res));
+
 routes.get('/auth/web/me', verifySession, (req, res) => controllers.me(req, res));
 routes.get('/auth/web/notifications', verifySession, (req, res) => controllers.getUserNotifications(req, res));
 routes.patch('/auth/web/notifications/:id/read', verifyWebSession, (req, res) => controllers.markNotificationRead(req, res));
