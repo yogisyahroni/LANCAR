@@ -28,6 +28,7 @@ import com.lancar.courier.ui.screens.auth.LoginScreen
 import com.lancar.courier.ui.theme.LANCARCourierTheme
 import com.lancar.courier.ui.components.UpdateDialog
 import com.lancar.courier.data.model.AppVersion
+import com.lancar.courier.util.FirebaseInitializer
 import com.lancar.courier.util.UpdateManager
 
 
@@ -231,6 +232,11 @@ class MainActivity : ComponentActivity() {
      * Obtain FCM token and register with backend + sync pending orders
      */
     private fun obtainAndRegisterFCMToken() {
+        if (!FirebaseInitializer.initializeIfConfigured(this)) {
+            Log.w("FCM_TOKEN", "Skipping FCM token registration because Firebase is not configured")
+            return
+        }
+
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (task.isSuccessful) {
                 val token = task.result

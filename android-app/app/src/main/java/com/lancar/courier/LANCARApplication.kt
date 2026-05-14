@@ -25,6 +25,7 @@ import android.content.Context
 import android.os.Build
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.ExistingWorkPolicy
+import com.lancar.courier.util.FirebaseInitializer
 import javax.inject.Inject
 
 /**
@@ -50,6 +51,8 @@ class LANCARApplication : Application(), Configuration.Provider {
         setupUncaughtExceptionHandler()
         
         Log.d(TAG, "Application created")
+
+        FirebaseInitializer.initializeIfConfigured(this)
 
         // AuthSessionManager & ApiClient will now operate through Hilt
         // Initialize notification channels

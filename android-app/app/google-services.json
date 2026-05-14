@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "583920174859",
-    "project_id": "lancar-courier",
-    "storage_bucket": "lancar-courier.appspot.com"
+    "project_number": "1068764434804",
+    "project_id": "android-kurir",
+    "storage_bucket": "android-kurir.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:583920174859:android:2b4c6e8a0f2d4e6b",
+        "mobilesdk_app_id": "1:1068764434804:android:cca9a256f2ffe17f78dc21",
         "android_client_info": {
           "package_name": "com.lancar.courier"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyClIEnT_ApIkEy_FoRlAnCaRdUmMyK_1"
+          "current_key": "AIzaSyAtvMJEQaiUHDgG-VXeqK40Ao7XN9vY7K8"
         }
       ],
       "services": {
@@ -27,4 +27,3 @@
   ],
   "configuration_version": "1"
 }
-

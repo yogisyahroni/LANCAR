@@ -7,6 +7,7 @@ import com.google.firebase.messaging.FirebaseMessaging
 import com.lancar.courier.data.api.LANCARApiService
 import com.lancar.courier.data.model.FCMTokenRequest
 import com.lancar.courier.data.session.AuthSessionManager
+import com.lancar.courier.util.FirebaseInitializer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -127,6 +128,11 @@ class FCMTokenRepository @Inject constructor(
      * Get current FCM token
      */
     suspend fun getFCMToken(): String? {
+        if (!FirebaseInitializer.initializeIfConfigured(context)) {
+            Log.w(TAG, "FCM token unavailable because Firebase is not configured")
+            return null
+        }
+
         return try {
             FirebaseMessaging.getInstance().token.await()
         } catch (e: Exception) {
