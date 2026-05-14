@@ -21,14 +21,19 @@ jobs:
   build-android:
     name: Build ${{ matrix.app_name }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     strategy:
+      max-parallel: 1
       fail-fast: false
       matrix:
+
         include:
           - app_name: "Courier-App"
             working_dir: "android-app"
           - app_name: "Customer-App"
             working_dir: "android-app-customer"
+
     
     steps:
       - uses: actions/checkout@v4
