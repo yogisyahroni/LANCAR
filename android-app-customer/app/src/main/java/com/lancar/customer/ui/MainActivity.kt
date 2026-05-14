@@ -1,5 +1,8 @@
 package com.lancar.customer.ui
 
+// CI Retrigger: 2026-05-14T19:59
+
+
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity

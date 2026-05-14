@@ -5,12 +5,15 @@ on:
     paths:
       - 'android-app/**'
       - 'android-app-customer/**'
+      - '.github/workflows/android-apps.yml'
     branches: [ staging, production ]
   pull_request:
     paths:
       - 'android-app/**'
       - 'android-app-customer/**'
+      - '.github/workflows/android-apps.yml'
     branches: [ staging ]
+
 
 # Cancel in-progress runs on the same branch
 concurrency:
