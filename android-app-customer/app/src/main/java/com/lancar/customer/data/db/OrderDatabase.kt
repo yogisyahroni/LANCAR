@@ -37,8 +37,6 @@ abstract class OrderDatabase : RoomDatabase() {
                     android.provider.Settings.Secure.ANDROID_ID
                 ).toByteArray()
                 val factory = SupportFactory(passkey)
-
-
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     OrderDatabase::class.java,
