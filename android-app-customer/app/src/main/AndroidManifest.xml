@@ -31,7 +31,14 @@
         android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="34">
 
+        <!-- CRITICAL OVERRIDE: Suppress automatic FirebaseInitProvider to bypass boot validation crashes -->
+        <provider
+            android:name="com.google.firebase.provider.FirebaseInitProvider"
+            android:authorities="${applicationId}.firebaseinitprovider"
+            tools:node="remove" />
+
         <!-- Main Activity -->
+
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
