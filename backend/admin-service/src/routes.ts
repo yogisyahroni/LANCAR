@@ -22,6 +22,8 @@ routes.post('/auth/web/refresh-token', (req, res) => controllers.refreshToken(re
 routes.post('/api/v1/auth/courier/login', (req, res) => controllers.loginCourier(req, res));
 routes.post('/api/v1/auth/courier/documents/upload', upload.single('file'), (req, res) => controllers.uploadCourierOnDemandDocument(req, res));
 routes.post('/api/v1/auth/courier/register', (req, res) => controllers.submitOnDemandCourierApplication(req, res));
+routes.get('/api/v1/auth/courier/registration-links/:token', (req, res) => controllers.getPublicCourierRegistrationLink(req, res));
+routes.post('/api/v1/auth/courier/register/:token', (req, res) => controllers.submitCourierApplicationByRegistrationLink(req, res));
 routes.get('/api/v1/courier/profile', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierProfile(req, res));
 routes.get('/api/v1/courier/orders', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOrders(req, res));
 routes.get('/api/v1/courier/offers', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOffers(req, res));
@@ -124,6 +126,9 @@ routes.get('/admin/orders/export', (req, res) => controllers.exportOrders(req, r
 
 // Couriers Management
 routes.get('/admin/courier-applications/on-demand', (req, res) => controllers.getOnDemandCourierApplications(req, res));
+routes.get('/admin/courier-applications/:channel', (req, res) => controllers.getCourierApplicationsByChannel(req, res));
+routes.get('/admin/courier-registration-links', (req, res) => controllers.getCourierRegistrationLinks(req, res));
+routes.post('/admin/courier-registration-links', (req, res) => controllers.createCourierRegistrationLink(req, res));
 routes.get('/admin/couriers', (req, res) => controllers.getAllCouriers(req, res));
 routes.get('/admin/couriers/stats', (req, res) => controllers.getCourierStats(req, res));
 routes.get('/admin/couriers/:id', (req, res) => controllers.getCourierById(req, res));

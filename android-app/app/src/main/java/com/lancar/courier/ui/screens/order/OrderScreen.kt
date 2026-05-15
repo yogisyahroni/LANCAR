@@ -13,6 +13,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lancar.courier.data.model.Order
+import com.lancar.courier.data.model.cleanPayoutIdr
+import com.lancar.courier.data.model.normalizedWorkflowRole
+import com.lancar.courier.data.model.toRupiahCompact
 import com.lancar.courier.ui.theme.Primary
 import com.lancar.courier.ui.theme.Warning
 import com.lancar.courier.ui.theme.Success
@@ -29,18 +32,21 @@ import com.lancar.courier.ui.theme.OnPrimary
 @Composable
 fun OrderScreen(
     orders: List<Order>,
+    courierRole: String,
     onOrderClick: (Order) -> Unit,
     onSync: () -> Unit,
     isSyncing: Boolean = false
 ) {
     var showSyncDialog by remember { mutableStateOf(false) }
-    var selectedRole by remember { mutableStateOf("on_demand") }
+    val lockedRole = courierRole.toCourierWorkRole()
+    var selectedRole by remember(lockedRole) { mutableStateOf(lockedRole) }
     val roleTabs = listOf(
         "on_demand" to "On Demand",
         "pickup" to "Pickup",
         "delivery" to "Delivery"
     )
     val roleOrders = orders.filter { it.normalizedWorkflowRole() == selectedRole }
+    val isRoleLocked = courierRole != "all"
 
     if (showSyncDialog) {
         AlertDialog(
@@ -62,7 +68,7 @@ fun OrderScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text("Tugas Kurir", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(roleTitle(selectedRole), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(
                     text = "${roleOrders.size} ${roleTabs.first { it.first == selectedRole }.second.lowercase()} tersedia",
                     style = MaterialTheme.typography.bodyMedium,
@@ -78,15 +84,23 @@ fun OrderScreen(
             }
         }
 
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            roleTabs.forEachIndexed { index, tab ->
-                SegmentedButton(
-                    selected = selectedRole == tab.first,
-                    onClick = { selectedRole = tab.first },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = roleTabs.size),
-                    label = { Text(tab.second, maxLines = 1) }
-                )
+        if (!isRoleLocked) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                roleTabs.forEachIndexed { index, tab ->
+                    SegmentedButton(
+                        selected = selectedRole == tab.first,
+                        onClick = { selectedRole = tab.first },
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = roleTabs.size),
+                        label = { Text(tab.second, maxLines = 1) }
+                    )
+                }
             }
+        } else {
+            AssistChip(
+                onClick = { },
+                label = { Text(roleTabs.first { it.first == selectedRole }.second) },
+                leadingIcon = { Icon(roleIcon(selectedRole), contentDescription = null, modifier = Modifier.size(16.dp)) }
+            )
         }
 
         if (roleOrders.isEmpty()) {
@@ -166,7 +180,7 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                CompactInfo(icon = Icons.Default.Payments, text = order.fee.ifBlank { "Fee -" })
+                CompactInfo(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
                 CompactInfo(icon = Icons.Default.Route, text = order.distance.ifBlank { "0 km" })
                 val pickupTime = order.pickupTime.takeIf { it.isNotBlank() }?.take(16)
                 if (pickupTime != null) {
@@ -226,14 +240,23 @@ private fun RoleChip(order: Order) {
     )
 }
 
-private fun Order.normalizedWorkflowRole(): String {
-    val modelValue = model.lowercase()
-    return when {
-        workflowRole == "pickup" || workflowRole == "delivery" || workflowRole == "on_demand" -> workflowRole
-        modelValue == "p2p" || modelValue == "on_demand" || modelValue == "ondemand" -> "on_demand"
-        legNumber <= 1 -> "pickup"
-        else -> "delivery"
-    }
+private fun String.toCourierWorkRole(): String = when (this) {
+    "pickup_only", "pickup" -> "pickup"
+    "delivery_only", "delivery" -> "delivery"
+    "all" -> "on_demand"
+    else -> "on_demand"
+}
+
+private fun roleTitle(role: String): String = when (role) {
+    "pickup" -> "Tugas Pickup"
+    "delivery" -> "Tugas Delivery"
+    else -> "Pekerjaan On Demand"
+}
+
+private fun roleIcon(role: String) = when (role) {
+    "pickup" -> Icons.Default.Storefront
+    "delivery" -> Icons.Default.Navigation
+    else -> Icons.Default.Bolt
 }
 
 @Composable

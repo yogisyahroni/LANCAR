@@ -7,6 +7,7 @@ import Orders from './pages/Orders'
 import ThreeLegReadiness from './pages/ThreeLegReadiness'
 import Couriers from './pages/Couriers'
 import CourierApplications from './pages/CourierApplications'
+import CourierPublicRegistration from './pages/CourierPublicRegistration'
 import PricingConfig from './pages/PricingConfig'
 import Disputes from './pages/Disputes'
 import Customers from './pages/Customers'
@@ -52,6 +53,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/dashboard" />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/courier-register/:token" element={<CourierPublicRegistration />} />
           <Route 
             path="/dashboard" 
             element={

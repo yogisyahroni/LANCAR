@@ -24,6 +24,12 @@ const ruleLabels: Record<string, string> = {
   sim_active: 'SIM aktif'
 }
 
+const channelLabels: Record<string, string> = {
+  on_demand: 'On-Demand',
+  pickup_only: 'Pickup Only',
+  delivery_only: 'Delivery Only',
+}
+
 const resolveUploadUrl = (fileUrl?: string) => {
   if (!fileUrl) return ''
   if (/^https?:\/\//i.test(fileUrl)) return fileUrl
@@ -37,13 +43,14 @@ const resolveUploadUrl = (fileUrl?: string) => {
 
 export default function CourierApplications() {
   const queryClient = useQueryClient()
+  const [channel, setChannel] = useState('on_demand')
   const [status, setStatus] = useState('pending')
   const [selected, setSelected] = useState<any>(null)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['on-demand-courier-applications', status],
+    queryKey: ['courier-applications', channel, status],
     queryFn: async () => {
-      const res = await api.get('/admin/courier-applications/on-demand', { params: { status } })
+      const res = await api.get(`/admin/courier-applications/${channel}`, { params: { status } })
       return res.data.data || []
     }
   })
@@ -54,7 +61,7 @@ export default function CourierApplications() {
       return res.data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['on-demand-courier-applications'] })
+      queryClient.invalidateQueries({ queryKey: ['courier-applications'] })
       queryClient.invalidateQueries({ queryKey: ['admin-couriers'] })
       queryClient.invalidateQueries({ queryKey: ['admin-couriers-stats'] })
       setSelected(null)
@@ -77,13 +84,32 @@ export default function CourierApplications() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-100">On-Demand Courier Review</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-100">{channelLabels[channel]} Courier Review</h1>
           <p className="mt-2 text-sm text-zinc-500">
-            Review pendaftaran kurir GoSend-style sebelum akun bisa aktif menerima pekerjaan.
+            Review pendaftaran kurir berdasarkan jalur operasional sebelum akun aktif.
           </p>
         </div>
-        <div className="flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
-          {['pending', 'approved', 'rejected', 'all'].map((item) => (
+        <div className="flex flex-wrap gap-2">
+          <div className="flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+            {Object.entries(channelLabels).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setChannel(key)
+                  setSelected(null)
+                }}
+                className={cn(
+                  'rounded-xl px-4 py-2 text-sm font-bold transition',
+                  channel === key ? 'bg-primary text-white' : 'text-zinc-400 hover:text-white'
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="flex rounded-2xl border border-white/10 bg-white/[0.03] p-1">
+            {['pending', 'approved', 'rejected', 'all'].map((item) => (
             <button
               key={item}
               type="button"
@@ -98,14 +124,15 @@ export default function CourierApplications() {
             >
               {item}
             </button>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
         <div className="rounded-3xl border border-white/10 bg-white/[0.03]">
           <div className="border-b border-white/10 p-5">
-            <p className="text-sm font-bold text-zinc-100">{applications.length} kandidat</p>
+            <p className="text-sm font-bold text-zinc-100">{applications.length} kandidat {channelLabels[channel]}</p>
             <p className="mt-1 text-xs text-zinc-500">Klik kandidat untuk membuka detail review.</p>
           </div>
 

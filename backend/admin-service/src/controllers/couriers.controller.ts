@@ -7,11 +7,22 @@ import crypto from 'crypto';
 const requiredOnDemandDocuments = ['ktp', 'sim', 'stnk', 'skpd', 'vehicle_photo', 'skck', 'bank_account'];
 const forbiddenVehicleCategories = ['trail', 'sport', 'touring'];
 const uploadRoot = path.join(process.cwd(), 'public/uploads/courier-documents');
+const allowedApplicationChannels = ['on_demand', 'pickup_only', 'delivery_only'];
+const channelLabels: Record<string, string> = {
+  on_demand: 'On-Demand',
+  pickup_only: 'Pickup Only',
+  delivery_only: 'Delivery Only'
+};
 
 const normalizePlate = (value: string) => value.trim().toUpperCase().replace(/\s+/g, ' ');
 const normalizePhone = (value: string) => value.trim().replace(/[^\d+]/g, '');
+const tokenHash = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
+const normalizeApplicationChannel = (value: any, fallback = 'on_demand') => {
+  const channel = String(value || fallback).trim().toLowerCase();
+  return allowedApplicationChannels.includes(channel) ? channel : fallback;
+};
 
-const buildOnboardingChecklist = (body: any) => {
+const buildOnboardingChecklist = (body: any, applicationChannel = 'on_demand') => {
   const registrationYear = new Date().getFullYear();
   const vehicleYear = Number(body.vehicle_year || 0);
   const vehicleCc = Number(body.vehicle_cc || 0);
@@ -43,6 +54,7 @@ const buildOnboardingChecklist = (body: any) => {
       sim_active: Boolean(body.sim_active)
     },
     summary: {
+      application_channel: applicationChannel,
       registration_year: registrationYear,
       vehicle_age_years: vehicleAge,
       vehicle_cc: vehicleCc,
@@ -91,6 +103,138 @@ const hasAllowedFileSignature = (buffer: Buffer, mimeType: string) => {
       buffer.subarray(8, 12).toString('ascii') === 'WEBP';
   }
   return false;
+};
+
+const publicLinkBase = (req: Request) => {
+  const origin = req.headers.origin || process.env.ADMIN_DASHBOARD_URL || 'http://localhost:3002';
+  return `${origin}/courier-register`;
+};
+
+export const createCourierRegistrationLink = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const applicationChannel = normalizeApplicationChannel(req.body?.application_channel, 'pickup_only');
+    const token = crypto.randomBytes(24).toString('hex');
+    const title = String(req.body?.title || `${channelLabels[applicationChannel]} Courier Registration`).trim();
+    const notes = req.body?.notes ? String(req.body.notes).trim() : null;
+    const maxUses = req.body?.max_uses ? Number(req.body.max_uses) : null;
+    const hasExpiresInDays = Object.prototype.hasOwnProperty.call(req.body || {}, 'expires_in_days');
+    const expiresInDays = hasExpiresInDays ? Number(req.body.expires_in_days) : null;
+    const expiresAt = expiresInDays !== null
+      ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+      : req.body?.expires_at
+        ? new Date(req.body.expires_at)
+        : null;
+
+    if (applicationChannel === 'on_demand') {
+      res.status(400).json({ error: 'On-demand courier registration is handled from the courier app flow' });
+      return;
+    }
+
+    if (maxUses !== null && (!Number.isInteger(maxUses) || maxUses < 1)) {
+      res.status(400).json({ error: 'max_uses must be a positive integer' });
+      return;
+    }
+
+    if (expiresInDays !== null && (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > 365)) {
+      res.status(400).json({ error: 'expires_in_days must be an integer between 1 and 365' });
+      return;
+    }
+
+    if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+      res.status(400).json({ error: 'expires_at must be a valid date' });
+      return;
+    }
+
+    if (expiresAt && expiresAt.getTime() <= Date.now()) {
+      res.status(400).json({ error: 'expires_at must be in the future' });
+      return;
+    }
+
+    const result = await db.query(
+      `INSERT INTO courier_registration_links (
+        token_hash, application_channel, title, notes, max_uses, expires_at, created_by
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, application_channel, title, notes, max_uses, use_count, expires_at, status, created_at`,
+      [tokenHash(token), applicationChannel, title, notes, maxUses, expiresAt, req.user?.id || null]
+    );
+
+    res.status(201).json({
+      success: true,
+      data: {
+        ...result.rows[0],
+        registration_url: `${publicLinkBase(req)}/${token}`
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getCourierRegistrationLinks = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await readDb.query(
+      `SELECT id, application_channel, title, notes, max_uses, use_count, expires_at, status, created_at, updated_at
+       FROM courier_registration_links
+       ORDER BY created_at DESC
+       LIMIT 50`
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getPublicCourierRegistrationLink = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const token = String(req.params.token || '');
+    const result = await readDb.query(
+      `SELECT id, application_channel, title, notes, max_uses, use_count, expires_at, status
+       FROM courier_registration_links
+       WHERE token_hash = $1`,
+      [tokenHash(token)]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Registration link not found' });
+      return;
+    }
+
+    const link = result.rows[0];
+    const expired = link.expires_at && new Date(link.expires_at).getTime() < Date.now();
+    const fullyUsed = link.max_uses && Number(link.use_count) >= Number(link.max_uses);
+    if (link.status !== 'active' || expired || fullyUsed) {
+      res.status(410).json({ error: 'Registration link is no longer active' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        application_channel: link.application_channel,
+        title: link.title,
+        notes: link.notes
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const validateRegistrationToken = async (client: any, token: string) => {
+  const result = await client.query(
+    `SELECT id, application_channel, max_uses, use_count, expires_at, status
+     FROM courier_registration_links
+     WHERE token_hash = $1
+     FOR UPDATE`,
+    [tokenHash(token)]
+  );
+  if (result.rows.length === 0) return { error: 'Registration link not found' };
+
+  const link = result.rows[0];
+  const expired = link.expires_at && new Date(link.expires_at).getTime() < Date.now();
+  const fullyUsed = link.max_uses && Number(link.use_count) >= Number(link.max_uses);
+  if (link.status !== 'active' || expired || fullyUsed) return { error: 'Registration link is no longer active' };
+  return { link };
 };
 
 export const uploadCourierOnDemandDocument = async (req: Request, res: Response): Promise<void> => {
@@ -147,6 +291,19 @@ export const uploadCourierOnDemandDocument = async (req: Request, res: Response)
 };
 
 export const submitOnDemandCourierApplication = async (req: Request, res: Response): Promise<void> => {
+  return submitCourierApplication(req, res, 'on_demand');
+};
+
+export const submitCourierApplicationByRegistrationLink = async (req: Request, res: Response): Promise<void> => {
+  return submitCourierApplication(req, res, undefined, String(req.params.token || ''));
+};
+
+const submitCourierApplication = async (
+  req: Request,
+  res: Response,
+  forcedChannel?: string,
+  registrationToken?: string
+): Promise<void> => {
   const {
     full_name,
     phone_number,
@@ -165,16 +322,30 @@ export const submitOnDemandCourierApplication = async (req: Request, res: Respon
     documents = {}
   } = req.body || {};
 
+  let applicationChannel = normalizeApplicationChannel(forcedChannel || req.body?.application_channel, 'on_demand');
   if (!full_name || !phone_number || !password || !vehicle_plate) {
     res.status(400).json({ error: 'full_name, phone_number, password, and vehicle_plate are required' });
     return;
   }
 
-  const checklist = buildOnboardingChecklist(req.body);
   const client = await db.connect();
 
   try {
     await client.query('BEGIN');
+
+    let registrationLinkId: string | null = null;
+    if (registrationToken) {
+      const validation = await validateRegistrationToken(client, registrationToken);
+      if (validation.error || !validation.link) {
+        await client.query('ROLLBACK');
+        res.status(validation.error === 'Registration link not found' ? 404 : 410).json({ error: validation.error });
+        return;
+      }
+      applicationChannel = normalizeApplicationChannel(validation.link.application_channel, 'pickup_only');
+      registrationLinkId = validation.link.id;
+    }
+
+    const checklist = buildOnboardingChecklist(req.body, applicationChannel);
 
     const courierUserRes = await client.query(
       `INSERT INTO couriers (phone_number, email, full_name, role, status, pin_hash)
@@ -209,7 +380,7 @@ export const submitOnDemandCourierApplication = async (req: Request, res: Respon
         user_id, vehicle_type, vehicle_plate, vehicle_cc, vehicle_brand, vehicle_model, vehicle_year,
         vehicle_category, bank_code, bank_account_number, bank_account_name, application_channel,
         onboarding_checklist, verification_status
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'on_demand', $12, 'pending')
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'pending')
        ON CONFLICT (user_id) DO UPDATE SET
         vehicle_type = EXCLUDED.vehicle_type,
         vehicle_plate = EXCLUDED.vehicle_plate,
@@ -221,7 +392,7 @@ export const submitOnDemandCourierApplication = async (req: Request, res: Respon
         bank_code = EXCLUDED.bank_code,
         bank_account_number = EXCLUDED.bank_account_number,
         bank_account_name = EXCLUDED.bank_account_name,
-        application_channel = 'on_demand',
+        application_channel = EXCLUDED.application_channel,
         onboarding_checklist = EXCLUDED.onboarding_checklist,
         verification_status = 'pending',
         rejection_reason = NULL,
@@ -239,6 +410,7 @@ export const submitOnDemandCourierApplication = async (req: Request, res: Respon
         bank_code || null,
         bank_account_number || null,
         bank_account_name || null,
+        applicationChannel,
         JSON.stringify(checklist)
       ]
     );
@@ -259,15 +431,23 @@ export const submitOnDemandCourierApplication = async (req: Request, res: Respon
       );
     }
 
+    if (registrationLinkId) {
+      await client.query(
+        'UPDATE courier_registration_links SET use_count = use_count + 1, updated_at = NOW() WHERE id = $1',
+        [registrationLinkId]
+      );
+    }
+
     await client.query('COMMIT');
     res.status(201).json({
       success: true,
       data: {
         courier_id: courierId,
+        application_channel: applicationChannel,
         status: 'pending',
         checklist_passed: checklistPassed(checklist)
       },
-      message: 'Pendaftaran kurir on-demand berhasil dikirim untuk review admin'
+      message: `Pendaftaran kurir ${channelLabels[applicationChannel]} berhasil dikirim untuk review admin`
     });
   } catch (error: any) {
     await client.query('ROLLBACK');
@@ -278,9 +458,18 @@ export const submitOnDemandCourierApplication = async (req: Request, res: Respon
 };
 
 export const getOnDemandCourierApplications = async (req: Request, res: Response) => {
+  return getCourierApplications(req, res, 'on_demand');
+};
+
+export const getCourierApplicationsByChannel = async (req: Request, res: Response) => {
+  return getCourierApplications(req, res, String(req.params.channel || req.query.application_channel || 'on_demand'));
+};
+
+const getCourierApplications = async (req: Request, res: Response, requestedChannel: string) => {
   try {
     const status = String(req.query.status || 'pending');
-    const values: any[] = ['on_demand'];
+    const applicationChannel = normalizeApplicationChannel(requestedChannel, 'on_demand');
+    const values: any[] = [applicationChannel];
     let statusFilter = '';
 
     if (status !== 'all') {
@@ -350,6 +539,7 @@ export const getAllCouriers = async (req: Request, res: Response) => {
     const offset = (page - 1) * limit;
     const search = req.query.search as string;
     const status = req.query.status as string;
+    const applicationChannel = req.query.application_channel as string;
 
     let query = `
       SELECT 
@@ -360,6 +550,7 @@ export const getAllCouriers = async (req: Request, res: Response) => {
         cp.vehicle_cc,
         cp.relay_score as avg_rating,
         cp.verification_status,
+        cp.application_channel,
         cp.tier,
         cp.is_online,
         cp.acceptance_rate_pct,
@@ -370,6 +561,7 @@ export const getAllCouriers = async (req: Request, res: Response) => {
         u.full_name, 
         u.email, 
         u.phone_number,
+        cp.vehicle_plate as plate_number,
         CASE 
           WHEN cp.verification_status = 'pending' THEN 'Pending'
           WHEN u.status = 'suspended' THEN 'Suspended'
@@ -395,6 +587,11 @@ export const getAllCouriers = async (req: Request, res: Response) => {
       } else if (status === 'Suspended') {
         query += ` AND u.status = 'suspended'`;
       }
+    }
+
+    if (applicationChannel && applicationChannel !== 'all') {
+      values.push(normalizeApplicationChannel(applicationChannel, 'on_demand'));
+      query += ` AND cp.application_channel = $${values.length}`;
     }
 
     const countQuery = `SELECT COUNT(*) FROM (${query}) as subquery`;
@@ -424,7 +621,10 @@ export const getCourierStats = async (req: Request, res: Response) => {
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE u.status = 'active') as active,
         COUNT(*) FILTER (WHERE cp.verification_status = 'pending') as pending,
-        COUNT(*) FILTER (WHERE u.status = 'suspended') as suspended
+        COUNT(*) FILTER (WHERE u.status = 'suspended') as suspended,
+        COUNT(*) FILTER (WHERE cp.application_channel = 'on_demand') as on_demand,
+        COUNT(*) FILTER (WHERE cp.application_channel = 'pickup_only') as pickup_only,
+        COUNT(*) FILTER (WHERE cp.application_channel = 'delivery_only') as delivery_only
       FROM courier_profiles cp
       JOIN users u ON cp.user_id = u.id
       WHERE u.deleted_at IS NULL
@@ -447,6 +647,8 @@ export const getCourierById = async (req: Request, res: Response): Promise<void>
         u.email, 
         u.phone_number, 
         u.photo_url,
+        cp.application_channel,
+        cp.vehicle_plate as plate_number,
         CASE 
           WHEN cp.verification_status = 'pending' THEN 'Pending'
           WHEN u.status = 'suspended' THEN 'Suspended'

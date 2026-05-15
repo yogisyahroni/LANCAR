@@ -413,7 +413,12 @@ app.use(createProxyMiddleware({
 
 // Admin Service - Mobile & Courier Notifications
 app.use(createProxyMiddleware({
-  pathFilter: ['/api/v1/mobile/notifications', '/api/v1/courier/fcm', '/api/v1/courier/profile', '/api/v1/courier/orders'],
+  pathFilter: (pathname: string) =>
+    pathname.startsWith('/api/v1/mobile/notifications') ||
+    pathname.startsWith('/api/v1/courier/fcm') ||
+    pathname.startsWith('/api/v1/courier/profile') ||
+    pathname.startsWith('/api/v1/courier/orders') ||
+    pathname.startsWith('/api/v1/courier/offers'),
   target: ADMIN_SERVICE_URL,
   changeOrigin: true,
   on: {

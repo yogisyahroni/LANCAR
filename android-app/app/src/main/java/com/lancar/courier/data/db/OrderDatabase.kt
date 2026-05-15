@@ -17,7 +17,7 @@ import com.lancar.courier.data.model.Order
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class OrderDatabase : RoomDatabase() {
@@ -56,6 +56,15 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `orders` ADD COLUMN `courier_payout_estimate_idr` INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE `orders` ADD COLUMN `customer_price_idr` INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE `orders` ADD COLUMN `platform_commission_idr` INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("ALTER TABLE `orders` ADD COLUMN `service_code` TEXT")
+            }
+        }
+
         fun getDatabase(context: Context): OrderDatabase {
             return INSTANCE ?: synchronized(this) {
                 // 🔐 SECURITY: Implementation of SQLCipher SupportFactory for on-disk encryption
@@ -72,7 +81,7 @@ abstract class OrderDatabase : RoomDatabase() {
                     "order_database"
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

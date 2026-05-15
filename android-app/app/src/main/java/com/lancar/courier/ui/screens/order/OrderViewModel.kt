@@ -3,6 +3,7 @@ package com.lancar.courier.ui.screens.order
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.model.CourierProfile
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.StatusUpdateRequest
 import com.lancar.courier.data.repository.OrderRepository
@@ -41,6 +42,9 @@ class OrderViewModel @Inject constructor(
     private val _offers = MutableStateFlow<List<Order>>(emptyList())
     val offers: StateFlow<List<Order>> = _offers.asStateFlow()
 
+    private val _courierProfile = MutableStateFlow<CourierProfile?>(null)
+    val courierProfile: StateFlow<CourierProfile?> = _courierProfile.asStateFlow()
+
     // All orders from local Room DB (reactive)
     val allOrders = orderRepository.getAllOrders()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -55,6 +59,7 @@ class OrderViewModel @Inject constructor(
 
     init {
         // Fetch fresh data from backend as soon as ViewModel starts
+        fetchCourierProfile()
         fetchOrdersFromBackend()
     }
 
@@ -63,6 +68,19 @@ class OrderViewModel @Inject constructor(
     }
 
     // ── Remote ────────────────────────────────────────────────────
+
+    fun fetchCourierProfile() {
+        viewModelScope.launch {
+            try {
+                val response = apiService.getCourierProfile()
+                val body = response.body()
+                if (response.isSuccessful && body?.success == true) {
+                    _courierProfile.update { body.data }
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
 
     /**
      * Fetch all assigned orders from backend and upsert into local DB.

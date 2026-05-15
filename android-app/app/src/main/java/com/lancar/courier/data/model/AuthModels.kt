@@ -62,6 +62,9 @@ data class CourierProfile(
     @SerialName("vehicle_type")
     val vehicleType: String? = null,
 
+    @SerialName("application_channel")
+    val applicationChannel: String = "on_demand",
+
     @SerialName("status")
     val status: String = "offline",
 
@@ -72,5 +75,11 @@ data class CourierProfile(
     val totalDeliveries: Int = 0,
 
     @SerialName("today_deliveries")
-    val todayDeliveries: Int = 0
+    val todayDeliveries: Int = 0,
+
+    @SerialName("total_earnings_idr")
+    val totalEarningsIdr: Int = 0,
+
+    @SerialName("today_earnings_idr")
+    val todayEarningsIdr: Int = 0
 )

@@ -155,14 +155,17 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
          u.phone_number,
          u.photo_url,
          cp.vehicle_type,
+         cp.application_channel,
          cp.is_online,
          COUNT(ol.id)::int AS total_deliveries,
-         COUNT(ol.id) FILTER (WHERE ol.updated_at::date = CURRENT_DATE)::int AS today_deliveries
+         COUNT(ol.id) FILTER (WHERE ol.updated_at::date = CURRENT_DATE)::int AS today_deliveries,
+         COALESCE(SUM(ol.assigned_fee_idr) FILTER (WHERE ol.status = 'delivered'), 0)::int AS total_earnings_idr,
+         COALESCE(SUM(ol.assigned_fee_idr) FILTER (WHERE ol.status = 'delivered' AND ol.updated_at::date = CURRENT_DATE), 0)::int AS today_earnings_idr
        FROM users u
        LEFT JOIN courier_profiles cp ON cp.user_id = u.id
        LEFT JOIN order_legs ol ON ol.courier_id = u.id AND ol.status = 'delivered'
        WHERE u.id = $1 AND u.role = 'courier'
-       GROUP BY u.id, u.full_name, u.phone_number, u.photo_url, cp.vehicle_type, cp.is_online`,
+       GROUP BY u.id, u.full_name, u.phone_number, u.photo_url, cp.vehicle_type, cp.application_channel, cp.is_online`,
       [req.user.id]
     );
 
@@ -184,10 +187,13 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
         name: courier.full_name,
         phone: courier.phone_number,
         vehicle_type: courier.vehicle_type,
+        application_channel: courier.application_channel || 'on_demand',
         status: courier.is_online ? 'online' : 'offline',
         profile_photo_url: courier.photo_url,
         total_deliveries: courier.total_deliveries,
         today_deliveries: courier.today_deliveries,
+        total_earnings_idr: courier.total_earnings_idr,
+        today_earnings_idr: courier.today_earnings_idr,
       },
       message: 'Courier profile loaded',
     });
@@ -278,7 +284,16 @@ const mobileOrderSelect = `
   COALESCE(o.scheduled_at, o.created_at) AS pickup_time,
   o.dropoff_address,
   COALESCE(o.distance_km, 0)::text AS distance,
-  COALESCE(ol.assigned_fee_idr, o.total_price_idr, 0)::text AS fee,
+  COALESCE(
+    NULLIF(ol.assigned_fee_idr, 0),
+    NULLIF(o.courier_payout_estimate_idr, 0),
+    GREATEST(o.total_price_idr - o.platform_commission_idr, 0),
+    0
+  )::text AS fee,
+  COALESCE(o.courier_payout_estimate_idr, 0)::int AS courier_payout_estimate_idr,
+  COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
+  COALESCE(o.platform_commission_idr, 0)::int AS platform_commission_idr,
+  o.service_code,
   COALESCE(c.full_name, 'Customer') AS customer_name,
   COALESCE(ol.status, o.status) AS status,
   (EXTRACT(EPOCH FROM o.created_at) * 1000)::bigint AS created_at,
@@ -336,7 +351,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
     await client.query('BEGIN');
 
     const orderRes = await client.query(
-      `SELECT id, model, total_price_idr
+      `SELECT id, model, total_price_idr, courier_payout_estimate_idr, platform_commission_idr
        FROM orders
        WHERE id = $1
          AND LOWER(model) IN ('p2p', 'on_demand', 'ondemand')
@@ -377,7 +392,12 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       await client.query(
         `INSERT INTO order_legs (order_id, leg_number, courier_id, status, assigned_fee_idr, assigned_at)
          VALUES ($1, 1, $2, 'accepted', $3, NOW())`,
-        [id, req.user.id, orderRes.rows[0].total_price_idr || 0]
+        [
+          id,
+          req.user.id,
+          orderRes.rows[0].courier_payout_estimate_idr ||
+            Math.max((orderRes.rows[0].total_price_idr || 0) - (orderRes.rows[0].platform_commission_idr || 0), 0)
+        ]
       );
     }
 

@@ -17,7 +17,9 @@ import {
   Loader2,
   Download,
   Package,
-  History
+  History,
+  Link2,
+  Copy
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
@@ -33,6 +35,11 @@ export default function Couriers() {
   const [selectedCourierId, setSelectedCourierId] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState(false)
   const [detailTab, setDetailTab] = useState<'profile' | 'history'>('profile')
+  const [applicationChannel, setApplicationChannel] = useState('all')
+  const [linkChannel, setLinkChannel] = useState<'pickup_only' | 'delivery_only'>('pickup_only')
+  const [linkExpiryDays, setLinkExpiryDays] = useState('7')
+  const [generatedLink, setGeneratedLink] = useState('')
+  const [generatedLinkExpiresAt, setGeneratedLinkExpiresAt] = useState('')
   const queryClient = useQueryClient()
 
   // Fetch Stats
@@ -46,17 +53,26 @@ export default function Couriers() {
 
   // Fetch Couriers List
   const { data: couriersData, isLoading } = useQuery({
-    queryKey: ['admin-couriers', search, filter, page],
+    queryKey: ['admin-couriers', search, filter, applicationChannel, page],
     queryFn: async () => {
       const res = await api.get('/admin/couriers', {
         params: {
           search,
           status: filter === 'All' ? undefined : filter,
+          application_channel: applicationChannel === 'all' ? undefined : applicationChannel,
           page,
           limit: 10
         }
       })
       return res.data
+    }
+  })
+
+  const { data: registrationLinks = [] } = useQuery<any[]>({
+    queryKey: ['courier-registration-links'],
+    queryFn: async () => {
+      const res = await api.get('/admin/courier-registration-links')
+      return res.data.data || []
     }
   })
 
@@ -95,6 +111,32 @@ export default function Couriers() {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to update status')
+    }
+  })
+
+  const createRegistrationLink = useMutation({
+    mutationFn: async () => {
+      const expiresInDays = Number(linkExpiryDays)
+      const res = await api.post('/admin/courier-registration-links', {
+        application_channel: linkChannel,
+        title: `Daftar Kurir ${linkChannel === 'pickup_only' ? 'Pickup Only' : 'Delivery Only'}`,
+        expires_in_days: expiresInDays,
+      })
+      return res.data.data
+    },
+    onSuccess: async (data) => {
+      setGeneratedLink(data.registration_url)
+      setGeneratedLinkExpiresAt(data.expires_at || '')
+      queryClient.invalidateQueries({ queryKey: ['courier-registration-links'] })
+      try {
+        await navigator.clipboard.writeText(data.registration_url)
+        toast.success('Link pendaftaran dibuat dan disalin')
+      } catch {
+        toast.success('Link pendaftaran dibuat')
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || 'Gagal membuat link pendaftaran')
     }
   })
 
@@ -186,6 +228,128 @@ export default function Couriers() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="glass-card rounded-[32px] border-white/5 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-zinc-600">Courier Type</p>
+              <h2 className="mt-2 text-xl font-black text-zinc-100">Pisahkan daftar kurir by role</h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[
+                ['all', 'All'],
+                ['on_demand', 'On-Demand'],
+                ['pickup_only', 'Pickup'],
+                ['delivery_only', 'Delivery'],
+              ].map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => {
+                    setApplicationChannel(key)
+                    setPage(1)
+                  }}
+                  className={cn(
+                    'rounded-xl px-4 py-2 text-sm font-bold transition',
+                    applicationChannel === key ? 'bg-primary text-white' : 'bg-white/5 text-zinc-500 hover:text-white'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="glass-card rounded-[32px] border-white/5 p-6">
+          <div className="flex items-start gap-4">
+            <div className="rounded-2xl bg-primary/10 p-3 text-primary-light">
+              <Link2 size={22} />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-zinc-600">Share Registration Link</p>
+              <h2 className="mt-2 text-xl font-black text-zinc-100">Link daftar non on-demand</h2>
+              <div className="mt-4 flex gap-2">
+                {[
+                  ['pickup_only', 'Pickup Only'],
+                  ['delivery_only', 'Delivery Only'],
+                ].map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setLinkChannel(key as 'pickup_only' | 'delivery_only')}
+                    className={cn(
+                      'rounded-xl px-3 py-2 text-xs font-black transition',
+                      linkChannel === key ? 'bg-primary text-white' : 'bg-white/5 text-zinc-500 hover:text-white'
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                <label className="flex items-center justify-between gap-3">
+                  <span>
+                    <span className="block text-xs font-black uppercase tracking-[0.18em] text-zinc-600">Masa aktif</span>
+                    <span className="mt-1 block text-sm font-bold text-zinc-300">Link otomatis off setelah melewati jumlah hari ini</span>
+                  </span>
+                  <div className="flex shrink-0 items-center gap-2 rounded-xl border border-white/10 bg-zinc-950 px-3 py-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={linkExpiryDays}
+                      onChange={(event) => setLinkExpiryDays(event.target.value)}
+                      className="w-16 bg-transparent text-right text-sm font-black text-white outline-none"
+                    />
+                    <span className="text-xs font-bold text-zinc-500">hari</span>
+                  </div>
+                </label>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const expiresInDays = Number(linkExpiryDays)
+                  if (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > 365) {
+                    toast.error('Masa aktif link harus 1 sampai 365 hari')
+                    return
+                  }
+                  createRegistrationLink.mutate()
+                }}
+                disabled={createRegistrationLink.isPending}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-black text-white transition hover:bg-primary-light disabled:opacity-50"
+              >
+                {createRegistrationLink.isPending ? <Loader2 size={16} className="animate-spin" /> : <Link2 size={16} />}
+                Generate Link
+              </button>
+              {generatedLink && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(generatedLink)
+                    toast.success('Link disalin')
+                  }}
+                  className="mt-3 flex w-full items-center gap-2 rounded-2xl border border-white/10 bg-zinc-950 px-3 py-2 text-left text-xs text-zinc-400"
+                >
+                  <Copy size={14} className="shrink-0 text-primary-light" />
+                  <span className="truncate">{generatedLink}</span>
+                </button>
+              )}
+              {generatedLinkExpiresAt && (
+                <p className="mt-2 text-[11px] font-bold text-amber-300">
+                  Aktif sampai {new Date(generatedLinkExpiresAt).toLocaleString('id-ID')}. Setelah itu link off.
+                </p>
+              )}
+              {registrationLinks.length > 0 && (
+                <p className="mt-3 text-[11px] font-bold text-zinc-600">
+                  {registrationLinks.length} link terakhir tersimpan.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Courier Table */}
       <div className="glass-card rounded-[40px] border-white/5 overflow-hidden shadow-2xl shadow-black/40">
         <div className="overflow-x-auto">
@@ -226,7 +390,7 @@ export default function Couriers() {
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-zinc-100">{courier.full_name}</p>
                           <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-500 border border-white/5 uppercase font-bold">
-                            {courier.vehicle_type || 'MOTOR'}
+                            {courier.application_channel?.replace('_', ' ') || courier.vehicle_type || 'MOTOR'}
                           </span>
                         </div>
                         <p className="text-xs text-zinc-500 mt-0.5">{courier.id.split('-')[0]} • {courier.plate_number || 'No Plate'}</p>

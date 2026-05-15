@@ -21,6 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.lancar.courier.data.model.Order
+import com.lancar.courier.data.model.cleanPayoutIdr
+import com.lancar.courier.data.model.normalizedWorkflowRole
+import com.lancar.courier.data.model.toRupiahCompact
 import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.service.LocationTrackerService
 import com.lancar.courier.ui.screens.order.OrderDetailScreen
@@ -63,12 +66,20 @@ fun MainScreen(
     val pendingOrders by orderViewModel.pendingOrders.collectAsState()
     val deliveredToday by orderViewModel.deliveredTodayOrders.collectAsState()
     val onDemandOffers by orderViewModel.offers.collectAsState()
+    val courierProfile by orderViewModel.courierProfile.collectAsState()
     val isSyncing by orderViewModel.isSyncing.collectAsState()
     val error by orderViewModel.error.collectAsState()
 
     val authSessionManager = remember { AuthSessionManager(context) }
     val courierName by authSessionManager.courierName.collectAsState(initial = "Courier")
     val isOnline by authSessionManager.isOnline.collectAsState(initial = false)
+    val courierRole = courierProfile?.applicationChannel ?: inferCourierRole(allOrders)
+    val roleOrders = allOrders.filterByCourierRole(courierRole)
+    val rolePendingOrders = pendingOrders.filterByCourierRole(courierRole)
+    val roleDeliveredToday = deliveredToday.filterByCourierRole(courierRole)
+    val roleEarningsToday = roleDeliveredToday.sumOf { it.cleanPayoutIdr() }.takeIf { it > 0 }
+        ?: courierProfile?.todayEarningsIdr
+        ?: 0
 
     var selectedTab by remember { mutableStateOf(0) }
     var showPodScreen by remember { mutableStateOf(false) }
@@ -78,7 +89,7 @@ fun MainScreen(
     var selectedOrder by remember { mutableStateOf<Order?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
-    onDemandOffers.firstOrNull()?.let { offer ->
+    if (courierRole == "on_demand") onDemandOffers.firstOrNull()?.let { offer ->
         OnDemandOfferDialog(
             order = offer,
             onAccept = {
@@ -324,10 +335,13 @@ fun MainScreen(
             when (selectedTab) {
                 0 -> HomeContent(
                     courierName = courierName ?: "Courier",
-                    totalOrders = allOrders.size,
-                    pendingCount = pendingOrders.size,
-                    deliveredCount = deliveredToday.size,
-                    orders = allOrders,
+                    courierRole = courierRole,
+                    totalOrders = roleOrders.size,
+                    pendingCount = rolePendingOrders.size,
+                    deliveredCount = roleDeliveredToday.size,
+                    todayEarningsIdr = roleEarningsToday,
+                    orders = roleOrders,
+                    offers = if (courierRole == "on_demand") onDemandOffers else emptyList(),
                     isOnline = isOnline,
                     onOnlineToggle = { online ->
                         scope.launch {
@@ -376,7 +390,8 @@ fun MainScreen(
                     onScanPackage = { showScanScreen = true }
                 )
                 1 -> OrdersContent(
-                    orders = allOrders,
+                    orders = roleOrders,
+                    courierRole = courierRole,
                     isSyncing = isSyncing,
                     onOrderClick = { order ->
                         selectedOrder = order
@@ -387,7 +402,10 @@ fun MainScreen(
                 )
                 2 -> ProfileContent(
                     courierName = courierName ?: "Courier",
-                    pendingSyncCount = pendingOrders.size,
+                    courierRole = courierRole,
+                    pendingSyncCount = rolePendingOrders.size,
+                    todayEarningsIdr = roleEarningsToday,
+                    totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
                     onLogout = { showLogoutDialog = true },
                     onSyncNow = { orderViewModel.syncPendingOrders() },
                     onOptimizeBattery = {
@@ -415,10 +433,13 @@ fun MainScreen(
 @Composable
 private fun HomeContent(
     courierName: String,
+    courierRole: String,
     totalOrders: Int,
     pendingCount: Int,
     deliveredCount: Int,
+    todayEarningsIdr: Int,
     orders: List<Order>,
+    offers: List<Order>,
     isOnline: Boolean,
     onOnlineToggle: (Boolean) -> Unit,
     onCapturePod: (Order) -> Unit,
@@ -427,6 +448,12 @@ private fun HomeContent(
     onScanPackage: () -> Unit
 ) {
     val activeOrder = orders.firstOrNull { it.status == "in_transit" || it.status == "picked_up" }
+    val roleLabel = courierRoleLabel(courierRole)
+    val roleHint = when (courierRole) {
+        "pickup_only" -> "Fokus ambil paket dan validasi pickup"
+        "delivery_only" -> "Fokus antar paket sampai POD"
+        else -> "Siap menerima request on-demand"
+    }
 
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -454,7 +481,7 @@ private fun HomeContent(
                             color = Color.White
                         )
                         Text(
-                            text = if (isOnline) "Siap menerima dan mengantar order" else "Aktifkan duty untuk mulai mengantar",
+                            text = if (isOnline) roleHint else "Aktifkan duty untuk mulai bekerja sebagai $roleLabel",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.82f)
                         )
@@ -504,13 +531,74 @@ private fun HomeContent(
             }
         }
 
+        if (courierRole == "on_demand") {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = SecondaryLight),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("On-Demand Wallet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Pendapatan bersih dari payout pricing admin", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Secondary)
+                    }
+                    Text(
+                        todayEarningsIdr.toRupiahCompact(),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Black,
+                        color = Secondary
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        InfoPill(icon = Icons.Default.Bolt, text = "${offers.size} request")
+                        InfoPill(icon = Icons.Default.CheckCircle, text = "$deliveredCount selesai")
+                    }
+                }
+            }
+        } else {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(color = PrimaryLight, shape = RoundedCornerShape(8.dp)) {
+                        Icon(
+                            if (courierRole == "pickup_only") Icons.Default.Storefront else Icons.Default.Navigation,
+                            contentDescription = null,
+                            tint = Primary,
+                            modifier = Modifier.padding(10.dp).size(22.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Mode $roleLabel", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(roleHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text("$pendingCount tugas", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Primary)
+                }
+            }
+        }
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             StatCard(title = "Total", value = "$totalOrders", modifier = Modifier.weight(1f))
             StatCard(title = "Aktif", value = "${orders.count { it.status == "assigned" || it.status == "picked_up" || it.status == "in_transit" }}", modifier = Modifier.weight(1f))
-            StatCard(title = "Selesai", value = "$deliveredCount", modifier = Modifier.weight(1f))
+            StatCard(title = if (courierRole == "on_demand") "Earning" else "Selesai", value = if (courierRole == "on_demand") todayEarningsIdr.toRupiahCompact() else "$deliveredCount", modifier = Modifier.weight(1f))
         }
 
         Card(
@@ -527,7 +615,7 @@ private fun HomeContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Tugas Sekarang", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(if (courierRole == "pickup_only") "Pickup Sekarang" else if (courierRole == "delivery_only") "Delivery Sekarang" else "Tugas Sekarang", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     AssistChip(
                         onClick = onViewOrders,
                         label = { Text("$pendingCount pending") },
@@ -620,11 +708,18 @@ private fun OnDemandOfferDialog(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Pekerjaan On Demand", fontWeight = FontWeight.Bold)
                 Text(
-                    order.fee.ifBlank { "Fee belum tersedia" },
+                    order.cleanPayoutIdr().toRupiahCompact(),
                     style = MaterialTheme.typography.titleMedium,
                     color = Secondary,
                     fontWeight = FontWeight.Bold
                 )
+                if (order.customerPriceIdr > 0 && order.platformCommissionIdr > 0) {
+                    Text(
+                        "Payout bersih setelah komisi platform",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         },
         text = {
@@ -708,7 +803,7 @@ private fun RouteSummary(order: Order) {
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             InfoPill(icon = Icons.Default.Route, text = order.distance.ifBlank { "0 km" })
-            InfoPill(icon = Icons.Default.Payments, text = order.fee.ifBlank { "Fee -" })
+            InfoPill(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
         }
     }
 }
@@ -770,6 +865,7 @@ private fun EmptyActiveOrder(onViewOrders: () -> Unit) {
 @Composable
 private fun OrdersContent(
     orders: List<Order>,
+    courierRole: String,
     isSyncing: Boolean,
     onOrderClick: (Order) -> Unit,
     onSync: () -> Unit,
@@ -804,6 +900,7 @@ private fun OrdersContent(
     } else {
         OrderScreen(
             orders = orders,
+            courierRole = courierRole,
             onOrderClick = onOrderClick,
             onSync = onSync
         )
@@ -813,7 +910,10 @@ private fun OrdersContent(
 @Composable
 private fun ProfileContent(
     courierName: String,
+    courierRole: String,
     pendingSyncCount: Int,
+    todayEarningsIdr: Int,
+    totalEarningsIdr: Int,
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
     onOptimizeBattery: () -> Unit,
@@ -852,7 +952,7 @@ private fun ProfileContent(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(courierName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
-                    Text("Kurir aktif LANCAR", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.78f))
+                    Text(courierRoleLabel(courierRole), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.78f))
                 }
                 Surface(
                     color = Color.White.copy(alpha = 0.16f),
@@ -891,6 +991,18 @@ private fun ProfileContent(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text("Kesiapan Aplikasi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                ProfileMetricRow(
+                    icon = Icons.Default.AccountBalanceWallet,
+                    title = "Pendapatan hari ini",
+                    value = todayEarningsIdr.toRupiahCompact(),
+                    color = Secondary
+                )
+                ProfileMetricRow(
+                    icon = Icons.Default.Payments,
+                    title = "Total pendapatan",
+                    value = totalEarningsIdr.toRupiahCompact(),
+                    color = Success
+                )
                 ProfileMetricRow(
                     icon = Icons.Default.CloudDone,
                     title = "Antrian sinkronisasi",
@@ -1004,4 +1116,27 @@ private fun MaintenanceButton(
         Spacer(modifier = Modifier.width(6.dp))
         Text(label, style = MaterialTheme.typography.labelMedium)
     }
+}
+
+private fun inferCourierRole(orders: List<Order>): String {
+    val roles = orders.map { it.normalizedWorkflowRole() }.toSet()
+    return when {
+        roles.size == 1 && roles.contains("pickup") -> "pickup_only"
+        roles.size == 1 && roles.contains("delivery") -> "delivery_only"
+        else -> "on_demand"
+    }
+}
+
+private fun List<Order>.filterByCourierRole(courierRole: String): List<Order> {
+    return when (courierRole) {
+        "pickup_only", "pickup" -> filter { it.normalizedWorkflowRole() == "pickup" }
+        "delivery_only", "delivery" -> filter { it.normalizedWorkflowRole() == "delivery" }
+        else -> filter { it.normalizedWorkflowRole() == "on_demand" }
+    }
+}
+
+private fun courierRoleLabel(courierRole: String): String = when (courierRole) {
+    "pickup_only", "pickup" -> "Pickup Only"
+    "delivery_only", "delivery" -> "Delivery Only"
+    else -> "On Demand"
 }

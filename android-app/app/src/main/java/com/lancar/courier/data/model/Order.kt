@@ -54,6 +54,22 @@ data class Order(
     @SerialName("fee")
     val fee: String = "",
 
+    @ColumnInfo(name = "courier_payout_estimate_idr")
+    @SerialName("courier_payout_estimate_idr")
+    val courierPayoutEstimateIdr: Int = 0,
+
+    @ColumnInfo(name = "customer_price_idr")
+    @SerialName("customer_price_idr")
+    val customerPriceIdr: Int = 0,
+
+    @ColumnInfo(name = "platform_commission_idr")
+    @SerialName("platform_commission_idr")
+    val platformCommissionIdr: Int = 0,
+
+    @ColumnInfo(name = "service_code")
+    @SerialName("service_code")
+    val serviceCode: String? = null,
+
     @ColumnInfo(name = "model")
     @SerialName("model")
     val model: String = "P2P",
@@ -171,3 +187,27 @@ data class Order(
     @SerialName("weight")
     var weight: Double? = null
 )
+
+fun Order.normalizedWorkflowRole(): String {
+    val role = workflowRole.lowercase()
+    val modelValue = model.lowercase()
+    return when {
+        role == "pickup" || role == "pickup_only" -> "pickup"
+        role == "delivery" || role == "delivery_only" -> "delivery"
+        role == "on_demand" -> "on_demand"
+        modelValue == "p2p" || modelValue == "on_demand" || modelValue == "ondemand" -> "on_demand"
+        legNumber <= 1 -> "pickup"
+        else -> "delivery"
+    }
+}
+
+fun Order.cleanPayoutIdr(): Int {
+    if (courierPayoutEstimateIdr > 0) return courierPayoutEstimateIdr
+    val numericFee = fee.filter { it.isDigit() }.toIntOrNull() ?: 0
+    if (numericFee > 0) return numericFee
+    return maxOf(customerPriceIdr - platformCommissionIdr, 0)
+}
+
+fun Int.toRupiahCompact(): String {
+    return "Rp%,d".format(this).replace(',', '.')
+}
