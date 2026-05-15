@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS courier_registration_links (
   use_count INT NOT NULL DEFAULT 0,
   expires_at TIMESTAMPTZ,
   status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'expired')),
-  created_by UUID REFERENCES staff(id),
+  created_by UUID REFERENCES users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
