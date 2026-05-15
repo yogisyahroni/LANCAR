@@ -217,6 +217,13 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
     const result = await db.query(
       `SELECT DISTINCT ON (o.id)
          o.id AS order_id,
+         o.model,
+         ol.leg_number,
+         CASE
+           WHEN LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand') THEN 'on_demand'
+           WHEN ol.leg_number = 1 THEN 'pickup'
+           ELSE 'delivery'
+         END AS workflow_role,
          o.pickup_address,
          COALESCE(o.scheduled_at, o.created_at) AS pickup_time,
          o.dropoff_address,
@@ -255,5 +262,171 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
       message: 'Internal Server Error',
       code: 'ERR_INTERNAL_SERVER',
     });
+  }
+};
+
+const mobileOrderSelect = `
+  o.id AS order_id,
+  o.model,
+  ol.leg_number,
+  CASE
+    WHEN LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand') THEN 'on_demand'
+    WHEN ol.leg_number = 1 THEN 'pickup'
+    ELSE 'delivery'
+  END AS workflow_role,
+  o.pickup_address,
+  COALESCE(o.scheduled_at, o.created_at) AS pickup_time,
+  o.dropoff_address,
+  COALESCE(o.distance_km, 0)::text AS distance,
+  COALESCE(ol.assigned_fee_idr, o.total_price_idr, 0)::text AS fee,
+  COALESCE(c.full_name, 'Customer') AS customer_name,
+  COALESCE(ol.status, o.status) AS status,
+  (EXTRACT(EPOCH FROM o.created_at) * 1000)::bigint AS created_at,
+  (EXTRACT(EPOCH FROM GREATEST(o.updated_at, COALESCE(ol.updated_at, o.updated_at))) * 1000)::bigint AS updated_at,
+  o.recipient_phone_masked AS customer_phone
+`;
+
+const normalizeMobileOrder = (order: any) => ({
+  ...order,
+  created_at: Number(order.created_at),
+  updated_at: Number(order.updated_at),
+});
+
+export const getMobileCourierOffers = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT ${mobileOrderSelect}
+       FROM orders o
+       LEFT JOIN users c ON c.id = o.customer_id
+       LEFT JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
+       WHERE LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
+         AND COALESCE(ol.status, o.status) IN ('pending', 'paid', 'matched', 'offered')
+         AND (ol.courier_id IS NULL OR ol.courier_id = $1)
+       ORDER BY o.created_at DESC
+       LIMIT 20`,
+      [req.user.id]
+    );
+
+    res.json({
+      success: true,
+      data: result.rows.map(normalizeMobileOrder),
+      message: 'Courier on-demand offers loaded',
+    });
+  } catch (error) {
+    console.error('Get mobile courier offers error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  const { id } = req.params;
+  const client = await db.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const orderRes = await client.query(
+      `SELECT id, model, total_price_idr
+       FROM orders
+       WHERE id = $1
+         AND LOWER(model) IN ('p2p', 'on_demand', 'ondemand')
+         AND status NOT IN ('cancelled', 'delivered', 'failed')
+       FOR UPDATE`,
+      [id]
+    );
+
+    if (orderRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, data: null, message: 'Offer not found', code: 'ERR_NOT_FOUND' });
+      return;
+    }
+
+    const existingLeg = await client.query(
+      `SELECT id, courier_id, status
+       FROM order_legs
+       WHERE order_id = $1 AND leg_number = 1
+       FOR UPDATE`,
+      [id]
+    );
+
+    const leg = existingLeg.rows[0];
+    if (leg?.courier_id && leg.courier_id !== req.user.id) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, data: null, message: 'Offer already taken', code: 'ERR_OFFER_TAKEN' });
+      return;
+    }
+
+    if (leg) {
+      await client.query(
+        `UPDATE order_legs
+         SET courier_id = $1, status = 'accepted', assigned_at = COALESCE(assigned_at, NOW()), updated_at = NOW()
+         WHERE id = $2`,
+        [req.user.id, leg.id]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO order_legs (order_id, leg_number, courier_id, status, assigned_fee_idr, assigned_at)
+         VALUES ($1, 1, $2, 'accepted', $3, NOW())`,
+        [id, req.user.id, orderRes.rows[0].total_price_idr || 0]
+      );
+    }
+
+    await client.query(`UPDATE orders SET status = 'accepted', updated_at = NOW() WHERE id = $1`, [id]);
+    await client.query(
+      `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+       VALUES ($1, $2, 'offer_accepted', 'Courier accepted on-demand offer', $3)`,
+      [id, req.user.id, JSON.stringify({ source: 'courier_app' })]
+    );
+
+    const accepted = await client.query(
+      `SELECT ${mobileOrderSelect}
+       FROM orders o
+       JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
+       LEFT JOIN users c ON c.id = o.customer_id
+       WHERE o.id = $1`,
+      [id]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, data: normalizeMobileOrder(accepted.rows[0]), message: 'Offer accepted' });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Accept mobile courier offer error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  } finally {
+    client.release();
+  }
+};
+
+export const rejectMobileCourierOffer = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  const { id } = req.params;
+  const reason = req.body?.reason || 'courier_rejected';
+
+  try {
+    await db.query(
+      `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+       VALUES ($1, $2, 'offer_rejected', 'Courier rejected on-demand offer', $3)`,
+      [id, req.user.id, JSON.stringify({ reason, source: 'courier_app' })]
+    );
+
+    res.json({ success: true, data: true, message: 'Offer rejected' });
+  } catch (error) {
+    console.error('Reject mobile courier offer error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };

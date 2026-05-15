@@ -38,6 +38,9 @@ class OrderViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    private val _offers = MutableStateFlow<List<Order>>(emptyList())
+    val offers: StateFlow<List<Order>> = _offers.asStateFlow()
+
     // All orders from local Room DB (reactive)
     val allOrders = orderRepository.getAllOrders()
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -69,15 +72,21 @@ class OrderViewModel @Inject constructor(
         viewModelScope.launch {
             _isSyncing.update { true }
             try {
+                val offerResponse = apiService.getOnDemandOffers()
+                if (offerResponse.isSuccessful && offerResponse.body()?.success == true) {
+                    _offers.update { offerResponse.body()?.data ?: emptyList() }
+                }
+
                 val response = apiService.getOrders()
-                if (response.isSuccessful && response.body()?.success == true) {
-                    val orders = response.body()!!.data ?: emptyList()
+                val responseBody = response.body()
+                if (response.isSuccessful && responseBody?.success == true) {
+                    val orders = responseBody.data ?: emptyList()
                     // Mark as synced since they came from the server
                     val syncedOrders = orders.map { it.copy(needsSync = false) }
                     orderRepository.addOrders(syncedOrders)
                 } else {
                     _error.update {
-                        "Gagal memuat orders: ${response.body()?.message ?: "HTTP ${response.code()}"}"
+                        "Gagal memuat orders: ${responseBody?.message ?: "HTTP ${response.code()}"}"
                     }
                 }
             } catch (e: java.net.UnknownHostException) {
@@ -88,6 +97,29 @@ class OrderViewModel @Inject constructor(
                 _error.update { "Error: ${e.message}" }
             } finally {
                 _isSyncing.update { false }
+            }
+        }
+    }
+
+    fun acceptOffer(order: Order, onAccepted: (Order) -> Unit = {}) {
+        viewModelScope.launch {
+            val result = orderRepository.acceptOnDemandOffer(order)
+            result.onSuccess { accepted ->
+                _offers.update { offers -> offers.filterNot { it.orderId == accepted.orderId } }
+                onAccepted(accepted)
+            }.onFailure { e ->
+                _error.update { e.message ?: "Gagal menerima pekerjaan" }
+            }
+        }
+    }
+
+    fun rejectOffer(order: Order) {
+        viewModelScope.launch {
+            val result = orderRepository.rejectOnDemandOffer(order.orderId)
+            result.onSuccess {
+                _offers.update { offers -> offers.filterNot { it.orderId == order.orderId } }
+            }.onFailure { e ->
+                _error.update { e.message ?: "Gagal menolak pekerjaan" }
             }
         }
     }

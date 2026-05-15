@@ -7,7 +7,6 @@ import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import com.lancar.courier.data.api.LANCARApiService
 import com.lancar.courier.data.model.Order
-import com.lancar.courier.data.model.StatusUpdateRequest
 import com.lancar.courier.data.repository.OrderRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +43,20 @@ class NotificationReceiver : BroadcastReceiver() {
                 if (notificationId != -1) {
                     NotificationManagerCompat.from(context).cancel(notificationId)
                 }
+                val orderId = intent.getStringExtra(EXTRA_ORDER_ID)
+                if (!orderId.isNullOrBlank()) {
+                    val pendingResult = goAsync()
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            apiService.rejectOnDemandOffer(orderId)
+                            orderRepository.deleteOrderById(orderId)
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Reject offer failed: ${e.message}")
+                        } finally {
+                            pendingResult.finish()
+                        }
+                    }
+                }
                 Log.d(TAG, "Notification dismissed")
             }
 
@@ -58,9 +71,12 @@ class NotificationReceiver : BroadcastReceiver() {
                     dropAddress = intent.getStringExtra(EXTRA_DROP_ADDRESS) ?: "",
                     distance = intent.getStringExtra(EXTRA_DISTANCE) ?: "",
                     fee = intent.getStringExtra(EXTRA_FEE) ?: "",
+                    model = intent.getStringExtra(EXTRA_MODEL) ?: "P2P",
+                    legNumber = intent.getIntExtra(EXTRA_LEG_NUMBER, 1),
+                    workflowRole = intent.getStringExtra(EXTRA_WORKFLOW_ROLE) ?: "on_demand",
                     customerName = intent.getStringExtra(EXTRA_CUSTOMER_NAME) ?: "",
                     phoneNumber = intent.getStringExtra(EXTRA_PHONE_NUMBER),
-                    status = "accepted",
+                    status = "accepting",
                     needsSync = true // mark for backend confirmation
                 )
 
@@ -76,19 +92,12 @@ class NotificationReceiver : BroadcastReceiver() {
 
                         // 2. Confirm acceptance to backend immediately
                         try {
-                            val response = apiService.updateStatus(
-                                StatusUpdateRequest(
-                                    orderId = orderId,
-                                    status = "accepted",
-                                    notes = null
-                                )
-                            )
+                            val response = apiService.acceptOnDemandOffer(orderId)
                             if (response.isSuccessful && response.body()?.success == true) {
                                 // Mark as synced — no need for WorkManager retry
-                                val saved = orderRepository.getOrderById(orderId)
-                                if (saved != null) {
-                                    orderRepository.updateOrder(saved.copy(needsSync = false))
-                                }
+                                val accepted = response.body()?.data ?: order.copy(status = "accepted")
+                                orderRepository.deleteOrderById(orderId)
+                                orderRepository.addOrder(accepted.copy(needsSync = false))
                                 Log.d(TAG, "Order acceptance confirmed to backend: $orderId")
                             } else {
                                 Log.w(TAG, "Backend accept failed (${response.code()}), WorkManager will retry")
@@ -124,6 +133,9 @@ class NotificationReceiver : BroadcastReceiver() {
         const val EXTRA_DROP_ADDRESS = "drop_address"
         const val EXTRA_DISTANCE = "distance"
         const val EXTRA_FEE = "fee"
+        const val EXTRA_MODEL = "model"
+        const val EXTRA_LEG_NUMBER = "leg_number"
+        const val EXTRA_WORKFLOW_ROLE = "workflow_role"
         const val EXTRA_CUSTOMER_NAME = "customer_name"
         const val EXTRA_PHONE_NUMBER = "phone_number"
     }

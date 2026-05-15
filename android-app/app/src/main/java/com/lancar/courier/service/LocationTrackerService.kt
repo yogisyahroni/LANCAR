@@ -55,6 +55,7 @@ class LocationTrackerService : Service() {
 
     // State
     private var isTracking = false
+    private var isForeground = false
     private var courierId: String? = null
     private var deviceId: String? = null
 
@@ -115,10 +116,11 @@ class LocationTrackerService : Service() {
         if (intent != null) {
             when (intent.action) {
                 ACTION_START_TRACKING -> {
-                    startTracking()
+                    startTrackingFromCommand(startId)
                 }
                 ACTION_STOP_TRACKING -> {
                     stopTracking()
+                    stopSelf(startId)
                 }
                 ACTION_FORCE_SYNC -> {
                     forceSync()
@@ -195,9 +197,7 @@ class LocationTrackerService : Service() {
             return
         }
 
-        // Create notification channel and start foreground
-        createNotificationChannel()
-        startForeground(NOTIFICATION_ID, createNotification())
+        promoteToForeground()
 
         // Build location request and start FusedLocation
         bindLocationUpdates()
@@ -207,6 +207,44 @@ class LocationTrackerService : Service() {
         
         isTracking = true
         Log.d(TAG, "Location tracking started")
+    }
+
+    /**
+     * Foreground-service entrypoint must either call startForeground quickly or stop itself.
+     * This keeps Android from killing the process when tracking is requested while Off Duty.
+     */
+    private fun startTrackingFromCommand(startId: Int) {
+        promoteToForeground()
+
+        MAIN_THREAD.launch {
+            val session = authSessionManager.getSession()
+            val isOnline = authSessionManager.isOnline.first()
+
+            if (session == null || !isOnline) {
+                Log.w(TAG, "Start tracking ignored. session=${session != null}, online=$isOnline")
+                stopForegroundIfNeeded()
+                stopSelf(startId)
+                return@launch
+            }
+
+            courierId = session.courierId
+            startTracking()
+        }
+    }
+
+    private fun promoteToForeground() {
+        if (isForeground) return
+
+        createNotificationChannel()
+        startForeground(NOTIFICATION_ID, createNotification())
+        isForeground = true
+    }
+
+    private fun stopForegroundIfNeeded() {
+        if (!isForeground) return
+
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        isForeground = false
     }
 
     /**
@@ -228,7 +266,7 @@ class LocationTrackerService : Service() {
         unregisterBatteryReceiver()
 
         // Stop foreground service
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopForegroundIfNeeded()
         isTracking = false
         Log.d(TAG, "Location tracking stopped")
     }

@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Orders from './pages/Orders'
 import ThreeLegReadiness from './pages/ThreeLegReadiness'
 import Couriers from './pages/Couriers'
+import CourierApplications from './pages/CourierApplications'
 import PricingConfig from './pages/PricingConfig'
 import Disputes from './pages/Disputes'
 import Customers from './pages/Customers'
@@ -83,6 +84,14 @@ function App() {
                 <Couriers />
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/courier-applications"
+            element={
+              <ProtectedRoute>
+                <CourierApplications />
+              </ProtectedRoute>
+            }
           />
           <Route 
             path="/pricing" 

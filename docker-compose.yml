@@ -158,6 +158,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
     ports:
       - "${ADMIN_PORT:-3001}:3000"
+    volumes:
+      - lancar-admin-uploads:/app/public/uploads
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
       interval: 10s
@@ -383,6 +385,8 @@ volumes:
     name: lancar-redis-data
   rabbitmq_data:
     name: rabbitmq_data
+  lancar-admin-uploads:
+    name: lancar-admin-uploads
 
 networks:
   lancar-net:

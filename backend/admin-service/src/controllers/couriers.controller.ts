@@ -1,5 +1,347 @@
 import { Request, Response } from 'express';
 import { db, readDb } from '../db';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+
+const requiredOnDemandDocuments = ['ktp', 'sim', 'stnk', 'skpd', 'vehicle_photo', 'skck', 'bank_account'];
+const forbiddenVehicleCategories = ['trail', 'sport', 'touring'];
+const uploadRoot = path.join(process.cwd(), 'public/uploads/courier-documents');
+
+const normalizePlate = (value: string) => value.trim().toUpperCase().replace(/\s+/g, ' ');
+const normalizePhone = (value: string) => value.trim().replace(/[^\d+]/g, '');
+
+const buildOnboardingChecklist = (body: any) => {
+  const registrationYear = new Date().getFullYear();
+  const vehicleYear = Number(body.vehicle_year || 0);
+  const vehicleCc = Number(body.vehicle_cc || 0);
+  const vehicleCategory = String(body.vehicle_category || '').trim().toLowerCase();
+  const engineType = String(body.engine_type || '').trim().toLowerCase();
+  const documents = body.documents || {};
+
+  const documentChecks = requiredOnDemandDocuments.reduce((acc, docType) => ({
+    ...acc,
+    [docType]: Boolean(documents[docType])
+  }), {} as Record<string, boolean>);
+
+  const vehicleAge = vehicleYear > 0 ? registrationYear - vehicleYear : null;
+  return {
+    documents: documentChecks,
+    originals_required: {
+      ktp: true,
+      sim: true,
+      stnk: true,
+      skpd: true,
+      skck_original_or_legalized: true
+    },
+    rules: {
+      vehicle_age_max_8_years: vehicleAge !== null && vehicleAge <= 8,
+      vehicle_cc_max_250: vehicleCc > 0 && vehicleCc <= 250,
+      four_stroke_engine: engineType === '4_tak' || engineType === '4tak' || engineType === '4 stroke',
+      not_trail_sport_touring: !forbiddenVehicleCategories.includes(vehicleCategory),
+      skpd_tax_active: Boolean(body.skpd_tax_active),
+      sim_active: Boolean(body.sim_active)
+    },
+    summary: {
+      registration_year: registrationYear,
+      vehicle_age_years: vehicleAge,
+      vehicle_cc: vehicleCc,
+      vehicle_category: vehicleCategory,
+      engine_type: engineType
+    }
+  };
+};
+
+const checklistPassed = (checklist: any) => {
+  const docs = Object.values(checklist.documents || {});
+  const rules = Object.values(checklist.rules || {});
+  return [...docs, ...rules].every(Boolean);
+};
+
+const sanitizeExtension = (filename: string, mimeType?: string) => {
+  const ext = path.extname(filename || '').toLowerCase();
+  if (['.jpg', '.jpeg', '.png', '.webp', '.pdf'].includes(ext)) return ext;
+  if (mimeType === 'application/pdf') return '.pdf';
+  if (mimeType === 'image/png') return '.png';
+  if (mimeType === 'image/webp') return '.webp';
+  return '.jpg';
+};
+
+const hasAllowedFileSignature = (buffer: Buffer, mimeType: string) => {
+  if (mimeType === 'application/pdf') {
+    return buffer.subarray(0, 4).toString('utf8') === '%PDF';
+  }
+  if (mimeType === 'image/jpeg') {
+    return buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  }
+  if (mimeType === 'image/png') {
+    return buffer.length > 8 &&
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47 &&
+      buffer[4] === 0x0d &&
+      buffer[5] === 0x0a &&
+      buffer[6] === 0x1a &&
+      buffer[7] === 0x0a;
+  }
+  if (mimeType === 'image/webp') {
+    return buffer.length > 12 &&
+      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+  }
+  return false;
+};
+
+export const uploadCourierOnDemandDocument = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const docType = String(req.body?.doc_type || '').trim();
+    if (!requiredOnDemandDocuments.includes(docType)) {
+      res.status(400).json({ error: 'Invalid courier document type' });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedMimeTypes.includes(req.file.mimetype)) {
+      res.status(415).json({ error: 'Only JPG, PNG, WEBP, and PDF files are allowed' });
+      return;
+    }
+
+    if (!hasAllowedFileSignature(req.file.buffer, req.file.mimetype)) {
+      res.status(415).json({ error: 'File content does not match an allowed document format' });
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const targetDir = path.join(uploadRoot, today);
+    fs.mkdirSync(targetDir, { recursive: true });
+
+    const checksum = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+    const extension = sanitizeExtension(req.file.originalname, req.file.mimetype);
+    const filename = `${docType}-${crypto.randomUUID()}${extension}`;
+    const storageKey = `courier-documents/${today}/${filename}`;
+    const uploadPath = path.join(targetDir, filename);
+
+    fs.writeFileSync(uploadPath, req.file.buffer, { flag: 'wx' });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        doc_type: docType,
+        file_url: `/uploads/${storageKey}`,
+        original_file_name: req.file.originalname,
+        mime_type: req.file.mimetype,
+        file_size_bytes: req.file.size,
+        checksum_sha256: checksum
+      },
+      message: 'Dokumen berhasil diupload'
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const submitOnDemandCourierApplication = async (req: Request, res: Response): Promise<void> => {
+  const {
+    full_name,
+    phone_number,
+    email,
+    password,
+    vehicle_type,
+    vehicle_plate,
+    vehicle_brand,
+    vehicle_model,
+    vehicle_year,
+    vehicle_cc,
+    vehicle_category,
+    bank_code,
+    bank_account_number,
+    bank_account_name,
+    documents = {}
+  } = req.body || {};
+
+  if (!full_name || !phone_number || !password || !vehicle_plate) {
+    res.status(400).json({ error: 'full_name, phone_number, password, and vehicle_plate are required' });
+    return;
+  }
+
+  const checklist = buildOnboardingChecklist(req.body);
+  const client = await db.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const courierUserRes = await client.query(
+      `INSERT INTO couriers (phone_number, email, full_name, role, status, pin_hash)
+       VALUES ($1, NULLIF($2, ''), $3, 'courier', 'pending_verification', $4)
+       ON CONFLICT (phone_number) DO UPDATE SET
+         email = COALESCE(NULLIF(EXCLUDED.email, ''), couriers.email),
+         full_name = EXCLUDED.full_name,
+         status = CASE WHEN couriers.status = 'active' THEN couriers.status ELSE 'pending_verification' END,
+         pin_hash = EXCLUDED.pin_hash,
+         updated_at = NOW()
+       RETURNING id`,
+      [normalizePhone(phone_number), email || null, String(full_name).trim(), String(password)]
+    );
+
+    const userId = courierUserRes.rows[0].id;
+
+    await client.query(
+      `INSERT INTO users (id, phone_number, email, full_name, role, status, pin_hash)
+       VALUES ($1, $2, NULLIF($3, ''), $4, 'courier', 'pending_verification', $5)
+       ON CONFLICT (phone_number) DO UPDATE SET
+         email = COALESCE(NULLIF(EXCLUDED.email, ''), users.email),
+         full_name = EXCLUDED.full_name,
+         role = 'courier',
+         status = CASE WHEN users.status = 'active' THEN users.status ELSE 'pending_verification' END,
+         pin_hash = EXCLUDED.pin_hash,
+         updated_at = NOW()
+       RETURNING id`,
+      [userId, normalizePhone(phone_number), email || null, String(full_name).trim(), String(password)]
+    );
+    const profileRes = await client.query(
+      `INSERT INTO courier_profiles (
+        user_id, vehicle_type, vehicle_plate, vehicle_cc, vehicle_brand, vehicle_model, vehicle_year,
+        vehicle_category, bank_code, bank_account_number, bank_account_name, application_channel,
+        onboarding_checklist, verification_status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'on_demand', $12, 'pending')
+       ON CONFLICT (user_id) DO UPDATE SET
+        vehicle_type = EXCLUDED.vehicle_type,
+        vehicle_plate = EXCLUDED.vehicle_plate,
+        vehicle_cc = EXCLUDED.vehicle_cc,
+        vehicle_brand = EXCLUDED.vehicle_brand,
+        vehicle_model = EXCLUDED.vehicle_model,
+        vehicle_year = EXCLUDED.vehicle_year,
+        vehicle_category = EXCLUDED.vehicle_category,
+        bank_code = EXCLUDED.bank_code,
+        bank_account_number = EXCLUDED.bank_account_number,
+        bank_account_name = EXCLUDED.bank_account_name,
+        application_channel = 'on_demand',
+        onboarding_checklist = EXCLUDED.onboarding_checklist,
+        verification_status = 'pending',
+        rejection_reason = NULL,
+        updated_at = NOW()
+       RETURNING id`,
+      [
+        userId,
+        vehicle_type || 'matic',
+        normalizePlate(vehicle_plate),
+        Number(vehicle_cc || 0),
+        vehicle_brand || null,
+        vehicle_model || null,
+        Number(vehicle_year || 0),
+        vehicle_category || null,
+        bank_code || null,
+        bank_account_number || null,
+        bank_account_name || null,
+        JSON.stringify(checklist)
+      ]
+    );
+
+    const courierId = profileRes.rows[0].id;
+    await client.query(
+      'DELETE FROM courier_documents WHERE courier_id = $1 AND doc_type = ANY($2::text[])',
+      [courierId, requiredOnDemandDocuments]
+    );
+
+    for (const docType of requiredOnDemandDocuments) {
+      const fileUrl = documents[docType];
+      if (!fileUrl) continue;
+      await client.query(
+      `INSERT INTO courier_documents (courier_id, doc_type, file_url)
+         VALUES ($1, $2, $3)`,
+        [courierId, docType, String(fileUrl)]
+      );
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json({
+      success: true,
+      data: {
+        courier_id: courierId,
+        status: 'pending',
+        checklist_passed: checklistPassed(checklist)
+      },
+      message: 'Pendaftaran kurir on-demand berhasil dikirim untuk review admin'
+    });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const getOnDemandCourierApplications = async (req: Request, res: Response) => {
+  try {
+    const status = String(req.query.status || 'pending');
+    const values: any[] = ['on_demand'];
+    let statusFilter = '';
+
+    if (status !== 'all') {
+      values.push(status);
+      statusFilter = `AND cp.verification_status = $${values.length}`;
+    }
+
+    const result = await readDb.query(
+      `SELECT
+        cp.id,
+        cp.user_id,
+        cp.vehicle_type,
+        cp.vehicle_plate,
+        cp.vehicle_cc,
+        cp.vehicle_brand,
+        cp.vehicle_model,
+        cp.vehicle_year,
+        cp.vehicle_category,
+        cp.bank_code,
+        cp.bank_account_number,
+        cp.bank_account_name,
+        cp.application_channel,
+        cp.onboarding_checklist,
+        cp.verification_status,
+        cp.rejection_reason,
+        cp.created_at,
+        cp.updated_at,
+        u.full_name,
+        u.email,
+        u.phone_number,
+        (SELECT COUNT(*)::int FROM courier_documents cd WHERE cd.courier_id = cp.id) AS document_count,
+        COALESCE(
+          (
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'id', cd.id,
+                'doc_type', cd.doc_type,
+                'file_url', cd.file_url,
+                'is_verified', cd.is_verified,
+                'rejection_note', cd.rejection_note,
+                'created_at', cd.created_at
+              )
+              ORDER BY cd.created_at DESC
+            )
+            FROM courier_documents cd
+            WHERE cd.courier_id = cp.id
+          ),
+          '[]'::jsonb
+        ) AS documents
+       FROM courier_profiles cp
+       JOIN users u ON u.id = cp.user_id
+       WHERE cp.application_channel = $1 ${statusFilter}
+       ORDER BY cp.created_at DESC`,
+      values
+    );
+
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
 export const getAllCouriers = async (req: Request, res: Response) => {
   try {
@@ -145,7 +487,7 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
   const { id } = req.params;
   const { status } = req.body;
 
-  if (!['Active', 'Suspended', 'Pending'].includes(status)) {
+  if (!['Active', 'Suspended', 'Pending', 'Rejected'].includes(status)) {
     res.status(400).json({ error: 'Invalid status' });
     return;
   }
@@ -159,6 +501,7 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
        SET status = CASE 
          WHEN $1 = 'Active' THEN 'active'
          WHEN $1 = 'Suspended' THEN 'suspended'
+         WHEN $1 = 'Rejected' THEN 'inactive'
          ELSE u.status
        END,
        updated_at = NOW()
@@ -167,10 +510,34 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
       [status, id]
     );
 
+    await client.query(
+      `UPDATE couriers c
+       SET status = CASE
+         WHEN $1 = 'Active' THEN 'active'
+         WHEN $1 = 'Suspended' THEN 'suspended'
+         WHEN $1 = 'Rejected' THEN 'inactive'
+         ELSE c.status
+       END,
+       updated_at = NOW()
+       FROM courier_profiles cp
+       WHERE cp.user_id = c.id AND cp.id = $2`,
+      [status, id]
+    );
+
     if (status === 'Active') {
       await client.query(
-        'UPDATE courier_profiles SET verification_status = $1, updated_at = NOW() WHERE id = $2',
-        ['approved', id]
+        'UPDATE courier_profiles SET verification_status = $1, reviewed_at = NOW(), reviewed_by = $3, updated_at = NOW() WHERE id = $2',
+        ['approved', id, req.user?.id || null]
+      );
+    } else if (status === 'Rejected') {
+      await client.query(
+        'UPDATE courier_profiles SET verification_status = $1, rejection_reason = $3, reviewed_at = NOW(), reviewed_by = $4, updated_at = NOW() WHERE id = $2',
+        ['rejected', id, req.body.reason || 'Tidak memenuhi persyaratan onboarding', req.user?.id || null]
+      );
+    } else if (status === 'Pending') {
+      await client.query(
+        'UPDATE courier_profiles SET verification_status = $1, reviewed_at = NULL, reviewed_by = NULL, updated_at = NOW() WHERE id = $2',
+        ['pending', id]
       );
     }
 

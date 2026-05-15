@@ -89,8 +89,16 @@ class LoginViewModel @Inject constructor(
                     )
                 )
 
-                if (response.isSuccessful && response.body()?.success == true) {
-                    val loginData = response.body()!!.data!!
+                val responseBody = response.body()
+                if (response.isSuccessful && responseBody?.success == true) {
+                    val loginData = responseBody.data
+                    if (loginData == null) {
+                        _uiState.update {
+                            it.copy(isLoading = false, error = "Login gagal: data sesi kosong dari server")
+                        }
+                        return@launch
+                    }
+
                     // Persist session to DataStore
                     authSessionManager.saveSession(
                         authToken = loginData.token,
@@ -99,7 +107,7 @@ class LoginViewModel @Inject constructor(
                     )
                     _uiState.update { it.copy(isLoading = false, isLoggedIn = true) }
                 } else {
-                    val message = response.body()?.message
+                    val message = responseBody?.message
                         ?: when (response.code()) {
                             401 -> "Username atau password salah"
                             403 -> "Akun tidak memiliki akses kurir"

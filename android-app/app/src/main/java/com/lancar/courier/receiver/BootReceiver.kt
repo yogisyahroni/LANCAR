@@ -54,9 +54,12 @@ class BootReceiver : BroadcastReceiver() {
                 }
                 
                 val isLoggedIn = authSessionManager.isLoggedIn.first()
-                if (isLoggedIn) {
+                val isOnline = authSessionManager.isOnline.first()
+                if (isLoggedIn && isOnline) {
                     ContextCompat.startForegroundService(context, LocationTrackerService.startIntent(context))
                     Log.d("BootReceiver", "Location tracking service restarted")
+                } else {
+                    Log.d("BootReceiver", "Location tracking not restarted. loggedIn=$isLoggedIn online=$isOnline")
                 }
             }
         }

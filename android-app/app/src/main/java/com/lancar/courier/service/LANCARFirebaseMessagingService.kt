@@ -1,9 +1,13 @@
 package com.lancar.courier.service
 
 import android.app.PendingIntent
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -12,7 +16,6 @@ import com.lancar.courier.LANCARApplication
 import com.lancar.courier.R
 import com.lancar.courier.data.repository.FCMTokenRepository
 import com.lancar.courier.receiver.NotificationReceiver
-import com.lancar.courier.service.NotificationDismissReceiver
 import com.lancar.courier.ui.MainActivity
 import android.media.RingtoneManager
 import dagger.hilt.android.AndroidEntryPoint
@@ -52,11 +55,11 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
         }
 
         // Handle notification payload
-        if (remoteMessage.notification != null) {
-            Log.d(TAG, "Message Notification Body: ${remoteMessage.notification!!.body}")
+        remoteMessage.notification?.let { notification ->
+            Log.d(TAG, "Message Notification Body: ${notification.body}")
             showNotification(
-                remoteMessage.notification!!.title ?: "Lancar Courier",
-                remoteMessage.notification!!.body ?: "",
+                notification.title ?: "Lancar Courier",
+                notification.body ?: "",
                 remoteMessage.data
             )
         }
@@ -89,6 +92,11 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
         val type = data["type"] ?: "unknown"
         
         when (type) {
+            "on_demand_offer" -> {
+                val title = data["title"] ?: "Pekerjaan On Demand Baru"
+                val body = data["body"] ?: "Terima pekerjaan untuk mulai navigasi ke pickup."
+                showNotification(title, body, data)
+            }
             "order_assignment" -> {
                 val title = data["title"] ?: "New Order Assignment"
                 val body = data["body"] ?: "You have a new order assigned"
@@ -113,6 +121,16 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun showNotification(title: String, body: String, data: Map<String, String>) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                applicationContext,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            Log.w(TAG, "Notification skipped because POST_NOTIFICATIONS permission is not granted")
+            return
+        }
+
         val type = data["type"] ?: "unknown"
         val orderId = data["order_id"] ?: data["orderId"]
 
@@ -143,6 +161,9 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
             putExtra(NotificationReceiver.EXTRA_DROP_ADDRESS, data["drop_address"] ?: "")
             putExtra(NotificationReceiver.EXTRA_DISTANCE, data["distance"] ?: "")
             putExtra(NotificationReceiver.EXTRA_FEE, data["fee"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_MODEL, data["model"] ?: "P2P")
+            putExtra(NotificationReceiver.EXTRA_LEG_NUMBER, data["leg_number"]?.toIntOrNull() ?: 1)
+            putExtra(NotificationReceiver.EXTRA_WORKFLOW_ROLE, data["workflow_role"] ?: "on_demand")
             putExtra(NotificationReceiver.EXTRA_CUSTOMER_NAME, data["customer_name"] ?: "")
         }
         val acceptPendingIntent = PendingIntent.getBroadcast(
@@ -166,7 +187,7 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
 
         // 🔔 DYNAMIC SYSTEM BEHAVIOR MAPPING
-        if (type == "order_assignment") {
+        if (type == "order_assignment" || type == "on_demand_offer") {
             builder.setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setFullScreenIntent(pendingIntent, true) // Bring screen alive!
                 .addAction(
@@ -176,8 +197,11 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
                         PendingIntent.getBroadcast(
                             applicationContext,
                             2,
-                            Intent(applicationContext, NotificationDismissReceiver::class.java)
-                                .putExtra("notification_id", data["notification_id"] ?: ""),
+                            Intent(applicationContext, NotificationReceiver::class.java).apply {
+                                action = NotificationReceiver.ACTION_DISMISS
+                                putExtra(NotificationReceiver.EXTRA_ORDER_ID, orderId ?: "")
+                                putExtra(NotificationReceiver.EXTRA_NOTIFICATION_ID, data["notification_id"]?.toIntOrNull() ?: 0)
+                            },
                             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                         )
                     ).build()
@@ -195,9 +219,14 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
 
         val notification = builder.build()
 
-        with(NotificationManagerCompat.from(applicationContext)) {
-            val notificationId = (title.hashCode() and 0x7FFFFFFF)
-            notify(notificationId, notification)
+        try {
+            with(NotificationManagerCompat.from(applicationContext)) {
+                val notificationId = (title.hashCode() and 0x7FFFFFFF)
+                notify(notificationId, notification)
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Notification blocked by system permission policy", e)
+            return
         }
 
         Log.d(TAG, "Notification shown: $title")

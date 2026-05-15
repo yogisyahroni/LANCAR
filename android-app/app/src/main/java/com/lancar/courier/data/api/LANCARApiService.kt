@@ -4,6 +4,9 @@ import com.lancar.courier.data.model.AppVersion
 import com.lancar.courier.data.model.ApiResponse
 
 import com.lancar.courier.data.model.CourierProfile
+import com.lancar.courier.data.model.CourierDocumentUploadData
+import com.lancar.courier.data.model.CourierRegistrationData
+import com.lancar.courier.data.model.CourierRegistrationRequest
 import com.lancar.courier.data.model.FCMTokenRequest
 import com.lancar.courier.data.model.LocationRequest
 import com.lancar.courier.data.model.LocationResponse
@@ -51,6 +54,18 @@ interface LANCARApiService {
         @Body request: LoginRequest
     ): Response<ApiResponse<LoginData>>
 
+    @POST("api/v1/auth/courier/register")
+    suspend fun registerCourier(
+        @Body request: CourierRegistrationRequest
+    ): Response<ApiResponse<CourierRegistrationData>>
+
+    @Multipart
+    @POST("api/v1/auth/courier/documents/upload")
+    suspend fun uploadCourierDocument(
+        @Part("doc_type") docType: RequestBody,
+        @Part file: MultipartBody.Part
+    ): Response<ApiResponse<CourierDocumentUploadData>>
+
     /**
      * Get current courier profile
      */
@@ -82,6 +97,29 @@ interface LANCARApiService {
      */
     @GET("api/v1/courier/orders")
     suspend fun getOrders(): Response<ApiResponse<List<Order>>>
+
+    /**
+     * Get on-demand job offers available to current courier.
+     */
+    @GET("api/v1/courier/offers")
+    suspend fun getOnDemandOffers(): Response<ApiResponse<List<Order>>>
+
+    /**
+     * Accept an on-demand job offer.
+     */
+    @POST("api/v1/courier/offers/{id}/accept")
+    suspend fun acceptOnDemandOffer(
+        @Path("id") orderId: String
+    ): Response<ApiResponse<Order>>
+
+    /**
+     * Reject an on-demand job offer.
+     */
+    @POST("api/v1/courier/offers/{id}/reject")
+    suspend fun rejectOnDemandOffer(
+        @Path("id") orderId: String,
+        @Body request: Map<String, String> = mapOf("reason" to "courier_rejected")
+    ): Response<ApiResponse<Boolean>>
 
     /**
      * Update order status

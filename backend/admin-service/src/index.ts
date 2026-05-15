@@ -6,6 +6,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import http from 'http';
+import fs from 'fs';
+import path from 'path';
 import { routes } from './routes';
 import { initWebSocket } from './websocket';
 import { startWeatherWorker } from './workers/weather-worker';
@@ -34,6 +36,7 @@ app.use(helmet({
 
 
 app.use(express.json());
+fs.mkdirSync(path.join(process.cwd(), 'public/uploads/courier-documents'), { recursive: true });
 app.use('/uploads', express.static('public/uploads'));
 
 

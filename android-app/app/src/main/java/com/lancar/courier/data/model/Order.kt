@@ -54,6 +54,18 @@ data class Order(
     @SerialName("fee")
     val fee: String = "",
 
+    @ColumnInfo(name = "model")
+    @SerialName("model")
+    val model: String = "P2P",
+
+    @ColumnInfo(name = "leg_number")
+    @SerialName("leg_number")
+    val legNumber: Int = 1,
+
+    @ColumnInfo(name = "workflow_role")
+    @SerialName("workflow_role")
+    val workflowRole: String = "on_demand",
+
     @ColumnInfo(name = "customer_name")
     @SerialName("customer_name")
     val customerName: String = "",

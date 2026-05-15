@@ -30,7 +30,7 @@ private val Context.legacyDataStore: DataStore<Preferences> by preferencesDataSt
  * Also provides legacy migration from standard Preferences DataStore to prevent logged out users.
  */
 class AuthSessionManager(private val context: Context) {
-    
+
     private val sharedPreferences: SharedPreferences by lazy {
         try {
             val masterKey = MasterKey.Builder(context)
@@ -45,13 +45,19 @@ class AuthSessionManager(private val context: Context) {
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
         } catch (e: Exception) {
-            Log.e("AuthSessionManager", "Gagal menginisialisasi EncryptedSharedPreferences. Melakukan fallback.", e)
+            Log.e(
+                "AuthSessionManager",
+                "Gagal menginisialisasi EncryptedSharedPreferences. Melakukan fallback.",
+                e
+            )
             // In rare cases of Keystore corruption, we wipe the corrupted store to prevent app crashes
             try {
-                val sharedPrefsFile = File("${context.filesDir.parent}/shared_prefs/secure_auth_session.xml")
+                val sharedPrefsFile =
+                    File("${context.filesDir.parent}/shared_prefs/secure_auth_session.xml")
                 if (sharedPrefsFile.exists()) sharedPrefsFile.delete()
-            } catch (ex: Exception) {}
-            
+            } catch (ex: Exception) {
+            }
+
             // Retry creation
             val masterKey = MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -83,7 +89,7 @@ class AuthSessionManager(private val context: Context) {
     init {
         // 1. Load existing credentials into memory synchronously
         loadCredentialsIntoCache()
-        
+
         // 2. Trigger async migration from legacy DataStore if present
         CoroutineScope(Dispatchers.IO).launch {
             migrateLegacyDataStore()
@@ -124,7 +130,7 @@ class AuthSessionManager(private val context: Context) {
             putString(KEY_COURIER_NAME, courierName)
             apply() // asynchronous save to disk
         }
-        
+
         // Instantly update in-memory cache
         _authTokenFlow.value = authToken
         _courierIdFlow.value = courierId
@@ -163,7 +169,7 @@ class AuthSessionManager(private val context: Context) {
         _courierNameFlow.value = null
         _isLoggedInFlow.value = false
         _isOnlineFlow.value = false
-        
+
         Log.d("AuthSessionManager", "Sesi kurir berhasil dihapus secara sinkron.")
     }
 
@@ -198,11 +204,14 @@ class AuthSessionManager(private val context: Context) {
             val legacyName = prefs[LEGACY_KEY_COURIER_NAME] ?: ""
 
             if (!legacyToken.isNullOrEmpty() && !legacyCid.isNullOrEmpty()) {
-                Log.d("AuthSessionManager", "Menemukan session lama di DataStore. Memulai enkripsi...")
-                
+                Log.d(
+                    "AuthSessionManager",
+                    "Menemukan session lama di DataStore. Memulai enkripsi..."
+                )
+
                 // Persist to Encrypted Storage
                 saveSession(legacyToken, legacyCid, legacyName)
-                
+
                 // Purge legacy data to prevent repeating migration
                 context.legacyDataStore.edit { legacyPrefs ->
                     legacyPrefs.remove(LEGACY_KEY_AUTH_TOKEN)

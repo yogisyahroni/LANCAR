@@ -45,8 +45,14 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     viewModel: LoginViewModel = hiltViewModel()
 ) {
+    var showRegistration by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
+
+    if (showRegistration) {
+        CourierRegistrationScreen(onBack = { showRegistration = false })
+        return
+    }
 
     // Navigate to MainScreen after successful login
     LaunchedEffect(uiState.isLoggedIn) {
@@ -241,6 +247,13 @@ fun LoginScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
+                    }
+
+                    TextButton(
+                        onClick = { showRegistration = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Daftar sebagai kurir on-demand")
                     }
                 }
             }

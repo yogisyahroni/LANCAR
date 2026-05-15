@@ -267,6 +267,13 @@ const adminWsProxy = createProxyMiddleware({
 // Use the proxy for socket.io path
 app.use('/socket.io', adminWsProxy);
 
+// Static upload files served by Admin Service.
+app.use(createProxyMiddleware({
+  pathFilter: '/uploads',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true
+}));
+
 // --- VALIDATED ROUTES ---
 
 // Auth Service (Gateway-level validation)

@@ -2,29 +2,29 @@ package com.lancar.courier.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary brand colors - LANCAR Blue
-val Primary = Color(0xFF1E88E5)
-val PrimaryDark = Color(0xFF1565C0)
-val PrimaryLight = Color(0xFF64B5F6)
+// Primary brand colors - operational logistics blue
+val Primary = Color(0xFF0B5CAD)
+val PrimaryDark = Color(0xFF08457F)
+val PrimaryLight = Color(0xFFE7F1FF)
 
-// Secondary - LANCAR Orange
-val Secondary = Color(0xFFFF6D00)
-val SecondaryDark = Color(0xFFE65100)
-val SecondaryLight = Color(0xFFFFAB40)
+// Secondary - courier action green
+val Secondary = Color(0xFF00A86B)
+val SecondaryDark = Color(0xFF007A4D)
+val SecondaryLight = Color(0xFFE6F7F0)
 
 // Neutral colors
-val Background = Color(0xFFF5F5F5)
+val Background = Color(0xFFF4F7FA)
 val Surface = Color(0xFFFFFFFF)
 val OnPrimary = Color(0xFFFFFFFF)
-val OnSecondary = Color(0xFF000000)
-val OnBackground = Color(0xFF212121)
-val OnSurface = Color(0xFF212121)
+val OnSecondary = Color(0xFFFFFFFF)
+val OnBackground = Color(0xFF17202A)
+val OnSurface = Color(0xFF17202A)
 
 // Status colors
-val Success = Color(0xFF4CAF50)
-val Warning = Color(0xFFFFC107)
-val Error = Color(0xFFD32F2F)
-val Info = Color(0xFF2196F3)
+val Success = Color(0xFF0E9F6E)
+val Warning = Color(0xFFF59E0B)
+val Error = Color(0xFFDC2626)
+val Info = Color(0xFF2563EB)
 
 // Dark mode colors
 val DarkBackground = Color(0xFF121212)

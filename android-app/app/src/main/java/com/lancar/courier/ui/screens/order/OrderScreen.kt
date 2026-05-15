@@ -2,7 +2,7 @@ package com.lancar.courier.ui.screens.order
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -34,6 +34,13 @@ fun OrderScreen(
     isSyncing: Boolean = false
 ) {
     var showSyncDialog by remember { mutableStateOf(false) }
+    var selectedRole by remember { mutableStateOf("on_demand") }
+    val roleTabs = listOf(
+        "on_demand" to "On Demand",
+        "pickup" to "Pickup",
+        "delivery" to "Delivery"
+    )
+    val roleOrders = orders.filter { it.normalizedWorkflowRole() == selectedRole }
 
     if (showSyncDialog) {
         AlertDialog(
@@ -48,31 +55,47 @@ fun OrderScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Orders") },
-                actions = {
-                    IconButton(onClick = { onSync() }) {
-                        Icon(
-                            imageVector = Icons.Default.Sync,
-                            contentDescription = "Sync orders",
-                            tint = if (isSyncing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                }
-            )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text("Tugas Kurir", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "${roleOrders.size} ${roleTabs.first { it.first == selectedRole }.second.lowercase()} tersedia",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = { onSync() }) {
+                Icon(
+                    imageVector = Icons.Default.Sync,
+                    contentDescription = "Sync orders",
+                    tint = if (isSyncing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
-    ) { paddingValues ->
-        if (orders.isEmpty()) {
-            EmptyState(paddingValues = paddingValues)
+
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            roleTabs.forEachIndexed { index, tab ->
+                SegmentedButton(
+                    selected = selectedRole == tab.first,
+                    onClick = { selectedRole = tab.first },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = roleTabs.size),
+                    label = { Text(tab.second, maxLines = 1) }
+                )
+            }
+        }
+
+        if (roleOrders.isEmpty()) {
+            EmptyState(role = roleTabs.first { it.first == selectedRole }.second)
         } else {
             OrderList(
-                orders = orders,
+                orders = roleOrders,
                 onOrderClick = onOrderClick,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
+                modifier = Modifier.fillMaxSize()
             )
         }
     }
@@ -86,9 +109,10 @@ private fun OrderList(
 ) {
     LazyColumn(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        contentPadding = PaddingValues(bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(orders, key = { it.orderId }) { order ->
+        itemsIndexed(orders, key = { index, order -> "${order.orderId}-$index" }) { _, order ->
             OrderCard(order = order, onClick = { onOrderClick(order) })
         }
     }
@@ -99,61 +123,58 @@ private fun OrderList(
 private fun OrderCard(order: Order, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        onClick = onClick
+        onClick = onClick,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = order.orderId,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                OrderStatusChip(status = order.status)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = order.customerName.ifBlank { "Customer" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = order.orderId.ifBlank { "Order tanpa ID" },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    RoleChip(order = order)
+                    OrderStatusChip(status = order.status)
+                }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = order.dropAddress,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
+            RouteRow(icon = Icons.Default.Storefront, label = "Pickup", value = order.pickupAddress)
+            RouteRow(icon = Icons.Default.LocationOn, label = "Dropoff", value = order.dropAddress)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Fee: ${order.fee}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Primary
-                )
-                Text(
-                    text = "Distance: ${order.distance}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                CompactInfo(icon = Icons.Default.Payments, text = order.fee.ifBlank { "Fee -" })
+                CompactInfo(icon = Icons.Default.Route, text = order.distance.ifBlank { "0 km" })
+                val pickupTime = order.pickupTime.takeIf { it.isNotBlank() }?.take(16)
+                if (pickupTime != null) {
+                    CompactInfo(icon = Icons.Default.Schedule, text = pickupTime)
+                }
             }
 
             if (order.needsSync) {
-                Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -176,13 +197,96 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
 }
 
 @Composable
+private fun RoleChip(order: Order) {
+    val (label, color) = when (order.normalizedWorkflowRole()) {
+        "pickup" -> "PICKUP" to Warning
+        "delivery" -> "DELIVERY" to Success
+        else -> "ON DEMAND" to Primary
+    }
+
+    AssistChip(
+        onClick = { },
+        label = { Text(label) },
+        leadingIcon = {
+            Icon(
+                imageVector = when (order.normalizedWorkflowRole()) {
+                    "pickup" -> Icons.Default.Storefront
+                    "delivery" -> Icons.Default.Navigation
+                    else -> Icons.Default.Bolt
+                },
+                contentDescription = null,
+                modifier = Modifier.size(14.dp)
+            )
+        },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = color.copy(alpha = 0.12f),
+            labelColor = color,
+            leadingIconContentColor = color
+        )
+    )
+}
+
+private fun Order.normalizedWorkflowRole(): String {
+    val modelValue = model.lowercase()
+    return when {
+        workflowRole == "pickup" || workflowRole == "delivery" || workflowRole == "on_demand" -> workflowRole
+        modelValue == "p2p" || modelValue == "on_demand" || modelValue == "ondemand" -> "on_demand"
+        legNumber <= 1 -> "pickup"
+        else -> "delivery"
+    }
+}
+
+@Composable
+private fun RouteRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
+        Column {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                text = value.ifBlank { "-" },
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompactInfo(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(14.dp))
+            Text(text, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        }
+    }
+}
+
+@Composable
 private fun OrderStatusChip(status: String) {
     val (containerColor, contentColor) = when (status) {
-        "pending" -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
-        "assigned" -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer
-        "picked_up" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+        "pending" -> Warning.copy(alpha = 0.16f) to Warning
+        "assigned" -> Info.copy(alpha = 0.14f) to Info
+        "picked_up" -> Primary.copy(alpha = 0.12f) to Primary
         "in_transit" -> MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
-        "delivered" -> Success to Color.White
+        "delivered" -> Success.copy(alpha = 0.14f) to Success
         "failed" -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
         else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
     }
@@ -198,11 +302,10 @@ private fun OrderStatusChip(status: String) {
 }
 
 @Composable
-private fun EmptyState(paddingValues: PaddingValues) {
+private fun EmptyState(role: String = "Order") {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(paddingValues)
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -215,13 +318,13 @@ private fun EmptyState(paddingValues: PaddingValues) {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "No Orders",
+            text = "Belum Ada $role",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "New orders will appear here",
+            text = "Tugas baru akan muncul di antrian ini",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

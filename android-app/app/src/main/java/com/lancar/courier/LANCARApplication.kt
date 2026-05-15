@@ -58,6 +58,8 @@ class LANCARApplication : Application(), Configuration.Provider {
         // Initialize notification channels
         createNotificationChannels()
 
+        initializeWorkManager()
+
         // Schedule periodic background sync — runs every 15 min when network available
         scheduleOrderSync()
 
@@ -65,6 +67,15 @@ class LANCARApplication : Application(), Configuration.Provider {
         registerNetworkCallback()
 
         Log.d(TAG, "Initialization complete")
+    }
+
+    private fun initializeWorkManager() {
+        try {
+            WorkManager.initialize(this, workManagerConfiguration)
+            Log.d(TAG, "WorkManager initialized with HiltWorkerFactory")
+        } catch (e: IllegalStateException) {
+            Log.d(TAG, "WorkManager already initialized, keeping existing instance")
+        }
     }
 
     /**

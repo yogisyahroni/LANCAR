@@ -87,14 +87,15 @@ fun ProofOfDeliveryScreen(
 
     // Handle upload completion — triggered when PoD is safely saved to local DB (offline-first)
     LaunchedEffect(uiState.podSavedLocally) {
-        if (uiState.podSavedLocally && uiState.capturedImageUri != null) {
+        val capturedUri = uiState.capturedImageUri
+        if (uiState.podSavedLocally && capturedUri != null) {
             val message = if (uiState.serverSyncSuccess) {
                 "Bukti pengiriman berhasil terkirim ✓"
             } else {
                 "Bukti pengiriman tersimpan. Akan tersinkronisasi otomatis."
             }
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-            onImageConfirmed(uiState.capturedImageUri!!)
+            onImageConfirmed(capturedUri)
         }
     }
 

@@ -119,13 +119,6 @@ class MainActivity : ComponentActivity() {
                     // Auth gate — observe login state reactively
                     val isLoggedIn by authSessionManager.isLoggedIn.collectAsState(initial = false)
                     
-                    // 🔋 SECURITY ENHANCEMENT: Trigger OS Battery Optimization Whitelisting on active duty session to protect background GPS
-                    LaunchedEffect(isLoggedIn) {
-                        if (isLoggedIn) {
-                            checkAndRequestBatteryWhitelist()
-                        }
-                    }
-                    
                     // Collect active deep links reactively
                     val deepLinkOrderId by selectedOrderIdFlow.collectAsState()
                     val deepLinkChatOrderId by selectedChatOrderIdFlow.collectAsState()
@@ -155,7 +148,7 @@ class MainActivity : ComponentActivity() {
                             onLogout = {
                                 // After logout: clear FCM, stop location service
                                 activityScope.launch {
-                                    stopService(LocationTrackerService.startIntent(this@MainActivity))
+                                    stopService(LocationTrackerService.stopIntent(this@MainActivity))
                                 }
                             }
                         )
@@ -221,9 +214,12 @@ class MainActivity : ComponentActivity() {
     private fun startLocationTrackingIfLoggedIn() {
         activityScope.launch {
             val isLoggedIn = authSessionManager.isLoggedIn.first()
-            if (isLoggedIn) {
+            val isOnline = authSessionManager.isOnline.first()
+            if (isLoggedIn && isOnline) {
                 ContextCompat.startForegroundService(this@MainActivity, LocationTrackerService.startIntent(this@MainActivity))
                 Log.d("LOCATION", "Location tracking service started with ContextCompat")
+            } else {
+                Log.d("LOCATION", "Location tracking not started. loggedIn=$isLoggedIn online=$isOnline")
             }
         }
     }

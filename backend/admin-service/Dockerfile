@@ -26,7 +26,7 @@ FROM node:20-alpine AS production
 # Security: create non-root user
 RUN addgroup -S appgroup && \
     adduser -S appuser -G appgroup && \
-    mkdir -p /app && chown appuser:appgroup /app
+    mkdir -p /app/public/uploads && chown -R appuser:appgroup /app
 
 WORKDIR /app
 

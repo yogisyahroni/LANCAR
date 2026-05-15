@@ -109,6 +109,37 @@ class OrderRepository @Inject constructor(
         orderDao.update(order)
     }
 
+    suspend fun acceptOnDemandOffer(order: Order): Result<Order> = withContext(Dispatchers.IO) {
+        try {
+            orderDao.upsert(order.copy(status = "accepting", workflowRole = "on_demand", needsSync = true))
+            val response = apiService.acceptOnDemandOffer(order.orderId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                val accepted = response.body()?.data ?: order.copy(status = "accepted", workflowRole = "on_demand")
+                orderDao.deleteById(order.orderId)
+                orderDao.upsert(accepted.copy(needsSync = false))
+                Result.success(accepted)
+            } else {
+                Result.failure(IllegalStateException(response.body()?.message ?: "Gagal menerima pekerjaan"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun rejectOnDemandOffer(orderId: String, reason: String = "courier_rejected"): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.rejectOnDemandOffer(orderId, mapOf("reason" to reason))
+            if (response.isSuccessful && response.body()?.success == true) {
+                orderDao.deleteById(orderId)
+                Result.success(true)
+            } else {
+                Result.failure(IllegalStateException(response.body()?.message ?: "Gagal menolak pekerjaan"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /**
      * Delete order
      */
@@ -159,12 +190,14 @@ class OrderRepository @Inject constructor(
 
             // Sync scans
             for (order in pendingScans) {
-                if (order.scanLatitude != null && order.scanLongitude != null) {
+                val scanLatitude = order.scanLatitude
+                val scanLongitude = order.scanLongitude
+                if (scanLatitude != null && scanLongitude != null) {
                     val request = com.lancar.courier.data.model.ScanRequest(
                         orderId = order.orderId,
                         scanType = order.scanType ?: "pickup",
-                        latitude = order.scanLatitude!!,
-                        longitude = order.scanLongitude!!
+                        latitude = scanLatitude,
+                        longitude = scanLongitude
                     )
                     val response = apiService.scanPackage(request)
                     if (response.isSuccessful && response.body()?.success == true) {

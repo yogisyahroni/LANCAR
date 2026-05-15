@@ -18,7 +18,8 @@ export type DeliveryServiceProduct = {
   name: string;
   description: string;
   service_family: string;
-  route_model: 'p2p' | 'two_legs' | 'three_legs';
+  service_category: string;
+  route_model: 'p2p' | 'two_legs' | 'three_legs' | 'hub_and_spoke';
   is_enabled: boolean;
   display_order: number;
   vehicle_types: string[];
@@ -66,6 +67,8 @@ const normalizeService = (row: any): DeliveryServiceProduct => {
   service.availability_rules = service.availability_rules || {};
   service.metadata = service.metadata || {};
   service.vehicle_types = Array.isArray(service.vehicle_types) ? service.vehicle_types : [];
+  service.service_category = service.service_category || 'on_demand';
+  service.service_family = service.service_family || 'regular';
 
   return service;
 };
@@ -75,6 +78,7 @@ export const customerFacingService = (service: DeliveryServiceProduct) => ({
   name: service.name,
   description: service.description,
   service_family: service.service_family,
+  service_category: service.service_category,
   route_model: service.route_model,
   is_enabled: service.is_enabled,
   display_order: service.display_order,
@@ -186,7 +190,8 @@ const servicePayload = (body: any) => ({
   code: String(body.code || '').trim(),
   name: String(body.name || '').trim(),
   description: String(body.description || '').trim(),
-  service_family: body.service_family || 'p2p',
+  service_family: body.service_family || 'regular',
+  service_category: body.service_category || 'on_demand',
   route_model: body.route_model || 'p2p',
   is_enabled: Boolean(body.is_enabled),
   display_order: Number(body.display_order || 100),
@@ -227,7 +232,7 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
 
     const { rows } = await db.query(
       `INSERT INTO delivery_service_products (
-        code, name, description, service_family, route_model, is_enabled, display_order,
+        code, name, description, service_family, service_category, route_model, is_enabled, display_order,
         vehicle_types, exclusive_driver, batching_allowed, max_eta_minutes, max_distance_km, max_weight_kg,
         uses_size_tier, requires_dimension_scan, allows_manual_dimension, requires_pickup_verification,
         price_mode, base_fare_idr, included_distance_km, per_km_idr, service_multiplier,
@@ -235,17 +240,17 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
         mdr_percent, ppn_percent, show_customer_price_to_courier,
         size_tiers, dimension_rules, availability_rules, metadata
       ) VALUES (
-        $1, $2, $3, $4, $5, $6, $7,
-        $8, $9, $10, $11, $12, $13,
-        $14, $15, $16, $17,
-        $18, $19, $20, $21, $22,
-        $23, $24, $25,
-        $26, $27, $28,
-        $29, $30, $31, $32
+        $1, $2, $3, $4, $5, $6, $7, $8,
+        $9, $10, $11, $12, $13, $14,
+        $15, $16, $17, $18,
+        $19, $20, $21, $22, $23,
+        $24, $25, $26,
+        $27, $28, $29,
+        $30, $31, $32, $33
       )
       RETURNING *`,
       [
-        payload.code, payload.name, payload.description, payload.service_family, payload.route_model,
+        payload.code, payload.name, payload.description, payload.service_family, payload.service_category, payload.route_model,
         payload.is_enabled, payload.display_order, payload.vehicle_types, payload.exclusive_driver,
         payload.batching_allowed, payload.max_eta_minutes, payload.max_distance_km, payload.max_weight_kg,
         payload.uses_size_tier, payload.requires_dimension_scan, payload.allows_manual_dimension,
@@ -273,39 +278,40 @@ export const updateAdminDeliveryService = async (req: Request, res: Response): P
         name = $2,
         description = $3,
         service_family = $4,
-        route_model = $5,
-        is_enabled = $6,
-        display_order = $7,
-        vehicle_types = $8,
-        exclusive_driver = $9,
-        batching_allowed = $10,
-        max_eta_minutes = $11,
-        max_distance_km = $12,
-        max_weight_kg = $13,
-        uses_size_tier = $14,
-        requires_dimension_scan = $15,
-        allows_manual_dimension = $16,
-        requires_pickup_verification = $17,
-        price_mode = $18,
-        base_fare_idr = $19,
-        included_distance_km = $20,
-        per_km_idr = $21,
-        service_multiplier = $22,
-        platform_commission_percent = $23,
-        courier_payout_percent = $24,
-        courier_min_payout_idr = $25,
-        mdr_percent = $26,
-        ppn_percent = $27,
-        show_customer_price_to_courier = $28,
-        size_tiers = $29,
-        dimension_rules = $30,
-        availability_rules = $31,
-        metadata = $32,
+        service_category = $5,
+        route_model = $6,
+        is_enabled = $7,
+        display_order = $8,
+        vehicle_types = $9,
+        exclusive_driver = $10,
+        batching_allowed = $11,
+        max_eta_minutes = $12,
+        max_distance_km = $13,
+        max_weight_kg = $14,
+        uses_size_tier = $15,
+        requires_dimension_scan = $16,
+        allows_manual_dimension = $17,
+        requires_pickup_verification = $18,
+        price_mode = $19,
+        base_fare_idr = $20,
+        included_distance_km = $21,
+        per_km_idr = $22,
+        service_multiplier = $23,
+        platform_commission_percent = $24,
+        courier_payout_percent = $25,
+        courier_min_payout_idr = $26,
+        mdr_percent = $27,
+        ppn_percent = $28,
+        show_customer_price_to_courier = $29,
+        size_tiers = $30,
+        dimension_rules = $31,
+        availability_rules = $32,
+        metadata = $33,
         updated_at = NOW()
       WHERE code = $1
       RETURNING *`,
       [
-        payload.code, payload.name, payload.description, payload.service_family, payload.route_model,
+        payload.code, payload.name, payload.description, payload.service_family, payload.service_category, payload.route_model,
         payload.is_enabled, payload.display_order, payload.vehicle_types, payload.exclusive_driver,
         payload.batching_allowed, payload.max_eta_minutes, payload.max_distance_km, payload.max_weight_kg,
         payload.uses_size_tier, payload.requires_dimension_scan, payload.allows_manual_dimension,

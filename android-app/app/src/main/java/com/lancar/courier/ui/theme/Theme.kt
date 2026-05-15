@@ -10,6 +10,7 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -29,10 +30,15 @@ private val DarkColorScheme = darkColorScheme(
 
 private val LightColorScheme = lightColorScheme(
     primary = Primary,
+    primaryContainer = PrimaryLight,
+    onPrimaryContainer = PrimaryDark,
     secondary = Secondary,
+    secondaryContainer = SecondaryLight,
+    onSecondaryContainer = SecondaryDark,
     tertiary = PrimaryLight,
     background = Background,
     surface = Surface,
+    surfaceVariant = Color(0xFFE8EEF5),
     onPrimary = OnPrimary,
     onSecondary = OnSecondary,
     onBackground = OnBackground,
@@ -42,7 +48,7 @@ private val LightColorScheme = lightColorScheme(
 @Composable
 fun LANCARCourierTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -59,7 +65,7 @@ fun LANCARCourierTheme(
         SideEffect {
             val window = (view.context as Activity).window
             window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
         }
     }
 

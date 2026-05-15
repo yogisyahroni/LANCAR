@@ -3,8 +3,11 @@ package com.lancar.courier.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -27,6 +30,11 @@ import com.lancar.courier.ui.screens.pod.ProofOfDeliveryScreen
 import com.lancar.courier.ui.screens.scan.ScanScreen
 import com.lancar.courier.ui.screens.chat.ChatScreen
 import com.lancar.courier.ui.theme.Primary
+import com.lancar.courier.ui.theme.PrimaryLight
+import com.lancar.courier.ui.theme.Secondary
+import com.lancar.courier.ui.theme.SecondaryLight
+import com.lancar.courier.ui.theme.Success
+import com.lancar.courier.ui.theme.Warning
 import kotlinx.coroutines.launch
 
 /**
@@ -54,6 +62,7 @@ fun MainScreen(
     val allOrders by orderViewModel.allOrders.collectAsState()
     val pendingOrders by orderViewModel.pendingOrders.collectAsState()
     val deliveredToday by orderViewModel.deliveredTodayOrders.collectAsState()
+    val onDemandOffers by orderViewModel.offers.collectAsState()
     val isSyncing by orderViewModel.isSyncing.collectAsState()
     val error by orderViewModel.error.collectAsState()
 
@@ -68,6 +77,19 @@ fun MainScreen(
     var showChatScreen by remember { mutableStateOf(false) }
     var selectedOrder by remember { mutableStateOf<Order?>(null) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    onDemandOffers.firstOrNull()?.let { offer ->
+        OnDemandOfferDialog(
+            order = offer,
+            onAccept = {
+                orderViewModel.acceptOffer(offer) { accepted ->
+                    selectedOrder = accepted
+                    showOrderDetail = true
+                }
+            },
+            onReject = { orderViewModel.rejectOffer(offer) }
+        )
+    }
 
     // Navigate to order detail if app was opened from notification
     LaunchedEffect(initialOrderId) {
@@ -107,9 +129,9 @@ fun MainScreen(
     }
 
     // ── PoD Screen ─────────────────────────────────────────────
-    if (showPodScreen && selectedOrder != null) {
+    selectedOrder?.takeIf { showPodScreen }?.let { order ->
         ProofOfDeliveryScreen(
-            order = selectedOrder!!,
+            order = order,
             onImageConfirmed = { _ ->
                 // PoD saved in ProofOfDeliveryViewModel — refresh orders
                 orderViewModel.fetchOrdersFromBackend()
@@ -125,9 +147,9 @@ fun MainScreen(
     }
 
     // ── Order Detail Screen ────────────────────────────────────
-    if (showOrderDetail && selectedOrder != null) {
+    selectedOrder?.takeIf { showOrderDetail }?.let { order ->
         OrderDetailScreen(
-            order = selectedOrder!!,
+            order = order,
             onBack = {
                 showOrderDetail = false
                 selectedOrder = null
@@ -135,7 +157,7 @@ fun MainScreen(
             onUpdateStatus = { newStatus ->
                 // Optimistic local update + backend sync
                 orderViewModel.updateOrderStatusAndSync(
-                    orderId = selectedOrder!!.orderId,
+                    orderId = order.orderId,
                     status = newStatus
                 )
                 selectedOrder = selectedOrder?.copy(status = newStatus)
@@ -153,9 +175,9 @@ fun MainScreen(
     }
 
     // ── Chat Screen ────────────────────────────────────────────
-    if (showChatScreen && selectedOrder != null) {
+    selectedOrder?.takeIf { showChatScreen }?.let { order ->
         ChatScreen(
-            orderId = selectedOrder!!.orderId,
+            orderId = order.orderId,
             onBackClick = {
                 showChatScreen = false
                 showOrderDetail = true // Back to context-sensitive screen
@@ -218,10 +240,14 @@ fun MainScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = "LANCAR Courier",
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column {
+                        Text("LANCAR Courier", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (isOnline) "On duty" else "Off duty",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f)
+                        )
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Primary,
@@ -258,7 +284,7 @@ fun MainScreen(
             NavigationBar {
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                    label = { Text("Home") },
+                    label = { Text("Beranda") },
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 }
                 )
@@ -274,13 +300,13 @@ fun MainScreen(
                             Icon(Icons.Default.LocalShipping, contentDescription = "Orders")
                         }
                     },
-                    label = { Text("Orders") },
+                    label = { Text("Order") },
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 }
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                    label = { Text("Profile") },
+                    label = { Text("Profil") },
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 }
                 )
@@ -290,6 +316,7 @@ fun MainScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(paddingValues)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -341,6 +368,10 @@ fun MainScreen(
                         selectedOrder = order
                         showPodScreen = true
                     },
+                    onOpenDelivery = { order ->
+                        selectedOrder = order
+                        showOrderDetail = true
+                    },
                     onViewOrders = { selectedTab = 1 },
                     onScanPackage = { showScanScreen = true }
                 )
@@ -391,153 +422,348 @@ private fun HomeContent(
     isOnline: Boolean,
     onOnlineToggle: (Boolean) -> Unit,
     onCapturePod: (Order) -> Unit,
+    onOpenDelivery: (Order) -> Unit,
     onViewOrders: () -> Unit,
     onScanPackage: () -> Unit
 ) {
-    // Duty Status Card
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isOnline) 
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-            else 
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.15f)
-        ),
-        shape = RoundedCornerShape(16.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            if (isOnline) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-            else MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
-        )
+    val activeOrder = orders.firstOrNull { it.status == "in_transit" || it.status == "picked_up" }
+
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Primary),
+            shape = RoundedCornerShape(8.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Icon(
-                    imageVector = if (isOnline) Icons.Default.CircleNotifications else Icons.Default.NotificationsPaused,
-                    contentDescription = null,
-                    tint = if (isOnline) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
-                    modifier = Modifier.size(32.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = if (isOnline) "Status: AKTIF (On Duty)" else "Status: NONAKTIF (Off Duty)",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = if (isOnline) Color(0xFF1B5E20) else MaterialTheme.colorScheme.error
-                    )
-                    Text(
-                        text = if (isOnline) "GPS & Sinkronisasi Latar Aktif." else "Aktifkan switch untuk kirim paket.",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Halo, $courierName",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = if (isOnline) "Siap menerima dan mengantar order" else "Aktifkan duty untuk mulai mengantar",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.82f)
+                        )
+                    }
+                    Switch(
+                        checked = isOnline,
+                        onCheckedChange = onOnlineToggle,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = Secondary,
+                            uncheckedThumbColor = Color.White,
+                            uncheckedTrackColor = Color.White.copy(alpha = 0.36f)
+                        )
                     )
                 }
+
+                Surface(
+                    color = Color.White.copy(alpha = 0.14f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isOnline) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = null,
+                            tint = if (isOnline) Secondary else Color.White.copy(alpha = 0.78f)
+                        )
+                        Column {
+                            Text(
+                                text = if (isOnline) "On Duty" else "Off Duty",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = if (isOnline) "GPS dan sinkronisasi aktif" else "GPS tracking berhenti",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.78f)
+                            )
+                        }
+                    }
+                }
             }
-            Switch(
-                checked = isOnline,
-                onCheckedChange = onOnlineToggle,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFF2E7D32)
-                )
-            )
         }
-    }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Halo, $courierName! 👋",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Semangat mengantar hari ini!",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            StatCard(title = "Total", value = "$totalOrders", modifier = Modifier.weight(1f))
+            StatCard(title = "Aktif", value = "${orders.count { it.status == "assigned" || it.status == "picked_up" || it.status == "in_transit" }}", modifier = Modifier.weight(1f))
+            StatCard(title = "Selesai", value = "$deliveredCount", modifier = Modifier.weight(1f))
+        }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                StatCard(title = "Total", value = "$totalOrders")
-                StatCard(title = "Pending", value = "$pendingCount")
-                StatCard(title = "Selesai", value = "$deliveredCount")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Tugas Sekarang", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    AssistChip(
+                        onClick = onViewOrders,
+                        label = { Text("$pendingCount pending") },
+                        leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    )
+                }
+
+                if (activeOrder != null) {
+                    RouteSummary(order = activeOrder)
+                    Button(
+                        onClick = { onOpenDelivery(activeOrder) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                    ) {
+                        Icon(Icons.Default.Navigation, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Buka Pengantaran")
+                    }
+                    Button(
+                        onClick = { onCapturePod(activeOrder) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Secondary)
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Upload Bukti Pengiriman")
+                    }
+                } else {
+                    EmptyActiveOrder(onViewOrders = onViewOrders)
+                }
             }
         }
-    }
 
-    // Quick Actions
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Aksi Cepat",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Button(
                 onClick = onScanPackage,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.weight(1f).height(52.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Secondary)
             ) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Scan Paket")
+                Text("Scan")
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            // PoD: only if there's an order in_transit or picked_up
-            val podOrder = orders.firstOrNull { it.status == "in_transit" || it.status == "picked_up" }
-            Button(
-                onClick = { podOrder?.let { onCapturePod(it) } },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = podOrder != null
-            ) {
-                Icon(Icons.Default.CameraAlt, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(if (podOrder != null) "Foto Bukti Pengiriman" else "Tidak Ada Order Aktif")
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Button(
+            OutlinedButton(
                 onClick = onViewOrders,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.weight(1f).height(52.dp),
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Icon(Icons.Default.LocalShipping, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Lihat Semua Order")
+                Text("Order")
             }
         }
     }
 }
 
 @Composable
-private fun StatCard(title: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun OnDemandOfferDialog(
+    order: Order,
+    onAccept: () -> Unit,
+    onReject: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = {},
+        confirmButton = {
+            Button(
+                onClick = onAccept,
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Secondary)
+            ) {
+                Icon(Icons.Default.CheckCircle, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Terima")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onReject, shape = RoundedCornerShape(8.dp)) {
+                Icon(Icons.Default.Close, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Tolak")
+            }
+        },
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Pekerjaan On Demand", fontWeight = FontWeight.Bold)
+                Text(
+                    order.fee.ifBlank { "Fee belum tersedia" },
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Secondary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Paket masuk dan perlu diputuskan sekarang. Jika diterima, navigasi akan diarahkan ke lokasi pickup.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OfferRouteRow(Icons.Default.Storefront, "Pickup", order.pickupAddress)
+                OfferRouteRow(Icons.Default.LocationOn, "Dropoff", order.dropAddress)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AssistChip(onClick = {}, label = { Text(order.distance.ifBlank { "0 km" }) })
+                    AssistChip(onClick = {}, label = { Text(order.customerName.ifBlank { "Customer" }) })
+                }
+            }
+        },
+        shape = RoundedCornerShape(8.dp)
+    )
+}
+
+@Composable
+private fun OfferRouteRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String
+) {
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+        Column {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value.ifBlank { "-" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
+private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Primary
+            )
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun RouteSummary(order: Order) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            text = value,
-            style = MaterialTheme.typography.headlineLarge,
+            text = order.orderId.ifBlank { "Order aktif" },
+            style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold,
             color = Primary
         )
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        RouteLine(
+            icon = Icons.Default.Storefront,
+            label = "Pickup",
+            value = order.pickupAddress.ifBlank { "Alamat pickup belum tersedia" }
         )
+        RouteLine(
+            icon = Icons.Default.LocationOn,
+            label = "Dropoff",
+            value = order.dropAddress.ifBlank { "Alamat tujuan belum tersedia" }
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            InfoPill(icon = Icons.Default.Route, text = order.distance.ifBlank { "0 km" })
+            InfoPill(icon = Icons.Default.Payments, text = order.fee.ifBlank { "Fee -" })
+        }
+    }
+}
+
+@Composable
+private fun RouteLine(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String
+) {
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+        Column {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 2)
+        }
+    }
+}
+
+@Composable
+private fun InfoPill(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Surface(
+        color = PrimaryLight,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(16.dp))
+            Text(text, style = MaterialTheme.typography.labelMedium, color = Primary, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun EmptyActiveOrder(onViewOrders: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f), shape = RoundedCornerShape(8.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(Icons.Default.Inventory2, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Belum ada order aktif", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(
+                "Cek daftar order atau scan paket baru.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            TextButton(onClick = onViewOrders) {
+                Text("Lihat Order")
+            }
+        }
     }
 }
 
@@ -593,171 +819,189 @@ private fun ProfileContent(
     onOptimizeBattery: () -> Unit,
     onClearCache: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Text(
             text = "Profil Kurir",
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
 
-        // User Info Card
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(8.dp),
+            colors = CardDefaults.cardColors(containerColor = Primary)
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            Row(
+                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.White.copy(alpha = 0.18f)
+                ) {
                     Icon(
                         Icons.Default.Person,
                         contentDescription = null,
-                        tint = Primary,
-                        modifier = Modifier.size(32.dp)
+                        tint = Color.White,
+                        modifier = Modifier.padding(12.dp).size(28.dp)
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = courierName,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(courierName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Kurir aktif LANCAR", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.78f))
+                }
+                Surface(
+                    color = Color.White.copy(alpha = 0.16f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.34f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            if (pendingSyncCount > 0) Icons.Default.SyncProblem else Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Kurir Aktif",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            if (pendingSyncCount > 0) "$pendingSyncCount sync" else "Sync OK",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
                         )
                     }
-                }
-
-                Divider()
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("Antrian Sinkronisasi", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        text = "$pendingSyncCount item",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (pendingSyncCount > 0)
-                            MaterialTheme.colorScheme.error
-                        else
-                            MaterialTheme.colorScheme.primary
-                    )
                 }
             }
         }
 
-        // Diagnostics & Self-Healing Card
-        Text(
-            text = "Pemeliharaan Aplikasi",
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp)
-        )
-
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(16.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(8.dp)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Build, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Self-Healing Diagnostik", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                }
-
-                Text(
-                    text = "Gunakan tombol di bawah untuk memperbaiki masalah sinkronisasi atau membersihkan penyimpanan cache gambar PoD.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                Text("Kesiapan Aplikasi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                ProfileMetricRow(
+                    icon = Icons.Default.CloudDone,
+                    title = "Antrian sinkronisasi",
+                    value = if (pendingSyncCount > 0) "$pendingSyncCount item" else "Bersih",
+                    color = if (pendingSyncCount > 0) Warning else Success
                 )
+                ProfileMetricRow(
+                    icon = Icons.Default.GpsFixed,
+                    title = "Tracking",
+                    value = "Siap digunakan",
+                    color = Primary
+                )
+                ProfileMetricRow(
+                    icon = Icons.Default.Security,
+                    title = "Mode stabilitas",
+                    value = "Enterprise v2.1",
+                    color = Secondary
+                )
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Maintenance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(
+                    MaintenanceButton(
+                        icon = Icons.Default.Sync,
+                        label = "Paksa Sync",
                         onClick = onSyncNow,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp)
-                    ) {
-                        Icon(Icons.Default.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Paksa Sync", style = MaterialTheme.typography.labelMedium)
-                    }
-
-                    OutlinedButton(
+                        modifier = Modifier.weight(1f)
+                    )
+                    MaintenanceButton(
+                        icon = Icons.Default.DeleteSweep,
+                        label = "Hapus Cache",
                         onClick = onClearCache,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Hapus Cache", style = MaterialTheme.typography.labelMedium)
-                    }
+                        modifier = Modifier.weight(1f)
+                    )
                 }
 
-                // 🔋 Anti-Kill Optimization Shortcut
                 Button(
                     onClick = onOptimizeBattery,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.tertiary,
-                        contentColor = MaterialTheme.colorScheme.onTertiary
-                    ),
-                    contentPadding = PaddingValues(vertical = 10.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = Secondary)
                 ) {
                     Icon(Icons.Default.BatteryChargingFull, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Optimalkan Latar Belakang (Anti-Kill)", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text("Optimalkan Latar Belakang")
                 }
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
-
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = "App Stable Architecture v2.1.0",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-            )
-            Text(
-                text = "LANCAR LOGISTICS ENTERPRISE",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-            )
-        }
-
         OutlinedButton(
             onClick = onLogout,
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error
-            )
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
         ) {
             Icon(Icons.Default.Logout, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Keluar Aplikasi")
         }
+    }
+}
+
+@Composable
+private fun ProfileMetricRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    value: String,
+    color: Color
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(color = color.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.padding(8.dp).size(20.dp))
+        }
+        Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Text(value, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = color)
+    }
+}
+
+@Composable
+private fun MaintenanceButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.height(48.dp),
+        shape = RoundedCornerShape(8.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp)
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium)
     }
 }

@@ -4,10 +4,10 @@ import { requireAuth, requireRole, requireTotp, verifyWebSession, verifySession,
 import { toggleRateLimiter } from './rateLimit';
 import multer from 'multer';
 
-// Multer setup for memory storage (max 5MB)
+// Multer setup for memory storage (max 10MB)
 const upload = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+  limits: { fileSize: 10 * 1024 * 1024 }
 });
 
 export const routes = Router();
@@ -20,8 +20,13 @@ routes.post('/auth/web/refresh-token', (req, res) => controllers.refreshToken(re
 
 // Courier Mobile Auth Routes
 routes.post('/api/v1/auth/courier/login', (req, res) => controllers.loginCourier(req, res));
+routes.post('/api/v1/auth/courier/documents/upload', upload.single('file'), (req, res) => controllers.uploadCourierOnDemandDocument(req, res));
+routes.post('/api/v1/auth/courier/register', (req, res) => controllers.submitOnDemandCourierApplication(req, res));
 routes.get('/api/v1/courier/profile', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierProfile(req, res));
 routes.get('/api/v1/courier/orders', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOrders(req, res));
+routes.get('/api/v1/courier/offers', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOffers(req, res));
+routes.post('/api/v1/courier/offers/:id/accept', requireMobileOrWebAuth, (req, res) => controllers.acceptMobileCourierOffer(req, res));
+routes.post('/api/v1/courier/offers/:id/reject', requireMobileOrWebAuth, (req, res) => controllers.rejectMobileCourierOffer(req, res));
 
 routes.get('/auth/web/me', verifySession, (req, res) => controllers.me(req, res));
 routes.get('/auth/web/notifications', verifySession, (req, res) => controllers.getUserNotifications(req, res));
@@ -118,6 +123,7 @@ routes.get('/admin/orders/export', (req, res) => controllers.exportOrders(req, r
 
 
 // Couriers Management
+routes.get('/admin/courier-applications/on-demand', (req, res) => controllers.getOnDemandCourierApplications(req, res));
 routes.get('/admin/couriers', (req, res) => controllers.getAllCouriers(req, res));
 routes.get('/admin/couriers/stats', (req, res) => controllers.getCourierStats(req, res));
 routes.get('/admin/couriers/:id', (req, res) => controllers.getCourierById(req, res));
