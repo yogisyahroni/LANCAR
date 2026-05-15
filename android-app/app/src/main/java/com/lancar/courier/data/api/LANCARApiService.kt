@@ -7,6 +7,7 @@ import com.lancar.courier.data.model.CourierProfile
 import com.lancar.courier.data.model.CourierDocumentUploadData
 import com.lancar.courier.data.model.CourierRegistrationData
 import com.lancar.courier.data.model.CourierRegistrationRequest
+import com.lancar.courier.data.model.DutyStatusRequest
 import com.lancar.courier.data.model.FCMTokenRequest
 import com.lancar.courier.data.model.LocationRequest
 import com.lancar.courier.data.model.LocationResponse
@@ -71,6 +72,11 @@ interface LANCARApiService {
      */
     @GET("api/v1/courier/profile")
     suspend fun getCourierProfile(): Response<ApiResponse<CourierProfile>>
+
+    @PATCH("api/v1/courier/duty")
+    suspend fun updateDutyStatus(
+        @Body request: DutyStatusRequest
+    ): Response<ApiResponse<CourierProfile>>
 
     // ── FCM ─────────────────────────────────────────────────────
 

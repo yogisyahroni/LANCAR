@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lancar.courier.data.api.LANCARApiService
 import com.lancar.courier.data.model.CourierProfile
+import com.lancar.courier.data.model.DutyStatusRequest
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.StatusUpdateRequest
 import com.lancar.courier.data.repository.OrderRepository
@@ -15,6 +16,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
 
 /**
@@ -79,6 +83,43 @@ class OrderViewModel @Inject constructor(
                 }
             } catch (_: Exception) {
             }
+        }
+    }
+
+    suspend fun updateDutyStatus(
+        online: Boolean,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        accuracy: Float? = null
+    ): Result<CourierProfile> {
+        return try {
+            val response = apiService.updateDutyStatus(
+                DutyStatusRequest(
+                    online = online,
+                    latitude = latitude,
+                    longitude = longitude,
+                    accuracy = accuracy
+                )
+            )
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.data != null) {
+                _courierProfile.update { body.data }
+                Result.success(body.data)
+            } else {
+                Result.failure(Exception(body?.message ?: response.errorMessage()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private fun retrofit2.Response<*>.errorMessage(): String {
+        val fallback = "Gagal memperbarui status duty. Coba lagi."
+        val raw = errorBody()?.string() ?: return fallback
+        return try {
+            Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content ?: fallback
+        } catch (_: Exception) {
+            fallback
         }
     }
 

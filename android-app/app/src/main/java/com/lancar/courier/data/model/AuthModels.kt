@@ -83,3 +83,18 @@ data class CourierProfile(
     @SerialName("today_earnings_idr")
     val todayEarningsIdr: Int = 0
 )
+
+@Serializable
+data class DutyStatusRequest(
+    @SerialName("online")
+    val online: Boolean,
+
+    @SerialName("latitude")
+    val latitude: Double? = null,
+
+    @SerialName("longitude")
+    val longitude: Double? = null,
+
+    @SerialName("accuracy")
+    val accuracy: Float? = null
+)

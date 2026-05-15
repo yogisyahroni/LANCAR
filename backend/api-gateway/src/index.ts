@@ -417,6 +417,7 @@ app.use(createProxyMiddleware({
     pathname.startsWith('/api/v1/mobile/notifications') ||
     pathname.startsWith('/api/v1/courier/fcm') ||
     pathname.startsWith('/api/v1/courier/profile') ||
+    pathname.startsWith('/api/v1/courier/duty') ||
     pathname.startsWith('/api/v1/courier/orders') ||
     pathname.startsWith('/api/v1/courier/offers'),
   target: ADMIN_SERVICE_URL,

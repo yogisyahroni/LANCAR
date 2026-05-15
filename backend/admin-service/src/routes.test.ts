@@ -39,6 +39,7 @@ jest.mock('./controllers', () => ({
   getCourierStats: jest.fn((req, res) => res.status(200).json({})),
   getCourierById: jest.fn((req, res) => res.status(200).json({})),
   updateCourierStatus: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
+  updateMobileCourierDuty: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
   createOrder: jest.fn((req, res) => res.status(201).json({ id: 'new-order' })),
   exportOrders: jest.fn((req, res) => res.status(200).send('csv,data')),
   getCourierHistory: jest.fn((req, res) => res.status(200).json([])),

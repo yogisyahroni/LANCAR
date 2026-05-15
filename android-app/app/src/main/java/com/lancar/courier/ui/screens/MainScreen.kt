@@ -1,5 +1,8 @@
 package com.lancar.courier.ui.screens
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -18,8 +21,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.google.android.gms.location.Priority
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.cleanPayoutIdr
 import com.lancar.courier.data.model.normalizedWorkflowRole
@@ -39,6 +46,8 @@ import com.lancar.courier.ui.theme.SecondaryLight
 import com.lancar.courier.ui.theme.Success
 import com.lancar.courier.ui.theme.Warning
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Main Screen — Courier Dashboard
@@ -363,13 +372,39 @@ fun MainScreen(
                                 }
                             }
 
-                            authSessionManager.setOnlineStatus(online)
                             try {
                                 if (online) {
+                                    val location = getLastKnownDutyLocation(context)
+                                    if (location == null) {
+                                        snackbarHostState.showSnackbar("Lokasi perangkat belum tersedia. Aktifkan GPS dan coba lagi untuk mulai On Duty.")
+                                        return@launch
+                                    }
+
+                                    val dutyResult = orderViewModel.updateDutyStatus(
+                                        online = true,
+                                        latitude = location.latitude,
+                                        longitude = location.longitude,
+                                        accuracy = location.accuracy
+                                    )
+                                    dutyResult.onFailure { e ->
+                                        snackbarHostState.showSnackbar(
+                                            e.message ?: "Lokasi Anda belum memenuhi area operasional aktif."
+                                        )
+                                        return@launch
+                                    }
+
+                                    authSessionManager.setOnlineStatus(true)
                                     val intent = LocationTrackerService.startIntent(context)
                                     androidx.core.content.ContextCompat.startForegroundService(context, intent)
                                     snackbarHostState.showSnackbar("Status Berhasil Diubah Ke: ON DUTY. GPS Aktif.")
                                 } else {
+                                    val dutyResult = orderViewModel.updateDutyStatus(online = false)
+                                    dutyResult.onFailure { e ->
+                                        snackbarHostState.showSnackbar(e.message ?: "Gagal memperbarui status Off Duty.")
+                                        return@launch
+                                    }
+
+                                    authSessionManager.setOnlineStatus(false)
                                     context.stopService(LocationTrackerService.stopIntent(context))
                                     snackbarHostState.showSnackbar("Status Berhasil Diubah Ke: OFF DUTY. GPS Berhenti.")
                                 }
@@ -1139,4 +1174,45 @@ private fun courierRoleLabel(courierRole: String): String = when (courierRole) {
     "pickup_only", "pickup" -> "Pickup Only"
     "delivery_only", "delivery" -> "Delivery Only"
     else -> "On Demand"
+}
+
+private data class DutyLocation(
+    val latitude: Double,
+    val longitude: Double,
+    val accuracy: Float?
+)
+
+private suspend fun getLastKnownDutyLocation(context: Context): DutyLocation? {
+    val hasFineLocation = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    val hasCoarseLocation = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+
+    if (!hasFineLocation && !hasCoarseLocation) return null
+
+    return try {
+        val client = LocationServices.getFusedLocationProviderClient(context)
+        val location = client.lastLocation.await()
+            ?: withTimeoutOrNull(8_000) {
+                client.getCurrentLocation(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    CancellationTokenSource().token
+                ).await()
+            }
+        location?.let {
+            DutyLocation(
+                latitude = it.latitude,
+                longitude = it.longitude,
+                accuracy = it.takeIf { point -> point.hasAccuracy() }?.accuracy
+            )
+        }
+    } catch (_: SecurityException) {
+        null
+    } catch (_: Exception) {
+        null
+    }
 }
