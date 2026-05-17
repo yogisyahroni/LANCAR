@@ -541,10 +541,15 @@ private fun HomeContent(
 ) {
     val activeOrder = orders.firstOrNull { it.status == "in_transit" || it.status == "picked_up" }
     val roleLabel = courierRoleLabel(courierRole)
-    val roleHint = when (courierRole) {
-        "pickup_only" -> "Fokus ambil paket dan validasi pickup"
-        "delivery_only" -> "Fokus antar paket sampai POD"
-        else -> "Siap menerima request on-demand"
+    val roleHint = courierRoleHint(courierRole)
+    val pendingLabel = courierPendingLabel(courierRole)
+    val completedLabel = courierCompletedLabel(courierRole)
+    val taskTitle = courierCurrentTaskTitle(courierRole)
+    val emptyTitle = courierEmptyTaskTitle(courierRole)
+    val emptyHint = if (isOnline) {
+        "Cek daftar order atau tunggu tugas berikutnya."
+    } else {
+        "Aktifkan untuk bekerja atau cek daftar order."
     }
 
     Column(
@@ -573,7 +578,7 @@ private fun HomeContent(
                             color = Color.White
                         )
                         Text(
-                            text = if (isOnline) roleHint else "Aktifkan duty untuk mulai bekerja sebagai $roleLabel",
+                            text = if (isOnline) roleHint else "Aktifkan untuk bekerja",
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color.White.copy(alpha = 0.82f)
                         )
@@ -613,7 +618,7 @@ private fun HomeContent(
                                 color = Color.White
                             )
                             Text(
-                                text = if (isOnline) "GPS dan sinkronisasi aktif" else "GPS tracking berhenti",
+                                text = if (isOnline) "Lokasi dan sinkronisasi aktif" else "Tracking lokasi berhenti",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color.White.copy(alpha = 0.78f)
                             )
@@ -639,8 +644,8 @@ private fun HomeContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("On-Demand Wallet", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text("Pendapatan bersih dari payout pricing admin", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Pendapatan Hari Ini", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Estimasi bersih yang diterima kurir", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Secondary)
                     }
@@ -651,7 +656,7 @@ private fun HomeContent(
                         color = Secondary
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        InfoPill(icon = Icons.Default.Bolt, text = "${offers.size} request")
+                        InfoPill(icon = Icons.Default.Bolt, text = "${offers.size} tawaran")
                         InfoPill(icon = Icons.Default.CheckCircle, text = "$deliveredCount selesai")
                     }
                 }
@@ -676,7 +681,7 @@ private fun HomeContent(
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Mode $roleLabel", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(roleLabel, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(roleHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text("$pendingCount tugas", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Primary)
@@ -690,7 +695,7 @@ private fun HomeContent(
         ) {
             StatCard(title = "Total", value = "$totalOrders", modifier = Modifier.weight(1f))
             StatCard(title = "Aktif", value = "${orders.count { it.status == "assigned" || it.status == "picked_up" || it.status == "in_transit" }}", modifier = Modifier.weight(1f))
-            StatCard(title = if (courierRole == "on_demand") "Earning" else "Selesai", value = if (courierRole == "on_demand") todayEarningsIdr.toRupiahCompact() else "$deliveredCount", modifier = Modifier.weight(1f))
+            StatCard(title = if (courierRole == "on_demand") "Pendapatan" else completedLabel, value = if (courierRole == "on_demand") todayEarningsIdr.toRupiahCompact() else "$deliveredCount", modifier = Modifier.weight(1f))
         }
 
         Card(
@@ -707,10 +712,10 @@ private fun HomeContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(if (courierRole == "pickup_only") "Pickup Sekarang" else if (courierRole == "delivery_only") "Delivery Sekarang" else "Tugas Sekarang", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(taskTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     AssistChip(
                         onClick = onViewOrders,
-                        label = { Text("$pendingCount pending") },
+                        label = { Text("$pendingCount $pendingLabel") },
                         leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp)) }
                     )
                 }
@@ -738,7 +743,11 @@ private fun HomeContent(
                         Text("Upload Bukti Pengiriman")
                     }
                 } else {
-                    EmptyActiveOrder(onViewOrders = onViewOrders)
+                    EmptyActiveOrder(
+                        title = emptyTitle,
+                        subtitle = emptyHint,
+                        onViewOrders = onViewOrders
+                    )
                 }
             }
         }
@@ -990,7 +999,11 @@ private fun InfoPill(icon: androidx.compose.ui.graphics.vector.ImageVector, text
 }
 
 @Composable
-private fun EmptyActiveOrder(onViewOrders: () -> Unit) {
+private fun EmptyActiveOrder(
+    title: String,
+    subtitle: String,
+    onViewOrders: () -> Unit
+) {
     Surface(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f), shape = RoundedCornerShape(8.dp)) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -998,9 +1011,9 @@ private fun EmptyActiveOrder(onViewOrders: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(Icons.Default.Inventory2, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Belum ada order aktif", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             Text(
-                "Cek daftar order atau scan paket baru.",
+                subtitle,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -1077,6 +1090,42 @@ private fun ProfileContent(
     onOptimizeBattery: () -> Unit,
     onClearCache: () -> Unit
 ) {
+    var showDiagnostics by remember { mutableStateOf(false) }
+    var showResetLocalDataDialog by remember { mutableStateOf(false) }
+
+    if (showResetLocalDataDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetLocalDataDialog = false },
+            title = { Text("Reset Data Lokal") },
+            text = {
+                Text(
+                    if (pendingSyncCount > 0) {
+                        "Masih ada $pendingSyncCount data yang belum terkirim. Selesaikan sinkronisasi dulu sebelum reset data lokal."
+                    } else {
+                        "Tindakan ini membersihkan berkas sementara aplikasi. Order dan sesi akun tetap tersimpan."
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = pendingSyncCount == 0,
+                    onClick = {
+                        showResetLocalDataDialog = false
+                        onClearCache()
+                    }
+                ) {
+                    Text("Reset", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetLocalDataDialog = false }) {
+                    Text("Batal")
+                }
+            },
+            shape = RoundedCornerShape(8.dp)
+        )
+    }
+
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1113,7 +1162,7 @@ private fun ProfileContent(
                     Text(courierRoleLabel(courierRole), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.78f))
                 }
                 Surface(
-                    color = Color.White.copy(alpha = 0.16f),
+                    color = Color.White.copy(alpha = 0.14f),
                     shape = RoundedCornerShape(8.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.34f))
                 ) {
@@ -1123,13 +1172,13 @@ private fun ProfileContent(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(
-                            if (pendingSyncCount > 0) Icons.Default.SyncProblem else Icons.Default.CheckCircle,
+                            Icons.Default.VerifiedUser,
                             contentDescription = null,
                             tint = Color.White,
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            if (pendingSyncCount > 0) "$pendingSyncCount sync" else "Sync OK",
+                            "Aktif",
                             style = MaterialTheme.typography.labelLarge,
                             color = Color.White,
                             fontWeight = FontWeight.Bold
@@ -1148,7 +1197,7 @@ private fun ProfileContent(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Kesiapan Aplikasi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Kesiapan Operasional", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 ProfileMetricRow(
                     icon = Icons.Default.AccountBalanceWallet,
                     title = "Pendapatan hari ini",
@@ -1163,20 +1212,26 @@ private fun ProfileContent(
                 )
                 ProfileMetricRow(
                     icon = Icons.Default.CloudDone,
-                    title = "Antrian sinkronisasi",
-                    value = if (pendingSyncCount > 0) "$pendingSyncCount item" else "Bersih",
+                    title = "Sinkronisasi",
+                    value = if (pendingSyncCount > 0) "$pendingSyncCount tertunda" else "Tersinkron",
                     color = if (pendingSyncCount > 0) Warning else Success
                 )
                 ProfileMetricRow(
                     icon = Icons.Default.GpsFixed,
-                    title = "Tracking",
-                    value = "Siap digunakan",
+                    title = "Lokasi & tracking",
+                    value = "Siap",
                     color = Primary
+                )
+                ProfileMetricRow(
+                    icon = Icons.Default.BatteryChargingFull,
+                    title = "Latar belakang",
+                    value = "Aktif",
+                    color = Success
                 )
                 ProfileMetricRow(
                     icon = Icons.Default.Security,
                     title = "Mode stabilitas",
-                    value = "Enterprise v2.1",
+                    value = "Enterprise",
                     color = Secondary
                 )
             }
@@ -1189,26 +1244,32 @@ private fun ProfileContent(
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Maintenance", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    MaintenanceButton(
-                        icon = Icons.Default.Sync,
-                        label = "Paksa Sync",
-                        onClick = onSyncNow,
-                        modifier = Modifier.weight(1f)
-                    )
-                    MaintenanceButton(
-                        icon = Icons.Default.DeleteSweep,
-                        label = "Hapus Cache",
-                        onClick = onClearCache,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Surface(color = PrimaryLight, shape = RoundedCornerShape(8.dp)) {
+                        Icon(
+                            Icons.Default.HealthAndSafety,
+                            contentDescription = null,
+                            tint = Primary,
+                            modifier = Modifier.padding(10.dp).size(22.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Kesehatan Aplikasi", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (pendingSyncCount > 0) "Perlu sinkronisasi data tertunda" else "Aplikasi siap untuk operasional",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    TextButton(onClick = { showDiagnostics = !showDiagnostics }) {
+                        Text(if (showDiagnostics) "Tutup" else "Diagnostik")
+                    }
                 }
 
                 Button(
@@ -1220,6 +1281,36 @@ private fun ProfileContent(
                     Icon(Icons.Default.BatteryChargingFull, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Optimalkan Latar Belakang")
+                }
+
+                AnimatedVisibility(visible = showDiagnostics) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        HorizontalDivider()
+                        ProfileMetricRow(
+                            icon = if (pendingSyncCount > 0) Icons.Default.SyncProblem else Icons.Default.CheckCircle,
+                            title = "Status data lokal",
+                            value = if (pendingSyncCount > 0) "$pendingSyncCount belum terkirim" else "Aman",
+                            color = if (pendingSyncCount > 0) Warning else Success
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            MaintenanceButton(
+                                icon = Icons.Default.Sync,
+                                label = "Sinkronkan",
+                                onClick = onSyncNow,
+                                modifier = Modifier.weight(1f)
+                            )
+                            MaintenanceButton(
+                                icon = Icons.Default.DeleteSweep,
+                                label = "Reset Lokal",
+                                onClick = { showResetLocalDataDialog = true },
+                                modifier = Modifier.weight(1f),
+                                enabled = pendingSyncCount == 0
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1262,10 +1353,12 @@ private fun MaintenanceButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     OutlinedButton(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.height(48.dp),
         shape = RoundedCornerShape(8.dp),
         contentPadding = PaddingValues(horizontal = 8.dp)
@@ -1297,6 +1390,36 @@ private fun courierRoleLabel(courierRole: String): String = when (courierRole) {
     "pickup_only", "pickup" -> "Pickup Only"
     "delivery_only", "delivery" -> "Delivery Only"
     else -> "On Demand"
+}
+
+private fun courierRoleHint(courierRole: String): String = when (courierRole) {
+    "pickup_only", "pickup" -> "Siap menjalankan tugas pickup"
+    "delivery_only", "delivery" -> "Siap menjalankan tugas delivery"
+    else -> "Siap menerima tawaran on-demand"
+}
+
+private fun courierPendingLabel(courierRole: String): String = when (courierRole) {
+    "pickup_only", "pickup" -> "pickup"
+    "delivery_only", "delivery" -> "antar"
+    else -> "menunggu"
+}
+
+private fun courierCompletedLabel(courierRole: String): String = when (courierRole) {
+    "pickup_only", "pickup" -> "Pickup selesai"
+    "delivery_only", "delivery" -> "POD selesai"
+    else -> "Selesai"
+}
+
+private fun courierCurrentTaskTitle(courierRole: String): String = when (courierRole) {
+    "pickup_only", "pickup" -> "Pickup Saat Ini"
+    "delivery_only", "delivery" -> "Delivery Saat Ini"
+    else -> "Tugas Saat Ini"
+}
+
+private fun courierEmptyTaskTitle(courierRole: String): String = when (courierRole) {
+    "pickup_only", "pickup" -> "Belum ada pickup aktif"
+    "delivery_only", "delivery" -> "Belum ada delivery aktif"
+    else -> "Belum ada tugas aktif"
 }
 
 private fun orderSyncHint(isOnline: Boolean, lastRemoteSyncAt: Long?): String {
