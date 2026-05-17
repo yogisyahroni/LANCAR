@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { db } from '../db';
 import { createNotification } from '../notifications';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 
 type CourierLoginRow = {
   id: string;
@@ -402,8 +404,12 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
            ELSE 'delivery'
          END AS workflow_role,
          o.pickup_address,
+         ST_Y(o.pickup_location::geometry)::float8 AS pickup_latitude,
+         ST_X(o.pickup_location::geometry)::float8 AS pickup_longitude,
          COALESCE(o.scheduled_at, o.created_at) AS pickup_time,
          o.dropoff_address,
+         ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
+         ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
          COALESCE(o.distance_km, 0)::text AS distance,
          COALESCE(ol.assigned_fee_idr, o.total_price_idr, 0)::text AS fee,
          COALESCE(c.full_name, 'Customer') AS customer_name,
@@ -452,8 +458,12 @@ const mobileOrderSelect = `
     ELSE 'delivery'
   END AS workflow_role,
   o.pickup_address,
+  ST_Y(o.pickup_location::geometry)::float8 AS pickup_latitude,
+  ST_X(o.pickup_location::geometry)::float8 AS pickup_longitude,
   COALESCE(o.scheduled_at, o.created_at) AS pickup_time,
   o.dropoff_address,
+  ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
+  ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
   COALESCE(o.distance_km, 0)::text AS distance,
   COALESCE(
     NULLIF(ol.assigned_fee_idr, 0),
@@ -1039,4 +1049,270 @@ export const rejectMobileCourierOffer = async (req: Request, res: Response) => {
   } finally {
     client.release();
   }
+};
+
+const ON_DEMAND_GEOFENCE_RADIUS_M = Number(process.env.ON_DEMAND_GEOFENCE_RADIUS_M || 150);
+const ON_DEMAND_MAX_ACCURACY_M = Number(process.env.ON_DEMAND_MAX_ACCURACY_M || 100);
+
+const parseCoordinate = (value: unknown): number | null => {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const verifyOnDemandStep = async ({
+  req,
+  res,
+  orderId,
+  step,
+  latitude,
+  longitude,
+  accuracy,
+  barcodeValue,
+  photoUrl,
+}: {
+  req: Request;
+  res: Response;
+  orderId: string;
+  step: 'pickup' | 'delivery';
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  barcodeValue?: string | null;
+  photoUrl?: string | null;
+}) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  if (accuracy != null && accuracy > ON_DEMAND_MAX_ACCURACY_M) {
+    res.status(422).json({
+      success: false,
+      data: null,
+      message: 'Akurasi lokasi belum cukup. Tunggu beberapa detik lalu coba lagi.',
+      code: 'ERR_LOCATION_ACCURACY_LOW',
+    });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const orderRes = await client.query(
+      `SELECT
+         o.id,
+         o.status,
+         o.model,
+         ol.id AS leg_id,
+         ol.status AS leg_status,
+         ST_Distance(
+           CASE WHEN $2 = 'pickup' THEN o.pickup_location ELSE o.dropoff_location END,
+           ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography
+         )::int AS distance_m
+       FROM orders o
+       JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
+       JOIN courier_profiles cp ON cp.user_id = ol.courier_id
+       WHERE o.id = $1
+         AND ol.courier_id = $5
+         AND cp.application_channel = 'on_demand'
+         AND LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
+       LIMIT 1
+       FOR UPDATE OF o, ol`,
+      [orderId, step, longitude, latitude, req.user.id]
+    );
+
+    const order = orderRes.rows[0];
+    if (!order) {
+      await client.query('ROLLBACK');
+      res.status(404).json({
+        success: false,
+        data: null,
+        message: 'Order on-demand tidak ditemukan untuk kurir ini.',
+        code: 'ERR_ORDER_NOT_FOUND',
+      });
+      return;
+    }
+
+    const distanceM = Number(order.distance_m || 0);
+    if (distanceM > ON_DEMAND_GEOFENCE_RADIUS_M) {
+      await client.query('ROLLBACK');
+      res.status(422).json({
+        success: false,
+        data: { distance_m: distanceM, radius_m: ON_DEMAND_GEOFENCE_RADIUS_M },
+        message: step === 'pickup'
+          ? 'Anda belum berada di titik pickup. Dekati lokasi pengambilan untuk melanjutkan.'
+          : 'Anda belum berada di titik tujuan. Penyelesaian paket hanya bisa dilakukan di lokasi penerima.',
+        code: 'ERR_OUTSIDE_GEOFENCE',
+      });
+      return;
+    }
+
+    const currentStatus = String(order.status || '').toLowerCase();
+    if (step === 'pickup' && ['delivered', 'completed', 'cancelled', 'failed'].includes(currentStatus)) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, data: null, message: 'Order ini sudah tidak bisa diverifikasi pickup.', code: 'ERR_INVALID_STATUS' });
+      return;
+    }
+    if (step === 'delivery' && !['picked_up', 'in_transit'].includes(currentStatus)) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        data: null,
+        message: 'Verifikasi pickup harus selesai sebelum POD dikirim.',
+        code: 'ERR_PICKUP_REQUIRED',
+      });
+      return;
+    }
+
+    const scanType = step === 'pickup' ? 'pickup' : 'pod';
+    const scanRes = await client.query(
+      `INSERT INTO package_scans (
+         order_id,
+         scanned_by,
+         scanned_by_role,
+         scan_type,
+         image_urls,
+         photo_url,
+         latitude,
+         longitude,
+         location_accuracy_m,
+         scan_location,
+         override_reason
+       )
+       VALUES (
+         $1,
+         $2,
+         'courier',
+         $3,
+         CASE WHEN $4::text IS NULL THEN NULL ELSE ARRAY[$4::text] END,
+         $4,
+         $5,
+         $6,
+         $7,
+         ST_SetSRID(ST_MakePoint($6, $5), 4326)::geography,
+         $8
+       )
+       RETURNING id, COALESCE(scanned_at, created_at, NOW()) AS recorded_at`,
+      [
+        orderId,
+        req.user.id,
+        scanType,
+        photoUrl || null,
+        latitude,
+        longitude,
+        accuracy,
+        barcodeValue ? `barcode:${barcodeValue}` : null,
+      ]
+    );
+
+    const nextStatus = step === 'pickup' ? 'in_transit' : 'delivered';
+    await client.query(
+      `UPDATE orders
+       SET status = $2,
+           picked_up_at = CASE WHEN $2 = 'in_transit' THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
+           delivered_at = CASE WHEN $2 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [orderId, nextStatus]
+    );
+
+    await client.query(
+      `UPDATE order_legs
+       SET status = $2,
+           started_at = CASE WHEN $2 = 'in_transit' THEN COALESCE(started_at, NOW()) ELSE started_at END,
+           completed_at = CASE WHEN $2 = 'delivered' THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [order.leg_id, nextStatus]
+    );
+
+    await client.query(
+      `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        orderId,
+        req.user.id,
+        step === 'pickup' ? 'pickup_verified' : 'pod_verified',
+        step === 'pickup' ? 'Courier verified on-demand pickup at geofence' : 'Courier verified on-demand delivery POD at geofence',
+        JSON.stringify({ distance_m: distanceM, accuracy_m: accuracy, barcode_value: barcodeValue || null, photo_url: photoUrl || null }),
+      ]
+    );
+
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      data: {
+        scan_id: scanRes.rows[0]?.id,
+        order_id: orderId,
+        status: nextStatus,
+        scan_type: scanType,
+        distance_m: distanceM,
+        recorded_at: scanRes.rows[0]?.recorded_at || new Date().toISOString(),
+      },
+      message: step === 'pickup' ? 'Pickup berhasil diverifikasi.' : 'Pengiriman berhasil diselesaikan.',
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Verify on-demand courier step error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  } finally {
+    client.release();
+  }
+};
+
+export const scanMobileCourierOrder = async (req: Request, res: Response) => {
+  const orderId = String(req.body?.order_id || req.body?.orderId || '');
+  const scanType = String(req.body?.scan_type || req.body?.scanType || 'pickup').toLowerCase();
+  const latitude = parseCoordinate(req.body?.latitude);
+  const longitude = parseCoordinate(req.body?.longitude);
+  const accuracy = parseCoordinate(req.body?.accuracy);
+
+  if (!orderId || latitude == null || longitude == null) {
+    res.status(400).json({ success: false, data: null, message: 'Order dan lokasi wajib dikirim.', code: 'ERR_BAD_REQUEST' });
+    return;
+  }
+
+  await verifyOnDemandStep({
+    req,
+    res,
+    orderId,
+    step: scanType === 'delivery' || scanType === 'pod' ? 'delivery' : 'pickup',
+    latitude,
+    longitude,
+    accuracy,
+    barcodeValue: req.body?.barcode_value || req.body?.barcodeValue || null,
+  });
+};
+
+export const uploadMobileCourierPod = async (req: Request, res: Response) => {
+  const orderId = String(req.body?.order_id || req.body?.orderId || '');
+  const latitude = parseCoordinate(req.body?.latitude);
+  const longitude = parseCoordinate(req.body?.longitude);
+  const accuracy = parseCoordinate(req.body?.accuracy);
+
+  if (!orderId || latitude == null || longitude == null || !req.file) {
+    res.status(400).json({ success: false, data: null, message: 'Order, lokasi, dan foto POD wajib dikirim.', code: 'ERR_BAD_REQUEST' });
+    return;
+  }
+
+  const ext = path.extname(req.file.originalname || '') || '.jpg';
+  const filename = `${crypto.randomUUID()}${ext}`;
+  const uploadDir = path.join(process.cwd(), 'public/uploads/pod');
+  fs.mkdirSync(uploadDir, { recursive: true });
+  fs.writeFileSync(path.join(uploadDir, filename), req.file.buffer);
+
+  const proofType = String(req.body?.proof_type || req.body?.proofType || 'delivery').toLowerCase();
+
+  await verifyOnDemandStep({
+    req,
+    res,
+    orderId,
+    step: proofType === 'pickup' ? 'pickup' : 'delivery',
+    latitude,
+    longitude,
+    accuracy,
+    barcodeValue: req.body?.barcode_value || req.body?.barcodeValue || null,
+    photoUrl: `/uploads/pod/${filename}`,
+  });
 };

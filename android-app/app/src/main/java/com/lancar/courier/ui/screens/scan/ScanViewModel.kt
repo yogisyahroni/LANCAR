@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
 
 /**
@@ -30,19 +33,24 @@ class ScanViewModel @Inject constructor(
     /**
      * Process a scanned barcode
      */
-    fun processScan(orderId: String, latitude: Double, longitude: Double, scanType: String = "pickup") {
+    fun processScan(
+        orderId: String,
+        latitude: Double,
+        longitude: Double,
+        accuracy: Float?,
+        scanType: String = "pickup",
+        barcodeValue: String? = null
+    ) {
         viewModelScope.launch {
             _uiState.value = ScanUiState.Loading
             try {
-                // Offline first: Save locally
-                orderRepository.saveScanLocally(orderId, latitude, longitude, scanType)
-                
-                // Then try to sync immediately
                 val request = ScanRequest(
                     orderId = orderId,
                     scanType = scanType,
                     latitude = latitude,
-                    longitude = longitude
+                    longitude = longitude,
+                    accuracy = accuracy,
+                    barcodeValue = barcodeValue
                 )
                 
                 val response = apiService.scanPackage(request)
@@ -50,40 +58,27 @@ class ScanViewModel @Inject constructor(
                 if (response.isSuccessful && response.body()?.success == true) {
                     val scanData = response.body()?.data
                     if (scanData != null) {
+                        orderRepository.saveScanLocally(orderId, latitude, longitude, scanType)
                         _uiState.value = ScanUiState.Success(scanData)
                     } else {
-                        // Even if response format is invalid, we saved locally.
-                        val fallbackData = ScanResponse(
-                            scanId = "local_${System.currentTimeMillis()}",
-                            orderId = orderId,
-                            scanType = scanType,
-                            status = "picked_up",
-                            recordedAt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
-                        )
-                        _uiState.value = ScanUiState.Success(fallbackData)
+                        _uiState.value = ScanUiState.Error("Respons verifikasi tidak valid. Coba lagi.")
                     }
                 } else {
-                    // API failed, but we saved locally, so it's a success for offline-first.
-                    val fallbackData = ScanResponse(
-                        scanId = "local_${System.currentTimeMillis()}",
-                        orderId = orderId,
-                        scanType = scanType,
-                        status = "picked_up",
-                        recordedAt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
-                    )
-                    _uiState.value = ScanUiState.Success(fallbackData)
+                    _uiState.value = ScanUiState.Error(response.errorMessage())
                 }
             } catch (e: Exception) {
-                // Network error, but we saved locally.
-                val fallbackData = ScanResponse(
-                    scanId = "local_${System.currentTimeMillis()}",
-                    orderId = orderId,
-                    scanType = scanType,
-                    status = "picked_up",
-                    recordedAt = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US).format(java.util.Date())
-                )
-                _uiState.value = ScanUiState.Success(fallbackData)
+                _uiState.value = ScanUiState.Error("Verifikasi membutuhkan koneksi dan lokasi aktif. Coba lagi.")
             }
+        }
+    }
+
+    private fun retrofit2.Response<*>.errorMessage(): String {
+        val fallback = "Verifikasi ditolak. Pastikan Anda berada di titik yang benar."
+        val raw = errorBody()?.string() ?: return fallback
+        return try {
+            Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content ?: fallback
+        } catch (_: Exception) {
+            fallback
         }
     }
 

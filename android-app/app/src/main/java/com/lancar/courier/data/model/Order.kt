@@ -38,6 +38,14 @@ data class Order(
     @SerialName("pickup_address")
     val pickupAddress: String = "",
 
+    @ColumnInfo(name = "pickup_latitude")
+    @SerialName("pickup_latitude")
+    val pickupLatitude: Double? = null,
+
+    @ColumnInfo(name = "pickup_longitude")
+    @SerialName("pickup_longitude")
+    val pickupLongitude: Double? = null,
+
     @ColumnInfo(name = "pickup_time")
     @SerialName("pickup_time")
     val pickupTime: String = "",
@@ -45,6 +53,14 @@ data class Order(
     @ColumnInfo(name = "drop_address")
     @SerialName("drop_address")
     val dropAddress: String = "",
+
+    @ColumnInfo(name = "drop_latitude")
+    @SerialName("drop_latitude")
+    val dropLatitude: Double? = null,
+
+    @ColumnInfo(name = "drop_longitude")
+    @SerialName("drop_longitude")
+    val dropLongitude: Double? = null,
 
     @ColumnInfo(name = "distance")
     @SerialName("distance")

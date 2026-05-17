@@ -2,6 +2,7 @@ package com.lancar.courier.ui.screens.pod
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -35,6 +36,9 @@ import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -43,6 +47,9 @@ import com.lancar.courier.data.model.Order
 import com.lancar.courier.ui.theme.Primary
 import java.io.File
 import java.util.concurrent.Executor
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Proof of Delivery Screen
@@ -58,11 +65,13 @@ import java.util.concurrent.Executor
 @Composable
 fun ProofOfDeliveryScreen(
     order: Order,
+    proofMode: String = "delivery",
     onImageConfirmed: (Uri) -> Unit,
     onBack: () -> Unit,
     viewModel: ProofOfDeliveryViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsState()
 
@@ -89,8 +98,10 @@ fun ProofOfDeliveryScreen(
     LaunchedEffect(uiState.podSavedLocally) {
         val capturedUri = uiState.capturedImageUri
         if (uiState.podSavedLocally && capturedUri != null) {
-            val message = if (uiState.serverSyncSuccess) {
-                "Bukti pengiriman berhasil terkirim ✓"
+            val message = if (proofMode == "pickup") {
+                "Bukti pickup berhasil diverifikasi"
+            } else if (uiState.serverSyncSuccess) {
+                "Bukti pengiriman berhasil terkirim"
             } else {
                 "Bukti pengiriman tersimpan. Akan tersinkronisasi otomatis."
             }
@@ -102,7 +113,7 @@ fun ProofOfDeliveryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Proof of Delivery") },
+                title = { Text(if (proofMode == "pickup") "Foto Barang Pickup" else "Proof of Delivery") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -129,7 +140,7 @@ fun ProofOfDeliveryScreen(
                     )
                 }
                 uiState.capturedImageUri != null -> {
-                    if (!uiState.isSignatureCaptured) {
+                    if (proofMode == "delivery" && !uiState.isSignatureCaptured) {
                         SignatureCaptureContent(
                             onSignatureCaptured = { bitmap ->
                                 viewModel.combinePhotoAndSignature(context, bitmap)
@@ -141,7 +152,24 @@ fun ProofOfDeliveryScreen(
                             uiState = uiState,
                             onRetake = { viewModel.clearImage() },
                             onConfirm = {
-                                viewModel.uploadPod(order.orderId)
+                                scope.launch {
+                                    val location = getCurrentPodLocation(context)
+                                    if (location == null) {
+                                        Toast.makeText(
+                                            context,
+                                            "Lokasi belum tersedia. Aktifkan GPS dan coba lagi.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        return@launch
+                                    }
+                                    viewModel.uploadPod(
+                                        orderId = order.orderId,
+                                        latitude = location.latitude,
+                                        longitude = location.longitude,
+                                        accuracy = location.accuracy,
+                                        proofType = proofMode
+                                    )
+                                }
                             }
                         )
                     }
@@ -149,6 +177,7 @@ fun ProofOfDeliveryScreen(
                 else -> {
                     CameraPreviewContent(
                         order = order,
+                        proofMode = proofMode,
                         previewView = previewView,
                         onPreviewViewReady = { previewView = it },
                         onImageCaptureReady = { imageCapture = it },
@@ -206,6 +235,7 @@ private fun CameraPermissionContent(
 @Composable
 private fun CameraPreviewContent(
     order: Order,
+    proofMode: String,
     previewView: PreviewView?,
     onPreviewViewReady: (PreviewView) -> Unit,
     onImageCaptureReady: (ImageCapture) -> Unit,
@@ -294,7 +324,10 @@ private fun CameraPreviewContent(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Take a clear photo of the delivered package",
+                        text = if (proofMode == "pickup")
+                            "Ambil foto barang yang jelas untuk verifikasi pickup"
+                        else
+                            "Take a clear photo of the delivered package",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center
@@ -490,6 +523,30 @@ private fun formatFileSize(bytes: Long): String {
         bytes < 1024 -> "$bytes B"
         bytes < 1024 * 1024 -> "${bytes / 1024} KB"
         else -> String.format("%.1f MB", bytes / (1024.0 * 1024.0))
+    }
+}
+
+private suspend fun getCurrentPodLocation(context: Context): android.location.Location? {
+    val fineGranted = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    val coarseGranted = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    if (!fineGranted && !coarseGranted) return null
+
+    val client = LocationServices.getFusedLocationProviderClient(context)
+    return try {
+        withTimeoutOrNull(8_000L) {
+            client.getCurrentLocation(
+                Priority.PRIORITY_HIGH_ACCURACY,
+                CancellationTokenSource().token
+            ).await()
+        } ?: client.lastLocation.await()
+    } catch (_: Exception) {
+        null
     }
 }
 

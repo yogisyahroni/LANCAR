@@ -19,6 +19,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.text.SimpleDateFormat
@@ -412,7 +415,7 @@ class ProofOfDeliveryViewModel @Inject constructor(
      * IDEMPOTENCY GUARD: Rejects duplicate calls if submission already in progress or completed.
      * This prevents double-submit race conditions on rapid button taps.
      */
-    fun uploadPod(orderId: String) {
+    fun uploadPod(orderId: String, latitude: Double, longitude: Double, accuracy: Float?, barcodeValue: String? = null, proofType: String = "delivery") {
         // ── Idempotency Check ──────────────────────────────────────────────────
         val currentState = _uiState.value
         if (currentState.isUploading || currentState.isUploadSubmitted) {
@@ -435,54 +438,54 @@ class ProofOfDeliveryViewModel @Inject constructor(
         )
 
         viewModelScope.launch {
-            // ── Step 1: Offline-First — Save to Local Room DB ──────────────────
-            try {
-                orderRepository.savePodLocally(orderId, file.absolutePath)
-                _uiState.value = _uiState.value.copy(podSavedLocally = true)
-            } catch (dbException: Exception) {
-                // If even local save fails, this is a critical error — abort
-                _uiState.value = _uiState.value.copy(
-                    isUploading = false,
-                    isUploadSubmitted = false, // Reset guard so user can retry
-                    error = "Gagal menyimpan bukti pengiriman: ${dbException.message}"
-                )
-                return@launch
-            }
-
-            // ── Step 2: Attempt immediate backend sync ─────────────────────────
             try {
                 val requestFile = file.asRequestBody(contentType.toMediaTypeOrNull())
                 val body = MultipartBody.Part.createFormData("photo", file.name, requestFile)
                 val orderIdPart = orderId.toRequestBody("text/plain".toMediaTypeOrNull())
+                val latitudePart = latitude.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+                val longitudePart = longitude.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+                val accuracyPart = (accuracy ?: 0f).toString().toRequestBody("text/plain".toMediaTypeOrNull())
+                val proofTypePart = proofType.toRequestBody("text/plain".toMediaTypeOrNull())
+                val barcodePart = barcodeValue?.toRequestBody("text/plain".toMediaTypeOrNull())
 
-                val response = apiService.uploadPod(orderIdPart, body)
-
-                if (response.isSuccessful && response.body()?.success == true) {
-                    // ✅ Full success: saved locally AND synced to server
+                val response = apiService.uploadPod(orderIdPart, latitudePart, longitudePart, accuracyPart, proofTypePart, barcodePart, body)
+                if (!response.isSuccessful || response.body()?.success != true) {
                     _uiState.value = _uiState.value.copy(
                         isUploading = false,
-                        serverSyncSuccess = true
+                        isUploadSubmitted = false,
+                        error = response.errorMessage()
                     )
-                } else {
-                    // ⚠️ Server rejected or returned non-success:
-                    // PoD IS saved locally — WorkManager will retry the upload.
-                    // Do NOT show this as a failure to user — it will auto-sync.
-                    _uiState.value = _uiState.value.copy(
-                        isUploading = false,
-                        serverSyncSuccess = false
-                        // podSavedLocally=true remains — the data is safe
-                    )
+                    return@launch
                 }
-            } catch (networkException: Exception) {
-                // 📶 Network error — PoD IS safely stored locally.
-                // WorkManager will upload it when connectivity is restored.
-                // This is correct offline-first behavior, NOT a failure.
+
+                if (proofType == "pickup") {
+                    orderRepository.saveScanLocally(orderId, latitude, longitude, "pickup_photo")
+                } else {
+                    orderRepository.savePodLocally(orderId, file.absolutePath, latitude, longitude)
+                }
+
                 _uiState.value = _uiState.value.copy(
                     isUploading = false,
-                    serverSyncSuccess = false
-                    // podSavedLocally=true remains — the data is safe
+                    podSavedLocally = true,
+                    serverSyncSuccess = true
+                )
+            } catch (exception: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isUploading = false,
+                    isUploadSubmitted = false,
+                    error = "Verifikasi membutuhkan koneksi dan lokasi aktif. Coba lagi."
                 )
             }
+        }
+    }
+
+    private fun retrofit2.Response<*>.errorMessage(): String {
+        val fallback = "Verifikasi ditolak. Pastikan Anda berada di titik yang benar."
+        val raw = errorBody()?.string() ?: return fallback
+        return try {
+            Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content ?: fallback
+        } catch (_: Exception) {
+            fallback
         }
     }
     

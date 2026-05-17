@@ -75,13 +75,18 @@ class OrderRepository @Inject constructor(
      */
     suspend fun saveScanLocally(orderId: String, latitude: Double, longitude: Double, scanType: String) = withContext(Dispatchers.IO) {
         val order = orderDao.getOrderById(orderId) ?: return@withContext
+        val nextStatus = when (scanType) {
+            "pickup", "pickup_photo" -> "picked_up"
+            "delivery", "pod" -> "delivered"
+            else -> order.status
+        }
         orderDao.update(
             order.copy(
                 needsScanSync = true,
                 scanLatitude = latitude,
                 scanLongitude = longitude,
                 scanType = scanType,
-                status = "picked_up",
+                status = nextStatus,
                 updatedAt = System.currentTimeMillis()
             )
         )
@@ -90,12 +95,14 @@ class OrderRepository @Inject constructor(
     /**
      * Save PoD locally
      */
-    suspend fun savePodLocally(orderId: String, imageUri: String) = withContext(Dispatchers.IO) {
+    suspend fun savePodLocally(orderId: String, imageUri: String, latitude: Double? = null, longitude: Double? = null) = withContext(Dispatchers.IO) {
         val order = orderDao.getOrderById(orderId) ?: return@withContext
         orderDao.update(
             order.copy(
                 needsPodSync = true,
                 podImageUri = imageUri,
+                scanLatitude = latitude ?: order.scanLatitude,
+                scanLongitude = longitude ?: order.scanLongitude,
                 status = "delivered",
                 updatedAt = System.currentTimeMillis()
             )
@@ -193,12 +200,13 @@ class OrderRepository @Inject constructor(
                 val scanLatitude = order.scanLatitude
                 val scanLongitude = order.scanLongitude
                 if (scanLatitude != null && scanLongitude != null) {
-                    val request = com.lancar.courier.data.model.ScanRequest(
-                        orderId = order.orderId,
-                        scanType = order.scanType ?: "pickup",
-                        latitude = scanLatitude,
-                        longitude = scanLongitude
-                    )
+                        val request = com.lancar.courier.data.model.ScanRequest(
+                            orderId = order.orderId,
+                            scanType = order.scanType ?: "pickup",
+                            latitude = scanLatitude,
+                            longitude = scanLongitude,
+                            accuracy = null
+                        )
                     val response = apiService.scanPackage(request)
                     if (response.isSuccessful && response.body()?.success == true) {
                         orderDao.markScanAsSynced(listOf(order.orderId))
@@ -215,8 +223,12 @@ class OrderRepository @Inject constructor(
                         val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
                         val body = MultipartBody.Part.createFormData("photo", file.name, requestFile)
                         val orderIdBody = order.orderId.toRequestBody("text/plain".toMediaTypeOrNull())
+                        val latitudeBody = (order.scanLatitude ?: 0.0).toString().toRequestBody("text/plain".toMediaTypeOrNull())
+                        val longitudeBody = (order.scanLongitude ?: 0.0).toString().toRequestBody("text/plain".toMediaTypeOrNull())
+                        val accuracyBody = "0".toRequestBody("text/plain".toMediaTypeOrNull())
+                        val proofTypeBody = "delivery".toRequestBody("text/plain".toMediaTypeOrNull())
 
-                        val response = apiService.uploadPod(orderIdBody, body)
+                        val response = apiService.uploadPod(orderIdBody, latitudeBody, longitudeBody, accuracyBody, proofTypeBody, null, body)
                         if (response.isSuccessful && response.body()?.success == true) {
                             orderDao.markPodAsSynced(listOf(order.orderId))
                             syncedOrderIds.add(order.orderId)

@@ -24,6 +24,7 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
+import kotlinx.serialization.json.JsonElement
 
 /**
  * LANCAR API Service Interface
@@ -150,8 +151,13 @@ interface LANCARApiService {
     @POST("api/v1/orders/pod/upload")
     suspend fun uploadPod(
         @Part("order_id") orderId: RequestBody,
+        @Part("latitude") latitude: RequestBody,
+        @Part("longitude") longitude: RequestBody,
+        @Part("accuracy") accuracy: RequestBody,
+        @Part("proof_type") proofType: RequestBody,
+        @Part("barcode_value") barcodeValue: RequestBody?,
         @Part photo: MultipartBody.Part
-    ): Response<ApiResponse<String>>
+    ): Response<ApiResponse<JsonElement>>
 
     // ── LOCATION ────────────────────────────────────────────────
 

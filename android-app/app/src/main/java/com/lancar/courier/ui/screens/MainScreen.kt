@@ -105,6 +105,8 @@ fun MainScreen(
     var showScanScreen by remember { mutableStateOf(false) }
     var showChatScreen by remember { mutableStateOf(false) }
     var selectedOrder by remember { mutableStateOf<Order?>(null) }
+    var activeScanType by remember { mutableStateOf("pickup") }
+    var activeProofMode by remember { mutableStateOf("delivery") }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     if (courierRole == "on_demand") onDemandOffers.firstOrNull()?.let { offer ->
@@ -207,6 +209,7 @@ fun MainScreen(
     selectedOrder?.takeIf { showPodScreen }?.let { order ->
         ProofOfDeliveryScreen(
             order = order,
+            proofMode = activeProofMode,
             onImageConfirmed = { _ ->
                 // PoD saved in ProofOfDeliveryViewModel — refresh orders
                 orderViewModel.fetchOrdersFromBackend()
@@ -237,7 +240,18 @@ fun MainScreen(
                 )
                 selectedOrder = selectedOrder?.copy(status = newStatus)
             },
+            onVerifyPickup = {
+                activeScanType = "pickup"
+                showOrderDetail = false
+                showScanScreen = true
+            },
+            onCapturePickupProof = {
+                activeProofMode = "pickup"
+                showOrderDetail = false
+                showPodScreen = true
+            },
             onCapturePod = {
+                activeProofMode = "delivery"
                 showOrderDetail = false
                 showPodScreen = true
             },
@@ -264,20 +278,26 @@ fun MainScreen(
     // ── Scan Screen ────────────────────────────────────────────
     if (showScanScreen) {
         ScanScreen(
+            initialOrderId = selectedOrder?.orderId,
+            scanType = activeScanType,
+            title = if (activeScanType == "pickup") "Verifikasi Barang" else "Verifikasi Dropoff",
             onScanSuccess = { orderId ->
                 showScanScreen = false
                 scope.launch {
                     // Load real order from DB (may have been added by notification)
                     val order = orderViewModel.getOrderById(orderId)
                     if (order != null) {
-                        selectedOrder = order
+                        selectedOrder = order.copy(status = if (activeScanType == "pickup") "picked_up" else order.status)
                         showOrderDetail = true
                     } else {
                         snackbarHostState.showSnackbar("Order $orderId tidak ditemukan")
                     }
                 }
             },
-            onBack = { showScanScreen = false }
+            onBack = {
+                showScanScreen = false
+                if (selectedOrder != null) showOrderDetail = true
+            }
         )
         return
     }

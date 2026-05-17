@@ -30,6 +30,8 @@ routes.get('/api/v1/courier/offers', requireMobileOrWebAuth, (req, res) => contr
 routes.post('/api/v1/courier/offers/:id/accept', requireMobileOrWebAuth, (req, res) => controllers.acceptMobileCourierOffer(req, res));
 routes.post('/api/v1/courier/offers/:id/reject', requireMobileOrWebAuth, (req, res) => controllers.rejectMobileCourierOffer(req, res));
 routes.patch('/api/v1/courier/duty', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierDuty(req, res));
+routes.post('/api/v1/orders/scan', requireMobileOrWebAuth, (req, res) => controllers.scanMobileCourierOrder(req, res));
+routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, upload.single('photo'), (req, res) => controllers.uploadMobileCourierPod(req, res));
 
 routes.get('/auth/web/me', verifySession, (req, res) => controllers.me(req, res));
 routes.get('/auth/web/notifications', verifySession, (req, res) => controllers.getUserNotifications(req, res));

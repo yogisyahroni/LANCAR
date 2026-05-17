@@ -116,6 +116,12 @@ data class ScanRequest(
     
     @SerialName("longitude")
     val longitude: Double,
+
+    @SerialName("accuracy")
+    val accuracy: Float? = null,
+
+    @SerialName("barcode_value")
+    val barcodeValue: String? = null,
     
     @SerialName("warehouse_id")
     val warehouseId: String? = null,
@@ -192,4 +198,3 @@ data class AppVersion(
     @SerialName("update_url")
     val updateUrl: String
 )
-

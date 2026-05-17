@@ -1,5 +1,8 @@
 package com.lancar.courier.ui.screens.scan
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -13,26 +16,37 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.lancar.courier.ui.theme.Primary
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanScreen(
+    initialOrderId: String? = null,
+    scanType: String = "pickup",
+    title: String = "Verifikasi Barang",
     onScanSuccess: (String) -> Unit,
     onBack: () -> Unit,
     viewModel: ScanViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     
-    var orderIdInput by remember { mutableStateOf("") }
+    var orderIdInput by remember(initialOrderId) { mutableStateOf(initialOrderId.orEmpty()) }
     
     LaunchedEffect(uiState) {
         when (uiState) {
             is ScanUiState.Success -> {
                 val data = (uiState as ScanUiState.Success).scanData
-                Toast.makeText(context, "Scan successful for ${data.orderId}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Verifikasi berhasil untuk ${data.orderId}", Toast.LENGTH_SHORT).show()
                 onScanSuccess(data.orderId)
                 viewModel.resetState()
             }
@@ -47,7 +61,7 @@ fun ScanScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Scan Package") },
+                title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -78,7 +92,7 @@ fun ScanScreen(
             Spacer(modifier = Modifier.height(32.dp))
             
             Text(
-                text = "Manual Entry / Demo Scanner",
+                text = if (scanType == "pickup") "Scan barcode atau masukkan kode paket" else "Scan ulang kode paket",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -87,9 +101,10 @@ fun ScanScreen(
             OutlinedTextField(
                 value = orderIdInput,
                 onValueChange = { orderIdInput = it },
-                label = { Text("Order ID / Barcode") },
+                label = { Text(if (initialOrderId.isNullOrBlank()) "Order ID / Barcode" else "Barcode / kode paket") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                enabled = initialOrderId.isNullOrBlank()
             )
             
             Spacer(modifier = Modifier.height(24.dp))
@@ -97,13 +112,26 @@ fun ScanScreen(
             Button(
                 onClick = {
                     if (orderIdInput.isNotBlank()) {
-                        // Demo coords for Jakarta
-                        viewModel.processScan(
-                            orderId = orderIdInput,
-                            latitude = -6.2088,
-                            longitude = 106.8456,
-                            scanType = "pickup"
-                        )
+                        scope.launch {
+                            val location = getCurrentVerificationLocation(context)
+                            if (location == null) {
+                                Toast.makeText(
+                                    context,
+                                    "Lokasi belum tersedia. Aktifkan GPS dan coba lagi.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                return@launch
+                            }
+                            val orderId = initialOrderId ?: orderIdInput
+                            viewModel.processScan(
+                                orderId = orderId,
+                                latitude = location.latitude,
+                                longitude = location.longitude,
+                                accuracy = location.accuracy,
+                                scanType = scanType,
+                                barcodeValue = orderIdInput.takeIf { it != orderId }
+                            )
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
@@ -112,9 +140,33 @@ fun ScanScreen(
                 if (uiState is ScanUiState.Loading) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                 } else {
-                    Text("Simulate Scan")
+                    Text(if (scanType == "pickup") "Verifikasi Pickup" else "Verifikasi Dropoff")
                 }
             }
         }
+    }
+}
+
+private suspend fun getCurrentVerificationLocation(context: Context): android.location.Location? {
+    val fineGranted = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    val coarseGranted = ContextCompat.checkSelfPermission(
+        context,
+        Manifest.permission.ACCESS_COARSE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    if (!fineGranted && !coarseGranted) return null
+
+    val client = LocationServices.getFusedLocationProviderClient(context)
+    return try {
+        withTimeoutOrNull(8_000L) {
+            client.getCurrentLocation(
+                Priority.PRIORITY_HIGH_ACCURACY,
+                CancellationTokenSource().token
+            ).await()
+        } ?: client.lastLocation.await()
+    } catch (_: Exception) {
+        null
     }
 }

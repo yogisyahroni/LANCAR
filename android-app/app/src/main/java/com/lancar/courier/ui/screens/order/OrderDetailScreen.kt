@@ -28,6 +28,9 @@ import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.lancar.courier.data.model.Order
+import com.lancar.courier.data.model.cleanPayoutIdr
+import com.lancar.courier.data.model.normalizedWorkflowRole
+import com.lancar.courier.data.model.toRupiahCompact
 import com.lancar.courier.ui.theme.Primary
 import com.lancar.courier.ui.theme.PrimaryLight
 import com.lancar.courier.ui.theme.Secondary
@@ -48,6 +51,8 @@ fun OrderDetailScreen(
     order: Order,
     onBack: () -> Unit,
     onUpdateStatus: (String) -> Unit,
+    onVerifyPickup: () -> Unit,
+    onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
     onChatClick: () -> Unit
 ) {
@@ -123,12 +128,22 @@ fun OrderDetailScreen(
         ) {
             DeliveryMapCard(order = order)
             OrderInfoCard(order = order)
-            OrderActions(
-                order = order,
-                onStatusClick = { showStatusDialog = true },
-                onCapturePod = onCapturePod,
-                onChatClick = onChatClick
-            )
+            if (order.normalizedWorkflowRole() == "on_demand") {
+                OnDemandTaskActions(
+                    order = order,
+                    onVerifyPickup = onVerifyPickup,
+                    onCapturePickupProof = onCapturePickupProof,
+                    onCapturePod = onCapturePod,
+                    onChatClick = onChatClick
+                )
+            } else {
+                OrderActions(
+                    order = order,
+                    onStatusClick = { showStatusDialog = true },
+                    onCapturePod = onCapturePod,
+                    onChatClick = onChatClick
+                )
+            }
         }
     }
 }
@@ -194,9 +209,102 @@ private fun DeliveryMapCard(order: Order) {
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("Rute Pengantaran", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(if (order.normalizedWorkflowRole() == "on_demand") "Rute On Demand" else "Rute Pengantaran", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 DeliveryStop(icon = Icons.Default.Storefront, label = "Pickup", value = order.pickupAddress.ifBlank { "Alamat pickup belum tersedia" }, color = Primary)
                 DeliveryStop(icon = Icons.Default.LocationOn, label = "Dropoff", value = order.dropAddress.ifBlank { "Alamat tujuan belum tersedia" }, color = Secondary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnDemandTaskActions(
+    order: Order,
+    onVerifyPickup: () -> Unit,
+    onCapturePickupProof: () -> Unit,
+    onCapturePod: () -> Unit,
+    onChatClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val status = order.status.lowercase()
+    val pickupDone = status in setOf("picked_up", "in_transit", "delivered", "completed")
+    val deliveryDone = status in setOf("delivered", "completed")
+    val activeAddress = if (pickupDone) order.dropAddress else order.pickupAddress
+    val activeLabel = if (pickupDone) "Antar ke tujuan" else "Pickup barang"
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Tugas On Demand", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Surface(
+                color = PrimaryLight.copy(alpha = 0.45f),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(if (pickupDone) Icons.Default.LocationOn else Icons.Default.Storefront, contentDescription = null, tint = Primary)
+                        Text(activeLabel, fontWeight = FontWeight.Bold)
+                    }
+                    Text(activeAddress.ifBlank { "Alamat belum tersedia" }, style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "Payout bersih ${order.cleanPayoutIdr().toRupiahCompact()}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Success,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            ActionButton(
+                icon = Icons.Default.Navigation,
+                label = if (pickupDone) "Buka Maps Tujuan" else "Buka Maps Pickup",
+                prominent = true,
+                onClick = { openNavigation(context, activeAddress) }
+            )
+
+            ActionButton(
+                icon = Icons.Default.Chat,
+                label = "Chat Customer",
+                onClick = onChatClick
+            )
+
+            if (!pickupDone) {
+                ActionButton(
+                    icon = Icons.Default.QrCodeScanner,
+                    label = "Scan Barang",
+                    onClick = onVerifyPickup
+                )
+                ActionButton(
+                    icon = Icons.Default.CameraAlt,
+                    label = "Foto Barang",
+                    onClick = onCapturePickupProof
+                )
+                Text(
+                    "Gunakan scan jika ada barcode. Jika tidak ada barcode, foto barang menjadi bukti pickup.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else if (!deliveryDone) {
+                ActionButton(
+                    icon = Icons.Default.CameraAlt,
+                    label = "Selesaikan Pengiriman",
+                    onClick = onCapturePod
+                )
+                Text(
+                    "POD hanya bisa dikirim saat GPS berada di titik tujuan.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                AssistChip(
+                    onClick = {},
+                    label = { Text("Pengiriman selesai") },
+                    leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null) }
+                )
             }
         }
     }
@@ -298,15 +406,7 @@ private fun OrderActions(
                 label = "Mulai Navigasi",
                 prominent = true,
                 onClick = {
-                    try {
-                        val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(order.dropAddress)}")
-                        val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
-                        // Remove Rigid Package Constraint: allow Waze, Google Maps Go, and device default navigators
-                        val chooser = Intent.createChooser(mapIntent, "Pilih Aplikasi Peta/Navigasi")
-                        context.startActivity(chooser)
-                    } catch (e: Exception) {
-                        android.widget.Toast.makeText(context, "Tidak ada aplikasi peta terinstall.", android.widget.Toast.LENGTH_SHORT).show()
-                    }
+                    openNavigation(context, order.dropAddress)
                 }
             )
 
@@ -372,6 +472,17 @@ private fun OrderActions(
                 onClick = onStatusClick
             )
         }
+    }
+}
+
+private fun openNavigation(context: android.content.Context, address: String) {
+    try {
+        val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(address)}")
+        val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+        val chooser = Intent.createChooser(mapIntent, "Pilih Aplikasi Peta/Navigasi")
+        context.startActivity(chooser)
+    } catch (e: Exception) {
+        android.widget.Toast.makeText(context, "Tidak ada aplikasi peta terinstall.", android.widget.Toast.LENGTH_SHORT).show()
     }
 }
 
