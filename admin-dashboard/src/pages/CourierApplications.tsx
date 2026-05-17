@@ -72,13 +72,40 @@ export default function CourierApplications() {
     }
   })
 
+  const updateCapabilities = useMutation({
+    mutationFn: async ({ id, capabilities }: { id: string; capabilities: any[] }) => {
+      const res = await api.patch(`/admin/couriers/${id}/service-capabilities`, { capabilities })
+      return res.data.data || []
+    },
+    onSuccess: (capabilities) => {
+      queryClient.invalidateQueries({ queryKey: ['courier-applications'] })
+      setSelected((current: any) => current ? { ...current, service_capabilities: capabilities } : current)
+      toast.success('Eligibility layanan diperbarui')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || error.message)
+    }
+  })
+
   const applications = data || []
   const active = selected || applications[0]
   const checklist = active?.onboarding_checklist || {}
   const docs = checklist.documents || {}
   const rules = checklist.rules || {}
   const documentRows = active?.documents || []
-  const allPassed = [...Object.values(docs), ...Object.values(rules)].every(Boolean)
+  const serviceCapabilities = active?.service_capabilities || []
+  const allPassed = Object.keys(documentLabels).every((key) => Boolean(docs[key]))
+    && Object.keys(ruleLabels).every((key) => Boolean(rules[key]))
+  const setCapabilityStatus = (serviceCode: string, nextStatus: string, reason?: string) => {
+    if (!active) return
+    const capabilities = serviceCapabilities.map((item: any) => ({
+      service_code: item.service_code,
+      status: item.service_code === serviceCode ? nextStatus : item.status,
+      max_weight_kg: item.max_weight_kg,
+      eligibility_reason: item.service_code === serviceCode ? reason : item.eligibility_reason
+    }))
+    updateCapabilities.mutate({ id: active.id, capabilities })
+  }
 
   return (
     <div className="space-y-6">
@@ -143,10 +170,8 @@ export default function CourierApplications() {
               <div className="p-6 text-sm text-zinc-500">Belum ada kandidat pada status ini.</div>
             ) : applications.map((item: any) => {
               const itemChecklist = item.onboarding_checklist || {}
-              const passed = [
-                ...Object.values(itemChecklist.documents || {}),
-                ...Object.values(itemChecklist.rules || {})
-              ].every(Boolean)
+              const passed = Object.keys(documentLabels).every((key) => Boolean((itemChecklist.documents || {})[key]))
+                && Object.keys(ruleLabels).every((key) => Boolean((itemChecklist.rules || {})[key]))
               return (
                 <button
                   key={item.id}
@@ -210,6 +235,23 @@ export default function CourierApplications() {
               <ReviewSection title="Aturan Kendaraan">
                 {Object.entries(ruleLabels).map(([key, label]) => (
                   <ChecklistRow key={key} label={label} passed={Boolean(rules[key])} />
+                ))}
+              </ReviewSection>
+
+              <ReviewSection title="Eligibility Layanan">
+                {serviceCapabilities.length === 0 ? (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-zinc-500">
+                    Belum ada capability. Simpan ulang status kandidat untuk generate layanan dari kendaraan utama.
+                  </div>
+                ) : serviceCapabilities.map((item: any) => (
+                  <ServiceCapabilityRow
+                    key={item.service_code}
+                    item={item}
+                    disabled={updateCapabilities.isPending}
+                    onEnable={() => setCapabilityStatus(item.service_code, 'enabled', 'Disetujui admin untuk kendaraan utama')}
+                    onDisable={() => setCapabilityStatus(item.service_code, 'disabled', 'Dinonaktifkan admin untuk kendaraan ini')}
+                    onReject={() => setCapabilityStatus(item.service_code, 'rejected', 'Tidak memenuhi eligibility kendaraan')}
+                  />
                 ))}
               </ReviewSection>
 
@@ -304,6 +346,67 @@ function ChecklistRow({ label, passed, fileUrl }: { label: string; passed: boole
         )}
       </div>
       {passed ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" /> : <XCircle className="h-5 w-5 shrink-0 text-red-400" />}
+    </div>
+  )
+}
+
+function ServiceCapabilityRow({
+  item,
+  disabled,
+  onEnable,
+  onDisable,
+  onReject
+}: {
+  item: any;
+  disabled: boolean;
+  onEnable: () => void;
+  onDisable: () => void;
+  onReject: () => void;
+}) {
+  const enabled = item.status === 'enabled'
+  const rejected = item.status === 'rejected'
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-zinc-100">{item.service_name || item.service_code}</p>
+          <p className="mt-1 text-xs text-zinc-500">
+            {item.service_code} • {item.service_category || '-'} • max {item.max_weight_kg || 0} kg
+          </p>
+        </div>
+        <span className={cn(
+          'rounded-full px-2 py-1 text-[10px] font-black uppercase',
+          enabled ? 'bg-emerald-500/10 text-emerald-300' : rejected ? 'bg-red-500/10 text-red-300' : 'bg-amber-500/10 text-amber-300'
+        )}>
+          {item.status}
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={onEnable}
+          disabled={disabled || enabled}
+          className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Enable
+        </button>
+        <button
+          type="button"
+          onClick={onDisable}
+          disabled={disabled || item.status === 'disabled'}
+          className="rounded-lg bg-zinc-800 px-3 py-2 text-xs font-bold text-zinc-100 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Disable
+        </button>
+        <button
+          type="button"
+          onClick={onReject}
+          disabled={disabled || rejected}
+          className="rounded-lg bg-red-600 px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Reject
+        </button>
+      </div>
     </div>
   )
 }

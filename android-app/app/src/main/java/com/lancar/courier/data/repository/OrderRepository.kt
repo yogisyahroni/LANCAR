@@ -228,7 +228,8 @@ class OrderRepository @Inject constructor(
                         val accuracyBody = "0".toRequestBody("text/plain".toMediaTypeOrNull())
                         val proofTypeBody = "delivery".toRequestBody("text/plain".toMediaTypeOrNull())
 
-                        val response = apiService.uploadPod(orderIdBody, latitudeBody, longitudeBody, accuracyBody, proofTypeBody, null, body)
+                        val spoofRiskBody = "offline_sync".toRequestBody("text/plain".toMediaTypeOrNull())
+                        val response = apiService.uploadPod(orderIdBody, latitudeBody, longitudeBody, accuracyBody, proofTypeBody, null, spoofRiskBody, body)
                         if (response.isSuccessful && response.body()?.success == true) {
                             orderDao.markPodAsSynced(listOf(order.orderId))
                             syncedOrderIds.add(order.orderId)

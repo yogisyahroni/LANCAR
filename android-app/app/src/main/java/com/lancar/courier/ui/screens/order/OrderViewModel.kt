@@ -4,9 +4,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lancar.courier.data.api.LANCARApiService
 import com.lancar.courier.data.model.CourierProfile
+import com.lancar.courier.data.model.CourierCapabilityProfile
+import com.lancar.courier.data.model.CourierHotspot
+import com.lancar.courier.data.model.CourierPerformanceSummary
+import com.lancar.courier.data.model.CourierRoutePreview
+import com.lancar.courier.data.model.CourierSafetyEventRequest
+import com.lancar.courier.data.model.CourierServiceProduct
+import com.lancar.courier.data.model.CourierTrainingCompleteRequest
 import com.lancar.courier.data.model.DutyStatusRequest
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.StatusUpdateRequest
+import com.lancar.courier.data.model.TripShareRequest
 import com.lancar.courier.data.repository.OrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +58,21 @@ class OrderViewModel @Inject constructor(
 
     private val _courierProfile = MutableStateFlow<CourierProfile?>(null)
     val courierProfile: StateFlow<CourierProfile?> = _courierProfile.asStateFlow()
+
+    private val _onDemandServices = MutableStateFlow<List<CourierServiceProduct>>(emptyList())
+    val onDemandServices: StateFlow<List<CourierServiceProduct>> = _onDemandServices.asStateFlow()
+
+    private val _onDemandHotspots = MutableStateFlow<List<CourierHotspot>>(emptyList())
+    val onDemandHotspots: StateFlow<List<CourierHotspot>> = _onDemandHotspots.asStateFlow()
+
+    private val _performanceSummary = MutableStateFlow<CourierPerformanceSummary?>(null)
+    val performanceSummary: StateFlow<CourierPerformanceSummary?> = _performanceSummary.asStateFlow()
+
+    private val _capabilityProfile = MutableStateFlow<CourierCapabilityProfile?>(null)
+    val capabilityProfile: StateFlow<CourierCapabilityProfile?> = _capabilityProfile.asStateFlow()
+
+    private val _routePreviews = MutableStateFlow<Map<String, CourierRoutePreview>>(emptyMap())
+    val routePreviews: StateFlow<Map<String, CourierRoutePreview>> = _routePreviews.asStateFlow()
 
     private val _lastRemoteSyncAt = MutableStateFlow<Long?>(null)
     val lastRemoteSyncAt: StateFlow<Long?> = _lastRemoteSyncAt.asStateFlow()
@@ -168,12 +191,33 @@ class OrderViewModel @Inject constructor(
                     ?: "on_demand"
 
                 if (currentRole == "on_demand") {
+                    val serviceResponse = apiService.getOnDemandServices()
+                    if (serviceResponse.isSuccessful && serviceResponse.body()?.success == true) {
+                        _onDemandServices.update { serviceResponse.body()?.data ?: emptyList() }
+                    }
+
+                    val hotspotResponse = apiService.getOnDemandHotspots()
+                    if (hotspotResponse.isSuccessful && hotspotResponse.body()?.success == true) {
+                        _onDemandHotspots.update { hotspotResponse.body()?.data ?: emptyList() }
+                    }
+
                     val offerResponse = apiService.getOnDemandOffers()
                     if (offerResponse.isSuccessful && offerResponse.body()?.success == true) {
                         _offers.update { offerResponse.body()?.data ?: emptyList() }
                     }
                 } else {
                     _offers.update { emptyList() }
+                    _onDemandHotspots.update { emptyList() }
+                }
+
+                val performanceResponse = apiService.getCourierPerformance()
+                if (performanceResponse.isSuccessful && performanceResponse.body()?.success == true) {
+                    _performanceSummary.update { performanceResponse.body()?.data }
+                }
+
+                val capabilityResponse = apiService.getCourierCapabilities()
+                if (capabilityResponse.isSuccessful && capabilityResponse.body()?.success == true) {
+                    _capabilityProfile.update { capabilityResponse.body()?.data }
                 }
 
                 val response = apiService.getOrders()
@@ -224,6 +268,83 @@ class OrderViewModel @Inject constructor(
             }.onFailure { e ->
                 _error.update { e.message ?: "Gagal menolak pekerjaan" }
             }
+        }
+    }
+
+    fun loadRoutePreview(orderId: String) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.getCourierRoutePreview(orderId)
+                if (response.isSuccessful && response.body()?.success == true && response.body()?.data != null) {
+                    val preview = response.body()!!.data!!
+                    _routePreviews.update { it + (orderId to preview) }
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    suspend fun createSafetyEvent(
+        orderId: String?,
+        eventType: String,
+        severity: String,
+        latitude: Double?,
+        longitude: Double?,
+        accuracy: Float?,
+        message: String?
+    ): Result<String> {
+        return try {
+            val response = apiService.createSafetyEvent(
+                CourierSafetyEventRequest(
+                    orderId = orderId,
+                    eventType = eventType,
+                    severity = severity,
+                    latitude = latitude,
+                    longitude = longitude,
+                    accuracy = accuracy,
+                    message = message
+                )
+            )
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                Result.success(body.message ?: "Laporan terkirim.")
+            } else {
+                Result.failure(Exception(body?.message ?: response.errorMessage()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createTripShare(orderId: String): Result<String> {
+        return try {
+            val response = apiService.createTripShare(TripShareRequest(orderId))
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.data != null) {
+                Result.success(body.data.url)
+            } else {
+                Result.failure(Exception(body?.message ?: response.errorMessage()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun completeTraining(): Result<String> {
+        return try {
+            val response = apiService.completeCourierTraining(CourierTrainingCompleteRequest())
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                val capabilityResponse = apiService.getCourierCapabilities()
+                if (capabilityResponse.isSuccessful && capabilityResponse.body()?.success == true) {
+                    _capabilityProfile.update { capabilityResponse.body()?.data }
+                }
+                Result.success(body.message ?: "Training selesai.")
+            } else {
+                Result.failure(Exception(body?.message ?: response.errorMessage()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

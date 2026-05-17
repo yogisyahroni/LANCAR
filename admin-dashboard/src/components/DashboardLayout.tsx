@@ -21,7 +21,8 @@ import {
   History,
   Activity,
   ChevronRight,
-  Layers
+  Layers,
+  ShieldAlert
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -147,6 +148,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: Layers, label: "Warehouse Ops", path: "/warehouse-operations" },
     { icon: Truck, label: "Couriers", path: "/couriers" },
     { icon: ClipboardCheck, label: "Courier Review", path: "/courier-applications" },
+    { icon: ShieldAlert, label: "Courier Safety", path: "/courier-safety-events" },
     { icon: BarChart3, label: "3-Leg Readiness", path: "/three-legs-readiness" },
     { icon: Activity, label: "Feature Flags", path: "/feature-flags" },
     { icon: DollarSign, label: "Pricing", path: "/pricing" },

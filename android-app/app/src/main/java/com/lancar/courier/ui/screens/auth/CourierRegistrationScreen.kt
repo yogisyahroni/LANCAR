@@ -32,6 +32,31 @@ fun CourierRegistrationScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var pendingDocType by remember { mutableStateOf<String?>(null) }
+    val requiredDocuments = listOf(
+        state.ktpRef,
+        state.simRef,
+        state.stnkRef,
+        state.skpdRef,
+        state.vehiclePhotoRef,
+        state.skckRef,
+        state.bankRef
+    )
+    val uploadedDocumentCount = requiredDocuments.count { it.isNotBlank() }
+    val profileReady = state.fullName.isNotBlank() &&
+        state.phoneNumber.isNotBlank() &&
+        state.email.isNotBlank() &&
+        state.password.isNotBlank()
+    val vehicleReady = state.vehiclePlate.isNotBlank() &&
+        state.vehicleBrand.isNotBlank() &&
+        state.vehicleModel.isNotBlank() &&
+        state.vehicleYear.isNotBlank() &&
+        state.vehicleCc.isNotBlank() &&
+        state.fourStroke &&
+        state.simActive &&
+        state.skpdTaxActive
+    val bankReady = state.bankCode.isNotBlank() &&
+        state.bankAccountNumber.isNotBlank() &&
+        state.bankAccountName.isNotBlank()
     val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         val docType = pendingDocType
         if (uri != null && docType != null) {
@@ -63,6 +88,14 @@ fun CourierRegistrationScreen(
 
             Text("Daftar Kurir On-Demand", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color.White)
             Text("Data ini akan masuk ke admin untuk review dokumen dan kendaraan.", color = Color.White.copy(alpha = 0.78f))
+
+            RegistrationProgressCard(
+                profileReady = profileReady,
+                vehicleReady = vehicleReady,
+                bankReady = bankReady,
+                uploadedDocumentCount = uploadedDocumentCount,
+                totalDocuments = requiredDocuments.size
+            )
 
             if (state.isSubmitted) {
                 Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -107,6 +140,15 @@ fun CourierRegistrationScreen(
 
             RegistrationSection("Referensi Dokumen") {
                 Text("Upload JPG, PNG, WEBP, atau PDF maksimal 10 MB per dokumen.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                LinearProgressIndicator(
+                    progress = { uploadedDocumentCount / requiredDocuments.size.toFloat() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp),
+                    color = Primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+                Text("$uploadedDocumentCount dari ${requiredDocuments.size} dokumen wajib terupload", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 DocumentUploadRow("e-KTP Asli", "ktp", state.ktpRef, state.documentFileNames["ktp"], state.uploadingDocType) { docType ->
                     pendingDocType = docType
                     documentPicker.launch("image/*")
@@ -158,6 +200,63 @@ fun CourierRegistrationScreen(
             }
 
             Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun RegistrationProgressCard(
+    profileReady: Boolean,
+    vehicleReady: Boolean,
+    bankReady: Boolean,
+    uploadedDocumentCount: Int,
+    totalDocuments: Int
+) {
+    val progressSteps = listOf(
+        "Data diri" to profileReady,
+        "Kendaraan" to vehicleReady,
+        "Rekening" to bankReady,
+        "Dokumen" to (uploadedDocumentCount == totalDocuments)
+    )
+    val completed = progressSteps.count { it.second }
+    Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text("Progress Pendaftaran", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("$completed dari ${progressSteps.size} tahap siap direview", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                AssistChip(
+                    onClick = {},
+                    label = { Text("$uploadedDocumentCount/$totalDocuments dokumen") },
+                    leadingIcon = { Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                )
+            }
+            LinearProgressIndicator(
+                progress = { completed / progressSteps.size.toFloat() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp),
+                color = Primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                progressSteps.forEach { (label, ready) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            if (ready) "Siap" else "Lengkapi",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (ready) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
         }
     }
 }

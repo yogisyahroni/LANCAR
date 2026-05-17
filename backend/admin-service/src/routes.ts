@@ -25,11 +25,19 @@ routes.post('/api/v1/auth/courier/register', (req, res) => controllers.submitOnD
 routes.get('/api/v1/auth/courier/registration-links/:token', (req, res) => controllers.getPublicCourierRegistrationLink(req, res));
 routes.post('/api/v1/auth/courier/register/:token', (req, res) => controllers.submitCourierApplicationByRegistrationLink(req, res));
 routes.get('/api/v1/courier/profile', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierProfile(req, res));
+routes.get('/api/v1/courier/on-demand/services', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOnDemandServices(req, res));
+routes.get('/api/v1/courier/on-demand/hotspots', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierHotspots(req, res));
+routes.get('/api/v1/courier/performance', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPerformance(req, res));
+routes.get('/api/v1/courier/capabilities', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierCapabilities(req, res));
+routes.post('/api/v1/courier/training/complete', requireMobileOrWebAuth, (req, res) => controllers.completeMobileCourierTraining(req, res));
 routes.get('/api/v1/courier/orders', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOrders(req, res));
 routes.get('/api/v1/courier/offers', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOffers(req, res));
 routes.post('/api/v1/courier/offers/:id/accept', requireMobileOrWebAuth, (req, res) => controllers.acceptMobileCourierOffer(req, res));
 routes.post('/api/v1/courier/offers/:id/reject', requireMobileOrWebAuth, (req, res) => controllers.rejectMobileCourierOffer(req, res));
 routes.patch('/api/v1/courier/duty', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierDuty(req, res));
+routes.post('/api/v1/courier/safety-events', requireMobileOrWebAuth, (req, res) => controllers.createMobileCourierSafetyEvent(req, res));
+routes.post('/api/v1/courier/trip-share', requireMobileOrWebAuth, (req, res) => controllers.createMobileCourierTripShare(req, res));
+routes.get('/api/v1/courier/orders/:orderId/route', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierRoutePreview(req, res));
 routes.post('/api/v1/orders/scan', requireMobileOrWebAuth, (req, res) => controllers.scanMobileCourierOrder(req, res));
 routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, upload.single('photo'), (req, res) => controllers.uploadMobileCourierPod(req, res));
 
@@ -83,10 +91,12 @@ routes.post('/auth/web/orders/bulk/pay', verifyWebSession, (req, res) => control
 routes.get('/health', (req, res) => controllers.getSystemHealth(req, res));
 routes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res));
 routes.get('/api/v1/system/latest-version', (req, res) => controllers.getLatestVersion(req, res));
+routes.get('/track/:token', (req, res) => controllers.getPublicTripShare(req, res));
 routes.post('/payments/midtrans/notification', (req, res) => controllers.customerOrder.handleMidtransNotification(req, res));
 
 // Admin routes - Protected by Admin Auth and Role requirement
 routes.use('/admin', requireAuth, requireRole(['admin', 'super_admin']));
+routes.get('/admin/courier-safety-events', (req, res) => controllers.listAdminCourierSafetyEvents(req, res));
 
 // Admin Dashboard & Stats
 
@@ -136,6 +146,7 @@ routes.get('/admin/couriers', (req, res) => controllers.getAllCouriers(req, res)
 routes.get('/admin/couriers/stats', (req, res) => controllers.getCourierStats(req, res));
 routes.get('/admin/couriers/:id', (req, res) => controllers.getCourierById(req, res));
 routes.patch('/admin/couriers/:id/status', (req, res) => controllers.updateCourierStatus(req, res));
+routes.patch('/admin/couriers/:id/service-capabilities', (req, res) => controllers.updateCourierServiceCapabilities(req, res));
 routes.get('/admin/couriers/:id/history', (req, res) => controllers.getCourierHistory(req, res));
 routes.get('/admin/couriers/export', (req, res) => controllers.exportCouriers(req, res));
 

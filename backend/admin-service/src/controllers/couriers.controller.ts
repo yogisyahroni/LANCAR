@@ -64,10 +64,120 @@ const buildOnboardingChecklist = (body: any, applicationChannel = 'on_demand') =
   };
 };
 
+const requiredCourierDocuments = ['ktp', 'sim', 'stnk', 'skpd', 'vehicle_photo', 'skck', 'bank_account'];
+
 const checklistPassed = (checklist: any) => {
-  const docs = Object.values(checklist.documents || {});
-  const rules = Object.values(checklist.rules || {});
-  return [...docs, ...rules].every(Boolean);
+  const docs = checklist.documents || {};
+  const rules = checklist.rules || {};
+  const requiredDocsPassed = requiredCourierDocuments.every((key) => Boolean(docs[key]));
+  const ruleValues = Object.values(rules);
+  return requiredDocsPassed && ruleValues.length > 0 && ruleValues.every(Boolean);
+};
+
+const vehicleProductType = (profile: any) => {
+  const value = String(profile.vehicle_category || profile.vehicle_type || '').toLowerCase();
+  return ['mobil', 'car', 'box'].includes(value) ? 'car' : 'motor';
+};
+
+const upsertCourierVehicleAndCapabilities = async (
+  client: any,
+  courierProfileId: string,
+  options: { approveEligible?: boolean; approvedBy?: string | null } = {}
+) => {
+  const profileRes = await client.query(
+    `SELECT id, vehicle_type, vehicle_plate, vehicle_cc, vehicle_brand, vehicle_model, vehicle_year,
+            vehicle_category, application_channel, verification_status, onboarding_checklist
+     FROM courier_profiles
+     WHERE id = $1`,
+    [courierProfileId]
+  );
+  if (profileRes.rows.length === 0) return;
+
+  const profile = profileRes.rows[0];
+  const type = vehicleProductType(profile);
+  const vehicleRes = await client.query(
+    `INSERT INTO courier_vehicles (
+       courier_profile_id, plate_number, vehicle_type, vehicle_category, brand, model,
+       production_year, engine_cc, engine_type, max_weight_kg, verification_status,
+       approved_by, approved_at, updated_at
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CASE WHEN $11 = 'approved' THEN NOW() ELSE NULL END, NOW())
+     ON CONFLICT (courier_profile_id, plate_number) DO UPDATE SET
+       vehicle_type = EXCLUDED.vehicle_type,
+       vehicle_category = EXCLUDED.vehicle_category,
+       brand = EXCLUDED.brand,
+       model = EXCLUDED.model,
+       production_year = EXCLUDED.production_year,
+       engine_cc = EXCLUDED.engine_cc,
+       engine_type = EXCLUDED.engine_type,
+       max_weight_kg = EXCLUDED.max_weight_kg,
+       verification_status = EXCLUDED.verification_status,
+       approved_by = COALESCE(EXCLUDED.approved_by, courier_vehicles.approved_by),
+       approved_at = COALESCE(EXCLUDED.approved_at, courier_vehicles.approved_at),
+       updated_at = NOW()
+     RETURNING id`,
+    [
+      courierProfileId,
+      normalizePlate(profile.vehicle_plate || `UNKNOWN-${String(courierProfileId).slice(0, 8)}`),
+      type,
+      profile.vehicle_category || profile.vehicle_type || null,
+      profile.vehicle_brand || null,
+      profile.vehicle_model || null,
+      Number(profile.vehicle_year || 0) || null,
+      Number(profile.vehicle_cc || 0) || null,
+      profile.onboarding_checklist?.summary?.engine_type || null,
+      type === 'car' ? 200 : 20,
+      options.approveEligible ? 'approved' : (profile.verification_status === 'approved' ? 'approved' : 'pending'),
+      options.approvedBy || null
+    ]
+  );
+
+  const vehicleId = vehicleRes.rows[0].id;
+  const applicationChannel = normalizeApplicationChannel(profile.application_channel, 'on_demand');
+  const serviceFilter = applicationChannel === 'on_demand'
+    ? "dsp.service_category = 'on_demand'"
+    : "dsp.service_category <> 'on_demand'";
+
+  await client.query(
+    `INSERT INTO courier_service_capabilities (
+       courier_profile_id, vehicle_id, service_code, application_channel, status,
+       eligibility_reason, max_weight_kg, approved_by, approved_at, updated_at
+     )
+     SELECT
+       $1,
+       $2,
+       dsp.code,
+       $3,
+       CASE WHEN $4::boolean THEN 'enabled' ELSE 'pending_review' END,
+       CASE
+         WHEN $3 = 'on_demand' THEN 'Eligible for on-demand product based on approved vehicle profile.'
+         ELSE 'Eligible for non on-demand operational product based on approved vehicle profile.'
+       END,
+       COALESCE(dsp.max_weight_kg, CASE WHEN $5 = 'car' THEN 200 ELSE 20 END),
+       $6,
+       CASE WHEN $4::boolean THEN NOW() ELSE NULL END,
+       NOW()
+     FROM delivery_service_products dsp
+     WHERE dsp.is_enabled = TRUE
+       AND ${serviceFilter}
+       AND (
+         COALESCE(array_length(dsp.vehicle_types, 1), 0) = 0
+         OR $5 = ANY(dsp.vehicle_types)
+         OR ($5 = 'motor' AND 'bike' = ANY(dsp.vehicle_types))
+       )
+     ON CONFLICT (courier_profile_id, service_code) DO UPDATE SET
+       vehicle_id = EXCLUDED.vehicle_id,
+       application_channel = EXCLUDED.application_channel,
+       status = CASE
+         WHEN courier_service_capabilities.status IN ('disabled', 'rejected') THEN courier_service_capabilities.status
+         ELSE EXCLUDED.status
+       END,
+       eligibility_reason = EXCLUDED.eligibility_reason,
+       max_weight_kg = EXCLUDED.max_weight_kg,
+       approved_by = COALESCE(EXCLUDED.approved_by, courier_service_capabilities.approved_by),
+       approved_at = COALESCE(EXCLUDED.approved_at, courier_service_capabilities.approved_at),
+       updated_at = NOW()`,
+    [courierProfileId, vehicleId, applicationChannel, Boolean(options.approveEligible), type, options.approvedBy || null]
+  );
 };
 
 const sanitizeExtension = (filename: string, mimeType?: string) => {
@@ -431,6 +541,8 @@ const submitCourierApplication = async (
       );
     }
 
+    await upsertCourierVehicleAndCapabilities(client, courierId, { approveEligible: false });
+
     if (registrationLinkId) {
       await client.query(
         'UPDATE courier_registration_links SET use_count = use_count + 1, updated_at = NOW() WHERE id = $1',
@@ -518,7 +630,29 @@ const getCourierApplications = async (req: Request, res: Response, requestedChan
             WHERE cd.courier_id = cp.id
           ),
           '[]'::jsonb
-        ) AS documents
+        ) AS documents,
+        COALESCE(
+          (
+            SELECT jsonb_agg(
+              jsonb_build_object(
+                'id', csc.id,
+                'service_code', csc.service_code,
+                'service_name', dsp.name,
+                'service_category', dsp.service_category,
+                'service_family', dsp.service_family,
+                'status', csc.status,
+                'max_weight_kg', csc.max_weight_kg,
+                'eligibility_reason', csc.eligibility_reason,
+                'updated_at', csc.updated_at
+              )
+              ORDER BY dsp.display_order ASC, dsp.name ASC
+            )
+            FROM courier_service_capabilities csc
+            JOIN delivery_service_products dsp ON dsp.code = csc.service_code
+            WHERE csc.courier_profile_id = cp.id
+          ),
+          '[]'::jsonb
+        ) AS service_capabilities
        FROM courier_profiles cp
        JOIN users u ON u.id = cp.user_id
        WHERE cp.application_channel = $1 ${statusFilter}
@@ -666,6 +800,25 @@ export const getCourierById = async (req: Request, res: Response): Promise<void>
     }
 
     const docsRes = await readDb.query('SELECT * FROM courier_documents WHERE courier_id = $1', [id]);
+    const vehicleRes = await readDb.query(
+      `SELECT * FROM courier_vehicles WHERE courier_profile_id = $1 ORDER BY is_primary DESC, created_at DESC`,
+      [id]
+    );
+    const capabilitiesRes = await readDb.query(
+      `SELECT csc.*, dsp.name AS service_name, dsp.service_category, dsp.service_family, dsp.route_model
+       FROM courier_service_capabilities csc
+       JOIN delivery_service_products dsp ON dsp.code = csc.service_code
+       WHERE csc.courier_profile_id = $1
+       ORDER BY dsp.display_order ASC, dsp.name ASC`,
+      [id]
+    );
+    const trainingRes = await readDb.query(
+      `SELECT training_key, title, completed_at, expires_at
+       FROM courier_training_completions
+       WHERE courier_profile_id = $1
+       ORDER BY completed_at DESC`,
+      [id]
+    );
     // Use recent order legs for activity history
     const ratingsRes = await readDb.query(`
       SELECT ol.created_at, ol.status, o.id as order_id, o.model
@@ -678,6 +831,9 @@ export const getCourierById = async (req: Request, res: Response): Promise<void>
     res.json({
       ...courierRes.rows[0],
       documents: docsRes.rows,
+      vehicles: vehicleRes.rows,
+      service_capabilities: capabilitiesRes.rows,
+      training_completions: trainingRes.rows,
       recent_ratings: ratingsRes.rows
     });
   } catch (error: any) {
@@ -686,7 +842,7 @@ export const getCourierById = async (req: Request, res: Response): Promise<void>
 };
 
 export const updateCourierStatus = async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = String(req.params.id);
   const { status } = req.body;
 
   if (!['Active', 'Suspended', 'Pending', 'Rejected'].includes(status)) {
@@ -731,6 +887,10 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
         'UPDATE courier_profiles SET verification_status = $1, reviewed_at = NOW(), reviewed_by = $3, updated_at = NOW() WHERE id = $2',
         ['approved', id, req.user?.id || null]
       );
+      await upsertCourierVehicleAndCapabilities(client, id, {
+        approveEligible: true,
+        approvedBy: req.user?.id || null
+      });
     } else if (status === 'Rejected') {
       await client.query(
         'UPDATE courier_profiles SET verification_status = $1, rejection_reason = $3, reviewed_at = NOW(), reviewed_by = $4, updated_at = NOW() WHERE id = $2',
@@ -772,6 +932,172 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
 
     await client.query('COMMIT');
     res.json(result.rows[0]);
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const getMobileCourierCapabilities = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  try {
+    const profileRes = await readDb.query(
+      `SELECT cp.*, u.full_name, u.phone_number
+       FROM courier_profiles cp
+       JOIN users u ON u.id = cp.user_id
+       WHERE cp.user_id = $1`,
+      [req.user.id]
+    );
+
+    if (profileRes.rows.length === 0) {
+      res.status(404).json({ success: false, data: null, message: 'Courier profile not found', code: 'ERR_NOT_FOUND' });
+      return;
+    }
+
+    const profile = profileRes.rows[0];
+    const vehicleRes = await readDb.query(
+      `SELECT id, plate_number, vehicle_type, vehicle_category, brand, model, production_year, engine_cc,
+              max_weight_kg, verification_status, approved_at
+       FROM courier_vehicles
+       WHERE courier_profile_id = $1
+       ORDER BY is_primary DESC, created_at DESC`,
+      [profile.id]
+    );
+    const capabilitiesRes = await readDb.query(
+      `SELECT csc.id, csc.service_code, dsp.name AS service_name, dsp.description, dsp.service_category,
+              dsp.service_family, dsp.route_model, csc.status, csc.eligibility_reason,
+              csc.max_weight_kg, csc.approved_at
+       FROM courier_service_capabilities csc
+       JOIN delivery_service_products dsp ON dsp.code = csc.service_code
+       WHERE csc.courier_profile_id = $1
+       ORDER BY dsp.display_order ASC, dsp.name ASC`,
+      [profile.id]
+    );
+    const trainingRes = await readDb.query(
+      `SELECT training_key, title, completed_at, expires_at
+       FROM courier_training_completions
+       WHERE courier_profile_id = $1
+       ORDER BY completed_at DESC`,
+      [profile.id]
+    );
+
+    const checklist = profile.onboarding_checklist || {};
+    const docs = checklist.documents || {};
+    const rules = checklist.rules || {};
+    const requiredDocsPassed = requiredCourierDocuments.every((key) => Boolean(docs[key]));
+    const rulesPassed = Object.values(rules).length > 0 && Object.values(rules).every(Boolean);
+    const onboardingSteps = [
+      { key: 'identity_documents', title: 'Dokumen identitas', status: requiredDocsPassed ? 'complete' : 'incomplete' },
+      { key: 'vehicle_rules', title: 'Kelayakan kendaraan', status: rulesPassed ? 'complete' : 'incomplete' },
+      { key: 'admin_review', title: 'Review admin', status: profile.verification_status === 'approved' ? 'complete' : profile.verification_status },
+      { key: 'training', title: 'Training operasional', status: trainingRes.rows.length > 0 ? 'complete' : 'pending' }
+    ];
+
+    res.json({
+      success: true,
+      data: {
+        profile: {
+          id: profile.id,
+          application_channel: profile.application_channel,
+          verification_status: profile.verification_status
+        },
+        vehicle: vehicleRes.rows[0] || null,
+        vehicles: vehicleRes.rows,
+        service_capabilities: capabilitiesRes.rows,
+        onboarding_steps: onboardingSteps,
+        training_completions: trainingRes.rows
+      },
+      message: 'Courier capability profile loaded'
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message, code: 'ERR_INTERNAL' });
+  }
+};
+
+export const completeMobileCourierTraining = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  try {
+    const profileRes = await db.query('SELECT id FROM courier_profiles WHERE user_id = $1', [req.user.id]);
+    if (profileRes.rows.length === 0) {
+      res.status(404).json({ success: false, data: null, message: 'Courier profile not found', code: 'ERR_NOT_FOUND' });
+      return;
+    }
+
+    const trainingKey = String(req.body?.training_key || 'on_demand_safety_v1');
+    const title = String(req.body?.title || 'On-Demand Safety and Service Standard');
+    const result = await db.query(
+      `INSERT INTO courier_training_completions (courier_profile_id, training_key, title, metadata)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (courier_profile_id, training_key) DO UPDATE SET
+         title = EXCLUDED.title,
+         completed_at = NOW(),
+         metadata = EXCLUDED.metadata
+       RETURNING training_key, title, completed_at`,
+      [profileRes.rows[0].id, trainingKey, title, JSON.stringify(req.body?.metadata || {})]
+    );
+
+    res.json({ success: true, data: result.rows[0], message: 'Training marked as completed' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message, code: 'ERR_INTERNAL' });
+  }
+};
+
+export const updateCourierServiceCapabilities = async (req: Request, res: Response): Promise<void> => {
+  const id = String(req.params.id);
+  const capabilities = Array.isArray(req.body?.capabilities) ? req.body.capabilities : [];
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await upsertCourierVehicleAndCapabilities(client, id, {
+      approveEligible: false,
+      approvedBy: req.user?.id || null
+    });
+
+    for (const capability of capabilities) {
+      const serviceCode = String(capability.service_code || capability.serviceCode || '').trim();
+      const status = String(capability.status || '').trim();
+      if (!serviceCode || !['pending_review', 'enabled', 'disabled', 'rejected'].includes(status)) continue;
+      await client.query(
+        `UPDATE courier_service_capabilities
+         SET status = $1,
+             eligibility_reason = COALESCE(NULLIF($2, ''), eligibility_reason),
+             max_weight_kg = COALESCE($3, max_weight_kg),
+             approved_by = CASE WHEN $1 = 'enabled' THEN $4 ELSE approved_by END,
+             approved_at = CASE WHEN $1 = 'enabled' THEN NOW() ELSE approved_at END,
+             updated_at = NOW()
+         WHERE courier_profile_id = $5 AND service_code = $6`,
+        [
+          status,
+          capability.eligibility_reason || capability.reason || null,
+          capability.max_weight_kg ?? null,
+          req.user?.id || null,
+          id,
+          serviceCode
+        ]
+      );
+    }
+
+    await client.query('COMMIT');
+    const result = await readDb.query(
+      `SELECT csc.*, dsp.name AS service_name, dsp.service_category, dsp.service_family
+       FROM courier_service_capabilities csc
+       JOIN delivery_service_products dsp ON dsp.code = csc.service_code
+       WHERE csc.courier_profile_id = $1
+       ORDER BY dsp.display_order ASC, dsp.name ASC`,
+      [id]
+    );
+    res.json({ success: true, data: result.rows });
   } catch (error: any) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: error.message });

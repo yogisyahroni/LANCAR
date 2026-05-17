@@ -122,6 +122,9 @@ data class ScanRequest(
 
     @SerialName("barcode_value")
     val barcodeValue: String? = null,
+
+    @SerialName("spoof_risk")
+    val spoofRisk: String? = null,
     
     @SerialName("warehouse_id")
     val warehouseId: String? = null,
@@ -131,6 +134,270 @@ data class ScanRequest(
     
     @SerialName("bag_number")
     val bagNumber: String? = null
+)
+
+@Serializable
+data class CourierServiceProduct(
+    @SerialName("code")
+    val code: String,
+
+    @SerialName("name")
+    val name: String,
+
+    @SerialName("description")
+    val description: String = "",
+
+    @SerialName("service_family")
+    val serviceFamily: String = "regular",
+
+    @SerialName("service_category")
+    val serviceCategory: String = "on_demand",
+
+    @SerialName("route_model")
+    val routeModel: String = "p2p",
+
+    @SerialName("max_eta_minutes")
+    val maxEtaMinutes: Int = 0,
+
+    @SerialName("max_distance_km")
+    val maxDistanceKm: Double? = null,
+
+    @SerialName("max_weight_kg")
+    val maxWeightKg: Double? = null,
+
+    @SerialName("vehicle_types")
+    val vehicleTypes: List<String> = emptyList(),
+
+    @SerialName("display_order")
+    val displayOrder: Int = 100
+)
+
+@Serializable
+data class CourierHotspot(
+    @SerialName("id")
+    val id: String,
+    @SerialName("name")
+    val name: String,
+    @SerialName("code")
+    val code: String? = null,
+    @SerialName("pending_orders")
+    val pendingOrders: Int = 0,
+    @SerialName("latitude")
+    val latitude: Double? = null,
+    @SerialName("longitude")
+    val longitude: Double? = null,
+    @SerialName("intensity")
+    val intensity: String = "low"
+)
+
+@Serializable
+data class CourierRoutePoint(
+    @SerialName("latitude")
+    val latitude: Double,
+    @SerialName("longitude")
+    val longitude: Double
+)
+
+@Serializable
+data class CourierRoutePreview(
+    @SerialName("order_id")
+    val orderId: String,
+    @SerialName("distance_km")
+    val distanceKm: Double = 0.0,
+    @SerialName("eta_minutes")
+    val etaMinutes: Int = 0,
+    @SerialName("provider")
+    val provider: String = "internal",
+    @SerialName("polyline")
+    val polyline: List<CourierRoutePoint> = emptyList()
+)
+
+@Serializable
+data class CourierSafetyEventRequest(
+    @SerialName("order_id")
+    val orderId: String? = null,
+    @SerialName("event_type")
+    val eventType: String,
+    @SerialName("severity")
+    val severity: String = "medium",
+    @SerialName("latitude")
+    val latitude: Double? = null,
+    @SerialName("longitude")
+    val longitude: Double? = null,
+    @SerialName("accuracy")
+    val accuracy: Float? = null,
+    @SerialName("message")
+    val message: String? = null
+)
+
+@Serializable
+data class CourierSafetyEventData(
+    @SerialName("id")
+    val id: String,
+    @SerialName("status")
+    val status: String,
+    @SerialName("created_at")
+    val createdAt: String
+)
+
+@Serializable
+data class TripShareRequest(
+    @SerialName("order_id")
+    val orderId: String
+)
+
+@Serializable
+data class TripShareData(
+    @SerialName("url")
+    val url: String,
+    @SerialName("expires_at")
+    val expiresAt: String
+)
+
+@Serializable
+data class CourierTier(
+    @SerialName("tier_code")
+    val tierCode: String = "starter",
+    @SerialName("tier_name")
+    val tierName: String = "Starter",
+    @SerialName("benefit_summary")
+    val benefitSummary: String = ""
+)
+
+@Serializable
+data class CourierIncentive(
+    @SerialName("code")
+    val code: String,
+    @SerialName("title")
+    val title: String,
+    @SerialName("description")
+    val description: String = "",
+    @SerialName("target_deliveries")
+    val targetDeliveries: Int = 0,
+    @SerialName("progress_deliveries")
+    val progressDeliveries: Int = 0,
+    @SerialName("progress_percent")
+    val progressPercent: Int = 0,
+    @SerialName("reward_idr")
+    val rewardIdr: Int = 0,
+    @SerialName("ends_at")
+    val endsAt: String? = null
+)
+
+@Serializable
+data class CourierPerformanceSummary(
+    @SerialName("today_earnings_idr")
+    val todayEarningsIdr: Int = 0,
+    @SerialName("week_earnings_idr")
+    val weekEarningsIdr: Int = 0,
+    @SerialName("total_earnings_idr")
+    val totalEarningsIdr: Int = 0,
+    @SerialName("total_deliveries")
+    val totalDeliveries: Int = 0,
+    @SerialName("deliveries_30d")
+    val deliveries30d: Int = 0,
+    @SerialName("completion_rate_pct")
+    val completionRatePct: Int = 100,
+    @SerialName("acceptance_rate_pct")
+    val acceptanceRatePct: Int = 100,
+    @SerialName("avg_rating")
+    val avgRating: Double = 5.0,
+    @SerialName("rating_count")
+    val ratingCount: Int = 0,
+    @SerialName("tier")
+    val tier: CourierTier = CourierTier(),
+    @SerialName("incentives")
+    val incentives: List<CourierIncentive> = emptyList()
+)
+
+@Serializable
+data class CourierVehicleProfile(
+    @SerialName("id")
+    val id: String = "",
+    @SerialName("plate_number")
+    val plateNumber: String = "",
+    @SerialName("vehicle_type")
+    val vehicleType: String = "motor",
+    @SerialName("vehicle_category")
+    val vehicleCategory: String? = null,
+    @SerialName("brand")
+    val brand: String? = null,
+    @SerialName("model")
+    val model: String? = null,
+    @SerialName("production_year")
+    val productionYear: Int? = null,
+    @SerialName("engine_cc")
+    val engineCc: Int? = null,
+    @SerialName("max_weight_kg")
+    val maxWeightKg: Double? = null,
+    @SerialName("verification_status")
+    val verificationStatus: String = "pending"
+)
+
+@Serializable
+data class CourierServiceCapability(
+    @SerialName("id")
+    val id: String = "",
+    @SerialName("service_code")
+    val serviceCode: String,
+    @SerialName("service_name")
+    val serviceName: String,
+    @SerialName("description")
+    val description: String = "",
+    @SerialName("service_category")
+    val serviceCategory: String = "on_demand",
+    @SerialName("service_family")
+    val serviceFamily: String = "regular",
+    @SerialName("route_model")
+    val routeModel: String = "p2p",
+    @SerialName("status")
+    val status: String = "pending_review",
+    @SerialName("eligibility_reason")
+    val eligibilityReason: String? = null,
+    @SerialName("max_weight_kg")
+    val maxWeightKg: Double? = null
+)
+
+@Serializable
+data class CourierOnboardingStep(
+    @SerialName("key")
+    val key: String,
+    @SerialName("title")
+    val title: String,
+    @SerialName("status")
+    val status: String
+)
+
+@Serializable
+data class CourierTrainingCompletion(
+    @SerialName("training_key")
+    val trainingKey: String,
+    @SerialName("title")
+    val title: String,
+    @SerialName("completed_at")
+    val completedAt: String
+)
+
+@Serializable
+data class CourierCapabilityProfile(
+    @SerialName("vehicle")
+    val vehicle: CourierVehicleProfile? = null,
+    @SerialName("vehicles")
+    val vehicles: List<CourierVehicleProfile> = emptyList(),
+    @SerialName("service_capabilities")
+    val serviceCapabilities: List<CourierServiceCapability> = emptyList(),
+    @SerialName("onboarding_steps")
+    val onboardingSteps: List<CourierOnboardingStep> = emptyList(),
+    @SerialName("training_completions")
+    val trainingCompletions: List<CourierTrainingCompletion> = emptyList()
+)
+
+@Serializable
+data class CourierTrainingCompleteRequest(
+    @SerialName("training_key")
+    val trainingKey: String = "on_demand_safety_v1",
+    @SerialName("title")
+    val title: String = "On-Demand Safety and Service Standard"
 )
 
 /**

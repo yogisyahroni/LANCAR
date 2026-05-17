@@ -1,8 +1,11 @@
 package com.lancar.courier.ui.screens.order
 
 import android.app.Activity
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.location.Geocoder
+import android.location.Location
 import android.net.Uri
 import android.view.WindowManager
 import androidx.compose.foundation.BorderStroke
@@ -16,9 +19,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
@@ -28,7 +37,9 @@ import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.lancar.courier.data.model.Order
+import com.lancar.courier.data.model.CourierRoutePreview
 import com.lancar.courier.data.model.cleanPayoutIdr
+import com.lancar.courier.data.model.displayServiceName
 import com.lancar.courier.data.model.normalizedWorkflowRole
 import com.lancar.courier.data.model.toRupiahCompact
 import com.lancar.courier.ui.theme.Primary
@@ -36,8 +47,15 @@ import com.lancar.courier.ui.theme.PrimaryLight
 import com.lancar.courier.ui.theme.Secondary
 import com.lancar.courier.ui.theme.Success
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
+
+private val LogisticsOrange = Color(0xFFFF6D00)
+private val DeepForest = Color(0xFF0A2F20)
+private val OnDemandSurface = Color(0xFFF2F5F0)
 
 /**
  * Order Detail Screen
@@ -54,7 +72,11 @@ fun OrderDetailScreen(
     onVerifyPickup: () -> Unit,
     onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
-    onChatClick: () -> Unit
+    onChatClick: () -> Unit,
+    routePreview: CourierRoutePreview? = null,
+    onSosClick: () -> Unit = {},
+    onReportIssue: (String) -> Unit = {},
+    onShareTrip: () -> Unit = {}
 ) {
     val context = LocalContext.current
     
@@ -131,10 +153,14 @@ fun OrderDetailScreen(
             if (order.normalizedWorkflowRole() == "on_demand") {
                 OnDemandTaskActions(
                     order = order,
+                    routePreview = routePreview,
                     onVerifyPickup = onVerifyPickup,
                     onCapturePickupProof = onCapturePickupProof,
                     onCapturePod = onCapturePod,
-                    onChatClick = onChatClick
+                    onChatClick = onChatClick,
+                    onSosClick = onSosClick,
+                    onReportIssue = onReportIssue,
+                    onShareTrip = onShareTrip
                 )
             } else {
                 OrderActions(
@@ -153,12 +179,18 @@ private fun DeliveryMapCard(order: Order) {
     val context = LocalContext.current
     val fallbackPickup = remember { LatLng(-6.175392, 106.827153) }
     val fallbackDropoff = remember { LatLng(-6.200000, 106.816666) }
-    var pickupLatLng by remember(order.pickupAddress) { mutableStateOf<LatLng?>(null) }
-    var dropLatLng by remember(order.dropAddress) { mutableStateOf<LatLng?>(null) }
+    var pickupLatLng by remember(order.pickupAddress, order.pickupLatitude, order.pickupLongitude) { mutableStateOf<LatLng?>(null) }
+    var dropLatLng by remember(order.dropAddress, order.dropLatitude, order.dropLongitude) { mutableStateOf<LatLng?>(null) }
 
-    LaunchedEffect(order.pickupAddress, order.dropAddress) {
-        pickupLatLng = geocodeAddress(context, order.pickupAddress) ?: fallbackPickup
-        dropLatLng = geocodeAddress(context, order.dropAddress) ?: fallbackDropoff
+    LaunchedEffect(order.pickupAddress, order.dropAddress, order.pickupLatitude, order.pickupLongitude, order.dropLatitude, order.dropLongitude) {
+        pickupLatLng = when {
+            order.pickupLatitude != null && order.pickupLongitude != null -> LatLng(order.pickupLatitude, order.pickupLongitude)
+            else -> geocodeAddress(context, order.pickupAddress) ?: fallbackPickup
+        }
+        dropLatLng = when {
+            order.dropLatitude != null && order.dropLongitude != null -> LatLng(order.dropLatitude, order.dropLongitude)
+            else -> geocodeAddress(context, order.dropAddress) ?: fallbackDropoff
+        }
     }
 
     val pickup = pickupLatLng ?: fallbackPickup
@@ -220,40 +252,85 @@ private fun DeliveryMapCard(order: Order) {
 @Composable
 private fun OnDemandTaskActions(
     order: Order,
+    routePreview: CourierRoutePreview?,
     onVerifyPickup: () -> Unit,
     onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
-    onChatClick: () -> Unit
+    onChatClick: () -> Unit,
+    onSosClick: () -> Unit,
+    onReportIssue: (String) -> Unit,
+    onShareTrip: () -> Unit
 ) {
     val context = LocalContext.current
     val status = order.status.lowercase()
     val pickupDone = status in setOf("picked_up", "in_transit", "delivered", "completed")
     val deliveryDone = status in setOf("delivered", "completed")
     val activeAddress = if (pickupDone) order.dropAddress else order.pickupAddress
-    val activeLabel = if (pickupDone) "Antar ke tujuan" else "Pickup barang"
+    val activeLabel = if (pickupDone) "Antar paket" else "Pickup barang"
+    val activeInstruction = if (pickupDone) {
+        "Ambil foto POD saat sudah berada di lokasi penerima."
+    } else {
+        "Datang ke pickup, lalu scan barcode atau foto barang."
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 26.dp, bottomStart = 26.dp, bottomEnd = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = OnDemandSurface),
+        border = BorderStroke(2.dp, Color.Black)
     ) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Tugas On Demand", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Tugas On Demand", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = DeepForest)
+                    Text(order.displayServiceName(), style = MaterialTheme.typography.labelLarge, color = LogisticsOrange, fontWeight = FontWeight.Black)
+                    Text(activeInstruction, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Surface(
+                    color = LogisticsOrange,
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Color.Black)
+                ) {
+                    Text(
+                        order.cleanPayoutIdr().toRupiahCompact(),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        color = Color.Black,
+                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                }
+            }
+
+            OnDemandStepper(pickupDone = pickupDone, deliveryDone = deliveryDone)
+            routePreview?.let { RoutePreviewStrip(it) }
+            LocationGateStatus(order = order, targetPickup = !pickupDone)
+
             Surface(
-                color = PrimaryLight.copy(alpha = 0.45f),
-                shape = RoundedCornerShape(8.dp),
+                color = Color.White.copy(alpha = 0.92f),
+                shape = RoundedCornerShape(topStart = 12.dp, topEnd = 22.dp, bottomStart = 22.dp, bottomEnd = 12.dp),
+                border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.2f)),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(if (pickupDone) Icons.Default.LocationOn else Icons.Default.Storefront, contentDescription = null, tint = Primary)
-                        Text(activeLabel, fontWeight = FontWeight.Bold)
+                        Icon(if (pickupDone) Icons.Default.LocationOn else Icons.Default.Storefront, contentDescription = null, tint = LogisticsOrange)
+                        Text(activeLabel, fontWeight = FontWeight.Black, color = DeepForest)
                     }
-                    Text(activeAddress.ifBlank { "Alamat belum tersedia" }, style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        text = "Payout bersih ${order.cleanPayoutIdr().toRupiahCompact()}",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Success,
+                        activeAddress.ifBlank { "Alamat belum tersedia" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = if (pickupDone) "Gate lokasi: titik tujuan" else "Gate lokasi: titik pickup",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Primary,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -263,42 +340,51 @@ private fun OnDemandTaskActions(
                 icon = Icons.Default.Navigation,
                 label = if (pickupDone) "Buka Maps Tujuan" else "Buka Maps Pickup",
                 prominent = true,
+                containerColor = LogisticsOrange,
+                contentColor = Color.Black,
                 onClick = { openNavigation(context, activeAddress) }
             )
 
-            ActionButton(
-                icon = Icons.Default.Chat,
-                label = "Chat Customer",
-                onClick = onChatClick
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                CompactActionButton(icon = Icons.Default.Chat, label = "Chat", onClick = onChatClick, modifier = Modifier.weight(1f))
+                CompactActionButton(icon = Icons.Default.Phone, label = "Call", onClick = {
+                    val phone = order.phoneNumber.orEmpty()
+                    if (phone.isNotBlank()) {
+                        context.startActivity(Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:$phone") })
+                    }
+                }, modifier = Modifier.weight(1f))
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                CompactActionButton(icon = Icons.Default.Share, label = "Share Trip", onClick = onShareTrip, modifier = Modifier.weight(1f))
+                CompactActionButton(icon = Icons.Default.ReportProblem, label = "Lapor", onClick = { onReportIssue("support_request") }, modifier = Modifier.weight(1f))
+            }
 
             if (!pickupDone) {
-                ActionButton(
-                    icon = Icons.Default.QrCodeScanner,
-                    label = "Scan Barang",
-                    onClick = onVerifyPickup
-                )
-                ActionButton(
-                    icon = Icons.Default.CameraAlt,
-                    label = "Foto Barang",
-                    onClick = onCapturePickupProof
-                )
-                Text(
-                    "Gunakan scan jika ada barcode. Jika tidak ada barcode, foto barang menjadi bukti pickup.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    CompactActionButton(icon = Icons.Default.QrCodeScanner, label = "Scan Barang", onClick = onVerifyPickup, modifier = Modifier.weight(1f), strong = true)
+                    CompactActionButton(icon = Icons.Default.CameraAlt, label = "Foto Barang", onClick = onCapturePickupProof, modifier = Modifier.weight(1f), strong = true)
+                }
+                VerificationNotice("Scan jika ada barcode. Jika tidak ada barcode, foto barang dipakai sebagai bukti pickup.")
+                if (!order.itemDescription.isNullOrBlank()) {
+                    VerificationNotice("Isi paket: ${order.itemDescription}. Pastikan foto memperlihatkan kondisi barang sebelum dibawa.")
+                }
+                CompactActionButton(
+                    icon = Icons.Default.Block,
+                    label = "Laporkan barang bermasalah",
+                    onClick = { onReportIssue("prohibited_goods") },
+                    modifier = Modifier.fillMaxWidth()
                 )
             } else if (!deliveryDone) {
                 ActionButton(
                     icon = Icons.Default.CameraAlt,
                     label = "Selesaikan Pengiriman",
+                    prominent = true,
+                    containerColor = LogisticsOrange,
+                    contentColor = Color.Black,
                     onClick = onCapturePod
                 )
-                Text(
-                    "POD hanya bisa dikirim saat GPS berada di titik tujuan.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                VerificationNotice("POD hanya bisa dikirim saat GPS berada di titik tujuan.")
             } else {
                 AssistChip(
                     onClick = {},
@@ -306,7 +392,194 @@ private fun OnDemandTaskActions(
                     leadingIcon = { Icon(Icons.Default.CheckCircle, contentDescription = null) }
                 )
             }
+
+            OutlinedButton(
+                onClick = onSosClick,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+            ) {
+                Icon(Icons.Default.ReportProblem, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("SOS Bantuan Operasional", fontWeight = FontWeight.Bold)
+            }
         }
+    }
+}
+
+@Composable
+private fun RoutePreviewStrip(routePreview: CourierRoutePreview) {
+    Surface(
+        color = Color.White.copy(alpha = 0.82f),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, Primary.copy(alpha = 0.26f)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(Icons.Default.Route, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Preview rute", fontWeight = FontWeight.Bold, color = DeepForest)
+                Text(
+                    "${"%.1f".format(routePreview.distanceKm)} km • ETA ${routePreview.etaMinutes} menit",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Surface(color = PrimaryLight, shape = RoundedCornerShape(8.dp)) {
+                Text(routePreview.provider.uppercase(), modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = Primary, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LocationGateStatus(order: Order, targetPickup: Boolean) {
+    val context = LocalContext.current
+    val targetLat = if (targetPickup) order.pickupLatitude else order.dropLatitude
+    val targetLng = if (targetPickup) order.pickupLongitude else order.dropLongitude
+    var distanceM by remember(order.orderId, targetPickup) { mutableStateOf<Int?>(null) }
+    var accuracyM by remember(order.orderId, targetPickup) { mutableStateOf<Int?>(null) }
+    var permissionMissing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(order.orderId, targetPickup, targetLat, targetLng) {
+        while (true) {
+            val hasPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            if (!hasPermission) {
+                permissionMissing = true
+                return@LaunchedEffect
+            }
+            permissionMissing = false
+
+            if (targetLat != null && targetLng != null) {
+                val location = withTimeoutOrNull(3_000L) {
+                    LocationServices.getFusedLocationProviderClient(context)
+                        .getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
+                        .await()
+                }
+                if (location != null) {
+                    val result = FloatArray(1)
+                    Location.distanceBetween(location.latitude, location.longitude, targetLat, targetLng, result)
+                    distanceM = result[0].toInt()
+                    accuracyM = location.accuracy.toInt()
+                }
+            }
+            delay(10_000L)
+        }
+    }
+
+    val ready = distanceM != null && distanceM!! <= 150 && (accuracyM == null || accuracyM!! <= 100)
+    val copy = when {
+        permissionMissing -> "GPS belum diizinkan. Aktifkan permission lokasi untuk validasi titik."
+        targetLat == null || targetLng == null -> "Koordinat titik belum lengkap. Backend tetap akan memvalidasi saat bukti dikirim."
+        distanceM == null -> "Mengecek jarak ke titik ${if (targetPickup) "pickup" else "tujuan"}..."
+        ready -> "Lokasi valid: ${distanceM}m dari titik, akurasi ${accuracyM ?: 0}m."
+        else -> "Belum di titik ${if (targetPickup) "pickup" else "tujuan"}: ${distanceM}m dari radius 150m."
+    }
+    val color = if (ready) Success else LogisticsOrange
+
+    Surface(
+        color = color.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.45f))
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(if (ready) Icons.Default.GpsFixed else Icons.Default.LocationSearching, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+            Text(copy, style = MaterialTheme.typography.bodySmall, color = DeepForest, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
+private fun OnDemandStepper(pickupDone: Boolean, deliveryDone: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        StepPill("Pickup", active = !pickupDone, done = pickupDone, modifier = Modifier.weight(1f))
+        StepPill("Antar", active = pickupDone && !deliveryDone, done = deliveryDone, modifier = Modifier.weight(1f))
+        StepPill("POD", active = false, done = deliveryDone, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun StepPill(label: String, active: Boolean, done: Boolean, modifier: Modifier = Modifier) {
+    val color = when {
+        done -> Success
+        active -> LogisticsOrange
+        else -> Color.White
+    }
+    Surface(
+        modifier = modifier,
+        color = color,
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, Color.Black)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (done || active) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(label, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, color = if (done || active) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun VerificationNotice(text: String) {
+    Surface(
+        color = Color.White.copy(alpha = 0.74f),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, LogisticsOrange.copy(alpha = 0.45f))
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(10.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(Icons.Default.GpsFixed, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.size(18.dp))
+            Text(text, style = MaterialTheme.typography.bodySmall, color = DeepForest)
+        }
+    }
+}
+
+@Composable
+private fun CompactActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    strong: Boolean = false
+) {
+    val container = if (strong) DeepForest else Color.White
+    val content = if (strong) Color.White else DeepForest
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(52.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = content),
+        border = BorderStroke(1.dp, Color.Black),
+        contentPadding = PaddingValues(horizontal = 8.dp)
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -491,10 +764,12 @@ private fun ActionButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     prominent: Boolean = false,
+    containerColor: Color = Secondary,
+    contentColor: Color = Color.White,
     onClick: () -> Unit
 ) {
     val colors = if (prominent) {
-        ButtonDefaults.buttonColors(containerColor = Secondary)
+        ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = contentColor)
     } else {
         ButtonDefaults.outlinedButtonColors(contentColor = Primary)
     }

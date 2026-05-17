@@ -1,11 +1,15 @@
 package com.lancar.courier.ui.screens
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,11 +21,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -30,8 +40,22 @@ import androidx.navigation.NavHostController
 import com.google.android.gms.location.Priority
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.tasks.CancellationTokenSource
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.lancar.courier.data.model.CourierServiceProduct
+import com.lancar.courier.data.model.CourierHotspot
+import com.lancar.courier.data.model.CourierCapabilityProfile
+import com.lancar.courier.data.model.CourierPerformanceSummary
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.cleanPayoutIdr
+import com.lancar.courier.data.model.displayServiceName
+import com.lancar.courier.data.model.etaMinutesValue
 import com.lancar.courier.data.model.normalizedWorkflowRole
 import com.lancar.courier.data.model.toRupiahCompact
 import com.lancar.courier.data.session.AuthSessionManager
@@ -55,6 +79,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.min
+
+private val LogisticsOrange = Color(0xFFFF6D00)
+private val SageBase = Color(0xFFF2F5F0)
+private val DeepForest = Color(0xFF0A2F20)
 
 /**
  * Main Screen — Courier Dashboard
@@ -83,6 +111,11 @@ fun MainScreen(
     val pendingOrders by orderViewModel.pendingOrders.collectAsState()
     val deliveredToday by orderViewModel.deliveredTodayOrders.collectAsState()
     val onDemandOffers by orderViewModel.offers.collectAsState()
+    val onDemandServices by orderViewModel.onDemandServices.collectAsState()
+    val onDemandHotspots by orderViewModel.onDemandHotspots.collectAsState()
+    val performanceSummary by orderViewModel.performanceSummary.collectAsState()
+    val capabilityProfile by orderViewModel.capabilityProfile.collectAsState()
+    val routePreviews by orderViewModel.routePreviews.collectAsState()
     val courierProfile by orderViewModel.courierProfile.collectAsState()
     val isSyncing by orderViewModel.isSyncing.collectAsState()
     val error by orderViewModel.error.collectAsState()
@@ -108,6 +141,22 @@ fun MainScreen(
     var activeScanType by remember { mutableStateOf("pickup") }
     var activeProofMode by remember { mutableStateOf("delivery") }
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    suspend fun sendSafetyEvent(order: Order?, eventType: String, severity: String, message: String) {
+        val location = getLastKnownDutyLocation(context)
+        val result = orderViewModel.createSafetyEvent(
+            orderId = order?.orderId,
+            eventType = eventType,
+            severity = severity,
+            latitude = location?.latitude,
+            longitude = location?.longitude,
+            accuracy = location?.accuracy,
+            message = message
+        )
+        snackbarHostState.showSnackbar(
+            result.getOrElse { it.message ?: "Laporan belum terkirim. Coba lagi." }
+        )
+    }
 
     if (courierRole == "on_demand") onDemandOffers.firstOrNull()?.let { offer ->
         OnDemandOfferDialog(
@@ -226,8 +275,14 @@ fun MainScreen(
 
     // ── Order Detail Screen ────────────────────────────────────
     selectedOrder?.takeIf { showOrderDetail }?.let { order ->
+        LaunchedEffect(order.orderId) {
+            if (order.normalizedWorkflowRole() == "on_demand") {
+                orderViewModel.loadRoutePreview(order.orderId)
+            }
+        }
         OrderDetailScreen(
             order = order,
+            routePreview = routePreviews[order.orderId],
             onBack = {
                 showOrderDetail = false
                 selectedOrder = null
@@ -258,6 +313,32 @@ fun MainScreen(
             onChatClick = {
                 showOrderDetail = false
                 showChatScreen = true
+            },
+            onSosClick = {
+                scope.launch {
+                    sendSafetyEvent(order, "sos", "critical", "Kurir membutuhkan bantuan segera di pekerjaan on-demand.")
+                }
+            },
+            onReportIssue = { issueType ->
+                scope.launch {
+                    sendSafetyEvent(order, issueType, "medium", "Laporan kurir: ${issueType.replace("_", " ")}")
+                }
+            },
+            onShareTrip = {
+                scope.launch {
+                    val result = orderViewModel.createTripShare(order.orderId)
+                    result.onSuccess { url ->
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("LANCAR live trip", url))
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, url)
+                        }, "Bagikan Live Trip"))
+                        snackbarHostState.showSnackbar("Link live trip dibuat dan disalin.")
+                    }.onFailure { e ->
+                        snackbarHostState.showSnackbar(e.message ?: "Gagal membuat link live trip.")
+                    }
+                }
             }
         )
         return
@@ -426,6 +507,8 @@ fun MainScreen(
                     todayEarningsIdr = roleEarningsToday,
                     orders = roleOrders,
                     offers = if (courierRole == "on_demand") onDemandOffers else emptyList(),
+                    services = onDemandServices,
+                    hotspots = onDemandHotspots,
                     isOnline = isOnline,
                     onOnlineToggle = { online ->
                         scope.launch {
@@ -518,6 +601,14 @@ fun MainScreen(
                     pendingSyncCount = rolePendingOrders.size,
                     todayEarningsIdr = roleEarningsToday,
                     totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
+                    performanceSummary = performanceSummary,
+                    capabilityProfile = capabilityProfile,
+                    onCompleteTraining = {
+                        scope.launch {
+                            val result = orderViewModel.completeTraining()
+                            snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Training belum tersimpan." })
+                        }
+                    },
                     onLogout = { showLogoutDialog = true },
                     onSyncNow = { orderViewModel.syncPendingOrders() },
                     onOptimizeBattery = {
@@ -552,6 +643,8 @@ private fun HomeContent(
     todayEarningsIdr: Int,
     orders: List<Order>,
     offers: List<Order>,
+    services: List<CourierServiceProduct>,
+    hotspots: List<CourierHotspot>,
     isOnline: Boolean,
     onOnlineToggle: (Boolean) -> Unit,
     onCapturePod: (Order) -> Unit,
@@ -572,14 +665,38 @@ private fun HomeContent(
         "Aktifkan untuk bekerja atau cek daftar order."
     }
 
+    if (courierRole == "on_demand") {
+        OnDemandHomeHub(
+            courierName = courierName,
+            totalOrders = totalOrders,
+            pendingCount = pendingCount,
+            deliveredCount = deliveredCount,
+            todayEarningsIdr = todayEarningsIdr,
+            orders = orders,
+            offers = offers,
+            services = services,
+            hotspots = hotspots,
+            isOnline = isOnline,
+            onOnlineToggle = onOnlineToggle,
+            onOpenDelivery = onOpenDelivery,
+            onViewOrders = onViewOrders
+        )
+        return
+    }
+
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Primary),
-            shape = RoundedCornerShape(8.dp)
+            colors = CardDefaults.cardColors(containerColor = if (courierRole == "on_demand") DeepForest else Primary),
+            shape = if (courierRole == "on_demand") {
+                RoundedCornerShape(topStart = 16.dp, topEnd = 28.dp, bottomStart = 28.dp, bottomEnd = 16.dp)
+            } else {
+                RoundedCornerShape(8.dp)
+            },
+            border = if (courierRole == "on_demand") BorderStroke(2.dp, Color.Black) else null
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -608,7 +725,7 @@ private fun HomeContent(
                         onCheckedChange = onOnlineToggle,
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = Secondary,
+                            checkedTrackColor = if (courierRole == "on_demand") LogisticsOrange else Secondary,
                             uncheckedThumbColor = Color.White,
                             uncheckedTrackColor = Color.White.copy(alpha = 0.36f)
                         )
@@ -616,8 +733,8 @@ private fun HomeContent(
                 }
 
                 Surface(
-                    color = Color.White.copy(alpha = 0.14f),
-                    shape = RoundedCornerShape(8.dp),
+                    color = if (courierRole == "on_demand" && isOnline) LogisticsOrange else Color.White.copy(alpha = 0.14f),
+                    shape = RoundedCornerShape(topStart = 8.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -628,19 +745,19 @@ private fun HomeContent(
                         Icon(
                             imageVector = if (isOnline) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
                             contentDescription = null,
-                            tint = if (isOnline) Secondary else Color.White.copy(alpha = 0.78f)
+                            tint = if (courierRole == "on_demand" && isOnline) Color.Black else if (isOnline) Secondary else Color.White.copy(alpha = 0.78f)
                         )
                         Column {
                             Text(
                                 text = if (isOnline) "On Duty" else "Off Duty",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = if (courierRole == "on_demand" && isOnline) Color.Black else Color.White
                             )
                             Text(
-                                text = if (isOnline) "Lokasi dan sinkronisasi aktif" else "Tracking lokasi berhenti",
+                                text = if (courierRole == "on_demand" && isOnline) "Siap menerima tawaran 15 detik" else if (isOnline) "Lokasi dan sinkronisasi aktif" else "Tracking lokasi berhenti",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = Color.White.copy(alpha = 0.78f)
+                                color = if (courierRole == "on_demand" && isOnline) Color.Black.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.78f)
                             )
                         }
                     }
@@ -651,11 +768,12 @@ private fun HomeContent(
         if (courierRole == "on_demand") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = SecondaryLight),
-                shape = RoundedCornerShape(8.dp)
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E8)),
+                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 26.dp, bottomStart = 26.dp, bottomEnd = 16.dp),
+                border = BorderStroke(2.dp, Color.Black)
             ) {
                 Column(
-                    modifier = Modifier.padding(14.dp),
+                    modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Row(
@@ -664,16 +782,16 @@ private fun HomeContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("Pendapatan Hari Ini", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text("Estimasi bersih yang diterima kurir", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Pendapatan Hari Ini", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
+                            Text("Payout bersih dari pricing admin", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Secondary)
+                        Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = LogisticsOrange)
                     }
                     Text(
                         todayEarningsIdr.toRupiahCompact(),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Black,
-                        color = Secondary
+                        color = DeepForest
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         InfoPill(icon = Icons.Default.Bolt, text = "${offers.size} tawaran")
@@ -800,12 +918,326 @@ private fun HomeContent(
 }
 
 @Composable
+private fun OnDemandHomeHub(
+    courierName: String,
+    totalOrders: Int,
+    pendingCount: Int,
+    deliveredCount: Int,
+    todayEarningsIdr: Int,
+    orders: List<Order>,
+    offers: List<Order>,
+    services: List<CourierServiceProduct>,
+    hotspots: List<CourierHotspot>,
+    isOnline: Boolean,
+    onOnlineToggle: (Boolean) -> Unit,
+    onOpenDelivery: (Order) -> Unit,
+    onViewOrders: () -> Unit
+) {
+    val activeOrder = orders.firstOrNull { it.status.lowercase() in setOf("accepted", "picked_up", "in_transit") }
+    val fallbackCenter = LatLng(-6.175392, 106.827153)
+    val pickup = activeOrder?.let { order ->
+        val lat = order.pickupLatitude
+        val lng = order.pickupLongitude
+        if (lat != null && lng != null) LatLng(lat, lng) else null
+    } ?: fallbackCenter
+    val dropoff = activeOrder?.let { order ->
+        val lat = order.dropLatitude
+        val lng = order.dropLongitude
+        if (lat != null && lng != null) LatLng(lat, lng) else null
+    }
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(pickup, if (activeOrder == null) 12.5f else 12f)
+    }
+
+    LaunchedEffect(pickup, dropoff) {
+        val center = if (dropoff != null) {
+            LatLng((pickup.latitude + dropoff.latitude) / 2, (pickup.longitude + dropoff.longitude) / 2)
+        } else pickup
+        cameraPositionState.position = CameraPosition.fromLatLngZoom(center, if (dropoff != null) 12f else 12.5f)
+    }
+
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(318.dp)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = SageBase,
+                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 28.dp, bottomStart = 28.dp, bottomEnd = 16.dp),
+                border = BorderStroke(2.dp, Color.Black)
+            ) {
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = cameraPositionState,
+                    uiSettings = MapUiSettings(
+                        zoomControlsEnabled = false,
+                        myLocationButtonEnabled = false,
+                        mapToolbarEnabled = false
+                    )
+                ) {
+                    Marker(state = MarkerState(position = pickup), title = activeOrder?.pickupAddress ?: "Zona pickup aktif")
+                    if (dropoff != null) {
+                        Marker(state = MarkerState(position = dropoff), title = "Tujuan")
+                        Polyline(points = listOf(pickup, dropoff), color = LogisticsOrange, width = 10f)
+                    }
+                    hotspots.take(6).forEach { hotspot ->
+                        val lat = hotspot.latitude
+                        val lng = hotspot.longitude
+                        if (lat != null && lng != null) {
+                            Marker(
+                                state = MarkerState(position = LatLng(lat, lng)),
+                                title = hotspot.name,
+                                snippet = "${hotspot.pendingOrders} pickup menunggu"
+                            )
+                        }
+                    }
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(12.dp),
+                color = Color.White.copy(alpha = 0.92f),
+                shape = RoundedCornerShape(topStart = 8.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 8.dp),
+                border = BorderStroke(1.dp, Color.Black)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Bolt, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.size(18.dp))
+                    Text(
+                        text = if (isOnline) "Mencari pekerjaan" else "Off Duty",
+                        fontWeight = FontWeight.Black,
+                        color = DeepForest
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(12.dp),
+                color = if (isOnline) LogisticsOrange else Color.White,
+                shape = RoundedCornerShape(48.dp),
+                border = BorderStroke(2.dp, Color.Black)
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        modifier = Modifier.size(56.dp),
+                        color = if (isOnline) DeepForest else Color(0xFFE0E3E0),
+                        shape = RoundedCornerShape(50),
+                        border = BorderStroke(1.dp, Color.Black)
+                    ) {
+                        Icon(
+                            if (isOnline) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = null,
+                            tint = if (isOnline) LogisticsOrange else Color.Gray,
+                            modifier = Modifier.padding(14.dp)
+                        )
+                    }
+                    Column {
+                        Text(if (isOnline) "On Duty" else "Off Duty", fontWeight = FontWeight.Black, color = if (isOnline) Color.Black else DeepForest)
+                        Text("Aktifkan untuk bekerja", style = MaterialTheme.typography.labelMedium, color = if (isOnline) Color.Black.copy(alpha = 0.66f) else Color.Gray)
+                    }
+                    Switch(
+                        checked = isOnline,
+                        onCheckedChange = onOnlineToggle,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = DeepForest,
+                            uncheckedThumbColor = Color.White,
+                            uncheckedTrackColor = Color.Gray.copy(alpha = 0.36f)
+                        )
+                    )
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Color(0xFFFFF3E8),
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 26.dp, bottomStart = 26.dp, bottomEnd = 16.dp),
+            border = BorderStroke(2.dp, Color.Black)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Halo, $courierName", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = DeepForest)
+                        Text(
+                            text = "Payout bersih dari pricing admin",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = DeepForest.copy(alpha = 0.68f)
+                        )
+                    }
+                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.size(32.dp))
+                }
+                Text(todayEarningsIdr.toRupiahCompact(), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black, color = DeepForest)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    InfoPill(icon = Icons.Default.Bolt, text = "${offers.size} tawaran")
+                    InfoPill(icon = Icons.Default.CheckCircle, text = "$deliveredCount selesai")
+                    InfoPill(icon = Icons.Default.Inventory2, text = "$totalOrders order")
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Color.White.copy(alpha = 0.94f),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.14f))
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Area permintaan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
+                    AssistChip(
+                        onClick = onViewOrders,
+                        label = { Text("${hotspots.sumOf { it.pendingOrders }} order") },
+                        leadingIcon = { Icon(Icons.Default.LocalFireDepartment, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    )
+                }
+                if (hotspots.isEmpty()) {
+                    Text(
+                        "Belum ada hotspot aktif. Tetap online untuk menerima offer terdekat.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    hotspots.take(3).forEach { hotspot ->
+                        HotspotRow(hotspot)
+                    }
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Color.White.copy(alpha = 0.94f),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.14f))
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Layanan aktif", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
+                val serviceItems = services.takeIf { it.isNotEmpty() } ?: fallbackOnDemandServices()
+                serviceItems.take(5).forEach { service ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(service.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                "ETA ${service.maxEtaMinutes.takeIf { it > 0 } ?: 240} menit • ${service.vehicleTypes.firstOrNull() ?: "motor"}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Surface(color = PrimaryLight, shape = RoundedCornerShape(8.dp)) {
+                            Text(service.serviceFamily.replace("_", " ").uppercase(), modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = Primary, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Tugas sekarang", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                    AssistChip(
+                        onClick = onViewOrders,
+                        label = { Text("$pendingCount pending") },
+                        leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    )
+                }
+                if (activeOrder != null) {
+                    RouteSummary(activeOrder)
+                    Button(
+                        onClick = { onOpenDelivery(activeOrder) },
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black),
+                        border = BorderStroke(1.dp, Color.Black)
+                    ) {
+                        Icon(Icons.Default.Navigation, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Lanjutkan pekerjaan", fontWeight = FontWeight.Black)
+                    }
+                } else {
+                    EmptyActiveOrder(
+                        title = if (isOnline) "Menunggu pekerjaan on-demand" else "Belum aktif bekerja",
+                        subtitle = if (isOnline) "Offer akan muncul otomatis sesuai zona dan ranking." else "Aktifkan duty saat sudah siap menerima pekerjaan.",
+                        onViewOrders = onViewOrders
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun fallbackOnDemandServices(): List<CourierServiceProduct> = listOf(
+    CourierServiceProduct(code = "lancar_priority", name = "LANCAR Prioritas", serviceFamily = "express", maxEtaMinutes = 120, vehicleTypes = listOf("motor")),
+    CourierServiceProduct(code = "lancar_instant", name = "LANCAR Instant", serviceFamily = "express", maxEtaMinutes = 240, vehicleTypes = listOf("motor")),
+    CourierServiceProduct(code = "lancar_hemat", name = "LANCAR Hemat", serviceFamily = "regular", maxEtaMinutes = 300, vehicleTypes = listOf("motor")),
+    CourierServiceProduct(code = "lancar_same_day", name = "LANCAR Same Day", serviceFamily = "regular", maxEtaMinutes = 480, vehicleTypes = listOf("motor")),
+    CourierServiceProduct(code = "lancar_mobil", name = "LANCAR Mobil", serviceFamily = "cargo", maxEtaMinutes = 240, vehicleTypes = listOf("car"))
+)
+
+@Composable
+private fun HotspotRow(hotspot: CourierHotspot) {
+    val color = when (hotspot.intensity.lowercase()) {
+        "high" -> LogisticsOrange
+        "medium" -> Warning
+        else -> Primary
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(color = color.copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp)) {
+            Icon(Icons.Default.LocalFireDepartment, contentDescription = null, tint = color, modifier = Modifier.padding(8.dp).size(18.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(hotspot.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "${hotspot.pendingOrders} pickup menunggu • ${hotspot.intensity.replaceFirstChar { it.uppercase() }}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Text(hotspot.code ?: "zone", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Primary)
+    }
+}
+
+@Composable
 private fun OnDemandOfferDialog(
     order: Order,
     onAccept: () -> Unit,
     onReject: () -> Unit,
     onExpired: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     var now by remember(order.dispatchId, order.orderId) { mutableStateOf(System.currentTimeMillis()) }
     var expiredSent by remember(order.dispatchId, order.orderId) { mutableStateOf(false) }
     val expiresAt = order.offerExpiresAt ?: remember(order.dispatchId, order.orderId) {
@@ -815,6 +1247,19 @@ private fun OnDemandOfferDialog(
     val remainingMs = (expiresAt - now).coerceAtLeast(0L)
     val remainingSeconds = ((remainingMs + 999L) / 1000L).toInt()
     val progress = (remainingMs.toFloat() / totalTtlMs.toFloat()).coerceIn(0f, 1f)
+    val pickupPoint = remember(order.pickupLatitude, order.pickupLongitude) {
+        val lat = order.pickupLatitude
+        val lng = order.pickupLongitude
+        if (lat != null && lng != null) LatLng(lat, lng) else LatLng(-6.175392, 106.827153)
+    }
+    val dropPoint = remember(order.dropLatitude, order.dropLongitude) {
+        val lat = order.dropLatitude
+        val lng = order.dropLongitude
+        if (lat != null && lng != null) LatLng(lat, lng) else null
+    }
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(pickupPoint, 12.5f)
+    }
 
     LaunchedEffect(order.dispatchId, order.orderId, expiresAt) {
         while (now < expiresAt) {
@@ -824,99 +1269,197 @@ private fun OnDemandOfferDialog(
     }
 
     LaunchedEffect(remainingSeconds) {
+        if (remainingSeconds in 1..5) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
         if (remainingSeconds <= 0 && !expiredSent) {
             expiredSent = true
             onExpired()
         }
     }
 
-    AlertDialog(
+    LaunchedEffect(pickupPoint, dropPoint) {
+        val center = dropPoint?.let { LatLng((pickupPoint.latitude + it.latitude) / 2, (pickupPoint.longitude + it.longitude) / 2) } ?: pickupPoint
+        cameraPositionState.position = CameraPosition.fromLatLngZoom(center, if (dropPoint != null) 12f else 12.5f)
+    }
+
+    Dialog(
         onDismissRequest = {},
-        confirmButton = {
-            Button(
-                onClick = {
-                    if (remainingSeconds > 0) onAccept()
-                },
-                enabled = remainingSeconds > 0,
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Secondary)
-            ) {
-                Icon(Icons.Default.CheckCircle, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Terima")
-            }
-        },
-        dismissButton = {
-            OutlinedButton(onClick = onReject, shape = RoundedCornerShape(8.dp)) {
-                Icon(Icons.Default.Close, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Tolak")
-            }
-        },
-        title = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Pekerjaan On Demand", fontWeight = FontWeight.Bold)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        "Waktu respons",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color(0xFF08281B), Color(0xFF0E4A30), Color(0xFFF2F5F0))
                     )
-                    Surface(
-                        color = if (remainingSeconds <= 5) MaterialTheme.colorScheme.errorContainer else PrimaryLight,
-                        shape = RoundedCornerShape(8.dp)
+                )
+                .padding(18.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            "$remainingSeconds detik",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = if (remainingSeconds <= 5) MaterialTheme.colorScheme.onErrorContainer else Primary
-                        )
+                        Surface(
+                            color = LogisticsOrange,
+                            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 8.dp),
+                            border = BorderStroke(2.dp, Color.Black)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Default.Bolt, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                                Text(order.displayServiceName().uppercase(), color = Color.Black, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                        TextButton(onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onReject()
+                        }) {
+                            Icon(Icons.Default.Close, contentDescription = null, tint = Color.White)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Tolak", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().height(162.dp),
+                        color = Color.Black.copy(alpha = 0.25f),
+                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 28.dp, bottomStart = 28.dp, bottomEnd = 16.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            GoogleMap(
+                                modifier = Modifier.fillMaxSize(),
+                                cameraPositionState = cameraPositionState,
+                                uiSettings = MapUiSettings(
+                                    zoomControlsEnabled = false,
+                                    myLocationButtonEnabled = false,
+                                    mapToolbarEnabled = false,
+                                    scrollGesturesEnabled = false,
+                                    zoomGesturesEnabled = false,
+                                    tiltGesturesEnabled = false,
+                                    rotationGesturesEnabled = false
+                                )
+                            ) {
+                                Marker(state = MarkerState(position = pickupPoint), title = "Pickup")
+                                dropPoint?.let {
+                                    Marker(state = MarkerState(position = it), title = "Area tujuan")
+                                    Polyline(points = listOf(pickupPoint, it), color = LogisticsOrange, width = 8f)
+                                }
+                            }
+                            Surface(
+                                modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
+                                color = Color.Black.copy(alpha = 0.72f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text("Pickup", color = Color.White.copy(alpha = 0.72f), style = MaterialTheme.typography.labelMedium)
+                                    Text(
+                                        order.pickupAddress.ifBlank { "Alamat pickup belum tersedia" },
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Black,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(
+                                progress = { progress },
+                                modifier = Modifier.size(96.dp),
+                                color = if (remainingSeconds <= 5) MaterialTheme.colorScheme.error else LogisticsOrange,
+                                trackColor = Color.White.copy(alpha = 0.24f),
+                                strokeWidth = 8.dp
+                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("$remainingSeconds", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+                                Text("detik", color = Color.White.copy(alpha = 0.74f), style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Payout bersih", color = Color.White.copy(alpha = 0.74f), style = MaterialTheme.typography.labelLarge)
+                            Text(
+                                order.cleanPayoutIdr().toRupiahCompact(),
+                                color = LogisticsOrange,
+                                style = MaterialTheme.typography.headlineLarge,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(order.distance.ifBlank { "0 km" }, color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text("ETA ${order.etaMinutesValue()} menit", color = Color.White.copy(alpha = 0.78f), style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Color.White.copy(alpha = 0.86f),
+                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 28.dp, bottomStart = 28.dp, bottomEnd = 16.dp),
+                        border = BorderStroke(2.dp, Color.Black)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            OfferRouteRow(Icons.Default.Storefront, "Pickup", order.pickupAddress)
+                            HorizontalDivider(color = Color.Black.copy(alpha = 0.12f))
+                            OfferRouteRow(Icons.Default.Lock, "Tujuan setelah diterima", "Alamat lengkap dibuka setelah kamu menerima pekerjaan.")
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                InfoPill(icon = Icons.Default.Person, text = order.customerName.ifBlank { "Customer" })
+                                InfoPill(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
+                            }
+                        }
                     }
                 }
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = if (remainingSeconds <= 5) MaterialTheme.colorScheme.error else Secondary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-                Text(
-                    order.cleanPayoutIdr().toRupiahCompact(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Secondary,
-                    fontWeight = FontWeight.Bold
-                )
-                if (order.customerPriceIdr > 0 && order.platformCommissionIdr > 0) {
-                    Text(
-                        "Payout bersih setelah komisi platform",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        onClick = {
+                            if (remainingSeconds > 0) {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onAccept()
+                            }
+                        },
+                        enabled = remainingSeconds > 0,
+                        modifier = Modifier.fillMaxWidth().height(64.dp),
+                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 22.dp, bottomStart = 22.dp, bottomEnd = 10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black),
+                        border = BorderStroke(2.dp, Color.Black)
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Terima Pekerjaan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onReject()
+                        },
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
+                    ) {
+                        Text("Lewati pekerjaan ini", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "Paket masuk dan perlu diputuskan sekarang. Jika diterima, navigasi akan diarahkan ke lokasi pickup.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OfferRouteRow(Icons.Default.Storefront, "Pickup", order.pickupAddress)
-                OfferRouteRow(Icons.Default.LocationOn, "Dropoff", order.dropAddress)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AssistChip(onClick = {}, label = { Text(order.distance.ifBlank { "0 km" }) })
-                    AssistChip(onClick = {}, label = { Text(order.customerName.ifBlank { "Customer" }) })
-                }
-            }
-        },
-        shape = RoundedCornerShape(8.dp)
-    )
+        }
+    }
 }
 
 @Composable
@@ -1105,6 +1648,9 @@ private fun ProfileContent(
     pendingSyncCount: Int,
     todayEarningsIdr: Int,
     totalEarningsIdr: Int,
+    performanceSummary: CourierPerformanceSummary?,
+    capabilityProfile: CourierCapabilityProfile?,
+    onCompleteTraining: () -> Unit,
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
     onOptimizeBattery: () -> Unit,
@@ -1257,6 +1803,179 @@ private fun ProfileContent(
             }
         }
 
+        capabilityProfile?.let { capability ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("Kendaraan & Layanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    capability.vehicle?.let { vehicle ->
+                        Surface(color = PrimaryLight.copy(alpha = 0.72f), shape = RoundedCornerShape(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(Icons.Default.TwoWheeler, contentDescription = null, tint = Primary, modifier = Modifier.size(28.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        listOfNotNull(vehicle.brand, vehicle.model).joinToString(" ").ifBlank { courierRoleLabel(courierRole) },
+                                        fontWeight = FontWeight.Black,
+                                        color = Primary
+                                    )
+                                    Text(
+                                        "${vehicle.plateNumber} • ${vehicle.engineCc ?: 0} cc • ${vehicle.productionYear ?: "-"}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                CapabilityStatusPill(vehicle.verificationStatus)
+                            }
+                        }
+                    }
+
+                    capability.serviceCapabilities.take(5).forEach { item ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Surface(
+                                color = if (item.status == "enabled") Success.copy(alpha = 0.12f) else Warning.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(
+                                    if (item.status == "enabled") Icons.Default.CheckCircle else Icons.Default.PendingActions,
+                                    contentDescription = null,
+                                    tint = if (item.status == "enabled") Success else Warning,
+                                    modifier = Modifier.padding(8.dp).size(18.dp)
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(item.serviceName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    "${item.serviceCategory.replace("_", " ")} • maks ${item.maxWeightKg ?: 0.0} kg",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            CapabilityStatusPill(item.status)
+                        }
+                    }
+
+                    HorizontalDivider()
+                    Text("Onboarding", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    capability.onboardingSteps.forEach { step ->
+                        ProfileMetricRow(
+                            icon = if (step.status == "complete") Icons.Default.CheckCircle else Icons.Default.PendingActions,
+                            title = step.title,
+                            value = step.status.replace("_", " "),
+                            color = if (step.status == "complete") Success else Warning
+                        )
+                    }
+                    if (capability.trainingCompletions.isEmpty()) {
+                        Button(
+                            onClick = onCompleteTraining,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                        ) {
+                            Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Selesaikan Training Operasional")
+                        }
+                    }
+                }
+            }
+        }
+
+        performanceSummary?.let { summary ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(color = Secondary.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                            Icon(Icons.Default.WorkspacePremium, contentDescription = null, tint = Secondary, modifier = Modifier.padding(10.dp).size(22.dp))
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Performa Kurir", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Tier ${summary.tier.tierName} • ${summary.tier.benefitSummary}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        MiniProfileStat("Hari ini", summary.todayEarningsIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Minggu ini", summary.weekEarningsIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Rating", "%.1f".format(summary.avgRating), Modifier.weight(1f))
+                    }
+                    ProfileMetricRow(
+                        icon = Icons.Default.TaskAlt,
+                        title = "Completion rate",
+                        value = "${summary.completionRatePct}%",
+                        color = Success
+                    )
+                    ProfileMetricRow(
+                        icon = Icons.Default.Bolt,
+                        title = "Acceptance rate",
+                        value = "${summary.acceptanceRatePct}%",
+                        color = Primary
+                    )
+                    if (summary.incentives.isNotEmpty()) {
+                        HorizontalDivider()
+                        Text("Insentif aktif", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        summary.incentives.take(2).forEach { incentive ->
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(incentive.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(
+                                        "${incentive.progressPercent}%",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = Secondary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                LinearProgressIndicator(
+                                    progress = { incentive.progressPercent.coerceIn(0, 100) / 100f },
+                                    modifier = Modifier.fillMaxWidth().height(8.dp),
+                                    color = Secondary,
+                                    trackColor = PrimaryLight
+                                )
+                                Text(
+                                    "${incentive.progressDeliveries}/${incentive.targetDeliveries} selesai • Bonus ${incentive.rewardIdr.toRupiahCompact()}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1344,6 +2063,43 @@ private fun ProfileContent(
             Icon(Icons.Default.Logout, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Keluar Aplikasi")
+        }
+    }
+}
+
+@Composable
+private fun CapabilityStatusPill(status: String) {
+    val normalized = status.replace("_", " ")
+    val color = when (status) {
+        "enabled", "approved", "complete" -> Success
+        "disabled", "rejected", "suspended" -> MaterialTheme.colorScheme.error
+        else -> Warning
+    }
+    Surface(color = color.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+        Text(
+            normalized,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun MiniProfileStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        color = PrimaryLight.copy(alpha = 0.66f),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Primary, maxLines = 1)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
     }
 }

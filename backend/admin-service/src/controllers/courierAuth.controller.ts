@@ -407,11 +407,25 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          ST_Y(o.pickup_location::geometry)::float8 AS pickup_latitude,
          ST_X(o.pickup_location::geometry)::float8 AS pickup_longitude,
          COALESCE(o.scheduled_at, o.created_at) AS pickup_time,
-         o.dropoff_address,
+         o.dropoff_address AS drop_address,
          ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
          ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
          COALESCE(o.distance_km, 0)::text AS distance,
          COALESCE(ol.assigned_fee_idr, o.total_price_idr, 0)::text AS fee,
+         COALESCE(o.courier_payout_estimate_idr, 0)::int AS courier_payout_estimate_idr,
+         COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
+         COALESCE(o.platform_commission_idr, 0)::int AS platform_commission_idr,
+         o.service_code,
+         COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR Service') AS service_name,
+         COALESCE(dsp.service_category, 'network') AS service_category,
+         COALESCE(dsp.service_family, 'regular') AS service_family,
+         COALESCE(dsp.route_model, o.model, 'hub_and_spoke') AS service_route_model,
+         COALESCE(dsp.max_eta_minutes, 0)::int AS service_max_eta_minutes,
+         NULLIF(COALESCE(o.package_details->>'description', o.customer_notes, o.pickup_notes, ''), '') AS item_description,
+         NULLIF(o.package_details->>'length_cm', '')::float8 AS length,
+         NULLIF(o.package_details->>'width_cm', '')::float8 AS width,
+         NULLIF(o.package_details->>'height_cm', '')::float8 AS height,
+         NULLIF(o.package_details->>'weight_kg', '')::float8 AS weight,
          COALESCE(c.full_name, 'Customer') AS customer_name,
          COALESCE(ol.status, o.status) AS status,
          (EXTRACT(EPOCH FROM o.created_at) * 1000)::bigint AS created_at,
@@ -419,6 +433,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          o.recipient_phone_masked AS customer_phone
        FROM order_legs ol
        JOIN orders o ON o.id = ol.order_id
+       LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
        LEFT JOIN users c ON c.id = o.customer_id
        WHERE ol.courier_id = $1
        ORDER BY o.id, o.created_at DESC
@@ -461,7 +476,7 @@ const mobileOrderSelect = `
   ST_Y(o.pickup_location::geometry)::float8 AS pickup_latitude,
   ST_X(o.pickup_location::geometry)::float8 AS pickup_longitude,
   COALESCE(o.scheduled_at, o.created_at) AS pickup_time,
-  o.dropoff_address,
+  o.dropoff_address AS drop_address,
   ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
   ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
   COALESCE(o.distance_km, 0)::text AS distance,
@@ -475,6 +490,16 @@ const mobileOrderSelect = `
   COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
   COALESCE(o.platform_commission_idr, 0)::int AS platform_commission_idr,
   o.service_code,
+  COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR On Demand') AS service_name,
+  COALESCE(dsp.service_category, 'on_demand') AS service_category,
+  COALESCE(dsp.service_family, 'regular') AS service_family,
+  COALESCE(dsp.route_model, o.model, 'p2p') AS service_route_model,
+  COALESCE(dsp.max_eta_minutes, 0)::int AS service_max_eta_minutes,
+  NULLIF(COALESCE(o.package_details->>'description', o.customer_notes, o.pickup_notes, ''), '') AS item_description,
+  NULLIF(o.package_details->>'length_cm', '')::float8 AS length,
+  NULLIF(o.package_details->>'width_cm', '')::float8 AS width,
+  NULLIF(o.package_details->>'height_cm', '')::float8 AS height,
+  NULLIF(o.package_details->>'weight_kg', '')::float8 AS weight,
   COALESCE(c.full_name, 'Customer') AS customer_name,
   COALESCE(ol.status, o.status) AS status,
   (EXTRACT(EPOCH FROM o.created_at) * 1000)::bigint AS created_at,
@@ -490,6 +515,471 @@ const normalizeMobileOrder = (order: any) => ({
   offer_ttl_seconds: order.offer_ttl_seconds ? Number(order.offer_ttl_seconds) : null,
 });
 
+const normalizeOfferMobileOrder = (order: any) => ({
+  ...normalizeMobileOrder(order),
+  drop_address: 'Alamat tujuan dibuka setelah pekerjaan diterima',
+});
+
+export const getMobileCourierOnDemandServices = async (_req: Request, res: Response) => {
+  try {
+    const result = await db.query(
+      `SELECT
+         code,
+         name,
+         description,
+         service_family,
+         service_category,
+         route_model,
+         max_eta_minutes,
+         max_distance_km,
+         max_weight_kg,
+         vehicle_types,
+         display_order
+       FROM delivery_service_products
+       WHERE is_enabled = TRUE
+         AND service_category = 'on_demand'
+       ORDER BY display_order ASC, name ASC`
+    );
+
+    res.json({
+      success: true,
+      data: result.rows,
+      message: 'On-demand services loaded',
+    });
+  } catch (error) {
+    console.error('Get mobile courier on-demand services error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+const publicBaseUrl = () =>
+  process.env.PUBLIC_APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+
+const sha256 = (value: string) =>
+  crypto.createHash('sha256').update(value).digest('hex');
+
+const toRad = (value: number) => value * Math.PI / 180;
+
+const haversineKm = (aLat: number, aLng: number, bLat: number, bLng: number) => {
+  const radiusKm = 6371;
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const startLat = toRad(aLat);
+  const endLat = toRad(bLat);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(startLat) * Math.cos(endLat) * Math.sin(dLng / 2) ** 2;
+  return 2 * radiusKm * Math.asin(Math.sqrt(h));
+};
+
+const parseLatLng = (row: any) => ({
+  pickup_latitude: Number(row.pickup_latitude),
+  pickup_longitude: Number(row.pickup_longitude),
+  drop_latitude: Number(row.drop_latitude),
+  drop_longitude: Number(row.drop_longitude),
+});
+
+const notifyAdminOps = async (payload: {
+  title: string;
+  body: string;
+  type: string;
+  order_id?: string;
+  metadata?: any;
+}) => {
+  const admins = await db.query(
+    `SELECT id
+     FROM users
+     WHERE role IN ('admin', 'super_admin')
+       AND status = 'active'
+     LIMIT 25`
+  );
+
+  await Promise.all(admins.rows.map((admin: any) => createNotification({
+    user_id: admin.id,
+    title: payload.title,
+    body: payload.body,
+    type: payload.type,
+    order_id: payload.order_id,
+    deep_link: payload.order_id ? `/admin/orders/${payload.order_id}` : '/admin/couriers',
+    metadata: payload.metadata,
+  })));
+};
+
+export const createMobileCourierSafetyEvent = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  const eventType = String(req.body?.event_type || req.body?.eventType || 'support_request');
+  const severity = String(req.body?.severity || (eventType === 'sos' ? 'critical' : 'medium'));
+  const orderId = req.body?.order_id || req.body?.orderId || null;
+  const latitude = parseCoordinate(req.body?.latitude);
+  const longitude = parseCoordinate(req.body?.longitude);
+  const accuracy = parseCoordinate(req.body?.accuracy);
+  const message = req.body?.message ? String(req.body.message) : null;
+
+  try {
+    const result = await db.query(
+      `INSERT INTO courier_safety_events (
+         order_id, courier_id, event_type, severity, latitude, longitude, accuracy_m, message, metadata
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, status, created_at`,
+      [
+        orderId,
+        req.user.id,
+        eventType,
+        severity,
+        latitude,
+        longitude,
+        accuracy,
+        message,
+        JSON.stringify({ source: 'courier_app', app_surface: 'on_demand_active_job' }),
+      ]
+    );
+
+    await notifyAdminOps({
+      title: eventType === 'sos' ? 'SOS Kurir On Demand' : 'Laporan Keamanan Kurir',
+      body: message || (eventType === 'sos' ? 'Kurir membutuhkan bantuan segera.' : 'Kurir mengirim laporan operasional.'),
+      type: 'courier_safety_event',
+      order_id: orderId || undefined,
+      metadata: {
+        event_id: result.rows[0].id,
+        event_type: eventType,
+        severity,
+        courier_id: req.user.id,
+        latitude,
+        longitude,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        id: result.rows[0].id,
+        status: result.rows[0].status,
+        created_at: result.rows[0].created_at,
+      },
+      message: eventType === 'sos'
+        ? 'SOS terkirim. Tim operasional sedang memantau lokasi Anda.'
+        : 'Laporan terkirim ke tim operasional.',
+    });
+  } catch (error) {
+    console.error('Create mobile courier safety event error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+export const createMobileCourierTripShare = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  const orderId = String(req.body?.order_id || req.body?.orderId || '');
+  if (!orderId) {
+    res.status(400).json({ success: false, data: null, message: 'Order wajib dikirim.', code: 'ERR_BAD_REQUEST' });
+    return;
+  }
+
+  try {
+    const access = await db.query(
+      `SELECT o.id
+       FROM orders o
+       JOIN order_legs ol ON ol.order_id = o.id AND ol.courier_id = $2
+       WHERE o.id = $1
+         AND LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
+         AND o.status NOT IN ('delivered', 'cancelled', 'failed')
+       LIMIT 1`,
+      [orderId, req.user.id]
+    );
+    if (access.rows.length === 0) {
+      res.status(404).json({ success: false, data: null, message: 'Order aktif tidak ditemukan untuk share trip.', code: 'ERR_ORDER_NOT_FOUND' });
+      return;
+    }
+
+    const token = crypto.randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + 6 * 60 * 60 * 1000);
+    await db.query(
+      `INSERT INTO trip_share_tokens (order_id, courier_id, token_hash, expires_at, metadata)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (token_hash) DO NOTHING`,
+      [orderId, req.user.id, sha256(token), expiresAt, JSON.stringify({ source: 'courier_app' })]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        url: `${publicBaseUrl()}/track/${token}`,
+        expires_at: expiresAt.toISOString(),
+      },
+      message: 'Link live trip dibuat.',
+    });
+  } catch (error) {
+    console.error('Create mobile courier trip share error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+export const getPublicTripShare = async (req: Request, res: Response) => {
+  const token = String(req.params.token || '');
+  if (!token) {
+    res.status(404).json({ success: false, data: null, message: 'Tracking link tidak ditemukan.', code: 'ERR_NOT_FOUND' });
+    return;
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT
+         o.id AS order_id,
+         o.status,
+         o.pickup_address,
+         o.dropoff_address AS drop_address,
+         ST_Y(o.pickup_location::geometry)::float8 AS pickup_latitude,
+         ST_X(o.pickup_location::geometry)::float8 AS pickup_longitude,
+         ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
+         ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
+         u.full_name AS courier_name,
+         ST_Y(cp.current_location::geometry)::float8 AS courier_latitude,
+         ST_X(cp.current_location::geometry)::float8 AS courier_longitude,
+         cp.last_location_at,
+         tst.expires_at
+       FROM trip_share_tokens tst
+       JOIN orders o ON o.id = tst.order_id
+       JOIN users u ON u.id = tst.courier_id
+       LEFT JOIN courier_profiles cp ON cp.user_id = tst.courier_id
+       WHERE tst.token_hash = $1
+         AND tst.revoked_at IS NULL
+         AND tst.expires_at > NOW()
+         AND o.status NOT IN ('delivered', 'cancelled', 'failed')
+       LIMIT 1`,
+      [sha256(token)]
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      res.status(404).json({ success: false, data: null, message: 'Tracking link sudah berakhir atau tidak aktif.', code: 'ERR_NOT_FOUND' });
+      return;
+    }
+
+    res.json({ success: true, data: row, message: 'Trip tracking loaded' });
+  } catch (error) {
+    console.error('Get public trip share error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+export const getMobileCourierHotspots = async (_req: Request, res: Response) => {
+  try {
+    const result = await db.query(
+      `WITH demand AS (
+         SELECT
+           z.id,
+           z.name,
+           z.code,
+           COUNT(o.id)::int AS pending_orders,
+           ST_Y(ST_Centroid(z.polygon::geometry))::float8 AS latitude,
+           ST_X(ST_Centroid(z.polygon::geometry))::float8 AS longitude
+         FROM zones z
+         LEFT JOIN orders o ON ST_Covers(z.polygon, o.pickup_location)
+           AND LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
+           AND o.status IN ('pending', 'pending_payment', 'paid', 'matched', 'dispatching', 'offered')
+           AND o.created_at >= NOW() - INTERVAL '6 hours'
+         WHERE z.is_active = TRUE
+         GROUP BY z.id, z.name, z.code, z.polygon
+       )
+       SELECT *,
+         CASE
+           WHEN pending_orders >= 8 THEN 'high'
+           WHEN pending_orders >= 3 THEN 'medium'
+           ELSE 'low'
+         END AS intensity
+       FROM demand
+       ORDER BY pending_orders DESC, name ASC
+       LIMIT 12`
+    );
+
+    res.json({ success: true, data: result.rows, message: 'On-demand hotspots loaded' });
+  } catch (error) {
+    console.error('Get mobile courier hotspots error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+export const getMobileCourierRoutePreview = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  const orderId = String(req.params.orderId || req.params.id || '');
+  try {
+    const result = await db.query(
+      `SELECT
+         o.id,
+         ST_Y(o.pickup_location::geometry)::float8 AS pickup_latitude,
+         ST_X(o.pickup_location::geometry)::float8 AS pickup_longitude,
+         ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
+         ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
+         COALESCE(o.distance_km, 0)::float8 AS stored_distance_km
+       FROM orders o
+       LEFT JOIN order_legs ol ON ol.order_id = o.id
+       WHERE o.id = $1
+         AND (ol.courier_id = $2 OR o.status IN ('pending', 'pending_payment', 'paid', 'matched', 'dispatching', 'offered'))
+       LIMIT 1`,
+      [orderId, req.user.id]
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      res.status(404).json({ success: false, data: null, message: 'Route order tidak ditemukan.', code: 'ERR_NOT_FOUND' });
+      return;
+    }
+
+    const coords = parseLatLng(row);
+    const distanceKm = Number(row.stored_distance_km || 0) > 0
+      ? Number(row.stored_distance_km)
+      : haversineKm(coords.pickup_latitude, coords.pickup_longitude, coords.drop_latitude, coords.drop_longitude);
+    const etaMinutes = Math.max(8, Math.ceil(distanceKm / 22 * 60));
+    const polyline = [
+      { latitude: coords.pickup_latitude, longitude: coords.pickup_longitude },
+      { latitude: coords.drop_latitude, longitude: coords.drop_longitude },
+    ];
+
+    await db.query(
+      `INSERT INTO courier_route_snapshots (order_id, courier_id, distance_km, eta_minutes, polyline)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [orderId, req.user.id, distanceKm.toFixed(2), etaMinutes, JSON.stringify(polyline)]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        order_id: orderId,
+        distance_km: Number(distanceKm.toFixed(2)),
+        eta_minutes: etaMinutes,
+        provider: 'internal_haversine',
+        polyline,
+      },
+      message: 'Route preview loaded',
+    });
+  } catch (error) {
+    console.error('Get mobile courier route preview error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+export const getMobileCourierPerformance = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  try {
+    const summary = await db.query(
+      `WITH delivered AS (
+         SELECT ol.*, o.delivered_at
+         FROM order_legs ol
+         JOIN orders o ON o.id = ol.order_id
+         WHERE ol.courier_id = $1
+       ),
+       ratings AS (
+         SELECT COALESCE(AVG(stars), 5.0)::numeric(3,2) AS avg_rating, COUNT(*)::int AS rating_count
+         FROM courier_ratings
+         WHERE courier_id = $1
+       )
+       SELECT
+         COUNT(*) FILTER (WHERE status = 'delivered')::int AS total_deliveries,
+         COUNT(*) FILTER (WHERE status = 'delivered' AND updated_at >= NOW() - INTERVAL '30 days')::int AS deliveries_30d,
+         COALESCE(SUM(assigned_fee_idr) FILTER (WHERE status = 'delivered' AND updated_at::date = CURRENT_DATE), 0)::int AS today_earnings_idr,
+         COALESCE(SUM(assigned_fee_idr) FILTER (WHERE status = 'delivered' AND updated_at >= date_trunc('week', NOW())), 0)::int AS week_earnings_idr,
+         COALESCE(SUM(assigned_fee_idr) FILTER (WHERE status = 'delivered'), 0)::int AS total_earnings_idr,
+         COALESCE(ROUND(COUNT(*) FILTER (WHERE status = 'delivered')::numeric / NULLIF(COUNT(*) FILTER (WHERE status NOT IN ('pending')), 0) * 100), 100)::int AS completion_rate_pct,
+         COALESCE((SELECT avg_rating FROM ratings), 5.00) AS avg_rating,
+         COALESCE((SELECT rating_count FROM ratings), 0)::int AS rating_count
+       FROM delivered`,
+      [req.user.id]
+    );
+
+    const row = summary.rows[0] || {};
+    const tierRes = await db.query(
+      `SELECT tier_code, tier_name, benefit_summary
+       FROM courier_tier_configs
+       WHERE is_active = TRUE
+         AND min_rating <= $1
+         AND min_completion_rate <= $2
+         AND min_deliveries_30d <= $3
+       ORDER BY display_order DESC
+       LIMIT 1`,
+      [Number(row.avg_rating || 5), Number(row.completion_rate_pct || 100), Number(row.deliveries_30d || 0)]
+    );
+
+    const campaignRes = await db.query(
+      `SELECT id, code, title, description, target_deliveries, reward_idr, ends_at
+       FROM courier_incentive_campaigns
+       WHERE is_active = TRUE
+         AND starts_at <= NOW()
+         AND ends_at >= NOW()
+       ORDER BY reward_idr DESC
+       LIMIT 5`
+    );
+
+    const deliveredToday = await db.query(
+      `SELECT COUNT(*)::int AS total
+       FROM order_legs
+       WHERE courier_id = $1
+         AND status = 'delivered'
+         AND updated_at::date = CURRENT_DATE`,
+      [req.user.id]
+    );
+
+    const todayCount = Number(deliveredToday.rows[0]?.total || 0);
+    const incentives = campaignRes.rows.map((campaign: any) => ({
+      ...campaign,
+      progress_deliveries: todayCount,
+      progress_percent: campaign.target_deliveries > 0 ? Math.min(100, Math.round(todayCount / campaign.target_deliveries * 100)) : 0,
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        today_earnings_idr: Number(row.today_earnings_idr || 0),
+        week_earnings_idr: Number(row.week_earnings_idr || 0),
+        total_earnings_idr: Number(row.total_earnings_idr || 0),
+        total_deliveries: Number(row.total_deliveries || 0),
+        deliveries_30d: Number(row.deliveries_30d || 0),
+        completion_rate_pct: Number(row.completion_rate_pct || 100),
+        acceptance_rate_pct: 100,
+        avg_rating: Number(row.avg_rating || 5),
+        rating_count: Number(row.rating_count || 0),
+        tier: tierRes.rows[0] || { tier_code: 'starter', tier_name: 'Starter', benefit_summary: 'Akses pekerjaan on-demand reguler.' },
+        incentives,
+      },
+      message: 'Courier performance loaded',
+    });
+  } catch (error) {
+    console.error('Get mobile courier performance error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+export const listAdminCourierSafetyEvents = async (_req: Request, res: Response) => {
+  try {
+    const result = await db.query(
+      `SELECT se.*, u.full_name AS courier_name, o.order_number
+       FROM courier_safety_events se
+       JOIN users u ON u.id = se.courier_id
+       LEFT JOIN orders o ON o.id = se.order_id
+       ORDER BY se.created_at DESC
+       LIMIT 100`
+    );
+
+    res.json({ success: true, data: result.rows, events: result.rows });
+  } catch (error) {
+    console.error('List admin courier safety events error:', error);
+    res.status(500).json({ success: false, data: [], events: [], message: 'Internal Server Error' });
+  }
+};
+
 const ON_DEMAND_OFFER_TTL_SECONDS = 15;
 const ON_DEMAND_OPEN_ORDER_STATUSES = ['pending', 'pending_payment', 'paid', 'matched', 'offered', 'dispatching'];
 
@@ -503,6 +993,7 @@ type CreatedDispatchOffer = {
   fee: string | null;
   customer_name: string | null;
   expires_at: Date;
+  service_name?: string | null;
 };
 
 const expireStaleOnDemandOffers = async (client: any): Promise<CreatedDispatchOffer[]> => {
@@ -568,8 +1059,10 @@ const dispatchNextOnDemandCourier = async (client: any, orderId: string): Promis
          o.dropoff_address,
          COALESCE(o.distance_km, 0)::text AS distance,
          COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::text AS fee,
-         COALESCE(u.full_name, 'Customer') AS customer_name
+         COALESCE(u.full_name, 'Customer') AS customer_name,
+         COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR On Demand') AS service_name
        FROM orders o
+       LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
        JOIN courier_profiles cp ON cp.application_channel = 'on_demand'
         AND cp.verification_status = 'approved'
         AND cp.is_online = TRUE
@@ -691,6 +1184,7 @@ const dispatchNextOnDemandCourier = async (client: any, orderId: string): Promis
     fee: nextCourier.fee,
     customer_name: nextCourier.customer_name,
     expires_at: dispatch.expires_at,
+    service_name: nextCourier.service_name,
   };
 };
 
@@ -728,7 +1222,7 @@ const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
       await createNotification({
         user_id: offer.courier_id,
         title: 'Pekerjaan On Demand Baru',
-        body: `Terima dalam ${ON_DEMAND_OFFER_TTL_SECONDS} detik untuk mulai pickup.`,
+        body: `${offer.service_name || 'On Demand'} tersedia. Terima dalam ${ON_DEMAND_OFFER_TTL_SECONDS} detik.`,
         type: 'on_demand_offer',
         order_id: offer.order_id,
         deep_link: `lancar://orders/${offer.order_id}`,
@@ -736,16 +1230,17 @@ const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
           dispatch_id: offer.dispatch_id,
           order_id: offer.order_id,
           pickup_address: offer.pickup_address || '',
-          drop_address: offer.dropoff_address || '',
+          drop_address: 'Alamat tujuan dibuka setelah pekerjaan diterima',
           distance: offer.distance || '',
           fee: offer.fee || '',
           customer_name: offer.customer_name || '',
+          service_name: offer.service_name || 'LANCAR On Demand',
           model: 'p2p',
           workflow_role: 'on_demand',
           offer_expires_at: new Date(offer.expires_at).getTime().toString(),
           offer_ttl_seconds: ON_DEMAND_OFFER_TTL_SECONDS.toString(),
           title: 'Pekerjaan On Demand Baru',
-          body: `Terima dalam ${ON_DEMAND_OFFER_TTL_SECONDS} detik untuk mulai pickup.`,
+          body: `${offer.service_name || 'On Demand'} tersedia. Terima dalam ${ON_DEMAND_OFFER_TTL_SECONDS} detik.`,
         },
       });
     } catch (error) {
@@ -778,6 +1273,7 @@ export const getMobileCourierOffers = async (req: Request, res: Response) => {
          AND d.expires_at > NOW()
        LEFT JOIN users c ON c.id = o.customer_id
        LEFT JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
+       LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
        ORDER BY d.expires_at ASC
        LIMIT 1`,
       [req.user.id]
@@ -788,7 +1284,7 @@ export const getMobileCourierOffers = async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      data: result.rows.map(normalizeMobileOrder),
+      data: result.rows.map(normalizeOfferMobileOrder),
       message: 'Courier on-demand offers loaded',
     });
   } catch (error) {
@@ -979,6 +1475,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
        FROM orders o
        JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
        LEFT JOIN users c ON c.id = o.customer_id
+       LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
        WHERE o.id = $1`,
       [dispatch.order_id]
     );
@@ -1069,6 +1566,7 @@ const verifyOnDemandStep = async ({
   accuracy,
   barcodeValue,
   photoUrl,
+  spoofRisk,
 }: {
   req: Request;
   res: Response;
@@ -1079,13 +1577,67 @@ const verifyOnDemandStep = async ({
   accuracy: number | null;
   barcodeValue?: string | null;
   photoUrl?: string | null;
+  spoofRisk?: string | null;
 }) => {
   if (!req.user?.id) {
     res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
     return;
   }
 
+  const writeProofAttempt = async (
+    client: any,
+    status: 'accepted' | 'rejected',
+    reason: string | null,
+    distanceM?: number | null
+  ) => {
+    await client.query(
+      `INSERT INTO courier_proof_attempts (
+         order_id,
+         courier_id,
+         proof_step,
+         proof_status,
+         rejection_reason,
+         distance_m,
+         radius_m,
+         latitude,
+         longitude,
+         accuracy_m,
+         spoof_risk,
+         barcode_value,
+         photo_url
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [
+        orderId,
+        req.user?.id,
+        step,
+        status,
+        reason,
+        distanceM ?? null,
+        ON_DEMAND_GEOFENCE_RADIUS_M,
+        latitude,
+        longitude,
+        accuracy,
+        spoofRisk || 'normal',
+        barcodeValue || null,
+        photoUrl || null,
+      ]
+    );
+  };
+
+  const writeRejectedProofAttempt = async (reason: string, distanceM?: number | null) => {
+    const auditClient = await db.connect();
+    try {
+      await writeProofAttempt(auditClient, 'rejected', reason, distanceM ?? null);
+    } catch (error) {
+      console.warn('Failed to write proof attempt audit:', error);
+    } finally {
+      auditClient.release();
+    }
+  };
+
   if (accuracy != null && accuracy > ON_DEMAND_MAX_ACCURACY_M) {
+    await writeRejectedProofAttempt('location_accuracy_low', null);
     res.status(422).json({
       success: false,
       data: null,
@@ -1125,6 +1677,7 @@ const verifyOnDemandStep = async ({
     const order = orderRes.rows[0];
     if (!order) {
       await client.query('ROLLBACK');
+      await writeRejectedProofAttempt('order_not_found', null);
       res.status(404).json({
         success: false,
         data: null,
@@ -1137,6 +1690,7 @@ const verifyOnDemandStep = async ({
     const distanceM = Number(order.distance_m || 0);
     if (distanceM > ON_DEMAND_GEOFENCE_RADIUS_M) {
       await client.query('ROLLBACK');
+      await writeRejectedProofAttempt('outside_geofence', distanceM);
       res.status(422).json({
         success: false,
         data: { distance_m: distanceM, radius_m: ON_DEMAND_GEOFENCE_RADIUS_M },
@@ -1151,11 +1705,13 @@ const verifyOnDemandStep = async ({
     const currentStatus = String(order.status || '').toLowerCase();
     if (step === 'pickup' && ['delivered', 'completed', 'cancelled', 'failed'].includes(currentStatus)) {
       await client.query('ROLLBACK');
+      await writeRejectedProofAttempt('invalid_pickup_status', distanceM);
       res.status(409).json({ success: false, data: null, message: 'Order ini sudah tidak bisa diverifikasi pickup.', code: 'ERR_INVALID_STATUS' });
       return;
     }
     if (step === 'delivery' && !['picked_up', 'in_transit'].includes(currentStatus)) {
       await client.query('ROLLBACK');
+      await writeRejectedProofAttempt('pickup_required', distanceM);
       res.status(409).json({
         success: false,
         data: null,
@@ -1235,9 +1791,11 @@ const verifyOnDemandStep = async ({
         req.user.id,
         step === 'pickup' ? 'pickup_verified' : 'pod_verified',
         step === 'pickup' ? 'Courier verified on-demand pickup at geofence' : 'Courier verified on-demand delivery POD at geofence',
-        JSON.stringify({ distance_m: distanceM, accuracy_m: accuracy, barcode_value: barcodeValue || null, photo_url: photoUrl || null }),
+        JSON.stringify({ distance_m: distanceM, accuracy_m: accuracy, barcode_value: barcodeValue || null, photo_url: photoUrl || null, spoof_risk: spoofRisk || 'normal' }),
       ]
     );
+
+    await writeProofAttempt(client, 'accepted', null, distanceM);
 
     await client.query('COMMIT');
     res.json({
@@ -1282,6 +1840,7 @@ export const scanMobileCourierOrder = async (req: Request, res: Response) => {
     longitude,
     accuracy,
     barcodeValue: req.body?.barcode_value || req.body?.barcodeValue || null,
+    spoofRisk: req.body?.spoof_risk || req.body?.spoofRisk || null,
   });
 };
 
@@ -1314,5 +1873,6 @@ export const uploadMobileCourierPod = async (req: Request, res: Response) => {
     accuracy,
     barcodeValue: req.body?.barcode_value || req.body?.barcodeValue || null,
     photoUrl: `/uploads/pod/${filename}`,
+    spoofRisk: req.body?.spoof_risk || req.body?.spoofRisk || null,
   });
 };

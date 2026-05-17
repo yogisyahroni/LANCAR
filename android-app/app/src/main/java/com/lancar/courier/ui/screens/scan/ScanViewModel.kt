@@ -50,7 +50,8 @@ class ScanViewModel @Inject constructor(
                     latitude = latitude,
                     longitude = longitude,
                     accuracy = accuracy,
-                    barcodeValue = barcodeValue
+                    barcodeValue = barcodeValue,
+                    spoofRisk = accuracy?.let { if (it > 50f) "low_accuracy" else "normal" } ?: "unknown_accuracy"
                 )
                 
                 val response = apiService.scanPackage(request)

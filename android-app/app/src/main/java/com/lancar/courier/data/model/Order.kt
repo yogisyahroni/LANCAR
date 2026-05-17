@@ -86,6 +86,30 @@ data class Order(
     @SerialName("service_code")
     val serviceCode: String? = null,
 
+    @ColumnInfo(name = "service_name")
+    @SerialName("service_name")
+    val serviceName: String? = null,
+
+    @ColumnInfo(name = "service_category")
+    @SerialName("service_category")
+    val serviceCategory: String? = null,
+
+    @ColumnInfo(name = "service_family")
+    @SerialName("service_family")
+    val serviceFamily: String? = null,
+
+    @ColumnInfo(name = "service_route_model")
+    @SerialName("service_route_model")
+    val serviceRouteModel: String? = null,
+
+    @ColumnInfo(name = "service_max_eta_minutes")
+    @SerialName("service_max_eta_minutes")
+    val serviceMaxEtaMinutes: Int = 0,
+
+    @ColumnInfo(name = "item_description")
+    @SerialName("item_description")
+    val itemDescription: String? = null,
+
     @ColumnInfo(name = "model")
     @SerialName("model")
     val model: String = "P2P",
@@ -234,6 +258,30 @@ fun Order.cleanPayoutIdr(): Int {
     val numericFee = fee.filter { it.isDigit() }.toIntOrNull() ?: 0
     if (numericFee > 0) return numericFee
     return maxOf(customerPriceIdr - platformCommissionIdr, 0)
+}
+
+fun Order.displayServiceName(): String {
+    return serviceName?.takeIf { it.isNotBlank() }
+        ?: serviceCode?.replace("_", " ")?.split(" ")?.joinToString(" ") { word ->
+            word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+        }
+        ?: "LANCAR On Demand"
+}
+
+fun Order.distanceKmValue(): Double {
+    return distance
+        .replace(",", ".")
+        .split(" ")
+        .firstOrNull()
+        ?.filter { it.isDigit() || it == '.' }
+        ?.toDoubleOrNull()
+        ?: 0.0
+}
+
+fun Order.etaMinutesValue(): Int {
+    if (serviceMaxEtaMinutes > 0) return serviceMaxEtaMinutes
+    val calculated = (distanceKmValue() / 18.0 * 60.0).toInt().coerceAtLeast(8)
+    return calculated.coerceAtMost(240)
 }
 
 fun Int.toRupiahCompact(): String {

@@ -447,8 +447,10 @@ class ProofOfDeliveryViewModel @Inject constructor(
                 val accuracyPart = (accuracy ?: 0f).toString().toRequestBody("text/plain".toMediaTypeOrNull())
                 val proofTypePart = proofType.toRequestBody("text/plain".toMediaTypeOrNull())
                 val barcodePart = barcodeValue?.toRequestBody("text/plain".toMediaTypeOrNull())
+                val spoofRiskPart = (accuracy?.let { if (it > 50f) "low_accuracy" else "normal" } ?: "unknown_accuracy")
+                    .toRequestBody("text/plain".toMediaTypeOrNull())
 
-                val response = apiService.uploadPod(orderIdPart, latitudePart, longitudePart, accuracyPart, proofTypePart, barcodePart, body)
+                val response = apiService.uploadPod(orderIdPart, latitudePart, longitudePart, accuracyPart, proofTypePart, barcodePart, spoofRiskPart, body)
                 if (!response.isSuccessful || response.body()?.success != true) {
                     _uiState.value = _uiState.value.copy(
                         isUploading = false,
