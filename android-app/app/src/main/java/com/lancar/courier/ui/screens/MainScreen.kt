@@ -61,6 +61,7 @@ fun MainScreen(
     navController: NavHostController? = null,
     initialOrderId: String? = null,
     initialChatOrderId: String? = null,
+    authSessionManager: AuthSessionManager,
     onConsumedDeepLink: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
@@ -79,7 +80,6 @@ fun MainScreen(
     val isSyncing by orderViewModel.isSyncing.collectAsState()
     val error by orderViewModel.error.collectAsState()
 
-    val authSessionManager = remember { AuthSessionManager(context) }
     val courierName by authSessionManager.courierName.collectAsState(initial = "Courier")
     val isOnline by authSessionManager.isOnline.collectAsState(initial = false)
     val courierRole = courierProfile?.applicationChannel ?: inferCourierRole(allOrders)

@@ -141,6 +141,7 @@ class MainActivity : ComponentActivity() {
                         MainScreen(
                             initialOrderId = deepLinkOrderId,
                             initialChatOrderId = deepLinkChatOrderId,
+                            authSessionManager = authSessionManager,
                             onConsumedDeepLink = {
                                 selectedOrderIdFlow.value = null
                                 selectedChatOrderIdFlow.value = null
