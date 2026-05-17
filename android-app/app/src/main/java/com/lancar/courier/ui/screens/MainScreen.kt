@@ -19,9 +19,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.google.android.gms.location.Priority
@@ -45,9 +48,13 @@ import com.lancar.courier.ui.theme.Secondary
 import com.lancar.courier.ui.theme.SecondaryLight
 import com.lancar.courier.ui.theme.Success
 import com.lancar.courier.ui.theme.Warning
+import com.lancar.courier.util.OrderSyncSignalBus
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.min
 
 /**
  * Main Screen — Courier Dashboard
@@ -79,9 +86,11 @@ fun MainScreen(
     val courierProfile by orderViewModel.courierProfile.collectAsState()
     val isSyncing by orderViewModel.isSyncing.collectAsState()
     val error by orderViewModel.error.collectAsState()
+    val lastRemoteSyncAt by orderViewModel.lastRemoteSyncAt.collectAsState()
 
     val courierName by authSessionManager.courierName.collectAsState(initial = "Courier")
     val isOnline by authSessionManager.isOnline.collectAsState(initial = false)
+    val lifecycleOwner = LocalLifecycleOwner.current
     val courierRole = courierProfile?.applicationChannel ?: inferCourierRole(allOrders)
     val roleOrders = allOrders.filterByCourierRole(courierRole)
     val rolePendingOrders = pendingOrders.filterByCourierRole(courierRole)
@@ -145,6 +154,41 @@ fun MainScreen(
                 duration = SnackbarDuration.Short
             )
             orderViewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(isOnline, courierRole, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            if (!isOnline) return@repeatOnLifecycle
+
+            var intervalMs = FOREGROUND_SYNC_INTERVAL_MS
+            while (isActive) {
+                val result = orderViewModel.refreshOrdersFromBackend(
+                    showUserErrors = false,
+                    showLoading = false,
+                    minIntervalMs = FOREGROUND_SYNC_MIN_INTERVAL_MS
+                )
+                intervalMs = if (result.isSuccess) {
+                    FOREGROUND_SYNC_INTERVAL_MS
+                } else {
+                    min(intervalMs * 2, FOREGROUND_SYNC_MAX_BACKOFF_MS)
+                }
+                delay(intervalMs)
+            }
+        }
+    }
+
+    LaunchedEffect(isOnline, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            OrderSyncSignalBus.events.collect {
+                if (isOnline) {
+                    orderViewModel.refreshOrdersFromBackend(
+                        showUserErrors = false,
+                        showLoading = false,
+                        minIntervalMs = PUSH_SYNC_MIN_INTERVAL_MS
+                    )
+                }
+            }
         }
     }
 
@@ -428,6 +472,8 @@ fun MainScreen(
                     orders = roleOrders,
                     courierRole = courierRole,
                     isSyncing = isSyncing,
+                    isOnline = isOnline,
+                    lastRemoteSyncAt = lastRemoteSyncAt,
                     onOrderClick = { order ->
                         selectedOrder = order
                         showOrderDetail = true
@@ -902,6 +948,8 @@ private fun OrdersContent(
     orders: List<Order>,
     courierRole: String,
     isSyncing: Boolean,
+    isOnline: Boolean,
+    lastRemoteSyncAt: Long?,
     onOrderClick: (Order) -> Unit,
     onSync: () -> Unit,
     onRefresh: () -> Unit
@@ -911,7 +959,10 @@ private fun OrdersContent(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Icon(
                     imageVector = Icons.Default.LocalShipping,
                     contentDescription = null,
@@ -924,7 +975,11 @@ private fun OrdersContent(
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = orderSyncHint(isOnline, lastRemoteSyncAt),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 OutlinedButton(onClick = onRefresh) {
                     Icon(Icons.Default.Refresh, contentDescription = null)
                     Spacer(modifier = Modifier.width(4.dp))
@@ -1175,6 +1230,23 @@ private fun courierRoleLabel(courierRole: String): String = when (courierRole) {
     "delivery_only", "delivery" -> "Delivery Only"
     else -> "On Demand"
 }
+
+private fun orderSyncHint(isOnline: Boolean, lastRemoteSyncAt: Long?): String {
+    if (!isOnline) return "Aktifkan On Duty untuk menerima order otomatis."
+    if (lastRemoteSyncAt == null) return "Menunggu sinkronisasi order otomatis."
+
+    val elapsedSeconds = ((System.currentTimeMillis() - lastRemoteSyncAt) / 1000).coerceAtLeast(0)
+    return when {
+        elapsedSeconds < 10 -> "Sinkron otomatis baru saja berjalan."
+        elapsedSeconds < 60 -> "Sinkron terakhir ${elapsedSeconds} detik lalu."
+        else -> "Sinkron terakhir ${elapsedSeconds / 60} menit lalu."
+    }
+}
+
+private const val FOREGROUND_SYNC_INTERVAL_MS = 30_000L
+private const val FOREGROUND_SYNC_MIN_INTERVAL_MS = 20_000L
+private const val FOREGROUND_SYNC_MAX_BACKOFF_MS = 120_000L
+private const val PUSH_SYNC_MIN_INTERVAL_MS = 2_000L
 
 private data class DutyLocation(
     val latitude: Double,

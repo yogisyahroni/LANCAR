@@ -487,11 +487,17 @@ export const getMobileCourierOffers = async (req: Request, res: Response) => {
     const result = await db.query(
       `SELECT ${mobileOrderSelect}
        FROM orders o
+       JOIN courier_profiles cp ON cp.user_id = $1
+         AND cp.application_channel = 'on_demand'
+         AND cp.verification_status = 'approved'
+         AND cp.is_online = TRUE
+       JOIN zones z ON z.id = cp.current_zone_id AND z.is_active = TRUE
        LEFT JOIN users c ON c.id = o.customer_id
        LEFT JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
        WHERE LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
          AND COALESCE(ol.status, o.status) IN ('pending', 'paid', 'matched', 'offered')
          AND (ol.courier_id IS NULL OR ol.courier_id = $1)
+         AND (o.pickup_location IS NULL OR ST_Covers(z.polygon, o.pickup_location))
        ORDER BY o.created_at DESC
        LIMIT 20`,
       [req.user.id]
@@ -520,8 +526,31 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
   try {
     await client.query('BEGIN');
 
+    const courierEligibility = await client.query(
+      `SELECT cp.id, cp.current_zone_id, z.name AS zone_name
+       FROM courier_profiles cp
+       JOIN zones z ON z.id = cp.current_zone_id AND z.is_active = TRUE
+       WHERE cp.user_id = $1
+         AND cp.application_channel = 'on_demand'
+         AND cp.verification_status = 'approved'
+         AND cp.is_online = TRUE
+       LIMIT 1`,
+      [req.user.id]
+    );
+
+    if (courierEligibility.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(403).json({
+        success: false,
+        data: null,
+        message: 'Kurir harus On Duty di zona aktif untuk menerima pekerjaan on-demand.',
+        code: 'ERR_COURIER_NOT_ELIGIBLE',
+      });
+      return;
+    }
+
     const orderRes = await client.query(
-      `SELECT id, model, total_price_idr, courier_payout_estimate_idr, platform_commission_idr
+      `SELECT id, model, total_price_idr, courier_payout_estimate_idr, platform_commission_idr, pickup_location
        FROM orders
        WHERE id = $1
          AND LOWER(model) IN ('p2p', 'on_demand', 'ondemand')
@@ -533,6 +562,28 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
     if (orderRes.rows.length === 0) {
       await client.query('ROLLBACK');
       res.status(404).json({ success: false, data: null, message: 'Offer not found', code: 'ERR_NOT_FOUND' });
+      return;
+    }
+
+    const zoneCheck = await client.query(
+      `SELECT TRUE AS in_zone
+       FROM zones z
+       JOIN orders o ON o.id = $2
+       WHERE z.id = $1
+         AND z.is_active = TRUE
+         AND (o.pickup_location IS NULL OR ST_Covers(z.polygon, o.pickup_location))
+       LIMIT 1`,
+      [courierEligibility.rows[0].current_zone_id, id]
+    );
+
+    if (zoneCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        data: null,
+        message: 'Pickup order berada di luar zona aktif kurir saat ini.',
+        code: 'ERR_OFFER_OUTSIDE_COURIER_ZONE',
+      });
       return;
     }
 

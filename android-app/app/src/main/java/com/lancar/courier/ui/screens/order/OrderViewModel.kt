@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -48,6 +50,11 @@ class OrderViewModel @Inject constructor(
 
     private val _courierProfile = MutableStateFlow<CourierProfile?>(null)
     val courierProfile: StateFlow<CourierProfile?> = _courierProfile.asStateFlow()
+
+    private val _lastRemoteSyncAt = MutableStateFlow<Long?>(null)
+    val lastRemoteSyncAt: StateFlow<Long?> = _lastRemoteSyncAt.asStateFlow()
+
+    private val refreshMutex = Mutex()
 
     // All orders from local Room DB (reactive)
     val allOrders = orderRepository.getAllOrders()
@@ -129,33 +136,70 @@ class OrderViewModel @Inject constructor(
      */
     fun fetchOrdersFromBackend() {
         viewModelScope.launch {
-            _isSyncing.update { true }
+            refreshOrdersFromBackend(showUserErrors = true, showLoading = true)
+        }
+    }
+
+    suspend fun refreshOrdersFromBackend(
+        showUserErrors: Boolean = false,
+        showLoading: Boolean = false,
+        minIntervalMs: Long = 0L
+    ): Result<Unit> {
+        val lastSync = _lastRemoteSyncAt.value
+        if (minIntervalMs > 0 && lastSync != null && System.currentTimeMillis() - lastSync < minIntervalMs) {
+            return Result.success(Unit)
+        }
+
+        if (refreshMutex.isLocked) {
+            return Result.success(Unit)
+        }
+
+        return refreshMutex.withLock {
+            if (showLoading) _isSyncing.update { true }
             try {
-                val offerResponse = apiService.getOnDemandOffers()
-                if (offerResponse.isSuccessful && offerResponse.body()?.success == true) {
-                    _offers.update { offerResponse.body()?.data ?: emptyList() }
+                val profileResponse = apiService.getCourierProfile()
+                val profileBody = profileResponse.body()
+                if (profileResponse.isSuccessful && profileBody?.success == true) {
+                    _courierProfile.update { profileBody.data }
+                }
+
+                val currentRole = profileBody?.data?.applicationChannel
+                    ?: _courierProfile.value?.applicationChannel
+                    ?: "on_demand"
+
+                if (currentRole == "on_demand") {
+                    val offerResponse = apiService.getOnDemandOffers()
+                    if (offerResponse.isSuccessful && offerResponse.body()?.success == true) {
+                        _offers.update { offerResponse.body()?.data ?: emptyList() }
+                    }
+                } else {
+                    _offers.update { emptyList() }
                 }
 
                 val response = apiService.getOrders()
                 val responseBody = response.body()
                 if (response.isSuccessful && responseBody?.success == true) {
                     val orders = responseBody.data ?: emptyList()
-                    // Mark as synced since they came from the server
                     val syncedOrders = orders.map { it.copy(needsSync = false) }
                     orderRepository.addOrders(syncedOrders)
+                    _lastRemoteSyncAt.update { System.currentTimeMillis() }
+                    Result.success(Unit)
                 } else {
-                    _error.update {
-                        "Gagal memuat orders: ${responseBody?.message ?: "HTTP ${response.code()}"}"
-                    }
+                    val message = "Gagal memuat orders: ${responseBody?.message ?: "HTTP ${response.code()}"}"
+                    if (showUserErrors) _error.update { message }
+                    Result.failure(Exception(message))
                 }
             } catch (e: java.net.UnknownHostException) {
-                _error.update { "Tidak ada koneksi. Menampilkan data offline." }
+                if (showUserErrors) _error.update { "Tidak ada koneksi. Menampilkan data offline." }
+                Result.failure(e)
             } catch (e: java.net.SocketTimeoutException) {
-                _error.update { "Server tidak merespons. Coba lagi." }
+                if (showUserErrors) _error.update { "Server tidak merespons. Coba lagi." }
+                Result.failure(e)
             } catch (e: Exception) {
-                _error.update { "Error: ${e.message}" }
+                if (showUserErrors) _error.update { "Error: ${e.message}" }
+                Result.failure(e)
             } finally {
-                _isSyncing.update { false }
+                if (showLoading) _isSyncing.update { false }
             }
         }
     }

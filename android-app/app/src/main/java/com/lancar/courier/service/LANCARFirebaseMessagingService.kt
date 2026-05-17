@@ -10,6 +10,9 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.lancar.courier.LANCARApplication
@@ -17,6 +20,8 @@ import com.lancar.courier.R
 import com.lancar.courier.data.repository.FCMTokenRepository
 import com.lancar.courier.receiver.NotificationReceiver
 import com.lancar.courier.ui.MainActivity
+import com.lancar.courier.util.OrderSyncSignalBus
+import com.lancar.courier.worker.OrderSyncWorker
 import android.media.RingtoneManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -93,11 +98,13 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
         
         when (type) {
             "on_demand_offer" -> {
+                signalOrderRefresh()
                 val title = data["title"] ?: "Pekerjaan On Demand Baru"
                 val body = data["body"] ?: "Terima pekerjaan untuk mulai navigasi ke pickup."
                 showNotification(title, body, data)
             }
             "order_assignment" -> {
+                signalOrderRefresh()
                 val title = data["title"] ?: "New Order Assignment"
                 val body = data["body"] ?: "You have a new order assigned"
                 showNotification(title, body, data)
@@ -118,6 +125,16 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
                 showNotification(title, body, data)
             }
         }
+    }
+
+    private fun signalOrderRefresh() {
+        OrderSyncSignalBus.signal(OrderSyncSignalBus.REASON_PUSH_ORDER)
+        val syncRequest = OneTimeWorkRequestBuilder<OrderSyncWorker>().build()
+        WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+            "order_sync_push_signal",
+            ExistingWorkPolicy.REPLACE,
+            syncRequest
+        )
     }
 
     private fun showNotification(title: String, body: String, data: Map<String, String>) {
