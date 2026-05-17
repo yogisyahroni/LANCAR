@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS courier_offer_dispatches (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   order_leg_id UUID REFERENCES order_legs(id) ON DELETE SET NULL,
-  courier_id UUID NOT NULL REFERENCES couriers(id) ON DELETE CASCADE,
+  courier_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   zone_id UUID REFERENCES zones(id),
   wave_number INT NOT NULL DEFAULT 1,
   rank_number INT NOT NULL,
