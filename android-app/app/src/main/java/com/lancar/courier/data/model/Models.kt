@@ -311,6 +311,46 @@ data class CourierPerformanceSummary(
 )
 
 @Serializable
+data class CourierEarningsLedgerSummary(
+    @SerialName("total_balance_idr")
+    val totalBalanceIdr: Int = 0,
+    @SerialName("available_balance_idr")
+    val availableBalanceIdr: Int = 0,
+    @SerialName("pending_balance_idr")
+    val pendingBalanceIdr: Int = 0
+)
+
+@Serializable
+data class CourierEarningsTransaction(
+    @SerialName("id")
+    val id: String,
+    @SerialName("order_id")
+    val orderId: String? = null,
+    @SerialName("order_number")
+    val orderNumber: String? = null,
+    @SerialName("source")
+    val source: String = "delivery",
+    @SerialName("direction")
+    val direction: String = "credit",
+    @SerialName("amount_idr")
+    val amountIdr: Int = 0,
+    @SerialName("settlement_status")
+    val settlementStatus: String = "pending",
+    @SerialName("description")
+    val description: String? = null,
+    @SerialName("created_at")
+    val createdAt: String? = null
+)
+
+@Serializable
+data class CourierEarningsLedger(
+    @SerialName("summary")
+    val summary: CourierEarningsLedgerSummary = CourierEarningsLedgerSummary(),
+    @SerialName("transactions")
+    val transactions: List<CourierEarningsTransaction> = emptyList()
+)
+
+@Serializable
 data class CourierVehicleProfile(
     @SerialName("id")
     val id: String = "",

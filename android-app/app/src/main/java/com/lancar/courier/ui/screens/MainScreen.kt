@@ -51,6 +51,8 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import com.lancar.courier.data.model.CourierServiceProduct
 import com.lancar.courier.data.model.CourierHotspot
 import com.lancar.courier.data.model.CourierCapabilityProfile
+import com.lancar.courier.data.model.CourierEarningsLedger
+import com.lancar.courier.data.model.CourierEarningsTransaction
 import com.lancar.courier.data.model.CourierPerformanceSummary
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.cleanPayoutIdr
@@ -115,6 +117,7 @@ fun MainScreen(
     val onDemandHotspots by orderViewModel.onDemandHotspots.collectAsState()
     val performanceSummary by orderViewModel.performanceSummary.collectAsState()
     val capabilityProfile by orderViewModel.capabilityProfile.collectAsState()
+    val earningsLedger by orderViewModel.earningsLedger.collectAsState()
     val routePreviews by orderViewModel.routePreviews.collectAsState()
     val courierProfile by orderViewModel.courierProfile.collectAsState()
     val isSyncing by orderViewModel.isSyncing.collectAsState()
@@ -601,9 +604,10 @@ fun MainScreen(
                     pendingSyncCount = rolePendingOrders.size,
                     todayEarningsIdr = roleEarningsToday,
                     totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
-                    performanceSummary = performanceSummary,
-                    capabilityProfile = capabilityProfile,
-                    onCompleteTraining = {
+                        performanceSummary = performanceSummary,
+                        capabilityProfile = capabilityProfile,
+                        earningsLedger = earningsLedger,
+                        onCompleteTraining = {
                         scope.launch {
                             val result = orderViewModel.completeTraining()
                             snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Training belum tersimpan." })
@@ -1650,6 +1654,7 @@ private fun ProfileContent(
     totalEarningsIdr: Int,
     performanceSummary: CourierPerformanceSummary?,
     capabilityProfile: CourierCapabilityProfile?,
+    earningsLedger: CourierEarningsLedger?,
     onCompleteTraining: () -> Unit,
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
@@ -1976,6 +1981,63 @@ private fun ProfileContent(
             }
         }
 
+        earningsLedger?.let { ledger ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(color = Success.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                            Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = Success, modifier = Modifier.padding(10.dp).size(22.dp))
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Ledger Pendapatan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Settlement dan payout tercatat dari sistem",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        MiniProfileStat("Tersedia", ledger.summary.availableBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Pending", ledger.summary.pendingBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Total", ledger.summary.totalBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                    }
+
+                    if (ledger.transactions.isNotEmpty()) {
+                        HorizontalDivider()
+                        ledger.transactions.take(4).forEach { transaction ->
+                            EarningsLedgerRow(transaction)
+                        }
+                    } else {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = PrimaryLight.copy(alpha = 0.55f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                "Belum ada transaksi pendapatan.",
+                                modifier = Modifier.padding(12.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -2084,6 +2146,51 @@ private fun CapabilityStatusPill(status: String) {
             fontWeight = FontWeight.Bold,
             maxLines = 1
         )
+    }
+}
+
+@Composable
+private fun EarningsLedgerRow(transaction: CourierEarningsTransaction) {
+    val isCredit = transaction.direction == "credit"
+    val color = if (isCredit) Success else MaterialTheme.colorScheme.error
+    val orderLabel = transaction.orderNumber ?: transaction.source.replace("_", " ").uppercase()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Surface(color = color.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+            Icon(
+                if (isCredit) Icons.Default.CallReceived else Icons.Default.CallMade,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.padding(8.dp).size(18.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(orderLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                transaction.description ?: transaction.settlementStatus.replace("_", " "),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                transaction.amountIdr.toRupiahCompact(),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+            Text(
+                transaction.settlementStatus.replace("_", " "),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
+        }
     }
 }
 

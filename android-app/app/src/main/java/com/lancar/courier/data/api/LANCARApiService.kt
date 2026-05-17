@@ -6,6 +6,7 @@ import com.lancar.courier.data.model.ApiResponse
 import com.lancar.courier.data.model.CourierProfile
 import com.lancar.courier.data.model.CourierCapabilityProfile
 import com.lancar.courier.data.model.CourierHotspot
+import com.lancar.courier.data.model.CourierEarningsLedger
 import com.lancar.courier.data.model.CourierPerformanceSummary
 import com.lancar.courier.data.model.CourierRoutePreview
 import com.lancar.courier.data.model.CourierSafetyEventData
@@ -93,6 +94,9 @@ interface LANCARApiService {
 
     @GET("api/v1/courier/performance")
     suspend fun getCourierPerformance(): Response<ApiResponse<CourierPerformanceSummary>>
+
+    @GET("api/v1/courier/earnings-ledger")
+    suspend fun getCourierEarningsLedger(): Response<ApiResponse<CourierEarningsLedger>>
 
     @GET("api/v1/courier/capabilities")
     suspend fun getCourierCapabilities(): Response<ApiResponse<CourierCapabilityProfile>>

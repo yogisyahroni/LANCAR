@@ -8,6 +8,7 @@ import ThreeLegReadiness from './pages/ThreeLegReadiness'
 import Couriers from './pages/Couriers'
 import CourierApplications from './pages/CourierApplications'
 import CourierSafetyEvents from './pages/CourierSafetyEvents'
+import CourierGrowthConfig from './pages/CourierGrowthConfig'
 import CourierPublicRegistration from './pages/CourierPublicRegistration'
 import PricingConfig from './pages/PricingConfig'
 import Disputes from './pages/Disputes'
@@ -101,6 +102,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CourierSafetyEvents />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/courier-growth"
+            element={
+              <ProtectedRoute>
+                <CourierGrowthConfig />
               </ProtectedRoute>
             }
           />

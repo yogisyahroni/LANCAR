@@ -731,6 +731,7 @@ export const getPublicTripShare = async (req: Request, res: Response) => {
     const result = await db.query(
       `SELECT
          o.id AS order_id,
+         o.order_number,
          o.status,
          o.pickup_address,
          o.dropoff_address AS drop_address,
@@ -770,37 +771,83 @@ export const getPublicTripShare = async (req: Request, res: Response) => {
 
 export const getMobileCourierHotspots = async (_req: Request, res: Response) => {
   try {
+    await db.query('SELECT refresh_courier_hotspot_rollups()');
     const result = await db.query(
-      `WITH demand AS (
-         SELECT
-           z.id,
-           z.name,
-           z.code,
-           COUNT(o.id)::int AS pending_orders,
-           ST_Y(ST_Centroid(z.polygon::geometry))::float8 AS latitude,
-           ST_X(ST_Centroid(z.polygon::geometry))::float8 AS longitude
-         FROM zones z
-         LEFT JOIN orders o ON ST_Covers(z.polygon, o.pickup_location)
-           AND LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
-           AND o.status IN ('pending', 'pending_payment', 'paid', 'matched', 'dispatching', 'offered')
-           AND o.created_at >= NOW() - INTERVAL '6 hours'
-         WHERE z.is_active = TRUE
-         GROUP BY z.id, z.name, z.code, z.polygon
-       )
-       SELECT *,
+      `SELECT
+         chr.zone_id AS id,
+         chr.zone_name AS name,
+         z.code,
+         chr.active_orders AS pending_orders,
+         chr.latitude,
+         chr.longitude,
+         chr.demand_score,
+         chr.recent_orders,
+         chr.refreshed_at,
          CASE
-           WHEN pending_orders >= 8 THEN 'high'
-           WHEN pending_orders >= 3 THEN 'medium'
+           WHEN chr.demand_score >= 70 THEN 'high'
+           WHEN chr.demand_score >= 30 THEN 'medium'
            ELSE 'low'
          END AS intensity
-       FROM demand
-       ORDER BY pending_orders DESC, name ASC
+       FROM courier_hotspot_rollups chr
+       JOIN zones z ON z.id = chr.zone_id
+       WHERE z.is_active = TRUE
+       ORDER BY chr.demand_score DESC, chr.active_orders DESC, chr.zone_name ASC
        LIMIT 12`
     );
 
     res.json({ success: true, data: result.rows, message: 'On-demand hotspots loaded' });
   } catch (error) {
     console.error('Get mobile courier hotspots error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
+export const getMobileCourierEarningsLedger = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT
+         cel.id,
+         cel.order_id,
+         o.order_number,
+         cel.source,
+         cel.direction,
+         cel.amount_idr,
+         cel.settlement_status,
+         cel.description,
+         cel.created_at
+       FROM courier_earnings_ledger cel
+       LEFT JOIN orders o ON o.id = cel.order_id
+       WHERE cel.courier_id = $1
+       ORDER BY cel.created_at DESC
+       LIMIT 40`,
+      [req.user.id]
+    );
+
+    const summary = await db.query(
+      `SELECT
+         COALESCE(SUM(CASE WHEN direction = 'credit' THEN amount_idr ELSE -amount_idr END), 0)::int AS total_balance_idr,
+         COALESCE(SUM(CASE WHEN settlement_status = 'available' AND direction = 'credit' THEN amount_idr ELSE 0 END), 0)::int AS available_balance_idr,
+         COALESCE(SUM(CASE WHEN settlement_status = 'pending' AND direction = 'credit' THEN amount_idr ELSE 0 END), 0)::int AS pending_balance_idr
+       FROM courier_earnings_ledger
+       WHERE courier_id = $1`,
+      [req.user.id]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        summary: summary.rows[0] || { total_balance_idr: 0, available_balance_idr: 0, pending_balance_idr: 0 },
+        transactions: result.rows,
+      },
+      message: 'Courier earnings ledger loaded',
+    });
+  } catch (error) {
+    console.error('Get mobile courier earnings ledger error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
@@ -977,6 +1024,101 @@ export const listAdminCourierSafetyEvents = async (_req: Request, res: Response)
   } catch (error) {
     console.error('List admin courier safety events error:', error);
     res.status(500).json({ success: false, data: [], events: [], message: 'Internal Server Error' });
+  }
+};
+
+export const listAdminCourierGrowthConfigs = async (_req: Request, res: Response) => {
+  try {
+    const [tiers, incentives] = await Promise.all([
+      db.query(
+        `SELECT id, tier_code, tier_name, min_rating, min_completion_rate, min_deliveries_30d,
+                benefit_summary, display_order, is_active, updated_at
+         FROM courier_tier_configs
+         ORDER BY display_order ASC`
+      ),
+      db.query(
+        `SELECT id, code, title, description, target_deliveries, reward_idr,
+                starts_at, ends_at, is_active, metadata, updated_at
+         FROM courier_incentive_campaigns
+         ORDER BY is_active DESC, reward_idr DESC, ends_at DESC`
+      ),
+    ]);
+    res.json({ success: true, data: { tiers: tiers.rows, incentives: incentives.rows } });
+  } catch (error) {
+    console.error('List courier growth configs error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error' });
+  }
+};
+
+export const updateAdminCourierTierConfig = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const body = req.body || {};
+  try {
+    const result = await db.query(
+      `UPDATE courier_tier_configs
+       SET tier_name = COALESCE(NULLIF($1, ''), tier_name),
+           min_rating = COALESCE($2, min_rating),
+           min_completion_rate = COALESCE($3, min_completion_rate),
+           min_deliveries_30d = COALESCE($4, min_deliveries_30d),
+           benefit_summary = COALESCE(NULLIF($5, ''), benefit_summary),
+           is_active = COALESCE($6, is_active),
+           updated_at = NOW()
+       WHERE id = $7
+       RETURNING *`,
+      [
+        body.tier_name,
+        body.min_rating ?? null,
+        body.min_completion_rate ?? null,
+        body.min_deliveries_30d ?? null,
+        body.benefit_summary,
+        typeof body.is_active === 'boolean' ? body.is_active : null,
+        id,
+      ]
+    );
+    if (!result.rows[0]) {
+      res.status(404).json({ success: false, data: null, message: 'Tier config tidak ditemukan.' });
+      return;
+    }
+    res.json({ success: true, data: result.rows[0], message: 'Tier config updated' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message });
+  }
+};
+
+export const updateAdminCourierIncentive = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const body = req.body || {};
+  try {
+    const result = await db.query(
+      `UPDATE courier_incentive_campaigns
+       SET title = COALESCE(NULLIF($1, ''), title),
+           description = COALESCE($2, description),
+           target_deliveries = COALESCE($3, target_deliveries),
+           reward_idr = COALESCE($4, reward_idr),
+           starts_at = COALESCE($5, starts_at),
+           ends_at = COALESCE($6, ends_at),
+           is_active = COALESCE($7, is_active),
+           updated_at = NOW()
+       WHERE id = $8
+       RETURNING *`,
+      [
+        body.title,
+        body.description ?? null,
+        body.target_deliveries ?? null,
+        body.reward_idr ?? null,
+        body.starts_at ?? null,
+        body.ends_at ?? null,
+        typeof body.is_active === 'boolean' ? body.is_active : null,
+        id,
+      ]
+    );
+    if (!result.rows[0]) {
+      res.status(404).json({ success: false, data: null, message: 'Campaign tidak ditemukan.' });
+      return;
+    }
+    res.json({ success: true, data: result.rows[0], message: 'Incentive campaign updated' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message });
   }
 };
 

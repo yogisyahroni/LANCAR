@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.lancar.courier.data.api.LANCARApiService
 import com.lancar.courier.data.model.CourierProfile
 import com.lancar.courier.data.model.CourierCapabilityProfile
+import com.lancar.courier.data.model.CourierEarningsLedger
 import com.lancar.courier.data.model.CourierHotspot
 import com.lancar.courier.data.model.CourierPerformanceSummary
 import com.lancar.courier.data.model.CourierRoutePreview
@@ -67,6 +68,9 @@ class OrderViewModel @Inject constructor(
 
     private val _performanceSummary = MutableStateFlow<CourierPerformanceSummary?>(null)
     val performanceSummary: StateFlow<CourierPerformanceSummary?> = _performanceSummary.asStateFlow()
+
+    private val _earningsLedger = MutableStateFlow<CourierEarningsLedger?>(null)
+    val earningsLedger: StateFlow<CourierEarningsLedger?> = _earningsLedger.asStateFlow()
 
     private val _capabilityProfile = MutableStateFlow<CourierCapabilityProfile?>(null)
     val capabilityProfile: StateFlow<CourierCapabilityProfile?> = _capabilityProfile.asStateFlow()
@@ -213,6 +217,11 @@ class OrderViewModel @Inject constructor(
                 val performanceResponse = apiService.getCourierPerformance()
                 if (performanceResponse.isSuccessful && performanceResponse.body()?.success == true) {
                     _performanceSummary.update { performanceResponse.body()?.data }
+                }
+
+                val ledgerResponse = apiService.getCourierEarningsLedger()
+                if (ledgerResponse.isSuccessful && ledgerResponse.body()?.success == true) {
+                    _earningsLedger.update { ledgerResponse.body()?.data }
                 }
 
                 val capabilityResponse = apiService.getCourierCapabilities()
