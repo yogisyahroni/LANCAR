@@ -112,7 +112,7 @@ class OrderRepository @Inject constructor(
     suspend fun acceptOnDemandOffer(order: Order): Result<Order> = withContext(Dispatchers.IO) {
         try {
             orderDao.upsert(order.copy(status = "accepting", workflowRole = "on_demand", needsSync = true))
-            val response = apiService.acceptOnDemandOffer(order.orderId)
+            val response = apiService.acceptOnDemandOffer(order.dispatchId ?: order.orderId)
             if (response.isSuccessful && response.body()?.success == true) {
                 val accepted = response.body()?.data ?: order.copy(status = "accepted", workflowRole = "on_demand")
                 orderDao.deleteById(order.orderId)
@@ -126,11 +126,11 @@ class OrderRepository @Inject constructor(
         }
     }
 
-    suspend fun rejectOnDemandOffer(orderId: String, reason: String = "courier_rejected"): Result<Boolean> = withContext(Dispatchers.IO) {
+    suspend fun rejectOnDemandOffer(order: Order, reason: String = "courier_rejected"): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
-            val response = apiService.rejectOnDemandOffer(orderId, mapOf("reason" to reason))
+            val response = apiService.rejectOnDemandOffer(order.dispatchId ?: order.orderId, mapOf("reason" to reason))
             if (response.isSuccessful && response.body()?.success == true) {
-                orderDao.deleteById(orderId)
+                orderDao.deleteById(order.orderId)
                 Result.success(true)
             } else {
                 Result.failure(IllegalStateException(response.body()?.message ?: "Gagal menolak pekerjaan"))

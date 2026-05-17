@@ -216,9 +216,9 @@ class OrderViewModel @Inject constructor(
         }
     }
 
-    fun rejectOffer(order: Order) {
+    fun rejectOffer(order: Order, reason: String = "courier_rejected") {
         viewModelScope.launch {
-            val result = orderRepository.rejectOnDemandOffer(order.orderId)
+            val result = orderRepository.rejectOnDemandOffer(order, reason)
             result.onSuccess {
                 _offers.update { offers -> offers.filterNot { it.orderId == order.orderId } }
             }.onFailure { e ->

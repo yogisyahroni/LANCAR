@@ -44,11 +44,12 @@ class NotificationReceiver : BroadcastReceiver() {
                     NotificationManagerCompat.from(context).cancel(notificationId)
                 }
                 val orderId = intent.getStringExtra(EXTRA_ORDER_ID)
+                val dispatchId = intent.getStringExtra(EXTRA_DISPATCH_ID)
                 if (!orderId.isNullOrBlank()) {
                     val pendingResult = goAsync()
                     CoroutineScope(Dispatchers.IO).launch {
                         try {
-                            apiService.rejectOnDemandOffer(orderId)
+                            apiService.rejectOnDemandOffer(dispatchId ?: orderId)
                             orderRepository.deleteOrderById(orderId)
                         } catch (e: Exception) {
                             Log.w(TAG, "Reject offer failed: ${e.message}")
@@ -74,6 +75,9 @@ class NotificationReceiver : BroadcastReceiver() {
                     model = intent.getStringExtra(EXTRA_MODEL) ?: "P2P",
                     legNumber = intent.getIntExtra(EXTRA_LEG_NUMBER, 1),
                     workflowRole = intent.getStringExtra(EXTRA_WORKFLOW_ROLE) ?: "on_demand",
+                    dispatchId = intent.getStringExtra(EXTRA_DISPATCH_ID),
+                    offerExpiresAt = intent.getStringExtra(EXTRA_OFFER_EXPIRES_AT)?.toLongOrNull(),
+                    offerTtlSeconds = intent.getStringExtra(EXTRA_OFFER_TTL_SECONDS)?.toIntOrNull(),
                     customerName = intent.getStringExtra(EXTRA_CUSTOMER_NAME) ?: "",
                     phoneNumber = intent.getStringExtra(EXTRA_PHONE_NUMBER),
                     status = "accepting",
@@ -92,7 +96,7 @@ class NotificationReceiver : BroadcastReceiver() {
 
                         // 2. Confirm acceptance to backend immediately
                         try {
-                            val response = apiService.acceptOnDemandOffer(orderId)
+                            val response = apiService.acceptOnDemandOffer(order.dispatchId ?: orderId)
                             if (response.isSuccessful && response.body()?.success == true) {
                                 // Mark as synced — no need for WorkManager retry
                                 val accepted = response.body()?.data ?: order.copy(status = "accepted")
@@ -128,6 +132,9 @@ class NotificationReceiver : BroadcastReceiver() {
         const val ACTION_ACCEPT = "com.lancar.courier.ACTION_ACCEPT"
         const val EXTRA_NOTIFICATION_ID = "notification_id"
         const val EXTRA_ORDER_ID = "order_id"
+        const val EXTRA_DISPATCH_ID = "dispatch_id"
+        const val EXTRA_OFFER_EXPIRES_AT = "offer_expires_at"
+        const val EXTRA_OFFER_TTL_SECONDS = "offer_ttl_seconds"
         const val EXTRA_PICKUP_ADDRESS = "pickup_address"
         const val EXTRA_PICKUP_TIME = "pickup_time"
         const val EXTRA_DROP_ADDRESS = "drop_address"

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from '../db';
+import { createNotification } from '../notifications';
 import crypto from 'crypto';
 
 type CourierLoginRow = {
@@ -475,7 +476,273 @@ const normalizeMobileOrder = (order: any) => ({
   ...order,
   created_at: Number(order.created_at),
   updated_at: Number(order.updated_at),
+  offer_expires_at: order.offer_expires_at ? Number(order.offer_expires_at) : null,
+  offer_ttl_seconds: order.offer_ttl_seconds ? Number(order.offer_ttl_seconds) : null,
 });
+
+const ON_DEMAND_OFFER_TTL_SECONDS = 15;
+const ON_DEMAND_OPEN_ORDER_STATUSES = ['pending', 'pending_payment', 'paid', 'matched', 'offered', 'dispatching'];
+
+type CreatedDispatchOffer = {
+  dispatch_id: string;
+  order_id: string;
+  courier_id: string;
+  pickup_address: string | null;
+  dropoff_address: string | null;
+  distance: string | null;
+  fee: string | null;
+  customer_name: string | null;
+  expires_at: Date;
+};
+
+const expireStaleOnDemandOffers = async (client: any): Promise<CreatedDispatchOffer[]> => {
+  const expired = await client.query(
+    `UPDATE courier_offer_dispatches d
+     SET status = 'expired',
+         responded_at = COALESCE(responded_at, NOW()),
+         response_reason = COALESCE(response_reason, 'ttl_expired'),
+         updated_at = NOW()
+     WHERE d.status = 'offered'
+       AND d.expires_at <= NOW()
+     RETURNING d.order_id`
+  );
+
+  const createdOffers: CreatedDispatchOffer[] = [];
+  const orderIds = [...new Set<string>(expired.rows.map((row: any) => String(row.order_id)))];
+  for (const orderId of orderIds) {
+    const created = await dispatchNextOnDemandCourier(client, orderId);
+    if (created) createdOffers.push(created);
+  }
+  return createdOffers;
+};
+
+const dispatchNextOnDemandCourier = async (client: any, orderId: string): Promise<CreatedDispatchOffer | null> => {
+  const activeOffer = await client.query(
+    `SELECT id
+     FROM courier_offer_dispatches
+     WHERE order_id = $1
+       AND status = 'offered'
+       AND expires_at > NOW()
+     LIMIT 1`,
+    [orderId]
+  );
+  if (activeOffer.rows.length > 0) return null;
+
+  const accepted = await client.query(
+    `SELECT id
+     FROM courier_offer_dispatches
+     WHERE order_id = $1
+       AND status = 'accepted'
+     LIMIT 1`,
+    [orderId]
+  );
+  if (accepted.rows.length > 0) return null;
+
+  const candidate = await client.query(
+    `WITH active_jobs AS (
+       SELECT courier_id, COUNT(*)::int AS active_count
+       FROM order_legs
+       WHERE courier_id IS NOT NULL
+         AND status NOT IN ('delivered', 'failed', 'cancelled', 'rejected')
+       GROUP BY courier_id
+     ),
+     candidate AS (
+       SELECT
+         cp.user_id AS courier_id,
+         cp.current_zone_id AS zone_id,
+         COALESCE(ST_Distance(cp.current_location, o.pickup_location)::int, 0) AS distance_m,
+         COALESCE(cp.avg_partner_rating, cp.relay_score, 5.00)::numeric(3,2) AS rating_snapshot,
+         COALESCE(cp.acceptance_rate_pct, 100)::int AS acceptance_rate_snapshot,
+         COALESCE(cp.completion_rate_pct, 100)::int AS completion_rate_snapshot,
+         o.pickup_address,
+         o.dropoff_address,
+         COALESCE(o.distance_km, 0)::text AS distance,
+         COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::text AS fee,
+         COALESCE(u.full_name, 'Customer') AS customer_name
+       FROM orders o
+       JOIN courier_profiles cp ON cp.application_channel = 'on_demand'
+        AND cp.verification_status = 'approved'
+        AND cp.is_online = TRUE
+        AND cp.current_zone_id IS NOT NULL
+        AND cp.current_location IS NOT NULL
+        AND cp.last_location_at >= NOW() - INTERVAL '10 minutes'
+       JOIN zones z ON z.id = cp.current_zone_id
+        AND z.is_active = TRUE
+        AND ST_Covers(z.polygon, o.pickup_location)
+       LEFT JOIN users u ON u.id = o.customer_id
+       LEFT JOIN active_jobs aj ON aj.courier_id = cp.user_id
+       WHERE o.id = $1
+        AND LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
+        AND o.status = ANY($2::text[])
+        AND (o.pickup_location IS NULL OR ST_Covers(z.polygon, o.pickup_location))
+        AND COALESCE(aj.active_count, 0) = 0
+        AND NOT EXISTS (
+          SELECT 1
+          FROM courier_offer_dispatches d
+          WHERE d.order_id = o.id
+            AND d.courier_id = cp.user_id
+        )
+     ),
+     scored AS (
+       SELECT *,
+         (
+           (1000.0 / GREATEST(distance_m, 100)) * 60.0 +
+           (rating_snapshot / 5.0) * 25.0 +
+           completion_rate_snapshot * 0.10 +
+           acceptance_rate_snapshot * 0.05
+         )::numeric(10,4) AS score
+       FROM candidate
+     )
+     SELECT *
+     FROM scored
+     ORDER BY score DESC, distance_m ASC, rating_snapshot DESC
+     LIMIT 1`,
+    [orderId, ON_DEMAND_OPEN_ORDER_STATUSES]
+  );
+
+  const nextCourier = candidate.rows[0];
+  if (!nextCourier) return null;
+
+  const rank = await client.query(
+    `SELECT COALESCE(MAX(rank_number), 0) + 1 AS next_rank
+     FROM courier_offer_dispatches
+     WHERE order_id = $1`,
+    [orderId]
+  );
+
+  const inserted = await client.query(
+    `INSERT INTO courier_offer_dispatches (
+       order_id,
+       courier_id,
+       zone_id,
+       rank_number,
+       score,
+       distance_m,
+       rating_snapshot,
+       acceptance_rate_snapshot,
+       completion_rate_snapshot,
+       expires_at,
+       metadata
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW() + ($10::text || ' seconds')::interval, $11)
+     ON CONFLICT (order_id, courier_id) DO NOTHING
+     RETURNING id, expires_at`,
+    [
+      orderId,
+      nextCourier.courier_id,
+      nextCourier.zone_id,
+      Number(rank.rows[0]?.next_rank || 1),
+      nextCourier.score,
+      nextCourier.distance_m,
+      nextCourier.rating_snapshot,
+      nextCourier.acceptance_rate_snapshot,
+      nextCourier.completion_rate_snapshot,
+      ON_DEMAND_OFFER_TTL_SECONDS,
+      JSON.stringify({ source: 'dispatch_engine_v1' }),
+    ]
+  );
+
+  const dispatch = inserted.rows[0];
+  if (!dispatch) return null;
+
+  await client.query(
+    `UPDATE orders
+     SET status = CASE
+           WHEN status IN ('pending', 'pending_payment', 'paid', 'matched', 'offered') THEN 'dispatching'
+           ELSE status
+         END,
+         updated_at = NOW()
+     WHERE id = $1`,
+    [orderId]
+  );
+
+  await client.query(
+    `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+     VALUES ($1, $2, 'offer_dispatched', 'On-demand offer dispatched to ranked courier', $3)`,
+    [
+      orderId,
+      nextCourier.courier_id,
+      JSON.stringify({
+        dispatch_id: dispatch.id,
+        ttl_seconds: ON_DEMAND_OFFER_TTL_SECONDS,
+        rank_number: Number(rank.rows[0]?.next_rank || 1),
+        score: Number(nextCourier.score || 0),
+      }),
+    ]
+  );
+
+  return {
+    dispatch_id: dispatch.id,
+    order_id: orderId,
+    courier_id: nextCourier.courier_id,
+    pickup_address: nextCourier.pickup_address,
+    dropoff_address: nextCourier.dropoff_address,
+    distance: nextCourier.distance,
+    fee: nextCourier.fee,
+    customer_name: nextCourier.customer_name,
+    expires_at: dispatch.expires_at,
+  };
+};
+
+const advanceOnDemandDispatchQueue = async (client: any, limit = 25): Promise<CreatedDispatchOffer[]> => {
+  const createdOffers = await expireStaleOnDemandOffers(client);
+
+  const orders = await client.query(
+    `SELECT o.id
+     FROM orders o
+     WHERE LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
+       AND o.status = ANY($1::text[])
+       AND NOT EXISTS (
+         SELECT 1
+         FROM courier_offer_dispatches d
+         WHERE d.order_id = o.id
+           AND d.status IN ('offered', 'accepted')
+       )
+     ORDER BY o.created_at ASC
+     LIMIT $2
+     FOR UPDATE SKIP LOCKED`,
+    [ON_DEMAND_OPEN_ORDER_STATUSES, limit]
+  );
+
+  for (const order of orders.rows) {
+    const created = await dispatchNextOnDemandCourier(client, order.id);
+    if (created) createdOffers.push(created);
+  }
+
+  return createdOffers;
+};
+
+const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
+  for (const offer of offers) {
+    try {
+      await createNotification({
+        user_id: offer.courier_id,
+        title: 'Pekerjaan On Demand Baru',
+        body: `Terima dalam ${ON_DEMAND_OFFER_TTL_SECONDS} detik untuk mulai pickup.`,
+        type: 'on_demand_offer',
+        order_id: offer.order_id,
+        deep_link: `lancar://orders/${offer.order_id}`,
+        metadata: {
+          dispatch_id: offer.dispatch_id,
+          order_id: offer.order_id,
+          pickup_address: offer.pickup_address || '',
+          drop_address: offer.dropoff_address || '',
+          distance: offer.distance || '',
+          fee: offer.fee || '',
+          customer_name: offer.customer_name || '',
+          model: 'p2p',
+          workflow_role: 'on_demand',
+          offer_expires_at: new Date(offer.expires_at).getTime().toString(),
+          offer_ttl_seconds: ON_DEMAND_OFFER_TTL_SECONDS.toString(),
+          title: 'Pekerjaan On Demand Baru',
+          body: `Terima dalam ${ON_DEMAND_OFFER_TTL_SECONDS} detik untuk mulai pickup.`,
+        },
+      });
+    } catch (error) {
+      console.warn('Failed to notify on-demand courier offer:', error);
+    }
+  }
+};
 
 export const getMobileCourierOffers = async (req: Request, res: Response) => {
   if (!req.user?.id) {
@@ -483,25 +750,31 @@ export const getMobileCourierOffers = async (req: Request, res: Response) => {
     return;
   }
 
+  const client = await db.connect();
+  let createdOffers: CreatedDispatchOffer[] = [];
   try {
-    const result = await db.query(
-      `SELECT ${mobileOrderSelect}
+    await client.query('BEGIN');
+    createdOffers = await advanceOnDemandDispatchQueue(client);
+
+    const result = await client.query(
+      `SELECT ${mobileOrderSelect},
+         d.id AS dispatch_id,
+         (EXTRACT(EPOCH FROM d.expires_at) * 1000)::bigint AS offer_expires_at,
+         GREATEST(CEIL(EXTRACT(EPOCH FROM (d.expires_at - NOW()))), 0)::int AS offer_ttl_seconds
        FROM orders o
-       JOIN courier_profiles cp ON cp.user_id = $1
-         AND cp.application_channel = 'on_demand'
-         AND cp.verification_status = 'approved'
-         AND cp.is_online = TRUE
-       JOIN zones z ON z.id = cp.current_zone_id AND z.is_active = TRUE
+       JOIN courier_offer_dispatches d ON d.order_id = o.id
+         AND d.courier_id = $1
+         AND d.status = 'offered'
+         AND d.expires_at > NOW()
        LEFT JOIN users c ON c.id = o.customer_id
        LEFT JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
-       WHERE LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
-         AND COALESCE(ol.status, o.status) IN ('pending', 'paid', 'matched', 'offered')
-         AND (ol.courier_id IS NULL OR ol.courier_id = $1)
-         AND (o.pickup_location IS NULL OR ST_Covers(z.polygon, o.pickup_location))
-       ORDER BY o.created_at DESC
-       LIMIT 20`,
+       ORDER BY d.expires_at ASC
+       LIMIT 1`,
       [req.user.id]
     );
+
+    await client.query('COMMIT');
+    await notifyOnDemandOffers(createdOffers);
 
     res.json({
       success: true,
@@ -509,8 +782,11 @@ export const getMobileCourierOffers = async (req: Request, res: Response) => {
       message: 'Courier on-demand offers loaded',
     });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Get mobile courier offers error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  } finally {
+    client.release();
   }
 };
 
@@ -526,6 +802,49 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
   try {
     await client.query('BEGIN');
 
+    await expireStaleOnDemandOffers(client);
+
+    const dispatchRes = await client.query(
+      `SELECT
+         d.id AS dispatch_id,
+         d.order_id,
+         d.courier_id,
+         d.status AS dispatch_status,
+         d.expires_at,
+         d.zone_id,
+         o.model,
+         o.total_price_idr,
+         o.courier_payout_estimate_idr,
+         o.platform_commission_idr,
+         o.pickup_location
+       FROM courier_offer_dispatches d
+       JOIN orders o ON o.id = d.order_id
+       WHERE (d.id = $1 OR d.order_id = $1)
+         AND d.courier_id = $2
+       ORDER BY CASE WHEN d.id = $1 THEN 0 ELSE 1 END, d.created_at DESC
+       LIMIT 1
+       FOR UPDATE OF d`,
+      [id, req.user.id]
+    );
+
+    const dispatch = dispatchRes.rows[0];
+    if (!dispatch) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, data: null, message: 'Offer not found', code: 'ERR_NOT_FOUND' });
+      return;
+    }
+
+    if (dispatch.dispatch_status !== 'offered' || new Date(dispatch.expires_at).getTime() <= Date.now()) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        data: null,
+        message: 'Offer sudah kedaluwarsa. Sistem akan mengalihkan ke kurir berikutnya.',
+        code: 'ERR_OFFER_EXPIRED',
+      });
+      return;
+    }
+
     const courierEligibility = await client.query(
       `SELECT cp.id, cp.current_zone_id, z.name AS zone_name
        FROM courier_profiles cp
@@ -534,8 +853,9 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
          AND cp.application_channel = 'on_demand'
          AND cp.verification_status = 'approved'
          AND cp.is_online = TRUE
+         AND cp.current_zone_id = $2
        LIMIT 1`,
-      [req.user.id]
+      [req.user.id, dispatch.zone_id]
     );
 
     if (courierEligibility.rows.length === 0) {
@@ -543,56 +863,28 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       res.status(403).json({
         success: false,
         data: null,
-        message: 'Kurir harus On Duty di zona aktif untuk menerima pekerjaan on-demand.',
+        message: 'Kurir harus On Duty di zona aktif yang sama untuk menerima pekerjaan on-demand.',
         code: 'ERR_COURIER_NOT_ELIGIBLE',
       });
       return;
     }
 
-    const orderRes = await client.query(
-      `SELECT id, model, total_price_idr, courier_payout_estimate_idr, platform_commission_idr, pickup_location
+    await client.query(
+      `SELECT id
        FROM orders
        WHERE id = $1
          AND LOWER(model) IN ('p2p', 'on_demand', 'ondemand')
          AND status NOT IN ('cancelled', 'delivered', 'failed')
        FOR UPDATE`,
-      [id]
+      [dispatch.order_id]
     );
-
-    if (orderRes.rows.length === 0) {
-      await client.query('ROLLBACK');
-      res.status(404).json({ success: false, data: null, message: 'Offer not found', code: 'ERR_NOT_FOUND' });
-      return;
-    }
-
-    const zoneCheck = await client.query(
-      `SELECT TRUE AS in_zone
-       FROM zones z
-       JOIN orders o ON o.id = $2
-       WHERE z.id = $1
-         AND z.is_active = TRUE
-         AND (o.pickup_location IS NULL OR ST_Covers(z.polygon, o.pickup_location))
-       LIMIT 1`,
-      [courierEligibility.rows[0].current_zone_id, id]
-    );
-
-    if (zoneCheck.rows.length === 0) {
-      await client.query('ROLLBACK');
-      res.status(409).json({
-        success: false,
-        data: null,
-        message: 'Pickup order berada di luar zona aktif kurir saat ini.',
-        code: 'ERR_OFFER_OUTSIDE_COURIER_ZONE',
-      });
-      return;
-    }
 
     const existingLeg = await client.query(
       `SELECT id, courier_id, status
        FROM order_legs
        WHERE order_id = $1 AND leg_number = 1
        FOR UPDATE`,
-      [id]
+      [dispatch.order_id]
     );
 
     const leg = existingLeg.rows[0];
@@ -609,33 +901,76 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
          WHERE id = $2`,
         [req.user.id, leg.id]
       );
-    } else {
       await client.query(
+        `UPDATE courier_offer_dispatches
+         SET order_leg_id = $1
+         WHERE id = $2`,
+        [leg.id, dispatch.dispatch_id]
+      );
+    } else {
+      const createdLeg = await client.query(
         `INSERT INTO order_legs (order_id, leg_number, courier_id, status, assigned_fee_idr, assigned_at)
-         VALUES ($1, 1, $2, 'accepted', $3, NOW())`,
+         VALUES ($1, 1, $2, 'accepted', $3, NOW())
+         ON CONFLICT (order_id, leg_number) DO UPDATE
+           SET courier_id = EXCLUDED.courier_id,
+               status = 'accepted',
+               assigned_fee_idr = EXCLUDED.assigned_fee_idr,
+               assigned_at = COALESCE(order_legs.assigned_at, NOW()),
+               updated_at = NOW()
+         RETURNING id`,
         [
-          id,
+          dispatch.order_id,
           req.user.id,
-          orderRes.rows[0].courier_payout_estimate_idr ||
-            Math.max((orderRes.rows[0].total_price_idr || 0) - (orderRes.rows[0].platform_commission_idr || 0), 0)
+          dispatch.courier_payout_estimate_idr ||
+            Math.max((dispatch.total_price_idr || 0) - (dispatch.platform_commission_idr || 0), 0)
         ]
+      );
+      await client.query(
+        `UPDATE courier_offer_dispatches
+         SET order_leg_id = $1
+         WHERE id = $2`,
+        [createdLeg.rows[0].id, dispatch.dispatch_id]
       );
     }
 
-    await client.query(`UPDATE orders SET status = 'accepted', updated_at = NOW() WHERE id = $1`, [id]);
+    await client.query(
+      `UPDATE courier_offer_dispatches
+       SET status = 'accepted',
+           responded_at = NOW(),
+           response_reason = 'accepted_by_courier',
+           updated_at = NOW()
+       WHERE id = $1`,
+      [dispatch.dispatch_id]
+    );
+    await client.query(
+      `UPDATE courier_offer_dispatches
+       SET status = 'lost',
+           responded_at = COALESCE(responded_at, NOW()),
+           response_reason = 'accepted_by_another_courier',
+           updated_at = NOW()
+       WHERE order_id = $1
+         AND id <> $2
+         AND status = 'offered'`,
+      [dispatch.order_id, dispatch.dispatch_id]
+    );
+
+    await client.query(`UPDATE orders SET status = 'accepted', updated_at = NOW() WHERE id = $1`, [dispatch.order_id]);
     await client.query(
       `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
        VALUES ($1, $2, 'offer_accepted', 'Courier accepted on-demand offer', $3)`,
-      [id, req.user.id, JSON.stringify({ source: 'courier_app' })]
+      [dispatch.order_id, req.user.id, JSON.stringify({ source: 'courier_app', dispatch_id: dispatch.dispatch_id })]
     );
 
     const accepted = await client.query(
-      `SELECT ${mobileOrderSelect}
+      `SELECT ${mobileOrderSelect},
+         NULL::uuid AS dispatch_id,
+         NULL::bigint AS offer_expires_at,
+         NULL::int AS offer_ttl_seconds
        FROM orders o
        JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
        LEFT JOIN users c ON c.id = o.customer_id
        WHERE o.id = $1`,
-      [id]
+      [dispatch.order_id]
     );
 
     await client.query('COMMIT');
@@ -657,17 +992,51 @@ export const rejectMobileCourierOffer = async (req: Request, res: Response) => {
 
   const { id } = req.params;
   const reason = req.body?.reason || 'courier_rejected';
+  const client = await db.connect();
+  let createdOffers: CreatedDispatchOffer[] = [];
 
   try {
-    await db.query(
+    await client.query('BEGIN');
+    createdOffers = await expireStaleOnDemandOffers(client);
+
+    const rejected = await client.query(
+      `UPDATE courier_offer_dispatches d
+       SET status = 'rejected',
+           responded_at = NOW(),
+           response_reason = $3,
+           updated_at = NOW()
+       WHERE (d.id = $1 OR d.order_id = $1)
+         AND d.courier_id = $2
+         AND d.status = 'offered'
+       RETURNING d.id, d.order_id`,
+      [id, req.user.id, reason]
+    );
+
+    const dispatch = rejected.rows[0];
+    if (!dispatch) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, data: null, message: 'Offer not found', code: 'ERR_NOT_FOUND' });
+      return;
+    }
+
+    await client.query(
       `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
        VALUES ($1, $2, 'offer_rejected', 'Courier rejected on-demand offer', $3)`,
-      [id, req.user.id, JSON.stringify({ reason, source: 'courier_app' })]
+      [dispatch.order_id, req.user.id, JSON.stringify({ reason, source: 'courier_app', dispatch_id: dispatch.id })]
     );
+
+    const nextOffer = await dispatchNextOnDemandCourier(client, dispatch.order_id);
+    if (nextOffer) createdOffers.push(nextOffer);
+
+    await client.query('COMMIT');
+    await notifyOnDemandOffers(createdOffers);
 
     res.json({ success: true, data: true, message: 'Offer rejected' });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Reject mobile courier offer error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  } finally {
+    client.release();
   }
 };

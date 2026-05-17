@@ -95,6 +95,10 @@ export const createNotification = async (payload: NotificationPayload) => {
         const tokens = deviceResult.rows.map(r => r.device_token);
         
         if (tokens.length > 0) {
+          const metadataData = Object.fromEntries(
+            Object.entries(metadata || {}).map(([key, value]) => [key, value == null ? '' : String(value)])
+          );
+
           const message: admin.messaging.MulticastMessage = {
             tokens: tokens,
             notification: {
@@ -102,9 +106,10 @@ export const createNotification = async (payload: NotificationPayload) => {
               body: body,
             },
             data: {
+              ...metadataData,
               type: type,
               order_id: order_id || '',
-              notification_id: notification.id,
+              notification_id: String(notification.id),
               deep_link: deep_link || ''
             },
             android: {

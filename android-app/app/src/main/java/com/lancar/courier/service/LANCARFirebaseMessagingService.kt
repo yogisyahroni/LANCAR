@@ -173,6 +173,9 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
         val acceptIntent = Intent(applicationContext, NotificationReceiver::class.java).apply {
             action = NotificationReceiver.ACTION_ACCEPT
             putExtra(NotificationReceiver.EXTRA_ORDER_ID, data["order_id"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_DISPATCH_ID, data["dispatch_id"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_OFFER_EXPIRES_AT, data["offer_expires_at"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_OFFER_TTL_SECONDS, data["offer_ttl_seconds"] ?: "")
             putExtra(NotificationReceiver.EXTRA_PICKUP_ADDRESS, data["pickup_address"] ?: "")
             putExtra(NotificationReceiver.EXTRA_PICKUP_TIME, data["pickup_time"] ?: "")
             putExtra(NotificationReceiver.EXTRA_DROP_ADDRESS, data["drop_address"] ?: "")
@@ -217,6 +220,7 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
                             Intent(applicationContext, NotificationReceiver::class.java).apply {
                                 action = NotificationReceiver.ACTION_DISMISS
                                 putExtra(NotificationReceiver.EXTRA_ORDER_ID, orderId ?: "")
+                                putExtra(NotificationReceiver.EXTRA_DISPATCH_ID, data["dispatch_id"] ?: "")
                                 putExtra(NotificationReceiver.EXTRA_NOTIFICATION_ID, data["notification_id"]?.toIntOrNull() ?: 0)
                             },
                             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

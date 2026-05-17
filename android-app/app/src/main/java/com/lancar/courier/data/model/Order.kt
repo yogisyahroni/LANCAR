@@ -82,6 +82,18 @@ data class Order(
     @SerialName("workflow_role")
     val workflowRole: String = "on_demand",
 
+    @ColumnInfo(name = "dispatch_id")
+    @SerialName("dispatch_id")
+    val dispatchId: String? = null,
+
+    @ColumnInfo(name = "offer_expires_at")
+    @SerialName("offer_expires_at")
+    val offerExpiresAt: Long? = null,
+
+    @ColumnInfo(name = "offer_ttl_seconds")
+    @SerialName("offer_ttl_seconds")
+    val offerTtlSeconds: Int? = null,
+
     @ColumnInfo(name = "customer_name")
     @SerialName("customer_name")
     val customerName: String = "",

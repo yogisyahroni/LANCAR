@@ -116,7 +116,8 @@ fun MainScreen(
                     showOrderDetail = true
                 }
             },
-            onReject = { orderViewModel.rejectOffer(offer) }
+            onReject = { orderViewModel.rejectOffer(offer) },
+            onExpired = { orderViewModel.rejectOffer(offer, "ttl_expired") }
         )
     }
 
@@ -161,15 +162,25 @@ fun MainScreen(
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             if (!isOnline) return@repeatOnLifecycle
 
-            var intervalMs = FOREGROUND_SYNC_INTERVAL_MS
+            val baseIntervalMs = if (courierRole == "on_demand") {
+                ON_DEMAND_FOREGROUND_SYNC_INTERVAL_MS
+            } else {
+                FOREGROUND_SYNC_INTERVAL_MS
+            }
+            val minIntervalMs = if (courierRole == "on_demand") {
+                ON_DEMAND_FOREGROUND_SYNC_MIN_INTERVAL_MS
+            } else {
+                FOREGROUND_SYNC_MIN_INTERVAL_MS
+            }
+            var intervalMs = baseIntervalMs
             while (isActive) {
                 val result = orderViewModel.refreshOrdersFromBackend(
                     showUserErrors = false,
                     showLoading = false,
-                    minIntervalMs = FOREGROUND_SYNC_MIN_INTERVAL_MS
+                    minIntervalMs = minIntervalMs
                 )
                 intervalMs = if (result.isSuccess) {
-                    FOREGROUND_SYNC_INTERVAL_MS
+                    baseIntervalMs
                 } else {
                     min(intervalMs * 2, FOREGROUND_SYNC_MAX_BACKOFF_MS)
                 }
@@ -763,13 +774,41 @@ private fun HomeContent(
 private fun OnDemandOfferDialog(
     order: Order,
     onAccept: () -> Unit,
-    onReject: () -> Unit
+    onReject: () -> Unit,
+    onExpired: () -> Unit
 ) {
+    var now by remember(order.dispatchId, order.orderId) { mutableStateOf(System.currentTimeMillis()) }
+    var expiredSent by remember(order.dispatchId, order.orderId) { mutableStateOf(false) }
+    val expiresAt = order.offerExpiresAt ?: remember(order.dispatchId, order.orderId) {
+        System.currentTimeMillis() + (order.offerTtlSeconds ?: ON_DEMAND_OFFER_TTL_SECONDS) * 1000L
+    }
+    val totalTtlMs = ((order.offerTtlSeconds ?: ON_DEMAND_OFFER_TTL_SECONDS) * 1000L).coerceAtLeast(1L)
+    val remainingMs = (expiresAt - now).coerceAtLeast(0L)
+    val remainingSeconds = ((remainingMs + 999L) / 1000L).toInt()
+    val progress = (remainingMs.toFloat() / totalTtlMs.toFloat()).coerceIn(0f, 1f)
+
+    LaunchedEffect(order.dispatchId, order.orderId, expiresAt) {
+        while (now < expiresAt) {
+            delay(250L)
+            now = System.currentTimeMillis()
+        }
+    }
+
+    LaunchedEffect(remainingSeconds) {
+        if (remainingSeconds <= 0 && !expiredSent) {
+            expiredSent = true
+            onExpired()
+        }
+    }
+
     AlertDialog(
         onDismissRequest = {},
         confirmButton = {
             Button(
-                onClick = onAccept,
+                onClick = {
+                    if (remainingSeconds > 0) onAccept()
+                },
+                enabled = remainingSeconds > 0,
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Secondary)
             ) {
@@ -788,6 +827,35 @@ private fun OnDemandOfferDialog(
         title = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Pekerjaan On Demand", fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "Waktu respons",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Surface(
+                        color = if (remainingSeconds <= 5) MaterialTheme.colorScheme.errorContainer else PrimaryLight,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            "$remainingSeconds detik",
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = if (remainingSeconds <= 5) MaterialTheme.colorScheme.onErrorContainer else Primary
+                        )
+                    }
+                }
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = if (remainingSeconds <= 5) MaterialTheme.colorScheme.error else Secondary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
                 Text(
                     order.cleanPayoutIdr().toRupiahCompact(),
                     style = MaterialTheme.typography.titleMedium,
@@ -1245,8 +1313,11 @@ private fun orderSyncHint(isOnline: Boolean, lastRemoteSyncAt: Long?): String {
 
 private const val FOREGROUND_SYNC_INTERVAL_MS = 30_000L
 private const val FOREGROUND_SYNC_MIN_INTERVAL_MS = 20_000L
+private const val ON_DEMAND_FOREGROUND_SYNC_INTERVAL_MS = 5_000L
+private const val ON_DEMAND_FOREGROUND_SYNC_MIN_INTERVAL_MS = 4_000L
 private const val FOREGROUND_SYNC_MAX_BACKOFF_MS = 120_000L
 private const val PUSH_SYNC_MIN_INTERVAL_MS = 2_000L
+private const val ON_DEMAND_OFFER_TTL_SECONDS = 15
 
 private data class DutyLocation(
     val latitude: Double,
