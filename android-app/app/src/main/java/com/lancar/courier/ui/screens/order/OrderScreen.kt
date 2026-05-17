@@ -153,7 +153,7 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = order.customerName.ifBlank { "Customer" },
+                        text = order.customerName.ifBlank { "Nama pelanggan belum tersedia" },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -181,7 +181,7 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 CompactInfo(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
-                CompactInfo(icon = Icons.Default.Route, text = order.distance.ifBlank { "0 km" })
+                CompactInfo(icon = Icons.Default.Route, text = order.distance.ifBlank { "Jarak belum tersedia" })
                 val pickupTime = order.pickupTime.takeIf { it.isNotBlank() }?.take(16)
                 if (pickupTime != null) {
                     CompactInfo(icon = Icons.Default.Schedule, text = pickupTime)

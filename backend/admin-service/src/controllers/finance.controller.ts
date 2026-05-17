@@ -1,5 +1,59 @@
 import { Request, Response } from 'express';
 import { db, readDb } from '../db';
+import { evaluatePayoutAlerts, writePayoutAuditEvent } from '../utils/payoutObservability';
+
+const adminActorId = (req: Request) => req.user?.id || '9b6a89d7-ab83-4df9-86fa-dd714ea50be0';
+
+const writeFinanceAudit = async (
+  client: any,
+  key: string,
+  actorId: string,
+  reason: string,
+  config: Record<string, unknown>,
+) => {
+  await client.query(
+    `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category)
+     VALUES ($1::varchar, $2::boolean, $3::uuid, $4::text, $5::jsonb, $6::varchar)`,
+    [key, true, actorId, reason, JSON.stringify(config), 'finance']
+  );
+};
+
+const writeCourierPayoutFinanceAudit = async (
+  client: any,
+  req: Request,
+  event: {
+    eventType: 'account_status_changed' | 'request_status_changed';
+    courierId: string;
+    payoutRequestId?: string | null;
+    subjectType: string;
+    subjectId: string;
+    oldStatus: string;
+    newStatus: string;
+    reason?: string | null;
+    reference?: string | null;
+    before: Record<string, unknown>;
+    after: Record<string, unknown>;
+  },
+) => {
+  await writePayoutAuditEvent(client, req, {
+    courierId: event.courierId,
+    payoutRequestId: event.payoutRequestId || null,
+    eventType: event.eventType,
+    severity: event.newStatus === 'failed' || event.newStatus === 'suspended' ? 'warning' : 'info',
+    actorId: adminActorId(req),
+    actorRole: req.user?.role || 'admin',
+    subjectType: event.subjectType,
+    subjectId: event.subjectId,
+    oldStatus: event.oldStatus,
+    newStatus: event.newStatus,
+    metadata: {
+      reason: event.reason || null,
+      reference: event.reference || null,
+      before: event.before,
+      after: event.after,
+    },
+  });
+};
 
 export const getFinancialStats = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -114,6 +168,343 @@ export const getPayouts = async (req: Request, res: Response): Promise<void> => 
   } catch (error: any) {
     console.error('Error fetching payouts:', error);
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const getCourierPayoutAccounts = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+    const params: string[] = [];
+    let statusFilter = '';
+
+    if (status && status !== 'all') {
+      params.push(status);
+      statusFilter = `WHERE cpa.status = $${params.length}`;
+    }
+
+    const result = await readDb.query(
+      `SELECT
+         cpa.id,
+         cpa.courier_id,
+         cpa.courier_profile_id,
+         u.full_name AS courier_name,
+         u.phone_number AS courier_phone,
+         cp.application_channel,
+         cpa.bank_code,
+         ('**** ' || cpa.account_number_last4) AS account_number,
+         cpa.account_name,
+         cpa.status,
+         cpa.is_primary,
+         cpa.verified_at,
+         cpa.rejected_reason,
+         cpa.suspended_reason,
+         cpa.created_at,
+         cpa.updated_at
+       FROM courier_payout_accounts cpa
+       JOIN users u ON u.id = cpa.courier_id
+       LEFT JOIN courier_profiles cp ON cp.id = cpa.courier_profile_id
+       ${statusFilter}
+       ORDER BY
+         CASE cpa.status
+           WHEN 'pending_review' THEN 1
+           WHEN 'verified' THEN 2
+           WHEN 'suspended' THEN 3
+           ELSE 4
+         END,
+         cpa.created_at DESC
+       LIMIT 200`,
+      params
+    );
+
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    console.error('Error fetching courier payout accounts:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const updateCourierPayoutAccountStatus = async (req: Request, res: Response): Promise<void> => {
+  const id = String(req.params.id);
+  const { status, reason } = req.body || {};
+
+  if (!['verified', 'rejected', 'suspended', 'pending_review'].includes(status)) {
+    res.status(400).json({ success: false, error: 'Invalid payout account status' });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const actorId = adminActorId(req);
+    const existing = await client.query(
+      `SELECT *
+       FROM courier_payout_accounts
+       WHERE id = $1::uuid
+       FOR UPDATE`,
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, error: 'Payout account not found' });
+      return;
+    }
+
+    const current = existing.rows[0];
+    const result = await client.query(
+      `UPDATE courier_payout_accounts
+       SET status = $1::varchar,
+           verified_by = CASE WHEN $1::text = 'verified' THEN $2::uuid ELSE verified_by END,
+           verified_at = CASE WHEN $1::text = 'verified' THEN NOW() ELSE verified_at END,
+           rejected_reason = CASE WHEN $1::text = 'rejected' THEN $3::text ELSE NULL END,
+           suspended_reason = CASE WHEN $1::text = 'suspended' THEN $3::text ELSE NULL END,
+           updated_at = NOW()
+       WHERE id = $4::uuid
+       RETURNING *`,
+      [status, actorId, reason || null, id]
+    );
+
+    await writeFinanceAudit(
+      client,
+      `courier_payout_account:${id}`,
+      actorId,
+      reason || `Updated payout account status to ${status}`,
+      { before: current, after: result.rows[0] }
+    );
+
+    await writeCourierPayoutFinanceAudit(
+      client,
+      req,
+      {
+        eventType: 'account_status_changed',
+        courierId: result.rows[0].courier_id,
+        subjectType: 'courier_payout_account',
+        subjectId: id,
+        oldStatus: current.status,
+        newStatus: result.rows[0].status,
+        reason: reason || null,
+        before: current,
+        after: result.rows[0],
+      }
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Error updating courier payout account:', error);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const getCourierPayoutRequests = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const status = typeof req.query.status === 'string' ? req.query.status : undefined;
+    const params: string[] = [];
+    let statusFilter = '';
+
+    if (status && status !== 'all') {
+      params.push(status);
+      statusFilter = `WHERE pr.status = $${params.length}`;
+    }
+
+    const result = await readDb.query(
+      `SELECT
+         pr.id,
+         pr.request_number,
+         pr.courier_id,
+         u.full_name AS courier_name,
+         u.phone_number AS courier_phone,
+         cp.application_channel,
+         pr.amount_idr,
+         pr.fee_idr,
+         pr.net_amount_idr,
+         pr.status,
+         pr.destination_snapshot,
+         pr.risk_snapshot,
+         pr.failure_reason,
+         pr.requested_at,
+         pr.reviewed_at,
+         pr.processed_at,
+         pr.paid_at
+       FROM courier_payout_requests pr
+       JOIN users u ON u.id = pr.courier_id
+       LEFT JOIN courier_profiles cp ON cp.user_id = pr.courier_id
+       ${statusFilter}
+       ORDER BY
+         CASE pr.status
+           WHEN 'requested' THEN 1
+           WHEN 'under_review' THEN 2
+           WHEN 'approved' THEN 3
+           WHEN 'processing' THEN 4
+           WHEN 'failed' THEN 5
+           WHEN 'rejected' THEN 6
+           ELSE 7
+         END,
+         pr.requested_at DESC
+       LIMIT 200`,
+      params
+    );
+
+    res.json({ success: true, data: result.rows });
+  } catch (error: any) {
+    console.error('Error fetching courier payout requests:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export const updateCourierPayoutRequestStatus = async (req: Request, res: Response): Promise<void> => {
+  const id = String(req.params.id);
+  const { status, reference, reason } = req.body || {};
+
+  if (!['under_review', 'approved', 'processing', 'paid', 'failed', 'rejected', 'cancelled'].includes(status)) {
+    res.status(400).json({ success: false, error: 'Invalid payout request status' });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const actorId = adminActorId(req);
+    const existing = await client.query(
+      `SELECT *
+       FROM courier_payout_requests
+       WHERE id = $1
+       FOR UPDATE`,
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, error: 'Payout request not found' });
+      return;
+    }
+
+    const current = existing.rows[0];
+    const terminalStatuses = ['paid', 'failed', 'rejected', 'cancelled'];
+    if (terminalStatuses.includes(current.status) && current.status !== status) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, error: 'Terminal payout request cannot be changed' });
+      return;
+    }
+
+    const allowedTransitions: Record<string, string[]> = {
+      requested: ['under_review', 'approved', 'processing', 'paid', 'failed', 'rejected', 'cancelled'],
+      under_review: ['approved', 'processing', 'paid', 'failed', 'rejected', 'cancelled'],
+      approved: ['processing', 'paid', 'failed', 'cancelled'],
+      processing: ['paid', 'failed'],
+      paid: ['paid'],
+      failed: ['failed'],
+      rejected: ['rejected'],
+      cancelled: ['cancelled'],
+    };
+
+    if (!allowedTransitions[current.status]?.includes(status)) {
+      await client.query('ROLLBACK');
+      res.status(409).json({ success: false, error: `Invalid payout transition ${current.status} -> ${status}` });
+      return;
+    }
+
+    const result = await client.query(
+      `UPDATE courier_payout_requests
+       SET status = $1::varchar,
+           reviewed_by = CASE WHEN $1::text IN ('under_review', 'approved', 'rejected') THEN $2::uuid ELSE reviewed_by END,
+           reviewed_at = CASE WHEN $1::text IN ('under_review', 'approved', 'rejected') THEN NOW() ELSE reviewed_at END,
+           processed_by = CASE WHEN $1::text IN ('processing', 'paid', 'failed') THEN $2::uuid ELSE processed_by END,
+           processed_at = CASE WHEN $1::text IN ('processing', 'paid', 'failed') THEN NOW() ELSE processed_at END,
+           paid_at = CASE WHEN $1::text = 'paid' THEN NOW() ELSE paid_at END,
+           failure_reason = CASE WHEN $1::text IN ('failed', 'rejected', 'cancelled') THEN $3::text ELSE failure_reason END,
+           risk_snapshot = risk_snapshot || $4::jsonb,
+           updated_at = NOW()
+       WHERE id = $5::uuid
+       RETURNING *`,
+      [
+        status,
+        actorId,
+        reason || null,
+        JSON.stringify({ admin_reference: reference || null, admin_reason: reason || null }),
+        id,
+      ]
+    );
+
+    if (['failed', 'rejected', 'cancelled'].includes(status)) {
+      const reversalExists = await client.query(
+        `SELECT 1
+         FROM courier_earnings_ledger
+         WHERE payout_request_id = $1
+           AND transaction_type = 'payout_failed'
+         LIMIT 1`,
+        [id]
+      );
+
+      if (reversalExists.rows.length === 0) {
+        const reversalDescription = status === 'failed'
+          ? 'Pencairan gagal, saldo dikembalikan'
+          : 'Pencairan dibatalkan, saldo dikembalikan';
+
+        await client.query(
+          `INSERT INTO courier_earnings_ledger (
+             courier_id,
+             source,
+             direction,
+             amount_idr,
+             settlement_status,
+             transaction_type,
+             payout_request_id,
+             description,
+             metadata
+           ) VALUES ($1, 'payout', 'credit', $2, 'available', 'payout_failed', $3, $4, $5)`,
+          [
+            current.courier_id,
+            current.amount_idr,
+            id,
+            reversalDescription,
+            JSON.stringify({ previous_status: current.status, new_status: status, reason: reason || null }),
+          ]
+        );
+      }
+    }
+
+    await writeFinanceAudit(
+      client,
+      `courier_payout_request:${id}`,
+      actorId,
+      reason || `Updated courier payout request to ${status}`,
+      { before: current, after: result.rows[0], reference: reference || null }
+    );
+
+    await writeCourierPayoutFinanceAudit(
+      client,
+      req,
+      {
+        eventType: 'request_status_changed',
+        courierId: result.rows[0].courier_id,
+        payoutRequestId: id,
+        subjectType: 'courier_payout_request',
+        subjectId: id,
+        oldStatus: current.status,
+        newStatus: result.rows[0].status,
+        reason: reason || null,
+        reference: reference || null,
+        before: current,
+        after: result.rows[0],
+      }
+    );
+
+    await evaluatePayoutAlerts(client);
+
+    await client.query('COMMIT');
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    console.error('Error updating courier payout request:', error);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    client.release();
   }
 };
 

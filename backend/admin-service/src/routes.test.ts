@@ -49,6 +49,13 @@ jest.mock('./controllers', () => ({
   updateDisputeStatus: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
   assignDispute: jest.fn((req, res) => res.status(200).json({ status: 'assigned' })),
   getFinancialStats: jest.fn((req, res) => res.status(200).json({})),
+  getCourierPayoutAccounts: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  updateCourierPayoutAccountStatus: jest.fn((req, res) => res.status(200).json({ success: true, data: { id: req.params.id } })),
+  getCourierPayoutRequests: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  updateCourierPayoutRequestStatus: jest.fn((req, res) => res.status(200).json({ success: true, data: { id: req.params.id } })),
+  getMobileCourierPayoutSummary: jest.fn((req, res) => res.status(200).json({ success: true, data: { eligibility: { can_request: true } } })),
+  getMobileCourierPayoutRequests: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  createMobileCourierPayoutRequest: jest.fn((req, res) => res.status(201).json({ success: true, data: { request: { id: 'payout-1' } } })),
   getPayouts: jest.fn((req, res) => res.status(200).json([])),
   exportPayouts: jest.fn((req, res) => res.status(200).send('csv,data')),
   updatePayoutStatus: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
@@ -187,6 +194,47 @@ describe('Admin Service Routes', () => {
       .set('x-totp-verified', 'true');
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: 'deleted' });
+  });
+
+  it('protects courier payout summary without a mobile/web session', async () => {
+    const res = await request(app).get('/api/v1/courier/payout/summary');
+
+    expect(res.status).toBe(401);
+    expect(controllers.getMobileCourierPayoutSummary).not.toHaveBeenCalled();
+  });
+
+  it('allows authenticated courier payout summary access', async () => {
+    const res = await request(app).get('/api/v1/courier/payout/summary')
+      .set('x-user-id', 'courier-user-id')
+      .set('x-user-role', 'courier')
+      .set('x-user-full-name', 'Courier Test');
+
+    expect(res.status).toBe(200);
+    expect(controllers.getMobileCourierPayoutSummary).toHaveBeenCalled();
+  });
+
+  it('requires TOTP for admin payout request status changes', async () => {
+    const res = await request(app).patch('/admin/finance/payout-requests/11111111-1111-4111-8111-111111111111')
+      .set('x-user-id', 'admin-user-id')
+      .set('x-user-role', 'super_admin')
+      .set('x-user-full-name', 'Admin Test')
+      .set('x-totp-verified', 'false')
+      .send({ status: 'approved' });
+
+    expect(res.status).toBe(403);
+    expect(controllers.updateCourierPayoutRequestStatus).not.toHaveBeenCalled();
+  });
+
+  it('allows TOTP-verified admin payout request status changes', async () => {
+    const res = await request(app).patch('/admin/finance/payout-requests/11111111-1111-4111-8111-111111111111')
+      .set('x-user-id', 'admin-user-id')
+      .set('x-user-role', 'super_admin')
+      .set('x-user-full-name', 'Admin Test')
+      .set('x-totp-verified', 'true')
+      .send({ status: 'approved' });
+
+    expect(res.status).toBe(200);
+    expect(controllers.updateCourierPayoutRequestStatus).toHaveBeenCalled();
   });
 
   afterAll(async () => {

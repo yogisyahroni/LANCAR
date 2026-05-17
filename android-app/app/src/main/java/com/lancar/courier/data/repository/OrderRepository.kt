@@ -76,7 +76,7 @@ class OrderRepository @Inject constructor(
     suspend fun saveScanLocally(orderId: String, latitude: Double, longitude: Double, scanType: String) = withContext(Dispatchers.IO) {
         val order = orderDao.getOrderById(orderId) ?: return@withContext
         val nextStatus = when (scanType) {
-            "pickup", "pickup_photo" -> "picked_up"
+            "pickup", "pickup_photo" -> order.status
             "delivery", "pod" -> "delivered"
             else -> order.status
         }

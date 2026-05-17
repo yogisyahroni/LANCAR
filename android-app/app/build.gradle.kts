@@ -146,6 +146,7 @@ dependencies {
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
     
     // Google Maps Engine for Order Tracking
     implementation("com.google.maps.android:maps-compose:4.3.3")

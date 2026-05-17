@@ -8,6 +8,10 @@ import com.lancar.courier.data.model.CourierCapabilityProfile
 import com.lancar.courier.data.model.CourierHotspot
 import com.lancar.courier.data.model.CourierEarningsLedger
 import com.lancar.courier.data.model.CourierPerformanceSummary
+import com.lancar.courier.data.model.CourierPayoutCreateData
+import com.lancar.courier.data.model.CourierPayoutCreateRequest
+import com.lancar.courier.data.model.CourierPayoutRequestItem
+import com.lancar.courier.data.model.CourierPayoutSummaryData
 import com.lancar.courier.data.model.CourierRoutePreview
 import com.lancar.courier.data.model.CourierSafetyEventData
 import com.lancar.courier.data.model.CourierSafetyEventRequest
@@ -97,6 +101,18 @@ interface LANCARApiService {
 
     @GET("api/v1/courier/earnings-ledger")
     suspend fun getCourierEarningsLedger(): Response<ApiResponse<CourierEarningsLedger>>
+
+    @GET("api/v1/courier/payout/summary")
+    suspend fun getCourierPayoutSummary(): Response<ApiResponse<CourierPayoutSummaryData>>
+
+    @GET("api/v1/courier/payout/requests")
+    suspend fun getCourierPayoutRequests(): Response<ApiResponse<List<CourierPayoutRequestItem>>>
+
+    @POST("api/v1/courier/payout/requests")
+    suspend fun createCourierPayoutRequest(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Body request: CourierPayoutCreateRequest
+    ): Response<ApiResponse<CourierPayoutCreateData>>
 
     @GET("api/v1/courier/capabilities")
     suspend fun getCourierCapabilities(): Response<ApiResponse<CourierCapabilityProfile>>

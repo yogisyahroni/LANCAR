@@ -963,7 +963,7 @@ export const getMobileCourierCapabilities = async (req: Request, res: Response):
     const profile = profileRes.rows[0];
     const vehicleRes = await readDb.query(
       `SELECT id, plate_number, vehicle_type, vehicle_category, brand, model, production_year, engine_cc,
-              max_weight_kg, verification_status, approved_at
+              max_weight_kg::float8 AS max_weight_kg, verification_status, approved_at
        FROM courier_vehicles
        WHERE courier_profile_id = $1
        ORDER BY is_primary DESC, created_at DESC`,
@@ -972,7 +972,7 @@ export const getMobileCourierCapabilities = async (req: Request, res: Response):
     const capabilitiesRes = await readDb.query(
       `SELECT csc.id, csc.service_code, dsp.name AS service_name, dsp.description, dsp.service_category,
               dsp.service_family, dsp.route_model, csc.status, csc.eligibility_reason,
-              csc.max_weight_kg, csc.approved_at
+              csc.max_weight_kg::float8 AS max_weight_kg, csc.approved_at
        FROM courier_service_capabilities csc
        JOIN delivery_service_products dsp ON dsp.code = csc.service_code
        WHERE csc.courier_profile_id = $1

@@ -29,6 +29,9 @@ routes.get('/api/v1/courier/on-demand/services', requireMobileOrWebAuth, (req, r
 routes.get('/api/v1/courier/on-demand/hotspots', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierHotspots(req, res));
 routes.get('/api/v1/courier/performance', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPerformance(req, res));
 routes.get('/api/v1/courier/earnings-ledger', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierEarningsLedger(req, res));
+routes.get('/api/v1/courier/payout/summary', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPayoutSummary(req, res));
+routes.get('/api/v1/courier/payout/requests', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPayoutRequests(req, res));
+routes.post('/api/v1/courier/payout/requests', requireMobileOrWebAuth, (req, res) => controllers.createMobileCourierPayoutRequest(req, res));
 routes.get('/api/v1/courier/capabilities', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierCapabilities(req, res));
 routes.post('/api/v1/courier/training/complete', requireMobileOrWebAuth, (req, res) => controllers.completeMobileCourierTraining(req, res));
 routes.get('/api/v1/courier/orders', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOrders(req, res));
@@ -167,6 +170,10 @@ routes.post('/admin/disputes/:id/upload', upload.single('file'), (req, res) => c
 
 // Finance Management
 routes.get('/admin/finance/stats', (req, res) => controllers.getFinancialStats(req, res));
+routes.get('/admin/finance/payout-accounts', (req, res) => controllers.getCourierPayoutAccounts(req, res));
+routes.patch('/admin/finance/payout-accounts/:id', requireTotp, (req, res) => controllers.updateCourierPayoutAccountStatus(req, res));
+routes.get('/admin/finance/payout-requests', (req, res) => controllers.getCourierPayoutRequests(req, res));
+routes.patch('/admin/finance/payout-requests/:id', requireTotp, (req, res) => controllers.updateCourierPayoutRequestStatus(req, res));
 routes.get('/admin/finance/payouts', (req, res) => controllers.getPayouts(req, res));
 routes.get('/admin/finance/payouts/export', (req, res) => controllers.exportPayouts(req, res));
 routes.post('/admin/finance/payouts/batch-release', (req, res) => controllers.batchReleasePayouts(req, res));

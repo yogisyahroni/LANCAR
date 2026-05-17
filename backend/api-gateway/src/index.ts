@@ -179,7 +179,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-role', 'x-portal', 'Cookie'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-role', 'x-portal', 'x-idempotency-key', 'x-device-id', 'Cookie'],
 }));
 
 app.use(logger);
@@ -419,7 +419,15 @@ app.use(createProxyMiddleware({
     pathname.startsWith('/api/v1/courier/profile') ||
     pathname.startsWith('/api/v1/courier/duty') ||
     pathname.startsWith('/api/v1/courier/orders') ||
-    pathname.startsWith('/api/v1/courier/offers'),
+    pathname.startsWith('/api/v1/courier/offers') ||
+    pathname.startsWith('/api/v1/courier/on-demand') ||
+    pathname.startsWith('/api/v1/courier/performance') ||
+    pathname.startsWith('/api/v1/courier/earnings-ledger') ||
+    pathname.startsWith('/api/v1/courier/payout') ||
+    pathname.startsWith('/api/v1/courier/capabilities') ||
+    pathname.startsWith('/api/v1/courier/training') ||
+    pathname.startsWith('/api/v1/courier/safety-events') ||
+    pathname.startsWith('/api/v1/courier/trip-share'),
   target: ADMIN_SERVICE_URL,
   changeOrigin: true,
   on: {

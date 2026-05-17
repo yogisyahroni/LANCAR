@@ -11,7 +11,12 @@ import {
   Download,
   CloudRain,
   ChevronRight,
-  Loader2
+  Loader2,
+  Landmark,
+  CheckCircle2,
+  XCircle,
+  Ban,
+  ShieldCheck
 } from 'lucide-react'
 import { 
   XAxis, 
@@ -48,6 +53,53 @@ export default function Finance() {
     queryFn: async () => {
       const res = await api.get('/admin/finance/payouts');
       return res.data;
+    }
+  });
+
+  const { data: payoutAccounts, isLoading: isLoadingPayoutAccounts } = useQuery({
+    queryKey: ['finance-payout-accounts'],
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/payout-accounts');
+      return res.data?.data || [];
+    }
+  });
+
+  const { data: payoutRequests, isLoading: isLoadingPayoutRequests } = useQuery({
+    queryKey: ['finance-payout-requests'],
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/payout-requests');
+      return res.data?.data || [];
+    }
+  });
+
+  const updatePayoutAccountMutation = useMutation({
+    mutationFn: async ({ id, status, reason }: { id: string; status: string; reason: string }) => {
+      await api.patch(`/admin/finance/payout-accounts/${id}`, { status, reason });
+    },
+    onSuccess: () => {
+      toast.success('Status rekening pencairan diperbarui');
+      queryClient.invalidateQueries({ queryKey: ['finance-payout-accounts'] });
+    },
+    onError: () => {
+      toast.error('Gagal memperbarui rekening pencairan');
+    }
+  });
+
+  const updatePayoutRequestMutation = useMutation({
+    mutationFn: async ({ id, status, reason }: { id: string; status: string; reason: string }) => {
+      await api.patch(`/admin/finance/payout-requests/${id}`, {
+        status,
+        reason,
+        reference: `LCR-PAYOUT-${Date.now()}`
+      });
+    },
+    onSuccess: () => {
+      toast.success('Status pengajuan pencairan diperbarui');
+      queryClient.invalidateQueries({ queryKey: ['finance-payout-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-stats'] });
+    },
+    onError: () => {
+      toast.error('Gagal memperbarui pengajuan pencairan');
     }
   });
 
@@ -100,7 +152,7 @@ export default function Finance() {
     }
   });
 
-  if (isLoadingStats || isLoadingPayouts) {
+  if (isLoadingStats || isLoadingPayouts || isLoadingPayoutAccounts || isLoadingPayoutRequests) {
     return (
       <div className="h-[80vh] flex items-center justify-center">
         <Loader2 className="w-12 h-12 text-primary animate-spin" />
@@ -112,6 +164,7 @@ export default function Finance() {
   const revenueBreakdown = financialData?.model_breakdown || [];
   const emergencyFund = financialData?.emergency_fund || 0;
   const unitEconomics = financialData?.unit_economics || [];
+  const formatCurrency = (value: number | string) => `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
 
   return (
     <div className="space-y-10 animate-in">
@@ -332,6 +385,199 @@ export default function Finance() {
                </div>
             </div>
          </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-2xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
+                <Landmark className="text-primary-light" size={26} />
+                Rekening Pencairan
+              </h3>
+              <p className="text-sm text-zinc-500 mt-1">Review rekening kurir sebelum saldo dapat dicairkan.</p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+              {payoutAccounts?.filter((item: any) => item.status === 'pending_review').length || 0} pending
+            </span>
+          </div>
+
+          <div className="space-y-4 max-h-[560px] overflow-y-auto pr-2">
+            {payoutAccounts?.map((account: any) => (
+              <div key={account.id} className="p-5 rounded-[28px] bg-white/[0.02] border border-white/5 space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-base font-black text-zinc-100 truncate">{account.courier_name}</p>
+                    <p className="text-xs text-zinc-500 mt-1">{account.courier_phone || '-'} • {account.application_channel || 'courier'}</p>
+                  </div>
+                  <span className={cn(
+                    "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shrink-0",
+                    account.status === 'verified' ? "bg-emerald-500/10 text-emerald-400" :
+                    account.status === 'pending_review' ? "bg-amber-500/10 text-amber-400" :
+                    "bg-red-500/10 text-red-400"
+                  )}>
+                    {account.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 rounded-2xl bg-black/20 border border-white/5">
+                    <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest">Bank</p>
+                    <p className="text-sm font-black text-zinc-200 mt-1">{account.bank_code}</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-black/20 border border-white/5">
+                    <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest">Nomor</p>
+                    <p className="text-sm font-black text-zinc-200 mt-1">{account.account_number}</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-black/20 border border-white/5 min-w-0">
+                    <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest">Nama</p>
+                    <p className="text-sm font-black text-zinc-200 mt-1 truncate">{account.account_name}</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => updatePayoutAccountMutation.mutate({
+                      id: account.id,
+                      status: 'verified',
+                      reason: 'Rekening sesuai dokumen onboarding dan siap untuk pencairan.'
+                    })}
+                    disabled={account.status === 'verified' || updatePayoutAccountMutation.isPending}
+                    className="px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500/20 disabled:opacity-40 flex items-center gap-2"
+                  >
+                    <CheckCircle2 size={14} />
+                    Verifikasi
+                  </button>
+                  <button
+                    onClick={() => {
+                      const reason = prompt('Alasan penolakan rekening:') || 'Data rekening tidak sesuai dokumen.';
+                      updatePayoutAccountMutation.mutate({ id: account.id, status: 'rejected', reason });
+                    }}
+                    disabled={account.status === 'rejected' || updatePayoutAccountMutation.isPending}
+                    className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-black text-[10px] uppercase tracking-widest hover:bg-red-500/20 disabled:opacity-40 flex items-center gap-2"
+                  >
+                    <XCircle size={14} />
+                    Tolak
+                  </button>
+                  <button
+                    onClick={() => {
+                      const reason = prompt('Alasan suspend rekening:') || 'Rekening ditahan untuk review keamanan.';
+                      updatePayoutAccountMutation.mutate({ id: account.id, status: 'suspended', reason });
+                    }}
+                    disabled={account.status === 'suspended' || updatePayoutAccountMutation.isPending}
+                    className="px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 font-black text-[10px] uppercase tracking-widest hover:bg-amber-500/20 disabled:opacity-40 flex items-center gap-2"
+                  >
+                    <Ban size={14} />
+                    Suspend
+                  </button>
+                </div>
+              </div>
+            ))}
+            {(!payoutAccounts || payoutAccounts.length === 0) && (
+              <div className="py-16 text-center text-zinc-500 font-bold">Belum ada rekening pencairan untuk direview.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-2xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
+                <ShieldCheck className="text-primary-light" size={26} />
+                Pengajuan Pencairan
+              </h3>
+              <p className="text-sm text-zinc-500 mt-1">Kontrol status settlement kurir dengan audit trail.</p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+              {payoutRequests?.filter((item: any) => ['requested', 'under_review', 'approved', 'processing'].includes(item.status)).length || 0} aktif
+            </span>
+          </div>
+
+          <div className="space-y-4 max-h-[560px] overflow-y-auto pr-2">
+            {payoutRequests?.map((request: any) => (
+              <div key={request.id} className="p-5 rounded-[28px] bg-white/[0.02] border border-white/5 space-y-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-base font-black text-zinc-100 truncate">{request.courier_name}</p>
+                    <p className="text-xs text-zinc-500 mt-1">{request.request_number} • {format(new Date(request.requested_at), 'dd MMM yyyy HH:mm')}</p>
+                  </div>
+                  <span className={cn(
+                    "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shrink-0",
+                    request.status === 'paid' ? "bg-emerald-500/10 text-emerald-400" :
+                    ['failed', 'rejected', 'cancelled'].includes(request.status) ? "bg-red-500/10 text-red-400" :
+                    "bg-amber-500/10 text-amber-400"
+                  )}>
+                    {request.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-2xl bg-black/20 border border-white/5">
+                    <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest">Nominal</p>
+                    <p className="text-lg font-black text-zinc-100 mt-1">{formatCurrency(request.amount_idr)}</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-black/20 border border-white/5">
+                    <p className="text-[9px] text-zinc-600 font-black uppercase tracking-widest">Tujuan</p>
+                    <p className="text-sm font-black text-zinc-200 mt-1">
+                      {request.destination_snapshot?.bank_code} • **** {request.destination_snapshot?.account_number_last4}
+                    </p>
+                  </div>
+                </div>
+
+                {!['paid', 'failed', 'rejected', 'cancelled'].includes(request.status) && (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => updatePayoutRequestMutation.mutate({
+                        id: request.id,
+                        status: 'under_review',
+                        reason: 'Masuk proses review treasury.'
+                      })}
+                      disabled={request.status !== 'requested' || updatePayoutRequestMutation.isPending}
+                      className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-300 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 disabled:opacity-40"
+                    >
+                      Review
+                    </button>
+                    <button
+                      onClick={() => updatePayoutRequestMutation.mutate({
+                        id: request.id,
+                        status: 'approved',
+                        reason: 'Disetujui untuk proses settlement.'
+                      })}
+                      disabled={!['requested', 'under_review'].includes(request.status) || updatePayoutRequestMutation.isPending}
+                      className="px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500/20 disabled:opacity-40"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => updatePayoutRequestMutation.mutate({
+                        id: request.id,
+                        status: 'paid',
+                        reason: 'Dana sudah dikirim ke rekening terverifikasi.'
+                      })}
+                      disabled={!['approved', 'processing'].includes(request.status) || updatePayoutRequestMutation.isPending}
+                      className="px-4 py-2 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:bg-primary-light disabled:opacity-40"
+                    >
+                      Mark Paid
+                    </button>
+                    <button
+                      onClick={() => {
+                        const reason = prompt('Alasan gagal/tolak pencairan:') || 'Pencairan tidak lolos review treasury.';
+                        updatePayoutRequestMutation.mutate({ id: request.id, status: 'rejected', reason });
+                      }}
+                      disabled={updatePayoutRequestMutation.isPending}
+                      className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 font-black text-[10px] uppercase tracking-widest hover:bg-red-500/20 disabled:opacity-40"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {(!payoutRequests || payoutRequests.length === 0) && (
+              <div className="py-16 text-center text-zinc-500 font-bold">Belum ada pengajuan pencairan.</div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Pending Settlements Table */}

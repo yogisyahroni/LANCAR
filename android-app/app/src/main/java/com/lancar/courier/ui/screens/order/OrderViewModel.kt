@@ -8,6 +8,9 @@ import com.lancar.courier.data.model.CourierCapabilityProfile
 import com.lancar.courier.data.model.CourierEarningsLedger
 import com.lancar.courier.data.model.CourierHotspot
 import com.lancar.courier.data.model.CourierPerformanceSummary
+import com.lancar.courier.data.model.CourierPayoutCreateRequest
+import com.lancar.courier.data.model.CourierPayoutRequestItem
+import com.lancar.courier.data.model.CourierPayoutSummaryData
 import com.lancar.courier.data.model.CourierRoutePreview
 import com.lancar.courier.data.model.CourierSafetyEventRequest
 import com.lancar.courier.data.model.CourierServiceProduct
@@ -30,6 +33,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -71,6 +75,15 @@ class OrderViewModel @Inject constructor(
 
     private val _earningsLedger = MutableStateFlow<CourierEarningsLedger?>(null)
     val earningsLedger: StateFlow<CourierEarningsLedger?> = _earningsLedger.asStateFlow()
+
+    private val _payoutSummary = MutableStateFlow<CourierPayoutSummaryData?>(null)
+    val payoutSummary: StateFlow<CourierPayoutSummaryData?> = _payoutSummary.asStateFlow()
+
+    private val _payoutRequests = MutableStateFlow<List<CourierPayoutRequestItem>>(emptyList())
+    val payoutRequests: StateFlow<List<CourierPayoutRequestItem>> = _payoutRequests.asStateFlow()
+
+    private val _isPayoutSubmitting = MutableStateFlow(false)
+    val isPayoutSubmitting: StateFlow<Boolean> = _isPayoutSubmitting.asStateFlow()
 
     private val _capabilityProfile = MutableStateFlow<CourierCapabilityProfile?>(null)
     val capabilityProfile: StateFlow<CourierCapabilityProfile?> = _capabilityProfile.asStateFlow()
@@ -224,6 +237,8 @@ class OrderViewModel @Inject constructor(
                     _earningsLedger.update { ledgerResponse.body()?.data }
                 }
 
+                fetchPayoutState(showUserErrors = false)
+
                 val capabilityResponse = apiService.getCourierCapabilities()
                 if (capabilityResponse.isSuccessful && capabilityResponse.body()?.success == true) {
                     _capabilityProfile.update { capabilityResponse.body()?.data }
@@ -254,6 +269,53 @@ class OrderViewModel @Inject constructor(
             } finally {
                 if (showLoading) _isSyncing.update { false }
             }
+        }
+    }
+
+    fun fetchPayoutState(showUserErrors: Boolean = true) {
+        viewModelScope.launch {
+            try {
+                val summaryResponse = apiService.getCourierPayoutSummary()
+                val summaryBody = summaryResponse.body()
+                if (summaryResponse.isSuccessful && summaryBody?.success == true) {
+                    _payoutSummary.update { summaryBody.data }
+                }
+
+                val requestsResponse = apiService.getCourierPayoutRequests()
+                val requestsBody = requestsResponse.body()
+                if (requestsResponse.isSuccessful && requestsBody?.success == true) {
+                    _payoutRequests.update { requestsBody.data ?: emptyList() }
+                }
+            } catch (e: Exception) {
+                if (showUserErrors) _error.update { e.message ?: "Gagal memuat data pencairan" }
+            }
+        }
+    }
+
+    suspend fun submitPayoutRequest(amountIdr: Int, transactionPin: String): Result<CourierPayoutRequestItem> {
+        return try {
+            _isPayoutSubmitting.update { true }
+            val idempotencyKey = "courier-payout-${UUID.randomUUID()}"
+            val response = apiService.createCourierPayoutRequest(
+                idempotencyKey = idempotencyKey,
+                request = CourierPayoutCreateRequest(
+                    amountIdr = amountIdr,
+                    transactionPin = transactionPin,
+                    idempotencyKey = idempotencyKey
+                )
+            )
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.data != null) {
+                val request = body.data.request
+                fetchPayoutState(showUserErrors = false)
+                Result.success(request)
+            } else {
+                Result.failure(Exception(body?.message ?: response.errorMessage()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        } finally {
+            _isPayoutSubmitting.update { false }
         }
     }
 

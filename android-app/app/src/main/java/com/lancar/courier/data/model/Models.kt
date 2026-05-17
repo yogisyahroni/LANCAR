@@ -317,7 +317,119 @@ data class CourierEarningsLedgerSummary(
     @SerialName("available_balance_idr")
     val availableBalanceIdr: Int = 0,
     @SerialName("pending_balance_idr")
-    val pendingBalanceIdr: Int = 0
+    val pendingBalanceIdr: Int = 0,
+    @SerialName("payout_account")
+    val payoutAccount: CourierPayoutAccount? = null
+)
+
+@Serializable
+data class CourierPayoutAccount(
+    @SerialName("id")
+    val id: String? = null,
+    @SerialName("bank_code")
+    val bankCode: String? = null,
+    @SerialName("account_number")
+    val accountNumber: String? = null,
+    @SerialName("account_name")
+    val accountName: String? = null,
+    @SerialName("status")
+    val status: String? = null,
+    @SerialName("verified_at")
+    val verifiedAt: String? = null
+)
+
+@Serializable
+data class CourierPayoutBalanceSummary(
+    @SerialName("total_balance_idr")
+    val totalBalanceIdr: Int = 0,
+    @SerialName("available_balance_idr")
+    val availableBalanceIdr: Int = 0,
+    @SerialName("pending_balance_idr")
+    val pendingBalanceIdr: Int = 0,
+    @SerialName("requested_today_idr")
+    val requestedTodayIdr: Int = 0,
+    @SerialName("active_request_count")
+    val activeRequestCount: Int = 0
+)
+
+@Serializable
+data class CourierPayoutPolicy(
+    @SerialName("min_amount_idr")
+    val minAmountIdr: Int = 25000,
+    @SerialName("daily_limit_idr")
+    val dailyLimitIdr: Int = 1000000,
+    @SerialName("account_cooldown_hours")
+    val accountCooldownHours: Int = 24,
+    @SerialName("max_pending_requests")
+    val maxPendingRequests: Int = 2
+)
+
+@Serializable
+data class CourierPayoutEligibility(
+    @SerialName("can_request")
+    val canRequest: Boolean = false,
+    @SerialName("reasons")
+    val reasons: List<String> = emptyList(),
+    @SerialName("max_requestable_idr")
+    val maxRequestableIdr: Int = 0
+)
+
+@Serializable
+data class CourierPayoutSummaryData(
+    @SerialName("summary")
+    val summary: CourierPayoutBalanceSummary = CourierPayoutBalanceSummary(),
+    @SerialName("payout_account")
+    val payoutAccount: CourierPayoutAccount? = null,
+    @SerialName("policy")
+    val policy: CourierPayoutPolicy = CourierPayoutPolicy(),
+    @SerialName("eligibility")
+    val eligibility: CourierPayoutEligibility = CourierPayoutEligibility()
+)
+
+@Serializable
+data class CourierPayoutRequestItem(
+    @SerialName("id")
+    val id: String,
+    @SerialName("request_number")
+    val requestNumber: String,
+    @SerialName("amount_idr")
+    val amountIdr: Int = 0,
+    @SerialName("fee_idr")
+    val feeIdr: Int = 0,
+    @SerialName("net_amount_idr")
+    val netAmountIdr: Int = 0,
+    @SerialName("status")
+    val status: String = "requested",
+    @SerialName("destination_snapshot")
+    val destinationSnapshot: Map<String, String> = emptyMap(),
+    @SerialName("failure_reason")
+    val failureReason: String? = null,
+    @SerialName("requested_at")
+    val requestedAt: String? = null,
+    @SerialName("reviewed_at")
+    val reviewedAt: String? = null,
+    @SerialName("processed_at")
+    val processedAt: String? = null,
+    @SerialName("paid_at")
+    val paidAt: String? = null
+)
+
+@Serializable
+data class CourierPayoutCreateRequest(
+    @SerialName("amount_idr")
+    val amountIdr: Int,
+    @SerialName("transaction_pin")
+    val transactionPin: String,
+    @SerialName("idempotency_key")
+    val idempotencyKey: String
+)
+
+@Serializable
+data class CourierPayoutCreateData(
+    @SerialName("request")
+    val request: CourierPayoutRequestItem,
+    @SerialName("available_balance_idr")
+    val availableBalanceIdr: Int = 0
 )
 
 @Serializable

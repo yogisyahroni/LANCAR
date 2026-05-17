@@ -14,11 +14,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -28,6 +30,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -51,9 +55,12 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import com.lancar.courier.data.model.CourierServiceProduct
 import com.lancar.courier.data.model.CourierHotspot
 import com.lancar.courier.data.model.CourierCapabilityProfile
+import com.lancar.courier.data.model.CourierServiceCapability
 import com.lancar.courier.data.model.CourierEarningsLedger
 import com.lancar.courier.data.model.CourierEarningsTransaction
 import com.lancar.courier.data.model.CourierPerformanceSummary
+import com.lancar.courier.data.model.CourierPayoutRequestItem
+import com.lancar.courier.data.model.CourierPayoutSummaryData
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.cleanPayoutIdr
 import com.lancar.courier.data.model.displayServiceName
@@ -66,6 +73,7 @@ import com.lancar.courier.ui.screens.order.OrderDetailScreen
 import com.lancar.courier.ui.screens.order.OrderScreen
 import com.lancar.courier.ui.screens.order.OrderViewModel
 import com.lancar.courier.ui.screens.pod.ProofOfDeliveryScreen
+import com.lancar.courier.ui.screens.profile.resolvePayoutActionState
 import com.lancar.courier.ui.screens.scan.ScanScreen
 import com.lancar.courier.ui.screens.chat.ChatScreen
 import com.lancar.courier.ui.theme.Primary
@@ -118,16 +126,24 @@ fun MainScreen(
     val performanceSummary by orderViewModel.performanceSummary.collectAsState()
     val capabilityProfile by orderViewModel.capabilityProfile.collectAsState()
     val earningsLedger by orderViewModel.earningsLedger.collectAsState()
+    val payoutSummary by orderViewModel.payoutSummary.collectAsState()
+    val payoutRequests by orderViewModel.payoutRequests.collectAsState()
+    val isPayoutSubmitting by orderViewModel.isPayoutSubmitting.collectAsState()
     val routePreviews by orderViewModel.routePreviews.collectAsState()
     val courierProfile by orderViewModel.courierProfile.collectAsState()
     val isSyncing by orderViewModel.isSyncing.collectAsState()
     val error by orderViewModel.error.collectAsState()
     val lastRemoteSyncAt by orderViewModel.lastRemoteSyncAt.collectAsState()
 
-    val courierName by authSessionManager.courierName.collectAsState(initial = "Courier")
+    val courierName by authSessionManager.courierName.collectAsState(initial = null)
     val isOnline by authSessionManager.isOnline.collectAsState(initial = false)
     val lifecycleOwner = LocalLifecycleOwner.current
     val courierRole = courierProfile?.applicationChannel ?: inferCourierRole(allOrders)
+    val displayCourierName = courierName?.takeIf { it.isNotBlank() } ?: "Profil belum tersinkron"
+    val courierVehicleType = capabilityProfile?.vehicle?.vehicleType
+        ?: capabilityProfile?.vehicles?.firstOrNull { it.verificationStatus.equals("approved", ignoreCase = true) }?.vehicleType
+        ?: capabilityProfile?.vehicles?.firstOrNull()?.vehicleType
+        ?: "motor"
     val roleOrders = allOrders.filterByCourierRole(courierRole)
     val rolePendingOrders = pendingOrders.filterByCourierRole(courierRole)
     val roleDeliveredToday = deliveredToday.filterByCourierRole(courierRole)
@@ -143,6 +159,8 @@ fun MainScreen(
     var selectedOrder by remember { mutableStateOf<Order?>(null) }
     var activeScanType by remember { mutableStateOf("pickup") }
     var activeProofMode by remember { mutableStateOf("delivery") }
+    var pickupScanVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var pickupPhotoVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     suspend fun sendSafetyEvent(order: Order?, eventType: String, severity: String, message: String) {
@@ -263,10 +281,25 @@ fun MainScreen(
             order = order,
             proofMode = activeProofMode,
             onImageConfirmed = { _ ->
-                // PoD saved in ProofOfDeliveryViewModel — refresh orders
-                orderViewModel.fetchOrdersFromBackend()
                 showPodScreen = false
-                selectedOrder = null
+                if (activeProofMode == "pickup") {
+                    pickupPhotoVerifiedOrderIds = pickupPhotoVerifiedOrderIds + order.orderId
+                    val hasPickupScan = pickupScanVerifiedOrderIds.contains(order.orderId) || order.scanType == "pickup"
+                    if (hasPickupScan) {
+                        orderViewModel.updateOrderStatusAndSync(order.orderId, "picked_up")
+                        selectedOrder = order.copy(status = "picked_up")
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        scope.launch { snackbarHostState.showSnackbar("Pickup lengkap. Mulai pengantaran.") }
+                    } else {
+                        selectedOrder = order
+                        snackbarHostState.currentSnackbarData?.dismiss()
+                        scope.launch { snackbarHostState.showSnackbar("Foto barang tersimpan. Scan barcode/kode paket masih wajib.") }
+                    }
+                    showOrderDetail = true
+                } else {
+                    orderViewModel.fetchOrdersFromBackend()
+                    selectedOrder = null
+                }
             },
             onBack = {
                 showPodScreen = false
@@ -286,6 +319,8 @@ fun MainScreen(
         OrderDetailScreen(
             order = order,
             routePreview = routePreviews[order.orderId],
+            pickupScanVerified = pickupScanVerifiedOrderIds.contains(order.orderId) || order.scanType == "pickup",
+            pickupPhotoVerified = pickupPhotoVerifiedOrderIds.contains(order.orderId),
             onBack = {
                 showOrderDetail = false
                 selectedOrder = null
@@ -371,7 +406,20 @@ fun MainScreen(
                     // Load real order from DB (may have been added by notification)
                     val order = orderViewModel.getOrderById(orderId)
                     if (order != null) {
-                        selectedOrder = order.copy(status = if (activeScanType == "pickup") "picked_up" else order.status)
+                        if (activeScanType == "pickup") {
+                            pickupScanVerifiedOrderIds = pickupScanVerifiedOrderIds + orderId
+                            val hasPickupPhoto = pickupPhotoVerifiedOrderIds.contains(orderId)
+                            if (hasPickupPhoto) {
+                                orderViewModel.updateOrderStatusAndSync(orderId, "picked_up")
+                                selectedOrder = order.copy(status = "picked_up")
+                                snackbarHostState.showSnackbar("Pickup lengkap. Mulai pengantaran.")
+                            } else {
+                                selectedOrder = order
+                                snackbarHostState.showSnackbar("Scan berhasil. Lanjutkan foto barang untuk mulai pengantaran.")
+                            }
+                        } else {
+                            selectedOrder = order
+                        }
                         showOrderDetail = true
                     } else {
                         snackbarHostState.showSnackbar("Order $orderId tidak ditemukan")
@@ -502,7 +550,7 @@ fun MainScreen(
         ) {
             when (selectedTab) {
                 0 -> HomeContent(
-                    courierName = courierName ?: "Courier",
+                    courierName = displayCourierName,
                     courierRole = courierRole,
                     totalOrders = roleOrders.size,
                     pendingCount = rolePendingOrders.size,
@@ -511,6 +559,8 @@ fun MainScreen(
                     orders = roleOrders,
                     offers = if (courierRole == "on_demand") onDemandOffers else emptyList(),
                     services = onDemandServices,
+                    capabilityProfile = capabilityProfile,
+                    courierVehicleType = courierVehicleType,
                     hotspots = onDemandHotspots,
                     isOnline = isOnline,
                     onOnlineToggle = { online ->
@@ -599,19 +649,26 @@ fun MainScreen(
                     onRefresh = { orderViewModel.fetchOrdersFromBackend() }
                 )
                 2 -> ProfileContent(
-                    courierName = courierName ?: "Courier",
+                    courierName = displayCourierName,
                     courierRole = courierRole,
                     pendingSyncCount = rolePendingOrders.size,
                     todayEarningsIdr = roleEarningsToday,
                     totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
-                        performanceSummary = performanceSummary,
-                        capabilityProfile = capabilityProfile,
-                        earningsLedger = earningsLedger,
-                        onCompleteTraining = {
+                    performanceSummary = performanceSummary,
+                    capabilityProfile = capabilityProfile,
+                    earningsLedger = earningsLedger,
+                    payoutSummary = payoutSummary,
+                    payoutRequests = payoutRequests,
+                    isPayoutSubmitting = isPayoutSubmitting,
+                    onCompleteTraining = {
                         scope.launch {
                             val result = orderViewModel.completeTraining()
                             snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Training belum tersimpan." })
                         }
+                    },
+                    onRefreshPayout = { orderViewModel.fetchPayoutState() },
+                    onRequestPayout = { amountIdr, pin ->
+                        orderViewModel.submitPayoutRequest(amountIdr, pin)
                     },
                     onLogout = { showLogoutDialog = true },
                     onSyncNow = { orderViewModel.syncPendingOrders() },
@@ -648,6 +705,8 @@ private fun HomeContent(
     orders: List<Order>,
     offers: List<Order>,
     services: List<CourierServiceProduct>,
+    capabilityProfile: CourierCapabilityProfile?,
+    courierVehicleType: String,
     hotspots: List<CourierHotspot>,
     isOnline: Boolean,
     onOnlineToggle: (Boolean) -> Unit,
@@ -670,7 +729,7 @@ private fun HomeContent(
     }
 
     if (courierRole == "on_demand") {
-        OnDemandHomeHub(
+        OnDemandHomeHubEnterprise(
             courierName = courierName,
             totalOrders = totalOrders,
             pendingCount = pendingCount,
@@ -679,6 +738,8 @@ private fun HomeContent(
             orders = orders,
             offers = offers,
             services = services,
+            capabilityProfile = capabilityProfile,
+            courierVehicleType = courierVehicleType,
             hotspots = hotspots,
             isOnline = isOnline,
             onOnlineToggle = onOnlineToggle,
@@ -922,6 +983,400 @@ private fun HomeContent(
 }
 
 @Composable
+private fun OnDemandHomeHubEnterprise(
+    courierName: String,
+    totalOrders: Int,
+    pendingCount: Int,
+    deliveredCount: Int,
+    todayEarningsIdr: Int,
+    orders: List<Order>,
+    offers: List<Order>,
+    services: List<CourierServiceProduct>,
+    capabilityProfile: CourierCapabilityProfile?,
+    courierVehicleType: String,
+    hotspots: List<CourierHotspot>,
+    isOnline: Boolean,
+    onOnlineToggle: (Boolean) -> Unit,
+    onOpenDelivery: (Order) -> Unit,
+    onViewOrders: () -> Unit
+) {
+    val activeOrder = orders.firstOrNull { it.status.lowercase() in setOf("accepted", "picked_up", "in_transit") }
+    val vehicleGroup = normalizedVehicleGroup(courierVehicleType)
+    val capabilityItems = capabilityProfile?.serviceCapabilities
+        ?.filter { it.serviceCategory == "on_demand" }
+        .orEmpty()
+    val capabilityByCode = capabilityItems.associateBy { it.serviceCode }
+    val serviceByCode = services.associateBy { it.code }
+    val serviceItems = if (capabilityItems.isNotEmpty()) {
+        capabilityItems
+            .map { capability -> serviceByCode[capability.serviceCode] ?: capability.toServiceProduct(vehicleGroup) }
+            .filter { it.supportsVehicleGroup(vehicleGroup) }
+    } else {
+        services.filter { it.supportsVehicleGroup(vehicleGroup) }
+    }
+    var disabledServiceCodesText by rememberSaveable(vehicleGroup) { mutableStateOf("") }
+    val disabledServiceCodes = remember(disabledServiceCodesText) {
+        disabledServiceCodesText.split(",").filter { it.isNotBlank() }.toSet()
+    }
+    val activeServiceItems = serviceItems.filter { service ->
+        val capability = capabilityByCode[service.code]
+        val enabledByCapability = capability?.status?.equals("enabled", ignoreCase = true) ?: true
+        enabledByCapability && service.code !in disabledServiceCodes
+    }
+    val hotspotTotal = hotspots.sumOf { it.pendingOrders }
+    val pickupPoint = activeOrder?.let { order ->
+        val lat = order.pickupLatitude
+        val lng = order.pickupLongitude
+        if (lat != null && lng != null) LatLng(lat, lng) else null
+    }
+    val dropPoint = activeOrder?.let { order ->
+        val lat = order.dropLatitude
+        val lng = order.dropLongitude
+        if (lat != null && lng != null) LatLng(lat, lng) else null
+    }
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(pickupPoint ?: LatLng(0.0, 0.0), 13f)
+    }
+
+    LaunchedEffect(pickupPoint, dropPoint) {
+        val pickup = pickupPoint ?: return@LaunchedEffect
+        val center = if (dropPoint != null) {
+            LatLng((pickup.latitude + dropPoint.latitude) / 2, (pickup.longitude + dropPoint.longitude) / 2)
+        } else {
+            pickup
+        }
+        cameraPositionState.position = CameraPosition.fromLatLngZoom(center, if (dropPoint != null) 12f else 13.5f)
+    }
+
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = if (isOnline) DeepForest else MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, if (isOnline) DeepForest.copy(alpha = 0.28f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isOnline) "Siap bekerja" else "Belum aktif bekerja",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                            color = if (isOnline) Color.White else DeepForest
+                        )
+                        Text(
+                            text = if (isOnline) "Offer masuk otomatis sesuai zona dan ranking." else "Aktifkan saat sudah siap menerima pekerjaan.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (isOnline) Color.White.copy(alpha = 0.78f) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isOnline,
+                        onCheckedChange = onOnlineToggle,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = LogisticsOrange,
+                            uncheckedThumbColor = Color.White,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)
+                        )
+                    )
+                }
+
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = if (isOnline) Color.White.copy(alpha = 0.10f) else PrimaryLight.copy(alpha = 0.72f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(34.dp),
+                            color = if (isOnline) Success.copy(alpha = 0.18f) else Color.White,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                if (isOnline) Icons.Default.GpsFixed else Icons.Default.GpsOff,
+                                contentDescription = null,
+                                tint = if (isOnline) Success else Primary,
+                                modifier = Modifier.padding(7.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                if (isOnline) "On duty" else "Off duty",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isOnline) Color.White else DeepForest
+                            )
+                            Text(
+                                if (isOnline) "Lokasi aktif. Tawaran dikirim bertahap 15 detik." else "Tracking berhenti sampai duty diaktifkan.",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (isOnline) Color.White.copy(alpha = 0.72f) else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.14f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Halo, $courierName", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = DeepForest)
+                        Text(
+                            text = "Pendapatan bersih hari ini",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Surface(color = LogisticsOrange.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                        Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(10.dp).size(22.dp))
+                    }
+                }
+                Text(
+                    todayEarningsIdr.toRupiahCompact(),
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Black,
+                    color = DeepForest
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    InfoPill(icon = Icons.Default.Bolt, text = "${offers.size} tawaran")
+                    InfoPill(icon = Icons.Default.CheckCircle, text = "$deliveredCount selesai")
+                    InfoPill(icon = Icons.Default.Inventory2, text = "$totalOrders order")
+                }
+            }
+        }
+
+        if (activeOrder != null) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = DeepForest),
+                shape = RoundedCornerShape(8.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    if (pickupPoint != null) {
+                        GoogleMap(
+                            modifier = Modifier.fillMaxWidth().height(180.dp),
+                            cameraPositionState = cameraPositionState,
+                            uiSettings = MapUiSettings(
+                                zoomControlsEnabled = false,
+                                myLocationButtonEnabled = false,
+                                mapToolbarEnabled = false,
+                                scrollGesturesEnabled = false,
+                                zoomGesturesEnabled = false,
+                                tiltGesturesEnabled = false,
+                                rotationGesturesEnabled = false
+                            )
+                        ) {
+                            Marker(state = MarkerState(position = pickupPoint), title = activeOrder.pickupAddress)
+                            dropPoint?.let {
+                                Marker(state = MarkerState(position = it), title = "Tujuan")
+                                Polyline(points = listOf(pickupPoint, it), color = LogisticsOrange, width = 8f)
+                            }
+                        }
+                    }
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Pekerjaan aktif", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.72f), fontWeight = FontWeight.Bold)
+                                Text(activeOrder.displayServiceName(), style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Black)
+                            }
+                            Text(activeOrder.cleanPayoutIdr().toRupiahCompact(), style = MaterialTheme.typography.titleLarge, color = LogisticsOrange, fontWeight = FontWeight.Black)
+                        }
+                        RouteSummary(activeOrder)
+                        Button(
+                            onClick = { onOpenDelivery(activeOrder) },
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black)
+                        ) {
+                            Icon(Icons.Default.Navigation, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Lanjutkan pekerjaan", fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            }
+        } else {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.14f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Tugas sekarang", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                            Text(
+                                if (isOnline) "Menunggu offer berikutnya" else "Aktifkan duty untuk mulai",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        AssistChip(
+                            onClick = onViewOrders,
+                            label = { Text("$pendingCount pending") },
+                            leadingIcon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        )
+                    }
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = PrimaryLight.copy(alpha = 0.48f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Surface(color = Color.White, shape = RoundedCornerShape(8.dp)) {
+                                Icon(
+                                    if (isOnline) Icons.Default.Radar else Icons.Default.WorkOff,
+                                    contentDescription = null,
+                                    tint = Primary,
+                                    modifier = Modifier.padding(10.dp).size(22.dp)
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    if (isOnline) "Sistem mencari order terdekat" else "Belum menerima pekerjaan",
+                                    fontWeight = FontWeight.Bold,
+                                    color = DeepForest
+                                )
+                                Text(
+                                    if (isOnline) "Tidak perlu refresh manual." else "Order on-demand akan masuk setelah duty aktif.",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.14f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("Area permintaan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
+                        Text("Zona aktif di sekitar kamu", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Surface(color = if (hotspotTotal > 0) LogisticsOrange.copy(alpha = 0.12f) else PrimaryLight, shape = RoundedCornerShape(8.dp)) {
+                        Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.LocalFireDepartment, contentDescription = null, tint = if (hotspotTotal > 0) LogisticsOrange else Primary, modifier = Modifier.size(16.dp))
+                            Text("$hotspotTotal order", fontWeight = FontWeight.Bold, color = DeepForest)
+                        }
+                    }
+                }
+                if (hotspots.isEmpty()) {
+                    Text(
+                        "Belum ada hotspot aktif. Tetap online untuk menerima offer terdekat.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    hotspots.take(3).forEach { hotspot -> HotspotRow(hotspot) }
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.14f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Coverage layanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
+                        Text(
+                            "${activeServiceItems.size} aktif dari ${serviceItems.size} layanan ${vehicleGroup.toVehicleLabel()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Surface(color = PrimaryLight, shape = RoundedCornerShape(8.dp)) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Default.Tune, contentDescription = null, tint = Primary, modifier = Modifier.size(16.dp))
+                            Text("Preferensi", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = Primary)
+                        }
+                    }
+                }
+                if (serviceItems.isEmpty()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Warning.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            "Belum ada layanan yang cocok dengan kendaraan ${vehicleGroup.toVehicleLabel()}. Hubungi admin untuk review capability.",
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = DeepForest
+                        )
+                    }
+                } else {
+                    serviceItems.forEach { service ->
+                        val capability = capabilityByCode[service.code]
+                        val enabledByCapability = capability?.status?.equals("enabled", ignoreCase = true) ?: true
+                        val enabled = enabledByCapability && service.code !in disabledServiceCodes
+                        ServiceCoverageToggleRow(
+                            service = service,
+                            vehicleGroup = vehicleGroup,
+                            enabled = enabled,
+                            lockedByAdmin = !enabledByCapability,
+                            onEnabledChange = { checked ->
+                                if (!enabledByCapability) return@ServiceCoverageToggleRow
+                                val nextCodes = if (checked) {
+                                    disabledServiceCodes - service.code
+                                } else {
+                                    disabledServiceCodes + service.code
+                                }
+                                disabledServiceCodesText = nextCodes.sorted().joinToString(",")
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun OnDemandHomeHub(
     courierName: String,
     totalOrders: Int,
@@ -938,7 +1393,7 @@ private fun OnDemandHomeHub(
     onViewOrders: () -> Unit
 ) {
     val activeOrder = orders.firstOrNull { it.status.lowercase() in setOf("accepted", "picked_up", "in_transit") }
-    val fallbackCenter = LatLng(-6.175392, 106.827153)
+    val fallbackCenter = LatLng(0.0, 0.0)
     val pickup = activeOrder?.let { order ->
         val lat = order.pickupLatitude
         val lng = order.pickupLongitude
@@ -1137,8 +1592,14 @@ private fun OnDemandHomeHub(
         ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Layanan aktif", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
-                val serviceItems = services.takeIf { it.isNotEmpty() } ?: fallbackOnDemandServices()
-                serviceItems.take(5).forEach { service ->
+                if (services.isEmpty()) {
+                    Text(
+                        "Layanan aktif belum tersinkron dari admin.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                services.take(5).forEach { service ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -1199,13 +1660,106 @@ private fun OnDemandHomeHub(
     }
 }
 
-private fun fallbackOnDemandServices(): List<CourierServiceProduct> = listOf(
-    CourierServiceProduct(code = "lancar_priority", name = "LANCAR Prioritas", serviceFamily = "express", maxEtaMinutes = 120, vehicleTypes = listOf("motor")),
-    CourierServiceProduct(code = "lancar_instant", name = "LANCAR Instant", serviceFamily = "express", maxEtaMinutes = 240, vehicleTypes = listOf("motor")),
-    CourierServiceProduct(code = "lancar_hemat", name = "LANCAR Hemat", serviceFamily = "regular", maxEtaMinutes = 300, vehicleTypes = listOf("motor")),
-    CourierServiceProduct(code = "lancar_same_day", name = "LANCAR Same Day", serviceFamily = "regular", maxEtaMinutes = 480, vehicleTypes = listOf("motor")),
-    CourierServiceProduct(code = "lancar_mobil", name = "LANCAR Mobil", serviceFamily = "cargo", maxEtaMinutes = 240, vehicleTypes = listOf("car"))
-)
+@Composable
+private fun ServiceCoverageToggleRow(
+    service: CourierServiceProduct,
+    vehicleGroup: String,
+    enabled: Boolean,
+    lockedByAdmin: Boolean = false,
+    onEnabledChange: (Boolean) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = if (enabled) Color.White else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.42f),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(
+            1.dp,
+            if (enabled) MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+            else MaterialTheme.colorScheme.outline.copy(alpha = 0.22f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(
+                color = if (enabled) PrimaryLight else MaterialTheme.colorScheme.outline.copy(alpha = 0.10f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(
+                    imageVector = if (vehicleGroup == "car") Icons.Default.LocalShipping else Icons.Default.TwoWheeler,
+                    contentDescription = null,
+                    tint = if (enabled) Primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(8.dp).size(18.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    service.name,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "ETA maks ${service.maxEtaMinutes.takeIf { it > 0 } ?: 240} menit",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = if (enabled) "Aktif" else "Off",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Black,
+                color = if (enabled) Success else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Switch(
+                checked = enabled,
+                onCheckedChange = onEnabledChange,
+                enabled = !lockedByAdmin,
+                modifier = Modifier.height(32.dp),
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Primary,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.38f)
+                )
+            )
+        }
+    }
+}
+
+private fun CourierServiceProduct.supportsVehicleGroup(vehicleGroup: String): Boolean {
+    if (vehicleTypes.isEmpty()) return true
+    return vehicleTypes.any { normalizedVehicleGroup(it) == vehicleGroup }
+}
+
+private fun CourierServiceCapability.toServiceProduct(vehicleGroup: String): CourierServiceProduct {
+    return CourierServiceProduct(
+        code = serviceCode,
+        name = serviceName,
+        description = description,
+        serviceFamily = serviceFamily,
+        serviceCategory = serviceCategory,
+        routeModel = routeModel,
+        maxWeightKg = maxWeightKg,
+        vehicleTypes = listOf(vehicleGroup)
+    )
+}
+
+private fun normalizedVehicleGroup(raw: String?): String {
+    val value = raw?.trim()?.lowercase().orEmpty()
+    return when {
+        value in setOf("car", "mobil", "van", "box", "pickup", "truck") -> "car"
+        else -> "motor"
+    }
+}
+
+private fun String.toVehicleLabel(): String = when (this) {
+    "car" -> "mobil"
+    else -> "motor"
+}
 
 @Composable
 private fun HotspotRow(hotspot: CourierHotspot) {
@@ -1254,7 +1808,7 @@ private fun OnDemandOfferDialog(
     val pickupPoint = remember(order.pickupLatitude, order.pickupLongitude) {
         val lat = order.pickupLatitude
         val lng = order.pickupLongitude
-        if (lat != null && lng != null) LatLng(lat, lng) else LatLng(-6.175392, 106.827153)
+        if (lat != null && lng != null) LatLng(lat, lng) else null
     }
     val dropPoint = remember(order.dropLatitude, order.dropLongitude) {
         val lat = order.dropLatitude
@@ -1262,7 +1816,7 @@ private fun OnDemandOfferDialog(
         if (lat != null && lng != null) LatLng(lat, lng) else null
     }
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(pickupPoint, 12.5f)
+        position = CameraPosition.fromLatLngZoom(pickupPoint ?: dropPoint ?: LatLng(0.0, 0.0), 12.5f)
     }
 
     LaunchedEffect(order.dispatchId, order.orderId, expiresAt) {
@@ -1283,7 +1837,8 @@ private fun OnDemandOfferDialog(
     }
 
     LaunchedEffect(pickupPoint, dropPoint) {
-        val center = dropPoint?.let { LatLng((pickupPoint.latitude + it.latitude) / 2, (pickupPoint.longitude + it.longitude) / 2) } ?: pickupPoint
+        val pickup = pickupPoint ?: return@LaunchedEffect
+        val center = dropPoint?.let { LatLng((pickup.latitude + it.latitude) / 2, (pickup.longitude + it.longitude) / 2) } ?: pickup
         cameraPositionState.position = CameraPosition.fromLatLngZoom(center, if (dropPoint != null) 12f else 12.5f)
     }
 
@@ -1342,23 +1897,41 @@ private fun OnDemandOfferDialog(
                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
-                            GoogleMap(
-                                modifier = Modifier.fillMaxSize(),
-                                cameraPositionState = cameraPositionState,
-                                uiSettings = MapUiSettings(
-                                    zoomControlsEnabled = false,
-                                    myLocationButtonEnabled = false,
-                                    mapToolbarEnabled = false,
-                                    scrollGesturesEnabled = false,
-                                    zoomGesturesEnabled = false,
-                                    tiltGesturesEnabled = false,
-                                    rotationGesturesEnabled = false
-                                )
-                            ) {
-                                Marker(state = MarkerState(position = pickupPoint), title = "Pickup")
-                                dropPoint?.let {
-                                    Marker(state = MarkerState(position = it), title = "Area tujuan")
-                                    Polyline(points = listOf(pickupPoint, it), color = LogisticsOrange, width = 8f)
+                            if (pickupPoint != null) {
+                                GoogleMap(
+                                    modifier = Modifier.fillMaxSize(),
+                                    cameraPositionState = cameraPositionState,
+                                    uiSettings = MapUiSettings(
+                                        zoomControlsEnabled = false,
+                                        myLocationButtonEnabled = false,
+                                        mapToolbarEnabled = false,
+                                        scrollGesturesEnabled = false,
+                                        zoomGesturesEnabled = false,
+                                        tiltGesturesEnabled = false,
+                                        rotationGesturesEnabled = false
+                                    )
+                                ) {
+                                    Marker(state = MarkerState(position = pickupPoint), title = "Pickup")
+                                    dropPoint?.let {
+                                        Marker(state = MarkerState(position = it), title = "Area tujuan")
+                                        Polyline(points = listOf(pickupPoint, it), color = LogisticsOrange, width = 8f)
+                                    }
+                                }
+                            } else {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(18.dp),
+                                    verticalArrangement = Arrangement.Center,
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(Icons.Default.LocationOff, contentDescription = null, tint = Color.White, modifier = Modifier.size(34.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        "Koordinat pickup belum tersedia dari order.",
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
                             Surface(
@@ -1407,7 +1980,7 @@ private fun OnDemandOfferDialog(
                                 style = MaterialTheme.typography.headlineLarge,
                                 fontWeight = FontWeight.Black
                             )
-                            Text(order.distance.ifBlank { "0 km" }, color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(order.distance.ifBlank { "Jarak belum tersedia" }, color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                             Text("ETA ${order.etaMinutesValue()} menit", color = Color.White.copy(alpha = 0.78f), style = MaterialTheme.typography.labelLarge)
                         }
                     }
@@ -1423,7 +1996,7 @@ private fun OnDemandOfferDialog(
                             HorizontalDivider(color = Color.Black.copy(alpha = 0.12f))
                             OfferRouteRow(Icons.Default.Lock, "Tujuan setelah diterima", "Alamat lengkap dibuka setelah kamu menerima pekerjaan.")
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                InfoPill(icon = Icons.Default.Person, text = order.customerName.ifBlank { "Customer" })
+                            InfoPill(icon = Icons.Default.Person, text = order.customerName.ifBlank { "Nama pelanggan belum tersedia" })
                                 InfoPill(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
                             }
                         }
@@ -1527,7 +2100,7 @@ private fun RouteSummary(order: Order) {
             value = order.dropAddress.ifBlank { "Alamat tujuan belum tersedia" }
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoPill(icon = Icons.Default.Route, text = order.distance.ifBlank { "0 km" })
+            InfoPill(icon = Icons.Default.Route, text = order.distance.ifBlank { "Jarak belum tersedia" })
             InfoPill(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
         }
     }
@@ -1655,7 +2228,12 @@ private fun ProfileContent(
     performanceSummary: CourierPerformanceSummary?,
     capabilityProfile: CourierCapabilityProfile?,
     earningsLedger: CourierEarningsLedger?,
+    payoutSummary: CourierPayoutSummaryData?,
+    payoutRequests: List<CourierPayoutRequestItem>,
+    isPayoutSubmitting: Boolean,
     onCompleteTraining: () -> Unit,
+    onRefreshPayout: () -> Unit,
+    onRequestPayout: suspend (Int, String) -> Result<CourierPayoutRequestItem>,
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
     onOptimizeBattery: () -> Unit,
@@ -1663,6 +2241,8 @@ private fun ProfileContent(
 ) {
     var showDiagnostics by remember { mutableStateOf(false) }
     var showResetLocalDataDialog by remember { mutableStateOf(false) }
+    var showPayoutDialog by remember { mutableStateOf(false) }
+    var selectedPayoutRequest by remember { mutableStateOf<CourierPayoutRequestItem?>(null) }
 
     if (showResetLocalDataDialog) {
         AlertDialog(
@@ -1694,6 +2274,27 @@ private fun ProfileContent(
                 }
             },
             shape = RoundedCornerShape(8.dp)
+        )
+    }
+
+    if (showPayoutDialog && payoutSummary != null) {
+        PayoutRequestDialog(
+            payoutSummary = payoutSummary,
+            isSubmitting = isPayoutSubmitting,
+            onDismiss = { showPayoutDialog = false },
+            onSubmit = onRequestPayout,
+            onSubmitted = { request ->
+                showPayoutDialog = false
+                selectedPayoutRequest = request
+                onRefreshPayout()
+            }
+        )
+    }
+
+    selectedPayoutRequest?.let { request ->
+        PayoutRequestDetailDialog(
+            request = request,
+            onDismiss = { selectedPayoutRequest = null }
         )
     }
 
@@ -1799,16 +2400,13 @@ private fun ProfileContent(
                     value = "Aktif",
                     color = Success
                 )
-                ProfileMetricRow(
-                    icon = Icons.Default.Security,
-                    title = "Mode stabilitas",
-                    value = "Enterprise",
-                    color = Secondary
-                )
             }
         }
 
         capabilityProfile?.let { capability ->
+            val enabledCapabilities = capability.serviceCapabilities.filter { item ->
+                item.status.equals("enabled", ignoreCase = true)
+            }
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -1844,7 +2442,7 @@ private fun ProfileContent(
                         }
                     }
 
-                    capability.serviceCapabilities.take(5).forEach { item ->
+                    enabledCapabilities.take(5).forEach { item ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -1870,6 +2468,20 @@ private fun ProfileContent(
                                 )
                             }
                             CapabilityStatusPill(item.status)
+                        }
+                    }
+                    if (enabledCapabilities.isEmpty()) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Warning.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                "Belum ada layanan aktif untuk kendaraan ini.",
+                                modifier = Modifier.padding(12.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
 
@@ -1981,6 +2593,15 @@ private fun ProfileContent(
             }
         }
 
+        PayoutBalanceCard(
+            payoutSummary = payoutSummary,
+            payoutRequests = payoutRequests,
+            isSubmitting = isPayoutSubmitting,
+            onRefresh = onRefreshPayout,
+            onRequestClick = { showPayoutDialog = true },
+            onRequestDetail = { selectedPayoutRequest = it }
+        )
+
         earningsLedger?.let { ledger ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -2000,9 +2621,9 @@ private fun ProfileContent(
                             Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = Success, modifier = Modifier.padding(10.dp).size(22.dp))
                         }
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Ledger Pendapatan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Pencairan saldo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             Text(
-                                "Settlement dan payout tercatat dari sistem",
+                                "Saldo kurir dan riwayat settlement dari sistem",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -2014,6 +2635,8 @@ private fun ProfileContent(
                         MiniProfileStat("Pending", ledger.summary.pendingBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
                         MiniProfileStat("Total", ledger.summary.totalBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
                     }
+
+                    PayoutAccountPanel(ledger)
 
                     if (ledger.transactions.isNotEmpty()) {
                         HorizontalDivider()
@@ -2130,10 +2753,381 @@ private fun ProfileContent(
 }
 
 @Composable
+private fun PayoutBalanceCard(
+    payoutSummary: CourierPayoutSummaryData?,
+    payoutRequests: List<CourierPayoutRequestItem>,
+    isSubmitting: Boolean,
+    onRefresh: () -> Unit,
+    onRequestClick: () -> Unit,
+    onRequestDetail: (CourierPayoutRequestItem) -> Unit
+) {
+    val summary = payoutSummary?.summary
+    val account = payoutSummary?.payoutAccount
+    val eligibility = payoutSummary?.eligibility
+    val policy = payoutSummary?.policy
+    val actionState = resolvePayoutActionState(payoutSummary, isSubmitting)
+    val canRequest = actionState.enabled
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(color = Success.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Success, modifier = Modifier.padding(10.dp).size(22.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Pencairan saldo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Settlement pendapatan ke rekening terverifikasi", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = onRefresh) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh pencairan", tint = Primary)
+                }
+            }
+
+            if (payoutSummary == null) {
+                Surface(modifier = Modifier.fillMaxWidth(), color = PrimaryLight.copy(alpha = 0.55f), shape = RoundedCornerShape(8.dp)) {
+                    Text(
+                        "Memuat saldo pencairan dari sistem...",
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                return@Column
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                MiniProfileStat("Tersedia", summary?.availableBalanceIdr?.toRupiahCompact() ?: "Rp0", Modifier.weight(1f))
+                MiniProfileStat("Pending", summary?.pendingBalanceIdr?.toRupiahCompact() ?: "Rp0", Modifier.weight(1f))
+                MiniProfileStat("Total", summary?.totalBalanceIdr?.toRupiahCompact() ?: "Rp0", Modifier.weight(1f))
+            }
+
+            PayoutAccountStatusPanel(account)
+
+            eligibility?.reasons?.takeIf { it.isNotEmpty() }?.let { reasons ->
+                Surface(modifier = Modifier.fillMaxWidth(), color = Warning.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Pencairan belum tersedia", fontWeight = FontWeight.Bold, color = DeepForest)
+                        reasons.take(2).forEach { reason ->
+                            Text(reason, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+
+            Button(
+                onClick = onRequestClick,
+                enabled = canRequest,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Secondary)
+            ) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                } else {
+                    Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(18.dp))
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Ajukan Pencairan")
+            }
+
+            Text(
+                "Minimum ${policy?.minAmountIdr?.toRupiahCompact() ?: "Rp25rb"} • Limit harian ${policy?.dailyLimitIdr?.toRupiahCompact() ?: "-"}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            HorizontalDivider()
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Riwayat pencairan", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                Text("${payoutRequests.size} request", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            if (payoutRequests.isEmpty()) {
+                Surface(modifier = Modifier.fillMaxWidth(), color = PrimaryLight.copy(alpha = 0.55f), shape = RoundedCornerShape(8.dp)) {
+                    Text(
+                        "Belum ada pengajuan pencairan.",
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                payoutRequests.take(5).forEach { request ->
+                    PayoutRequestRow(request = request, onClick = { onRequestDetail(request) })
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PayoutAccountStatusPanel(account: com.lancar.courier.data.model.CourierPayoutAccount?) {
+    val status = account?.status ?: "incomplete"
+    val isVerified = status == "verified"
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = if (isVerified) PrimaryLight.copy(alpha = 0.58f) else Warning.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(color = Color.White.copy(alpha = 0.72f), shape = RoundedCornerShape(8.dp)) {
+                Icon(Icons.Default.AccountBalance, contentDescription = null, tint = if (isVerified) Primary else Warning, modifier = Modifier.padding(8.dp).size(18.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Rekening pencairan", fontWeight = FontWeight.Bold, color = DeepForest)
+                Text(
+                    if (account != null) {
+                        "${account.bankCode ?: "-"} • ${maskAccountNumber(account.accountNumber.orEmpty())} • ${account.accountName ?: "-"}"
+                    } else {
+                        "Rekening belum tersedia. Tunggu review admin."
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            CapabilityStatusPill(status)
+        }
+    }
+}
+
+@Composable
+private fun PayoutRequestRow(request: CourierPayoutRequestItem, onClick: () -> Unit) {
+    val color = payoutStatusColor(request.status)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.Transparent,
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(color = color.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                Icon(payoutStatusIcon(request.status), contentDescription = null, tint = color, modifier = Modifier.padding(8.dp).size(18.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(request.requestNumber, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(payoutStatusLabel(request.status), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(request.netAmountIdr.toRupiahCompact(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = DeepForest)
+                Text(shortDateLabel(request.requestedAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PayoutRequestDialog(
+    payoutSummary: CourierPayoutSummaryData,
+    isSubmitting: Boolean,
+    onDismiss: () -> Unit,
+    onSubmit: suspend (Int, String) -> Result<CourierPayoutRequestItem>,
+    onSubmitted: (CourierPayoutRequestItem) -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var step by rememberSaveable { mutableStateOf("amount") }
+    var amountText by rememberSaveable { mutableStateOf("") }
+    var pin by rememberSaveable { mutableStateOf("") }
+    var errorText by remember { mutableStateOf<String?>(null) }
+    val maxAmount = payoutSummary.eligibility.maxRequestableIdr
+    val amount = amountText.filter { it.isDigit() }.toIntOrNull() ?: 0
+    val amountValid = amount >= payoutSummary.policy.minAmountIdr && amount <= maxAmount
+    val account = payoutSummary.payoutAccount
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(shape = RoundedCornerShape(8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(color = Secondary.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                        Icon(Icons.Default.Payments, contentDescription = null, tint = Secondary, modifier = Modifier.padding(10.dp).size(22.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Ajukan Pencairan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("Dana dikirim ke rekening terverifikasi", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                when (step) {
+                    "amount" -> {
+                        Text("Nominal pencairan", fontWeight = FontWeight.Bold)
+                        OutlinedTextField(
+                            value = amountText,
+                            onValueChange = { amountText = it.filter { char -> char.isDigit() }.take(9) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Nominal") },
+                            prefix = { Text("Rp") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            quickPayoutAmounts(payoutSummary).forEach { quick ->
+                                AssistChip(
+                                    onClick = { amountText = quick.toString() },
+                                    label = { Text(quick.toRupiahCompact()) },
+                                    enabled = quick <= maxAmount
+                                )
+                            }
+                        }
+                        Text("Saldo tersedia ${payoutSummary.summary.availableBalanceIdr.toRupiahCompact()} • Maks ${maxAmount.toRupiahCompact()}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    "review" -> {
+                        Text("Review pencairan", fontWeight = FontWeight.Bold)
+                        PayoutReviewRow("Nominal", amount.toRupiahCompact())
+                        PayoutReviewRow("Rekening", "${account?.bankCode ?: "-"} • ${maskAccountNumber(account?.accountNumber.orEmpty())}")
+                        PayoutReviewRow("Atas nama", account?.accountName ?: "-")
+                        Surface(modifier = Modifier.fillMaxWidth(), color = PrimaryLight.copy(alpha = 0.55f), shape = RoundedCornerShape(8.dp)) {
+                            Text(
+                                "Pastikan nominal dan rekening sudah benar. Setelah dikirim, request akan masuk review treasury.",
+                                modifier = Modifier.padding(12.dp),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    "pin" -> {
+                        Text("Verifikasi PIN", fontWeight = FontWeight.Bold)
+                        OutlinedTextField(
+                            value = pin,
+                            onValueChange = { pin = it.filter { char -> char.isDigit() }.take(6) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("PIN transaksi") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        Text("PIN diperlukan sebagai step-up keamanan pencairan.", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                errorText?.let {
+                    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
+                        Text(it, modifier = Modifier.padding(10.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            errorText = null
+                            if (step == "amount") onDismiss() else step = if (step == "pin") "review" else "amount"
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(if (step == "amount") "Batal" else "Kembali")
+                    }
+                    Button(
+                        onClick = {
+                            errorText = null
+                            when (step) {
+                                "amount" -> {
+                                    if (amountValid) step = "review" else errorText = "Nominal harus sesuai minimum dan saldo tersedia."
+                                }
+                                "review" -> step = "pin"
+                                else -> {
+                                    if (pin.length < 4) {
+                                        errorText = "PIN transaksi belum lengkap."
+                                    } else {
+                                        scope.launch {
+                                            val result = onSubmit(amount, pin)
+                                            result.onSuccess(onSubmitted)
+                                            result.onFailure { errorText = it.message ?: "Pengajuan pencairan gagal." }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isSubmitting,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Secondary)
+                    ) {
+                        if (isSubmitting) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                        else Text(if (step == "pin") "Kirim" else "Lanjut")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PayoutReviewRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = DeepForest, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun PayoutRequestDetailDialog(request: CourierPayoutRequestItem, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(shape = RoundedCornerShape(8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(color = payoutStatusColor(request.status).copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                        Icon(payoutStatusIcon(request.status), contentDescription = null, tint = payoutStatusColor(request.status), modifier = Modifier.padding(10.dp).size(22.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Detail Pencairan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text(request.requestNumber, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                PayoutReviewRow("Status", payoutStatusLabel(request.status))
+                PayoutReviewRow("Nominal", request.amountIdr.toRupiahCompact())
+                PayoutReviewRow("Diterima", request.netAmountIdr.toRupiahCompact())
+                PayoutReviewRow("Rekening", "${request.destinationSnapshot["bank_code"] ?: "-"} • **** ${request.destinationSnapshot["account_last4"] ?: request.destinationSnapshot["account_number_last4"] ?: "-"}")
+                PayoutReviewRow("Tanggal", shortDateLabel(request.requestedAt))
+                request.failureReason?.takeIf { it.isNotBlank() }?.let { reason ->
+                    Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
+                        Text(reason, modifier = Modifier.padding(10.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp)) {
+                    Text("Tutup")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun CapabilityStatusPill(status: String) {
-    val normalized = status.replace("_", " ")
+    val normalized = when (status) {
+        "verified" -> "terverifikasi"
+        "enabled" -> "aktif"
+        "approved" -> "approved"
+        "complete" -> "lengkap"
+        "incomplete" -> "belum lengkap"
+        else -> status.replace("_", " ")
+    }
     val color = when (status) {
-        "enabled", "approved", "complete" -> Success
+        "enabled", "approved", "complete", "verified" -> Success
         "disabled", "rejected", "suspended" -> MaterialTheme.colorScheme.error
         else -> Warning
     }
@@ -2146,6 +3140,53 @@ private fun CapabilityStatusPill(status: String) {
             fontWeight = FontWeight.Bold,
             maxLines = 1
         )
+    }
+}
+
+@Composable
+private fun PayoutAccountPanel(ledger: CourierEarningsLedger) {
+    val account = ledger.summary.payoutAccount
+    val bankCode = account?.bankCode?.takeIf { it.isNotBlank() }
+    val accountNumber = account?.accountNumber?.takeIf { it.isNotBlank() }
+    val accountName = account?.accountName?.takeIf { it.isNotBlank() }
+    val isReady = bankCode != null && accountNumber != null && accountName != null
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = if (isReady) PrimaryLight.copy(alpha = 0.58f) else Warning.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(
+                color = if (isReady) Color.White.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.58f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.AccountBalance,
+                    contentDescription = null,
+                    tint = if (isReady) Primary else Warning,
+                    modifier = Modifier.padding(8.dp).size(18.dp)
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Rekening pencairan", fontWeight = FontWeight.Bold, color = DeepForest)
+                Text(
+                    if (isReady) {
+                        "$bankCode • ${maskAccountNumber(accountNumber.orEmpty())} • $accountName"
+                    } else {
+                        "Rekening belum lengkap. Lengkapi lewat review admin."
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            CapabilityStatusPill(if (isReady) "verified" else "incomplete")
+        }
     }
 }
 
@@ -2192,6 +3233,51 @@ private fun EarningsLedgerRow(transaction: CourierEarningsTransaction) {
             )
         }
     }
+}
+
+private fun maskAccountNumber(value: String): String {
+    val digits = value.filter { it.isDigit() }
+    if (digits.length <= 4) return value
+    return "**** ${digits.takeLast(4)}"
+}
+
+private fun payoutStatusLabel(status: String): String = when (status) {
+    "requested", "under_review", "approved", "processing" -> "Diproses"
+    "paid" -> "Berhasil"
+    "rejected" -> "Ditolak"
+    "failed" -> "Gagal"
+    "cancelled" -> "Dibatalkan"
+    else -> status.replace("_", " ")
+}
+
+@Composable
+private fun payoutStatusColor(status: String): Color = when (status) {
+    "paid" -> Success
+    "failed", "rejected", "cancelled" -> MaterialTheme.colorScheme.error
+    "approved", "processing" -> Primary
+    else -> Warning
+}
+
+private fun payoutStatusIcon(status: String): androidx.compose.ui.graphics.vector.ImageVector = when (status) {
+    "paid" -> Icons.Default.CheckCircle
+    "failed", "rejected", "cancelled" -> Icons.Default.Cancel
+    "approved", "processing" -> Icons.Default.Sync
+    else -> Icons.Default.Schedule
+}
+
+private fun shortDateLabel(value: String?): String {
+    if (value.isNullOrBlank()) return "-"
+    return value.take(16).replace("T", " ")
+}
+
+private fun quickPayoutAmounts(summary: CourierPayoutSummaryData): List<Int> {
+    val minAmount = summary.policy.minAmountIdr
+    val maxAmount = summary.eligibility.maxRequestableIdr
+    return listOf(minAmount, 50000, 100000, maxAmount)
+        .filter { it > 0 }
+        .distinct()
+        .filter { it <= maxAmount }
+        .take(4)
 }
 
 @Composable

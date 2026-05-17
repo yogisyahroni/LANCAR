@@ -313,7 +313,7 @@ private fun CameraPreviewContent(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Customer: ${order.customerName}",
+                        text = "Pelanggan: ${order.customerName.ifBlank { "Data belum tersedia" }}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White
                     )
