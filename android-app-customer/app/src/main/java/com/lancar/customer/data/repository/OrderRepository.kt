@@ -41,15 +41,45 @@ class OrderRepository @Inject constructor(
 
     fun getOrderDetail(orderId: String): Flow<Result<Order>> = flow {
         try {
-            val response = apiService.getOrderDetail(orderId)
-            val data = response.body()?.data
-            if (response.isSuccessful && response.body()?.success == true && data != null) {
-                emit(Result.success(data))
+            val detailResult = getOrderTrackingDetail(orderId)
+            if (detailResult.isSuccess) {
+                val detail = detailResult.getOrThrow()
+                val trackingOrder = detail.order
+                emit(Result.success(
+                    Order(
+                        orderId = trackingOrder.id,
+                        pickupAddress = trackingOrder.pickupAddress.orEmpty(),
+                        dropAddress = trackingOrder.dropoffAddress.orEmpty(),
+                        distance = trackingOrder.distanceKm?.toString().orEmpty(),
+                        fee = trackingOrder.totalPriceIdr?.toString().orEmpty(),
+                        customerName = trackingOrder.recipientName.orEmpty(),
+                        status = trackingOrder.status,
+                        courierName = trackingOrder.courierName,
+                        courierVehicle = trackingOrder.courierVehicle,
+                        courierPlate = trackingOrder.courierPlate,
+                        courierPhone = trackingOrder.courierPhone
+                    )
+                ))
             } else {
-                emit(Result.failure(Exception(response.body()?.message ?: "Order not found")))
+                emit(Result.failure(detailResult.exceptionOrNull() ?: Exception("Order not found")))
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
+        }
+    }
+
+    suspend fun getOrderTrackingDetail(orderId: String): Result<OrderTrackingDetail> {
+        return try {
+            val response = apiService.getOrderTrackingDetail(orderId)
+            val body = response.body()
+            val detail = body?.data
+            if (response.isSuccessful && body?.success == true && detail != null) {
+                Result.success(detail)
+            } else {
+                Result.failure(Exception(body?.message ?: "Detail tracking belum tersedia"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

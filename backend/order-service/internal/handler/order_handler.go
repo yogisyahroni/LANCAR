@@ -6,6 +6,7 @@ import (
 	"lancar/order-service/internal/domain"
 	"lancar/order-service/internal/middleware"
 	"lancar/order-service/pkg/utils"
+	"log"
 	"net/http"
 	"time"
 )
@@ -302,13 +303,13 @@ func (h *OrderHandler) AcceptOrder(w http.ResponseWriter, r *http.Request) {
 // @Router /orders/status [patch]
 // UpdateStatusRequest represents the payload for status updates
 type UpdateStatusRequest struct {
-	OrderID string  `json:"id"`
-	Status  string  `json:"status"`
+	OrderID string   `json:"id"`
+	Status  string   `json:"status"`
 	Length  *float64 `json:"length,omitempty"`
 	Width   *float64 `json:"width,omitempty"`
 	Height  *float64 `json:"height,omitempty"`
 	Weight  *float64 `json:"weight,omitempty"`
-	Notes   string  `json:"notes,omitempty"`
+	Notes   string   `json:"notes,omitempty"`
 }
 
 // UpdateStatus godoc
@@ -456,10 +457,10 @@ func (h *OrderHandler) ScanPackage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":     "success",
-		"scan_id":    scan.ID,
-		"scan_type":  scan.ScanType,
-		"order_id":   scan.OrderID,
+		"status":      "success",
+		"scan_id":     scan.ID,
+		"scan_type":   scan.ScanType,
+		"order_id":    scan.OrderID,
 		"recorded_at": scan.RecordedAt,
 	})
 }
@@ -629,5 +630,3 @@ func (h *OrderHandler) AutoDetectScanType(w http.ResponseWriter, r *http.Request
 		"status":    "success",
 	})
 }
-
-

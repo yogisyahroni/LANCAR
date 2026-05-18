@@ -6,7 +6,7 @@ import com.lancar.courier.data.db.LocationDao
 import com.lancar.courier.data.model.Location
 import com.lancar.courier.data.model.LocationData
 import com.lancar.courier.data.model.LocationRequest
-import java.util.Date
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -89,7 +89,7 @@ class LocationRepository @Inject constructor(
                     speed = location.speed,
                     bearing = location.bearing,
                     altitude = location.altitude,
-                    timestamp = location.timestamp,
+                    timestamp = Instant.ofEpochMilli(location.timestamp).toString(),
                     batteryLevel = location.batteryLevel,
                     networkType = location.networkType,
                     isMock = location.isMock,

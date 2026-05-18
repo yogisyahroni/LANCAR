@@ -33,6 +33,11 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.File
 import java.util.UUID
 import javax.inject.Inject
 
@@ -393,6 +398,41 @@ class OrderViewModel @Inject constructor(
             val body = response.body()
             if (response.isSuccessful && body?.success == true && body.data != null) {
                 Result.success(body.data.url)
+            } else {
+                Result.failure(Exception(body?.message ?: response.errorMessage()))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun cancelOnDemandPickup(
+        orderId: String,
+        reasonCode: String,
+        reasonNote: String?,
+        latitude: Double?,
+        longitude: Double?,
+        accuracy: Float?,
+        photoFile: File
+    ): Result<String> {
+        return try {
+            val textType = "text/plain".toMediaTypeOrNull()
+            val photoBody = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+            val photoPart = MultipartBody.Part.createFormData("photo", photoFile.name, photoBody)
+            val response = apiService.cancelOnDemandPickup(
+                orderId = orderId,
+                reasonCode = reasonCode.toRequestBody(textType),
+                reasonNote = reasonNote?.takeIf { it.isNotBlank() }?.toRequestBody(textType),
+                latitude = latitude?.toString()?.toRequestBody(textType),
+                longitude = longitude?.toString()?.toRequestBody(textType),
+                accuracy = accuracy?.toString()?.toRequestBody(textType),
+                photo = photoPart
+            )
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                orderRepository.deleteOrderById(orderId)
+                fetchOrdersFromBackend()
+                Result.success(body.message ?: "Pickup dibatalkan.")
             } else {
                 Result.failure(Exception(body?.message ?: response.errorMessage()))
             }

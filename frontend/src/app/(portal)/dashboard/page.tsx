@@ -38,6 +38,16 @@ interface Order {
   created_at: string;
 }
 
+interface DashboardStats {
+  active_orders: number;
+  completed_orders_month: number;
+  cancelled_orders_month: number;
+  total_spend_month: number;
+  previous_spend_month: number;
+  spend_growth_percent: number;
+  weekly_activity: Array<{ label: string; count: number; value: number }>;
+}
+
 export default function DashboardPage() {
   const { user } = useAuthStore();
   const { addNotification } = useNotificationStore();
@@ -46,84 +56,42 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [chartMode, setChartMode] = useState<'count' | 'value'>('count');
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
 
-  // Load orders with fallback mock data if real API returns empty
+  // Load only real customer orders. Empty/error states should stay honest.
   const fetchOrders = async () => {
     try {
       const res = await api.get('/auth/web/orders?limit=5');
       if (res.data && res.data.success) {
-        if (res.data.orders && res.data.orders.length > 0) {
-          setOrders(res.data.orders);
-        } else {
-          // Fallback premium mock data
-          setOrders([
-            {
-              id: 'ord-1',
-              order_number: 'ORD/2026/05/0001',
-              pickup_address: 'Jl. Jend. Sudirman No. 12, Jakarta Pusat',
-              dropoff_address: 'Jl. Asia Afrika No. 89, Bandung',
-              recipient_name: 'Budi Santoso',
-              model: 'instant',
-              status: 'pickup',
-              distance_km: 154.2,
-              total_price_idr: 450000,
-              created_at: new Date().toISOString(),
-            },
-            {
-              id: 'ord-2',
-              order_number: 'ORD/2026/05/0002',
-              pickup_address: 'Gedung Wisma Mandiri No. 34, Jakarta',
-              dropoff_address: 'Pondok Indah Mall No. 1, Jakarta Selatan',
-              recipient_name: 'Anita Rahma',
-              model: 'same_day',
-              status: 'in_transit',
-              distance_km: 14.5,
-              total_price_idr: 25000,
-              created_at: new Date().toISOString(),
-            },
-          ]);
-        }
+        setOrders(res.data.orders || []);
       }
     } catch (error) {
       console.error('Failed to fetch orders:', error);
-      // Premium Mock fallback data
-      setOrders([
-        {
-          id: 'ord-1',
-          order_number: 'ORD/2026/05/0001',
-          pickup_address: 'Jl. Jend. Sudirman No. 12, Jakarta Pusat',
-          dropoff_address: 'Jl. Asia Afrika No. 89, Bandung',
-          recipient_name: 'Budi Santoso',
-          model: 'instant',
-          status: 'pickup',
-          distance_km: 154.2,
-          total_price_idr: 450000,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: 'ord-2',
-          order_number: 'ORD/2026/05/0002',
-          pickup_address: 'Gedung Wisma Mandiri No. 34, Jakarta',
-          dropoff_address: 'Pondok Indah Mall No. 1, Jakarta Selatan',
-          recipient_name: 'Anita Rahma',
-          model: 'same_day',
-          status: 'in_transit',
-          distance_km: 14.5,
-          total_price_idr: 25000,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      setOrders([]);
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchDashboardStats = async () => {
+    try {
+      const res = await api.get('/auth/web/dashboard/stats');
+      if (res.data?.success) {
+        setDashboardStats(res.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch customer dashboard stats:', error);
+      setDashboardStats(null);
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
+    fetchDashboardStats();
 
-    // Polling simulation or WebSocket update every 30 seconds
     const interval = setInterval(() => {
       fetchOrders();
+      fetchDashboardStats();
     }, 30000);
 
     return () => clearInterval(interval);
@@ -139,16 +107,16 @@ export default function DashboardPage() {
   };
 
   // Calculate statistics
-  const activeOrdersCount = orders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled').length;
-  const completedOrdersCount = 14; // Default/mock for current month
-  const totalSpend = 1254000; // Default/mock
+  const activeOrdersCount = dashboardStats?.active_orders ?? orders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled' && o.status !== 'delivered').length;
+  const completedOrdersCount = dashboardStats?.completed_orders_month ?? orders.filter((o) => o.status === 'completed' || o.status === 'delivered').length;
+  const totalSpend = dashboardStats?.total_spend_month ?? orders.reduce((sum, order) => sum + Number(order.total_price_idr || 0), 0);
 
   // SVG-based custom premium Bar Chart Data
-  const chartData = [
-    { label: 'W1', count: 4, value: 450000 },
-    { label: 'W2', count: 8, value: 340000 },
-    { label: 'W3', count: 6, value: 250000 },
-    { label: 'W4', count: 12, value: 550000 },
+  const chartData = dashboardStats?.weekly_activity?.length ? dashboardStats.weekly_activity : [
+    { label: 'W1', count: 0, value: 0 },
+    { label: 'W2', count: 0, value: 0 },
+    { label: 'W3', count: 0, value: 0 },
+    { label: 'W4', count: 0, value: 0 },
   ];
 
   // Max value calculation for custom SVG heights
@@ -284,7 +252,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="text-xs text-muted-foreground mt-2 z-10">
-            +18.5% dari bulan lalu
+            {dashboardStats ? `${dashboardStats.spend_growth_percent >= 0 ? '+' : ''}${dashboardStats.spend_growth_percent}% belanja vs bulan lalu` : 'Menunggu data bulan berjalan'}
           </div>
         </motion.div>
 
@@ -307,7 +275,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="text-xs text-muted-foreground mt-2 z-10">
-            Termasuk pajak & asuransi
+            Akumulasi bulan berjalan
           </div>
         </motion.div>
 
@@ -484,13 +452,14 @@ export default function DashboardPage() {
                         </div>
                       </div>
 
-                      {/* Fake mini map inline tracking */}
                       <div className="h-20 w-full bg-muted/40 rounded-xl border border-border/40 flex items-center justify-center text-[10px] text-muted-foreground mt-1 select-none flex-col gap-1">
                         <div className="flex items-center gap-1">
-                          <RefreshCcw className="h-3 w-3 animate-spin text-primary" />
-                          <span>Kurir sedang dalam rute perjalanan</span>
+                          <RefreshCcw className="h-3 w-3 text-primary" />
+                          <span>Status terakhir: {order.status.replace('_', ' ')}</span>
                         </div>
-                        <span className="font-semibold text-primary">Est. Kedatangan: 35 menit</span>
+                        <Link href={`/orders/${order.id}`} className="font-semibold text-primary hover:underline">
+                          Buka tracking real-time
+                        </Link>
                       </div>
                     </motion.div>
                   )}

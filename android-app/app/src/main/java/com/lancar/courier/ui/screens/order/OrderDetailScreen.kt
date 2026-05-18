@@ -4,10 +4,13 @@ import android.app.Activity
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.location.Geocoder
 import android.location.Location
 import android.net.Uri
 import android.view.WindowManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,6 +56,8 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
+import java.io.File
+import java.io.FileOutputStream
 
 private val LogisticsOrange = Color(0xFFFF6D00)
 private val DeepForest = Color(0xFF0A2F20)
@@ -77,8 +83,7 @@ fun OrderDetailScreen(
     pickupScanVerified: Boolean = false,
     pickupPhotoVerified: Boolean = false,
     onSosClick: () -> Unit = {},
-    onReportIssue: (String) -> Unit = {},
-    onShareTrip: () -> Unit = {}
+    onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
     
@@ -163,8 +168,7 @@ fun OrderDetailScreen(
                     onCapturePod = onCapturePod,
                     onChatClick = onChatClick,
                     onSosClick = onSosClick,
-                    onReportIssue = onReportIssue,
-                    onShareTrip = onShareTrip
+                    onCancelPickup = onCancelPickup
                 )
             } else {
                 OrderActions(
@@ -299,10 +303,10 @@ private fun OnDemandTaskActions(
     onCapturePod: () -> Unit,
     onChatClick: () -> Unit,
     onSosClick: () -> Unit,
-    onReportIssue: (String) -> Unit,
-    onShareTrip: () -> Unit
+    onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit
 ) {
     val context = LocalContext.current
+    var showCancelPickupDialog by remember { mutableStateOf(false) }
     val status = order.status.lowercase()
     val pickupEvidenceComplete = pickupScanVerified && pickupPhotoVerified
     val pickupDone = status in setOf("picked_up", "in_transit", "delivered", "completed") || pickupEvidenceComplete
@@ -387,12 +391,23 @@ private fun OnDemandTaskActions(
 
             OnDemandSupportActions(
                 order = order,
+                pickupDone = pickupDone,
                 onChatClick = onChatClick,
-                onShareTrip = onShareTrip,
                 onSosClick = onSosClick,
-                onReportIssue = onReportIssue
+                onCancelPickupClick = { showCancelPickupDialog = true }
             )
         }
+    }
+
+    if (showCancelPickupDialog) {
+        CancelPickupDialog(
+            order = order,
+            onDismiss = { showCancelPickupDialog = false },
+            onSubmit = { reasonCode, reasonNote, photoFile ->
+                showCancelPickupDialog = false
+                onCancelPickup(reasonCode, reasonNote, photoFile)
+            }
+        )
     }
 }
 
@@ -650,10 +665,10 @@ private fun VerificationRequirementRow(
 @Composable
 private fun OnDemandSupportActions(
     order: Order,
+    pickupDone: Boolean,
     onChatClick: () -> Unit,
-    onShareTrip: () -> Unit,
     onSosClick: () -> Unit,
-    onReportIssue: (String) -> Unit
+    onCancelPickupClick: () -> Unit
 ) {
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -666,9 +681,18 @@ private fun OnDemandSupportActions(
                 }
             }, modifier = Modifier.weight(1f))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            CompactActionButton(icon = Icons.Default.Share, label = "Share trip", onClick = onShareTrip, modifier = Modifier.weight(1f))
-            CompactActionButton(icon = Icons.Default.ReportProblem, label = "Lapor", onClick = { onReportIssue("support_request") }, modifier = Modifier.weight(1f))
+        if (!pickupDone) {
+            OutlinedButton(
+                onClick = onCancelPickupClick,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+            ) {
+                Icon(Icons.Default.Cancel, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Batalkan pickup", fontWeight = FontWeight.Bold)
+            }
         }
         OutlinedButton(
             onClick = onSosClick,
@@ -682,6 +706,132 @@ private fun OnDemandSupportActions(
             Text("SOS bantuan operasional", fontWeight = FontWeight.Bold)
         }
     }
+}
+
+private data class CancelPickupReason(
+    val code: String,
+    val title: String,
+    val description: String
+)
+
+private val cancelPickupReasons = listOf(
+    CancelPickupReason("item_mismatch", "Barang tidak sesuai", "Jenis, jumlah, dimensi, atau berat berbeda dari data order."),
+    CancelPickupReason("item_damaged", "Barang rusak", "Kondisi barang tidak layak untuk dijemput."),
+    CancelPickupReason("prohibited_item", "Barang dilarang", "Barang berisiko, berbahaya, atau tidak sesuai ketentuan layanan."),
+    CancelPickupReason("oversize_or_overweight", "Melebihi kapasitas", "Barang terlalu besar atau berat untuk kendaraan/layanan."),
+    CancelPickupReason("customer_unreachable", "Customer tidak merespons", "Customer tidak bisa dihubungi di titik pickup."),
+    CancelPickupReason("pickup_address_issue", "Alamat pickup bermasalah", "Titik/alamat pickup tidak valid atau tidak dapat diakses."),
+    CancelPickupReason("customer_cancelled_at_pickup", "Customer batal di lokasi", "Customer menyampaikan pembatalan saat kurir tiba."),
+    CancelPickupReason("other", "Alasan lainnya", "Gunakan catatan untuk menjelaskan kondisi lapangan.")
+)
+
+@Composable
+private fun CancelPickupDialog(
+    order: Order,
+    onDismiss: () -> Unit,
+    onSubmit: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit
+) {
+    val context = LocalContext.current
+    var selectedReason by remember { mutableStateOf(cancelPickupReasons.first()) }
+    var note by rememberSaveable(order.orderId) { mutableStateOf("") }
+    var proofBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var submitAttempted by remember { mutableStateOf(false) }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        if (bitmap != null) proofBitmap = bitmap
+    }
+    val photoMissing = submitAttempted && proofBitmap == null
+    val noteMissing = submitAttempted && selectedReason.code == "other" && note.isBlank()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Batalkan Pickup", fontWeight = FontWeight.Black) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 520.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Gunakan hanya sebelum scan/input kode dan foto pickup selesai. Setelah pickup tervalidasi, paket wajib diantar.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Pilih alasan", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    cancelPickupReasons.forEach { reason ->
+                        FilterChip(
+                            selected = selectedReason.code == reason.code,
+                            onClick = { selectedReason = reason },
+                            label = {
+                                Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                    Text(reason.title, fontWeight = FontWeight.Bold)
+                                    Text(reason.description, style = MaterialTheme.typography.labelSmall)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it.take(300) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(if (selectedReason.code == "other") "Catatan wajib" else "Catatan tambahan") },
+                    minLines = 2,
+                    supportingText = {
+                        Text("${note.length}/300")
+                    },
+                    isError = noteMissing
+                )
+                if (noteMissing) {
+                    Text("Catatan wajib untuk alasan lainnya.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                }
+                OutlinedButton(
+                    onClick = { cameraLauncher.launch(null) },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = if (proofBitmap == null) MaterialTheme.colorScheme.error else Success),
+                    border = BorderStroke(1.dp, if (proofBitmap == null) MaterialTheme.colorScheme.error.copy(alpha = 0.7f) else Success.copy(alpha = 0.7f))
+                ) {
+                    Icon(if (proofBitmap == null) Icons.Default.CameraAlt else Icons.Default.CheckCircle, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (proofBitmap == null) "Ambil foto bukti" else "Foto bukti siap", fontWeight = FontWeight.Bold)
+                }
+                if (photoMissing) {
+                    Text("Foto bukti wajib untuk pembatalan pickup.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    submitAttempted = true
+                    val bitmap = proofBitmap
+                    if (bitmap != null && !(selectedReason.code == "other" && note.isBlank())) {
+                        onSubmit(selectedReason.code, note.takeIf { it.isNotBlank() }, saveCancellationPhoto(context, order.orderId, bitmap))
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text("Kirim pembatalan")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Kembali")
+            }
+        }
+    )
+}
+
+private fun saveCancellationPhoto(context: android.content.Context, orderId: String, bitmap: Bitmap): File {
+    val safeOrderId = orderId.replace(Regex("[^A-Za-z0-9_-]"), "_")
+    val file = File(context.cacheDir, "pickup_cancel_${safeOrderId}_${System.currentTimeMillis()}.jpg")
+    FileOutputStream(file).use { out ->
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 88, out)
+    }
+    return file
 }
 
 @Composable

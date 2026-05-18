@@ -49,11 +49,11 @@ func (s *TrackingServiceImpl) UpdateLocation(ctx context.Context, req domain.Cou
 		// Courier has been out of their assigned zone for more than 5 minutes — alert
 		topic := fmt.Sprintf("alert:geofence:%s", req.CourierID.String())
 		s.eventBus.Publish(ctx, topic, map[string]interface{}{
-			"courier_id":         req.CourierID.String(),
-			"alert":              "Courier has been out of assigned zone for >5 minutes",
+			"courier_id":          req.CourierID.String(),
+			"alert":               "Courier has been out of assigned zone for >5 minutes",
 			"out_of_zone_minutes": geofenceResult.OutOfZoneMinutes,
-			"zone_id":            geofenceResult.AssignedZoneID,
-			"location":           req.Location,
+			"zone_id":             geofenceResult.AssignedZoneID,
+			"location":            req.Location,
 		})
 	}
 
@@ -79,18 +79,18 @@ func (s *TrackingServiceImpl) SyncLocations(ctx context.Context, req domain.Cour
 	}
 
 	var latestLoc *domain.GPSLocation
-	
+
 	// 1. Iterate and save all GPS logs for comprehensive audit trail
 	for i := range req.Locations {
 		loc := req.Locations[i]
-		
+
 		// Track the physically most recent point by timestamp
 		if latestLoc == nil || loc.Timestamp.After(latestLoc.Timestamp) {
 			latestLoc = &req.Locations[i]
 		}
 
 		isSpoofed := loc.Speed > 150
-		
+
 		// Persist individual log. Uses OrderID embedded in loc itself.
 		// We log errors but continue loop if one individual entry fails insertion.
 		if err := s.repo.SaveGPSLog(ctx, req.CourierID, loc.OrderID, loc, isSpoofed); err != nil {
@@ -104,7 +104,7 @@ func (s *TrackingServiceImpl) SyncLocations(ctx context.Context, req domain.Cour
 	}
 
 	// 2. Perform heavy state updates ONLY for the single latest point
-	
+
 	// A. Update current location in primary courier profile
 	if err := s.repo.UpdateCourierLocation(ctx, req.CourierID, *latestLoc); err != nil {
 		fmt.Printf("[TrackingService] Sync WARN: failed updating courier profile map: %v\n", err)
@@ -115,11 +115,11 @@ func (s *TrackingServiceImpl) SyncLocations(ctx context.Context, req domain.Cour
 	if geoErr == nil && !geofenceResult.IsInsideZone && geofenceResult.OutOfZoneMinutes > 5 {
 		topic := fmt.Sprintf("alert:geofence:%s", req.CourierID.String())
 		s.eventBus.Publish(ctx, topic, map[string]interface{}{
-			"courier_id":         req.CourierID.String(),
-			"alert":              "Courier has been out of assigned zone for >5 minutes",
+			"courier_id":          req.CourierID.String(),
+			"alert":               "Courier has been out of assigned zone for >5 minutes",
 			"out_of_zone_minutes": geofenceResult.OutOfZoneMinutes,
-			"zone_id":            geofenceResult.AssignedZoneID,
-			"location":           *latestLoc,
+			"zone_id":             geofenceResult.AssignedZoneID,
+			"location":            *latestLoc,
 		})
 	}
 
@@ -156,9 +156,6 @@ func (s *TrackingServiceImpl) GetTrackingByOrder(ctx context.Context, orderID uu
 	return &domain.TrackingResponse{
 		CourierID: *courierID,
 		Location:  *loc,
-		// ETA and RoutePolyline would be calculated via a routing service in a real scenario
-		ETA:           "Calculated via routing service",
-		RoutePolyline: "Polyline data",
 	}, nil
 }
 

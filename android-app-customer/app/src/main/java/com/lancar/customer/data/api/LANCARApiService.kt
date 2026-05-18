@@ -36,6 +36,11 @@ interface LANCARApiService {
         @Path("id") id: String
     ): Response<ApiResponse<Order>>
 
+    @GET("api/v1/customer/orders/{id}/tracking-detail")
+    suspend fun getOrderTrackingDetail(
+        @Path("id") id: String
+    ): Response<OrderTrackingDetailResponse>
+
     @POST("api/v1/orders")
     suspend fun createOrder(
         @Body request: CreateOrderRequest
@@ -75,7 +80,7 @@ interface LANCARApiService {
     ): Response<SendMessageResponse>
 
     // Notification Endpoints
-    @POST("api/v1/mobile/notifications/register-token")
+    @POST("api/v1/customer/notifications/register-token")
     suspend fun registerDeviceToken(
         @Body request: RegisterTokenRequest
     ): Response<Unit>

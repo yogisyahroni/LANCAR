@@ -19,7 +19,8 @@ class ChatRepository @Inject constructor(
         try {
             val response = apiService.getOrderChats(orderId)
             if (response.isSuccessful && response.body()?.success == true) {
-                emit(Result.success(response.body()?.data ?: emptyList()))
+                val body = response.body()
+                emit(Result.success(body?.chats ?: body?.data ?: emptyList()))
             } else {
                 emit(Result.failure(Exception(response.body()?.message ?: "Gagal memuat percakapan")))
             }
@@ -34,7 +35,8 @@ class ChatRepository @Inject constructor(
     fun sendOrderChat(orderId: String, messageText: String): Flow<Result<ChatMessage>> = flow {
         try {
             val response = apiService.sendOrderChat(orderId, SendMessageRequest(messageText))
-            val messageData = response.body()?.data
+            val body = response.body()
+            val messageData = body?.chat ?: body?.data
             if (response.isSuccessful && response.body()?.success == true && messageData != null) {
                 emit(Result.success(messageData))
             } else {

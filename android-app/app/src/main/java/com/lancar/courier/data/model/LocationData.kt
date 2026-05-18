@@ -2,7 +2,6 @@ package com.lancar.courier.data.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import java.util.Date
 
 /**
  * Location Data Transfer Object
@@ -30,7 +29,7 @@ data class LocationData(
     val altitude: Double = 0.0,
 
     @SerialName("timestamp")
-    val timestamp: Long = System.currentTimeMillis(),
+    val timestamp: String,
 
     @SerialName("battery_level")
     val batteryLevel: Int = 100,

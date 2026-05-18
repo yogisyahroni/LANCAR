@@ -148,6 +148,10 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		DropoffLat:             req.DropoffLat,
 		DropoffLng:             req.DropoffLng,
 		Model:                  selectedModel,
+		Length:                 req.Length,
+		Width:                  req.Width,
+		Height:                 req.Height,
+		Weight:                 req.Weight,
 	}
 
 	// 8. Cache in Redis

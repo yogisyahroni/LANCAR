@@ -3,11 +3,10 @@ package com.lancar.customer.ui.screens.tracking
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
-import com.lancar.customer.data.model.Order
+import com.lancar.customer.data.model.OrderTrackingDetail
 import com.lancar.customer.data.model.TrackingResponse
 import com.lancar.customer.data.repository.OrderRepository
 import com.lancar.customer.data.repository.TrackingRepository
-import kotlinx.coroutines.flow.collectLatest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -26,7 +25,7 @@ data class TrackingUiState(
     val courierHeading: Float = 0f,
     val eta: String? = null,
     val orderId: String? = null,
-    val order: Order? = null
+    val detail: OrderTrackingDetail? = null
 )
 
 @HiltViewModel
@@ -49,17 +48,9 @@ class TrackingViewModel @Inject constructor(
         
         _uiState.update { it.copy(orderId = orderId, isLoading = true) }
 
-        // Fire background one-shot retrieval of order metadata to resolve driver details
-        viewModelScope.launch {
-            orderRepository.getOrderDetail(orderId).collectLatest { result ->
-                result.onSuccess { fetchedOrder ->
-                    _uiState.update { it.copy(order = fetchedOrder) }
-                }
-            }
-        }
-
         pollingJob = viewModelScope.launch {
             while (isActive) {
+                fetchLatestOrder(orderId)
                 fetchLatestTracking(orderId)
                 delay(5000) // 5-second deterministic refresh interval
             }
@@ -92,6 +83,12 @@ class TrackingViewModel @Inject constructor(
                     error = if (it.courierLocation == null) exception.message else null
                 )
             }
+        }
+    }
+
+    private suspend fun fetchLatestOrder(orderId: String) {
+        orderRepository.getOrderTrackingDetail(orderId).onSuccess { detail ->
+            _uiState.update { it.copy(detail = detail) }
         }
     }
 

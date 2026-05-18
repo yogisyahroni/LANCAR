@@ -224,6 +224,7 @@ private fun ChatBubble(
 ) {
     val timeFormatted = remember(message.createdAt) {
         try {
+            if (message.createdAt.isNullOrBlank()) return@remember ""
             val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
             sdf.timeZone = TimeZone.getTimeZone("UTC")
             val parsedDate = sdf.parse(message.createdAt)

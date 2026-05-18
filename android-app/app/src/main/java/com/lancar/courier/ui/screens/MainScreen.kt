@@ -1,10 +1,7 @@
 package com.lancar.courier.ui.screens
 
 import android.Manifest
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -357,24 +354,24 @@ fun MainScreen(
                     sendSafetyEvent(order, "sos", "critical", "Kurir membutuhkan bantuan segera di pekerjaan on-demand.")
                 }
             },
-            onReportIssue = { issueType ->
+            onCancelPickup = { reasonCode, reasonNote, photoFile ->
                 scope.launch {
-                    sendSafetyEvent(order, issueType, "medium", "Laporan kurir: ${issueType.replace("_", " ")}")
-                }
-            },
-            onShareTrip = {
-                scope.launch {
-                    val result = orderViewModel.createTripShare(order.orderId)
-                    result.onSuccess { url ->
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("LANCAR live trip", url))
-                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, url)
-                        }, "Bagikan Live Trip"))
-                        snackbarHostState.showSnackbar("Link live trip dibuat dan disalin.")
-                    }.onFailure { e ->
-                        snackbarHostState.showSnackbar(e.message ?: "Gagal membuat link live trip.")
+                    val location = getLastKnownDutyLocation(context)
+                    val result = orderViewModel.cancelOnDemandPickup(
+                        orderId = order.orderId,
+                        reasonCode = reasonCode,
+                        reasonNote = reasonNote,
+                        latitude = location?.latitude,
+                        longitude = location?.longitude,
+                        accuracy = location?.accuracy,
+                        photoFile = photoFile
+                    )
+                    result.onSuccess { message ->
+                        showOrderDetail = false
+                        selectedOrder = null
+                        snackbarHostState.showSnackbar(message)
+                    }.onFailure { error ->
+                        snackbarHostState.showSnackbar(error.message ?: "Pembatalan pickup belum terkirim. Coba lagi.")
                     }
                 }
             }

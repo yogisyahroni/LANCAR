@@ -411,6 +411,20 @@ app.use(createProxyMiddleware({
   }
 }));
 
+// Customer Mobile Portal Routes (JWT-authenticated, backed by Admin Service aggregates)
+app.use('/api/v1/customer', authenticateJWT);
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/customer',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[35m[Proxy Customer Mobile]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    }
+  }
+}));
+
 // Admin Service - Mobile & Courier Notifications
 app.use(createProxyMiddleware({
   pathFilter: (pathname: string) =>

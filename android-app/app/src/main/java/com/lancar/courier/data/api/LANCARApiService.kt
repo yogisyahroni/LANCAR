@@ -174,6 +174,18 @@ interface LANCARApiService {
         @Path("orderId") orderId: String
     ): Response<ApiResponse<CourierRoutePreview>>
 
+    @Multipart
+    @POST("api/v1/courier/orders/{orderId}/cancel-pickup")
+    suspend fun cancelOnDemandPickup(
+        @Path("orderId") orderId: String,
+        @Part("reason_code") reasonCode: RequestBody,
+        @Part("reason_note") reasonNote: RequestBody?,
+        @Part("latitude") latitude: RequestBody?,
+        @Part("longitude") longitude: RequestBody?,
+        @Part("accuracy") accuracy: RequestBody?,
+        @Part photo: MultipartBody.Part
+    ): Response<ApiResponse<JsonElement>>
+
     /**
      * Accept an on-demand job offer.
      */

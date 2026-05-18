@@ -21,6 +21,9 @@ func (m *MockPricingRepo) GetActiveConfig(ctx context.Context, model string) (*d
 func (m *MockPricingRepo) UpdateConfig(ctx context.Context, config *domain.PricingConfig) error {
 	return m.Err
 }
+func (m *MockPricingRepo) CheckCoverage(ctx context.Context, lat, lng float64) (bool, error) {
+	return true, m.Err
+}
 
 type MockMapsRepo struct {
 	DistKM     float64
@@ -95,7 +98,6 @@ func (m *MockFlagReader) Close() error {
 	return nil
 }
 
-
 func TestPricingService_Estimate_FlagAware(t *testing.T) {
 	mockPricing := &MockPricingRepo{
 		Config: &domain.PricingConfig{
@@ -161,7 +163,7 @@ func TestPricingService_Estimate_FlagAware(t *testing.T) {
 			svc := service.NewPricingService(mockPricing, mockMaps, mockRedis, mockFlags)
 
 			req := &domain.PricingEstimateRequest{
-				PickupLat:  -6.2, PickupLng: 106.8,
+				PickupLat: -6.2, PickupLng: 106.8,
 				DropoffLat: -6.3, DropoffLng: 106.9,
 				Length: 10, Width: 10, Height: 10, Weight: 1,
 				Models: reqModels,
@@ -239,7 +241,7 @@ func TestPricingService_Estimate_TwoLegsOff(t *testing.T) {
 			svc := service.NewPricingService(mockPricing, mockMaps, mockRedis, mockFlags)
 
 			req := &domain.PricingEstimateRequest{
-				PickupLat:  -6.2, PickupLng: 106.8,
+				PickupLat: -6.2, PickupLng: 106.8,
 				DropoffLat: -6.3, DropoffLng: 106.9,
 				Length: 10, Width: 10, Height: 10, Weight: 1,
 				Models: reqModels,

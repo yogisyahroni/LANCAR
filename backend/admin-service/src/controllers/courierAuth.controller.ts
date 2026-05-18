@@ -2443,3 +2443,236 @@ export const uploadMobileCourierPod = async (req: Request, res: Response) => {
     spoofRisk: req.body?.spoof_risk || req.body?.spoofRisk || null,
   });
 };
+
+export const cancelMobileCourierOnDemandPickup = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  const orderId = String(req.params.orderId || req.body?.order_id || req.body?.orderId || '');
+  const reasonCode = String(req.body?.reason_code || req.body?.reasonCode || '').trim();
+  const reasonNote = req.body?.reason_note || req.body?.reasonNote ? String(req.body?.reason_note || req.body?.reasonNote).trim() : null;
+  const latitude = parseCoordinate(req.body?.latitude);
+  const longitude = parseCoordinate(req.body?.longitude);
+  const accuracy = parseCoordinate(req.body?.accuracy);
+
+  const allowedReasons = new Set([
+    'item_mismatch',
+    'item_damaged',
+    'prohibited_item',
+    'oversize_or_overweight',
+    'customer_unreachable',
+    'pickup_address_issue',
+    'customer_cancelled_at_pickup',
+    'other',
+  ]);
+
+  if (!orderId || !reasonCode || !allowedReasons.has(reasonCode)) {
+    res.status(400).json({ success: false, data: null, message: 'Alasan pembatalan pickup tidak valid.', code: 'ERR_INVALID_REASON' });
+    return;
+  }
+
+  if (!req.file) {
+    res.status(400).json({ success: false, data: null, message: 'Foto bukti wajib dikirim sebelum pickup dibatalkan.', code: 'ERR_PHOTO_REQUIRED' });
+    return;
+  }
+
+  const ext = path.extname(req.file.originalname || '') || '.jpg';
+  const filename = `${crypto.randomUUID()}${ext}`;
+  const uploadDir = path.join(process.cwd(), 'public/uploads/cancellations');
+  fs.mkdirSync(uploadDir, { recursive: true });
+  fs.writeFileSync(path.join(uploadDir, filename), req.file.buffer);
+  const photoUrl = `/uploads/cancellations/${filename}`;
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const orderRes = await client.query(
+      `SELECT
+         o.id,
+         o.status,
+         o.model,
+         ol.id AS leg_id,
+         ol.status AS leg_status
+       FROM orders o
+       JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
+       JOIN courier_profiles cp ON cp.user_id = ol.courier_id
+       WHERE o.id = $1
+         AND ol.courier_id = $2
+         AND cp.application_channel = 'on_demand'
+         AND LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
+       LIMIT 1
+       FOR UPDATE OF o, ol`,
+      [orderId, req.user.id]
+    );
+
+    const order = orderRes.rows[0];
+    if (!order) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, data: null, message: 'Order on-demand tidak ditemukan untuk kurir ini.', code: 'ERR_ORDER_NOT_FOUND' });
+      return;
+    }
+
+    const currentStatus = String(order.status || '').toLowerCase();
+    if (['picked_up', 'in_transit', 'delivered', 'completed'].includes(currentStatus)) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        data: null,
+        message: 'Pickup sudah selesai. Order wajib dilanjutkan ke pengantaran.',
+        code: 'ERR_PICKUP_ALREADY_COMPLETED',
+      });
+      return;
+    }
+
+    const proofRes = await client.query(
+      `SELECT id
+       FROM package_scans
+       WHERE order_id = $1
+         AND scan_type IN ('pickup', 'pickup_photo')
+       LIMIT 1`,
+      [orderId]
+    );
+    if (proofRes.rows.length > 0) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        data: null,
+        message: 'Bukti pickup sudah tercatat. Order wajib dilanjutkan ke pengantaran.',
+        code: 'ERR_PICKUP_PROOF_EXISTS',
+      });
+      return;
+    }
+
+    const cancellationReason = reasonNote ? `${reasonCode}: ${reasonNote}` : reasonCode;
+    await client.query(
+      `UPDATE orders
+       SET status = 'cancelled',
+           cancelled_at = NOW(),
+           cancellation_reason = $2,
+           updated_at = NOW()
+       WHERE id = $1`,
+      [orderId, cancellationReason]
+    );
+
+    await client.query(
+      `UPDATE order_legs
+       SET status = 'cancelled',
+           updated_at = NOW()
+       WHERE id = $1`,
+      [order.leg_id]
+    );
+
+    await client.query(
+      `UPDATE courier_offer_dispatches
+       SET status = CASE WHEN status = 'accepted' THEN 'cancelled' ELSE status END,
+           response_reason = COALESCE(response_reason, $3),
+           updated_at = NOW()
+       WHERE order_id = $1 AND courier_id = $2`,
+      [orderId, req.user.id, reasonCode]
+    );
+
+    await client.query(
+      `INSERT INTO package_scans (
+         order_id,
+         scanned_by,
+         scanned_by_role,
+         scan_type,
+         image_urls,
+         photo_url,
+         latitude,
+         longitude,
+         location_accuracy_m,
+         scan_location,
+         override_reason
+       )
+       VALUES (
+         $1,
+         $2,
+         'courier',
+         'pickup_cancellation',
+         ARRAY[$3::text],
+         $3,
+         $4,
+         $5,
+         $6,
+         CASE WHEN $4::double precision IS NULL OR $5::double precision IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography END,
+         $7
+       )`,
+      [orderId, req.user.id, photoUrl, latitude, longitude, accuracy, cancellationReason]
+    );
+
+    await client.query(
+      `INSERT INTO courier_safety_events (
+         order_id, courier_id, event_type, severity, latitude, longitude, accuracy_m, message, metadata
+       )
+       VALUES ($1, $2, 'support_request', 'high', $3, $4, $5, $6, $7)`,
+      [
+        orderId,
+        req.user.id,
+        latitude,
+        longitude,
+        accuracy,
+        reasonNote || cancellationReason,
+        JSON.stringify({
+          source: 'courier_app',
+          action: 'pickup_cancelled',
+          reason_code: reasonCode,
+          reason_note: reasonNote,
+          photo_url: photoUrl,
+          app_surface: 'on_demand_pickup_validation',
+        }),
+      ]
+    );
+
+    await client.query(
+      `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+       VALUES ($1, $2, 'pickup_cancelled_by_courier', 'Courier cancelled on-demand pickup before custody transfer', $3)`,
+      [
+        orderId,
+        req.user.id,
+        JSON.stringify({
+          reason_code: reasonCode,
+          reason_note: reasonNote,
+          photo_url: photoUrl,
+          latitude,
+          longitude,
+          accuracy_m: accuracy,
+          source: 'courier_app',
+        }),
+      ]
+    );
+
+    await notifyAdminOps({
+      title: 'Pickup On-Demand Dibatalkan Kurir',
+      body: reasonNote || `Alasan: ${reasonCode.replace(/_/g, ' ')}`,
+      type: 'courier_pickup_cancelled',
+      order_id: orderId,
+      metadata: {
+        courier_id: req.user.id,
+        reason_code: reasonCode,
+        photo_url: photoUrl,
+      },
+    });
+
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      data: {
+        order_id: orderId,
+        status: 'cancelled',
+        reason_code: reasonCode,
+        photo_url: photoUrl,
+      },
+      message: 'Pickup dibatalkan. Bukti dan alasan sudah dikirim ke operasional.',
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Cancel mobile courier on-demand pickup error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  } finally {
+    client.release();
+  }
+};

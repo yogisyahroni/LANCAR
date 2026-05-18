@@ -23,7 +23,7 @@ func (r *PostgresTrackingRepo) SaveGPSLog(ctx context.Context, courierID uuid.UU
 			courier_id, order_leg_id, location, accuracy_m, speed_kmh, heading_deg, is_spoofed, recorded_at
 		) VALUES (
 			$1, 
-			(SELECT id FROM order_legs WHERE order_id = $2 AND status IN ('pending', 'in_progress') LIMIT 1), 
+			(SELECT id FROM order_legs WHERE order_id = $2 AND status IN ('pending', 'assigned', 'accepted', 'picked_up', 'in_progress', 'in_transit') LIMIT 1), 
 			ST_SetSRID(ST_MakePoint($3, $4), 4326), 
 			$5, $6, $7, $8, $9
 		)
@@ -43,12 +43,14 @@ func (r *PostgresTrackingRepo) SaveGPSLog(ctx context.Context, courierID uuid.UU
 }
 
 func (r *PostgresTrackingRepo) UpdateCourierLocation(ctx context.Context, courierID uuid.UUID, loc domain.GPSLocation) error {
-	// Courier profiles might be in auth-service or shared db, assuming shared for now based on previous patterns
+	// Mobile sessions carry users.id as courierID; courier_profiles is keyed by user_id in this platform.
 	query := `
 		UPDATE courier_profiles 
 		SET current_location = ST_SetSRID(ST_MakePoint($2, $3), 4326), 
-		    last_active_at = NOW() 
-		WHERE id = $1
+		    last_location_at = NOW(),
+		    last_active_at = NOW(),
+		    updated_at = NOW()
+		WHERE user_id = $1
 	`
 	_, err := r.db.ExecContext(ctx, query, courierID, loc.Longitude, loc.Latitude)
 	return err
@@ -98,7 +100,7 @@ func (r *PostgresTrackingRepo) GetActiveCourierForOrder(ctx context.Context, ord
 	query := `
 		SELECT courier_id 
 		FROM order_legs 
-		WHERE order_id = $1 AND status IN ('pending', 'in_progress') 
+		WHERE order_id = $1 AND status IN ('pending', 'assigned', 'accepted', 'picked_up', 'in_progress', 'in_transit') 
 		LIMIT 1
 	`
 	var courierID uuid.UUID
@@ -135,7 +137,7 @@ func (r *PostgresTrackingRepo) CheckGeofence(ctx context.Context, courierID uuid
 		FROM order_legs ol
 		JOIN zones z ON z.id = ol.zone_id
 		WHERE ol.courier_id = $3
-		  AND ol.status IN ('pending', 'in_progress')
+		  AND ol.status IN ('pending', 'assigned', 'accepted', 'picked_up', 'in_progress', 'in_transit')
 		ORDER BY ol.created_at DESC
 		LIMIT 1
 	`
@@ -167,7 +169,7 @@ func (r *PostgresTrackingRepo) CheckGeofence(ctx context.Context, courierID uuid
 				ROW_NUMBER() OVER (ORDER BY recorded_at DESC) AS rn
 			FROM courier_gps_logs gl
 			JOIN order_legs ol ON ol.courier_id = gl.courier_id
-				AND ol.status IN ('pending', 'in_progress')
+				AND ol.status IN ('pending', 'assigned', 'accepted', 'picked_up', 'in_progress', 'in_transit')
 			JOIN zones z ON z.id = ol.zone_id
 			WHERE gl.courier_id = $1
 			  AND gl.recorded_at > NOW() - INTERVAL '2 hours'
@@ -199,4 +201,3 @@ func (r *PostgresTrackingRepo) CheckGeofence(ctx context.Context, courierID uuid
 		AssignedZoneID:   row.ZoneID,
 	}, nil
 }
-

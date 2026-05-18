@@ -6,13 +6,13 @@ import (
 )
 
 type PricingEstimateRequest struct {
-	PickupLat  float64 `json:"pickup_lat" validate:"required"`
-	PickupLng  float64 `json:"pickup_lng" validate:"required"`
-	DropoffLat float64 `json:"dropoff_lat" validate:"required"`
-	DropoffLng float64 `json:"dropoff_lng" validate:"required"`
-	Length     float64 `json:"length" validate:"required"`
-	Width      float64 `json:"width" validate:"required"`
-	Height     float64 `json:"height" validate:"required"`
+	PickupLat  float64  `json:"pickup_lat" validate:"required"`
+	PickupLng  float64  `json:"pickup_lng" validate:"required"`
+	DropoffLat float64  `json:"dropoff_lat" validate:"required"`
+	DropoffLng float64  `json:"dropoff_lng" validate:"required"`
+	Length     float64  `json:"length" validate:"required"`
+	Width      float64  `json:"width" validate:"required"`
+	Height     float64  `json:"height" validate:"required"`
 	Weight     float64  `json:"weight" validate:"required"`
 	Models     []string `json:"models" validate:"required"` // Requested delivery models
 }
@@ -35,6 +35,10 @@ type PricingEstimateResponse struct {
 	DropoffLat float64 `json:"dropoff_lat"`
 	DropoffLng float64 `json:"dropoff_lng"`
 	Model      string  `json:"model"` // Selected delivery model
+	Length     float64 `json:"length,omitempty"`
+	Width      float64 `json:"width,omitempty"`
+	Height     float64 `json:"height,omitempty"`
+	Weight     float64 `json:"weight,omitempty"`
 }
 
 type PricingConfig struct {

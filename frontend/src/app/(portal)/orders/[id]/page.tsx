@@ -56,6 +56,18 @@ interface ChatMessage {
   order_id?: string;
 }
 
+interface TrackingData {
+  courier_id: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+    heading?: number;
+    timestamp?: string;
+  };
+  eta?: string;
+  route_polyline?: string;
+}
+
 export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -66,6 +78,8 @@ export default function OrderDetailPage() {
 
   const [order, setOrder] = useState<Order | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
+  const [tracking, setTracking] = useState<TrackingData | null>(null);
+  const [trackingError, setTrackingError] = useState('');
   const [loading, setLoading] = useState(true);
   const [chatsLoading, setChatsLoading] = useState(false);
 
@@ -103,21 +117,29 @@ export default function OrderDetailPage() {
     }
   }, [user?.id, id]);
 
-  const fetchOrderDetail = async () => {
+  const fetchOrderDetail = async (showLoader = true) => {
     if (!id) return;
-    setLoading(true);
+    if (showLoader) {
+      setLoading(true);
+    }
     try {
       const res = await api.get(`/auth/web/orders/${id}`);
       if (res.data && res.data.success) {
         setOrder(res.data.order);
         setEvents(res.data.events || []);
-        fetchOrderChats(); // Fetch chats after order detail
+        if (showLoader) {
+          fetchOrderChats(); // Fetch chats after order detail
+        }
       }
     } catch (error: any) {
       console.error('Failed to fetch order detail:', error);
-      addNotification({ title: 'Gagal', message: 'Gagal mengambil detail order.', type: 'error' });
+      if (showLoader) {
+        addNotification({ title: 'Gagal', message: 'Gagal mengambil detail order.', type: 'error' });
+      }
     } finally {
-      setLoading(false);
+      if (showLoader) {
+        setLoading(false);
+      }
     }
   };
 
@@ -138,6 +160,39 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     fetchOrderDetail();
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    const interval = window.setInterval(() => {
+      fetchOrderDetail(false);
+    }, 8000);
+    return () => window.clearInterval(interval);
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    let active = true;
+    const fetchTracking = async () => {
+      try {
+        const res = await api.get('/tracking', { params: { order_id: id } });
+        if (!active) return;
+        const data = res.data?.data || res.data;
+        setTracking(data || null);
+        setTrackingError('');
+      } catch (error: any) {
+        if (!active) return;
+        setTrackingError(error?.response?.data?.message || 'Tracking belum tersedia.');
+      }
+    };
+
+    fetchTracking();
+    const interval = window.setInterval(fetchTracking, 5000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
   }, [id]);
 
   useEffect(() => {
@@ -260,6 +315,11 @@ export default function OrderDetailPage() {
     }).format(date);
   };
 
+  const formatTrackingTime = (dateStr?: string) => {
+    if (!dateStr) return 'Belum tersedia';
+    return formatTime(dateStr);
+  };
+
   const getStatusBadgeClass = (statusStr: string) => {
     switch (statusStr?.toLowerCase()) {
       case 'created':
@@ -354,25 +414,45 @@ export default function OrderDetailPage() {
               <div className="flex items-center gap-3">
                 <Navigation className="h-5 w-5 text-primary animate-pulse" />
                 <div>
-                  <p className="text-xs text-muted-foreground leading-tight uppercase font-bold tracking-wider">Live tracking active</p>
-                  <p className="text-sm font-bold text-white">ETA ~12 menit</p>
+                  <p className="text-xs text-muted-foreground leading-tight uppercase font-bold tracking-wider">Live tracking</p>
+                  <p className="text-sm font-bold text-white">
+                    {tracking?.eta || (tracking?.location ? 'Lokasi kurir aktif' : 'Menunggu lokasi kurir')}
+                  </p>
                 </div>
               </div>
-              <span className="h-2 w-2 rounded-full bg-green-500 animate-ping" />
+              <span className={cn(
+                "h-2 w-2 rounded-full",
+                tracking?.location ? "bg-green-500 animate-ping" : "bg-amber-400"
+              )} />
             </div>
 
             {/* Premium Dynamic/Interactive Visual Map View or High Quality Simulated view */}
             <div className="flex-1 bg-gradient-to-br from-indigo-950/20 via-background to-blue-950/20 p-6 flex flex-col justify-center items-center space-y-4 select-none relative">
-              <Sparkles className="h-10 w-10 text-primary/40 animate-spin duration-3000" />
+              <Navigation className="h-10 w-10 text-primary/50" />
               <div className="text-center space-y-1">
-                <h4 className="font-bold text-white tracking-tight">Peta Pengiriman Hyperlocal</h4>
+                <h4 className="font-bold text-white tracking-tight">Peta Pengiriman</h4>
                 <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                  Menghubungkan <span className="text-white font-medium">Pickup</span> ({order.pickup_address}) dan <span className="text-white font-medium">Dropoff</span> ({order.dropoff_address})
+                  {tracking?.location
+                    ? `Update terakhir ${formatTrackingTime(tracking.location.timestamp)}`
+                    : trackingError || 'Lokasi kurir otomatis muncul setelah pekerjaan diterima dan tracking aktif.'}
                 </p>
               </div>
 
-              {/* Graphical simulation for high quality interactive look */}
               <div className="w-full max-w-xs bg-background/60 p-4 border border-white/10 rounded-xl space-y-3.5">
+                {tracking?.location && (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <Truck className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Posisi kurir</p>
+                        <p className="text-xs text-white max-w-[220px] truncate">
+                          {tracking.location.latitude.toFixed(6)}, {tracking.location.longitude.toFixed(6)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="h-8 border-l-2 border-dashed border-white/10 ml-2.5" />
+                  </>
+                )}
                 <div className="flex items-start gap-3">
                   <MapPin className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
                   <div>
@@ -393,6 +473,16 @@ export default function OrderDetailPage() {
                   </div>
                 </div>
               </div>
+              {tracking?.location && (
+                <a
+                  href={`https://www.google.com/maps?q=${tracking.location.latitude},${tracking.location.longitude}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground transition hover:bg-primary/90"
+                >
+                  <MapPin className="h-4 w-4" /> Buka posisi kurir
+                </a>
+              )}
             </div>
 
             {/* Premium Courier Info Overlay Card */}

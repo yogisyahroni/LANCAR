@@ -620,16 +620,173 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
 
     // Get order events for timeline
     const eventQuery = `
-      SELECT id, event_type, description, created_at
+      SELECT id, event_type, description, metadata, created_at
       FROM order_events
       WHERE order_id = $1
       ORDER BY created_at ASC
     `;
     const { rows: events } = await db.query(eventQuery, [id]);
 
-    res.json({ success: true, order, events });
+    const { rows: proofs } = await db.query(`
+      SELECT id,
+             scan_type,
+             photo_url,
+             image_urls,
+             override_reason,
+             latitude,
+             longitude,
+             COALESCE(scanned_at, created_at) AS recorded_at
+      FROM package_scans
+      WHERE order_id = $1
+      ORDER BY COALESCE(scanned_at, created_at) ASC
+    `, [id]);
+
+    res.json({ success: true, order, events, proofs });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customer_id = req.user?.id;
+    const { id } = req.params;
+    if (!customer_id) {
+      res.status(401).json({ success: false, data: null, message: 'Unauthorized' });
+      return;
+    }
+
+    const orderQuery = `
+      SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name,
+             o.recipient_phone_masked, o.model, o.status, o.distance_km, o.total_price_idr,
+             o.package_details, o.customer_notes, o.created_at, o.updated_at,
+             u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate,
+             cp.avg_partner_rating as courier_rating, u.phone as courier_phone
+      FROM orders o
+      LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
+      LEFT JOIN users u ON ol.courier_id = u.id
+      LEFT JOIN courier_profiles cp ON u.id = cp.user_id
+      WHERE o.customer_id = $1 AND o.id = $2
+    `;
+    const { rows } = await db.query(orderQuery, [customer_id, id]);
+    if (rows.length === 0) {
+      res.status(404).json({ success: false, data: null, message: 'Order tidak ditemukan' });
+      return;
+    }
+
+    const { rows: events } = await db.query(`
+      SELECT id, event_type, description, metadata, created_at
+      FROM order_events
+      WHERE order_id = $1
+      ORDER BY created_at ASC
+    `, [id]);
+
+    const { rows: proofs } = await db.query(`
+      SELECT id,
+             scan_type,
+             photo_url,
+             image_urls,
+             override_reason,
+             latitude,
+             longitude,
+             COALESCE(scanned_at, created_at) AS recorded_at
+      FROM package_scans
+      WHERE order_id = $1
+      ORDER BY COALESCE(scanned_at, created_at) ASC
+    `, [id]);
+
+    res.json({
+      success: true,
+      data: {
+        order: rows[0],
+        events,
+        proofs,
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message });
+  }
+};
+
+export const getCustomerDashboardStats = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customer_id = req.user?.id;
+    if (!customer_id) {
+      res.status(401).json({ success: false, data: null, message: 'Unauthorized' });
+      return;
+    }
+
+    const { rows: summaryRows } = await db.query(`
+      WITH current_month AS (
+        SELECT *
+        FROM orders
+        WHERE customer_id = $1
+          AND created_at >= DATE_TRUNC('month', NOW())
+      ),
+      previous_month AS (
+        SELECT *
+        FROM orders
+        WHERE customer_id = $1
+          AND created_at >= DATE_TRUNC('month', NOW()) - INTERVAL '1 month'
+          AND created_at < DATE_TRUNC('month', NOW())
+      )
+      SELECT
+        COUNT(*) FILTER (WHERE cm.status NOT IN ('delivered', 'completed', 'cancelled', 'failed'))::int AS active_orders,
+        COUNT(*) FILTER (WHERE cm.status IN ('delivered', 'completed'))::int AS completed_orders_month,
+        COUNT(*) FILTER (WHERE cm.status IN ('cancelled', 'failed'))::int AS cancelled_orders_month,
+        COALESCE(SUM(cm.total_price_idr), 0)::bigint AS total_spend_month,
+        COALESCE(SUM(pm.total_price_idr), 0)::bigint AS previous_spend_month,
+        COUNT(pm.*)::int AS previous_orders_month
+      FROM current_month cm
+      FULL OUTER JOIN previous_month pm ON false
+    `, [customer_id]);
+
+    const { rows: weeklyRows } = await db.query(`
+      WITH weeks AS (
+        SELECT generate_series(3, 0, -1) AS idx
+      ),
+      orders_by_week AS (
+        SELECT
+          FLOOR(EXTRACT(DAY FROM (NOW()::date - created_at::date)) / 7)::int AS week_bucket,
+          COUNT(*)::int AS count,
+          COALESCE(SUM(total_price_idr), 0)::bigint AS value
+        FROM orders
+        WHERE customer_id = $1
+          AND created_at >= NOW() - INTERVAL '28 days'
+        GROUP BY 1
+      )
+      SELECT
+        CONCAT('W', 4 - weeks.idx) AS label,
+        COALESCE(obw.count, 0)::int AS count,
+        COALESCE(obw.value, 0)::bigint AS value
+      FROM weeks
+      LEFT JOIN orders_by_week obw ON obw.week_bucket = weeks.idx
+      ORDER BY weeks.idx DESC
+    `, [customer_id]);
+
+    const summary = summaryRows[0] || {};
+    const totalSpend = Number(summary.total_spend_month || 0);
+    const previousSpend = Number(summary.previous_spend_month || 0);
+    const spendGrowth = previousSpend > 0 ? ((totalSpend - previousSpend) / previousSpend) * 100 : 0;
+
+    res.json({
+      success: true,
+      data: {
+        active_orders: Number(summary.active_orders || 0),
+        completed_orders_month: Number(summary.completed_orders_month || 0),
+        cancelled_orders_month: Number(summary.cancelled_orders_month || 0),
+        total_spend_month: totalSpend,
+        previous_spend_month: previousSpend,
+        spend_growth_percent: Number(spendGrowth.toFixed(1)),
+        weekly_activity: weeklyRows.map((row) => ({
+          label: row.label,
+          count: Number(row.count || 0),
+          value: Number(row.value || 0),
+        })),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message });
   }
 };
 

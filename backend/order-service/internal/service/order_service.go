@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"lancar/order-service/internal/domain"
-	"lancar/order-service/pkg/utils"
 	"lancar/order-service/internal/domain/queue"
 	"lancar/order-service/internal/featureflags"
+	"lancar/order-service/pkg/utils"
 	"log"
 	"time"
 
@@ -15,11 +15,11 @@ import (
 )
 
 type orderServiceImpl struct {
-	orderRepo   domain.OrderRepository
-	eventRepo   domain.OrderEventRepository
-	redisRepo   domain.RedisRepository
-	pricingRepo domain.PricingRepository
-	eventBus    domain.EventBus
+	orderRepo       domain.OrderRepository
+	eventRepo       domain.OrderEventRepository
+	redisRepo       domain.RedisRepository
+	pricingRepo     domain.PricingRepository
+	eventBus        domain.EventBus
 	taskQueue       queue.Queue
 	flagReader      featureflags.FlagReader
 	notificationSvc domain.NotificationService
@@ -197,13 +197,21 @@ func (s *orderServiceImpl) UpdateDimensions(ctx context.Context, id string, leng
 	}
 
 	l := order.Length
-	if length != nil { l = *length }
+	if length != nil {
+		l = *length
+	}
 	w := order.Width
-	if width != nil { w = *width }
+	if width != nil {
+		w = *width
+	}
 	h := order.Height
-	if height != nil { h = *height }
+	if height != nil {
+		h = *height
+	}
 	wt := order.Weight
-	if weight != nil { wt = *weight }
+	if weight != nil {
+		wt = *weight
+	}
 
 	return s.orderRepo.UpdateDimensions(ctx, id, l, w, h, wt)
 }
@@ -261,35 +269,6 @@ func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, cour
 	return nil
 }
 
-func (s *orderServiceImpl) StartMatching(ctx context.Context, orderID string) error {
-	err := s.orderRepo.UpdateStatus(ctx, orderID, domain.StatusSearching)
-	if err != nil {
-		return err
-	}
-
-	order, _ := s.orderRepo.GetByID(ctx, orderID)
-	if order != nil {
-		event := domain.OrderEvent{
-			OrderID:   order.ID,
-			UserID:    order.CustomerID,
-			Status:    domain.StatusSearching,
-			Message:   "Searching for nearby couriers",
-			CreatedAt: time.Now(),
-		}
-		s.eventRepo.SaveEvent(ctx, event)
-		s.eventBus.Publish(ctx, "order.updates", event)
-	}
-
-	go func() {
-		err := s.FindAndAssignCourier(context.Background(), orderID)
-		if err != nil {
-			fmt.Printf("Background matching error for order %s: %v\n", orderID, err)
-		}
-	}()
-
-	return nil
-}
-
 func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID string) error {
 	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err != nil {
@@ -302,7 +281,7 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 
 	// Cascading search radius: 3km, 5km, 10km
 	radii := []float64{3, 5, 10}
-	
+
 	for _, radius := range radii {
 		courierIDs, err := s.redisRepo.FindNearbyCouriers(ctx, order.PickupLat, order.PickupLng, radius)
 		if err != nil || len(courierIDs) == 0 {
@@ -337,7 +316,7 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 			// In a real reactive system, this would be an event-driven wait.
 			// For this MVP, we sleep and check if the order status has changed.
 			// Note: The actual acceptance happens via a separate endpoint/handler.
-			
+
 			time.Sleep(30 * time.Second)
 
 			// Re-fetch order to see if it's been assigned
@@ -346,7 +325,7 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 				// Order was accepted by someone!
 				return nil
 			}
-			
+
 			// If we reach here, the 30s expired without acceptance.
 			// The loop continues to the next batch.
 		}
@@ -357,10 +336,10 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 
 	// If no courier found after all radii and batches
 	s.notifyCustomerNoCourier(ctx, order)
-	
+
 	// Cancel order assignment if all declined/expired
 	s.orderRepo.UpdateStatus(ctx, order.ID, domain.StatusCancelled)
-	
+
 	return errors.New("no couriers accepted the order within the search window")
 }
 
@@ -374,7 +353,7 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 	for _, id := range courierIDs {
 		// Formula: score = (relay_score × 0.5) + (proximity_score × 0.3) + (acceptance_rate × 0.2)
 		// For now, using placeholders for relay_score and acceptance_rate
-		relayScore := 4.5    // Default
+		relayScore := 4.5     // Default
 		acceptanceRate := 0.9 // Default
 		proximityScore := 5.0 // Calculate based on distance if needed
 
@@ -388,7 +367,7 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 
 func (s *orderServiceImpl) notifyCourierOfNewOrder(ctx context.Context, courierID string, order *domain.Order) {
 	log.Printf("[OrderService] Notifying courier %s of new order %s", courierID, order.OrderNumber)
-	
+
 	payload := domain.NotificationRequest{
 		UserID:  courierID,
 		Title:   "New Order Available",
@@ -398,7 +377,7 @@ func (s *orderServiceImpl) notifyCourierOfNewOrder(ctx context.Context, courierI
 			"type":     "new_order",
 		},
 	}
-	
+
 	// 1. Send Push Notification
 	pushReq := payload
 	pushReq.Channel = domain.ChannelPush
@@ -416,7 +395,7 @@ func (s *orderServiceImpl) notifyCourierOfNewOrder(ctx context.Context, courierI
 
 func (s *orderServiceImpl) notifyCustomerNoCourier(ctx context.Context, order *domain.Order) {
 	log.Printf("[OrderService] Notifying customer %s that no courier was found for order %s", order.CustomerID, order.OrderNumber)
-	
+
 	req := domain.NotificationRequest{
 		UserID:  order.CustomerID,
 		Title:   "No Courier Found",
@@ -427,7 +406,7 @@ func (s *orderServiceImpl) notifyCustomerNoCourier(ctx context.Context, order *d
 			"type":     "no_courier",
 		},
 	}
-	
+
 	if err := s.notificationSvc.Send(ctx, req); err != nil {
 		log.Printf("Failed to send notification to customer %s: %v", order.CustomerID, err)
 	}
@@ -669,7 +648,7 @@ func (s *orderServiceImpl) AutoDetectScanType(ctx context.Context, orderID strin
 
 func (s *orderServiceImpl) StartMatching(ctx context.Context, orderID string) error {
 	log.Printf("[OrderService] Triggering automated matching for order: %s", orderID)
-	
+
 	// 1. Get current order state
 	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err != nil {
@@ -681,7 +660,7 @@ func (s *orderServiceImpl) StartMatching(ctx context.Context, orderID string) er
 
 	// 2. Validate state (should be pending_payment or similar after confirmation)
 	// Some enterprise flows might skip 'pending_payment' if it's already confirmed via webhook
-	
+
 	// 3. Update status to 'searching'
 	if err := s.orderRepo.UpdateStatus(ctx, orderID, domain.StatusSearching); err != nil {
 		return fmt.Errorf("failed to update status to searching: %w", err)

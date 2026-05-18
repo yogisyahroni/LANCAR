@@ -2,7 +2,9 @@ package com.lancar.customer.ui.screens.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.messaging.FirebaseMessaging
 import com.lancar.customer.data.repository.AuthRepository
+import com.lancar.customer.data.repository.NotificationRepository
 import com.lancar.customer.data.session.AuthSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +25,8 @@ sealed class AuthState {
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val sessionManager: AuthSessionManager
+    private val sessionManager: AuthSessionManager,
+    private val notificationRepository: NotificationRepository
 ) : ViewModel() {
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
@@ -80,6 +83,7 @@ class AuthViewModel @Inject constructor(
                         id = data.customerId,
                         name = data.name
                     )
+                    syncFcmToken()
                     _authState.value = AuthState.Success
                 } else {
                     _authState.value = AuthState.Error("Data autentikasi kosong")
@@ -92,5 +96,16 @@ class AuthViewModel @Inject constructor(
 
     fun resetState() {
         _authState.value = AuthState.Idle
+    }
+
+    private fun syncFcmToken() {
+        FirebaseMessaging.getInstance().token
+            .addOnSuccessListener { token ->
+                if (!token.isNullOrBlank()) {
+                    viewModelScope.launch {
+                        notificationRepository.registerDeviceToken(token)
+                    }
+                }
+            }
     }
 }

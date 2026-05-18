@@ -169,7 +169,7 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
                 }
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     RoleChip(order = order)
-                    OrderStatusChip(status = order.status)
+                    OrderStatusChip(order = order)
                 }
             }
 
@@ -303,7 +303,10 @@ private fun CompactInfo(
 }
 
 @Composable
-private fun OrderStatusChip(status: String) {
+private fun OrderStatusChip(order: Order) {
+    val status = order.status
+    val role = order.normalizedWorkflowRole()
+    val label = courierOrderStatusLabel(status, role)
     val (containerColor, contentColor) = when (status) {
         "pending" -> Warning.copy(alpha = 0.16f) to Warning
         "assigned" -> Info.copy(alpha = 0.14f) to Info
@@ -316,12 +319,41 @@ private fun OrderStatusChip(status: String) {
 
     AssistChip(
         onClick = { },
-        label = { Text(status.replace("_", " ").uppercase()) },
+        label = { Text(label) },
         colors = AssistChipDefaults.assistChipColors(
             containerColor = containerColor,
             labelColor = contentColor
         )
     )
+}
+
+private fun courierOrderStatusLabel(status: String, role: String): String {
+    return when (role) {
+        "on_demand" -> when (status) {
+            "pending" -> "TAWARAN"
+            "assigned" -> "SIAP PICKUP"
+            "picked_up" -> "SIAP ANTAR"
+            "in_transit" -> "MENGANTAR"
+            "delivered" -> "SELESAI"
+            "failed" -> "PERLU REVIEW"
+            else -> status.replace("_", " ").uppercase()
+        }
+        "pickup" -> when (status) {
+            "assigned" -> "TUGAS PICKUP"
+            "picked_up" -> "PICKUP SELESAI"
+            "delivered" -> "SELESAI"
+            "failed" -> "PERLU REVIEW"
+            else -> status.replace("_", " ").uppercase()
+        }
+        "delivery" -> when (status) {
+            "assigned" -> "TUGAS ANTAR"
+            "in_transit" -> "MENGANTAR"
+            "delivered" -> "POD SELESAI"
+            "failed" -> "PERLU REVIEW"
+            else -> status.replace("_", " ").uppercase()
+        }
+        else -> status.replace("_", " ").uppercase()
+    }
 }
 
 @Composable
