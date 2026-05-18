@@ -83,8 +83,8 @@ class AuthViewModel @Inject constructor(
                         id = data.customerId,
                         name = data.name
                     )
-                    syncFcmToken()
                     _authState.value = AuthState.Success
+                    syncFcmToken()
                 } else {
                     _authState.value = AuthState.Error("Data autentikasi kosong")
                 }
@@ -99,13 +99,17 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun syncFcmToken() {
-        FirebaseMessaging.getInstance().token
-            .addOnSuccessListener { token ->
-                if (!token.isNullOrBlank()) {
-                    viewModelScope.launch {
-                        notificationRepository.registerDeviceToken(token)
+        try {
+            FirebaseMessaging.getInstance().token
+                .addOnSuccessListener { token ->
+                    if (!token.isNullOrBlank()) {
+                        viewModelScope.launch {
+                            notificationRepository.registerDeviceToken(token)
+                        }
                     }
                 }
-            }
+        } catch (_: RuntimeException) {
+            // Firebase may be unavailable in JVM unit tests or early app bootstrap.
+        }
     }
 }

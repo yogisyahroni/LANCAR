@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.lancar.customer.data.model.AuthData
 import com.lancar.customer.data.model.AuthResponse
 import com.lancar.customer.data.repository.AuthRepository
+import com.lancar.customer.data.repository.NotificationRepository
 import com.lancar.customer.data.session.AuthSessionManager
 import io.mockk.*
 import io.mockk.impl.annotations.RelaxedMockK
@@ -28,6 +29,9 @@ class AuthViewModelTest {
     @RelaxedMockK
     private lateinit var sessionManager: AuthSessionManager
 
+    @RelaxedMockK
+    private lateinit var notificationRepository: NotificationRepository
+
     private lateinit var viewModel: AuthViewModel
 
     @Before
@@ -35,7 +39,7 @@ class AuthViewModelTest {
         MockKAnnotations.init(this)
         Dispatchers.setMain(testDispatcher)
         
-        viewModel = AuthViewModel(authRepository, sessionManager)
+        viewModel = AuthViewModel(authRepository, sessionManager, notificationRepository)
     }
 
     @After
