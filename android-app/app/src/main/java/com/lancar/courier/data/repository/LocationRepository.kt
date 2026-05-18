@@ -94,7 +94,8 @@ class LocationRepository @Inject constructor(
                     networkType = location.networkType,
                     isMock = location.isMock,
                     isRooted = location.isRooted,
-                    orderId = location.orderId
+                    orderId = location.orderId,
+                    clientLocationId = "${courierId}:${location.id}:${location.timestamp}"
                 )
             }
 

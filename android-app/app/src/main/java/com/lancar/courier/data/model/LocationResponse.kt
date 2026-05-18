@@ -12,5 +12,8 @@ import kotlinx.serialization.SerialName
 data class LocationResponse(
     val success: Boolean = true,
     val message: String? = null,
-    val syncedCount: Int = 0
+    val syncedCount: Int = 0,
+    val acceptedCount: Int = 0,
+    val rejectedCount: Int = 0,
+    val duplicateCount: Int = 0
 )

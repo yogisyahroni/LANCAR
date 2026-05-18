@@ -1,6 +1,7 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { db } from './db';
+import { recordRealtimeMetric, realtimeStructuredLog } from './services/realtimeObservability';
 
 let io: SocketIOServer;
 
@@ -43,6 +44,7 @@ export const initWebSocket = (server: HttpServer) => {
     }
 
     if (!token && !adminSessionToken) {
+      void recordRealtimeMetric('socket_auth_failed', { reason: 'token_missing' });
       return next(new Error('Authentication error: Token missing'));
     }
 
@@ -56,6 +58,7 @@ export const initWebSocket = (server: HttpServer) => {
       )
         .then((result) => {
           if (result.rows.length === 0) {
+            void recordRealtimeMetric('socket_auth_failed', { reason: 'invalid_admin_session' });
             return next(new Error('Authentication error: Invalid session'));
           }
           (socket as any).user = result.rows[0];
@@ -63,20 +66,63 @@ export const initWebSocket = (server: HttpServer) => {
         })
         .catch((err) => {
           console.error('WebSocket admin session verification failed', err);
+          void recordRealtimeMetric('socket_auth_failed', { reason: 'admin_session_lookup_error' });
           next(new Error('Internal server error'));
         });
       return;
     }
 
-    const secret = process.env.JWT_SECRET || 'your-secret-key';
-    import('jsonwebtoken').then(jwt => {
-      jwt.default.verify(token as string, secret, (err: any, decoded: any) => {
-        if (err) return next(new Error('Authentication error: Invalid token'));
-        
-        // Attach verified user info to socket
-        (socket as any).user = decoded;
-        next();
-      });
+    const jwtSecrets = Array.from(new Set([
+      process.env.JWT_SECRET,
+      'lancar_secret_key_change_me',
+      'your-secret-key',
+    ].filter(Boolean))) as string[];
+    import('jsonwebtoken').then(async jwt => {
+      let decodedPayload: any = null;
+      for (const secret of jwtSecrets) {
+        try {
+          decodedPayload = jwt.default.verify(token as string, secret);
+          break;
+        } catch {
+          decodedPayload = null;
+        }
+      }
+
+      if (!decodedPayload) {
+        try {
+          const sessionResult = await db.query(
+            `SELECT s.user_id AS id, u.role, u.full_name
+             FROM user_sessions s
+             JOIN users u ON s.user_id = u.id
+             WHERE s.refresh_token = $1
+               AND s.expires_at > NOW()
+               AND s.is_revoked = false
+             UNION ALL
+             SELECT s.user_id AS id, c.role, c.full_name
+             FROM customer_sessions s
+             JOIN customers c ON s.user_id = c.id
+             WHERE s.session_token = $1
+               AND s.expires_at > NOW()
+             LIMIT 1`,
+            [token]
+          );
+
+          if (sessionResult.rows.length === 0) {
+            void recordRealtimeMetric('socket_auth_failed', { reason: 'invalid_token' });
+            return next(new Error('Authentication error: Invalid token'));
+          }
+
+          decodedPayload = sessionResult.rows[0];
+        } catch (sessionError) {
+          console.error('WebSocket session token verification failed', sessionError);
+          void recordRealtimeMetric('socket_auth_failed', { reason: 'session_lookup_error' });
+          return next(new Error('Internal server error'));
+        }
+      }
+
+      // Attach verified user info to socket
+      (socket as any).user = decodedPayload;
+      next();
     }).catch(err => {
       console.error('Failed to load jsonwebtoken for websocket auth', err);
       next(new Error('Internal server error'));
@@ -92,9 +138,11 @@ export const initWebSocket = (server: HttpServer) => {
     
     if (userId) {
       socket.join(String(userId));
+      void recordRealtimeMetric('socket_connected', { role: role || 'unknown' });
       console.log(`[WebSocket] User ${userId} joined room. Socket: ${socket.id}`);
     } else {
       console.warn(`[WebSocket] Client connected without a valid User ID in token: ${socket.id}`);
+      void recordRealtimeMetric('socket_disconnected_invalid_user', { role: role || 'unknown' });
       socket.disconnect();
       return;
     }
@@ -115,7 +163,62 @@ export const initWebSocket = (server: HttpServer) => {
       console.log(`[Socket] User ${userId} left dispute room: ${dispute_id}`);
     });
 
+    socket.on('join_order_room', async ({ order_id, orderId }, ack) => {
+      const targetOrderId = order_id || orderId;
+      if (!targetOrderId) {
+        void recordRealtimeMetric('order_room_join_failed', { reason: 'missing_order_id', role: role || 'unknown' });
+        ack?.({ success: false, message: 'order_id is required' });
+        return;
+      }
+
+      try {
+        const access = await db.query(
+          `SELECT o.id
+           FROM orders o
+           LEFT JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
+           WHERE o.id = $1
+             AND (
+               o.customer_id = $2
+               OR ol.courier_id = $2
+               OR $3::text = ANY(ARRAY['admin', 'super_admin', 'ops'])
+             )
+           LIMIT 1`,
+          [targetOrderId, userId, role]
+        );
+
+        if (access.rows.length === 0) {
+          void recordRealtimeMetric('order_room_join_failed', { reason: 'access_denied', role: role || 'unknown' });
+          realtimeStructuredLog('warn', 'order_room_join_denied', {
+            order_id: targetOrderId,
+            user_id: userId,
+            role: role || null,
+          });
+          ack?.({ success: false, message: 'Order access denied' });
+          return;
+        }
+
+        const room = `order:${targetOrderId}`;
+        socket.join(room);
+        void recordRealtimeMetric('order_room_joined', { role: role || 'unknown' });
+        ack?.({ success: true, room });
+        console.log(`[Socket] User ${userId} joined order room: ${room}`);
+      } catch (error) {
+        console.error('[Socket] Failed to join order room', error);
+        void recordRealtimeMetric('order_room_join_failed', { reason: 'internal_error', role: role || 'unknown' });
+        ack?.({ success: false, message: 'Internal server error' });
+      }
+    });
+
+    socket.on('leave_order_room', ({ order_id, orderId }) => {
+      const targetOrderId = order_id || orderId;
+      if (!targetOrderId) return;
+      const room = `order:${targetOrderId}`;
+      socket.leave(room);
+      console.log(`[Socket] User ${userId} left order room: ${room}`);
+    });
+
     socket.on('disconnect', () => {
+      void recordRealtimeMetric('socket_disconnected', { role: role || 'unknown' });
       console.log(`[WebSocket] Client disconnected: ${socket.id}`);
     });
   });

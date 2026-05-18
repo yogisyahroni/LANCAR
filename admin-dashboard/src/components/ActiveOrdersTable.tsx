@@ -21,6 +21,13 @@ import { api } from '../lib/api'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 
+const uploadUrl = (path?: string | null) => {
+  if (!path) return ''
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '')
+  return `${apiBase}${path}`
+}
+
 export default function ActiveOrdersTable() {
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
@@ -434,17 +441,67 @@ export default function ActiveOrdersTable() {
                         </div>
 
                         <div className="p-8 rounded-[40px] bg-zinc-900 border border-white/5 space-y-6 shadow-inner">
-                          <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Evidence Vault</p>
-                          <div className="aspect-square rounded-[32px] bg-zinc-800 border border-white/10 flex items-center justify-center group overflow-hidden cursor-pointer relative">
-                            {orderDetail.delivery_photo ? (
-                              <img src={orderDetail.delivery_photo} className="w-full h-full object-cover" alt="Delivery Evidence" />
-                            ) : (
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Evidence Vault</p>
+                            <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-zinc-500">
+                              {orderDetail.proofs?.length || 0} proof
+                            </span>
+                          </div>
+                          {orderDetail.proofs?.length ? (
+                            <div className="space-y-4">
+                              {orderDetail.proofs.map((proof: any) => (
+                                <div key={proof.id} className="rounded-[28px] bg-white/[0.03] border border-white/10 p-4 space-y-3">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                      <p className="text-sm font-black text-zinc-100">{proof.proof_label || proof.scan_type}</p>
+                                      <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
+                                        {proof.proof_category || 'operational'} {proof.recorded_at ? `• ${format(new Date(proof.recorded_at), 'HH:mm')}` : ''}
+                                      </p>
+                                    </div>
+                                    {proof.reason_code && (
+                                      <span className="px-3 py-1 rounded-full bg-red-500/10 text-red-300 border border-red-500/20 text-[10px] font-black uppercase">
+                                        {proof.reason_code.replace(/_/g, ' ')}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {(proof.reason_note || proof.override_reason) && (
+                                    <p className="text-xs text-zinc-400 leading-relaxed">
+                                      {proof.reason_note || proof.override_reason}
+                                    </p>
+                                  )}
+                                  {proof.photo_url ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => window.open(uploadUrl(proof.photo_url), '_blank', 'noopener,noreferrer')}
+                                      className="w-full aspect-video rounded-2xl overflow-hidden border border-white/10 bg-zinc-800"
+                                    >
+                                      <img src={uploadUrl(proof.photo_url)} className="w-full h-full object-cover" alt={proof.proof_label || proof.scan_type} />
+                                    </button>
+                                  ) : (
+                                    <div className="rounded-2xl bg-zinc-800 border border-white/10 p-5 text-center">
+                                      <Package size={24} className="mx-auto text-zinc-700 mb-2" />
+                                      <span className="text-[10px] font-black text-zinc-700 uppercase tracking-[0.2em] block">No Photo</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="aspect-square rounded-[32px] bg-zinc-800 border border-white/10 flex items-center justify-center group overflow-hidden relative">
                               <div className="text-center space-y-2">
                                 <Package size={32} className="mx-auto text-zinc-700 group-hover:text-primary transition-colors" />
                                 <span className="text-[10px] font-black text-zinc-700 group-hover:text-zinc-500 transition-colors uppercase tracking-[0.2em] block">No Photo</span>
                               </div>
-                            )}
-                          </div>
+                            </div>
+                          )}
+                          {orderDetail.safety_events?.length ? (
+                            <div className="rounded-[28px] bg-red-500/5 border border-red-500/10 p-4 space-y-2">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-red-300">Operational Review</p>
+                              <p className="text-xs text-zinc-400">
+                                {orderDetail.safety_events[0].message || 'Ada event operasional terkait order ini.'}
+                              </p>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </div>

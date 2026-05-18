@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db, readDb } from '../db';
 import { redis } from '../redis';
 import { getIO } from '../websocket';
+import { getOnDemandExternalReadiness } from '../services/onDemandExternalReadiness';
 
 export const getThreeLegsReadiness = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -79,6 +80,13 @@ export const getLatestVersion = async (req: Request, res: Response): Promise<voi
   }
 };
 
+export const getOnDemandReadiness = async (req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(getOnDemandExternalReadiness());
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
 export const updateSystemConfig = async (req: Request, res: Response): Promise<void> => {
   const key = req.params.key as string;

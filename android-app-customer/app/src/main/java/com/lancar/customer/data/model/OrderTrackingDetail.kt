@@ -80,12 +80,20 @@ data class TrackingProof(
     val id: String,
     @SerialName("scan_type")
     val scanType: String? = null,
+    @SerialName("proof_label")
+    val proofLabel: String? = null,
+    @SerialName("proof_category")
+    val proofCategory: String? = null,
     @SerialName("photo_url")
     val photoUrl: String? = null,
     @SerialName("image_urls")
     val imageUrls: List<String>? = null,
     @SerialName("override_reason")
     val overrideReason: String? = null,
+    @SerialName("reason_code")
+    val reasonCode: String? = null,
+    @SerialName("reason_note")
+    val reasonNote: String? = null,
     @SerialName("latitude")
     val latitude: Double? = null,
     @SerialName("longitude")

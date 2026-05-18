@@ -7,6 +7,8 @@ import path from 'path';
 import { evaluateCourierPayoutRisk } from '../services/payoutRiskEngine';
 import { decoratePayoutRequest, payoutMobileMessage } from '../services/payoutStatusPolicy';
 import { evaluatePayoutAlerts, writePayoutAuditEvent } from '../utils/payoutObservability';
+import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../services/onDemandRealtime';
+import { evaluateOnDemandRealtimeAlerts } from '../services/realtimeObservability';
 
 type CourierLoginRow = {
   id: string;
@@ -433,7 +435,17 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          COALESCE(ol.status, o.status) AS status,
          (EXTRACT(EPOCH FROM o.created_at) * 1000)::bigint AS created_at,
          (EXTRACT(EPOCH FROM GREATEST(o.updated_at, ol.updated_at)) * 1000)::bigint AS updated_at,
-         o.recipient_phone_masked AS customer_phone
+         o.recipient_phone_masked AS customer_phone,
+         EXISTS (
+           SELECT 1 FROM package_scans ps
+           WHERE ps.order_id = o.id
+             AND ps.scan_type IN ('pickup_scan', 'pickup')
+         ) AS pickup_scan_verified,
+         EXISTS (
+           SELECT 1 FROM package_scans ps
+           WHERE ps.order_id = o.id
+             AND ps.scan_type IN ('pickup_photo')
+         ) AS pickup_photo_verified
        FROM order_legs ol
        JOIN orders o ON o.id = ol.order_id
        LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
@@ -507,7 +519,17 @@ const mobileOrderSelect = `
   COALESCE(ol.status, o.status) AS status,
   (EXTRACT(EPOCH FROM o.created_at) * 1000)::bigint AS created_at,
   (EXTRACT(EPOCH FROM GREATEST(o.updated_at, COALESCE(ol.updated_at, o.updated_at))) * 1000)::bigint AS updated_at,
-  o.recipient_phone_masked AS customer_phone
+  o.recipient_phone_masked AS customer_phone,
+  EXISTS (
+    SELECT 1 FROM package_scans ps
+    WHERE ps.order_id = o.id
+      AND ps.scan_type IN ('pickup_scan', 'pickup')
+  ) AS pickup_scan_verified,
+  EXISTS (
+    SELECT 1 FROM package_scans ps
+    WHERE ps.order_id = o.id
+      AND ps.scan_type IN ('pickup_photo')
+  ) AS pickup_photo_verified
 `;
 
 const normalizeMobileOrder = (order: any) => ({
@@ -807,7 +829,6 @@ export const getPublicTripShare = async (req: Request, res: Response) => {
        WHERE tst.token_hash = $1
          AND tst.revoked_at IS NULL
          AND tst.expires_at > NOW()
-         AND o.status NOT IN ('delivered', 'cancelled', 'failed')
        LIMIT 1`,
       [sha256(token)]
     );
@@ -1584,7 +1605,7 @@ const expireStaleOnDemandOffers = async (client: any): Promise<CreatedDispatchOf
   return createdOffers;
 };
 
-const dispatchNextOnDemandCourier = async (client: any, orderId: string): Promise<CreatedDispatchOffer | null> => {
+export const dispatchNextOnDemandCourier = async (client: any, orderId: string): Promise<CreatedDispatchOffer | null> => {
   const activeOffer = await client.query(
     `SELECT id
      FROM courier_offer_dispatches
@@ -1629,13 +1650,28 @@ const dispatchNextOnDemandCourier = async (client: any, orderId: string): Promis
          COALESCE(u.full_name, 'Customer') AS customer_name,
          COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR On Demand') AS service_name
        FROM orders o
-       LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
+       JOIN delivery_service_products dsp ON dsp.code = o.service_code
+        AND dsp.is_enabled = TRUE
+        AND dsp.service_category = 'on_demand'
        JOIN courier_profiles cp ON cp.application_channel = 'on_demand'
         AND cp.verification_status = 'approved'
         AND cp.is_online = TRUE
         AND cp.current_zone_id IS NOT NULL
         AND cp.current_location IS NOT NULL
         AND cp.last_location_at >= NOW() - INTERVAL '10 minutes'
+       JOIN courier_service_capabilities csc ON csc.courier_profile_id = cp.id
+        AND csc.service_code = o.service_code
+        AND csc.application_channel = 'on_demand'
+        AND csc.status = 'enabled'
+       JOIN courier_vehicles cv ON cv.id = csc.vehicle_id
+        AND cv.courier_profile_id = cp.id
+        AND cv.verification_status = 'approved'
+        AND (
+          COALESCE(array_length(dsp.vehicle_types, 1), 0) = 0
+          OR cv.vehicle_type = ANY(dsp.vehicle_types)
+          OR (cv.vehicle_type = 'motor' AND 'bike' = ANY(dsp.vehicle_types))
+          OR (cv.vehicle_type = 'car' AND 'mobil' = ANY(dsp.vehicle_types))
+        )
        JOIN zones z ON z.id = cp.current_zone_id
         AND z.is_active = TRUE
         AND ST_Covers(z.polygon, o.pickup_location)
@@ -1755,7 +1791,7 @@ const dispatchNextOnDemandCourier = async (client: any, orderId: string): Promis
   };
 };
 
-const advanceOnDemandDispatchQueue = async (client: any, limit = 25): Promise<CreatedDispatchOffer[]> => {
+export const advanceOnDemandDispatchQueue = async (client: any, limit = 25): Promise<CreatedDispatchOffer[]> => {
   const createdOffers = await expireStaleOnDemandOffers(client);
 
   const orders = await client.query(
@@ -1783,9 +1819,26 @@ const advanceOnDemandDispatchQueue = async (client: any, limit = 25): Promise<Cr
   return createdOffers;
 };
 
-const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
+export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
   for (const offer of offers) {
     try {
+      emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.OFFER_CREATED, {
+        order_id: offer.order_id,
+        courier_user_id: offer.courier_id,
+        status: 'offered',
+        stage: 'offer_created',
+        metadata: {
+          dispatch_id: offer.dispatch_id,
+          pickup_address: offer.pickup_address || '',
+          distance: offer.distance || '',
+          fee: offer.fee || '',
+          customer_name: offer.customer_name || '',
+          service_name: offer.service_name || 'LANCAR On Demand',
+          expires_at: offer.expires_at,
+          offer_ttl_seconds: ON_DEMAND_OFFER_TTL_SECONDS,
+        },
+      });
+
       await createNotification({
         user_id: offer.courier_id,
         title: 'Pekerjaan On Demand Baru',
@@ -1889,7 +1942,10 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
          o.total_price_idr,
          o.courier_payout_estimate_idr,
          o.platform_commission_idr,
-         o.pickup_location
+         o.pickup_location,
+         o.service_code,
+         o.customer_id,
+         o.order_number
        FROM courier_offer_dispatches d
        JOIN orders o ON o.id = d.order_id
        WHERE (d.id = $1 OR d.order_id = $1)
@@ -1922,13 +1978,17 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       `SELECT cp.id, cp.current_zone_id, z.name AS zone_name
        FROM courier_profiles cp
        JOIN zones z ON z.id = cp.current_zone_id AND z.is_active = TRUE
+       JOIN courier_service_capabilities csc ON csc.courier_profile_id = cp.id
+        AND csc.service_code = $3
+        AND csc.application_channel = 'on_demand'
+        AND csc.status = 'enabled'
        WHERE cp.user_id = $1
          AND cp.application_channel = 'on_demand'
          AND cp.verification_status = 'approved'
          AND cp.is_online = TRUE
          AND cp.current_zone_id = $2
        LIMIT 1`,
-      [req.user.id, dispatch.zone_id]
+      [req.user.id, dispatch.zone_id, dispatch.service_code]
     );
 
     if (courierEligibility.rows.length === 0) {
@@ -2048,6 +2108,51 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
     );
 
     await client.query('COMMIT');
+    emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.OFFER_ACCEPTED, {
+      order_id: dispatch.order_id,
+      order_number: dispatch.order_number || null,
+      customer_id: dispatch.customer_id,
+      courier_user_id: req.user.id,
+      status: 'accepted',
+      stage: 'courier_otw_pickup',
+      metadata: {
+        dispatch_id: dispatch.dispatch_id,
+        service_code: dispatch.service_code,
+        courier_payout_estimate_idr: dispatch.courier_payout_estimate_idr,
+      },
+    });
+    emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.COURIER_OTW_PICKUP, {
+      order_id: dispatch.order_id,
+      order_number: dispatch.order_number || null,
+      customer_id: dispatch.customer_id,
+      courier_user_id: req.user.id,
+      status: 'accepted',
+      stage: 'courier_otw_pickup',
+      metadata: {
+        dispatch_id: dispatch.dispatch_id,
+        service_code: dispatch.service_code,
+      },
+    });
+    if (dispatch.customer_id) {
+      try {
+        await createNotification({
+          user_id: dispatch.customer_id,
+          title: 'Kurir sudah menerima order',
+          body: 'Kurir sedang menuju titik pickup. Lokasi dapat dipantau dari detail order.',
+          type: 'courier_assigned',
+          order_id: dispatch.order_id,
+          deep_link: `/orders/${dispatch.order_id}`,
+          metadata: {
+            order_number: dispatch.order_number || '',
+            courier_id: req.user.id,
+            dispatch_id: dispatch.dispatch_id,
+          },
+        });
+      } catch (notificationError) {
+        console.warn('Failed to notify customer about accepted offer:', notificationError);
+      }
+    }
+    void evaluateOnDemandRealtimeAlerts(db);
     res.json({ success: true, data: normalizeMobileOrder(accepted.rows[0]), message: 'Offer accepted' });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -2121,6 +2226,81 @@ const ON_DEMAND_MAX_ACCURACY_M = Number(process.env.ON_DEMAND_MAX_ACCURACY_M || 
 const parseCoordinate = (value: unknown): number | null => {
   const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const creditCourierDeliveryEarning = async (client: any, orderId: string, courierId: string) => {
+  await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`courier-earning:${orderId}`]);
+  const result = await client.query(
+    `INSERT INTO courier_earnings_ledger (
+       courier_id,
+       order_id,
+       source,
+       direction,
+       amount_idr,
+       settlement_status,
+       transaction_type,
+       description,
+       metadata
+     )
+     SELECT
+       $2,
+       o.id,
+       'delivery',
+       'credit',
+       COALESCE(
+         NULLIF(ol.assigned_fee_idr, 0),
+         NULLIF(o.courier_payout_estimate_idr, 0),
+         GREATEST(o.total_price_idr - o.platform_commission_idr, 0),
+         0
+       )::int,
+       'available',
+       'earning_credit',
+       'Pendapatan pengiriman on-demand',
+       jsonb_build_object(
+         'source', 'on_demand_pod_verified',
+         'order_number', o.order_number,
+         'service_code', o.service_code,
+         'credited_at', NOW()
+       )
+     FROM orders o
+     JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
+     WHERE o.id = $1
+       AND ol.courier_id = $2
+       AND COALESCE(
+         NULLIF(ol.assigned_fee_idr, 0),
+         NULLIF(o.courier_payout_estimate_idr, 0),
+         GREATEST(o.total_price_idr - o.platform_commission_idr, 0),
+         0
+       ) > 0
+       AND NOT EXISTS (
+         SELECT 1
+         FROM courier_earnings_ledger cel
+         WHERE cel.order_id = o.id
+           AND cel.courier_id = $2
+           AND cel.source = 'delivery'
+           AND cel.direction = 'credit'
+           AND COALESCE(cel.transaction_type, 'earning_credit') = 'earning_credit'
+       )
+     RETURNING id, amount_idr`,
+    [orderId, courierId]
+  );
+
+  if (result.rows[0]) return result.rows[0];
+
+  const existing = await client.query(
+    `SELECT id, amount_idr
+     FROM courier_earnings_ledger
+     WHERE order_id = $1
+       AND courier_id = $2
+       AND source = 'delivery'
+       AND direction = 'credit'
+       AND COALESCE(transaction_type, 'earning_credit') = 'earning_credit'
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [orderId, courierId]
+  );
+
+  return existing.rows[0] || null;
 };
 
 const verifyOnDemandStep = async ({
@@ -2221,6 +2401,8 @@ const verifyOnDemandStep = async ({
     const orderRes = await client.query(
       `SELECT
          o.id,
+         o.customer_id,
+         o.order_number,
          o.status,
          o.model,
          ol.id AS leg_id,
@@ -2288,7 +2470,33 @@ const verifyOnDemandStep = async ({
       return;
     }
 
-    const scanType = step === 'pickup' ? 'pickup' : 'pod';
+    if (step === 'pickup' && !barcodeValue && !photoUrl) {
+      await client.query('ROLLBACK');
+      await writeRejectedProofAttempt('pickup_evidence_required', distanceM);
+      res.status(400).json({
+        success: false,
+        data: null,
+        message: 'Scan/input kode atau foto barang wajib dikirim untuk verifikasi pickup.',
+        code: 'ERR_PICKUP_EVIDENCE_REQUIRED',
+      });
+      return;
+    }
+
+    if (step === 'delivery' && !photoUrl) {
+      await client.query('ROLLBACK');
+      await writeRejectedProofAttempt('pod_photo_required', distanceM);
+      res.status(400).json({
+        success: false,
+        data: null,
+        message: 'Foto POD wajib dikirim untuk menyelesaikan pengiriman.',
+        code: 'ERR_POD_PHOTO_REQUIRED',
+      });
+      return;
+    }
+
+    const scanType = step === 'pickup'
+      ? (photoUrl ? 'pickup_photo' : 'pickup_scan')
+      : 'pod';
     const scanRes = await client.query(
       `INSERT INTO package_scans (
          order_id,
@@ -2329,26 +2537,62 @@ const verifyOnDemandStep = async ({
       ]
     );
 
-    const nextStatus = step === 'pickup' ? 'in_transit' : 'delivered';
-    await client.query(
-      `UPDATE orders
-       SET status = $2,
-           picked_up_at = CASE WHEN $2 = 'in_transit' THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
-           delivered_at = CASE WHEN $2 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
-           updated_at = NOW()
-       WHERE id = $1`,
-      [orderId, nextStatus]
-    );
+    const pickupProofRes = step === 'pickup'
+      ? await client.query(
+          `SELECT
+             EXISTS (
+               SELECT 1 FROM package_scans
+               WHERE order_id = $1
+                 AND scan_type IN ('pickup_scan', 'pickup')
+             ) AS has_scan,
+             EXISTS (
+               SELECT 1 FROM package_scans
+               WHERE order_id = $1
+                 AND scan_type = 'pickup_photo'
+             ) AS has_photo`,
+          [orderId]
+        )
+      : null;
 
-    await client.query(
-      `UPDATE order_legs
-       SET status = $2,
-           started_at = CASE WHEN $2 = 'in_transit' THEN COALESCE(started_at, NOW()) ELSE started_at END,
-           completed_at = CASE WHEN $2 = 'delivered' THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
-           updated_at = NOW()
-       WHERE id = $1`,
-      [order.leg_id, nextStatus]
-    );
+    const pickupScanVerified = Boolean(pickupProofRes?.rows[0]?.has_scan);
+    const pickupPhotoVerified = Boolean(pickupProofRes?.rows[0]?.has_photo);
+    const pickupComplete = step === 'pickup' && pickupScanVerified && pickupPhotoVerified;
+    const nextStatus = step === 'delivery' ? 'delivered' : (pickupComplete ? 'in_transit' : currentStatus);
+
+    if (step === 'delivery' || pickupComplete) {
+      await client.query(
+        `UPDATE orders
+         SET status = $2,
+             picked_up_at = CASE WHEN $2 = 'in_transit' THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
+             delivered_at = CASE WHEN $2 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [orderId, nextStatus]
+      );
+
+      await client.query(
+        `UPDATE order_legs
+         SET status = $2,
+             started_at = CASE WHEN $2 = 'in_transit' THEN COALESCE(started_at, NOW()) ELSE started_at END,
+             completed_at = CASE WHEN $2 = 'delivered' THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+             updated_at = NOW()
+         WHERE id = $1`,
+        [order.leg_id, nextStatus]
+      );
+    }
+
+    const earningCredit = step === 'delivery'
+      ? await creditCourierDeliveryEarning(client, orderId, req.user.id)
+      : null;
+
+    const eventType = step === 'delivery'
+      ? 'pod_verified'
+      : (pickupComplete ? 'pickup_verified' : (photoUrl ? 'pickup_photo_uploaded' : 'pickup_scan_verified'));
+    const eventDescription = step === 'delivery'
+      ? 'Courier verified on-demand delivery POD at geofence'
+      : (pickupComplete
+          ? 'Courier completed on-demand pickup evidence at geofence'
+          : (photoUrl ? 'Courier uploaded on-demand pickup photo at geofence' : 'Courier verified on-demand pickup scan at geofence'));
 
     await client.query(
       `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
@@ -2356,15 +2600,114 @@ const verifyOnDemandStep = async ({
       [
         orderId,
         req.user.id,
-        step === 'pickup' ? 'pickup_verified' : 'pod_verified',
-        step === 'pickup' ? 'Courier verified on-demand pickup at geofence' : 'Courier verified on-demand delivery POD at geofence',
-        JSON.stringify({ distance_m: distanceM, accuracy_m: accuracy, barcode_value: barcodeValue || null, photo_url: photoUrl || null, spoof_risk: spoofRisk || 'normal' }),
+        eventType,
+        eventDescription,
+        JSON.stringify({
+          distance_m: distanceM,
+          accuracy_m: accuracy,
+          barcode_value: barcodeValue || null,
+          photo_url: photoUrl || null,
+          spoof_risk: spoofRisk || 'normal',
+          pickup_scan_verified: pickupScanVerified,
+          pickup_photo_verified: pickupPhotoVerified,
+          pickup_complete: pickupComplete,
+          earning_ledger_id: earningCredit?.id || null,
+          earning_amount_idr: earningCredit?.amount_idr || null,
+        }),
       ]
     );
+
+    if (pickupComplete) {
+      await client.query(
+        `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+         VALUES ($1, $2, 'delivery_started', 'Courier started on-demand delivery after pickup evidence completed', $3)`,
+        [
+          orderId,
+          req.user.id,
+          JSON.stringify({
+            distance_m: distanceM,
+            accuracy_m: accuracy,
+            pickup_scan_verified: pickupScanVerified,
+            pickup_photo_verified: pickupPhotoVerified,
+            source: 'courier_app',
+          }),
+        ]
+      );
+    }
 
     await writeProofAttempt(client, 'accepted', null, distanceM);
 
     await client.query('COMMIT');
+    const realtimeEvent = step === 'delivery'
+      ? ON_DEMAND_REALTIME_EVENTS.POD_COMPLETED
+      : (pickupComplete ? ON_DEMAND_REALTIME_EVENTS.PICKUP_VERIFIED : (photoUrl ? ON_DEMAND_REALTIME_EVENTS.PICKUP_VERIFIED : ON_DEMAND_REALTIME_EVENTS.PICKUP_VERIFIED));
+    emitOnDemandRealtime(realtimeEvent, {
+      order_id: orderId,
+      order_number: order.order_number || null,
+      customer_id: order.customer_id,
+      courier_user_id: req.user.id,
+      status: nextStatus,
+      stage: step === 'delivery' ? 'pod_completed' : (pickupComplete ? 'delivery_started' : 'pickup_validation'),
+      location: {
+        latitude,
+        longitude,
+        accuracy: accuracy || undefined,
+        timestamp: new Date().toISOString(),
+      },
+      proof: {
+        scan_id: scanRes.rows[0]?.id,
+        scan_type: scanType,
+        photo_url: photoUrl || null,
+        barcode_value: barcodeValue || null,
+        pickup_scan_verified: pickupScanVerified,
+        pickup_photo_verified: pickupPhotoVerified,
+        pickup_complete: pickupComplete,
+      },
+      metadata: {
+        earning_ledger_id: earningCredit?.id || null,
+        earning_amount_idr: earningCredit?.amount_idr || null,
+      },
+    });
+    if (pickupComplete) {
+      emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.DELIVERY_STARTED, {
+        order_id: orderId,
+        order_number: order.order_number || null,
+        customer_id: order.customer_id,
+        courier_user_id: req.user.id,
+        status: nextStatus,
+        stage: 'delivery_started',
+        metadata: {
+          pickup_scan_verified: pickupScanVerified,
+          pickup_photo_verified: pickupPhotoVerified,
+        },
+      });
+    }
+
+    if (order.customer_id && (step === 'delivery' || pickupComplete)) {
+      try {
+        await createNotification({
+          user_id: order.customer_id,
+          title: step === 'delivery' ? 'Paket sudah diterima' : 'Barang sudah diambil',
+          body: step === 'delivery'
+            ? 'Pengiriman selesai. Bukti serah terima sudah tersedia di detail order.'
+            : 'Kurir sudah mengambil barang dan sedang menuju lokasi tujuan.',
+          type: step === 'delivery' ? 'delivery_completed' : 'delivery_started',
+          order_id: orderId,
+          deep_link: `/orders/${orderId}`,
+          metadata: {
+            order_number: order.order_number || '',
+            status: nextStatus,
+            pickup_scan_verified: pickupScanVerified,
+            pickup_photo_verified: pickupPhotoVerified,
+            earning_ledger_id: earningCredit?.id || null,
+            earning_amount_idr: earningCredit?.amount_idr || null,
+          },
+        });
+      } catch (notificationError) {
+        console.warn('Failed to notify customer about on-demand step:', notificationError);
+      }
+    }
+
     res.json({
       success: true,
       data: {
@@ -2373,9 +2716,18 @@ const verifyOnDemandStep = async ({
         status: nextStatus,
         scan_type: scanType,
         distance_m: distanceM,
+        pickup_scan_verified: pickupScanVerified,
+        pickup_photo_verified: pickupPhotoVerified,
+        pickup_complete: pickupComplete,
+        earning_ledger_id: earningCredit?.id || null,
+        earning_amount_idr: earningCredit?.amount_idr || null,
         recorded_at: scanRes.rows[0]?.recorded_at || new Date().toISOString(),
       },
-      message: step === 'pickup' ? 'Pickup berhasil diverifikasi.' : 'Pengiriman berhasil diselesaikan.',
+      message: step === 'delivery'
+        ? 'Pengiriman berhasil diselesaikan.'
+        : (pickupComplete
+            ? 'Pickup lengkap. Pengantaran bisa dimulai.'
+            : (photoUrl ? 'Foto barang tersimpan. Scan/input kode paket masih wajib.' : 'Scan/input kode tersimpan. Foto barang pickup masih wajib.')),
     });
   } catch (error) {
     await client.query('ROLLBACK');
@@ -2492,6 +2844,8 @@ export const cancelMobileCourierOnDemandPickup = async (req: Request, res: Respo
     const orderRes = await client.query(
       `SELECT
          o.id,
+         o.customer_id,
+         o.order_number,
          o.status,
          o.model,
          ol.id AS leg_id,
@@ -2531,7 +2885,7 @@ export const cancelMobileCourierOnDemandPickup = async (req: Request, res: Respo
       `SELECT id
        FROM package_scans
        WHERE order_id = $1
-         AND scan_type IN ('pickup', 'pickup_photo')
+         AND scan_type IN ('pickup', 'pickup_scan', 'pickup_photo')
        LIMIT 1`,
       [orderId]
     );
@@ -2653,11 +3007,52 @@ export const cancelMobileCourierOnDemandPickup = async (req: Request, res: Respo
       metadata: {
         courier_id: req.user.id,
         reason_code: reasonCode,
+        reason_note: reasonNote,
         photo_url: photoUrl,
       },
     });
 
     await client.query('COMMIT');
+    emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.PICKUP_CANCELLED, {
+      order_id: orderId,
+      order_number: order.order_number || null,
+      customer_id: order.customer_id,
+      courier_user_id: req.user.id,
+      status: 'cancelled',
+      stage: 'pickup_cancelled',
+      location: latitude != null && longitude != null ? {
+        latitude,
+        longitude,
+        accuracy: accuracy || undefined,
+        timestamp: new Date().toISOString(),
+      } : null,
+      proof: {
+        proof_type: 'pickup_cancellation',
+        reason_code: reasonCode,
+        reason_note: reasonNote,
+        photo_url: photoUrl,
+      },
+    });
+    if (order.customer_id) {
+      try {
+        await createNotification({
+          user_id: order.customer_id,
+          title: 'Pickup belum bisa dilanjutkan',
+          body: 'Kurir mengirim alasan dan bukti pembatalan pickup. Tim operasional akan membantu pengecekan.',
+          type: 'pickup_cancelled',
+          order_id: orderId,
+          deep_link: `/orders/${orderId}`,
+          metadata: {
+            order_number: order.order_number || '',
+            reason_code: reasonCode,
+            reason_note: reasonNote,
+            photo_url: photoUrl,
+          },
+        });
+      } catch (notificationError) {
+        console.warn('Failed to notify customer about pickup cancellation:', notificationError);
+      }
+    }
     res.json({
       success: true,
       data: {

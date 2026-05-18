@@ -1,6 +1,7 @@
 import { db } from './db';
 import { getIO } from './websocket';
 import * as admin from 'firebase-admin';
+import { recordPushDelivery, recordRealtimeMetric } from './services/realtimeObservability';
 
 // Initialize Firebase Admin SDK
 const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -78,8 +79,10 @@ export const createNotification = async (payload: NotificationPayload) => {
     try {
       const io = getIO();
       io.to(user_id).emit('new_notification', notification);
+      void recordRealtimeMetric('notification_socket_emitted', { type, has_order: Boolean(order_id) });
       console.log(`[WebSocket] Notification emitted to user ${user_id}`);
     } catch (wsError) {
+      void recordRealtimeMetric('notification_socket_failed', { type, has_order: Boolean(order_id) });
       console.warn('[WebSocket] Could not emit notification via WebSocket');
     }
 
@@ -122,6 +125,14 @@ export const createNotification = async (payload: NotificationPayload) => {
           };
 
           const fcmResponse = await admin.messaging().sendEachForMulticast(message);
+          recordPushDelivery({
+            user_id,
+            type,
+            order_id,
+            device_count: tokens.length,
+            success_count: fcmResponse.successCount,
+            failure_count: fcmResponse.failureCount,
+          });
           console.log(`[FCM] Sent to ${fcmResponse.successCount} devices for user ${user_id}. Failures: ${fcmResponse.failureCount}`);
           
           // Cleanup invalid tokens
@@ -141,10 +152,39 @@ export const createNotification = async (payload: NotificationPayload) => {
               console.log(`[FCM] Cleaned up ${invalidTokens.length} invalid tokens`);
             }
           }
+        } else {
+          recordPushDelivery({
+            user_id,
+            type,
+            order_id,
+            device_count: 0,
+            success_count: 0,
+            failure_count: 0,
+            skipped_reason: 'no_registered_devices',
+          });
         }
       } catch (fcmError) {
+        recordPushDelivery({
+          user_id,
+          type,
+          order_id,
+          device_count: 0,
+          success_count: 0,
+          failure_count: 1,
+          skipped_reason: 'fcm_exception',
+        });
         console.error('[FCM] Error sending push notification:', fcmError);
       }
+    } else {
+      recordPushDelivery({
+        user_id,
+        type,
+        order_id,
+        device_count: 0,
+        success_count: 0,
+        failure_count: 0,
+        skipped_reason: 'firebase_not_initialized',
+      });
     }
 
     return notification;

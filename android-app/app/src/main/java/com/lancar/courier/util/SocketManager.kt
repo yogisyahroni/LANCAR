@@ -32,9 +32,13 @@ class SocketManager @Inject constructor(
     private val _incomingMessages = MutableSharedFlow<ChatMessage>(replay = 0)
     val incomingMessages: SharedFlow<ChatMessage> = _incomingMessages.asSharedFlow()
 
+    private val _orderUpdates = MutableSharedFlow<String>(replay = 0)
+    val orderUpdates: SharedFlow<String> = _orderUpdates.asSharedFlow()
+
     companion object {
         private const val TAG = "SocketManager"
         private const val EVENT_NEW_MESSAGE = "new_chat_message"
+        private const val EVENT_ORDER_TRACKING_UPDATED = "order_tracking_updated"
     }
 
     @Synchronized
@@ -69,7 +73,7 @@ class SocketManager @Inject constructor(
             opts.callFactory = okHttpClient
             opts.webSocketFactory = okHttpClient
 
-            val socketUrl = BuildConfig.BASE_URL
+            val socketUrl = socketServerUrl()
             Log.d(TAG, "Initializing Socket.IO connection to: $socketUrl (Courier: $courierId)")
             mSocket = IO.socket(socketUrl, opts)
 
@@ -113,7 +117,31 @@ class SocketManager @Inject constructor(
                 Log.e(TAG, "Failed to parse incoming websocket ChatMessage", e)
             }
         }
+
+        socket.on(EVENT_ORDER_TRACKING_UPDATED) { args ->
+            val data = args.getOrNull(0) as? JSONObject ?: return@on
+            val orderId = data.optString("order_id", data.optString("orderId", ""))
+            if (orderId.isNotBlank()) {
+                scope.launch { _orderUpdates.emit(orderId) }
+            }
+        }
     }
+
+    fun joinOrderRoom(orderId: String) {
+        if (orderId.isBlank()) return
+        connect()
+        mSocket?.emit("join_order_room", JSONObject().put("order_id", orderId))
+    }
+
+    fun leaveOrderRoom(orderId: String) {
+        if (orderId.isBlank()) return
+        mSocket?.emit("leave_order_room", JSONObject().put("order_id", orderId))
+    }
+
+    private fun socketServerUrl(): String =
+        BuildConfig.BASE_URL
+            .substringBefore("/api/v1")
+            .trimEnd('/')
 
     @Synchronized
     fun disconnect() {

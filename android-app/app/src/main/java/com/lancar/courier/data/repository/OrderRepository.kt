@@ -82,11 +82,13 @@ class OrderRepository @Inject constructor(
         }
         orderDao.update(
             order.copy(
-                needsScanSync = true,
+                needsScanSync = scanType != "pickup_photo",
                 scanLatitude = latitude,
                 scanLongitude = longitude,
                 scanType = scanType,
                 status = nextStatus,
+                pickupScanVerified = order.pickupScanVerified || scanType == "pickup" || scanType == "pickup_scan",
+                pickupPhotoVerified = order.pickupPhotoVerified || scanType == "pickup_photo",
                 updatedAt = System.currentTimeMillis()
             )
         )

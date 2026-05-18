@@ -4,10 +4,10 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:8080'
 
 let socket: Socket | null = null;
 
-export const getSocket = (userId?: string) => {
+export const getSocket = (userId?: string, role: string = 'customer') => {
   if (socket && userId) {
     const currentQuery = socket.io.opts.query as any;
-    if (currentQuery?.userId !== userId) {
+    if (currentQuery?.userId !== userId || currentQuery?.role !== role) {
       console.log('📡 [WebSocket] Identity changed, reconnecting...');
       socket.disconnect();
       socket = null;
@@ -16,7 +16,7 @@ export const getSocket = (userId?: string) => {
 
   if (!socket && userId) {
     socket = io(SOCKET_URL, {
-      query: { userId },
+      query: { userId, role },
       withCredentials: true,
       transports: ['websocket', 'polling'],
     });
@@ -34,6 +34,18 @@ export const getSocket = (userId?: string) => {
     });
   }
   return socket;
+};
+
+export const joinOrderRoom = (orderId?: string) => {
+  if (socket && orderId) {
+    socket.emit('join_order_room', { order_id: orderId });
+  }
+};
+
+export const leaveOrderRoom = (orderId?: string) => {
+  if (socket && orderId) {
+    socket.emit('leave_order_room', { order_id: orderId });
+  }
 };
 
 export const disconnectSocket = () => {

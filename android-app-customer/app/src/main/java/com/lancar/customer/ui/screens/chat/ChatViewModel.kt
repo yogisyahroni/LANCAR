@@ -50,6 +50,7 @@ class ChatViewModel @Inject constructor(
         
         // 2. Establish active Socket.IO connection
         socketManager.connect()
+        socketManager.joinOrderRoom(orderId)
         
         // 3. Begin listening to incoming real-time events
         observeSocketMessages()
@@ -76,6 +77,9 @@ class ChatViewModel @Inject constructor(
     private fun observeSocketMessages() {
         viewModelScope.launch {
             socketManager.incomingMessages.collect { newMessage ->
+                if (newMessage.orderId != null && newMessage.orderId != orderId) {
+                    return@collect
+                }
                 // Only append message if it is not already present and is for the current session
                 _uiState.update { currentState ->
                     val isDuplicate = currentState.messages.any { it.id == newMessage.id && it.id != null }
@@ -112,6 +116,7 @@ class ChatViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        socketManager.leaveOrderRoom(orderId)
         // Keep socket connected in background or disconnect based on app policy.
         // For granular memory handling, disconnect socket when leaving the active screen.
         socketManager.disconnect()

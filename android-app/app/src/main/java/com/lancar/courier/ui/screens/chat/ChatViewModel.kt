@@ -43,7 +43,9 @@ class ChatViewModel @Inject constructor(
      * Ingest messages from active job conversation stream.
      */
     fun loadChatHistory(orderId: String) {
+        currentOrderId?.let { socketManager.leaveOrderRoom(it) }
         currentOrderId = orderId
+        socketManager.joinOrderRoom(orderId)
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
@@ -107,6 +109,7 @@ class ChatViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        currentOrderId?.let { socketManager.leaveOrderRoom(it) }
         // Clean up runtime sockets when exiting Chat scope to save battery bandwidth
         socketManager.disconnect()
     }

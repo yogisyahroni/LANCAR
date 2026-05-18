@@ -281,14 +281,17 @@ fun MainScreen(
                 showPodScreen = false
                 if (activeProofMode == "pickup") {
                     pickupPhotoVerifiedOrderIds = pickupPhotoVerifiedOrderIds + order.orderId
-                    val hasPickupScan = pickupScanVerifiedOrderIds.contains(order.orderId) || order.scanType == "pickup"
+                    val hasPickupScan = pickupScanVerifiedOrderIds.contains(order.orderId) ||
+                        order.pickupScanVerified ||
+                        order.scanType == "pickup" ||
+                        order.scanType == "pickup_scan"
                     if (hasPickupScan) {
-                        orderViewModel.updateOrderStatusAndSync(order.orderId, "picked_up")
-                        selectedOrder = order.copy(status = "picked_up")
+                        selectedOrder = order.copy(status = "in_transit", pickupPhotoVerified = true)
+                        orderViewModel.fetchOrdersFromBackend()
                         snackbarHostState.currentSnackbarData?.dismiss()
                         scope.launch { snackbarHostState.showSnackbar("Pickup lengkap. Mulai pengantaran.") }
                     } else {
-                        selectedOrder = order
+                        selectedOrder = order.copy(pickupPhotoVerified = true)
                         snackbarHostState.currentSnackbarData?.dismiss()
                         scope.launch { snackbarHostState.showSnackbar("Foto barang tersimpan. Scan barcode/kode paket masih wajib.") }
                     }
@@ -316,8 +319,11 @@ fun MainScreen(
         OrderDetailScreen(
             order = order,
             routePreview = routePreviews[order.orderId],
-            pickupScanVerified = pickupScanVerifiedOrderIds.contains(order.orderId) || order.scanType == "pickup",
-            pickupPhotoVerified = pickupPhotoVerifiedOrderIds.contains(order.orderId),
+            pickupScanVerified = pickupScanVerifiedOrderIds.contains(order.orderId) ||
+                order.pickupScanVerified ||
+                order.scanType == "pickup" ||
+                order.scanType == "pickup_scan",
+            pickupPhotoVerified = pickupPhotoVerifiedOrderIds.contains(order.orderId) || order.pickupPhotoVerified,
             onBack = {
                 showOrderDetail = false
                 selectedOrder = null
@@ -405,13 +411,13 @@ fun MainScreen(
                     if (order != null) {
                         if (activeScanType == "pickup") {
                             pickupScanVerifiedOrderIds = pickupScanVerifiedOrderIds + orderId
-                            val hasPickupPhoto = pickupPhotoVerifiedOrderIds.contains(orderId)
+                            val hasPickupPhoto = pickupPhotoVerifiedOrderIds.contains(orderId) || order.pickupPhotoVerified
                             if (hasPickupPhoto) {
-                                orderViewModel.updateOrderStatusAndSync(orderId, "picked_up")
-                                selectedOrder = order.copy(status = "picked_up")
+                                selectedOrder = order.copy(status = "in_transit", pickupScanVerified = true)
+                                orderViewModel.fetchOrdersFromBackend()
                                 snackbarHostState.showSnackbar("Pickup lengkap. Mulai pengantaran.")
                             } else {
-                                selectedOrder = order
+                                selectedOrder = order.copy(pickupScanVerified = true)
                                 snackbarHostState.showSnackbar("Scan berhasil. Lanjutkan foto barang untuk mulai pengantaran.")
                             }
                         } else {

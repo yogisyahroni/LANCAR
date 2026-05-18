@@ -7,6 +7,7 @@ import com.lancar.customer.data.model.OrderTrackingDetail
 import com.lancar.customer.data.model.TrackingResponse
 import com.lancar.customer.data.repository.OrderRepository
 import com.lancar.customer.data.repository.TrackingRepository
+import com.lancar.customer.util.SocketManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -31,13 +32,15 @@ data class TrackingUiState(
 @HiltViewModel
 class TrackingViewModel @Inject constructor(
     private val repository: TrackingRepository,
-    private val orderRepository: OrderRepository
+    private val orderRepository: OrderRepository,
+    private val socketManager: SocketManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TrackingUiState())
     val uiState: StateFlow<TrackingUiState> = _uiState.asStateFlow()
 
     private var pollingJob: Job? = null
+    private var realtimeJob: Job? = null
 
     /**
      * Commences deterministic loop to pull telemetric coordinates every 5 seconds.
@@ -47,6 +50,8 @@ class TrackingViewModel @Inject constructor(
         pollingJob?.cancel()
         
         _uiState.update { it.copy(orderId = orderId, isLoading = true) }
+        socketManager.connect()
+        socketManager.joinOrderRoom(orderId)
 
         pollingJob = viewModelScope.launch {
             while (isActive) {
@@ -55,11 +60,24 @@ class TrackingViewModel @Inject constructor(
                 delay(5000) // 5-second deterministic refresh interval
             }
         }
+
+        realtimeJob?.cancel()
+        realtimeJob = viewModelScope.launch {
+            socketManager.orderUpdates.collect { updatedOrderId ->
+                if (updatedOrderId == orderId) {
+                    fetchLatestOrder(orderId)
+                    fetchLatestTracking(orderId)
+                }
+            }
+        }
     }
 
     fun stopTracking() {
+        _uiState.value.orderId?.let { socketManager.leaveOrderRoom(it) }
         pollingJob?.cancel()
+        realtimeJob?.cancel()
         pollingJob = null
+        realtimeJob = null
     }
 
     private suspend fun fetchLatestTracking(orderId: String) {

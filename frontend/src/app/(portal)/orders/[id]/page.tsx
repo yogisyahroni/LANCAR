@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import Link from 'next/link';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { useAuthStore } from '@/store/authStore';
-import { getSocket } from '@/lib/socket';
-import { ArrowLeft, MapPin, Truck, Calendar, Phone, CheckCircle2, MessageSquare, Download, AlertTriangle, Send, Loader2, Sparkles, Navigation, Image as ImageIcon, X } from 'lucide-react';
+import { getSocket, joinOrderRoom, leaveOrderRoom } from '@/lib/socket';
+import { ArrowLeft, MapPin, Truck, Calendar, Phone, CheckCircle2, MessageSquare, Download, AlertTriangle, Send, Loader2, Sparkles, Navigation, Image as ImageIcon, X, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -68,6 +68,15 @@ interface TrackingData {
   route_polyline?: string;
 }
 
+interface OnDemandRealtimePayload {
+  event: string;
+  order_id: string;
+  status?: string;
+  stage?: string;
+  location?: TrackingData['location'];
+  chat?: ChatMessage;
+}
+
 export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -82,6 +91,7 @@ export default function OrderDetailPage() {
   const [trackingError, setTrackingError] = useState('');
   const [loading, setLoading] = useState(true);
   const [chatsLoading, setChatsLoading] = useState(false);
+  const [sharingTracking, setSharingTracking] = useState(false);
 
   // For lightbox
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
@@ -95,29 +105,22 @@ export default function OrderDetailPage() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Real-time chat listener
-  useEffect(() => {
-    if (user?.id && id) {
-      const socket = getSocket(user.id);
-      if (socket) {
-        const handleNewMessage = (chat: ChatMessage) => {
-          if (chat.order_id === id) {
-            setChatMessages(prev => {
-              if (prev.some(m => m.id === chat.id)) return prev;
-              return [...prev, chat];
-            });
-          }
-        };
-
-        socket.on('new_chat_message', handleNewMessage);
-        return () => {
-          socket.off('new_chat_message', handleNewMessage);
-        };
+  const fetchOrderChats = useCallback(async () => {
+    if (!id) return;
+    setChatsLoading(true);
+    try {
+      const res = await api.get(`/auth/web/orders/${id}/chats`);
+      if (res.data && res.data.success) {
+        setChatMessages(res.data.chats || []);
       }
+    } catch (error) {
+      console.error('Failed to fetch chats:', error);
+    } finally {
+      setChatsLoading(false);
     }
-  }, [user?.id, id]);
+  }, [id]);
 
-  const fetchOrderDetail = async (showLoader = true) => {
+  const fetchOrderDetail = useCallback(async (showLoader = true) => {
     if (!id) return;
     if (showLoader) {
       setLoading(true);
@@ -141,26 +144,94 @@ export default function OrderDetailPage() {
         setLoading(false);
       }
     }
-  };
+  }, [id, addNotification, fetchOrderChats]);
 
-  const fetchOrderChats = async () => {
+  const fetchTracking = useCallback(async () => {
     if (!id) return;
-    setChatsLoading(true);
     try {
-      const res = await api.get(`/auth/web/orders/${id}/chats`);
-      if (res.data && res.data.success) {
-        setChatMessages(res.data.chats || []);
-      }
-    } catch (error) {
-      console.error('Failed to fetch chats:', error);
-    } finally {
-      setChatsLoading(false);
+      const res = await api.get('/tracking', { params: { order_id: id } });
+      const data = res.data?.data || res.data;
+      setTracking(data || null);
+      setTrackingError('');
+    } catch (error: any) {
+      setTrackingError(error?.response?.data?.message || 'Tracking belum tersedia.');
     }
-  };
+  }, [id]);
+
+  // Real-time order room listener. This keeps customer web aligned with mobile
+  // without waiting for the safety polling fallback.
+  useEffect(() => {
+    if (!user?.id || !id) return;
+
+    const socket = getSocket(user.id, 'customer');
+    if (!socket) return;
+
+    joinOrderRoom(id);
+
+    const appendChat = (chat?: ChatMessage) => {
+      if (!chat || chat.order_id !== id) return;
+      setChatMessages(prev => {
+        if (prev.some(m => m.id === chat.id)) return prev;
+        return [...prev, chat];
+      });
+    };
+
+    const applyTrackingPayload = (payload: OnDemandRealtimePayload) => {
+      if (payload.order_id !== id) return;
+      if (payload.location) {
+        setTracking(prev => ({
+          courier_id: prev?.courier_id || '',
+          ...prev,
+          location: payload.location,
+        }));
+        setTrackingError('');
+      }
+      fetchTracking();
+    };
+
+    const handleOnDemandEvent = (payload: OnDemandRealtimePayload) => {
+      if (payload.order_id !== id) return;
+      if (payload.event === 'chat_message') {
+        appendChat(payload.chat);
+        return;
+      }
+      if (payload.event === 'tracking_updated') {
+        applyTrackingPayload(payload);
+      }
+      if ([
+        'offer_accepted',
+        'courier_otw_pickup',
+        'pickup_verified',
+        'delivery_started',
+        'pod_completed',
+        'pickup_cancelled',
+      ].includes(payload.event)) {
+        fetchOrderDetail(false);
+        fetchTracking();
+      }
+    };
+
+    const handleLegacyTracking = (payload: OnDemandRealtimePayload) => {
+      applyTrackingPayload(payload);
+    };
+
+    socket.on('on_demand_event', handleOnDemandEvent);
+    socket.on('order_tracking_updated', handleLegacyTracking);
+    socket.on('tracking:update', handleLegacyTracking);
+    socket.on('new_chat_message', appendChat);
+
+    return () => {
+      socket.off('on_demand_event', handleOnDemandEvent);
+      socket.off('order_tracking_updated', handleLegacyTracking);
+      socket.off('tracking:update', handleLegacyTracking);
+      socket.off('new_chat_message', appendChat);
+      leaveOrderRoom(id);
+    };
+  }, [user?.id, id, fetchOrderDetail, fetchTracking]);
 
   useEffect(() => {
     fetchOrderDetail();
-  }, [id]);
+  }, [fetchOrderDetail]);
 
   useEffect(() => {
     if (!id) return;
@@ -168,32 +239,16 @@ export default function OrderDetailPage() {
       fetchOrderDetail(false);
     }, 8000);
     return () => window.clearInterval(interval);
-  }, [id]);
+  }, [id, fetchOrderDetail]);
 
   useEffect(() => {
     if (!id) return;
-
-    let active = true;
-    const fetchTracking = async () => {
-      try {
-        const res = await api.get('/tracking', { params: { order_id: id } });
-        if (!active) return;
-        const data = res.data?.data || res.data;
-        setTracking(data || null);
-        setTrackingError('');
-      } catch (error: any) {
-        if (!active) return;
-        setTrackingError(error?.response?.data?.message || 'Tracking belum tersedia.');
-      }
-    };
-
     fetchTracking();
     const interval = window.setInterval(fetchTracking, 5000);
     return () => {
-      active = false;
       window.clearInterval(interval);
     };
-  }, [id]);
+  }, [id, fetchTracking]);
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -268,6 +323,30 @@ export default function OrderDetailPage() {
     setTimeout(() => {
       addNotification({ title: 'Selesai', message: 'Resi berhasil diunduh.', type: 'success' });
     }, 1200);
+  };
+
+  const handleCreatePublicTrackingLink = async () => {
+    if (!id) return;
+    setSharingTracking(true);
+    try {
+      const res = await api.post(`/auth/web/orders/${id}/public-tracking-link`);
+      const url = res.data?.data?.url;
+      if (!url) throw new Error('Public tracking URL missing');
+      await navigator.clipboard.writeText(url);
+      addNotification({
+        title: 'Link disalin',
+        message: 'Link tracking publik siap dibagikan ke penerima.',
+        type: 'success'
+      });
+    } catch (error: any) {
+      addNotification({
+        title: 'Belum bisa dibagikan',
+        message: error?.response?.data?.message || 'Link tracking bisa dibuat setelah kurir menerima pekerjaan.',
+        type: 'error'
+      });
+    } finally {
+      setSharingTracking(false);
+    }
   };
 
   const handleReportIssue = async () => {
@@ -389,6 +468,14 @@ export default function OrderDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleCreatePublicTrackingLink}
+            disabled={sharingTracking || !order.courier_name}
+            className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 disabled:opacity-50 disabled:hover:bg-primary/10 border border-primary/20 text-primary rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2"
+          >
+            {sharingTracking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+            Bagikan Tracking
+          </button>
           <button
             onClick={handleDownloadResi}
             className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2"

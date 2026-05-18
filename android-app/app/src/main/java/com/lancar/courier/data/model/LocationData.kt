@@ -44,5 +44,8 @@ data class LocationData(
     val isRooted: Boolean = false,
 
     @SerialName("order_id")
-    val orderId: String? = null
+    val orderId: String? = null,
+
+    @SerialName("client_location_id")
+    val clientLocationId: String? = null
 )

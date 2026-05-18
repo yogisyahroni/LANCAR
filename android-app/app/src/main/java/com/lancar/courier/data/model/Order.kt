@@ -223,6 +223,14 @@ data class Order(
     @SerialName("customer_phone")
     var phoneNumber: String? = null,
 
+    @ColumnInfo(name = "pickup_scan_verified")
+    @SerialName("pickup_scan_verified")
+    val pickupScanVerified: Boolean = false,
+
+    @ColumnInfo(name = "pickup_photo_verified")
+    @SerialName("pickup_photo_verified")
+    val pickupPhotoVerified: Boolean = false,
+
     @ColumnInfo(name = "length")
     @SerialName("length")
     var length: Double? = null,

@@ -156,6 +156,11 @@ services:
       MIDTRANS_ENV: ${MIDTRANS_ENV:-sandbox}
       MIDTRANS_FINISH_URL: ${MIDTRANS_FINISH_URL:-http://localhost:3000/orders}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      GOOGLE_DIRECTIONS_API_KEY: ${GOOGLE_DIRECTIONS_API_KEY:-}
+      FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
     ports:
       - "${ADMIN_PORT:-3001}:3000"
     volumes:
@@ -221,7 +226,8 @@ services:
       READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db-read:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       ORDER_PORT: ${ORDER_PORT:-8083}
-      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      GOOGLE_DIRECTIONS_API_KEY: ${GOOGLE_DIRECTIONS_API_KEY:-}
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       ENVIRONMENT: ${ENVIRONMENT:-development}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}

@@ -326,7 +326,13 @@ fun CourierStatusCard(
 private fun TrackingTimeline(detail: OrderTrackingDetail) {
     val completedTypes = remember(detail.events) { detail.events.map { it.eventType.lowercase() }.toSet() }
     val status = detail.order.status.lowercase()
-    val steps = listOf(
+    val isCancelled = status in setOf("cancelled", "failed") || completedTypes.contains("pickup_cancelled_by_courier")
+    val steps = if (isCancelled) {
+        listOf(
+            TimelineStep("accepted", "Kurir menerima order", true),
+            TimelineStep("cancelled", "Pickup tidak dilanjutkan", true)
+        )
+    } else listOf(
         TimelineStep("accepted", "Kurir menerima order", completedTypes.any { it in setOf("accepted", "courier_assigned", "assigned") } || status in setOf("accepted", "picking_up", "picked_up", "in_transit", "delivered", "completed")),
         TimelineStep("pickup", "Barang diverifikasi di pickup", completedTypes.contains("pickup_verified") || status in setOf("picked_up", "in_transit", "delivered", "completed")),
         TimelineStep("delivery", "Dalam pengantaran", status in setOf("in_transit", "delivering", "delivered", "completed")),
@@ -368,9 +374,14 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
 
 @Composable
 private fun ProofSection(detail: OrderTrackingDetail) {
-    val pickupProof = detail.proofs.lastOrNull { it.scanType?.lowercase() == "pickup" && !it.photoUrl.isNullOrBlank() }
+    val pickupProof = detail.proofs.lastOrNull {
+        it.scanType?.lowercase() in setOf("pickup", "pickup_photo") && !it.photoUrl.isNullOrBlank()
+    }
     val podProof = detail.proofs.lastOrNull { it.scanType?.lowercase() == "pod" && !it.photoUrl.isNullOrBlank() }
-    if (pickupProof == null && podProof == null) return
+    val cancellationProof = detail.proofs.lastOrNull {
+        it.scanType?.lowercase() == "pickup_cancellation" && !it.photoUrl.isNullOrBlank()
+    }
+    if (pickupProof == null && podProof == null && cancellationProof == null) return
 
     Spacer(modifier = Modifier.height(14.dp))
     Column(
@@ -386,6 +397,12 @@ private fun ProofSection(detail: OrderTrackingDetail) {
             Text("Bukti pengiriman", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0B3D2E))
         }
         Spacer(modifier = Modifier.height(12.dp))
+        cancellationProof?.let {
+            CancellationProofCard(proof = it)
+            if (pickupProof != null || podProof != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+        }
         pickupProof?.let {
             ProofImage(title = "Foto barang pickup", url = absoluteUploadUrl(it.photoUrl))
             Spacer(modifier = Modifier.height(10.dp))
@@ -393,6 +410,26 @@ private fun ProofSection(detail: OrderTrackingDetail) {
         podProof?.let {
             ProofImage(title = "Foto POD", url = absoluteUploadUrl(it.photoUrl))
         }
+    }
+}
+
+@Composable
+private fun CancellationProofCard(proof: com.lancar.customer.data.model.TrackingProof) {
+    val reasonText = proof.reasonNote
+        ?: proof.overrideReason?.substringAfter(":", missingDelimiterValue = proof.overrideReason)?.trim()
+        ?: "Alasan operasional sudah dikirim oleh kurir."
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFFFFF1F1))
+            .padding(12.dp)
+    ) {
+        Text("Pickup tidak dilanjutkan", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color(0xFFB42318))
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(reasonText, fontSize = 13.sp, color = Color(0xFF5F1D1B))
+        Spacer(modifier = Modifier.height(10.dp))
+        ProofImage(title = "Foto bukti pembatalan", url = absoluteUploadUrl(proof.photoUrl))
     }
 }
 
@@ -423,6 +460,7 @@ private fun eventMatchesStep(eventType: String, step: String): Boolean {
         "pickup" -> normalized == "pickup_verified"
         "delivery" -> normalized in setOf("delivery_started", "in_transit", "picked_up")
         "pod" -> normalized == "pod_verified"
+        "cancelled" -> normalized in setOf("pickup_cancelled_by_courier", "cancelled", "failed")
         else -> false
     }
 }

@@ -128,10 +128,58 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       ORDER BY ol.leg_number ASC
     `, [id]);
 
+    const proofsRes = await readDb.query(`
+      SELECT
+        ps.id,
+        ps.scan_type,
+        CASE
+          WHEN ps.scan_type IN ('pickup', 'pickup_scan') THEN 'Scan pickup'
+          WHEN ps.scan_type = 'pickup_photo' THEN 'Foto barang pickup'
+          WHEN ps.scan_type = 'pod' THEN 'Foto POD'
+          WHEN ps.scan_type = 'pickup_cancellation' THEN 'Bukti pembatalan pickup'
+          ELSE 'Bukti operasional'
+        END AS proof_label,
+        CASE
+          WHEN ps.scan_type = 'pickup_cancellation' THEN 'cancellation'
+          WHEN ps.scan_type = 'pod' THEN 'pod'
+          WHEN ps.scan_type IN ('pickup', 'pickup_scan', 'pickup_photo') THEN 'pickup'
+          ELSE 'operational'
+        END AS proof_category,
+        ps.photo_url,
+        ps.image_urls,
+        ps.override_reason,
+        CASE
+          WHEN ps.scan_type = 'pickup_cancellation' THEN SPLIT_PART(COALESCE(ps.override_reason, ''), ':', 1)
+          ELSE NULL
+        END AS reason_code,
+        CASE
+          WHEN ps.scan_type = 'pickup_cancellation' AND COALESCE(ps.override_reason, '') LIKE '%:%'
+            THEN NULLIF(TRIM(REGEXP_REPLACE(ps.override_reason, '^[^:]+:\\s*', '')), '')
+          ELSE NULL
+        END AS reason_note,
+        ps.latitude,
+        ps.longitude,
+        COALESCE(ps.scanned_at, ps.created_at) AS recorded_at,
+        u.full_name AS submitted_by
+      FROM package_scans ps
+      LEFT JOIN users u ON u.id = ps.scanned_by
+      WHERE ps.order_id = $1
+      ORDER BY COALESCE(ps.scanned_at, ps.created_at) ASC
+    `, [id]);
+
+    const safetyEventsRes = await readDb.query(`
+      SELECT id, event_type, severity, status, message, metadata, created_at
+      FROM courier_safety_events
+      WHERE order_id = $1
+      ORDER BY created_at DESC
+    `, [id]);
+
     res.json({
       ...orderRes.rows[0],
       events: eventsRes.rows,
-      legs: legsRes.rows
+      legs: legsRes.rows,
+      proofs: proofsRes.rows,
+      safety_events: safetyEventsRes.rows
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

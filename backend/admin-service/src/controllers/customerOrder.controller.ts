@@ -1,11 +1,14 @@
 import { Request, Response } from 'express';
 import { db } from '../db';
 import { createNotification } from '../notifications';
-import { getIO } from '../websocket';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../midtrans';
 import { isExpiredOrFailedTransaction, isSuccessfulTransaction } from '../midtrans';
 import { calculateServiceSettlement, customerFacingService, DeliveryServiceProduct, findDeliveryServiceByCode } from './deliveryServices.controller';
+import { advanceOnDemandDispatchQueue, notifyOnDemandOffers } from './courierAuth.controller';
 import { redis } from '../redis';
+import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../services/onDemandRealtime';
+import { buildOnDemandTrackingSnapshot, evaluateLocationQuality, writeLocationSafetyEvent } from '../services/onDemandTracking';
+import { evaluateOnDemandRealtimeAlerts } from '../services/realtimeObservability';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -36,6 +39,12 @@ const toNumber = (value: any, fallback = 0) => {
 const roundRupiah = (value: number) => Math.ceil(value);
 
 const publicServiceSnapshot = (service: DeliveryServiceProduct) => customerFacingService(service);
+
+const publicBaseUrl = () =>
+  process.env.PUBLIC_APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+
+const sha256 = (value: string) =>
+  crypto.createHash('sha256').update(value).digest('hex');
 
 const resolveSizeTier = (service: DeliveryServiceProduct, requestedCode?: string) => {
   if (!service.uses_size_tier || service.size_tiers.length === 0) return null;
@@ -450,6 +459,7 @@ export const getCustomerOrderPaymentStatus = async (req: Request, res: Response)
 
 export const confirmCustomerOrderPayment = async (req: Request, res: Response): Promise<void> => {
   const client = await db.connect();
+  let createdOffers: Awaited<ReturnType<typeof advanceOnDemandDispatchQueue>> = [];
   try {
     const customer_id = req.user?.id;
     const id = String(req.params.id);
@@ -497,9 +507,11 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
          VALUES ($1, $2, 'payment_confirmed', 'Customer confirmed QRIS payment via Web Portal')`,
         [id, customer_id]
       );
+      createdOffers = await advanceOnDemandDispatchQueue(client, 1);
     }
 
     await client.query('COMMIT');
+    await notifyOnDemandOffers(createdOffers);
 
     try {
       await createNotification({
@@ -630,9 +642,31 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
     const { rows: proofs } = await db.query(`
       SELECT id,
              scan_type,
+             CASE
+               WHEN scan_type IN ('pickup', 'pickup_scan') THEN 'Scan pickup'
+               WHEN scan_type = 'pickup_photo' THEN 'Foto barang pickup'
+               WHEN scan_type = 'pod' THEN 'Foto POD'
+               WHEN scan_type = 'pickup_cancellation' THEN 'Bukti pembatalan pickup'
+               ELSE 'Bukti operasional'
+             END AS proof_label,
+             CASE
+               WHEN scan_type = 'pickup_cancellation' THEN 'cancellation'
+               WHEN scan_type = 'pod' THEN 'pod'
+               WHEN scan_type IN ('pickup', 'pickup_scan', 'pickup_photo') THEN 'pickup'
+               ELSE 'operational'
+             END AS proof_category,
              photo_url,
              image_urls,
              override_reason,
+             CASE
+               WHEN scan_type = 'pickup_cancellation' THEN SPLIT_PART(COALESCE(override_reason, ''), ':', 1)
+               ELSE NULL
+             END AS reason_code,
+             CASE
+               WHEN scan_type = 'pickup_cancellation' AND COALESCE(override_reason, '') LIKE '%:%'
+                 THEN NULLIF(TRIM(REGEXP_REPLACE(override_reason, '^[^:]+:\\s*', '')), '')
+               ELSE NULL
+             END AS reason_note,
              latitude,
              longitude,
              COALESCE(scanned_at, created_at) AS recorded_at
@@ -684,9 +718,31 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
     const { rows: proofs } = await db.query(`
       SELECT id,
              scan_type,
+             CASE
+               WHEN scan_type IN ('pickup', 'pickup_scan') THEN 'Scan pickup'
+               WHEN scan_type = 'pickup_photo' THEN 'Foto barang pickup'
+               WHEN scan_type = 'pod' THEN 'Foto POD'
+               WHEN scan_type = 'pickup_cancellation' THEN 'Bukti pembatalan pickup'
+               ELSE 'Bukti operasional'
+             END AS proof_label,
+             CASE
+               WHEN scan_type = 'pickup_cancellation' THEN 'cancellation'
+               WHEN scan_type = 'pod' THEN 'pod'
+               WHEN scan_type IN ('pickup', 'pickup_scan', 'pickup_photo') THEN 'pickup'
+               ELSE 'operational'
+             END AS proof_category,
              photo_url,
              image_urls,
              override_reason,
+             CASE
+               WHEN scan_type = 'pickup_cancellation' THEN SPLIT_PART(COALESCE(override_reason, ''), ':', 1)
+               ELSE NULL
+             END AS reason_code,
+             CASE
+               WHEN scan_type = 'pickup_cancellation' AND COALESCE(override_reason, '') LIKE '%:%'
+                 THEN NULLIF(TRIM(REGEXP_REPLACE(override_reason, '^[^:]+:\\s*', '')), '')
+               ELSE NULL
+             END AS reason_note,
              latitude,
              longitude,
              COALESCE(scanned_at, created_at) AS recorded_at
@@ -695,13 +751,337 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
       ORDER BY COALESCE(scanned_at, created_at) ASC
     `, [id]);
 
+    const tracking = await buildOnDemandTrackingSnapshot(db, {
+      orderId: String(id),
+      userId: String(customer_id),
+      role: req.user?.role,
+    });
+
     res.json({
       success: true,
       data: {
         order: rows[0],
         events,
         proofs,
+        tracking,
       },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message });
+  }
+};
+
+export const syncCourierTracking = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  const requestedCourierId = req.body?.courier_id || req.body?.courierId;
+  const deviceId = req.body?.device_id || req.body?.deviceId || null;
+  const locations = Array.isArray(req.body?.locations) ? req.body.locations : [];
+
+  if (!userId) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized' });
+    return;
+  }
+
+  if (requestedCourierId && requestedCourierId !== userId) {
+    res.status(403).json({ success: false, data: null, message: 'Courier token tidak sesuai dengan payload lokasi' });
+    return;
+  }
+
+  if (locations.length === 0) {
+    res.json({ success: true, data: { success: true, syncedCount: 0, message: 'Tidak ada lokasi baru' } });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: courierRows } = await client.query(
+      `SELECT id, user_id FROM courier_profiles WHERE user_id = $1 LIMIT 1`,
+      [userId]
+    );
+
+    if (courierRows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, data: null, message: 'Profil kurir tidak ditemukan' });
+      return;
+    }
+
+    const courierProfile = courierRows[0];
+    let syncedCount = 0;
+    let acceptedCount = 0;
+    let rejectedCount = 0;
+    let duplicateCount = 0;
+    let latestPayload: Record<string, any> | null = null;
+
+    for (const item of locations) {
+      const latitude = Number(item.latitude);
+      const longitude = Number(item.longitude);
+      const orderId = item.order_id || item.orderId || null;
+      const recordedAt = item.timestamp ? new Date(item.timestamp) : new Date();
+      const heading = Number(item.heading ?? item.bearing ?? 0);
+      const speed = Number(item.speed ?? 0);
+      const accuracy = Number(item.accuracy ?? item.accuracy_m ?? 0);
+      const clientLocationId = item.client_location_id || item.clientLocationId || null;
+
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        continue;
+      }
+
+      if (clientLocationId) {
+        const { rows: duplicateRows } = await client.query(
+          `SELECT 1
+           FROM courier_locations
+           WHERE courier_id = $1
+             AND client_location_id = $2
+           LIMIT 1`,
+          [courierProfile.id, clientLocationId]
+        );
+        if (duplicateRows.length > 0) {
+          duplicateCount += 1;
+          syncedCount += 1;
+          continue;
+        }
+      }
+
+      const { rows: previousRows } = await client.query(
+        `SELECT ST_Y(location::geometry) AS latitude,
+                ST_X(location::geometry) AS longitude,
+                accuracy_m,
+                heading_deg,
+                speed_kmh,
+                recorded_at
+         FROM courier_locations
+         WHERE courier_id = $1
+           AND COALESCE(is_spoofed, FALSE) = FALSE
+         ORDER BY recorded_at DESC
+         LIMIT 1`,
+        [courierProfile.id]
+      );
+      const currentPoint = {
+        latitude,
+        longitude,
+        heading: Number.isFinite(heading) ? heading : undefined,
+        speed: Number.isFinite(speed) ? speed : undefined,
+        accuracy: Number.isFinite(accuracy) ? accuracy : undefined,
+        timestamp: recordedAt.toISOString(),
+      };
+      const previousPoint = previousRows[0]
+        ? {
+            latitude: Number(previousRows[0].latitude),
+            longitude: Number(previousRows[0].longitude),
+            heading: Number(previousRows[0].heading_deg || 0),
+            speed: Number(previousRows[0].speed_kmh || 0),
+            accuracy: previousRows[0].accuracy_m == null ? undefined : Number(previousRows[0].accuracy_m),
+            timestamp: previousRows[0].recorded_at,
+          }
+        : null;
+      const quality = evaluateLocationQuality(currentPoint, previousPoint, {
+        is_mock: Boolean(item.is_mock || item.isMock),
+        is_rooted: Boolean(item.is_rooted || item.isRooted),
+      });
+
+      if (orderId) {
+        const { rows: accessRows } = await client.query(
+          `SELECT o.customer_id, ol.courier_id
+           FROM orders o
+           JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
+           WHERE o.id = $1 AND ol.courier_id = $2
+           LIMIT 1`,
+          [orderId, userId]
+        );
+
+        if (accessRows.length === 0) {
+          continue;
+        }
+
+        await writeLocationSafetyEvent(client, {
+          order_id: orderId,
+          courier_id: userId,
+          location: currentPoint,
+          quality,
+          device_id: deviceId,
+        });
+
+        if (quality.accepted) {
+          latestPayload = {
+            order_id: orderId,
+            courier_id: courierProfile.id,
+            courier_user_id: userId,
+            customer_id: accessRows[0].customer_id,
+            device_id: deviceId,
+            location: currentPoint,
+          };
+        }
+      }
+
+      await client.query(
+        `INSERT INTO courier_locations (
+           courier_id, order_id, location, accuracy_m, heading_deg, speed_kmh, is_spoofed, recorded_at, client_location_id, device_id
+         )
+         VALUES (
+           $1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography, $5, $6, $7, $8, $9, $10, $11
+         )`,
+        [
+          courierProfile.id,
+          orderId,
+          longitude,
+          latitude,
+          Number.isFinite(accuracy) ? accuracy : null,
+          Number.isFinite(heading) ? heading : null,
+          Number.isFinite(speed) ? speed : null,
+          quality.is_spoofed,
+          recordedAt,
+          clientLocationId,
+          deviceId,
+        ]
+      );
+
+      if (quality.accepted) {
+        await client.query(
+          `UPDATE courier_profiles
+           SET current_location = ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
+               last_location_at = GREATEST(COALESCE(last_location_at, $3), $3),
+               updated_at = NOW()
+           WHERE id = $4`,
+          [longitude, latitude, recordedAt, courierProfile.id]
+        );
+        acceptedCount += 1;
+      } else {
+        rejectedCount += 1;
+      }
+
+      syncedCount += 1;
+    }
+
+    await client.query('COMMIT');
+
+    if (latestPayload) {
+      emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.TRACKING_UPDATED, {
+        order_id: latestPayload.order_id,
+        customer_id: latestPayload.customer_id,
+        courier_user_id: latestPayload.courier_user_id,
+        courier_profile_id: latestPayload.courier_id,
+        stage: 'tracking',
+        location: latestPayload.location,
+        metadata: { device_id: latestPayload.device_id },
+      });
+      void evaluateOnDemandRealtimeAlerts(db);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        success: true,
+        syncedCount,
+        acceptedCount,
+        rejectedCount,
+        duplicateCount,
+        message: `${syncedCount} lokasi tersinkronisasi`,
+      },
+    });
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ success: false, data: null, message: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const createCustomerPublicTrackingLink = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const orderId = String(req.params.id || '');
+
+    if (!userId) {
+      res.status(401).json({ success: false, data: null, message: 'Unauthorized' });
+      return;
+    }
+
+    const { rows } = await db.query(
+      `SELECT o.id, o.status, ol.courier_id
+       FROM orders o
+       JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
+       WHERE o.id = $1
+         AND o.customer_id = $2
+         AND LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
+         AND o.status NOT IN ('cancelled', 'failed')
+       LIMIT 1`,
+      [orderId, userId]
+    );
+
+    if (rows.length === 0) {
+      res.status(404).json({ success: false, data: null, message: 'Order on-demand tidak ditemukan atau belum bisa dibagikan.' });
+      return;
+    }
+
+    if (!rows[0].courier_id) {
+      res.status(409).json({ success: false, data: null, message: 'Link tracking bisa dibuat setelah kurir menerima pekerjaan.' });
+      return;
+    }
+
+    const token = crypto.randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000);
+
+    await db.query(
+      `INSERT INTO trip_share_tokens (order_id, courier_id, token_hash, expires_at, metadata)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        orderId,
+        rows[0].courier_id,
+        sha256(token),
+        expiresAt,
+        JSON.stringify({ source: 'customer_web', created_by: userId }),
+      ]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        url: `${publicBaseUrl()}/track/${token}`,
+        expires_at: expiresAt.toISOString(),
+      },
+      message: 'Link tracking publik dibuat.',
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message });
+  }
+};
+
+export const getOrderTracking = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id;
+    const orderId = String(req.query.order_id || req.query.orderId || '');
+
+    if (!userId) {
+      res.status(401).json({ success: false, data: null, message: 'Unauthorized' });
+      return;
+    }
+
+    if (!orderId) {
+      res.status(400).json({ success: false, data: null, message: 'order_id wajib diisi' });
+      return;
+    }
+
+    const tracking = await buildOnDemandTrackingSnapshot(db, {
+      orderId,
+      userId,
+      role: req.user?.role,
+    });
+
+    if (!tracking) {
+      res.status(404).json({ success: false, data: null, message: 'Order tidak ditemukan atau akses ditolak' });
+      return;
+    }
+
+    if (!tracking.location) {
+      res.status(404).json({ success: false, data: null, message: 'Lokasi kurir belum tersedia' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: tracking,
     });
   } catch (error: any) {
     res.status(500).json({ success: false, data: null, message: error.message });
@@ -856,16 +1236,24 @@ export const sendOrderChat = async (req: Request, res: Response): Promise<void> 
       RETURNING *
     `, [id, sender_id, message, message_type]);
 
-    const chatMessage = rows[0];
+    const senderRole = req.user?.role || (isCustomerSender ? 'customer' : 'courier');
+    const chatMessage = {
+      ...rows[0],
+      sender_name: req.user?.full_name || 'User',
+      sender_role: senderRole,
+      order_number: order.order_number,
+    };
 
     // Emit chat message to both sender and recipient rooms for real-time UI update
     if (sender_id && recipient_id) {
       try {
-        const io = getIO();
-        io.to(sender_id).to(recipient_id).emit('new_chat_message', {
-          ...chatMessage,
-          order_number: order.order_number,
-          sender_name: req.user?.full_name || 'User'
+        emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.CHAT_MESSAGE, {
+          order_id: id,
+          customer_id: order.customer_id,
+          courier_user_id: order.courier_id,
+          stage: 'chat',
+          chat: chatMessage,
+          metadata: { order_number: order.order_number },
         });
       } catch (wsError) {
         console.warn('[WebSocket] Could not emit chat message:', wsError);
@@ -920,6 +1308,7 @@ export const uploadOrderFile = async (req: Request, res: Response) => {
 
 export const handleMidtransNotification = async (req: Request, res: Response): Promise<void> => {
   const client = await db.connect();
+  let createdOffers: Awaited<ReturnType<typeof advanceOnDemandDispatchQueue>> = [];
   try {
     const payload = req.body || {};
     const {
@@ -987,6 +1376,7 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
           [orderId, customerId]
         );
       }
+      createdOffers = await advanceOnDemandDispatchQueue(client, Math.max(orderIds.length, 1));
     } else if (isExpiredOrFailedTransaction(transaction_status)) {
       await client.query(
         `UPDATE payments
@@ -1006,6 +1396,7 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
     }
 
     await client.query('COMMIT');
+    await notifyOnDemandOffers(createdOffers);
 
     // 🚀 ENTERPRISE ORCHESTRATION: Trigger Courier Matching
     if (isSuccessfulTransaction(transaction_status, fraud_status)) {

@@ -12,6 +12,7 @@ data class ChatResponse(
 @Serializable
 data class ChatMessage(
     @SerialName("id") val id: String? = null,
+    @SerialName("order_id") val orderId: String? = null,
     @SerialName("sender_id") val senderId: String,
     @SerialName("sender_name") val senderName: String? = null,
     @SerialName("sender_role") val senderRole: String? = null,
