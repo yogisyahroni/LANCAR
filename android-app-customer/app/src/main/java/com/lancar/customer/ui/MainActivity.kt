@@ -13,7 +13,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.lancar.customer.ui.screens.auth.AuthNavGraph
 import com.lancar.customer.ui.theme.LANCARCustomerTheme
-import com.scottyab.rootbeer.RootBeer
 import dagger.hilt.android.AndroidEntryPoint
 
 import androidx.compose.runtime.*
@@ -32,12 +31,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // =========================================================================
-        // 🛡️ ENTERPRISE SECURITY: ROOT DETECTION
-        // =========================================================================
-        // Prevent app from running on rooted devices to secure payments and location
-        val rootBeer = RootBeer(this)
-        if (rootBeer.isRooted) {
+        // Root detection uses a lightweight Java/Kotlin heuristic here to keep the
+        // customer app compatible with Android 15+ 16 KB page-size devices.
+        if (isLikelyRootedDevice()) {
             Toast.makeText(this, "Aplikasi tidak dapat berjalan di perangkat yang di-root", Toast.LENGTH_LONG).show()
             finish()
             return
@@ -67,5 +63,20 @@ class MainActivity : ComponentActivity() {
 
             }
         }
+    }
+
+    private fun isLikelyRootedDevice(): Boolean {
+        val suspiciousPaths = listOf(
+            "/system/app/Superuser.apk",
+            "/sbin/su",
+            "/system/bin/su",
+            "/system/xbin/su",
+            "/data/local/xbin/su",
+            "/data/local/bin/su",
+            "/system/sd/xbin/su",
+            "/system/bin/failsafe/su",
+            "/data/local/su"
+        )
+        return suspiciousPaths.any { java.io.File(it).exists() }
     }
 }

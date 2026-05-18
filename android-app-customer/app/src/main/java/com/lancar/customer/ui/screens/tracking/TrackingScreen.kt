@@ -142,9 +142,11 @@ fun TrackingScreen(
 
         // LAYER 3: LOADING OVERLAY
         if (uiState.isLoading && uiState.courierLocation == null) {
-            CircularProgressIndicator(
+            Text(
+                text = "Memuat posisi kurir...",
                 modifier = Modifier.align(Alignment.Center),
-                color = Primary
+                color = Primary,
+                fontWeight = FontWeight.Bold
             )
         }
 

@@ -40,14 +40,18 @@ class MainViewModel @Inject constructor(
     }
 
     private fun syncFcmToken() {
-        FirebaseMessaging.getInstance().token
-            .addOnSuccessListener { fcmToken ->
-                if (!fcmToken.isNullOrBlank()) {
-                    viewModelScope.launch {
-                        notificationRepository.registerDeviceToken(fcmToken)
+        try {
+            FirebaseMessaging.getInstance().token
+                .addOnSuccessListener { fcmToken ->
+                    if (!fcmToken.isNullOrBlank()) {
+                        viewModelScope.launch {
+                            notificationRepository.registerDeviceToken(fcmToken)
+                        }
                     }
                 }
-            }
+        } catch (_: RuntimeException) {
+            // FCM is optional until Firebase credentials are configured for this app.
+        }
     }
 
     fun logout() {

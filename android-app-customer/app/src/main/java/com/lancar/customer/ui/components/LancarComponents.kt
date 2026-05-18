@@ -169,9 +169,16 @@ fun SmoothLoadingIndicator() {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        CircularProgressIndicator(
-            color = MaterialTheme.colorScheme.primary,
-            strokeWidth = 4.dp
-        )
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(
+                text = "Memuat...",
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }

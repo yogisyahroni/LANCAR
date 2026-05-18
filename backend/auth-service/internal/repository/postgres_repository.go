@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"lancar/auth-service/internal/domain"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type postgresRepo struct {
@@ -22,23 +24,23 @@ func NewPostgresRepository(db, readDB *sql.DB) *postgresRepo {
 // User Repository Implementation
 func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string) (*domain.User, error) {
 	query := `
-		SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, pin_hash, is_verified, 
+		SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
 			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, created_at, updated_at 
 		FROM (
-			SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, pin_hash, is_verified, 
+			SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
 				   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, created_at, updated_at FROM customers
 			UNION ALL
-			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, pin_hash, is_verified, 
+			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, NULL as password_hash, pin_hash, is_verified, 
 				   NULL as totp_secret, NULL as is_2fa_enabled, NULL as totp_backup_codes, last_login_at, created_at, updated_at FROM staff
 			UNION ALL
-			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, pin_hash, is_verified, 
+			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, NULL as password_hash, pin_hash, is_verified, 
 				   NULL as totp_secret, NULL as is_2fa_enabled, NULL as totp_backup_codes, last_login_at, created_at, updated_at FROM couriers
 		) users_combined WHERE phone_number = $1 OR email = $1`
 	user := &domain.User{}
 	err := r.readDB.QueryRowContext(ctx, query, phoneNumber).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status, 
-		&user.ReferralCode, &user.ReferredBy, &user.PINHash, &user.IsVerified, 
-		&user.TOTPSecret, &user.Is2FAEnabled, &user.TOTPBackupCodes, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
+		&user.ReferralCode, &user.ReferredBy, &user.PasswordHash, &user.PINHash, &user.IsVerified, 
+		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -48,23 +50,23 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 
 func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.User, error) {
 	query := `
-		SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, pin_hash, is_verified, 
+		SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
 			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, created_at, updated_at 
 		FROM (
-			SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, pin_hash, is_verified, 
+			SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
 				   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, created_at, updated_at FROM customers
 			UNION ALL
-			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, pin_hash, is_verified, 
+			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, NULL as password_hash, pin_hash, is_verified, 
 				   NULL as totp_secret, NULL as is_2fa_enabled, NULL as totp_backup_codes, last_login_at, created_at, updated_at FROM staff
 			UNION ALL
-			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, pin_hash, is_verified, 
+			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, NULL as password_hash, pin_hash, is_verified, 
 				   NULL as totp_secret, NULL as is_2fa_enabled, NULL as totp_backup_codes, last_login_at, created_at, updated_at FROM couriers
 		) users_combined WHERE id = $1`
 	user := &domain.User{}
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status, 
-		&user.ReferralCode, &user.ReferredBy, &user.PINHash, &user.IsVerified, 
-		&user.TOTPSecret, &user.Is2FAEnabled, &user.TOTPBackupCodes, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
+		&user.ReferralCode, &user.ReferredBy, &user.PasswordHash, &user.PINHash, &user.IsVerified, 
+		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -80,10 +82,10 @@ func (r *postgresRepo) Create(ctx context.Context, user *domain.User) error {
 		table = "staff"
 	}
 
-	query := `INSERT INTO ` + table + ` (phone_number, email, full_name, role, status, is_verified, referral_code, created_at, updated_at) 
-			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`
+	query := `INSERT INTO ` + table + ` (phone_number, email, full_name, role, status, is_verified, referral_code, password_hash, created_at, updated_at) 
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`
 	return r.db.QueryRowContext(ctx, query, 
-		user.PhoneNumber, user.Email, user.FullName, user.Role, user.Status, user.IsVerified, user.ReferralCode, time.Now(), time.Now(),
+		user.PhoneNumber, user.Email, user.FullName, user.Role, user.Status, user.IsVerified, user.ReferralCode, user.PasswordHash, time.Now(), time.Now(),
 	).Scan(&user.ID)
 }
 
@@ -347,5 +349,3 @@ func (r *postgresRepo) UpdateLivenessStatus(ctx context.Context, id string, stat
 	_, err := r.db.ExecContext(ctx, query, status, time.Now(), id)
 	return err
 }
-
-

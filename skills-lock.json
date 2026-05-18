@@ -553,6 +553,12 @@
       "skillPath": "plugins/plugin-dev/skills/hook-development/SKILL.md",
       "computedHash": "eb506a65ffcb49aff37e3404040d274131e3a84edb708293f9696e40f29da0f6"
     },
+    "imagegen-frontend-mobile": {
+      "source": "leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/imagegen-frontend-mobile/SKILL.md",
+      "computedHash": "7c1d1dc59cd0df4063b8621af543bf5dea1d576b261507e17b0323c69680b048"
+    },
     "incident-response": {
       "source": "anthropics/knowledge-work-plugins",
       "sourceType": "github",
@@ -942,6 +948,12 @@
       "sourceType": "github",
       "skillPath": "partner-built/slack/skills/slack-search/SKILL.md",
       "computedHash": "23bfaba6bbed08edc483d7da21fca49c02fce3e56dad4e08174ffbb355feda7a"
+    },
+    "sleek-design-mobile-apps": {
+      "source": "sleekdotdesign/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/design-mobile-apps/SKILL.md",
+      "computedHash": "8781ac3cb1c8567942c897133c15d74736e5a3acc0f493041d91a5b6b88a7d21"
     },
     "source-management": {
       "source": "anthropics/knowledge-work-plugins",

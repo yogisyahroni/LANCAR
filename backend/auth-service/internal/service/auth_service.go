@@ -59,6 +59,69 @@ func (s *AuthService) RequestOTP(ctx context.Context, phoneNumber string) error 
 	return nil
 }
 
+func (s *AuthService) StartCustomerPasswordLogin(ctx context.Context, email, password string) error {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if email == "" || password == "" {
+		return errors.New("email and password are required")
+	}
+
+	user, err := s.userRepo.GetByPhoneNumber(ctx, email)
+	if err != nil || user.Role != domain.RoleCustomer {
+		return errors.New("invalid email or password")
+	}
+	if user.PasswordHash == nil || !utils.CheckPasswordHash(password, *user.PasswordHash) {
+		return errors.New("invalid email or password")
+	}
+	if user.Status != domain.StatusActive {
+		return errors.New("customer account is not active")
+	}
+
+	return s.RequestOTP(ctx, email)
+}
+
+func (s *AuthService) StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password string) error {
+	fullName = strings.TrimSpace(fullName)
+	email = strings.TrimSpace(strings.ToLower(email))
+	phoneNumber = strings.TrimSpace(phoneNumber)
+	if len(fullName) < 2 || email == "" || len(phoneNumber) < 9 || len(password) < 8 {
+		return errors.New("registration data is incomplete")
+	}
+
+	if existing, err := s.userRepo.GetByPhoneNumber(ctx, email); err == nil && existing.ID != "" {
+		return errors.New("email is already registered")
+	}
+	if existing, err := s.userRepo.GetByPhoneNumber(ctx, phoneNumber); err == nil && existing.ID != "" {
+		return errors.New("phone number is already registered")
+	}
+
+	passwordHash, err := utils.HashPassword(password)
+	if err != nil {
+		return err
+	}
+	emailVal := email
+	user := &domain.User{
+		ID:           uuid.New().String(),
+		PhoneNumber:  phoneNumber,
+		Email:        &emailVal,
+		FullName:     fullName,
+		Role:         domain.RoleCustomer,
+		Status:       domain.StatusActive,
+		IsVerified:   true,
+		PasswordHash: &passwordHash,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+	if err := s.userRepo.Create(ctx, user); err != nil {
+		return err
+	}
+
+	randomPart, _ := utils.GenerateRandomString(6)
+	refCode := fmt.Sprintf("RLY-%s", randomPart)
+	_ = s.userRepo.SetReferralCode(ctx, user.ID, refCode)
+
+	return s.RequestOTP(ctx, email)
+}
+
 type AuthResponse struct {
 	AccessToken  string       `json:"access_token,omitempty"`
 	RefreshToken string       `json:"refresh_token,omitempty"`

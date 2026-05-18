@@ -13,6 +13,8 @@ import (
 type AuthHandler struct {
 	svc interface {
 		RequestOTP(ctx context.Context, phoneNumber string) error
+		StartCustomerPasswordLogin(ctx context.Context, email, password string) error
+		StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password string) error
 		VerifyOTP(ctx context.Context, phoneNumber, code, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
 		RefreshToken(ctx context.Context, oldRefreshToken, deviceID string) (*service.AuthResponse, error)
 		Logout(ctx context.Context, refreshToken string) error
@@ -35,6 +37,42 @@ type AuthHandler struct {
 		CreateAdminUser(ctx context.Context, actorID string, fullName, phoneNumber, role string) (*domain.User, error)
 		VerifyCourierLiveness(ctx context.Context, userID string, imageBase64 string) (bool, error)
 	}
+}
+
+func (h *AuthHandler) StartCustomerPasswordLogin(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if err := h.svc.StartCustomerPasswordLogin(r.Context(), req.Email, req.Password); err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Credential verified, OTP sent"})
+}
+
+func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		FullName    string `json:"full_name"`
+		Email       string `json:"email"`
+		PhoneNumber string `json:"phone_number"`
+		Password    string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	if err := h.svc.StartCustomerPasswordRegistration(r.Context(), req.FullName, req.Email, req.PhoneNumber, req.Password); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Customer registered, OTP sent"})
 }
 
 

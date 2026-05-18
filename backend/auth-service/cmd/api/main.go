@@ -184,7 +184,11 @@ func main() {
 	mux.HandleFunc("/api/v1/auth/otp/verify",
 		middleware.OTPVerifyChain(rdb, middleware.DeviceIntegrityMiddleware(repo, h.VerifyOTP)))
 
+	mux.HandleFunc("/api/v1/auth/customer/login/start",
+		middleware.AuthRateLimitedChain(rdb, h.StartCustomerPasswordLogin))
 
+	mux.HandleFunc("/api/v1/auth/customer/register/start",
+		middleware.AuthRateLimitedChain(rdb, h.StartCustomerPasswordRegistration))
 
 	// ─────────────────────────────────────────────
 	// API v1 — Auth Endpoints (public + rate limited)

@@ -3,8 +3,11 @@ package com.lancar.customer.ui.screens.auth
 import app.cash.turbine.test
 import com.lancar.customer.data.model.AuthData
 import com.lancar.customer.data.model.AuthResponse
+import com.lancar.customer.data.model.ProfileResponse
+import com.lancar.customer.data.model.UpdateProfileRequest
 import com.lancar.customer.data.repository.AuthRepository
 import com.lancar.customer.data.repository.NotificationRepository
+import com.lancar.customer.data.repository.ProfileRepository
 import com.lancar.customer.data.session.AuthSessionManager
 import io.mockk.*
 import io.mockk.impl.annotations.RelaxedMockK
@@ -32,6 +35,9 @@ class AuthViewModelTest {
     @RelaxedMockK
     private lateinit var notificationRepository: NotificationRepository
 
+    @RelaxedMockK
+    private lateinit var profileRepository: ProfileRepository
+
     private lateinit var viewModel: AuthViewModel
 
     @Before
@@ -39,7 +45,7 @@ class AuthViewModelTest {
         MockKAnnotations.init(this)
         Dispatchers.setMain(testDispatcher)
         
-        viewModel = AuthViewModel(authRepository, sessionManager, notificationRepository)
+        viewModel = AuthViewModel(authRepository, sessionManager, notificationRepository, profileRepository)
     }
 
     @After
@@ -122,12 +128,59 @@ class AuthViewModelTest {
             viewModel.verifyOtp(otp)
             
             assertEquals(AuthState.Loading, awaitItem())
-            assertEquals(AuthState.Success, awaitItem())
+            assertEquals(AuthState.Success(isNewUser = false), awaitItem())
             
             // Verify side effect: Session saved
             coVerify(exactly = 1) { 
                 sessionManager.saveSession("fake_jwt_token", "USER-99", "Test User")
             }
+        }
+    }
+
+    @Test
+    fun `verifyOtp new customer routes to profile completion`() = runTest {
+        val email = "new@lancar.com"
+        val otp = "123456"
+        viewModel.setPhoneNumber(email)
+
+        val fakeUser = AuthData(token = "new_jwt_token", customerId = "USER-NEW", name = "New User")
+        val mockResponse = AuthResponse(success = true, message = "Login OK", data = fakeUser, isNewUser = true)
+
+        coEvery { authRepository.verifyOtp(email, otp) } returns Result.success(mockResponse)
+
+        viewModel.authState.test {
+            assertEquals(AuthState.Idle, awaitItem())
+            viewModel.verifyOtp(otp)
+            assertEquals(AuthState.Loading, awaitItem())
+            assertEquals(AuthState.Success(isNewUser = true), awaitItem())
+        }
+    }
+
+    @Test
+    fun `completeProfile updates customer profile and transitions to ProfileCompleted`() = runTest {
+        val email = "new@lancar.com"
+        viewModel.setPhoneNumber(email)
+        coEvery { sessionManager.getTokenOnce() } returns "token"
+        every {
+            profileRepository.updateProfile(UpdateProfileRequest("Andi Customer", email))
+        } returns kotlinx.coroutines.flow.flowOf(
+            Result.success(
+                ProfileResponse(
+                    id = "USER-NEW",
+                    name = "Andi Customer",
+                    phoneNumber = email,
+                    walletBalance = 0,
+                    profileImageUrl = null
+                )
+            )
+        )
+
+        viewModel.authState.test {
+            assertEquals(AuthState.Idle, awaitItem())
+            viewModel.completeProfile("Andi Customer")
+            assertEquals(AuthState.Loading, awaitItem())
+            assertEquals(AuthState.ProfileCompleted, awaitItem())
+            coVerify(exactly = 1) { sessionManager.saveUserData("token", "Andi Customer") }
         }
     }
 }

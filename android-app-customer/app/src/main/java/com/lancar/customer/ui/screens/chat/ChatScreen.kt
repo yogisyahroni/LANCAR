@@ -138,7 +138,12 @@ fun ChatScreen(
             // Layer 1: Main Chat Area
             Box(modifier = Modifier.weight(1f)) {
                 if (uiState.isLoading && uiState.messages.isEmpty()) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Primary)
+                    Text(
+                        text = "Memuat percakapan...",
+                        modifier = Modifier.align(Alignment.Center),
+                        color = Primary,
+                        fontWeight = FontWeight.Bold
+                    )
                 } else if (uiState.messages.isEmpty()) {
                     EmptyChatScreen(modifier = Modifier.fillMaxSize())
                 } else {

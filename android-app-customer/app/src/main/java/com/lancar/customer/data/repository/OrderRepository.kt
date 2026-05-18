@@ -39,6 +39,49 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    fun getCustomerDeliveryServices(): Flow<Result<List<DeliveryServiceProduct>>> = flow {
+        try {
+            val response = apiService.getCustomerDeliveryServices()
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                emit(Result.success(body.services))
+            } else {
+                emit(Result.failure(Exception("Layanan belum tersedia")))
+            }
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }
+
+    suspend fun calculateCustomerOrderPrice(request: CustomerPriceEstimateRequest): Result<PriceBreakdown> {
+        return try {
+            val response = apiService.calculateCustomerOrderPrice(request)
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
+            } else {
+                Result.failure(Exception("Gagal menghitung harga"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    fun createCustomerOnDemandOrder(request: CustomerOrderCreateRequest): Flow<Result<CreatedCustomerOrder>> = flow {
+        try {
+            val response = apiService.createCustomerOnDemandOrder(request)
+            val body = response.body()
+            val order = body?.order
+            if (response.isSuccessful && body?.success == true && order != null) {
+                emit(Result.success(order))
+            } else {
+                emit(Result.failure(Exception(body?.error ?: "Gagal membuat order")))
+            }
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }
+
     fun getOrderDetail(orderId: String): Flow<Result<Order>> = flow {
         try {
             val detailResult = getOrderTrackingDetail(orderId)

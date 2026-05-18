@@ -34,6 +34,7 @@ class AuthRepositoryTest {
         // Given
         val email = "error@lancar.com"
         coEvery { apiService.requestOtp(any()) } throws RuntimeException("Network connection lost")
+        coEvery { apiService.requestOtpV1(any()) } throws RuntimeException("Fallback endpoint unavailable")
 
         // When
         val result = repository.requestOtp(email)
@@ -41,6 +42,20 @@ class AuthRepositoryTest {
         // Then
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull()?.message?.contains("Network connection lost") == true)
+    }
+
+    @Test
+    fun `requestOtp falls back to v1 endpoint when legacy route is missing`() = runTest {
+        // Given
+        val email = "fallback@lancar.com"
+        coEvery { apiService.requestOtp(any()) } returns Response.error(404, "Not Found".toResponseBody(null))
+        coEvery { apiService.requestOtpV1(any()) } returns Response.success(AuthResponse(message = "OTP sent"))
+
+        // When
+        val result = repository.requestOtp(email)
+
+        // Then
+        assertTrue(result.isSuccess)
     }
 
     @Test

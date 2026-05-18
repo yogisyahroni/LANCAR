@@ -21,6 +21,22 @@ interface LANCARApiService {
     @POST("auth/customer/login")
     suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
 
+    @POST("api/v1/auth/otp/send")
+    suspend fun requestOtpV1(@Body request: OtpV1Request): Response<AuthResponse>
+
+    @POST("api/v1/auth/otp/verify")
+    suspend fun loginV1(@Body request: LoginV1Request): Response<AuthResponse>
+
+    @POST("api/v1/auth/customer/login/start")
+    suspend fun startCustomerPasswordLogin(
+        @Body request: CustomerPasswordLoginStartRequest
+    ): Response<AuthResponse>
+
+    @POST("api/v1/auth/customer/register/start")
+    suspend fun startCustomerPasswordRegistration(
+        @Body request: CustomerPasswordRegisterStartRequest
+    ): Response<AuthResponse>
+
     // Tracking Endpoints
     @GET("api/v1/tracking")
     suspend fun getTracking(
@@ -45,6 +61,19 @@ interface LANCARApiService {
     suspend fun createOrder(
         @Body request: CreateOrderRequest
     ): Response<ApiResponse<Order>>
+
+    @GET("api/v1/customer/delivery-services")
+    suspend fun getCustomerDeliveryServices(): Response<DeliveryServicesResponse>
+
+    @POST("api/v1/customer/orders/calculate")
+    suspend fun calculateCustomerOrderPrice(
+        @Body request: CustomerPriceEstimateRequest
+    ): Response<PriceBreakdown>
+
+    @POST("api/v1/customer/orders")
+    suspend fun createCustomerOnDemandOrder(
+        @Body request: CustomerOrderCreateRequest
+    ): Response<CustomerOrderCreateResponse>
 
     @POST("api/v1/orders/{id}/cancel")
     suspend fun cancelOrder(

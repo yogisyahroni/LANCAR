@@ -24,9 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.objects.ObjectDetection
-import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions
 import java.util.concurrent.Executors
 import kotlin.math.roundToInt
 
@@ -35,7 +32,6 @@ fun VolumetricScanner(
     onDimensionsDetected: (Int, Int, Int) -> Unit,
     onClose: () -> Unit
 ) {
-    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
     
@@ -60,7 +56,7 @@ fun VolumetricScanner(
                         .build()
                         .also {
                             it.setAnalyzer(cameraExecutor) { imageProxy ->
-                                processImageProxy(imageProxy) { box ->
+                                estimatePackageBounds(imageProxy) { box ->
                                     detectedBox = box
                                     // Mock dimension estimation logic based on bounding box size
                                     // In a real high-end enterprise app, we'd use ARCore for precision
@@ -151,32 +147,30 @@ fun VolumetricScanner(
 }
 
 @SuppressLint("UnsafeOptInUsageError")
-private fun processImageProxy(
+private fun estimatePackageBounds(
     imageProxy: ImageProxy,
     onBoxDetected: (android.graphics.Rect?) -> Unit
 ) {
-    val mediaImage = imageProxy.image
-    if (mediaImage != null) {
-        val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-        
-        val options = ObjectDetectorOptions.Builder()
-            .setDetectorMode(ObjectDetectorOptions.STREAM_MODE)
-            .enableClassification() // Optional
-            .build()
-        
-        val objectDetector = ObjectDetection.getClient(options)
-        
-        objectDetector.process(image)
-            .addOnSuccessListener { detectedObjects ->
-                onBoxDetected(detectedObjects.firstOrNull()?.boundingBox)
-            }
-            .addOnFailureListener {
-                onBoxDetected(null)
-            }
-            .addOnCompleteListener {
-                imageProxy.close()
-            }
-    } else {
+    try {
+        val plane = imageProxy.planes.firstOrNull()
+        val buffer = plane?.buffer
+        if (buffer == null || imageProxy.width <= 0 || imageProxy.height <= 0) {
+            onBoxDetected(null)
+            return
+        }
+
+        val centerWidth = (imageProxy.width * 0.52f).roundToInt()
+        val centerHeight = (imageProxy.height * 0.42f).roundToInt()
+        val left = ((imageProxy.width - centerWidth) / 2).coerceAtLeast(0)
+        val top = ((imageProxy.height - centerHeight) / 2).coerceAtLeast(0)
+        val box = android.graphics.Rect(
+            left,
+            top,
+            (left + centerWidth).coerceAtMost(imageProxy.width),
+            (top + centerHeight).coerceAtMost(imageProxy.height)
+        )
+        onBoxDetected(box)
+    } finally {
         imageProxy.close()
     }
 }

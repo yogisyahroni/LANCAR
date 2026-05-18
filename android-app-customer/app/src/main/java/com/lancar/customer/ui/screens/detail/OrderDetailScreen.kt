@@ -52,7 +52,12 @@ fun OrderDetailScreen(
         ) {
             when (val res = state) {
                 is OrderDetailUiState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    Text(
+                        text = "Memuat detail order...",
+                        modifier = Modifier.align(Alignment.Center),
+                        color = Primary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
                 is OrderDetailUiState.Error -> {
                     Text(res.message, color = MaterialTheme.colorScheme.error, modifier = Modifier.align(Alignment.Center))

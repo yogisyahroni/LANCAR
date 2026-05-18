@@ -2,30 +2,82 @@ package com.lancar.customer.ui.screens.booking
 
 import android.Manifest
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Search
-
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Scale
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -33,10 +85,30 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.*
-import com.lancar.customer.ui.theme.Primary
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.lancar.customer.data.model.DeliveryServiceProduct
+import com.lancar.customer.data.model.DimensionsPayload
+import com.lancar.customer.data.model.PriceBreakdown
 import com.lancar.customer.ui.components.VolumetricScanner
+import com.lancar.customer.ui.theme.Primary
+import com.lancar.customer.ui.theme.Secondary
 import kotlinx.coroutines.flow.collectLatest
+import java.text.NumberFormat
+import java.util.Locale
+
+private val Ink = Color(0xFF17202A)
+private val Muted = Color(0xFF657086)
+private val FieldBg = Color(0xFFF7F9FC)
+private val LcGreen = Color(0xFF067A46)
+private val SoftGreen = Color(0xFFEAF8EF)
+private val SoftBlue = Color(0xFFEAF4FF)
+private val SoftOrange = Color(0xFFFFF3E8)
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -48,14 +120,11 @@ fun BookingScreen(
     val uiState by viewModel.bookingState.collectAsState()
     val context = LocalContext.current
     var showScanner by remember { mutableStateOf(false) }
-    
-    // Default starting position (Jakarta center) if GPS not available yet
+    var showServiceSheet by remember { mutableStateOf(false) }
     val defaultJakarta = remember { LatLng(-6.2088, 106.8456) }
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(defaultJakarta, 14f)
+        position = CameraPosition.fromLatLngZoom(defaultJakarta, 11f)
     }
-
-    // Handle Location Permission runtime check gracefully
     val locationPermissionState = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
 
     LaunchedEffect(Unit) {
@@ -64,15 +133,13 @@ fun BookingScreen(
         }
     }
 
-    // Listen for booking success navigation
     LaunchedEffect(viewModel) {
         viewModel.bookingSuccess.collectLatest { orderId ->
-            Toast.makeText(context, "Order berhasil dibuat!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Order berhasil dibuat", Toast.LENGTH_SHORT).show()
             onBookingSuccess(orderId)
         }
     }
 
-    // Error handling
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
             Toast.makeText(context, error, Toast.LENGTH_LONG).show()
@@ -80,280 +147,695 @@ fun BookingScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // THE BASE LAYER: Google Map rendering
-        GoogleMap(
-            modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState,
-            properties = MapProperties(
-                isMyLocationEnabled = locationPermissionState.status.isGranted,
-                mapStyleOptions = null
-            ),
-            uiSettings = MapUiSettings(
-                zoomControlsEnabled = false,
-                myLocationButtonEnabled = true
-            ),
-            onMapClick = { latLng ->
-                // In a real app, this selects the active input.
-                // For demo logic: if pickup is null set pickup, else set destination
-                if (uiState.pickupLocation == null) {
-                    viewModel.setPickup(latLng, "Lokasi Dipilih (${latLng.latitude.toString().take(7)}, ${latLng.longitude.toString().take(7)})")
-                } else {
-                    viewModel.setDestination(latLng, "Tujuan Dipilih (${latLng.latitude.toString().take(7)}, ${latLng.longitude.toString().take(7)})")
-                }
-            }
-        ) {
-            // Marker injection based on VM state
-            uiState.pickupLocation?.let { loc ->
-                Marker(
-                    state = MarkerState(position = loc),
-                    title = "Titik Jemput",
-                    snippet = uiState.pickupAddress
-                )
-            }
-            uiState.destinationLocation?.let { loc ->
-                Marker(
-                    state = MarkerState(position = loc),
-                    title = "Titik Antar",
-                    snippet = uiState.destinationAddress
-                )
-            }
-        }
-
-        // TOP LAYER: Navigation and Back controls
-        TopControls(onBackClick = onBackClick)
-
-        // BOTTOM LAYER: Premium Booking Input Card
-        FloatingBookingCard(
-            modifier = Modifier.align(Alignment.BottomCenter),
-            uiState = uiState,
-            onConfirmClick = { viewModel.confirmBooking() },
-            onScanClick = { showScanner = true }
-        )
-
-        if (showScanner) {
-            VolumetricScanner(
-                onDimensionsDetected = { l, w, h ->
-                    viewModel.setDimensions(l, w, h)
-                },
-                onClose = { showScanner = false }
+    Scaffold(
+        containerColor = Color(0xFFF3F5F8),
+        bottomBar = {
+            SelectedServiceBar(
+                state = uiState,
+                onChooseService = { showServiceSheet = true },
+                onContinue = { viewModel.confirmBooking() }
             )
         }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                BookingHeader(onBackClick = onBackClick)
+            }
+            item {
+                DeliveryDetailCard(
+                    state = uiState,
+                    onDestinationDemo = {
+                        viewModel.setDestination(
+                            LatLng(-6.2431, 106.8006),
+                            "Jl. Senopati No. 18, Kebayoran Baru"
+                        )
+                    }
+                )
+            }
+            item {
+                RecipientCard(
+                    state = uiState,
+                    onNameChange = viewModel::setRecipientName,
+                    onPhoneChange = viewModel::setRecipientPhone,
+                    onItemChange = viewModel::setItemDescription
+                )
+            }
+            item {
+                PackageCard(
+                    state = uiState,
+                    onTierSelected = { code, weight, dimensions ->
+                        viewModel.setSizeTier(code, weight, dimensions)
+                    },
+                    onScanClick = { showScanner = true }
+                )
+            }
+            item {
+                AddOnCard(
+                    deliveryCodeEnabled = uiState.deliveryCodeEnabled,
+                    insuranceEnabled = uiState.insuranceEnabled,
+                    onDeliveryCodeChange = viewModel::toggleDeliveryCode,
+                    onInsuranceChange = viewModel::toggleInsurance
+                )
+            }
+            item {
+                RoutePreviewCard(
+                    state = uiState,
+                    locationEnabled = locationPermissionState.status.isGranted,
+                    cameraPositionState = cameraPositionState
+                )
+            }
+            item {
+                ServiceInlinePreview(
+                    state = uiState,
+                    onChooseService = { showServiceSheet = true }
+                )
+            }
+        }
+    }
 
-        // Loading overlay during API interaction
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)),
-                contentAlignment = Alignment.Center
+    if (showServiceSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showServiceSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = Color.White
+        ) {
+            ServicePickerSheet(
+                state = uiState,
+                onSelect = {
+                    viewModel.selectService(it)
+                    showServiceSheet = false
+                }
+            )
+        }
+    }
+
+    if (showScanner) {
+        VolumetricScanner(
+            onDimensionsDetected = { l, w, h ->
+                viewModel.setDimensions(l, w, h)
+            },
+            onClose = { showScanner = false }
+        )
+    }
+
+    if (uiState.isLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.18f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
-                CircularProgressIndicator(color = Color.White)
+                Text(
+                    text = "Menyiapkan pengiriman...",
+                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 16.dp),
+                    fontWeight = FontWeight.Bold,
+                    color = Ink
+                )
             }
         }
     }
 }
 
 @Composable
-private fun TopControls(onBackClick: () -> Unit) {
-    SafeArea {
+private fun BookingHeader(onBackClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Primary)
+            .statusBarsPadding()
+            .padding(start = 10.dp, end = 20.dp, top = 12.dp, bottom = 18.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBackClick) {
+            Icon(Icons.Default.ArrowBack, contentDescription = "Kembali", tint = Color.White)
+        }
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text("LANCAR", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+            Text("Pengiriman on-demand", fontSize = 14.sp, color = Color.White.copy(alpha = 0.82f))
+        }
+    }
+}
+
+@Composable
+private fun DeliveryDetailCard(
+    state: BookingState,
+    onDestinationDemo: () -> Unit
+) {
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Detail pengiriman", fontWeight = FontWeight.ExtraBold, fontSize = 21.sp, color = Ink)
+                Spacer(Modifier.weight(1f))
+                AssistChip(
+                    onClick = onDestinationDemo,
+                    label = { Text("Demo tujuan") },
+                    leadingIcon = { Icon(Icons.Default.Place, null, Modifier.size(18.dp)) }
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            AddressRow(
+                icon = Icons.Default.MyLocation,
+                iconColor = LcGreen,
+                title = "Ambil paket di",
+                address = state.pickupAddress.ifBlank { "Pilih titik pickup" },
+                emphasized = state.pickupAddress.isNotBlank()
+            )
+            DottedConnector()
+            AddressRow(
+                icon = Icons.Default.Place,
+                iconColor = Secondary,
+                title = "Kirim paket ke",
+                address = state.destinationAddress.ifBlank { "Pilih lokasi tujuan" },
+                emphasized = state.destinationAddress.isNotBlank()
+            )
+            Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(SoftGreen)
+                    .clickable { }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Map, null, tint = LcGreen)
+                Spacer(Modifier.width(10.dp))
+                Text("Minta lokasi dari penerima", color = LcGreen, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Text("Baru", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(Color(0xFFE8294D))
+                    .padding(horizontal = 8.dp, vertical = 3.dp))
+                Icon(Icons.Default.KeyboardArrowRight, null, tint = LcGreen)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddressRow(
+    icon: ImageVector,
+    iconColor: Color,
+    title: String,
+    address: String,
+    emphasized: Boolean
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(iconColor.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = iconColor)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = Muted, fontSize = 13.sp)
+            Text(
+                address,
+                color = if (emphasized) Ink else Color(0xFF9AA3AF),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2
+            )
+        }
+        Icon(Icons.Default.KeyboardArrowRight, null, tint = Color(0xFFB2BAC6))
+    }
+}
+
+@Composable
+private fun DottedConnector() {
+    Row(Modifier.padding(start = 20.dp)) {
+        Box(
+            modifier = Modifier
+                .height(24.dp)
+                .width(1.dp)
+                .background(Color(0xFFD7DDE6))
+        )
+    }
+}
+
+@Composable
+private fun RecipientCard(
+    state: BookingState,
+    onNameChange: (String) -> Unit,
+    onPhoneChange: (String) -> Unit,
+    onItemChange: (String) -> Unit
+) {
+    LcCard {
+        Text("Penerima & barang", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = state.recipientName,
+            onValueChange = onNameChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Nama penerima") },
+            singleLine = true,
+            shape = RoundedCornerShape(18.dp)
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = state.recipientPhone,
+            onValueChange = onPhoneChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Nomor handphone penerima") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            shape = RoundedCornerShape(18.dp)
+        )
+        Spacer(Modifier.height(10.dp))
+        OutlinedTextField(
+            value = state.itemDescription,
+            onValueChange = onItemChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Isi paket") },
+            singleLine = true,
+            shape = RoundedCornerShape(18.dp)
+        )
+    }
+}
+
+@Composable
+private fun PackageCard(
+    state: BookingState,
+    onTierSelected: (String, Double, DimensionsPayload) -> Unit,
+    onScanClick: () -> Unit
+) {
+    val tiers = listOf(
+        PackageTier("small", "Kecil", "Maks. 5 kg", 1.0, DimensionsPayload(40, 40, 17)),
+        PackageTier("medium", "Sedang", "Maks. 20 kg", 8.0, DimensionsPayload(50, 50, 40)),
+        PackageTier("large", "Besar", "Maks. 100 kg", 30.0, DimensionsPayload(120, 80, 80))
+    )
+
+    LcCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Ukuran & berat paket", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = onScanClick) {
+                Icon(Icons.Default.Scale, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Scan")
+            }
+        }
+        Text("Pastikan ukuran sesuai agar harga dan perlindungan paket akurat.", color = Muted, fontSize = 14.sp)
+        Spacer(Modifier.height(16.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            items(items = tiers, key = { it.code }) { tier: PackageTier ->
+                val selected = state.sizeTier == tier.code
+                Column(
+                    modifier = Modifier
+                        .width(132.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(if (selected) SoftGreen else Color.White)
+                        .border(
+                            BorderStroke(1.dp, if (selected) LcGreen else Color(0xFFDDE3EC)),
+                            RoundedCornerShape(18.dp)
+                        )
+                        .clickable { onTierSelected(tier.code, tier.weightKg, tier.dimensions) }
+                        .padding(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(tier.label, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Ink)
+                    Spacer(Modifier.height(6.dp))
+                    Text(tier.caption, color = Muted, fontSize = 13.sp)
+                }
+            }
+        }
+        Spacer(Modifier.height(14.dp))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.Top
+                .clip(RoundedCornerShape(16.dp))
+                .background(FieldBg)
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier
-                    .size(45.dp)
-                    .clip(CircleShape)
-                    .shadow(8.dp, CircleShape)
-                    .background(MaterialTheme.colorScheme.surface)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Kembali",
-                    tint = MaterialTheme.colorScheme.onSurface
-                )
-            }
+            Icon(Icons.Default.Scale, null, tint = Primary)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                "${state.packageWeight.toInt()} kg • ${state.packageLength}x${state.packageWidth}x${state.packageHeight} cm",
+                fontWeight = FontWeight.Bold,
+                color = Ink
+            )
+            Spacer(Modifier.weight(1f))
+            Text(if (state.dimensionsScanned) "Terverifikasi" else "Manual", color = LcGreen, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-private fun FloatingBookingCard(
-    modifier: Modifier = Modifier,
-    uiState: BookingState,
-    onConfirmClick: () -> Unit,
-    onScanClick: () -> Unit
+private fun AddOnCard(
+    deliveryCodeEnabled: Boolean,
+    insuranceEnabled: Boolean,
+    onDeliveryCodeChange: (Boolean) -> Unit,
+    onInsuranceChange: (Boolean) -> Unit
 ) {
-    AnimatedVisibility(
-        visible = true,
-        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(500)),
-        exit = slideOutVertically(targetOffsetY = { it }),
-        modifier = modifier
-    ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .shadow(20.dp, RoundedCornerShape(24.dp)),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
-                Text(
-                    text = "Konfirmasi Rute Anda",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    letterSpacing = (-0.3).sp
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Pickup Row
-                LocationInputRow(
-                    icon = Icons.Default.LocationOn,
-                    iconColor = Primary,
-                    label = if (uiState.pickupAddress.isEmpty()) "Ketuk peta untuk titik jemput" else uiState.pickupAddress,
-                    placeholder = uiState.pickupAddress.isEmpty()
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Destination Row (Active Search)
-                LocationInputRow(
-                    icon = Icons.Default.Search,
-                    iconColor = Color.Gray,
-                    label = if (uiState.destinationAddress.isEmpty()) "Ketuk peta untuk tujuan" else uiState.destinationAddress,
-                    placeholder = uiState.destinationAddress.isEmpty(),
-                    active = true
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Volumetric Scanner Trigger
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
-                        .clickable { onScanClick() }
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CameraAlt,
-                        contentDescription = null,
-
-                        tint = Primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = if (uiState.packageLength > 0) 
-                                "Dimensi: ${uiState.packageLength}x${uiState.packageWidth}x${uiState.packageHeight} cm" 
-                                else "Estimasi Dimensi Paket",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Gunakan kamera untuk ukur otomatis",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                if (uiState.estimatedPrice > 0) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Estimasi Harga:", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
-                        Text(
-                            "Rp ${uiState.estimatedPrice}",
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp,
-                            color = Primary
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-
-                // Dynamic CTA Button
-                Button(
-                    onClick = onConfirmClick,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    enabled = uiState.pickupLocation != null && uiState.destinationLocation != null && !uiState.isLoading,
-                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
-                ) {
-                    if (uiState.isLoading) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(
-                            text = if (uiState.estimatedPrice > 0) "Pesan Sekarang" else "Pilih di Peta",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
+    LcCard {
+        Text("Fitur tambahan", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+        Spacer(Modifier.height(12.dp))
+        AddOnRow(
+            icon = Icons.Default.Lock,
+            title = "Kode terima paket",
+            description = "Penerima wajib memberi kode saat paket diterima.",
+            price = "Gratis",
+            checked = deliveryCodeEnabled,
+            onCheckedChange = onDeliveryCodeChange
+        )
+        Divider(color = Color(0xFFE7EAF0))
+        AddOnRow(
+            icon = Icons.Default.Shield,
+            title = "Perlindungan paket",
+            description = "Tambahkan perlindungan untuk barang bernilai.",
+            price = "Opsional",
+            checked = insuranceEnabled,
+            onCheckedChange = onInsuranceChange
+        )
     }
 }
 
 @Composable
-private fun LocationInputRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    iconColor: Color,
-    label: String,
-    placeholder: Boolean,
-    active: Boolean = false
+private fun AddOnRow(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    price: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
-            .padding(14.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = iconColor,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            color = if (placeholder) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
-            fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
-            maxLines = 2
-        )
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(SoftOrange),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = Secondary)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Ink)
+                Spacer(Modifier.width(8.dp))
+                Text(price, fontWeight = FontWeight.Bold, color = LcGreen, fontSize = 13.sp)
+            }
+            Text(description, color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
 @Composable
-private fun SafeArea(content: @Composable () -> Unit) {
-    Box(modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
-        content()
+private fun RoutePreviewCard(
+    state: BookingState,
+    locationEnabled: Boolean,
+    cameraPositionState: com.google.maps.android.compose.CameraPositionState
+) {
+    LcCard {
+        val selectedPrice = state.priceBreakdowns[state.selectedServiceCode]
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Preview rute", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+            Spacer(Modifier.weight(1f))
+            if (selectedPrice != null) {
+                Text("${selectedPrice.distanceKm} km", color = LcGreen, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(190.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(SoftBlue)
+        ) {
+            GoogleMap(
+                modifier = Modifier.fillMaxSize(),
+                cameraPositionState = cameraPositionState,
+                properties = MapProperties(isMyLocationEnabled = locationEnabled),
+                uiSettings = MapUiSettings(
+                    zoomControlsEnabled = false,
+                    compassEnabled = false,
+                    myLocationButtonEnabled = false,
+                    scrollGesturesEnabled = false,
+                    zoomGesturesEnabled = false
+                )
+            ) {
+                state.pickupLocation?.let {
+                    Marker(state = MarkerState(it), title = "Pickup")
+                }
+                state.destinationLocation?.let {
+                    Marker(state = MarkerState(it), title = "Dropoff")
+                }
+                if (state.pickupLocation != null && state.destinationLocation != null) {
+                    Polyline(
+                        points = listOf(state.pickupLocation, state.destinationLocation),
+                        color = LcGreen,
+                        width = 8f
+                    )
+                }
+            }
+            if (state.destinationLocation == null) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(Color.White.copy(alpha = 0.72f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Pilih tujuan untuk melihat estimasi rute", color = Muted, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }
 
+@Composable
+private fun ServiceInlinePreview(
+    state: BookingState,
+    onChooseService: () -> Unit
+) {
+    val selected = state.services.firstOrNull { it.code == state.selectedServiceCode } ?: state.services.firstOrNull()
+    val price = selected?.let { state.priceBreakdowns[it.code] }
+    LcCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(58.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(SoftGreen),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(serviceIcon(selected), null, tint = LcGreen, modifier = Modifier.size(30.dp))
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(selected?.name ?: "Pilih layanan", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+                Text(
+                    if (price != null) "Estimasi ${etaLabel(price.etaMinutes)}" else "Harga muncul setelah alamat lengkap",
+                    color = Muted,
+                    fontSize = 14.sp
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(formatRupiah(price?.totalPriceIdr ?: 0), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+                TextButton(onClick = onChooseService) { Text("Ganti") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelectedServiceBar(
+    state: BookingState,
+    onChooseService: () -> Unit,
+    onContinue: () -> Unit
+) {
+    val selected = state.services.firstOrNull { it.code == state.selectedServiceCode } ?: state.services.firstOrNull()
+    val price = selected?.let { state.priceBreakdowns[it.code] }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
+            .background(Color.White)
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(18.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .size(width = 42.dp, height = 4.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFD2D8E2))
+        )
+        Spacer(Modifier.height(14.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(SoftGreen),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(serviceIcon(selected), null, tint = LcGreen)
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(selected?.name ?: "Pilih layanan", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Ink)
+                Text(price?.let { "Diantar ${etaLabel(it.etaMinutes)}" } ?: "Lengkapi detail pengiriman", color = Muted, fontSize = 13.sp)
+            }
+            TextButton(onClick = onChooseService) {
+                Text(if (state.services.size > 1) "Pilih" else "Detail", fontWeight = FontWeight.Bold)
+            }
+            Text(formatRupiah(price?.totalPriceIdr ?: 0), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Ink)
+        }
+        Spacer(Modifier.height(14.dp))
+        Button(
+            onClick = onContinue,
+            enabled = state.destinationLocation != null && price != null && !state.isLoading,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
+        ) {
+            Text("Tambah detail pengiriman", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+            Spacer(Modifier.width(8.dp))
+            Icon(Icons.Default.Navigation, null)
+        }
+    }
+}
+
+@Composable
+private fun ServicePickerSheet(
+    state: BookingState,
+    onSelect: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Pilih layanan LANCAR", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+        Text("Harga dihitung dari pricing admin, jarak, berat, dan fitur tambahan.", color = Muted)
+        state.services.forEach { service ->
+            val selected = service.code == state.selectedServiceCode
+            val price = state.priceBreakdowns[service.code]
+            ServiceRow(
+                service = service,
+                price = price,
+                selected = selected,
+                onClick = { onSelect(service.code) }
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun ServiceRow(
+    service: DeliveryServiceProduct,
+    price: PriceBreakdown?,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(if (selected) SoftGreen else Color.White)
+            .border(BorderStroke(1.dp, if (selected) LcGreen else Color(0xFFE2E6ED)), RoundedCornerShape(22.dp))
+            .clickable { onClick() }
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(58.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(if (selected) Color.White else SoftBlue),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(serviceIcon(service), null, tint = if (service.vehicleTypes.contains("car")) Secondary else Primary)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(service.name, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+                if (selected) {
+                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Default.CheckCircle, null, tint = LcGreen, modifier = Modifier.size(18.dp))
+                }
+            }
+            Text(
+                price?.let { "Dikirim ${etaLabel(it.etaMinutes)}" } ?: "Lengkapi rute untuk melihat harga",
+                color = Muted,
+                fontSize = 14.sp
+            )
+            if (service.maxWeightKg != null) {
+                Text("Maks. ${service.maxWeightKg.toInt()} kg", color = Muted, fontSize = 12.sp)
+            }
+        }
+        Text(formatRupiah(price?.totalPriceIdr ?: 0), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+    }
+}
+
+@Composable
+private fun LcCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(Modifier.padding(18.dp), content = content)
+    }
+}
+
+private data class PackageTier(
+    val code: String,
+    val label: String,
+    val caption: String,
+    val weightKg: Double,
+    val dimensions: DimensionsPayload
+)
+
+private fun serviceIcon(service: DeliveryServiceProduct?): ImageVector {
+    return if (service?.vehicleTypes?.contains("car") == true) Icons.Default.LocalShipping else Icons.Default.LocalShipping
+}
+
+private fun etaLabel(minutes: Int): String {
+    if (minutes <= 0) return "-"
+    return if (minutes < 60) "$minutes menit" else "${minutes / 60}-${(minutes / 60) + 1} jam"
+}
+
+private fun formatRupiah(value: Long): String {
+    if (value <= 0) return "Rp0"
+    val formatter = NumberFormat.getNumberInstance(Locale("id", "ID"))
+    return "Rp${formatter.format(value)}"
+}

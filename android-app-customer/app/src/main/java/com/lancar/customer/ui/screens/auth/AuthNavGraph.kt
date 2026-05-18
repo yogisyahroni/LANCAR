@@ -1,5 +1,6 @@
 package com.lancar.customer.ui.screens.auth
 
+import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -25,7 +26,7 @@ fun AuthNavGraph(
             LoginScreen(
                 viewModel = authViewModel,
                 onNavigateToOtp = { phone ->
-                    navController.navigate("otp/$phone")
+                    navController.navigate("otp/${Uri.encode(phone)}")
                 }
             )
         }
@@ -34,13 +35,28 @@ fun AuthNavGraph(
             route = "otp/{phoneNumber}",
             arguments = listOf(navArgument("phoneNumber") { type = NavType.StringType })
         ) { backStackEntry ->
-            val phoneNumber = backStackEntry.arguments?.getString("phoneNumber") ?: ""
+            val phoneNumber = Uri.decode(backStackEntry.arguments?.getString("phoneNumber") ?: "")
             
             OtpScreen(
                 phoneNumber = phoneNumber,
                 viewModel = authViewModel,
-                onSuccess = onAuthSuccess,
+                onSuccess = { isNewUser ->
+                    if (isNewUser) {
+                        navController.navigate("complete_profile") {
+                            popUpTo("login") { inclusive = false }
+                        }
+                    } else {
+                        onAuthSuccess()
+                    }
+                },
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("complete_profile") {
+            CompleteProfileScreen(
+                viewModel = authViewModel,
+                onCompleted = onAuthSuccess
             )
         }
     }

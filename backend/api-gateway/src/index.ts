@@ -293,6 +293,19 @@ app.post(
   proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
 );
 
+app.post(
+  '/api/v1/auth/customer/login/start',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+);
+
+app.post(
+  '/api/v1/auth/customer/register/start',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+);
 
 app.post(
   '/api/v1/auth/register',

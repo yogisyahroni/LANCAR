@@ -33,6 +33,7 @@ type User struct {
 	Status           UserStatus `json:"status" db:"status"`
 	ReferralCode     *string    `json:"referral_code" db:"referral_code"`
 	ReferredBy       *string    `json:"referred_by" db:"referred_by"`
+	PasswordHash     *string    `json:"-" db:"password_hash"`
 	PINHash          *string    `json:"-" db:"pin_hash"`
 	IsVerified       bool       `json:"is_verified" db:"is_verified"`
 	TOTPSecret       *string    `json:"-" db:"totp_secret"`
@@ -51,5 +52,4 @@ type OTPLog struct {
 	IsUsed      bool      `json:"is_used" db:"is_used"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 }
-
 

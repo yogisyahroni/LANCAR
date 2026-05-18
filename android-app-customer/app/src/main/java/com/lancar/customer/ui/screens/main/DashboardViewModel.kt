@@ -2,6 +2,7 @@ package com.lancar.customer.ui.screens.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.lancar.customer.data.model.DeliveryServiceProduct
 import com.lancar.customer.data.model.Order
 import com.lancar.customer.data.repository.OrderRepository
 import com.lancar.customer.data.session.AuthSessionManager
@@ -27,6 +28,9 @@ class DashboardViewModel @Inject constructor(
     private val _activeOrder = MutableStateFlow<Order?>(null)
     val activeOrder = _activeOrder.asStateFlow()
 
+    private val _services = MutableStateFlow<List<DeliveryServiceProduct>>(emptyList())
+    val services = _services.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
@@ -42,6 +46,15 @@ class DashboardViewModel @Inject constructor(
                 result.onSuccess { orders ->
                     // Find the most recent active order (pending/transit/etc)
                     _activeOrder.value = orders.firstOrNull { it.status != "delivered" && it.status != "failed" }
+                }
+            }
+        }
+        viewModelScope.launch {
+            orderRepository.getCustomerDeliveryServices().collectLatest { result ->
+                result.onSuccess { services ->
+                    _services.value = services
+                        .filter { it.serviceCategory == "on_demand" && it.isEnabled }
+                        .sortedBy { it.displayOrder }
                 }
             }
         }

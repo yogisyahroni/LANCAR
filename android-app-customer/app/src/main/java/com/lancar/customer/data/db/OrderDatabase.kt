@@ -2,7 +2,7 @@ package com.lancar.customer.data.db
 
 import android.content.Context
 import androidx.room.*
-import net.sqlcipher.database.SupportFactory
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import com.lancar.customer.data.model.Location
 
 
@@ -36,7 +36,7 @@ abstract class OrderDatabase : RoomDatabase() {
                     context.contentResolver,
                     android.provider.Settings.Secure.ANDROID_ID
                 ).toByteArray()
-                val factory = SupportFactory(passkey)
+                val factory = SupportOpenHelperFactory(passkey)
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     OrderDatabase::class.java,

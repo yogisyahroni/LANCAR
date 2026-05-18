@@ -30,7 +30,7 @@ import kotlinx.coroutines.delay
 fun OtpScreen(
     phoneNumber: String,
     viewModel: AuthViewModel,
-    onSuccess: () -> Unit,
+    onSuccess: (Boolean) -> Unit,
     onBack: () -> Unit
 ) {
     val authState by viewModel.authState.collectAsState()
@@ -56,7 +56,7 @@ fun OtpScreen(
     // Handle side effects
     LaunchedEffect(authState) {
         if (authState is AuthState.Success) {
-            onSuccess()
+            onSuccess((authState as AuthState.Success).isNewUser)
             viewModel.resetState()
         }
     }
@@ -86,7 +86,7 @@ fun OtpScreen(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "Masukkan 6 digit kode yang dikirim ke\n+62$phoneNumber",
+                text = "Masukkan 6 digit kode yang dikirim ke\n$phoneNumber",
                 fontSize = 16.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -168,10 +168,11 @@ fun OtpScreen(
                 )
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
+                    Text(
+                        text = "Memverifikasi...",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
                     )
                 } else {
                     Text(

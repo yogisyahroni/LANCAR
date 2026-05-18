@@ -50,7 +50,12 @@ fun PaymentScreen(
         ) {
             when (val res = state) {
                 is PaymentUiState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    Text(
+                        text = "Menyiapkan pembayaran...",
+                        modifier = Modifier.align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
                 is PaymentUiState.Error -> {
                     Column(

@@ -91,6 +91,9 @@ routes.post('/auth/web/disputes/:id/upload', verifyWebSession, upload.single('fi
 // Customer Mobile Portal Routes
 routes.get('/api/v1/customer/dashboard/stats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getCustomerDashboardStats(req, res));
 routes.get('/api/v1/customer/orders/:id/tracking-detail', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrderTrackingDetail(req, res));
+routes.get('/api/v1/customer/delivery-services', requireMobileOrWebAuth, (req, res) => controllers.deliveryServices.listCustomerDeliveryServices(req, res));
+routes.post('/api/v1/customer/orders/calculate', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.calculatePrice(req, res));
+routes.post('/api/v1/customer/orders', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
 routes.post('/api/v1/customer/notifications/register-token', requireMobileOrWebAuth, (req, res) => controllers.registerDeviceToken(req, res));
 
 // Bulk Order Routes

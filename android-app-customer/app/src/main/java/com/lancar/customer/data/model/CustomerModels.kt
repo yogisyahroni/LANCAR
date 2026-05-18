@@ -16,6 +16,145 @@ data class CreateOrderRequest(
 )
 
 @Serializable
+data class DeliveryServicesResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("services") val services: List<DeliveryServiceProduct> = emptyList()
+)
+
+@Serializable
+data class DeliveryServiceProduct(
+    @SerialName("code") val code: String,
+    @SerialName("name") val name: String,
+    @SerialName("description") val description: String = "",
+    @SerialName("service_family") val serviceFamily: String = "regular",
+    @SerialName("service_category") val serviceCategory: String = "on_demand",
+    @SerialName("route_model") val routeModel: String = "p2p",
+    @SerialName("is_enabled") val isEnabled: Boolean = true,
+    @SerialName("display_order") val displayOrder: Int = 100,
+    @SerialName("vehicle_types") val vehicleTypes: List<String> = emptyList(),
+    @SerialName("max_eta_minutes") val maxEtaMinutes: Int = 0,
+    @SerialName("max_distance_km") val maxDistanceKm: Double? = null,
+    @SerialName("max_weight_kg") val maxWeightKg: Double? = null,
+    @SerialName("uses_size_tier") val usesSizeTier: Boolean = false,
+    @SerialName("requires_dimension_scan") val requiresDimensionScan: Boolean = false,
+    @SerialName("allows_manual_dimension") val allowsManualDimension: Boolean = true,
+    @SerialName("requires_pickup_verification") val requiresPickupVerification: Boolean = true,
+    @SerialName("base_fare_idr") val baseFareIdr: Long = 0,
+    @SerialName("included_distance_km") val includedDistanceKm: Double = 1.0,
+    @SerialName("per_km_idr") val perKmIdr: Long = 0,
+    @SerialName("service_multiplier") val serviceMultiplier: Double = 1.0,
+    @SerialName("size_tiers") val sizeTiers: List<ServiceSizeTier> = emptyList()
+)
+
+@Serializable
+data class ServiceSizeTier(
+    @SerialName("code") val code: String = "",
+    @SerialName("name") val name: String = "",
+    @SerialName("max_weight_kg") val maxWeightKg: Double = 0.0,
+    @SerialName("price_delta_idr") val priceDeltaIdr: Long = 0,
+    @SerialName("multiplier") val multiplier: Double = 1.0
+)
+
+@Serializable
+data class LocationPayload(
+    @SerialName("lat") val lat: Double,
+    @SerialName("lng") val lng: Double
+)
+
+@Serializable
+data class DimensionsPayload(
+    @SerialName("length") val length: Int,
+    @SerialName("width") val width: Int,
+    @SerialName("height") val height: Int
+)
+
+@Serializable
+data class CustomerPriceEstimateRequest(
+    @SerialName("pickup") val pickup: LocationPayload,
+    @SerialName("dropoff") val dropoff: LocationPayload,
+    @SerialName("dimensions") val dimensions: DimensionsPayload,
+    @SerialName("weight_kg") val weightKg: Double,
+    @SerialName("has_insurance") val hasInsurance: Boolean = false,
+    @SerialName("item_value") val itemValue: Long = 0,
+    @SerialName("dimension_scan_verified") val dimensionScanVerified: Boolean = true,
+    @SerialName("service_code") val serviceCode: String,
+    @SerialName("size_tier") val sizeTier: String? = null
+)
+
+@Serializable
+data class PriceBreakdown(
+    @SerialName("service_code") val serviceCode: String = "",
+    @SerialName("service_name") val serviceName: String = "",
+    @SerialName("service_snapshot") val serviceSnapshot: DeliveryServiceProduct? = null,
+    @SerialName("selected_size_tier") val selectedSizeTier: ServiceSizeTier? = null,
+    @SerialName("distance_km") val distanceKm: Double = 0.0,
+    @SerialName("base_price_idr") val basePriceIdr: Long = 0,
+    @SerialName("actual_weight_kg") val actualWeightKg: Double = 0.0,
+    @SerialName("dimensional_weight_kg") val dimensionalWeightKg: Double = 0.0,
+    @SerialName("chargeable_weight_kg") val chargeableWeightKg: Double = 0.0,
+    @SerialName("volumetric_surcharge_idr") val volumetricSurchargeIdr: Long = 0,
+    @SerialName("insurance_premium_idr") val insurancePremiumIdr: Long = 0,
+    @SerialName("dynamic_price_idr") val dynamicPriceIdr: Long = 0,
+    @SerialName("delivery_model") val deliveryModel: String = "p2p",
+    @SerialName("eta_minutes") val etaMinutes: Int = 0,
+    @SerialName("total_price_idr") val totalPriceIdr: Long = 0
+)
+
+@Serializable
+data class CustomerOrderCreateRequest(
+    @SerialName("pickup_address") val pickupAddress: String,
+    @SerialName("pickup_location") val pickupLocation: LocationPayload,
+    @SerialName("dropoff_address") val dropoffAddress: String,
+    @SerialName("dropoff_location") val dropoffLocation: LocationPayload,
+    @SerialName("recipient_name") val recipientName: String,
+    @SerialName("recipient_phone") val recipientPhone: String,
+    @SerialName("package_details") val packageDetails: PackageDetailsPayload,
+    @SerialName("has_insurance") val hasInsurance: Boolean = false,
+    @SerialName("item_value") val itemValue: Long = 0,
+    @SerialName("schedule_type") val scheduleType: String = "now",
+    @SerialName("customer_notes") val customerNotes: String = "",
+    @SerialName("price_breakdown") val priceBreakdown: PriceBreakdown,
+    @SerialName("service_code") val serviceCode: String
+)
+
+@Serializable
+data class PackageDetailsPayload(
+    @SerialName("size_tier") val sizeTier: String,
+    @SerialName("weight_kg") val weightKg: Double,
+    @SerialName("dimensions") val dimensions: DimensionsPayload,
+    @SerialName("dimensions_scanned") val dimensionsScanned: Boolean,
+    @SerialName("requires_delivery_code") val requiresDeliveryCode: Boolean,
+    @SerialName("item_description") val itemDescription: String
+)
+
+@Serializable
+data class CustomerOrderCreateResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("order") val order: CreatedCustomerOrder? = null,
+    @SerialName("payment") val payment: CustomerPaymentSetup? = null,
+    @SerialName("payment_setup_error") val paymentSetupError: String? = null,
+    @SerialName("error") val error: String? = null
+)
+
+@Serializable
+data class CreatedCustomerOrder(
+    @SerialName("id") val id: String,
+    @SerialName("order_number") val orderNumber: String = "",
+    @SerialName("total_price_idr") val totalPriceIdr: Long = 0
+)
+
+@Serializable
+data class CustomerPaymentSetup(
+    @SerialName("id") val id: String = "",
+    @SerialName("method") val method: String = "",
+    @SerialName("snap_token") val snapToken: String? = null,
+    @SerialName("redirect_url") val redirectUrl: String? = null,
+    @SerialName("midtrans_order_id") val midtransOrderId: String? = null,
+    @SerialName("expires_in") val expiresIn: Int = 0,
+    @SerialName("expires_at") val expiresAt: String? = null
+)
+
+@Serializable
 data class UpdateProfileRequest(
     @SerialName("name") val name: String,
     @SerialName("phone_number") val phoneNumber: String

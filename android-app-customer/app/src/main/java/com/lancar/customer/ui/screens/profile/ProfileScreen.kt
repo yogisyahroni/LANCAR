@@ -52,7 +52,12 @@ fun ProfileScreen(
         ) {
             when (val res = state) {
                 is ProfileUiState.Loading -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    Text(
+                        text = "Memuat profil...",
+                        modifier = Modifier.align(Alignment.Center),
+                        color = Primary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
                 is ProfileUiState.Error -> {
                     Column(

@@ -103,16 +103,17 @@ dependencies {
     // DataStore & Security
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
-    implementation("com.scottyab:rootbeer-lib:0.1.0") // 🛡️ Anti-fraud root detection
 
     // Room Database for offline order queue (PTLAAA-45)
     val roomVersion = "2.6.1"
     implementation("androidx.room:room-runtime:$roomVersion")
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
-    // 🔒 Security Enhancement: SQLCipher for on-disk Room DB encryption
+    // Security Enhancement: SQLCipher for on-disk Room DB encryption.
+    // Use the modern artifact because the legacy android-database-sqlcipher package
+    // ships native libraries that are not compatible with Android 15+ 16 KB pages.
     implementation("androidx.sqlite:sqlite-ktx:2.4.0")
-    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
+    implementation("net.zetetic:sqlcipher-android:4.10.0")
 
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
@@ -132,7 +133,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // CameraX for Proof of Delivery feature (PTLAAA-53)
-    val cameraxVersion = "1.3.0"
+    val cameraxVersion = "1.4.2"
     implementation("androidx.camera:camera-core:$cameraxVersion")
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
@@ -141,9 +142,6 @@ dependencies {
     // ExifInterface for image rotation correction
     implementation("androidx.exifinterface:exifinterface:1.3.6")
 
-    // ML Kit for Volumetric Scanning & Object Detection (PTLAAA-88)
-    implementation("com.google.mlkit:object-detection:17.0.0")
-    
     // Coil for image loading in Compose
     implementation("io.coil-kt:coil-compose:2.5.0")
     
