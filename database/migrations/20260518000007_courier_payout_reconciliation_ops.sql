@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS courier_payout_reconciliation_runs (
   mismatch_count INT NOT NULL DEFAULT 0,
   alert_count INT NOT NULL DEFAULT 0,
   summary JSONB NOT NULL DEFAULT '{}'::jsonb,
-  created_by UUID REFERENCES staff(id) ON DELETE SET NULL,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
