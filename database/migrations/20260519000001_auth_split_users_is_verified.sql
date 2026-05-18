@@ -1,20 +1,50 @@
--- Keep split user tables compatible with auth-service user lookup.
--- Auth service reads is_verified from customers, couriers, and staff.
+-- +goose Up
+-- +goose StatementBegin
 
-ALTER TABLE customers
+-- Keep auth user lookup compatible with both legacy users table and split user tables.
+ALTER TABLE IF EXISTS users
   ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT TRUE;
 
-ALTER TABLE customers
-  ADD COLUMN IF NOT EXISTS totp_secret TEXT,
-  ADD COLUMN IF NOT EXISTS is_2fa_enabled BOOLEAN DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS totp_backup_codes TEXT[];
-
-ALTER TABLE couriers
+ALTER TABLE IF EXISTS customers
   ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT TRUE;
 
-ALTER TABLE staff
+ALTER TABLE IF EXISTS couriers
   ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT TRUE;
 
-UPDATE customers SET is_verified = TRUE WHERE is_verified IS NULL;
-UPDATE couriers SET is_verified = TRUE WHERE is_verified IS NULL;
-UPDATE staff SET is_verified = TRUE WHERE is_verified IS NULL;
+ALTER TABLE IF EXISTS staff
+  ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT TRUE;
+
+DO $$
+BEGIN
+  IF to_regclass('public.users') IS NOT NULL THEN
+    UPDATE users SET is_verified = TRUE WHERE is_verified IS NULL;
+  END IF;
+  IF to_regclass('public.customers') IS NOT NULL THEN
+    UPDATE customers SET is_verified = TRUE WHERE is_verified IS NULL;
+  END IF;
+  IF to_regclass('public.couriers') IS NOT NULL THEN
+    UPDATE couriers SET is_verified = TRUE WHERE is_verified IS NULL;
+  END IF;
+  IF to_regclass('public.staff') IS NOT NULL THEN
+    UPDATE staff SET is_verified = TRUE WHERE is_verified IS NULL;
+  END IF;
+END $$;
+
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+
+ALTER TABLE IF EXISTS staff
+  DROP COLUMN IF EXISTS is_verified;
+
+ALTER TABLE IF EXISTS couriers
+  DROP COLUMN IF EXISTS is_verified;
+
+ALTER TABLE IF EXISTS customers
+  DROP COLUMN IF EXISTS is_verified;
+
+ALTER TABLE IF EXISTS users
+  DROP COLUMN IF EXISTS is_verified;
+
+-- +goose StatementEnd
