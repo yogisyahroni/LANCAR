@@ -11,6 +11,7 @@ import path from 'path';
 import { routes } from './routes';
 import { initWebSocket } from './websocket';
 import { startWeatherWorker } from './workers/weather-worker';
+import { startPayoutDispatcherWorker } from './workers/payout-dispatcher-worker';
 import { initFirebase } from './notifications';
 
 const app = express();
@@ -35,7 +36,13 @@ app.use(helmet({
 // app.use(cors({...}));
 
 
-app.use(express.json());
+app.use(express.json({
+  verify: (req: any, _res, buf) => {
+    if (req.originalUrl === '/webhooks/courier-payout-provider') {
+      req.rawBody = Buffer.from(buf);
+    }
+  },
+}));
 fs.mkdirSync(path.join(process.cwd(), 'public/uploads/courier-documents'), { recursive: true });
 app.use('/uploads', express.static('public/uploads'));
 
@@ -75,4 +82,5 @@ server.listen(port, async () => {
   console.log(`Admin Service listening on port ${port}`);
   await initFirebase();
   startWeatherWorker();
+  startPayoutDispatcherWorker();
 });

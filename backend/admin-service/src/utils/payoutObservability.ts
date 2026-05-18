@@ -138,9 +138,12 @@ const shouldEmitAlert = async (client: Queryable, alertType: string) => {
 export const evaluatePayoutAlerts = async (client: Queryable) => {
   const failedThreshold = Number(process.env.PAYOUT_FAILED_ALERT_THRESHOLD || 5);
   const burstThreshold = Number(process.env.PAYOUT_REQUEST_BURST_THRESHOLD || 5);
+  const providerLatencyMinutes = Number(process.env.PAYOUT_PROVIDER_LATENCY_ALERT_MINUTES || 30);
+  const pendingTooLongMinutes = Number(process.env.PAYOUT_PENDING_TOO_LONG_MINUTES || 60);
+  const webhookMissingMinutes = Number(process.env.PAYOUT_WEBHOOK_MISSING_MINUTES || 20);
 
   try {
-    const [failed, burst, negative] = await Promise.all([
+    const [failed, burst, negative, providerLatency, pendingTooLong, webhookMissing] = await Promise.all([
       client.query(
         `SELECT COUNT(*)::int AS count
          FROM courier_payout_requests
@@ -173,6 +176,31 @@ export const evaluatePayoutAlerts = async (client: Queryable) => {
          END), 0) < 0
          LIMIT 5`,
       ),
+      client.query(
+        `SELECT COUNT(*)::int AS count
+         FROM courier_payout_dispatches
+         WHERE provider_status = 'processing'
+           AND dispatched_at < NOW() - ($1::text || ' minutes')::interval`,
+        [providerLatencyMinutes],
+      ),
+      client.query(
+        `SELECT COUNT(*)::int AS count
+         FROM courier_payout_requests
+         WHERE status IN ('requested', 'risk_screening', 'approved_auto', 'approved', 'processing')
+           AND requested_at < NOW() - ($1::text || ' minutes')::interval`,
+        [pendingTooLongMinutes],
+      ),
+      client.query(
+        `SELECT COUNT(*)::int AS count
+         FROM courier_payout_dispatches d
+         LEFT JOIN courier_payout_provider_webhook_events e
+           ON e.provider_name = d.provider_name
+          AND e.provider_reference = d.provider_reference
+         WHERE d.provider_status = 'processing'
+           AND d.dispatched_at < NOW() - ($1::text || ' minutes')::interval
+           AND e.id IS NULL`,
+        [webhookMissingMinutes],
+      ),
     ]);
 
     const failedCount = Number(failed.rows[0]?.count || 0);
@@ -202,6 +230,36 @@ export const evaluatePayoutAlerts = async (client: Queryable) => {
         courierId: negative.rows[0].courier_id,
         subjectType: 'courier_earnings_ledger',
         metadata: { alert_type: 'saldo_mismatch', balances: negative.rows },
+      });
+    }
+
+    const providerLatencyCount = Number(providerLatency.rows[0]?.count || 0);
+    if (providerLatencyCount > 0 && await shouldEmitAlert(client, 'provider_latency_high')) {
+      await writePayoutAuditEvent(client, undefined, {
+        eventType: 'observability_alert',
+        severity: 'warning',
+        subjectType: 'courier_payout_dispatches',
+        metadata: { alert_type: 'provider_latency_high', count: providerLatencyCount, threshold_minutes: providerLatencyMinutes },
+      });
+    }
+
+    const pendingTooLongCount = Number(pendingTooLong.rows[0]?.count || 0);
+    if (pendingTooLongCount > 0 && await shouldEmitAlert(client, 'pending_too_long')) {
+      await writePayoutAuditEvent(client, undefined, {
+        eventType: 'observability_alert',
+        severity: 'warning',
+        subjectType: 'courier_payout_requests',
+        metadata: { alert_type: 'pending_too_long', count: pendingTooLongCount, threshold_minutes: pendingTooLongMinutes },
+      });
+    }
+
+    const webhookMissingCount = Number(webhookMissing.rows[0]?.count || 0);
+    if (webhookMissingCount > 0 && await shouldEmitAlert(client, 'webhook_missing')) {
+      await writePayoutAuditEvent(client, undefined, {
+        eventType: 'observability_alert',
+        severity: 'warning',
+        subjectType: 'courier_payout_provider_webhook_events',
+        metadata: { alert_type: 'webhook_missing', count: webhookMissingCount, threshold_minutes: webhookMissingMinutes },
       });
     }
   } catch (error) {

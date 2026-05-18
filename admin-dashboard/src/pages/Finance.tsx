@@ -16,7 +16,10 @@ import {
   CheckCircle2,
   XCircle,
   Ban,
-  ShieldCheck
+  ShieldCheck,
+  FileSearch,
+  Smartphone,
+  AlertTriangle
 } from 'lucide-react'
 import { 
   XAxis, 
@@ -34,11 +37,40 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
+import { useState } from 'react'
 
 const COLORS = ['#006437', '#10b981', '#34d399', '#6ee7b7'];
 
+const activePayoutStatuses = ['requested', 'risk_screening', 'approved_auto', 'risk_hold', 'manual_review', 'under_review', 'approved', 'processing'];
+
+const payoutStatusLabel = (request: any) => request.status_label || ({
+  requested: 'Pemeriksaan otomatis',
+  risk_screening: 'Pemeriksaan otomatis',
+  approved_auto: 'Auto approved',
+  risk_hold: 'Needs review',
+  manual_review: 'Needs review',
+  under_review: 'Needs review',
+  approved: 'Diproses',
+  processing: 'Diproses',
+  paid: 'Berhasil',
+  blocked: 'Blocked by risk',
+  rejected: 'Ditolak',
+  failed: 'Gagal',
+  cancelled: 'Dibatalkan',
+} as Record<string, string>)[request.status] || String(request.status || '').replaceAll('_', ' ');
+
+const riskActionLabel = (request: any) => ({
+  auto_approved: 'Auto approved',
+  needs_review: 'Needs review',
+  blocked_by_risk: 'Blocked by risk',
+  processing: 'Processing',
+  screening: 'Screening',
+  terminal: 'Closed',
+} as Record<string, string>)[request.risk_action] || payoutStatusLabel(request);
+
 export default function Finance() {
   const queryClient = useQueryClient();
+  const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
 
   const { data: financialData, isLoading: isLoadingStats } = useQuery({
     queryKey: ['finance-stats'],
@@ -72,6 +104,33 @@ export default function Finance() {
     }
   });
 
+  const { data: payoutOps, isLoading: isLoadingPayoutOps } = useQuery({
+    queryKey: ['finance-payout-ops-dashboard'],
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/payout-ops-dashboard');
+      return res.data?.data;
+    }
+  });
+
+  const { data: payoutReviewQueue, isLoading: isLoadingReviewQueue } = useQuery({
+    queryKey: ['finance-payout-review-queue'],
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/payout-review-queue');
+      return res.data?.data || [];
+    }
+  });
+
+  const activeReviewId = selectedReviewId || payoutReviewQueue?.[0]?.id || null;
+
+  const { data: payoutReviewDetail } = useQuery({
+    queryKey: ['finance-payout-review-detail', activeReviewId],
+    enabled: Boolean(activeReviewId),
+    queryFn: async () => {
+      const res = await api.get(`/admin/finance/payout-requests/${activeReviewId}/detail`);
+      return res.data?.data;
+    }
+  });
+
   const updatePayoutAccountMutation = useMutation({
     mutationFn: async ({ id, status, reason }: { id: string; status: string; reason: string }) => {
       await api.patch(`/admin/finance/payout-accounts/${id}`, { status, reason });
@@ -100,6 +159,54 @@ export default function Finance() {
     },
     onError: () => {
       toast.error('Gagal memperbarui pengajuan pencairan');
+    }
+  });
+
+  const payoutReviewActionMutation = useMutation({
+    mutationFn: async ({ id, action, reason }: { id: string; action: string; reason: string }) => {
+      const res = await api.post(`/admin/finance/payout-requests/${id}/review-action`, { action, reason });
+      return res.data?.data;
+    },
+    onSuccess: () => {
+      toast.success('Review payout diproses dan masuk audit trail');
+      queryClient.invalidateQueries({ queryKey: ['finance-payout-review-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-payout-review-detail'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-payout-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-payout-accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-payout-ops-dashboard'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.error || 'Gagal memproses review payout');
+    }
+  });
+
+  const dispatchApprovedPayoutsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('/admin/finance/payouts/dispatch-approved');
+      return res.data?.data;
+    },
+    onSuccess: (data) => {
+      const skipped = data?.skipped?.length || 0;
+      toast.success(`${data?.processed || 0} pencairan dikirim ke provider${skipped ? `, ${skipped} ditahan limit` : ''}`);
+      queryClient.invalidateQueries({ queryKey: ['finance-payout-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['finance-payouts'] });
+    },
+    onError: () => {
+      toast.error('Gagal dispatch pencairan otomatis');
+    }
+  });
+
+  const reconcilePayoutsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('/admin/finance/payouts/reconcile');
+      return res.data?.data;
+    },
+    onSuccess: (data) => {
+      toast.success(`Rekonsiliasi selesai: ${data?.items?.length || 0} temuan`);
+      queryClient.invalidateQueries({ queryKey: ['finance-payout-ops-dashboard'] });
+    },
+    onError: () => {
+      toast.error('Gagal menjalankan rekonsiliasi payout');
     }
   });
 
@@ -152,7 +259,7 @@ export default function Finance() {
     }
   });
 
-  if (isLoadingStats || isLoadingPayouts || isLoadingPayoutAccounts || isLoadingPayoutRequests) {
+  if (isLoadingStats || isLoadingPayouts || isLoadingPayoutAccounts || isLoadingPayoutRequests || isLoadingPayoutOps || isLoadingReviewQueue) {
     return (
       <div className="h-[80vh] flex items-center justify-center">
         <Loader2 className="w-12 h-12 text-primary animate-spin" />
@@ -164,7 +271,17 @@ export default function Finance() {
   const revenueBreakdown = financialData?.model_breakdown || [];
   const emergencyFund = financialData?.emergency_fund || 0;
   const unitEconomics = financialData?.unit_economics || [];
+  const opsCounts = payoutOps?.status_counts || {};
+  const latestReconItems = payoutOps?.reconciliation?.items || [];
   const formatCurrency = (value: number | string) => `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
+  const reviewRequest = payoutReviewDetail?.request;
+  const reviewRisk = payoutReviewDetail?.risk;
+  const reviewAccount = payoutReviewDetail?.payout_account;
+  const runReviewAction = (action: string, defaultReason: string) => {
+    if (!activeReviewId) return;
+    const reason = prompt('Alasan review treasury:') || defaultReason;
+    payoutReviewActionMutation.mutate({ id: activeReviewId, action, reason });
+  };
 
   return (
     <div className="space-y-10 animate-in">
@@ -174,6 +291,22 @@ export default function Finance() {
           <p className="text-zinc-500 mt-1">Real-time revenue oversight, cost analysis, and settlement control.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => dispatchApprovedPayoutsMutation.mutate()}
+            disabled={dispatchApprovedPayoutsMutation.isPending}
+            className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2 disabled:opacity-50"
+          >
+            {dispatchApprovedPayoutsMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+            Dispatch Approved
+          </button>
+          <button
+            onClick={() => reconcilePayoutsMutation.mutate()}
+            disabled={reconcilePayoutsMutation.isPending}
+            className="px-6 py-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-300 font-black text-sm uppercase tracking-widest hover:bg-blue-500/20 transition-all flex items-center gap-2 disabled:opacity-50"
+          >
+            {reconcilePayoutsMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
+            Reconcile
+          </button>
           <button
             onClick={async () => {
               try {
@@ -208,6 +341,316 @@ export default function Finance() {
             <Download size={18} />
             Export Audit (CSV)
           </button>
+          <button
+            onClick={async () => {
+              try {
+                const res = await api.get('/admin/finance/payout-risk-audit/export', { responseType: 'blob' })
+                const url = URL.createObjectURL(res.data)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `payout_risk_audit_${new Date().toISOString().split('T')[0]}.csv`
+                a.click()
+                URL.revokeObjectURL(url)
+              } catch { toast.error('Risk audit export failed') }
+            }}
+            className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-sm uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+          >
+            <Download size={18} />
+            Export Risk
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-6">
+          <h3 className="text-xl font-black text-zinc-100 italic uppercase">Auto Payout Control</h3>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              ['Auto', opsCounts.auto_approved_count || 0, 'text-emerald-400'],
+              ['Manual', opsCounts.manual_review_count || 0, 'text-amber-400'],
+              ['Blocked', opsCounts.blocked_count || 0, 'text-red-400'],
+            ].map(([label, value, color]) => (
+              <div key={label as string} className="rounded-2xl bg-white/[0.03] border border-white/5 p-4">
+                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">{label}</p>
+                <p className={cn("text-3xl font-black mt-2", color as string)}>{value}</p>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-2xl bg-black/20 border border-white/5 p-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Failed Monitor</p>
+            <div className="mt-3 grid grid-cols-3 gap-3 text-center">
+              <span className="text-xs text-zinc-400">1h <b className="text-red-400">{payoutOps?.failed_monitor?.failed_last_hour || 0}</b></span>
+              <span className="text-xs text-zinc-400">24h <b className="text-red-400">{payoutOps?.failed_monitor?.failed_last_day || 0}</b></span>
+              <span className="text-xs text-zinc-400">Stale <b className="text-amber-400">{payoutOps?.failed_monitor?.stale_processing || 0}</b></span>
+            </div>
+          </div>
+        </div>
+
+        <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-5">
+          <h3 className="text-xl font-black text-zinc-100 italic uppercase">Risk Reason Breakdown</h3>
+          <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
+            {payoutOps?.risk_reason_breakdown?.map((item: any) => (
+              <div key={item.reason} className="flex items-center justify-between gap-4 rounded-2xl bg-white/[0.03] border border-white/5 p-4">
+                <p className="text-xs font-bold text-zinc-300 line-clamp-2">{item.reason}</p>
+                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-black text-primary-light">{item.count}</span>
+              </div>
+            ))}
+            {(!payoutOps?.risk_reason_breakdown || payoutOps.risk_reason_breakdown.length === 0) && (
+              <p className="py-8 text-center text-sm font-bold text-zinc-500">Belum ada alasan risk aktif.</p>
+            )}
+          </div>
+        </div>
+
+        <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-black text-zinc-100 italic uppercase">Reconciliation</h3>
+            <span className={cn(
+              "rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest",
+              (payoutOps?.reconciliation?.mismatch_count || 0) > 0 ? "bg-red-500/10 text-red-400" : "bg-emerald-500/10 text-emerald-400"
+            )}>
+              {payoutOps?.reconciliation?.mismatch_count || 0} mismatch
+            </span>
+          </div>
+          <div className="space-y-3 max-h-[240px] overflow-y-auto pr-1">
+            {latestReconItems.slice(0, 6).map((item: any) => (
+              <div key={item.id} className="rounded-2xl bg-white/[0.03] border border-white/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-black text-zinc-200 uppercase">{String(item.check_type || '').replaceAll('_', ' ')}</p>
+                  <span className={cn("text-[10px] font-black uppercase", item.severity === 'critical' ? "text-red-400" : "text-amber-400")}>{item.severity}</span>
+                </div>
+                <p className="mt-2 text-[11px] text-zinc-500">{item.expected_value || '-'} {'->'} {item.actual_value || '-'}</p>
+              </div>
+            ))}
+            {latestReconItems.length === 0 && (
+              <p className="py-8 text-center text-sm font-bold text-zinc-500">Belum ada mismatch pada run terakhir.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="glass-card rounded-[44px] border-white/5 overflow-hidden">
+        <div className="p-8 border-b border-white/5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-2xl font-black text-zinc-100 italic uppercase flex items-center gap-3">
+              <FileSearch className="text-amber-400" size={26} />
+              Manual Review Queue
+            </h3>
+            <p className="text-sm text-zinc-500 mt-1">Prioritas berdasarkan risk score, status hold/block, nominal, dan aging request.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-3 min-w-[320px]">
+            <div className="rounded-2xl bg-white/[0.03] border border-white/5 p-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Queue</p>
+              <p className="text-2xl font-black text-zinc-100">{payoutReviewQueue?.length || 0}</p>
+            </div>
+            <div className="rounded-2xl bg-red-500/10 border border-red-500/10 p-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-red-400/70">Critical</p>
+              <p className="text-2xl font-black text-red-400">
+                {payoutReviewQueue?.filter((item: any) => item.status === 'blocked' || item.risk_level === 'critical').length || 0}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-amber-500/10 border border-amber-500/10 p-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-amber-400/70">High</p>
+              <p className="text-2xl font-black text-amber-400">
+                {payoutReviewQueue?.filter((item: any) => item.risk_level === 'high').length || 0}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr]">
+          <div className="border-r border-white/5 p-6 space-y-3 max-h-[720px] overflow-y-auto">
+            {payoutReviewQueue?.map((item: any) => (
+              <button
+                key={item.id}
+                onClick={() => setSelectedReviewId(item.id)}
+                className={cn(
+                  "w-full text-left rounded-[28px] border p-5 transition-all",
+                  activeReviewId === item.id
+                    ? "bg-amber-500/10 border-amber-500/30"
+                    : "bg-white/[0.02] border-white/5 hover:bg-white/[0.04]"
+                )}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-black text-zinc-100">{item.courier_name}</p>
+                    <p className="mt-1 text-[11px] font-mono text-zinc-500">{item.request_number}</p>
+                  </div>
+                  <span className={cn(
+                    "rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest",
+                    item.status === 'blocked' ? "bg-red-500/10 text-red-400" :
+                    item.risk_level === 'high' || item.risk_level === 'critical' ? "bg-amber-500/10 text-amber-400" :
+                    "bg-white/5 text-zinc-400"
+                  )}>
+                    {item.risk_score || 0}
+                  </span>
+                </div>
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <p className="text-sm font-black text-zinc-100">{formatCurrency(item.amount_idr)}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{payoutStatusLabel(item)}</p>
+                </div>
+                {item.risk_reasons?.length > 0 && (
+                  <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-zinc-400">{item.risk_reasons.slice(0, 2).join(' • ')}</p>
+                )}
+              </button>
+            ))}
+            {(!payoutReviewQueue || payoutReviewQueue.length === 0) && (
+              <div className="py-16 text-center text-sm font-bold text-zinc-500">Tidak ada payout yang perlu manual review.</div>
+            )}
+          </div>
+
+          <div className="p-8 space-y-6">
+            {reviewRequest ? (
+              <>
+                <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-6">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-zinc-600">Review Case</p>
+                    <h4 className="mt-2 text-3xl font-black text-zinc-100">{reviewRequest.courier_name}</h4>
+                    <p className="mt-1 text-sm text-zinc-500">{reviewRequest.request_number} • {format(new Date(reviewRequest.requested_at), 'dd MMM yyyy HH:mm')}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 min-w-[320px]">
+                    <div className="rounded-2xl bg-black/20 border border-white/5 p-4">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Risk Score</p>
+                      <p className={cn("mt-2 text-3xl font-black", (reviewRisk?.score || 0) >= 80 ? "text-red-400" : "text-amber-400")}>{reviewRisk?.score || 0}</p>
+                    </div>
+                    <div className="rounded-2xl bg-black/20 border border-white/5 p-4">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Nominal</p>
+                      <p className="mt-3 text-lg font-black text-zinc-100">{formatCurrency(reviewRequest.amount_idr)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="rounded-[28px] border border-red-500/10 bg-red-500/[0.03] p-5 lg:col-span-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-red-400 flex items-center gap-2">
+                      <AlertTriangle size={14} />
+                      Alasan Hold / Block
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {(reviewRisk?.reasons || []).map((reason: string) => (
+                        <span key={reason} className="rounded-full bg-black/20 border border-white/5 px-3 py-2 text-xs font-bold text-zinc-300">{reason}</span>
+                      ))}
+                      {(!reviewRisk?.reasons || reviewRisk.reasons.length === 0) && (
+                        <span className="text-sm font-bold text-zinc-500">Tidak ada alasan risk aktif.</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="rounded-[28px] border border-white/5 bg-white/[0.02] p-5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Rekening Tujuan</p>
+                    <p className="mt-4 text-lg font-black text-zinc-100">{reviewAccount?.bank_code || '-'}</p>
+                    <p className="mt-1 text-sm text-zinc-400">{reviewAccount?.account_number || '-'}</p>
+                    <p className="mt-1 text-xs text-zinc-500">{reviewAccount?.account_name || '-'}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="rounded-[28px] border border-white/5 bg-white/[0.02] p-5 space-y-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 flex items-center gap-2">
+                      <Smartphone size={14} />
+                      Device / IP Metadata
+                    </p>
+                    <div className="grid grid-cols-1 gap-3 text-sm">
+                      <div className="flex justify-between gap-4"><span className="text-zinc-500">Device</span><b className="text-zinc-200 truncate">{reviewRisk?.device_id || '-'}</b></div>
+                      <div className="flex justify-between gap-4"><span className="text-zinc-500">IP Address</span><b className="text-zinc-200">{reviewRisk?.ip_address || '-'}</b></div>
+                      <div className="flex justify-between gap-4"><span className="text-zinc-500">User Agent</span><b className="text-zinc-200 truncate">{reviewRisk?.user_agent || '-'}</b></div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-[28px] border border-white/5 bg-white/[0.02] p-5 space-y-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Ledger Source</p>
+                    <div className="space-y-2 max-h-[180px] overflow-y-auto pr-1">
+                      {payoutReviewDetail?.ledger_sources?.slice(0, 6).map((ledger: any) => (
+                        <div key={ledger.id} className="flex items-center justify-between gap-4 rounded-2xl bg-black/20 border border-white/5 px-4 py-3">
+                          <div>
+                            <p className="text-xs font-black text-zinc-200">{ledger.transaction_type}</p>
+                            <p className="text-[11px] text-zinc-500">{ledger.description || ledger.source}</p>
+                          </div>
+                          <span className={cn("text-sm font-black", ledger.direction === 'credit' ? "text-emerald-400" : "text-red-400")}>{formatCurrency(ledger.amount_idr)}</span>
+                        </div>
+                      ))}
+                      {(!payoutReviewDetail?.ledger_sources || payoutReviewDetail.ledger_sources.length === 0) && (
+                        <p className="py-8 text-center text-sm font-bold text-zinc-500">Belum ada ledger source.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="rounded-[28px] border border-white/5 bg-white/[0.02] p-5 space-y-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">History Payout Kurir</p>
+                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                      {payoutReviewDetail?.payout_history?.map((history: any) => (
+                        <div key={history.id} className="flex items-center justify-between gap-4 rounded-2xl bg-black/20 border border-white/5 px-4 py-3">
+                          <div>
+                            <p className="text-xs font-black text-zinc-200">{history.request_number}</p>
+                            <p className="text-[11px] text-zinc-500">{format(new Date(history.requested_at), 'dd MMM HH:mm')}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-black text-zinc-100">{formatCurrency(history.amount_idr)}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{history.status}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-[28px] border border-white/5 bg-white/[0.02] p-5 space-y-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Audit Trail Terakhir</p>
+                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                      {payoutReviewDetail?.security_events?.slice(0, 8).map((event: any) => (
+                        <div key={event.id} className="rounded-2xl bg-black/20 border border-white/5 px-4 py-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-xs font-black text-zinc-200">{String(event.event_type || '').replaceAll('_', ' ')}</p>
+                            <p className="text-[10px] font-bold text-zinc-500">{format(new Date(event.created_at), 'dd MMM HH:mm')}</p>
+                          </div>
+                          <p className="mt-1 text-[11px] text-zinc-500">{event.old_status || '-'} {'->'} {event.new_status || '-'}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[28px] border border-amber-500/10 bg-amber-500/[0.03] p-5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-400">Admin Actions</p>
+                  <p className="mt-2 text-sm text-zinc-500">Semua aksi di bawah wajib TOTP melalui middleware admin dan dicatat ke audit trail payout.</p>
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    <button
+                      onClick={() => runReviewAction('approve', 'Disetujui setelah manual review treasury.')}
+                      disabled={payoutReviewActionMutation.isPending || reviewRequest.status === 'blocked'}
+                      className="px-5 py-3 rounded-2xl bg-emerald-500 text-white font-black text-xs uppercase tracking-widest disabled:opacity-40"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => runReviewAction('reject', 'Ditolak setelah manual review treasury.')}
+                      disabled={payoutReviewActionMutation.isPending}
+                      className="px-5 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 font-black text-xs uppercase tracking-widest disabled:opacity-40"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => runReviewAction('request_more_verification', 'Memerlukan verifikasi tambahan sebelum payout diproses.')}
+                      disabled={payoutReviewActionMutation.isPending}
+                      className="px-5 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-xs uppercase tracking-widest disabled:opacity-40"
+                    >
+                      Request Verification
+                    </button>
+                    <button
+                      onClick={() => runReviewAction('suspend_payout_account', 'Rekening pencairan disuspend untuk investigasi keamanan.')}
+                      disabled={payoutReviewActionMutation.isPending}
+                      className="px-5 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 font-black text-xs uppercase tracking-widest disabled:opacity-40"
+                    >
+                      Suspend Account
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="py-28 text-center">
+                <FileSearch className="mx-auto text-zinc-700" size={54} />
+                <p className="mt-4 text-lg font-black text-zinc-400">Pilih request untuk investigasi.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -489,7 +932,7 @@ export default function Finance() {
               <p className="text-sm text-zinc-500 mt-1">Kontrol status settlement kurir dengan audit trail.</p>
             </div>
             <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-              {payoutRequests?.filter((item: any) => ['requested', 'under_review', 'approved', 'processing'].includes(item.status)).length || 0} aktif
+              {payoutRequests?.filter((item: any) => activePayoutStatuses.includes(item.status)).length || 0} aktif
             </span>
           </div>
 
@@ -504,12 +947,54 @@ export default function Finance() {
                   <span className={cn(
                     "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shrink-0",
                     request.status === 'paid' ? "bg-emerald-500/10 text-emerald-400" :
-                    ['failed', 'rejected', 'cancelled'].includes(request.status) ? "bg-red-500/10 text-red-400" :
+                    ['failed', 'rejected', 'blocked', 'cancelled'].includes(request.status) ? "bg-red-500/10 text-red-400" :
+                    ['approved_auto', 'approved', 'processing'].includes(request.status) ? "bg-primary/10 text-primary-light" :
                     "bg-amber-500/10 text-amber-400"
                   )}>
-                    {request.status}
+                    {payoutStatusLabel(request)}
                   </span>
                 </div>
+
+                {request.risk_decision && (
+                  <div className="rounded-2xl border border-white/5 bg-black/20 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Risk Engine</p>
+                      <span className={cn(
+                        "rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest",
+                        request.risk_decision === 'auto_approved' ? "bg-emerald-500/10 text-emerald-400" :
+                        request.risk_decision === 'blocked' ? "bg-red-500/10 text-red-400" :
+                        "bg-amber-500/10 text-amber-400"
+                      )}>
+                        {riskActionLabel(request)} • {request.risk_score ?? 0}
+                      </span>
+                    </div>
+                    {request.risk_reasons?.length > 0 && (
+                      <p className="mt-2 line-clamp-2 text-xs text-zinc-400">{request.risk_reasons.slice(0, 2).join(' • ')}</p>
+                    )}
+                  </div>
+                )}
+
+                {(request.provider_reference || request.provider_status || request.provider_payload_hash) && (
+                  <div className="rounded-2xl border border-primary/10 bg-primary/5 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-zinc-600">Provider Dispatch</p>
+                      <span className={cn(
+                        "rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest",
+                        request.provider_status === 'paid' || request.status === 'paid' ? "bg-emerald-500/10 text-emerald-400" :
+                        request.provider_status === 'failed' || request.status === 'failed' ? "bg-red-500/10 text-red-400" :
+                        "bg-blue-500/10 text-blue-400"
+                      )}>
+                        {request.provider_status || request.status}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-1 gap-1 text-xs text-zinc-400">
+                      <span>Provider: <b className="text-zinc-200">{request.provider_name || '-'}</b></span>
+                      <span>Reference: <b className="text-zinc-200">{request.provider_reference || '-'}</b></span>
+                      <span>Payload: <b className="text-zinc-200">{String(request.provider_payload_hash || request.dispatch_payload_hash || '-').slice(0, 12)}</b></span>
+                      <span>Response: <b className="text-zinc-200">{String(request.provider_response_hash || request.dispatch_response_hash || '-').slice(0, 12)}</b></span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 rounded-2xl bg-black/20 border border-white/5">
@@ -524,15 +1009,15 @@ export default function Finance() {
                   </div>
                 </div>
 
-                {!['paid', 'failed', 'rejected', 'cancelled'].includes(request.status) && (
+                {!['paid', 'failed', 'rejected', 'blocked', 'cancelled'].includes(request.status) && (
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => updatePayoutRequestMutation.mutate({
                         id: request.id,
-                        status: 'under_review',
+                        status: 'manual_review',
                         reason: 'Masuk proses review treasury.'
                       })}
-                      disabled={request.status !== 'requested' || updatePayoutRequestMutation.isPending}
+                      disabled={!['requested', 'risk_screening', 'risk_hold'].includes(request.status) || updatePayoutRequestMutation.isPending}
                       className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-300 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 disabled:opacity-40"
                     >
                       Review
@@ -543,7 +1028,7 @@ export default function Finance() {
                         status: 'approved',
                         reason: 'Disetujui untuk proses settlement.'
                       })}
-                      disabled={!['requested', 'under_review'].includes(request.status) || updatePayoutRequestMutation.isPending}
+                      disabled={!['requested', 'risk_screening', 'risk_hold', 'manual_review', 'under_review', 'approved_auto'].includes(request.status) || updatePayoutRequestMutation.isPending}
                       className="px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500/20 disabled:opacity-40"
                     >
                       Approve
@@ -554,7 +1039,7 @@ export default function Finance() {
                         status: 'paid',
                         reason: 'Dana sudah dikirim ke rekening terverifikasi.'
                       })}
-                      disabled={!['approved', 'processing'].includes(request.status) || updatePayoutRequestMutation.isPending}
+                      disabled={!['approved_auto', 'approved', 'processing'].includes(request.status) || updatePayoutRequestMutation.isPending}
                       className="px-4 py-2 rounded-xl bg-primary text-white font-black text-[10px] uppercase tracking-widest hover:bg-primary-light disabled:opacity-40"
                     >
                       Mark Paid

@@ -97,6 +97,7 @@ routes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res))
 routes.get('/api/v1/system/latest-version', (req, res) => controllers.getLatestVersion(req, res));
 routes.get('/track/:token', (req, res) => controllers.getPublicTripShare(req, res));
 routes.post('/payments/midtrans/notification', (req, res) => controllers.customerOrder.handleMidtransNotification(req, res));
+routes.post('/webhooks/courier-payout-provider', (req, res) => controllers.handleCourierPayoutProviderWebhook(req, res));
 
 // Admin routes - Protected by Admin Auth and Role requirement
 routes.use('/admin', requireAuth, requireRole(['admin', 'super_admin']));
@@ -173,10 +174,17 @@ routes.get('/admin/finance/stats', (req, res) => controllers.getFinancialStats(r
 routes.get('/admin/finance/payout-accounts', (req, res) => controllers.getCourierPayoutAccounts(req, res));
 routes.patch('/admin/finance/payout-accounts/:id', requireTotp, (req, res) => controllers.updateCourierPayoutAccountStatus(req, res));
 routes.get('/admin/finance/payout-requests', (req, res) => controllers.getCourierPayoutRequests(req, res));
+routes.get('/admin/finance/payout-review-queue', (req, res) => controllers.getCourierPayoutReviewQueue(req, res));
+routes.get('/admin/finance/payout-requests/:id/detail', (req, res) => controllers.getCourierPayoutRequestDetail(req, res));
+routes.post('/admin/finance/payout-requests/:id/review-action', requireTotp, (req, res) => controllers.reviewCourierPayoutRequestAction(req, res));
 routes.patch('/admin/finance/payout-requests/:id', requireTotp, (req, res) => controllers.updateCourierPayoutRequestStatus(req, res));
 routes.get('/admin/finance/payouts', (req, res) => controllers.getPayouts(req, res));
 routes.get('/admin/finance/payouts/export', (req, res) => controllers.exportPayouts(req, res));
+routes.get('/admin/finance/payout-risk-audit/export', (req, res) => controllers.exportCourierPayoutRiskAudit(req, res));
+routes.get('/admin/finance/payout-ops-dashboard', (req, res) => controllers.getCourierPayoutOpsDashboard(req, res));
 routes.post('/admin/finance/payouts/batch-release', (req, res) => controllers.batchReleasePayouts(req, res));
+routes.post('/admin/finance/payouts/dispatch-approved', requireTotp, (req, res) => controllers.runCourierPayoutDispatcher(req, res));
+routes.post('/admin/finance/payouts/reconcile', requireTotp, (req, res) => controllers.runCourierPayoutReconciliation(req, res));
 routes.patch('/admin/finance/payouts/:id', (req, res) => controllers.updatePayoutStatus(req, res));
 routes.post('/admin/finance/emergency-fund/top-up', (req, res) => controllers.topUpEmergencyFund(req, res));
 routes.get('/admin/finance/masa-report/export', (req, res) => controllers.exportMasaReport(req, res));

@@ -400,6 +400,16 @@ data class CourierPayoutRequestItem(
     val netAmountIdr: Int = 0,
     @SerialName("status")
     val status: String = "requested",
+    @SerialName("status_label")
+    val statusLabel: String? = null,
+    @SerialName("status_message")
+    val statusMessage: String? = null,
+    @SerialName("risk_action")
+    val riskAction: String? = null,
+    @SerialName("auto_approved")
+    val autoApproved: Boolean = false,
+    @SerialName("requires_manual_review")
+    val requiresManualReview: Boolean = false,
     @SerialName("destination_snapshot")
     val destinationSnapshot: Map<String, String> = emptyMap(),
     @SerialName("failure_reason")

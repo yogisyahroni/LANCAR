@@ -4,6 +4,8 @@ import { createNotification } from '../notifications';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { evaluateCourierPayoutRisk } from '../services/payoutRiskEngine';
+import { decoratePayoutRequest, payoutMobileMessage } from '../services/payoutStatusPolicy';
 import { evaluatePayoutAlerts, writePayoutAuditEvent } from '../utils/payoutObservability';
 
 type CourierLoginRow = {
@@ -1033,7 +1035,7 @@ export const getMobileCourierPayoutSummary = async (req: Request, res: Response)
         `SELECT COUNT(*)::int AS active_request_count
          FROM courier_payout_requests
          WHERE courier_id = $1
-           AND status IN ('requested', 'under_review', 'approved', 'processing')`,
+           AND status IN ('requested', 'risk_screening', 'approved_auto', 'risk_hold', 'manual_review', 'under_review', 'approved', 'processing')`,
         [req.user.id]
       ),
       db.query(
@@ -1041,7 +1043,7 @@ export const getMobileCourierPayoutSummary = async (req: Request, res: Response)
          FROM courier_payout_requests
          WHERE courier_id = $1
            AND requested_at >= date_trunc('day', NOW())
-           AND status NOT IN ('failed', 'rejected', 'cancelled')`,
+           AND status NOT IN ('failed', 'rejected', 'blocked', 'cancelled')`,
         [req.user.id]
       ),
     ]);
@@ -1127,7 +1129,7 @@ export const getMobileCourierPayoutRequests = async (req: Request, res: Response
 
     res.json({
       success: true,
-      data: result.rows,
+      data: result.rows.map((row) => decoratePayoutRequest(row)),
       message: 'Courier payout requests loaded',
     });
   } catch (error) {
@@ -1183,27 +1185,51 @@ export const createMobileCourierPayoutRequest = async (req: Request, res: Respon
       return;
     }
 
-    const result = await db.query(
-      `SELECT payout_request_id, status, available_balance_idr
-       FROM request_courier_payout($1, $2, $3)`,
-      [req.user.id, amountIdr, idempotencyKey]
-    );
+    const client = await db.connect();
+    let requestRow: any;
+    let riskResult: Awaited<ReturnType<typeof evaluateCourierPayoutRisk>> | null = null;
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
+        `SELECT payout_request_id, status, available_balance_idr
+         FROM request_courier_payout($1, $2, $3)`,
+        [req.user.id, amountIdr, idempotencyKey]
+      );
+      requestRow = result.rows[0];
+      riskResult = await evaluateCourierPayoutRisk(client, req, requestRow.payout_request_id);
+      await client.query('COMMIT');
+    } catch (riskError) {
+      await client.query('ROLLBACK');
+      throw riskError;
+    } finally {
+      client.release();
+    }
 
-    const requestRow = result.rows[0];
     const detail = await db.query(
       `SELECT
-         id,
-         request_number,
-         amount_idr,
-         fee_idr,
-         net_amount_idr,
-         status,
-         destination_snapshot,
-         risk_snapshot,
-         requested_at
-       FROM courier_payout_requests
-       WHERE id = $1
-         AND courier_id = $2
+         pr.id,
+         pr.request_number,
+         pr.amount_idr,
+         pr.fee_idr,
+         pr.net_amount_idr,
+         pr.status,
+         pr.destination_snapshot,
+         pr.risk_snapshot,
+         pr.requested_at,
+         rd.decision AS risk_decision,
+         rd.risk_level,
+         rd.risk_score,
+         rd.reasons AS risk_reasons
+       FROM courier_payout_requests pr
+       LEFT JOIN LATERAL (
+         SELECT decision, risk_level, risk_score, reasons
+         FROM courier_payout_risk_decisions
+         WHERE payout_request_id = pr.id
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) rd ON TRUE
+       WHERE pr.id = $1
+         AND pr.courier_id = $2
        LIMIT 1`,
       [requestRow.payout_request_id, req.user.id]
     );
@@ -1212,18 +1238,26 @@ export const createMobileCourierPayoutRequest = async (req: Request, res: Respon
       req,
       'request_created',
       'info',
-      { amount_idr: amountIdr, idempotency_key_hash: sha256(idempotencyKey) },
+      {
+        amount_idr: amountIdr,
+        idempotency_key_hash: sha256(idempotencyKey),
+        risk_decision: riskResult?.decision?.decision || null,
+        risk_score: riskResult?.decision?.risk_score ?? null,
+      },
       requestRow.payout_request_id
     );
     await evaluatePayoutAlerts(db);
 
+    const decoratedRequest = detail.rows[0] ? decoratePayoutRequest(detail.rows[0]) : null;
+
     res.status(201).json({
       success: true,
       data: {
-        request: detail.rows[0],
+        request: decoratedRequest,
         available_balance_idr: Number(requestRow.available_balance_idr || 0),
+        risk_decision: riskResult?.decision || null,
       },
-      message: 'Pengajuan pencairan saldo berhasil dibuat.',
+      message: payoutMobileMessage(decoratedRequest?.status || requestRow.status),
     });
   } catch (error: any) {
     const message = String(error?.message || 'Payout request failed');

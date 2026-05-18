@@ -2927,7 +2927,14 @@ private fun PayoutRequestRow(request: CourierPayoutRequestItem, onClick: () -> U
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(request.requestNumber, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(payoutStatusLabel(request.status), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(request.statusLabel ?: payoutStatusLabel(request.status), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    payoutStatusMessage(request),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(request.netAmountIdr.toRupiahCompact(), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = DeepForest)
@@ -3098,11 +3105,19 @@ private fun PayoutRequestDetailDialog(request: CourierPayoutRequestItem, onDismi
                         Text(request.requestNumber, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
-                PayoutReviewRow("Status", payoutStatusLabel(request.status))
+                PayoutReviewRow("Status", request.statusLabel ?: payoutStatusLabel(request.status))
                 PayoutReviewRow("Nominal", request.amountIdr.toRupiahCompact())
                 PayoutReviewRow("Diterima", request.netAmountIdr.toRupiahCompact())
                 PayoutReviewRow("Rekening", "${request.destinationSnapshot["bank_code"] ?: "-"} • **** ${request.destinationSnapshot["account_last4"] ?: request.destinationSnapshot["account_number_last4"] ?: "-"}")
                 PayoutReviewRow("Tanggal", shortDateLabel(request.requestedAt))
+                Surface(modifier = Modifier.fillMaxWidth(), color = payoutStatusColor(request.status).copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
+                    Text(
+                        payoutStatusMessage(request),
+                        modifier = Modifier.padding(10.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
                 request.failureReason?.takeIf { it.isNotBlank() }?.let { reason ->
                     Surface(modifier = Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.error.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
                         Text(reason, modifier = Modifier.padding(10.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium)
@@ -3242,26 +3257,42 @@ private fun maskAccountNumber(value: String): String {
 }
 
 private fun payoutStatusLabel(status: String): String = when (status) {
-    "requested", "under_review", "approved", "processing" -> "Diproses"
+    "requested", "risk_screening" -> "Dalam pemeriksaan otomatis"
+    "risk_hold", "manual_review", "under_review" -> "Butuh review"
+    "approved_auto", "approved", "processing" -> "Diproses"
     "paid" -> "Berhasil"
-    "rejected" -> "Ditolak"
+    "rejected", "blocked" -> "Ditolak"
     "failed" -> "Gagal"
     "cancelled" -> "Dibatalkan"
     else -> status.replace("_", " ")
 }
 
+private fun payoutStatusMessage(request: CourierPayoutRequestItem): String {
+    request.statusMessage?.takeIf { it.isNotBlank() }?.let { return it }
+    return when (request.status) {
+        "requested", "risk_screening" -> "Pengajuan sedang dicek otomatis. Kamu bisa memantau statusnya di sini."
+        "approved_auto", "approved", "processing" -> "Pengajuan sedang diproses ke rekening pencairan."
+        "risk_hold", "manual_review", "under_review" -> "Sedang diverifikasi oleh tim operasional."
+        "paid" -> "Pencairan berhasil diproses."
+        "rejected", "blocked" -> "Pengajuan belum dapat diproses. Cek detail atau hubungi operasional jika perlu."
+        "failed" -> "Pencairan belum berhasil. Saldo tetap tercatat dan akan ditinjau."
+        "cancelled" -> "Pengajuan dibatalkan."
+        else -> "Pengajuan pencairan saldo berhasil dibuat."
+    }
+}
+
 @Composable
 private fun payoutStatusColor(status: String): Color = when (status) {
     "paid" -> Success
-    "failed", "rejected", "cancelled" -> MaterialTheme.colorScheme.error
-    "approved", "processing" -> Primary
+    "failed", "rejected", "blocked", "cancelled" -> MaterialTheme.colorScheme.error
+    "approved_auto", "approved", "processing" -> Primary
     else -> Warning
 }
 
 private fun payoutStatusIcon(status: String): androidx.compose.ui.graphics.vector.ImageVector = when (status) {
     "paid" -> Icons.Default.CheckCircle
-    "failed", "rejected", "cancelled" -> Icons.Default.Cancel
-    "approved", "processing" -> Icons.Default.Sync
+    "failed", "rejected", "blocked", "cancelled" -> Icons.Default.Cancel
+    "approved_auto", "approved", "processing" -> Icons.Default.Sync
     else -> Icons.Default.Schedule
 }
 
