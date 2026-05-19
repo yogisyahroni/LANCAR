@@ -10,6 +10,7 @@ import com.lancar.customer.data.model.CustomerPriceEstimateRequest
 import com.lancar.customer.data.model.DeliveryServiceProduct
 import com.lancar.customer.data.model.DimensionsPayload
 import com.lancar.customer.data.model.LocationPayload
+import com.lancar.customer.data.model.MapsProviderConfig
 import com.lancar.customer.data.model.PackageDetailsPayload
 import com.lancar.customer.data.model.PriceBreakdown
 import com.lancar.customer.data.model.ReceiverLocationCreateRequest
@@ -51,7 +52,9 @@ data class BookingState(
     val receiverLocationLink: ReceiverLocationLink? = null,
     val isCreatingLocationLink: Boolean = false,
     val addressBook: List<CustomerAddress> = emptyList(),
-    val isSavingAddress: Boolean = false
+    val isSavingAddress: Boolean = false,
+    val mapsProviderConfig: MapsProviderConfig = MapsProviderConfig(),
+    val mapsProviderError: String? = null
 )
 
 @HiltViewModel
@@ -68,6 +71,22 @@ class BookingViewModel @Inject constructor(
     init {
         loadServices()
         loadAddressBook()
+        loadMapsProviderConfig()
+    }
+
+    fun loadMapsProviderConfig() {
+        viewModelScope.launch {
+            orderRepository.getMapsProviderConfig().onSuccess { config ->
+                _bookingState.value = _bookingState.value.copy(
+                    mapsProviderConfig = config,
+                    mapsProviderError = null
+                )
+            }.onFailure { e ->
+                _bookingState.value = _bookingState.value.copy(
+                    mapsProviderError = e.localizedMessage ?: "Konfigurasi peta belum tersedia"
+                )
+            }
+        }
     }
 
     fun loadAddressBook() {
@@ -86,6 +105,7 @@ class BookingViewModel @Inject constructor(
                 result.onSuccess { services ->
                     val onDemandServices = services
                         .filter { it.serviceCategory == "on_demand" && it.isEnabled }
+                        .filter { !it.requiresDimensionScan || it.allowsManualDimension }
                         .sortedBy { it.displayOrder }
                     _bookingState.value = _bookingState.value.copy(
                         isLoading = false,

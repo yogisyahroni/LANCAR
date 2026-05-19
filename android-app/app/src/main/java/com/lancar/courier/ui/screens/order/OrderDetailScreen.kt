@@ -42,10 +42,13 @@ import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.CourierRoutePreview
+import com.lancar.courier.data.model.MapsProviderConfig
 import com.lancar.courier.data.model.cleanPayoutIdr
 import com.lancar.courier.data.model.displayServiceName
 import com.lancar.courier.data.model.normalizedWorkflowRole
 import com.lancar.courier.data.model.toRupiahCompact
+import com.lancar.courier.ui.components.maps.RuntimeMapMarker
+import com.lancar.courier.ui.components.maps.RuntimeMapRenderer
 import com.lancar.courier.ui.theme.Primary
 import com.lancar.courier.ui.theme.PrimaryLight
 import com.lancar.courier.ui.theme.Secondary
@@ -80,6 +83,7 @@ fun OrderDetailScreen(
     onCapturePod: () -> Unit,
     onChatClick: () -> Unit,
     routePreview: CourierRoutePreview? = null,
+    mapsProviderConfig: MapsProviderConfig = MapsProviderConfig(),
     pickupScanVerified: Boolean = false,
     pickupPhotoVerified: Boolean = false,
     onSosClick: () -> Unit = {},
@@ -155,7 +159,7 @@ fun OrderDetailScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            DeliveryMapCard(order = order)
+            DeliveryMapCard(order = order, routePreview = routePreview, mapsProviderConfig = mapsProviderConfig)
             OrderInfoCard(order = order)
             if (order.normalizedWorkflowRole() == "on_demand") {
                 OnDemandTaskActions(
@@ -183,7 +187,11 @@ fun OrderDetailScreen(
 }
 
 @Composable
-private fun DeliveryMapCard(order: Order) {
+private fun DeliveryMapCard(
+    order: Order,
+    routePreview: CourierRoutePreview?,
+    mapsProviderConfig: MapsProviderConfig
+) {
     val context = LocalContext.current
     var pickupLatLng by remember(order.pickupAddress, order.pickupLatitude, order.pickupLongitude) { mutableStateOf<LatLng?>(null) }
     var dropLatLng by remember(order.dropAddress, order.dropLatitude, order.dropLongitude) { mutableStateOf<LatLng?>(null) }
@@ -231,35 +239,32 @@ private fun DeliveryMapCard(order: Order) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(modifier = Modifier.fillMaxWidth().height(230.dp)) {
                 if (firstPoint != null) {
-                    GoogleMap(
-                        modifier = Modifier.fillMaxSize(),
-                        cameraPositionState = cameraPositionState,
-                        uiSettings = MapUiSettings(
+                    val markers = buildList {
+                        pickupLatLng?.let { add(RuntimeMapMarker("pickup", it, "Pickup", order.pickupAddress)) }
+                        dropLatLng?.let { add(RuntimeMapMarker("dropoff", it, "Dropoff", order.dropAddress)) }
+                    }
+                    val backendRoutePoints = routePreview?.polyline
+                        ?.map { LatLng(it.latitude, it.longitude) }
+                        .orEmpty()
+                    val routePoints = backendRoutePoints.ifEmpty {
+                        val pickup = pickupLatLng
+                        val dropoff = dropLatLng
+                        if (pickup != null && dropoff != null) listOf(pickup, dropoff) else emptyList()
+                    }
+                    RuntimeMapRenderer(
+                        providerConfig = mapsProviderConfig,
+                        markers = markers,
+                        routePoints = routePoints,
+                        googleUiSettings = MapUiSettings(
                             zoomControlsEnabled = false,
                             myLocationButtonEnabled = false,
                             mapToolbarEnabled = false
-                        )
-                    ) {
-                        pickupLatLng?.let {
-                            Marker(
-                                state = MarkerState(position = it),
-                                title = "Pickup",
-                                snippet = order.pickupAddress
-                            )
-                        }
-                        dropLatLng?.let {
-                            Marker(
-                                state = MarkerState(position = it),
-                                title = "Dropoff",
-                                snippet = order.dropAddress
-                            )
-                        }
-                        val pickup = pickupLatLng
-                        val dropoff = dropLatLng
-                        if (pickup != null && dropoff != null) {
-                            Polyline(points = listOf(pickup, dropoff), color = Primary, width = 8f)
-                        }
-                    }
+                        ),
+                        routeColor = Primary,
+                        fallbackTitle = "Preview rute siap",
+                        fallbackMessage = "Koordinat dan ETA tetap dipakai dari backend. Provider peta dapat diganti dari admin.",
+                        modifier = Modifier.fillMaxSize()
+                    )
                 } else {
                     Column(
                         modifier = Modifier

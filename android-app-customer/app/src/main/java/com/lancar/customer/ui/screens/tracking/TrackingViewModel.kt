@@ -3,8 +3,8 @@ package com.lancar.customer.ui.screens.tracking
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
+import com.lancar.customer.data.model.MapsProviderConfig
 import com.lancar.customer.data.model.OrderTrackingDetail
-import com.lancar.customer.data.model.TrackingResponse
 import com.lancar.customer.data.repository.OrderRepository
 import com.lancar.customer.data.repository.TrackingRepository
 import com.lancar.customer.util.SocketManager
@@ -24,9 +24,12 @@ data class TrackingUiState(
     val error: String? = null,
     val courierLocation: LatLng? = null,
     val courierHeading: Float = 0f,
+    val routePoints: List<LatLng> = emptyList(),
     val eta: String? = null,
     val orderId: String? = null,
-    val detail: OrderTrackingDetail? = null
+    val detail: OrderTrackingDetail? = null,
+    val mapsProviderConfig: MapsProviderConfig = MapsProviderConfig(),
+    val mapsProviderError: String? = null
 )
 
 @HiltViewModel
@@ -55,9 +58,11 @@ class TrackingViewModel @Inject constructor(
 
         pollingJob = viewModelScope.launch {
             while (isActive) {
+                fetchMapsProviderConfig()
                 fetchLatestOrder(orderId)
                 fetchLatestTracking(orderId)
-                delay(5000) // 5-second deterministic refresh interval
+                val ttlMs = (_uiState.value.mapsProviderConfig.ttlSeconds.coerceIn(30, 3600) * 1000L).coerceAtMost(5000L)
+                delay(ttlMs)
             }
         }
 
@@ -90,6 +95,7 @@ class TrackingViewModel @Inject constructor(
                     error = null,
                     courierLocation = LatLng(data.location.latitude, data.location.longitude),
                     courierHeading = data.location.heading.toFloat(),
+                    routePoints = decodeEncodedPolyline(data.routePolyline),
                     eta = data.eta ?: it.eta
                 )
             }
@@ -104,6 +110,21 @@ class TrackingViewModel @Inject constructor(
         }
     }
 
+    private suspend fun fetchMapsProviderConfig() {
+        repository.getMapsProviderConfig().onSuccess { config ->
+            _uiState.update {
+                it.copy(
+                    mapsProviderConfig = config,
+                    mapsProviderError = null
+                )
+            }
+        }.onFailure { exception ->
+            _uiState.update {
+                it.copy(mapsProviderError = exception.message)
+            }
+        }
+    }
+
     private suspend fun fetchLatestOrder(orderId: String) {
         orderRepository.getOrderTrackingDetail(orderId).onSuccess { detail ->
             _uiState.update { it.copy(detail = detail) }
@@ -114,4 +135,40 @@ class TrackingViewModel @Inject constructor(
         super.onCleared()
         stopTracking()
     }
+}
+
+private fun decodeEncodedPolyline(encoded: String?): List<LatLng> {
+    if (encoded.isNullOrBlank()) return emptyList()
+    val polyline = mutableListOf<LatLng>()
+    var index = 0
+    var lat = 0
+    var lng = 0
+
+    while (index < encoded.length) {
+        var shift = 0
+        var result = 0
+        do {
+            if (index >= encoded.length) return polyline
+            val byteValue = encoded[index++].code - 63
+            result = result or ((byteValue and 0x1f) shl shift)
+            shift += 5
+        } while (byteValue >= 0x20)
+        val deltaLat = if ((result and 1) != 0) (result shr 1).inv() else result shr 1
+        lat += deltaLat
+
+        shift = 0
+        result = 0
+        do {
+            if (index >= encoded.length) return polyline
+            val byteValue = encoded[index++].code - 63
+            result = result or ((byteValue and 0x1f) shl shift)
+            shift += 5
+        } while (byteValue >= 0x20)
+        val deltaLng = if ((result and 1) != 0) (result shr 1).inv() else result shr 1
+        lng += deltaLng
+
+        polyline.add(LatLng(lat / 100000.0, lng / 100000.0))
+    }
+
+    return polyline
 }

@@ -28,18 +28,35 @@ const hasUsableSecret = (value?: string): boolean => {
 export const hasGoogleDirectionsConfig = (env: NodeJS.ProcessEnv = process.env): boolean =>
   hasUsableSecret(env.GOOGLE_DIRECTIONS_API_KEY) || hasUsableSecret(env.GOOGLE_MAPS_API_KEY);
 
-export const parseFirebaseServiceAccount = (raw?: string): { valid: boolean; projectId?: string } => {
-  if (!raw || !raw.trim()) {
+const decodeBase64 = (encoded?: string): string | undefined => {
+  if (!encoded || !encoded.trim()) return undefined;
+  try {
+    return Buffer.from(encoded.trim(), 'base64').toString('utf8');
+  } catch {
+    return undefined;
+  }
+};
+
+const getFirebaseServiceAccountValue = (raw?: string, encoded?: string): string | undefined =>
+  raw && raw.trim() ? raw : decodeBase64(encoded);
+
+export const parseFirebaseServiceAccount = (
+  raw?: string,
+  encoded?: string
+): { valid: boolean; projectId?: string } => {
+  const serviceAccountValue = getFirebaseServiceAccountValue(raw, encoded);
+
+  if (!serviceAccountValue || !serviceAccountValue.trim()) {
     return { valid: false };
   }
 
-  const normalized = raw.trim().toLowerCase();
+  const normalized = serviceAccountValue.trim().toLowerCase();
   if (normalized === 'your_firebase_service_account_json' || normalized === 'placeholder') {
     return { valid: false };
   }
 
   try {
-    const parsed = JSON.parse(raw as string);
+    const parsed = JSON.parse(serviceAccountValue);
     const valid = Boolean(parsed.project_id && parsed.client_email && parsed.private_key);
     return {
       valid,
@@ -51,8 +68,21 @@ export const parseFirebaseServiceAccount = (raw?: string): { valid: boolean; pro
 };
 
 export const hasFirebaseAdminConfig = (env: NodeJS.ProcessEnv = process.env): boolean => {
-  const serviceAccount = parseFirebaseServiceAccount(env.FIREBASE_SERVICE_ACCOUNT);
-  return serviceAccount.valid || hasUsableSecret(env.FIREBASE_PROJECT_ID) || hasUsableSecret(env.FCM_PROJECT_ID);
+  const defaultServiceAccount = parseFirebaseServiceAccount(
+    env.FIREBASE_SERVICE_ACCOUNT,
+    env.FIREBASE_SERVICE_ACCOUNT_B64
+  );
+  const customerServiceAccount = parseFirebaseServiceAccount(
+    env.FIREBASE_CUSTOMER_SERVICE_ACCOUNT,
+    env.FIREBASE_CUSTOMER_SERVICE_ACCOUNT_B64
+  );
+  const courierServiceAccount = parseFirebaseServiceAccount(
+    env.FIREBASE_COURIER_SERVICE_ACCOUNT,
+    env.FIREBASE_COURIER_SERVICE_ACCOUNT_B64
+  );
+  const hasLegacyMetadataOnly = hasUsableSecret(env.FIREBASE_PROJECT_ID) || hasUsableSecret(env.FCM_PROJECT_ID);
+
+  return defaultServiceAccount.valid || (customerServiceAccount.valid && courierServiceAccount.valid) || hasLegacyMetadataOnly;
 };
 
 export const getOnDemandExternalReadiness = (
@@ -77,10 +107,16 @@ export const getOnDemandExternalReadiness = (
       label: 'Firebase Admin / FCM',
       status: firebaseReady ? 'ready' : 'waiting_for_secret',
       configured: firebaseReady,
-      required_env: ['FIREBASE_SERVICE_ACCOUNT', 'FIREBASE_PROJECT_ID'],
+      required_env: [
+        'FIREBASE_CUSTOMER_SERVICE_ACCOUNT_B64',
+        'FIREBASE_CUSTOMER_PROJECT_ID',
+        'FIREBASE_COURIER_SERVICE_ACCOUNT_B64',
+        'FIREBASE_COURIER_PROJECT_ID',
+        'FIREBASE_SERVICE_ACCOUNT'
+      ],
       message: firebaseReady
-        ? 'Backend siap mengirim push notification FCM setelah device mendaftarkan token.'
-        : 'Isi FIREBASE_SERVICE_ACCOUNT JSON service account staging/production. FIREBASE_PROJECT_ID boleh dipakai sebagai metadata.'
+        ? 'Backend siap mengirim push notification FCM untuk customer dan kurir setelah device mendaftarkan token.'
+        : 'Isi Firebase Admin service account customer dan kurir. Gunakan *_SERVICE_ACCOUNT_B64 untuk format Docker yang aman.'
     },
     {
       key: 'device_validation',

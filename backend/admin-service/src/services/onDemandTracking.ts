@@ -1,6 +1,4 @@
-import axios from 'axios';
-import crypto from 'crypto';
-import { redis } from '../redis';
+import { buildMapsRouteEtaSnapshot } from './mapsProviderConfig';
 
 type Queryable = {
   query: (sql: string, params?: any[]) => Promise<{ rows: any[] }>;
@@ -35,16 +33,6 @@ const distanceKm = (a: TrackingPoint, b: TrackingPoint) => {
   const lat2 = b.latitude * rad;
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
   return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-};
-
-const routeCacheKey = (from: TrackingPoint, to: TrackingPoint) => {
-  const raw = [
-    from.latitude.toFixed(5),
-    from.longitude.toFixed(5),
-    to.latitude.toFixed(5),
-    to.longitude.toFixed(5),
-  ].join(':');
-  return `route:on-demand:${crypto.createHash('sha1').update(raw).digest('hex')}`;
 };
 
 export const evaluateLocationQuality = (
@@ -155,43 +143,8 @@ const stageLabel = (stage: string) => {
   return labels[stage] || 'Dalam proses';
 };
 
-const fetchRoute = async (from: TrackingPoint | null, to: TrackingPoint | null) => {
-  if (!from || !to) return { eta: null, eta_minutes: null, route_polyline: null, provider: 'none' };
-  const fallbackDistance = distanceKm(from, to);
-  const fallbackEta = Math.max(3, Math.ceil((fallbackDistance / 24) * 60));
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_DIRECTIONS_API_KEY;
-  if (!apiKey) {
-    return { eta: `${fallbackEta} menit`, eta_minutes: fallbackEta, route_polyline: null, provider: 'fallback_haversine' };
-  }
-
-  const cacheKey = routeCacheKey(from, to);
-  try {
-    const cached = await redis.get(cacheKey);
-    if (cached) return { ...JSON.parse(cached), provider: 'google_directions_cache' };
-
-    const response = await axios.get('https://maps.googleapis.com/maps/api/directions/json', {
-      params: {
-        origin: `${from.latitude},${from.longitude}`,
-        destination: `${to.latitude},${to.longitude}`,
-        mode: 'driving',
-        key: apiKey,
-      },
-      timeout: 2500,
-    });
-    const route = response.data?.routes?.[0];
-    const leg = route?.legs?.[0];
-    if (!route || !leg) throw new Error(response.data?.status || 'NO_ROUTE');
-    const payload = {
-      eta: leg.duration?.text || `${fallbackEta} menit`,
-      eta_minutes: Math.max(1, Math.ceil((leg.duration?.value || fallbackEta * 60) / 60)),
-      route_polyline: route.overview_polyline?.points || null,
-      provider: 'google_directions',
-    };
-    await redis.set(cacheKey, JSON.stringify(payload), 'EX', 60);
-    return payload;
-  } catch (error) {
-    return { eta: `${fallbackEta} menit`, eta_minutes: fallbackEta, route_polyline: null, provider: 'fallback_haversine' };
-  }
+export const buildRouteEtaSnapshot = async (from: TrackingPoint | null, to: TrackingPoint | null) => {
+  return buildMapsRouteEtaSnapshot(from, to, 'tracking');
 };
 
 export const buildOnDemandTrackingSnapshot = async (
@@ -278,7 +231,7 @@ export const buildOnDemandTrackingSnapshot = async (
     ? { latitude: Number(order.dropoff_latitude), longitude: Number(order.dropoff_longitude), address: order.dropoff_address, type: 'dropoff' }
     : null;
   const target = ['menuju_tujuan', 'selesai'].includes(stage) ? dropoffTarget : pickupTarget;
-  const route = await fetchRoute(location, target ? { latitude: target.latitude, longitude: target.longitude } : null);
+  const route = await buildRouteEtaSnapshot(location, target ? { latitude: target.latitude, longitude: target.longitude } : null);
 
   return {
     order_id: order.id,

@@ -90,9 +90,96 @@ const publicCustomerAddress = (row: any) => ({
   updated_at: row.updated_at,
 });
 
+const publicCustomerPaymentSession = (row: any) => {
+  const expiresAt = row.expires_at ? new Date(row.expires_at) : null;
+  const expiresIn = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 1000)) : 0;
+  const paymentStatus = row.payment_status === 'paid'
+    ? 'paid'
+    : expiresIn <= 0
+      ? 'expired'
+      : (row.payment_status || 'pending');
+
+  return {
+    id: row.payment_id || `PAY-${row.order_number}`,
+    method: 'MIDTRANS_SNAP',
+    status: paymentStatus,
+    payment_status: paymentStatus,
+    order_status: row.order_status,
+    snap_token: row.snap_token || null,
+    redirect_url: row.redirect_url || null,
+    midtrans_order_id: row.provider_reference || null,
+    client_key: row.client_key || getMidtransClientKey(),
+    snap_js_url: row.snap_js_url || getMidtransSnapJsUrl(),
+    expires_in: expiresIn,
+    expires_at: row.expires_at || null
+  };
+};
+
+const getCustomerOrderPaymentRow = async (customerId: string, orderId: string) => {
+  const { rows } = await db.query(
+    `SELECT o.id,
+            o.order_number,
+            o.status AS order_status,
+            o.total_price_idr,
+            o.service_snapshot,
+            o.recipient_name,
+            o.recipient_phone_masked,
+            p.id AS payment_id,
+            p.status AS payment_status,
+            p.expires_at,
+            p.provider_reference,
+            p.snap_token,
+            p.redirect_url,
+            p.client_key,
+            p.snap_js_url
+       FROM orders o
+       LEFT JOIN payments p ON p.order_id = o.id
+      WHERE o.id = $1 AND o.customer_id = $2`,
+    [orderId, customerId]
+  );
+  return rows[0] || null;
+};
+
 const resolveSizeTier = (service: DeliveryServiceProduct, requestedCode?: string) => {
   if (!service.uses_size_tier || service.size_tiers.length === 0) return null;
   return service.size_tiers.find((tier) => tier.code === requestedCode) || service.size_tiers[0];
+};
+
+const normalizePackageDetailsForOrder = (
+  packageDetails: any,
+  service: DeliveryServiceProduct,
+  selectedTier: any,
+  chargeableWeightKg: number
+) => {
+  const dimensions = packageDetails?.dimensions || {};
+  const lengthCm = toNumber(packageDetails?.length_cm ?? dimensions.length, 0);
+  const widthCm = toNumber(packageDetails?.width_cm ?? dimensions.width, 0);
+  const heightCm = toNumber(packageDetails?.height_cm ?? dimensions.height, 0);
+  const actualWeightKg = toNumber(packageDetails?.weight_kg, 0);
+
+  return {
+    ...packageDetails,
+    category: packageDetails?.category || packageDetails?.item_category || 'other',
+    item_description: packageDetails?.item_description || packageDetails?.description || 'Paket on-demand',
+    size_tier: packageDetails?.size_tier || selectedTier?.code || null,
+    size_tier_name: selectedTier?.name || null,
+    weight_kg: actualWeightKg,
+    chargeable_weight_kg: chargeableWeightKg,
+    length_cm: lengthCm || null,
+    width_cm: widthCm || null,
+    height_cm: heightCm || null,
+    dimensions: {
+      length: lengthCm || null,
+      width: widthCm || null,
+      height: heightCm || null
+    },
+    dimensions_scanned: Boolean(packageDetails?.dimensions_scanned),
+    requires_dimension_scan: Boolean(service.requires_dimension_scan),
+    requires_delivery_code: Boolean(packageDetails?.requires_delivery_code),
+    service_code: service.code,
+    service_name: service.name,
+    vehicle_types: service.vehicle_types || []
+  };
 };
 
 export const calculatePrice = async (req: Request, res: Response): Promise<void> => {
@@ -287,6 +374,33 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       return;
     }
 
+    const selectedTier = resolveSizeTier(service, package_details?.size_tier);
+    const packageDimensions = package_details?.dimensions || {};
+    const packageActualWeight = toNumber(package_details?.weight_kg, 0);
+    const packageDivisor = toNumber(service.dimension_rules?.volumetric_divisor, 6000);
+    const packageVolumetricWeight = packageDimensions?.length && packageDimensions?.width && packageDimensions?.height
+      ? (toNumber(packageDimensions.length) * toNumber(packageDimensions.width) * toNumber(packageDimensions.height)) / packageDivisor
+      : 0;
+    const packageChargeableWeight = Math.max(packageActualWeight, packageVolumetricWeight);
+
+    if (selectedTier?.max_weight_kg && packageActualWeight > toNumber(selectedTier.max_weight_kg)) {
+      client.release();
+      res.status(400).json({
+        code: 'ERR_SIZE_TIER_WEIGHT_LIMIT',
+        error: `Berat aktual melewati tier ${selectedTier.name}. Pilih tier yang lebih besar.`
+      });
+      return;
+    }
+
+    if (service.max_weight_kg && packageChargeableWeight > service.max_weight_kg) {
+      client.release();
+      res.status(400).json({
+        code: 'ERR_SERVICE_WEIGHT_LIMIT',
+        error: `${service.name} maksimal ${service.max_weight_kg} kg. Berat hitung order ini ${packageChargeableWeight.toFixed(2)} kg.`
+      });
+      return;
+    }
+
     const pickupPoint = normalizeCoordinatePayload(pickup_location);
     const dropoffPoint = normalizeCoordinatePayload(dropoff_location);
     if (!validAddress(pickup_address) || !validAddress(dropoff_address) || !pickupPoint || !dropoffPoint) {
@@ -376,7 +490,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       JSON.stringify(settlement.settlement_snapshot),
       has_insurance || false,
       item_value || 0,
-      JSON.stringify(package_details || {}),
+      JSON.stringify(normalizePackageDetailsForOrder(package_details || {}, service, selectedTier, packageChargeableWeight)),
       customer_notes || '',
       schedule_type || 'now',
       scheduled_at ? new Date(scheduled_at) : null
@@ -450,8 +564,17 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         expiryMinutes: 30
       });
 
-      // Update the expiry time based on actual Snap response (non-blocking, don't strictly need a transaction)
-      db.query(`UPDATE payments SET expires_at = $1 WHERE provider_reference = $2`, [snap.expires_at, midtransOrderId]).catch(console.error);
+      await db.query(
+        `UPDATE payments
+            SET snap_token = $1,
+                redirect_url = $2,
+                client_key = $3,
+                snap_js_url = $4,
+                expires_at = $5,
+                updated_at = NOW()
+          WHERE provider_reference = $6`,
+        [snap.token, snap.redirect_url, getMidtransClientKey(), getMidtransSnapJsUrl(), snap.expires_at, midtransOrderId]
+      );
 
       res.status(201).json({
         success: true,
@@ -497,31 +620,132 @@ export const getCustomerOrderPaymentStatus = async (req: Request, res: Response)
       return;
     }
 
-    const { rows } = await db.query(
-      `SELECT o.id, o.status, o.created_at, p.status as payment_status, p.expires_at, p.provider_reference
-       FROM orders o
-       LEFT JOIN payments p ON p.order_id = o.id
-       WHERE o.id = $1 AND o.customer_id = $2`,
-      [id, customer_id]
-    );
-
-    if (rows.length === 0) {
+    const order = await getCustomerOrderPaymentRow(customer_id, id);
+    if (!order) {
       res.status(404).json({ error: 'Order not found' });
       return;
     }
 
-    const order = rows[0];
-    const expired = order.expires_at ? new Date(order.expires_at).getTime() < Date.now() : false;
+    const payment = publicCustomerPaymentSession(order);
 
     res.json({
       success: true,
-      payment_status: order.payment_status === 'paid' ? 'paid' : (expired ? 'expired' : 'pending'),
-      order_status: order.status,
-      midtrans_order_id: order.provider_reference,
-      expires_in: order.expires_at ? Math.max(0, Math.ceil((new Date(order.expires_at).getTime() - Date.now()) / 1000)) : 0
+      ...payment,
+      payment
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const createCustomerOrderPaymentSession = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customerId = req.user?.id;
+    const orderId = String(req.params.id);
+
+    if (!customerId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const existing = await getCustomerOrderPaymentRow(customerId, orderId);
+    if (!existing) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    const currentPayment = publicCustomerPaymentSession(existing);
+    if (currentPayment.payment_status === 'paid') {
+      res.json({ success: true, payment: currentPayment, ...currentPayment });
+      return;
+    }
+
+    if (existing.order_status !== 'pending_payment') {
+      res.status(409).json({
+        success: false,
+        code: 'ERR_PAYMENT_NOT_ALLOWED',
+        message: 'Order ini tidak berada pada fase pembayaran.',
+        payment: currentPayment,
+        ...currentPayment
+      });
+      return;
+    }
+
+    if (currentPayment.snap_token && currentPayment.redirect_url && currentPayment.expires_in > 30) {
+      res.json({ success: true, payment: currentPayment, ...currentPayment });
+      return;
+    }
+
+    const midtransOrderId = `${existing.order_number}-${Date.now()}`;
+    const totalPrice = Number(existing.total_price_idr || 0);
+    const serviceName = existing.service_snapshot?.service_name || existing.service_snapshot?.name || 'LANCAR Delivery';
+    const snap = await createSnapTransaction({
+      orderId: midtransOrderId,
+      grossAmount: totalPrice,
+      itemDetails: [
+        {
+          id: existing.order_number,
+          price: totalPrice,
+          quantity: 1,
+          name: `${serviceName} ${existing.order_number}`.slice(0, 50)
+        }
+      ],
+      customerDetails: {
+        first_name: existing.recipient_name || undefined,
+        phone: existing.recipient_phone_masked || undefined
+      },
+      customFields: {
+        custom_field1: String(existing.id),
+        custom_field3: String(customerId)
+      },
+      expiryMinutes: 30
+    });
+
+    const { rows } = await db.query(
+      `UPDATE payments
+          SET status = 'pending',
+              provider_reference = $2,
+              snap_token = $3,
+              redirect_url = $4,
+              client_key = $5,
+              snap_js_url = $6,
+              expires_at = $7,
+              updated_at = NOW()
+        WHERE order_id = $1
+          AND status <> 'paid'
+      RETURNING id AS payment_id,
+                status AS payment_status,
+                expires_at,
+                provider_reference,
+                snap_token,
+                redirect_url,
+                client_key,
+                snap_js_url`,
+      [
+        orderId,
+        snap.midtrans_order_id,
+        snap.token,
+        snap.redirect_url,
+        getMidtransClientKey(),
+        getMidtransSnapJsUrl(),
+        snap.expires_at
+      ]
+    );
+
+    if (rows.length === 0) {
+      res.status(409).json({ success: false, code: 'ERR_PAYMENT_ALREADY_FINAL', message: 'Status pembayaran sudah final.' });
+      return;
+    }
+
+    const payment = publicCustomerPaymentSession({
+      ...existing,
+      ...rows[0],
+      order_status: existing.order_status
+    });
+
+    res.json({ success: true, payment, ...payment });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
   }
 };
 
@@ -1651,6 +1875,7 @@ export const getReceiverLocationRequestPublic = async (req: Request, res: Respon
 
     const { rows } = await db.query(
       `SELECT id, pickup_address, recipient_name, status, submitted_address, submitted_contact_name,
+              submitted_contact_phone_masked,
               submitted_notes, submitted_at, expires_at, created_at,
               ST_Y(submitted_location::geometry) AS submitted_lat,
               ST_X(submitted_location::geometry) AS submitted_lng
@@ -1697,7 +1922,7 @@ export const getReceiverLocationRequestForCustomer = async (req: Request, res: R
 
     const { rows } = await db.query(
       `SELECT id, status, pickup_address, recipient_name, submitted_address,
-              submitted_contact_name, submitted_notes, submitted_at, expires_at, created_at,
+              submitted_contact_name, submitted_contact_phone_masked, submitted_notes, submitted_at, expires_at, created_at,
               ST_Y(submitted_location::geometry) AS submitted_lat,
               ST_X(submitted_location::geometry) AS submitted_lng
        FROM customer_receiver_location_requests

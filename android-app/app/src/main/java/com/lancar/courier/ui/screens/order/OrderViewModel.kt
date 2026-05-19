@@ -16,6 +16,7 @@ import com.lancar.courier.data.model.CourierSafetyEventRequest
 import com.lancar.courier.data.model.CourierServiceProduct
 import com.lancar.courier.data.model.CourierTrainingCompleteRequest
 import com.lancar.courier.data.model.DutyStatusRequest
+import com.lancar.courier.data.model.MapsProviderConfig
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.StatusUpdateRequest
 import com.lancar.courier.data.model.TripShareRequest
@@ -96,6 +97,9 @@ class OrderViewModel @Inject constructor(
     private val _routePreviews = MutableStateFlow<Map<String, CourierRoutePreview>>(emptyMap())
     val routePreviews: StateFlow<Map<String, CourierRoutePreview>> = _routePreviews.asStateFlow()
 
+    private val _mapsProviderConfig = MutableStateFlow(MapsProviderConfig())
+    val mapsProviderConfig: StateFlow<MapsProviderConfig> = _mapsProviderConfig.asStateFlow()
+
     private val _lastRemoteSyncAt = MutableStateFlow<Long?>(null)
     val lastRemoteSyncAt: StateFlow<Long?> = _lastRemoteSyncAt.asStateFlow()
 
@@ -115,6 +119,7 @@ class OrderViewModel @Inject constructor(
 
     init {
         // Fetch fresh data from backend as soon as ViewModel starts
+        fetchMapsProviderConfig()
         fetchCourierProfile()
         fetchOrdersFromBackend()
     }
@@ -132,6 +137,19 @@ class OrderViewModel @Inject constructor(
                 val body = response.body()
                 if (response.isSuccessful && body?.success == true) {
                     _courierProfile.update { body.data }
+                }
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    fun fetchMapsProviderConfig() {
+        viewModelScope.launch {
+            try {
+                val response = apiService.getMapsProviderConfig("courier_mobile")
+                val body = response.body()
+                if (response.isSuccessful && body != null) {
+                    _mapsProviderConfig.update { body }
                 }
             } catch (_: Exception) {
             }
@@ -202,6 +220,12 @@ class OrderViewModel @Inject constructor(
         return refreshMutex.withLock {
             if (showLoading) _isSyncing.update { true }
             try {
+                val mapsResponse = apiService.getMapsProviderConfig("courier_mobile")
+                val mapsBody = mapsResponse.body()
+                if (mapsResponse.isSuccessful && mapsBody != null) {
+                    _mapsProviderConfig.update { mapsBody }
+                }
+
                 val profileResponse = apiService.getCourierProfile()
                 val profileBody = profileResponse.body()
                 if (profileResponse.isSuccessful && profileBody?.success == true) {

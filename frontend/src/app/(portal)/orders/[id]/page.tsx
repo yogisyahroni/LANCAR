@@ -68,6 +68,21 @@ interface TrackingData {
   route_polyline?: string;
 }
 
+interface TrackingProof {
+  id: string;
+  scan_type?: string | null;
+  proof_label?: string | null;
+  proof_category?: 'pickup' | 'pod' | 'cancellation' | 'operational' | string | null;
+  photo_url?: string | null;
+  image_urls?: string[] | null;
+  override_reason?: string | null;
+  reason_code?: string | null;
+  reason_note?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  recorded_at?: string | null;
+}
+
 interface OnDemandRealtimePayload {
   event: string;
   order_id: string;
@@ -87,6 +102,7 @@ export default function OrderDetailPage() {
 
   const [order, setOrder] = useState<Order | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
+  const [proofs, setProofs] = useState<TrackingProof[]>([]);
   const [tracking, setTracking] = useState<TrackingData | null>(null);
   const [trackingError, setTrackingError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -130,6 +146,7 @@ export default function OrderDetailPage() {
       if (res.data && res.data.success) {
         setOrder(res.data.order);
         setEvents(res.data.events || []);
+        setProofs(res.data.proofs || []);
         if (showLoader) {
           fetchOrderChats(); // Fetch chats after order detail
         }
@@ -397,6 +414,19 @@ export default function OrderDetailPage() {
   const formatTrackingTime = (dateStr?: string) => {
     if (!dateStr) return 'Belum tersedia';
     return formatTime(dateStr);
+  };
+
+  const uploadUrl = (path?: string | null) => {
+    if (!path) return '';
+    if (path.startsWith('http://') || path.startsWith('https://')) return path;
+    const baseUrl = String(api.defaults.baseURL || '').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+    return `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+  };
+
+  const proofGroups = {
+    pickup: proofs.filter((proof) => proof.proof_category === 'pickup'),
+    pod: proofs.filter((proof) => proof.proof_category === 'pod'),
+    cancellation: proofs.filter((proof) => proof.proof_category === 'cancellation')
   };
 
   const getStatusBadgeClass = (statusStr: string) => {
@@ -828,8 +858,95 @@ export default function OrderDetailPage() {
               )}
             </div>
           </div>
+
+          <div className="p-6 bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm space-y-5">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+              <h3 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-primary" /> Bukti pickup, POD, dan pembatalan
+              </h3>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                {proofs.length} bukti
+              </span>
+            </div>
+
+            {proofs.length === 0 ? (
+              <div className="rounded-xl border border-white/10 bg-background/40 p-4 text-sm text-muted-foreground">
+                Bukti operasional akan muncul setelah kurir melakukan scan pickup, foto barang, POD, atau pembatalan sebelum pickup.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {proofGroups.cancellation.map((proof) => (
+                  <div key={proof.id} className="rounded-xl border border-red-500/20 bg-red-500/10 p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="mt-0.5 h-5 w-5 text-red-400" />
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-red-100">{proof.proof_label || 'Bukti pembatalan pickup'}</p>
+                        <p className="mt-1 text-xs leading-5 text-red-100/80">
+                          {proof.reason_note || proof.override_reason?.replace(/^[^:]+:\s*/, '') || 'Kurir mengirim alasan pembatalan sebelum barang dipickup.'}
+                        </p>
+                        <p className="mt-2 text-[11px] font-medium text-red-100/60">{formatTrackingTime(proof.recorded_at || undefined)}</p>
+                      </div>
+                    </div>
+                    {proof.photo_url && (
+                      <button type="button" onClick={() => setActivePhoto(uploadUrl(proof.photo_url))} className="mt-3 overflow-hidden rounded-xl border border-red-500/20">
+                        <img src={uploadUrl(proof.photo_url)} alt={proof.proof_label || 'Bukti pembatalan'} className="h-40 w-full object-cover transition hover:opacity-90" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {(['pickup', 'pod'] as const).map((group) => {
+                  const groupProofs = proofGroups[group];
+                  if (groupProofs.length === 0) return null;
+                  return (
+                    <div key={group} className="rounded-xl border border-white/10 bg-background/40 p-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-primary" />
+                        <p className="text-sm font-bold text-white">{group === 'pickup' ? 'Bukti pickup' : 'Bukti POD'}</p>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {groupProofs.map((proof) => {
+                          const imageUrl = uploadUrl(proof.photo_url || proof.image_urls?.[0]);
+                          return (
+                            <div key={proof.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                              <p className="text-sm font-semibold text-white">{proof.proof_label || proof.scan_type || 'Bukti pengiriman'}</p>
+                              <p className="mt-1 text-[11px] font-medium text-muted-foreground">{formatTrackingTime(proof.recorded_at || undefined)}</p>
+                              {imageUrl ? (
+                                <button type="button" onClick={() => setActivePhoto(imageUrl)} className="mt-3 block overflow-hidden rounded-lg border border-white/10">
+                                  <img src={imageUrl} alt={proof.proof_label || 'Bukti pengiriman'} className="h-36 w-full object-cover transition hover:opacity-90" />
+                                </button>
+                              ) : (
+                                <div className="mt-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-muted-foreground">
+                                  Scan tercatat tanpa foto.
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {activePhoto && (
+          <motion.button
+            type="button"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setActivePhoto(null)}
+          >
+            <img src={activePhoto} alt="Bukti pengiriman" className="max-h-[86vh] max-w-[92vw] rounded-2xl border border-white/10 object-contain shadow-2xl" />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

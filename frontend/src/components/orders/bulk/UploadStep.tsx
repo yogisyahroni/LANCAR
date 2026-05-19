@@ -3,8 +3,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { api } from '@/lib/api';
+import { downloadCsv } from '@/lib/csv';
 import { UploadCloud, AlertCircle, CheckCircle2, Download, Loader2, MapPin, Navigation, Search } from 'lucide-react';
-import * as XLSX from 'xlsx';
 
 interface UploadStepProps {
   onComplete: (jobId: string, validatedData: any) => void;
@@ -31,8 +31,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-      'application/vnd.ms-excel': ['.xls']
+      'text/csv': ['.csv']
     },
     maxFiles: 1,
     maxSize: 5 * 1024 * 1024,
@@ -70,79 +69,56 @@ export function UploadStep({ onComplete }: UploadStepProps) {
   };
 
   const downloadTemplate = () => {
-    const wb = XLSX.utils.book_new();
-    const guide = XLSX.utils.aoa_to_sheet([
-      ['TEMPLATE KIRIM MASSAL LANCAR'],
-      ['Isi data pada sheet "Orders". Jangan ubah nama kolom di baris pertama.'],
-      ['Kolom wajib: recipient_name, recipient_phone, dropoff_address, weight_kg.'],
-      ['Kolom opsional: category, length_cm, width_cm, height_cm, has_insurance, item_value, customer_notes, dropoff_lat, dropoff_lng.'],
-      ['Format nomor HP: 08xxxxxxxxxx atau +628xxxxxxxxxx.'],
-      ['category: document, food, electronics, clothes, fashion, other.'],
-      ['has_insurance isi Ya/Tidak. Jika Ya, item_value wajib minimal Rp1.000.'],
-      ['Maksimal 500 baris dan ukuran file maksimal 5MB.'],
-      ['Jika dropoff_lat/dropoff_lng kosong, sistem akan estimasi titik dan bisa dikoreksi di review.'],
-    ]);
-    guide['!cols'] = [{ wch: 120 }];
-    XLSX.utils.book_append_sheet(wb, guide, 'Panduan');
-
-    const ws = XLSX.utils.json_to_sheet([
-      {
-        recipient_name: 'Budi Santoso',
-        recipient_phone: '08123456789',
-        dropoff_address: 'Jl. Merdeka No. 10, Gambir, Jakarta Pusat',
-        category: 'fashion',
-        weight_kg: 1.2,
-        length_cm: 30,
-        width_cm: 20,
-        height_cm: 15,
-        has_insurance: 'Tidak',
-        item_value: '',
-        customer_notes: 'Titip ke resepsionis',
-        dropoff_lat: '',
-        dropoff_lng: ''
-      },
-      {
-        recipient_name: 'Siti Rahayu',
-        recipient_phone: '+6285566778899',
-        dropoff_address: 'Jl. Kelapa Gading Boulevard, Jakarta Utara',
-        category: 'document',
-        weight_kg: 0.5,
-        length_cm: 24,
-        width_cm: 18,
-        height_cm: 2,
-        has_insurance: 'Ya',
-        item_value: 250000,
-        customer_notes: '',
-        dropoff_lat: -6.158493,
-        dropoff_lng: 106.904972
-      }
-    ]);
-    ws['!cols'] = [
-      { wch: 24 }, { wch: 18 }, { wch: 50 }, { wch: 16 }, { wch: 12 },
-      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 16 },
-      { wch: 32 }, { wch: 14 }, { wch: 14 }
-    ];
-    XLSX.utils.book_append_sheet(wb, ws, 'Orders');
-
-    const ref = XLSX.utils.aoa_to_sheet([
-      ['category', 'Keterangan'],
-      ['document', 'Dokumen, surat, invoice'],
-      ['food', 'Makanan/minuman siap antar'],
-      ['electronics', 'Elektronik kecil'],
-      ['clothes', 'Pakaian'],
-      ['fashion', 'Produk fashion'],
-      ['other', 'Lainnya'],
-      [],
-      ['Aturan validasi'],
-      ['recipient_name', 'Wajib, minimal 3 karakter'],
-      ['recipient_phone', 'Wajib, format 08... atau +628...'],
-      ['dropoff_address', 'Wajib, alamat lengkap tujuan'],
-      ['weight_kg', 'Wajib, minimal 0.1 kg'],
-      ['customer_notes', 'Opsional, maksimal 200 karakter'],
-    ]);
-    ref['!cols'] = [{ wch: 24 }, { wch: 56 }];
-    XLSX.utils.book_append_sheet(wb, ref, 'Referensi');
-    XLSX.writeFile(wb, "Template_Lancar_Kirim_Massal.xlsx");
+    downloadCsv(
+      'Template_Lancar_Kirim_Massal.csv',
+      [
+        {
+          recipient_name: 'Budi Santoso',
+          recipient_phone: '08123456789',
+          dropoff_address: 'Jl. Merdeka No. 10, Gambir, Jakarta Pusat',
+          category: 'fashion',
+          weight_kg: 1.2,
+          length_cm: 30,
+          width_cm: 20,
+          height_cm: 15,
+          has_insurance: 'Tidak',
+          item_value: '',
+          customer_notes: 'Titip ke resepsionis',
+          dropoff_lat: '',
+          dropoff_lng: ''
+        },
+        {
+          recipient_name: 'Siti Rahayu',
+          recipient_phone: '+6285566778899',
+          dropoff_address: 'Jl. Kelapa Gading Boulevard, Jakarta Utara',
+          category: 'document',
+          weight_kg: 0.5,
+          length_cm: 24,
+          width_cm: 18,
+          height_cm: 2,
+          has_insurance: 'Ya',
+          item_value: 250000,
+          customer_notes: '',
+          dropoff_lat: -6.158493,
+          dropoff_lng: 106.904972
+        }
+      ],
+      [
+        'recipient_name',
+        'recipient_phone',
+        'dropoff_address',
+        'category',
+        'weight_kg',
+        'length_cm',
+        'width_cm',
+        'height_cm',
+        'has_insurance',
+        'item_value',
+        'customer_notes',
+        'dropoff_lat',
+        'dropoff_lng'
+      ]
+    );
   };
 
   const useCurrentLocation = () => {
@@ -280,7 +256,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
             </div>
             <div>
               <p className="font-semibold text-foreground text-lg">Tarik &amp; Lepas file Excel di sini</p>
-              <p className="text-sm text-muted-foreground mt-1">atau klik untuk menelusuri file .xlsx (Maks 5MB, 500 baris)</p>
+              <p className="text-sm text-muted-foreground mt-1">atau klik untuk menelusuri file .csv (Maks 5MB, 500 baris)</p>
             </div>
           </div>
         )}

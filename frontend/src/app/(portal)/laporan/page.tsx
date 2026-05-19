@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { downloadCsv } from '@/lib/csv';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { 
   BarChart3, 
@@ -21,7 +22,6 @@ import {
   Filter,
   RefreshCw 
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 
 // Data shapes for our components
 interface OrderSummary {
@@ -148,8 +148,7 @@ export default function LaporanPage() {
     }, 450);
   };
 
-  // Client-side Excel download using SheetJS XLSX
-  const handleExportExcel = () => {
+  const handleExportCsv = () => {
     setIsExportingExcel(true);
     setTimeout(() => {
       try {
@@ -186,15 +185,11 @@ export default function LaporanPage() {
           },
         ];
 
-        const ws = XLSX.utils.json_to_sheet(orderRows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Data_Laporan');
-
-        XLSX.writeFile(wb, `Laporan_UMKM_${period.toUpperCase()}_LANCAR.xlsx`);
-        addNotification({ title: 'Sukses Export', message: 'Laporan Excel berhasil diunduh.', type: 'success' });
+        downloadCsv(`Laporan_UMKM_${period.toUpperCase()}_LANCAR.csv`, orderRows);
+        addNotification({ title: 'Sukses Export', message: 'Laporan CSV berhasil diunduh.', type: 'success' });
       } catch (err) {
-        console.error('Failed to export report Excel:', err);
-        addNotification({ title: 'Gagal', message: 'Gagal mengunduh laporan Excel.', type: 'error' });
+        console.error('Failed to export report CSV:', err);
+        addNotification({ title: 'Gagal', message: 'Gagal mengunduh laporan CSV.', type: 'error' });
       } finally {
         setIsExportingExcel(false);
       }
@@ -287,7 +282,7 @@ export default function LaporanPage() {
             Matikan Premium
           </button>
           <button
-            onClick={handleExportExcel}
+            onClick={handleExportCsv}
             disabled={isExportingExcel}
             className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 hover:bg-muted text-foreground font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-sm select-none"
           >
@@ -296,7 +291,7 @@ export default function LaporanPage() {
             ) : (
               <FileSpreadsheet className="h-4 w-4 select-none" />
             )}
-            Excel
+            CSV
           </button>
           <button
             onClick={handleExportPDF}

@@ -1,7 +1,6 @@
 import { Request, Response } from 'express';
 import { db } from '../db';
 import { redis } from '../redis';
-import * as xlsx from 'xlsx';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../midtrans';
 import { calculateServiceSettlement, customerFacingService, findDeliveryServiceByCode } from './deliveryServices.controller';
 
@@ -95,6 +94,73 @@ const parseBoolean = (value: any) => {
   return ['ya', 'yes', 'true', '1', 'y'].includes(normalized);
 };
 
+const parseCsvText = (text: string): Record<string, string>[] => {
+  const rows: string[][] = [];
+  let field = '';
+  let row: string[] = [];
+  let inQuotes = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const next = text[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        field += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      row.push(field);
+      field = '';
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && next === '\n') index += 1;
+      row.push(field);
+      if (row.some((cell) => cell.trim() !== '')) rows.push(row);
+      row = [];
+      field = '';
+      continue;
+    }
+
+    field += char;
+  }
+
+  if (field !== '' || row.length > 0) {
+    row.push(field);
+    if (row.some((cell) => cell.trim() !== '')) rows.push(row);
+  }
+
+  const [headers, ...dataRows] = rows;
+  if (!headers || headers.length === 0) return [];
+
+  const normalizedHeaders = headers.map((header) => header.trim());
+  return dataRows.map((dataRow) => {
+    const record: Record<string, string> = {};
+    normalizedHeaders.forEach((header, index) => {
+      record[header] = dataRow[index]?.trim() || '';
+    });
+    return record;
+  });
+};
+
+const parseUploadedRows = (file: Express.Multer.File): any[] => {
+  const originalName = file.originalname.toLowerCase();
+  const isCsv = file.mimetype === 'text/csv' || originalName.endsWith('.csv');
+
+  if (!isCsv) {
+    throw new Error('Format file tidak didukung. Gunakan template CSV resmi LANCAR.');
+  }
+
+  return parseCsvText(file.buffer.toString('utf8'));
+};
+
 const validatePhone = (value: string) => /^(\+?62|0)8[0-9]{8,13}$/.test(String(value || '').replace(/\s|-/g, ''));
 
 const buildRowFromExcel = (row: any, index: number, pickup: { address: string; lat: number; lng: number }) => {
@@ -170,11 +236,7 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
     const pLon = parseFloat(req.body.pickup_lng) || 106.816666;
     const pickup_address = req.body.pickup_address || 'Pickup Address';
 
-    // Parse Excel
-    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
-    const firstSheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[firstSheetName];
-    const rawRows = xlsx.utils.sheet_to_json(worksheet, { defval: '' }) as any[];
+    const rawRows = parseUploadedRows(req.file);
 
     if (rawRows.length === 0) {
       res.status(400).json({ error: 'Template kosong. Isi minimal 1 baris order.' });

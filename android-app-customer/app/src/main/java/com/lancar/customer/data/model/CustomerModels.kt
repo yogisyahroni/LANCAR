@@ -162,6 +162,7 @@ data class ReceiverLocationLink(
     @SerialName("submitted_lat") val submittedLat: Double? = null,
     @SerialName("submitted_lng") val submittedLng: Double? = null,
     @SerialName("submitted_contact_name") val submittedContactName: String? = null,
+    @SerialName("submitted_contact_phone_masked") val submittedContactPhoneMasked: String? = null,
     @SerialName("submitted_notes") val submittedNotes: String? = null,
     @SerialName("submitted_at") val submittedAt: String? = null,
     @SerialName("expires_at") val expiresAt: String = "",
@@ -226,11 +227,29 @@ data class CreatedCustomerOrder(
 data class CustomerPaymentSetup(
     @SerialName("id") val id: String = "",
     @SerialName("method") val method: String = "",
+    @SerialName("status") val status: String = "pending",
+    @SerialName("payment_status") val paymentStatus: String = "pending",
+    @SerialName("order_status") val orderStatus: String = "",
     @SerialName("snap_token") val snapToken: String? = null,
     @SerialName("redirect_url") val redirectUrl: String? = null,
     @SerialName("midtrans_order_id") val midtransOrderId: String? = null,
     @SerialName("expires_in") val expiresIn: Int = 0,
     @SerialName("expires_at") val expiresAt: String? = null
+)
+
+@Serializable
+data class CustomerPaymentSessionResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("payment") val payment: CustomerPaymentSetup? = null,
+    @SerialName("payment_status") val paymentStatus: String? = null,
+    @SerialName("order_status") val orderStatus: String? = null,
+    @SerialName("redirect_url") val redirectUrl: String? = null,
+    @SerialName("snap_token") val snapToken: String? = null,
+    @SerialName("midtrans_order_id") val midtransOrderId: String? = null,
+    @SerialName("expires_in") val expiresIn: Int = 0,
+    @SerialName("expires_at") val expiresAt: String? = null,
+    @SerialName("message") val message: String? = null,
+    @SerialName("error") val error: String? = null
 )
 
 @Serializable

@@ -6,6 +6,13 @@ import {
 } from './onDemandExternalReadiness';
 
 describe('onDemandExternalReadiness', () => {
+  const makeServiceAccount = (projectId: string) =>
+    JSON.stringify({
+      project_id: projectId,
+      client_email: `firebase-adminsdk@example.iam.gserviceaccount.com`,
+      private_key: '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n'
+    });
+
   it('marks Google Directions ready when either maps key is configured', () => {
     expect(hasGoogleDirectionsConfig({ GOOGLE_MAPS_API_KEY: 'AIza-real-key' })).toBe(true);
     expect(hasGoogleDirectionsConfig({ GOOGLE_DIRECTIONS_API_KEY: 'directions-real-key' })).toBe(true);
@@ -13,15 +20,29 @@ describe('onDemandExternalReadiness', () => {
   });
 
   it('validates Firebase service account shape without exposing the secret', () => {
-    const raw = JSON.stringify({
-      project_id: 'lancar-staging',
-      client_email: 'firebase-adminsdk@example.iam.gserviceaccount.com',
-      private_key: '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n'
-    });
+    const raw = makeServiceAccount('lancar-staging');
 
     expect(parseFirebaseServiceAccount(raw)).toEqual({ valid: true, projectId: 'lancar-staging' });
     expect(hasFirebaseAdminConfig({ FIREBASE_SERVICE_ACCOUNT: raw })).toBe(true);
     expect(hasFirebaseAdminConfig({ FIREBASE_SERVICE_ACCOUNT: '{bad-json' })).toBe(false);
+  });
+
+  it('validates Firebase service account from base64 for Docker-safe envs', () => {
+    const raw = makeServiceAccount('android-customer-c2872');
+    const encoded = Buffer.from(raw, 'utf8').toString('base64');
+
+    expect(parseFirebaseServiceAccount(undefined, encoded)).toEqual({
+      valid: true,
+      projectId: 'android-customer-c2872'
+    });
+    expect(
+      hasFirebaseAdminConfig({
+        FIREBASE_CUSTOMER_SERVICE_ACCOUNT_B64: encoded,
+        FIREBASE_COURIER_SERVICE_ACCOUNT_B64: Buffer.from(makeServiceAccount('android-kurir'), 'utf8').toString(
+          'base64'
+        )
+      })
+    ).toBe(true);
   });
 
   it('returns waiting status until external secrets are inserted', () => {
@@ -35,11 +56,7 @@ describe('onDemandExternalReadiness', () => {
   it('returns ready for staging validation after Google and Firebase config exist', () => {
     const readiness = getOnDemandExternalReadiness({
       GOOGLE_MAPS_API_KEY: 'AIza-real-key',
-      FIREBASE_SERVICE_ACCOUNT: JSON.stringify({
-        project_id: 'lancar-staging',
-        client_email: 'firebase-adminsdk@example.iam.gserviceaccount.com',
-        private_key: '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n'
-      })
+      FIREBASE_SERVICE_ACCOUNT: makeServiceAccount('lancar-staging')
     });
 
     expect(readiness.overall_status).toBe('ready_for_staging_validation');
@@ -48,5 +65,21 @@ describe('onDemandExternalReadiness', () => {
     );
     expect(JSON.stringify(readiness)).not.toContain('AIza-real-key');
     expect(JSON.stringify(readiness)).not.toContain('PRIVATE KEY');
+  });
+
+  it('returns ready when customer and courier Firebase projects are configured separately', () => {
+    const readiness = getOnDemandExternalReadiness({
+      GOOGLE_MAPS_API_KEY: 'AIza-real-key',
+      FIREBASE_CUSTOMER_SERVICE_ACCOUNT_B64: Buffer.from(
+        makeServiceAccount('android-customer-c2872'),
+        'utf8'
+      ).toString('base64'),
+      FIREBASE_COURIER_SERVICE_ACCOUNT_B64: Buffer.from(makeServiceAccount('android-kurir'), 'utf8').toString(
+        'base64'
+      )
+    });
+
+    expect(readiness.overall_status).toBe('ready_for_staging_validation');
+    expect(readiness.checks.find((check) => check.key === 'firebase_admin')?.message).toContain('customer dan kurir');
   });
 });

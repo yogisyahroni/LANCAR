@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
+import { downloadCsv, parseCsvText } from '@/lib/csv';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { 
   MapPin, 
@@ -19,7 +20,6 @@ import {
   CheckCircle,
   HelpCircle 
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 
 interface Address {
   id: string;
@@ -30,7 +30,53 @@ interface Address {
   latitude: number;
   longitude: number;
   is_default: boolean;
+  kind: 'pickup' | 'receiver' | 'both';
 }
+
+interface CustomerAddressApi {
+  id: string;
+  label: string;
+  contact_name?: string | null;
+  contact_phone_masked?: string | null;
+  address: string;
+  lat?: number | string | null;
+  lng?: number | string | null;
+  kind?: 'pickup' | 'receiver' | 'both';
+  is_favorite?: boolean;
+}
+
+const mapAddressFromApi = (item: CustomerAddressApi): Address => ({
+  id: item.id,
+  label: item.label,
+  recipient_name: item.contact_name || '-',
+  phone: item.contact_phone_masked || '-',
+  address: item.address,
+  latitude: Number(item.lat ?? 0),
+  longitude: Number(item.lng ?? 0),
+  is_default: Boolean(item.is_favorite),
+  kind: item.kind || 'receiver',
+});
+
+const buildAddressPayload = (params: {
+  label: string;
+  recipientName: string;
+  phone: string;
+  addressText: string;
+  latitude: number;
+  longitude: number;
+  isDefault: boolean;
+}) => ({
+  label: params.label.trim(),
+  contact_name: params.recipientName.trim(),
+  contact_phone: params.phone.includes('*') ? undefined : params.phone.trim(),
+  address: params.addressText.trim(),
+  location: {
+    lat: params.latitude,
+    lng: params.longitude,
+  },
+  kind: params.isDefault ? 'both' : 'receiver',
+  is_favorite: params.isDefault,
+});
 
 export default function AddressBookPage() {
   const { addNotification } = useNotificationStore();
@@ -55,53 +101,31 @@ export default function AddressBookPage() {
   const [recipientName, setRecipientName] = useState('');
   const [phone, setPhone] = useState('');
   const [addressText, setAddressText] = useState('');
-  const [latitude, setLatitude] = useState(-6.200000);
-  const [longitude, setLongitude] = useState(106.816666);
+  const [latitude, setLatitude] = useState(0);
+  const [longitude, setLongitude] = useState(0);
   const [isDefault, setIsDefault] = useState(false);
 
-  // Load from local storage with starting premium sample data
-  useEffect(() => {
-    const stored = localStorage.getItem('lancar_addresses');
-    if (stored) {
-      try {
-        setAddresses(JSON.parse(stored));
-      } catch (err) {
-        console.error('Failed to parse stored addresses', err);
-      }
-    } else {
-      // Starter mock premium addresses
-      const sampleAddresses: Address[] = [
-        {
-          id: 'addr-1',
-          label: 'Gudang Utama (Pusat)',
-          recipient_name: 'Pak Ahmad Sunarto',
-          phone: '081122334455',
-          address: 'Jl. Jend. Sudirman Kav 21, Senayan, Jakarta Selatan',
-          latitude: -6.223412,
-          longitude: 106.801234,
-          is_default: true,
-        },
-        {
-          id: 'addr-2',
-          label: 'Kantor Cabang Bandung',
-          recipient_name: 'Siska Wahyuni',
-          phone: '085566778899',
-          address: 'Jl. Pasir Kaliki No. 120, Bandung',
-          latitude: -6.912345,
-          longitude: 107.601234,
-          is_default: false,
-        }
-      ];
-      setAddresses(sampleAddresses);
-      localStorage.setItem('lancar_addresses', JSON.stringify(sampleAddresses));
+  const loadAddresses = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get('/customer/addresses');
+      const items = (response.data?.data || []) as CustomerAddressApi[];
+      setAddresses(items.map(mapAddressFromApi));
+    } catch (error: any) {
+      addNotification({
+        title: 'Gagal memuat alamat',
+        message: error?.response?.data?.message || 'Buku alamat belum bisa dimuat dari database.',
+        type: 'error',
+      });
+      setAddresses([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  }, []);
-
-  const saveToLocalStorage = (list: Address[]) => {
-    localStorage.setItem('lancar_addresses', JSON.stringify(list));
-    setAddresses(list);
   };
+
+  useEffect(() => {
+    loadAddresses();
+  }, []);
 
   const filteredAddresses = addresses.filter((item) =>
     item.label.toLowerCase().includes(search.toLowerCase()) ||
@@ -114,8 +138,8 @@ export default function AddressBookPage() {
     setRecipientName('');
     setPhone('');
     setAddressText('');
-    setLatitude(-6.200000);
-    setLongitude(106.816666);
+    setLatitude(0);
+    setLongitude(0);
     setIsDefault(false);
     setCurrentAddressId(null);
   };
@@ -124,6 +148,16 @@ export default function AddressBookPage() {
     resetForm();
     setFormMode('add');
     setIsFormOpen(true);
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLatitude(Number(position.coords.latitude.toFixed(6)));
+          setLongitude(Number(position.coords.longitude.toFixed(6)));
+        },
+        () => undefined,
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
+    }
   };
 
   const openEditModal = (addr: Address) => {
@@ -139,54 +173,46 @@ export default function AddressBookPage() {
     setIsFormOpen(true);
   };
 
-  const handleSaveAddress = (e: React.FormEvent) => {
+  const handleSaveAddress = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!label || !recipientName || !phone || !addressText) {
       addNotification({ title: 'Gagal', message: 'Semua field wajib diisi.', type: 'error' });
       return;
     }
-
-    let updatedList = [...addresses];
-
-    // If marked as default, unset previous default addresses
-    if (isDefault) {
-      updatedList = updatedList.map((item) => ({ ...item, is_default: false }));
+    if (!latitude || !longitude) {
+      addNotification({ title: 'Gagal', message: 'Koordinat alamat wajib diisi dari peta atau GPS.', type: 'error' });
+      return;
     }
 
-    if (formMode === 'add') {
-      const newAddr: Address = {
-        id: `addr-${Date.now()}`,
-        label,
-        recipient_name: recipientName,
-        phone,
-        address: addressText,
-        latitude,
-        longitude,
-        is_default: updatedList.length === 0 ? true : isDefault,
-      };
-      updatedList.push(newAddr);
-      addNotification({ title: 'Berhasil', message: 'Alamat baru berhasil ditambahkan.', type: 'success' });
-    } else if (formMode === 'edit' && currentAddressId) {
-      updatedList = updatedList.map((item) =>
-        item.id === currentAddressId
-          ? {
-              ...item,
-              label,
-              recipient_name: recipientName,
-              phone,
-              address: addressText,
-              latitude,
-              longitude,
-              is_default: isDefault,
-            }
-          : item
-      );
-      addNotification({ title: 'Berhasil', message: 'Alamat berhasil diperbarui.', type: 'success' });
-    }
+    const payload = buildAddressPayload({
+      label,
+      recipientName,
+      phone,
+      addressText,
+      latitude,
+      longitude,
+      isDefault: addresses.length === 0 ? true : isDefault,
+    });
 
-    saveToLocalStorage(updatedList);
-    setIsFormOpen(false);
-    resetForm();
+    try {
+      if (formMode === 'add') {
+        await api.post('/customer/addresses', payload);
+        addNotification({ title: 'Berhasil', message: 'Alamat baru berhasil ditambahkan.', type: 'success' });
+      } else if (formMode === 'edit' && currentAddressId) {
+        await api.patch(`/customer/addresses/${currentAddressId}`, payload);
+        addNotification({ title: 'Berhasil', message: 'Alamat berhasil diperbarui.', type: 'success' });
+      }
+
+      await loadAddresses();
+      setIsFormOpen(false);
+      resetForm();
+    } catch (error: any) {
+      addNotification({
+        title: 'Gagal menyimpan',
+        message: error?.response?.data?.message || 'Alamat belum bisa disimpan.',
+        type: 'error',
+      });
+    }
   };
 
   const openDeleteModal = (id: string) => {
@@ -194,86 +220,106 @@ export default function AddressBookPage() {
     setIsDeleteOpen(true);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteId) return;
-    const itemToDelete = addresses.find((a) => a.id === deleteId);
-    let updatedList = addresses.filter((item) => item.id !== deleteId);
-
-    // If deleting the default, make the first item new default if any
-    if (itemToDelete?.is_default && updatedList.length > 0) {
-      updatedList[0].is_default = true;
+    try {
+      await api.delete(`/customer/addresses/${deleteId}`);
+      await loadAddresses();
+      setIsDeleteOpen(false);
+      setDeleteId(null);
+      addNotification({ title: 'Berhasil', message: 'Alamat berhasil dihapus dari daftar.', type: 'success' });
+    } catch (error: any) {
+      addNotification({
+        title: 'Gagal menghapus',
+        message: error?.response?.data?.message || 'Alamat belum bisa dihapus.',
+        type: 'error',
+      });
     }
-
-    saveToLocalStorage(updatedList);
-    setIsDeleteOpen(false);
-    setDeleteId(null);
-    addNotification({ title: 'Berhasil', message: 'Alamat berhasil dihapus dari daftar.', type: 'success' });
   };
 
-  const setDefaultPickup = (id: string) => {
-    const updatedList = addresses.map((item) => ({
-      ...item,
-      is_default: item.id === id,
-    }));
-    saveToLocalStorage(updatedList);
-    addNotification({ title: 'Berhasil', message: 'Alamat default pickup telah diubah.', type: 'success' });
+  const setDefaultPickup = async (id: string) => {
+    const selectedAddress = addresses.find((item) => item.id === id);
+    if (!selectedAddress) return;
+
+    try {
+      await api.patch(`/customer/addresses/${id}`, {
+        label: selectedAddress.label,
+        contact_name: selectedAddress.recipient_name,
+        address: selectedAddress.address,
+        location: {
+          lat: selectedAddress.latitude,
+          lng: selectedAddress.longitude,
+        },
+        kind: 'both',
+        is_favorite: true,
+        mark_used: true,
+      });
+      await loadAddresses();
+      addNotification({ title: 'Berhasil', message: 'Alamat default pickup telah diubah.', type: 'success' });
+    } catch (error: any) {
+      addNotification({
+        title: 'Gagal mengubah default',
+        message: error?.response?.data?.message || 'Default pickup belum bisa diperbarui.',
+        type: 'error',
+      });
+    }
   };
 
-  // Import from Excel logic using `xlsx` library
-  const handleExcelImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data: any[] = XLSX.utils.sheet_to_json(ws);
+        const data = parseCsvText(String(evt.target?.result || ''));
 
         if (!data || data.length === 0) {
-          addNotification({ title: 'Gagal', message: 'File Excel kosong atau format tidak sesuai.', type: 'error' });
+          addNotification({ title: 'Gagal', message: 'File CSV kosong atau format tidak sesuai.', type: 'error' });
           return;
         }
 
-        let updatedList = [...addresses];
+        const validRows = data
+          .map((row) => {
+            const lbl = row.Label || row.label;
+            const recName = row['Nama Penerima'] || row.recipient_name || row.nama;
+            const ph = row.Telepon || row.phone || row.hp;
+            const addrStr = row.Alamat || row.address || row.alamat;
+            const lat = parseFloat(String(row.Latitude || row.latitude || row.lat || '-6.2'));
+            const lng = parseFloat(String(row.Longitude || row.longitude || row.lng || '106.81'));
 
-        data.forEach((row, i) => {
-          const lbl = row.Label || row.label;
-          const recName = row['Nama Penerima'] || row.recipient_name || row.nama;
-          const ph = row.Telepon || row.phone || row.hp;
-          const addrStr = row.Alamat || row.address || row.alamat;
-          const lat = parseFloat(row.Latitude || row.latitude || row.lat || '-6.2');
-          const lng = parseFloat(row.Longitude || row.longitude || row.lng || '106.81');
+            if (!lbl || !recName || !ph || !addrStr) {
+              return null;
+            }
 
-          if (lbl && recName && ph && addrStr) {
-            updatedList.push({
-              id: `addr-excel-${Date.now()}-${i}`,
-              label: lbl,
-              recipient_name: recName,
+            return buildAddressPayload({
+              label: String(lbl),
+              recipientName: String(recName),
               phone: String(ph),
-              address: addrStr,
-              latitude: isNaN(lat) ? -6.200 : lat,
-              longitude: isNaN(lng) ? 106.816 : lng,
-              is_default: false,
+              addressText: String(addrStr),
+              latitude: Number.isNaN(lat) ? -6.2 : lat,
+              longitude: Number.isNaN(lng) ? 106.816 : lng,
+              isDefault: false,
             });
-          }
-        });
+          })
+          .filter(Boolean);
 
-        saveToLocalStorage(updatedList);
-        addNotification({ title: 'Sukses Import', message: `Berhasil menambahkan ${data.length} alamat baru dari Excel.`, type: 'success' });
+        if (validRows.length === 0) {
+          addNotification({ title: 'Gagal', message: 'Tidak ada baris alamat valid di file CSV.', type: 'error' });
+          return;
+        }
+
+        await Promise.all(validRows.map((payload) => api.post('/customer/addresses', payload)));
+        await loadAddresses();
+        addNotification({ title: 'Sukses Import', message: `Berhasil menambahkan ${validRows.length} alamat baru dari CSV.`, type: 'success' });
       } catch (err) {
-        console.error('Import excel failed:', err);
-        addNotification({ title: 'Gagal', message: 'Tidak dapat membaca file Excel.', type: 'error' });
+        addNotification({ title: 'Gagal', message: 'Tidak dapat membaca file CSV.', type: 'error' });
       }
     };
-    reader.readAsBinaryString(file);
+    reader.readAsText(file);
     e.target.value = '';
   };
 
-  // Download template Excel file
   const handleDownloadTemplate = () => {
     const templateData = [
       {
@@ -286,10 +332,7 @@ export default function AddressBookPage() {
       }
     ];
 
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Addresses');
-    XLSX.writeFile(wb, `Template_Alamat_LANCAR.xlsx`);
+    downloadCsv(`Template_Alamat_LANCAR.csv`, templateData);
   };
 
   if (loading) {
@@ -325,22 +368,21 @@ export default function AddressBookPage() {
           </p>
         </div>
 
-        {/* Action button: add address & import Excel */}
+        {/* Action button: add address & import CSV */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* File Excel Input */}
           <label className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 hover:bg-muted text-foreground font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-sm select-none">
-            <Upload className="h-3.5 w-3.5" /> Import Excel
+            <Upload className="h-3.5 w-3.5" /> Import CSV
             <input
               type="file"
-              accept=".xlsx, .xls"
+              accept=".csv,text/csv"
               className="hidden select-none"
-              onChange={handleExcelImport}
+              onChange={handleCsvImport}
             />
           </label>
           <button
             onClick={handleDownloadTemplate}
             className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 hover:bg-muted text-foreground font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-sm select-none"
-            title="Unduh Template Excel untuk Alamat"
+            title="Unduh Template CSV untuk Alamat"
           >
             <Download className="h-3.5 w-3.5" /> Template
           </button>

@@ -46,6 +46,8 @@ import com.google.maps.android.compose.*
 import com.lancar.customer.BuildConfig
 import com.lancar.customer.R
 import com.lancar.customer.data.model.OrderTrackingDetail
+import com.lancar.customer.ui.components.maps.RuntimeMapMarker
+import com.lancar.customer.ui.components.maps.RuntimeMapRenderer
 import com.lancar.customer.ui.theme.Primary
 import kotlinx.coroutines.launch
 
@@ -65,61 +67,38 @@ fun TrackingScreen(
         viewModel.startTracking(orderId)
     }
 
-    // Standard Jakarta center fallback
-    val initialPos = remember { LatLng(-6.2088, 106.8456) }
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(initialPos, 15f)
-    }
-
-    // Prepare custom marker bitmap (Vector converted to Bitmap for Maps)
-    val courierIcon = remember(context) {
-        bitmapDescriptorFromVector(context, R.drawable.ic_delivery_bike, 120, 120)
-    }
-
-    // Automatically animate camera to follow courier when location updates
-    LaunchedEffect(uiState.courierLocation) {
+    val mapMarkers = remember(uiState.courierLocation, uiState.detail?.order?.courierName) {
         uiState.courierLocation?.let { loc ->
-            coroutineScope.launch {
-                cameraPositionState.animate(
-                    CameraUpdateFactory.newCameraPosition(
-                        CameraPosition.builder()
-                            .target(loc)
-                            .zoom(cameraPositionState.position.zoom.coerceIn(14f, 17f))
-                            .build()
-                    ),
-                    1000
+            listOf(
+                RuntimeMapMarker(
+                    id = "courier",
+                    position = loc,
+                    title = uiState.detail?.order?.courierName ?: "Kurir Anda",
+                    snippet = "Posisi diperbarui otomatis"
                 )
-            }
-        }
+            )
+        } ?: emptyList()
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         
         // LAYER 1: MAP VIEW
-        GoogleMap(
-            modifier = Modifier.fillMaxSize(),
-            cameraPositionState = cameraPositionState,
-            properties = MapProperties(
-                isMyLocationEnabled = true
-            ),
-            uiSettings = MapUiSettings(
+        RuntimeMapRenderer(
+            providerConfig = uiState.mapsProviderConfig,
+            markers = mapMarkers,
+            routePoints = uiState.routePoints,
+            followLocation = uiState.courierLocation,
+            googleProperties = MapProperties(isMyLocationEnabled = true),
+            googleUiSettings = MapUiSettings(
                 zoomControlsEnabled = false,
                 myLocationButtonEnabled = false,
                 compassEnabled = true
-            )
-        ) {
-            // Active Courier Position
-            uiState.courierLocation?.let { loc ->
-                Marker(
-                    state = MarkerState(position = loc),
-                    icon = courierIcon,
-                    rotation = uiState.courierHeading,
-                    anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f), // Center anchor for bike rotation
-                    flat = true,
-                    title = "Kurir Anda"
-                )
-            }
-        }
+            ),
+            routeColor = Primary,
+            fallbackTitle = "Tracking tetap aktif",
+            fallbackMessage = "Posisi kurir dan ETA tetap diperbarui dari backend.",
+            modifier = Modifier.fillMaxSize()
+        )
 
         // LAYER 2: TOP NAVIGATION OVERLAY
         SafeAreaWrapper {
@@ -182,6 +161,73 @@ fun TrackingScreen(
                 },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp)
             )
+        }
+    }
+}
+
+@Composable
+private fun RuntimeMapFallback(
+    provider: String,
+    reason: String?,
+    courierLocation: LatLng?,
+    eta: String?,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .background(Color(0xFFEFF6FF)),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(
+            modifier = Modifier
+                .padding(24.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Column(
+                modifier = Modifier.padding(22.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                Text(
+                    text = if (provider == "openstreetmap") "Peta OpenStreetMap aktif" else "Mode peta teks aktif",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color(0xFF0B3D2E)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Tracking tetap berjalan realtime. Renderer peta mengikuti konfigurasi admin tanpa install ulang aplikasi.",
+                    color = Color(0xFF4B5563),
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = courierLocation?.let { "Kurir: ${"%.5f".format(it.latitude)}, ${"%.5f".format(it.longitude)}" }
+                        ?: "Menunggu koordinat kurir...",
+                    color = Color(0xFF111827),
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = eta?.let { "Estimasi: $it" } ?: "Estimasi dihitung otomatis saat lokasi tersedia.",
+                    color = Color(0xFF6B7280),
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                if (!reason.isNullOrBlank()) {
+                    Text(
+                        text = reason.replace("_", " "),
+                        color = Color(0xFF92400E),
+                        fontSize = 12.sp,
+                        modifier = Modifier
+                            .padding(top = 14.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFFFFBEB))
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    )
+                }
+            }
         }
     }
 }

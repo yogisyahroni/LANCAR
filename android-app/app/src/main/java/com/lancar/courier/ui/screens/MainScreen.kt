@@ -58,6 +58,7 @@ import com.lancar.courier.data.model.CourierEarningsTransaction
 import com.lancar.courier.data.model.CourierPerformanceSummary
 import com.lancar.courier.data.model.CourierPayoutRequestItem
 import com.lancar.courier.data.model.CourierPayoutSummaryData
+import com.lancar.courier.data.model.MapsProviderConfig
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.cleanPayoutIdr
 import com.lancar.courier.data.model.displayServiceName
@@ -66,6 +67,8 @@ import com.lancar.courier.data.model.normalizedWorkflowRole
 import com.lancar.courier.data.model.toRupiahCompact
 import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.service.LocationTrackerService
+import com.lancar.courier.ui.components.maps.RuntimeMapMarker
+import com.lancar.courier.ui.components.maps.RuntimeMapRenderer
 import com.lancar.courier.ui.screens.order.OrderDetailScreen
 import com.lancar.courier.ui.screens.order.OrderScreen
 import com.lancar.courier.ui.screens.order.OrderViewModel
@@ -127,6 +130,7 @@ fun MainScreen(
     val payoutRequests by orderViewModel.payoutRequests.collectAsState()
     val isPayoutSubmitting by orderViewModel.isPayoutSubmitting.collectAsState()
     val routePreviews by orderViewModel.routePreviews.collectAsState()
+    val mapsProviderConfig by orderViewModel.mapsProviderConfig.collectAsState()
     val courierProfile by orderViewModel.courierProfile.collectAsState()
     val isSyncing by orderViewModel.isSyncing.collectAsState()
     val error by orderViewModel.error.collectAsState()
@@ -179,6 +183,7 @@ fun MainScreen(
     if (courierRole == "on_demand") onDemandOffers.firstOrNull()?.let { offer ->
         OnDemandOfferDialog(
             order = offer,
+            mapsProviderConfig = mapsProviderConfig,
             onAccept = {
                 orderViewModel.acceptOffer(offer) { accepted ->
                     selectedOrder = accepted
@@ -319,6 +324,7 @@ fun MainScreen(
         OrderDetailScreen(
             order = order,
             routePreview = routePreviews[order.orderId],
+            mapsProviderConfig = mapsProviderConfig,
             pickupScanVerified = pickupScanVerifiedOrderIds.contains(order.orderId) ||
                 order.pickupScanVerified ||
                 order.scanType == "pickup" ||
@@ -565,6 +571,7 @@ fun MainScreen(
                     capabilityProfile = capabilityProfile,
                     courierVehicleType = courierVehicleType,
                     hotspots = onDemandHotspots,
+                    mapsProviderConfig = mapsProviderConfig,
                     isOnline = isOnline,
                     onOnlineToggle = { online ->
                         scope.launch {
@@ -711,6 +718,7 @@ private fun HomeContent(
     capabilityProfile: CourierCapabilityProfile?,
     courierVehicleType: String,
     hotspots: List<CourierHotspot>,
+    mapsProviderConfig: MapsProviderConfig,
     isOnline: Boolean,
     onOnlineToggle: (Boolean) -> Unit,
     onCapturePod: (Order) -> Unit,
@@ -744,6 +752,7 @@ private fun HomeContent(
             capabilityProfile = capabilityProfile,
             courierVehicleType = courierVehicleType,
             hotspots = hotspots,
+            mapsProviderConfig = mapsProviderConfig,
             isOnline = isOnline,
             onOnlineToggle = onOnlineToggle,
             onOpenDelivery = onOpenDelivery,
@@ -998,6 +1007,7 @@ private fun OnDemandHomeHubEnterprise(
     capabilityProfile: CourierCapabilityProfile?,
     courierVehicleType: String,
     hotspots: List<CourierHotspot>,
+    mapsProviderConfig: MapsProviderConfig,
     isOnline: Boolean,
     onOnlineToggle: (Boolean) -> Unit,
     onOpenDelivery: (Order) -> Unit,
@@ -1180,10 +1190,19 @@ private fun OnDemandHomeHubEnterprise(
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                     if (pickupPoint != null) {
-                        GoogleMap(
+                        RuntimeMapRenderer(
                             modifier = Modifier.fillMaxWidth().height(180.dp),
-                            cameraPositionState = cameraPositionState,
-                            uiSettings = MapUiSettings(
+                            providerConfig = mapsProviderConfig,
+                            markers = buildList {
+                                add(RuntimeMapMarker("pickup", pickupPoint, activeOrder.pickupAddress.ifBlank { "Pickup" }))
+                                dropPoint?.let { add(RuntimeMapMarker("dropoff", it, "Tujuan", activeOrder.dropAddress)) }
+                            },
+                            routePoints = buildList {
+                                add(pickupPoint)
+                                dropPoint?.let { add(it) }
+                            },
+                            followLocation = pickupPoint,
+                            googleUiSettings = MapUiSettings(
                                 zoomControlsEnabled = false,
                                 myLocationButtonEnabled = false,
                                 mapToolbarEnabled = false,
@@ -1191,14 +1210,11 @@ private fun OnDemandHomeHubEnterprise(
                                 zoomGesturesEnabled = false,
                                 tiltGesturesEnabled = false,
                                 rotationGesturesEnabled = false
-                            )
-                        ) {
-                            Marker(state = MarkerState(position = pickupPoint), title = activeOrder.pickupAddress)
-                            dropPoint?.let {
-                                Marker(state = MarkerState(position = it), title = "Tujuan")
-                                Polyline(points = listOf(pickupPoint, it), color = LogisticsOrange, width = 8f)
-                            }
-                        }
+                            ),
+                            routeColor = LogisticsOrange,
+                            fallbackTitle = "Rute pekerjaan aktif",
+                            fallbackMessage = "Rute dan ETA tetap mengikuti backend; provider peta dapat diganti dari admin."
+                        )
                     }
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
@@ -1390,6 +1406,7 @@ private fun OnDemandHomeHub(
     offers: List<Order>,
     services: List<CourierServiceProduct>,
     hotspots: List<CourierHotspot>,
+    mapsProviderConfig: MapsProviderConfig = MapsProviderConfig(),
     isOnline: Boolean,
     onOnlineToggle: (Boolean) -> Unit,
     onOpenDelivery: (Order) -> Unit,
@@ -1433,32 +1450,31 @@ private fun OnDemandHomeHub(
                 shape = RoundedCornerShape(topStart = 16.dp, topEnd = 28.dp, bottomStart = 28.dp, bottomEnd = 16.dp),
                 border = BorderStroke(2.dp, Color.Black)
             ) {
-                GoogleMap(
+                RuntimeMapRenderer(
                     modifier = Modifier.fillMaxSize(),
-                    cameraPositionState = cameraPositionState,
-                    uiSettings = MapUiSettings(
+                    providerConfig = mapsProviderConfig,
+                    markers = buildList {
+                        add(RuntimeMapMarker("pickup", pickup, activeOrder?.pickupAddress ?: "Zona pickup aktif"))
+                        dropoff?.let { add(RuntimeMapMarker("dropoff", it, "Tujuan")) }
+                        hotspots.take(6).forEach { hotspot ->
+                            val lat = hotspot.latitude
+                            val lng = hotspot.longitude
+                            if (lat != null && lng != null) {
+                                add(RuntimeMapMarker("hotspot-${hotspot.code ?: hotspot.name}", LatLng(lat, lng), hotspot.name, "${hotspot.pendingOrders} pickup menunggu"))
+                            }
+                        }
+                    },
+                    routePoints = if (dropoff != null) listOf(pickup, dropoff) else emptyList(),
+                    followLocation = pickup,
+                    googleUiSettings = MapUiSettings(
                         zoomControlsEnabled = false,
                         myLocationButtonEnabled = false,
                         mapToolbarEnabled = false
-                    )
-                ) {
-                    Marker(state = MarkerState(position = pickup), title = activeOrder?.pickupAddress ?: "Zona pickup aktif")
-                    if (dropoff != null) {
-                        Marker(state = MarkerState(position = dropoff), title = "Tujuan")
-                        Polyline(points = listOf(pickup, dropoff), color = LogisticsOrange, width = 10f)
-                    }
-                    hotspots.take(6).forEach { hotspot ->
-                        val lat = hotspot.latitude
-                        val lng = hotspot.longitude
-                        if (lat != null && lng != null) {
-                            Marker(
-                                state = MarkerState(position = LatLng(lat, lng)),
-                                title = hotspot.name,
-                                snippet = "${hotspot.pendingOrders} pickup menunggu"
-                            )
-                        }
-                    }
-                }
+                    ),
+                    routeColor = LogisticsOrange,
+                    fallbackTitle = "Area permintaan",
+                    fallbackMessage = "Hotspot dan rute tetap disediakan dari backend."
+                )
             }
 
             Surface(
@@ -1794,6 +1810,7 @@ private fun HotspotRow(hotspot: CourierHotspot) {
 @Composable
 private fun OnDemandOfferDialog(
     order: Order,
+    mapsProviderConfig: MapsProviderConfig,
     onAccept: () -> Unit,
     onReject: () -> Unit,
     onExpired: () -> Unit
@@ -1901,10 +1918,19 @@ private fun OnDemandOfferDialog(
                     ) {
                         Box(modifier = Modifier.fillMaxSize()) {
                             if (pickupPoint != null) {
-                                GoogleMap(
+                                RuntimeMapRenderer(
                                     modifier = Modifier.fillMaxSize(),
-                                    cameraPositionState = cameraPositionState,
-                                    uiSettings = MapUiSettings(
+                                    providerConfig = mapsProviderConfig,
+                                    markers = buildList {
+                                        add(RuntimeMapMarker("pickup", pickupPoint, "Pickup", order.pickupAddress))
+                                        dropPoint?.let { add(RuntimeMapMarker("dropoff", it, "Area tujuan", order.dropAddress)) }
+                                    },
+                                    routePoints = buildList {
+                                        add(pickupPoint)
+                                        dropPoint?.let { add(it) }
+                                    },
+                                    followLocation = pickupPoint,
+                                    googleUiSettings = MapUiSettings(
                                         zoomControlsEnabled = false,
                                         myLocationButtonEnabled = false,
                                         mapToolbarEnabled = false,
@@ -1912,14 +1938,11 @@ private fun OnDemandOfferDialog(
                                         zoomGesturesEnabled = false,
                                         tiltGesturesEnabled = false,
                                         rotationGesturesEnabled = false
-                                    )
-                                ) {
-                                    Marker(state = MarkerState(position = pickupPoint), title = "Pickup")
-                                    dropPoint?.let {
-                                        Marker(state = MarkerState(position = it), title = "Area tujuan")
-                                        Polyline(points = listOf(pickupPoint, it), color = LogisticsOrange, width = 8f)
-                                    }
-                                }
+                                    ),
+                                    routeColor = LogisticsOrange,
+                                    fallbackTitle = "Area pickup",
+                                    fallbackMessage = "Offer tetap bisa diterima. Provider peta mengikuti konfigurasi admin."
+                                )
                             } else {
                                 Column(
                                     modifier = Modifier

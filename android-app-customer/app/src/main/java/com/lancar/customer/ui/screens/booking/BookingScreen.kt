@@ -99,6 +99,8 @@ import com.lancar.customer.data.model.CustomerAddress
 import com.lancar.customer.data.model.DeliveryServiceProduct
 import com.lancar.customer.data.model.DimensionsPayload
 import com.lancar.customer.data.model.PriceBreakdown
+import com.lancar.customer.ui.components.maps.RuntimeMapMarker
+import com.lancar.customer.ui.components.maps.RuntimeMapRenderer
 import com.lancar.customer.ui.theme.Primary
 import com.lancar.customer.ui.theme.Secondary
 import kotlinx.coroutines.flow.collectLatest
@@ -208,8 +210,7 @@ fun BookingScreen(
             item {
                 RoutePreviewCard(
                     state = uiState,
-                    locationEnabled = locationPermissionState.status.isGranted,
-                    cameraPositionState = cameraPositionState
+                    locationEnabled = locationPermissionState.status.isGranted
                 )
             }
             item {
@@ -313,6 +314,11 @@ fun BookingScreen(
         ) {
             RequestReceiverLocationSheet(
                 link = uiState.receiverLocationLink?.url.orEmpty(),
+                status = uiState.receiverLocationLink?.status,
+                submittedAddress = uiState.receiverLocationLink?.submittedAddress,
+                submittedContactName = uiState.receiverLocationLink?.submittedContactName,
+                submittedContactPhone = uiState.receiverLocationLink?.submittedContactPhoneMasked,
+                expiresAt = uiState.receiverLocationLink?.expiresAt,
                 isLoading = uiState.isCreatingLocationLink,
                 onCreateLink = viewModel::createReceiverLocationLink,
                 onRefresh = viewModel::refreshReceiverLocationLink,
@@ -536,10 +542,12 @@ private fun PackageCard(
     state: BookingState,
     onTierSelected: (String, Double, DimensionsPayload) -> Unit
 ) {
+    val selectedService = state.services.firstOrNull { it.code == state.selectedServiceCode } ?: state.services.firstOrNull()
+    val serviceMaxWeight = selectedService?.maxWeightKg
     val tiers = listOf(
-        PackageTier("small", "Kecil", "Maks. 5 kg", 1.0, DimensionsPayload(40, 40, 17)),
-        PackageTier("medium", "Sedang", "Maks. 20 kg", 8.0, DimensionsPayload(50, 50, 40)),
-        PackageTier("large", "Besar", "Maks. 100 kg", 30.0, DimensionsPayload(120, 80, 80))
+        PackageTier("small", "Kecil", "Maks. 5 kg", 5.0, 1.0, DimensionsPayload(40, 40, 17)),
+        PackageTier("medium", "Sedang", "Maks. 20 kg", 20.0, 8.0, DimensionsPayload(50, 50, 40)),
+        PackageTier("large", "Besar", "Maks. 100 kg", 100.0, 30.0, DimensionsPayload(120, 80, 80))
     )
 
     LcCard {
@@ -551,22 +559,23 @@ private fun PackageCard(
         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(items = tiers, key = { it.code }) { tier: PackageTier ->
                 val selected = state.sizeTier == tier.code
+                val availableForService = serviceMaxWeight == null || tier.maxWeightKg <= serviceMaxWeight
                 Column(
                     modifier = Modifier
                         .width(132.dp)
                         .clip(RoundedCornerShape(18.dp))
-                        .background(if (selected) SoftGreen else Color.White)
+                        .background(if (selected) SoftGreen else if (availableForService) Color.White else Color(0xFFF2F4F7))
                         .border(
                             BorderStroke(1.dp, if (selected) LcGreen else Color(0xFFDDE3EC)),
                             RoundedCornerShape(18.dp)
                         )
-                        .clickable { onTierSelected(tier.code, tier.weightKg, tier.dimensions) }
+                        .clickable(enabled = availableForService) { onTierSelected(tier.code, tier.weightKg, tier.dimensions) }
                         .padding(14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(tier.label, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Ink)
+                    Text(tier.label, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = if (availableForService) Ink else Muted)
                     Spacer(Modifier.height(6.dp))
-                    Text(tier.caption, color = Muted, fontSize = 13.sp)
+                    Text(if (availableForService) tier.caption else "Tidak cocok", color = Muted, fontSize = 13.sp)
                 }
             }
         }
@@ -588,6 +597,17 @@ private fun PackageCard(
             )
             Spacer(Modifier.weight(1f))
             Text(if (state.dimensionsScanned) "Scan valid" else "Dipilih manual", color = LcGreen, fontWeight = FontWeight.Bold)
+        }
+        selectedService?.let { service ->
+            if (service.maxWeightKg != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "${service.name} menerima paket sampai ${service.maxWeightKg.toInt()} kg. Pilihan yang melebihi batas layanan dikunci.",
+                    color = Muted,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+            }
         }
     }
 }
@@ -662,8 +682,7 @@ private fun AddOnRow(
 @Composable
 private fun RoutePreviewCard(
     state: BookingState,
-    locationEnabled: Boolean,
-    cameraPositionState: com.google.maps.android.compose.CameraPositionState
+    locationEnabled: Boolean
 ) {
     LcCard {
         val selectedPrice = state.priceBreakdowns[state.selectedServiceCode]
@@ -682,32 +701,37 @@ private fun RoutePreviewCard(
                 .clip(RoundedCornerShape(22.dp))
                 .background(SoftBlue)
         ) {
-            GoogleMap(
-                modifier = Modifier.fillMaxSize(),
-                cameraPositionState = cameraPositionState,
-                properties = MapProperties(isMyLocationEnabled = locationEnabled),
-                uiSettings = MapUiSettings(
+            val markers = buildList {
+                state.pickupLocation?.let {
+                    add(RuntimeMapMarker("pickup", it, "Pickup", state.pickupAddress))
+                }
+                state.destinationLocation?.let {
+                    add(RuntimeMapMarker("dropoff", it, "Dropoff", state.destinationAddress))
+                }
+            }
+            val routePoints = if (state.pickupLocation != null && state.destinationLocation != null) {
+                listOf(state.pickupLocation, state.destinationLocation)
+            } else {
+                emptyList()
+            }
+            RuntimeMapRenderer(
+                providerConfig = state.mapsProviderConfig,
+                markers = markers,
+                routePoints = routePoints,
+                googleProperties = MapProperties(isMyLocationEnabled = locationEnabled),
+                googleUiSettings = MapUiSettings(
                     zoomControlsEnabled = false,
                     compassEnabled = false,
                     myLocationButtonEnabled = false,
                     scrollGesturesEnabled = false,
-                    zoomGesturesEnabled = false
-                )
-            ) {
-                state.pickupLocation?.let {
-                    Marker(state = MarkerState(it), title = "Pickup")
-                }
-                state.destinationLocation?.let {
-                    Marker(state = MarkerState(it), title = "Dropoff")
-                }
-                if (state.pickupLocation != null && state.destinationLocation != null) {
-                    Polyline(
-                        points = listOf(state.pickupLocation, state.destinationLocation),
-                        color = LcGreen,
-                        width = 8f
-                    )
-                }
-            }
+                    zoomGesturesEnabled = false,
+                    mapToolbarEnabled = false
+                ),
+                routeColor = LcGreen,
+                fallbackTitle = "Preview rute siap",
+                fallbackMessage = "Pilih titik pickup dan tujuan. Rute dihitung oleh backend sesuai provider peta aktif.",
+                modifier = Modifier.fillMaxSize()
+            )
             if (state.destinationLocation == null) {
                 Box(
                     Modifier
@@ -1052,6 +1076,11 @@ private fun SavedAddressChip(
 @Composable
 private fun RequestReceiverLocationSheet(
     link: String,
+    status: String?,
+    submittedAddress: String?,
+    submittedContactName: String?,
+    submittedContactPhone: String?,
+    expiresAt: String?,
     isLoading: Boolean,
     onCreateLink: () -> Unit,
     onRefresh: () -> Unit,
@@ -1087,6 +1116,61 @@ private fun RequestReceiverLocationSheet(
             lineHeight = 20.sp
         )
         Spacer(Modifier.height(18.dp))
+        if (!status.isNullOrBlank()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(if (status == "submitted") SoftGreen else FieldBg)
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    if (status == "submitted") Icons.Default.CheckCircle else Icons.Default.AccessTime,
+                    null,
+                    tint = if (status == "submitted") LcGreen else Muted
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        when (status) {
+                            "submitted" -> "Lokasi sudah diisi"
+                            "expired" -> "Link kedaluwarsa"
+                            else -> "Menunggu penerima"
+                        },
+                        color = Ink,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        if (expiresAt.isNullOrBlank()) "Status tersinkron dari server" else "Aktif sampai ${expiresAt.take(16).replace("T", " ")}",
+                        color = Muted,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+        if (!submittedAddress.isNullOrBlank()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(SoftGreen)
+                    .padding(14.dp)
+            ) {
+                Text("Alamat dari penerima", color = LcGreen, fontWeight = FontWeight.ExtraBold)
+                Spacer(Modifier.height(4.dp))
+                Text(submittedAddress, color = Ink, fontWeight = FontWeight.Bold)
+                if (!submittedContactName.isNullOrBlank()) {
+                    Text(
+                        listOfNotNull(submittedContactName, submittedContactPhone).joinToString(" • "),
+                        color = Muted,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1163,6 +1247,7 @@ private data class PackageTier(
     val code: String,
     val label: String,
     val caption: String,
+    val maxWeightKg: Double,
     val weightKg: Double,
     val dimensions: DimensionsPayload
 )

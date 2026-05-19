@@ -154,6 +154,7 @@ dependencies {
     implementation("com.google.maps.android:maps-compose:4.3.3")
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.android.gms:play-services-location:21.1.0")
+    implementation("org.maplibre.gl:android-sdk:13.0.2")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

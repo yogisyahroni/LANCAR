@@ -40,6 +40,7 @@ coverage.html
 # Test artifacts
 __tests__/coverage/
 coverage/
+artifacts/
 
 # Local Scratch
 scratch/

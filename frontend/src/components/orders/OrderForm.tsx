@@ -10,12 +10,13 @@ import {
   Camera,
   CalendarDays,
   Check,
-  Crosshair,
+  Copy,
   Info,
   Loader2,
   MapPin,
   Maximize,
   Navigation,
+  RefreshCw,
   Search,
   Sparkles,
   Clock,
@@ -105,12 +106,13 @@ type AddressMode = "pickup" | "dropoff";
 interface SavedAddress {
   id: string;
   label: string;
-  recipient_name?: string;
-  phone?: string;
+  contact_name?: string;
+  contact_phone_masked?: string;
   address: string;
-  latitude: number;
-  longitude: number;
-  is_default?: boolean;
+  lat: number;
+  lng: number;
+  kind?: "pickup" | "receiver" | "both";
+  is_favorite?: boolean;
 }
 
 interface AddressSuggestion {
@@ -119,9 +121,27 @@ interface AddressSuggestion {
   detail: string;
   lat: number;
   lng: number;
-  source: "osm" | "saved" | "fallback";
+  source: "osm" | "google" | "saved";
   recipient_name?: string;
   phone?: string;
+}
+
+interface ReceiverLocationLink {
+  id: string;
+  status: "pending" | "submitted" | "expired" | string;
+  pickup_address: string;
+  recipient_name?: string | null;
+  submitted_address?: string | null;
+  submitted_contact_name?: string | null;
+  submitted_contact_phone_masked?: string | null;
+  submitted_notes?: string | null;
+  submitted_lat?: number | null;
+  submitted_lng?: number | null;
+  submitted_at?: string | null;
+  expires_at: string;
+  created_at: string;
+  url?: string;
+  token?: string;
 }
 
 interface OrderFormProps {
@@ -152,41 +172,6 @@ export interface DeliveryService {
   }>;
 }
 
-const fallbackLocations: AddressSuggestion[] = [
-  {
-    id: "fallback-monas",
-    label: "Monas, Gambir",
-    detail: "Gambir, Jakarta Pusat",
-    lat: -6.175392,
-    lng: 106.827153,
-    source: "fallback"
-  },
-  {
-    id: "fallback-sudirman",
-    label: "Jl. Jend. Sudirman",
-    detail: "Senayan, Kebayoran Baru, Jakarta Selatan",
-    lat: -6.223412,
-    lng: 106.801234,
-    source: "fallback"
-  },
-  {
-    id: "fallback-kelapagading",
-    label: "Kelapa Gading",
-    detail: "Jakarta Utara",
-    lat: -6.158493,
-    lng: 106.904972,
-    source: "fallback"
-  },
-  {
-    id: "fallback-cawang",
-    label: "Cawang",
-    detail: "Jakarta Timur",
-    lat: -6.250178,
-    lng: 106.873123,
-    source: "fallback"
-  }
-];
-
 const jakartaBounds = {
   north: -6.08,
   south: -6.36,
@@ -197,16 +182,6 @@ const jakartaBounds = {
 const formatCoordinate = (location?: LocationValue) => {
   if (!location) return "Titik belum dipilih";
   return `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`;
-};
-
-const makeFallbackCoordinate = (text: string): LocationValue => {
-  const seed = Array.from(text || "jakarta").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const latRange = jakartaBounds.north - jakartaBounds.south;
-  const lngRange = jakartaBounds.east - jakartaBounds.west;
-  return {
-    lat: jakartaBounds.south + ((seed % 100) / 100) * latRange,
-    lng: jakartaBounds.west + (((seed * 7) % 100) / 100) * lngRange
-  };
 };
 
 const pad2 = (value: number) => String(value).padStart(2, "0");
@@ -244,36 +219,34 @@ const pickupTimeOptions = Array.from({ length: 29 }, (_, index) => {
   return `${pad2(hour)}:${pad2(minute)}`;
 });
 
-function getSavedAddresses(): AddressSuggestion[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const stored = localStorage.getItem("lancar_addresses");
-    const addresses = stored ? JSON.parse(stored) as SavedAddress[] : [];
-    return addresses
-      .filter((item) => item.address && Number.isFinite(item.latitude) && Number.isFinite(item.longitude))
-      .map((item) => ({
-        id: `saved-${item.id}`,
-        label: item.label,
-        detail: item.address,
-        lat: item.latitude,
-        lng: item.longitude,
-        source: "saved" as const,
-        recipient_name: item.recipient_name,
-        phone: item.phone
-      }));
-  } catch {
-    return [];
-  }
+async function getSavedAddresses(mode: AddressMode): Promise<AddressSuggestion[]> {
+  const response = await api.get("/customer/addresses");
+  const addresses = (response.data?.data || []) as SavedAddress[];
+  const allowedKinds = mode === "pickup" ? ["pickup", "both"] : ["receiver", "both"];
+  return addresses
+    .filter((item) => item.address && Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng)))
+    .filter((item) => allowedKinds.includes(item.kind || "receiver"))
+    .map((item) => ({
+      id: `saved-${item.id}`,
+      label: item.label,
+      detail: item.address,
+      lat: Number(item.lat),
+      lng: Number(item.lng),
+      source: "saved" as const,
+      recipient_name: item.contact_name,
+      phone: item.contact_phone_masked
+    }));
 }
 
 function MiniMapPicker({
   location,
   accentClass,
+  tileUrlTemplate,
   onPick,
 }: {
   location?: LocationValue;
   accentClass: string;
+  tileUrlTemplate: string;
   onPick: (location: LocationValue) => void;
 }) {
   const zoom = 14;
@@ -301,12 +274,15 @@ function MiniMapPicker({
     return [-1, 0, 1].flatMap((dy) =>
       [-1, 0, 1].map((dx) => ({
         key: `${baseX + dx}-${baseY + dy}`,
-        url: `https://tile.openstreetmap.org/${zoom}/${baseX + dx}/${baseY + dy}.png`,
+        url: tileUrlTemplate
+          .replace("{z}", String(zoom))
+          .replace("{x}", String(baseX + dx))
+          .replace("{y}", String(baseY + dy)),
         left: `calc(50% + ${(dx * 256) - offsetX}px)`,
         top: `calc(50% + ${(dy * 256) - offsetY}px)`,
       }))
     );
-  }, [center.lat, center.lng]);
+  }, [center.lat, center.lng, tileUrlTemplate]);
 
   const handlePick = (event: MouseEvent<HTMLButtonElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -372,6 +348,13 @@ function AddressPicker({
   const [savedSuggestions, setSavedSuggestions] = useState<AddressSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [mapsConfig, setMapsConfig] = useState<{
+    active_provider: string;
+    openstreetmap?: { tile_url_template?: string | null };
+  }>({
+    active_provider: "openstreetmap",
+    openstreetmap: { tile_url_template: "https://tile.openstreetmap.org/{z}/{x}/{y}.png" }
+  });
   const [message, setMessage] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -381,8 +364,34 @@ function AddressPicker({
   const accentClass = isPickup ? "text-primary" : "text-emerald-500";
 
   useEffect(() => {
-    setSavedSuggestions(getSavedAddresses());
-  }, []);
+    let isMounted = true;
+
+    api.get("/maps/config", { params: { scope: "web_customer" } })
+      .then((response) => {
+        if (isMounted) setMapsConfig(response.data);
+      })
+      .catch(() => {
+        if (isMounted) {
+          setMapsConfig({ active_provider: "disabled", openstreetmap: { tile_url_template: null } });
+        }
+      });
+
+    getSavedAddresses(mode)
+      .then((items) => {
+        if (isMounted) {
+          setSavedSuggestions(items);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setSavedSuggestions([]);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [mode]);
 
   useEffect(() => {
     if (!address || address.trim().length < 4) {
@@ -397,43 +406,41 @@ function AddressPicker({
       setIsSearching(true);
       setMessage(null);
 
-      const localMatches = [...savedSuggestions, ...fallbackLocations]
+      const localMatches = savedSuggestions
         .filter((item) => `${item.label} ${item.detail}`.toLowerCase().includes(address.toLowerCase()))
         .slice(0, 4);
 
       try {
-        const params = new URLSearchParams({
-          q: `${address}, Indonesia`,
-          format: "json",
-          addressdetails: "1",
-          limit: "5",
-          countrycodes: "id"
-        });
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+        const response = await api.get("/maps/geocode", {
           signal: controller.signal,
-          headers: { "Accept": "application/json" }
+          params: {
+            query: `${address}, Indonesia`,
+            scope: "web_customer"
+          }
         });
 
-        if (!response.ok) throw new Error("Search failed");
-
-        const data = await response.json() as Array<{ place_id: number; display_name: string; lat: string; lon: string }>;
-        const osmSuggestions = data.map((item) => {
-          const [label, ...rest] = item.display_name.split(",");
+        const data = (response.data?.results || []) as Array<{ label: string; latitude: number; longitude: number; provider: string }>;
+        const osmSuggestions = data.map((item, index) => {
+          const [label, ...rest] = item.label.split(",");
           return {
-            id: `osm-${item.place_id}`,
+            id: `${item.provider}-${index}-${item.latitude}-${item.longitude}`,
             label: label.trim(),
             detail: rest.join(",").trim(),
-            lat: Number(item.lat),
-            lng: Number(item.lon),
-            source: "osm" as const
+            lat: Number(item.latitude),
+            lng: Number(item.longitude),
+            source: item.provider.includes("google") ? "google" as const : "osm" as const
           };
         });
 
         setSuggestions([...localMatches, ...osmSuggestions].slice(0, 6));
       } catch (err: any) {
         if (err.name !== "AbortError") {
-          setSuggestions(localMatches.length > 0 ? localMatches : fallbackLocations);
-          setMessage("Pencarian online tidak tersedia. Pakai titik fallback atau klik mini map.");
+          setSuggestions(localMatches);
+          setMessage(
+            localMatches.length > 0
+              ? "Pencarian online tidak tersedia. Menampilkan alamat tersimpan dari database."
+              : "Pencarian online tidak tersedia. Pilih titik lewat map atau gunakan alamat tersimpan."
+          );
         }
       } finally {
         setIsSearching(false);
@@ -500,12 +507,6 @@ function AddressPicker({
     }
   };
 
-  const useTypedAddress = () => {
-    const fallback = makeFallbackCoordinate(address);
-    setValue(locationField, fallback, { shouldDirty: true, shouldValidate: true });
-    setMessage("Titik dibuat dari alamat yang diketik. Klik mini map jika perlu koreksi.");
-  };
-
   return (
     <div className="space-y-3">
       <label className="text-sm font-medium text-muted-foreground">Alamat Lengkap</label>
@@ -566,27 +567,28 @@ function AddressPicker({
           <Sparkles className="h-3.5 w-3.5" />
           Buku Alamat
         </button>
-        <button
-          type="button"
-          onClick={useTypedAddress}
-          disabled={!address || address.length < 5}
-          className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <Crosshair className="h-3.5 w-3.5" />
-          Pakai Alamat Ini
-        </button>
+        <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-200">
+          Pilih hasil pencarian, alamat tersimpan, lokasi saat ini, atau titik map.
+        </span>
       </div>
 
-      <MiniMapPicker
-        location={location}
-        accentClass={accentClass}
-        onPick={(nextLocation) => {
-          setValue(locationField, nextLocation, { shouldDirty: true, shouldValidate: true });
-          if (!address || address.length < 5) {
-            setValue(addressField, `Pin manual (${formatCoordinate(nextLocation)})`, { shouldDirty: true, shouldValidate: true });
-          }
-        }}
-      />
+      {mapsConfig.active_provider === "openstreetmap" && mapsConfig.openstreetmap?.tile_url_template ? (
+        <MiniMapPicker
+          location={location}
+          accentClass={accentClass}
+          tileUrlTemplate={mapsConfig.openstreetmap.tile_url_template}
+          onPick={(nextLocation) => {
+            setValue(locationField, nextLocation, { shouldDirty: true, shouldValidate: true });
+            if (!address || address.length < 5) {
+              setValue(addressField, `Pin manual (${formatCoordinate(nextLocation)})`, { shouldDirty: true, shouldValidate: true });
+            }
+          }}
+        />
+      ) : (
+        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+          Peta visual memakai mode {mapsConfig.active_provider === "google_maps" ? "Google Maps server-side" : "teks"}. Pilih alamat dari pencarian atau gunakan lokasi saat ini.
+        </div>
+      )}
 
       <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground">
         <span>{formatCoordinate(location)}</span>
@@ -788,6 +790,9 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
+  const [receiverLocationLink, setReceiverLocationLink] = useState<ReceiverLocationLink | null>(null);
+  const [receiverLocationBusy, setReceiverLocationBusy] = useState(false);
+  const [receiverLocationMessage, setReceiverLocationMessage] = useState<string | null>(null);
 
   const customZodResolver = async (data: any) => {
     const result = orderSchema.safeParse(data);
@@ -961,6 +966,88 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
     onSubmit(data);
   });
 
+  const applyReceiverLocation = useCallback((link: ReceiverLocationLink) => {
+    const lat = Number(link.submitted_lat);
+    const lng = Number(link.submitted_lng);
+    if (link.status !== "submitted" || !link.submitted_address || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return false;
+    }
+
+    setValue("dropoff_address", link.submitted_address, { shouldDirty: true, shouldValidate: true });
+    setValue("dropoff_location", { lat, lng }, { shouldDirty: true, shouldValidate: true });
+    if (link.submitted_contact_name) {
+      setValue("recipient_name", link.submitted_contact_name, { shouldDirty: true, shouldValidate: true });
+    }
+    if (link.submitted_notes) {
+      const currentNotes = getValues("customer_notes");
+      setValue("customer_notes", currentNotes ? currentNotes : link.submitted_notes, { shouldDirty: true, shouldValidate: true });
+    }
+    return true;
+  }, [getValues, setValue]);
+
+  const createReceiverLocationRequest = useCallback(async () => {
+    if (!pickup_address || pickup_address.trim().length < 5) {
+      setReceiverLocationMessage("Lengkapi alamat pickup sebelum membuat link lokasi penerima.");
+      return;
+    }
+
+    setReceiverLocationBusy(true);
+    setReceiverLocationMessage(null);
+    try {
+      const response = await api.post("/customer/location-requests", {
+        pickup_address,
+        pickup_location,
+        recipient_name: getValues("recipient_name") || null,
+        recipient_phone: getValues("recipient_phone") || null,
+        expires_hours: 24
+      });
+      const link = response.data?.data as ReceiverLocationLink;
+      setReceiverLocationLink(link);
+      setReceiverLocationMessage("Link lokasi dibuat. Bagikan ke penerima, lalu cek jawaban setelah mereka mengisi.");
+    } catch (error: any) {
+      setReceiverLocationMessage(error?.response?.data?.message || "Link lokasi belum bisa dibuat.");
+    } finally {
+      setReceiverLocationBusy(false);
+    }
+  }, [getValues, pickup_address, pickup_location]);
+
+  const refreshReceiverLocationRequest = useCallback(async () => {
+    if (!receiverLocationLink?.id) {
+      setReceiverLocationMessage("Buat link lokasi penerima terlebih dahulu.");
+      return;
+    }
+
+    setReceiverLocationBusy(true);
+    setReceiverLocationMessage(null);
+    try {
+      const response = await api.get(`/customer/location-requests/${receiverLocationLink.id}`);
+      const link = response.data?.data as ReceiverLocationLink;
+      setReceiverLocationLink((current) => ({ ...link, url: current?.url || link.url }));
+      if (applyReceiverLocation(link)) {
+        setReceiverLocationMessage("Lokasi penerima sudah diterapkan ke detail pengiriman.");
+      } else if (link.status === "expired") {
+        setReceiverLocationMessage("Link sudah kedaluwarsa. Buat link baru jika penerima belum mengisi.");
+      } else {
+        setReceiverLocationMessage("Penerima belum mengirim lokasi. Cek kembali setelah mereka selesai mengisi.");
+      }
+    } catch (error: any) {
+      setReceiverLocationMessage(error?.response?.data?.message || "Status lokasi penerima belum bisa dicek.");
+    } finally {
+      setReceiverLocationBusy(false);
+    }
+  }, [applyReceiverLocation, receiverLocationLink?.id]);
+
+  const copyReceiverLocationLink = useCallback(async () => {
+    const url = receiverLocationLink?.url;
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      setReceiverLocationMessage("Link lokasi disalin.");
+    } catch {
+      setReceiverLocationMessage("Browser belum mengizinkan salin otomatis. Salin link dari kolom di bawah.");
+    }
+  }, [receiverLocationLink?.url]);
+
   return (
     <>
       <form id="order-form" onSubmit={submitWithServiceRules} className="space-y-8">
@@ -1087,6 +1174,59 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
             error={errors.dropoff_address?.message}
             locationError={(errors as any).dropoff_location?.message}
           />
+
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-emerald-300">Minta lokasi dari penerima</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  Buat link aman agar penerima mengisi alamat, titik koordinat, catatan, dan kontak. Setelah terkirim, sistem bisa menerapkan dropoff tanpa input ulang.
+                </p>
+                {receiverLocationLink && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Status: <span className="font-semibold text-foreground">{receiverLocationLink.status === "submitted" ? "Terisi" : receiverLocationLink.status === "expired" ? "Kedaluwarsa" : "Menunggu penerima"}</span>
+                    {receiverLocationLink.expires_at ? ` • aktif sampai ${formatDateLabel(receiverLocationLink.expires_at.slice(0, 10))}` : ""}
+                  </p>
+                )}
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={receiverLocationLink ? refreshReceiverLocationRequest : createReceiverLocationRequest}
+                  disabled={receiverLocationBusy}
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-400 disabled:opacity-60"
+                >
+                  {receiverLocationBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : receiverLocationLink ? <RefreshCw className="h-4 w-4" /> : <Navigation className="h-4 w-4" />}
+                  {receiverLocationLink ? "Cek jawaban" : "Buat link"}
+                </button>
+                {receiverLocationLink?.url && (
+                  <button
+                    type="button"
+                    onClick={copyReceiverLocationLink}
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-foreground transition hover:bg-white/10"
+                  >
+                    <Copy className="h-4 w-4" />
+                    Salin
+                  </button>
+                )}
+              </div>
+            </div>
+            {receiverLocationLink?.url && (
+              <div className="mt-3 rounded-lg border border-white/10 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+                <span className="break-all">{receiverLocationLink.url}</span>
+              </div>
+            )}
+            {receiverLocationMessage && (
+              <p className="mt-3 rounded-lg bg-background/40 px-3 py-2 text-xs font-medium text-emerald-100">{receiverLocationMessage}</p>
+            )}
+            {receiverLocationLink?.submitted_address && (
+              <div className="mt-3 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-50">
+                <p className="font-semibold">Alamat dari penerima</p>
+                <p className="mt-1 leading-5">{receiverLocationLink.submitted_address}</p>
+                {receiverLocationLink.submitted_contact_name && <p className="mt-1 text-emerald-100">Kontak: {receiverLocationLink.submitted_contact_name}{receiverLocationLink.submitted_contact_phone_masked ? ` • ${receiverLocationLink.submitted_contact_phone_masked}` : ""}</p>}
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
             <div>

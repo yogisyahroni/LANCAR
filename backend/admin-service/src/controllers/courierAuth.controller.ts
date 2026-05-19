@@ -9,6 +9,7 @@ import { decoratePayoutRequest, payoutMobileMessage } from '../services/payoutSt
 import { evaluatePayoutAlerts, writePayoutAuditEvent } from '../utils/payoutObservability';
 import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../services/onDemandRealtime';
 import { evaluateOnDemandRealtimeAlerts } from '../services/realtimeObservability';
+import { buildMapsRouteEtaSnapshot } from '../services/mapsProviderConfig';
 
 type CourierLoginRow = {
   id: string;
@@ -1329,10 +1330,17 @@ export const getMobileCourierRoutePreview = async (req: Request, res: Response) 
     }
 
     const coords = parseLatLng(row);
-    const distanceKm = Number(row.stored_distance_km || 0) > 0
-      ? Number(row.stored_distance_km)
-      : haversineKm(coords.pickup_latitude, coords.pickup_longitude, coords.drop_latitude, coords.drop_longitude);
-    const etaMinutes = Math.max(8, Math.ceil(distanceKm / 22 * 60));
+    const routeSnapshot = await buildMapsRouteEtaSnapshot(
+      { latitude: coords.pickup_latitude, longitude: coords.pickup_longitude },
+      { latitude: coords.drop_latitude, longitude: coords.drop_longitude },
+      'courier_mobile'
+    );
+    const distanceKm = routeSnapshot.distance_km > 0
+      ? routeSnapshot.distance_km
+      : Number(row.stored_distance_km || 0) > 0
+        ? Number(row.stored_distance_km)
+        : haversineKm(coords.pickup_latitude, coords.pickup_longitude, coords.drop_latitude, coords.drop_longitude);
+    const etaMinutes = routeSnapshot.eta_minutes || Math.max(8, Math.ceil(distanceKm / 22 * 60));
     const polyline = [
       { latitude: coords.pickup_latitude, longitude: coords.pickup_longitude },
       { latitude: coords.drop_latitude, longitude: coords.drop_longitude },
@@ -1350,7 +1358,7 @@ export const getMobileCourierRoutePreview = async (req: Request, res: Response) 
         order_id: orderId,
         distance_km: Number(distanceKm.toFixed(2)),
         eta_minutes: etaMinutes,
-        provider: 'internal_haversine',
+        provider: routeSnapshot.provider,
         polyline,
       },
       message: 'Route preview loaded',

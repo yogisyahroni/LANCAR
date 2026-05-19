@@ -96,6 +96,20 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun getMapsProviderConfig(): Result<MapsProviderConfig> {
+        return try {
+            val response = apiService.getMapsProviderConfig("customer_mobile")
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
+            } else {
+                Result.failure(Exception("Konfigurasi peta belum tersedia"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun createCustomerAddress(request: CustomerAddressRequest): Result<CustomerAddress> {
         return try {
             val response = apiService.createCustomerAddress(request)
@@ -185,17 +199,59 @@ class OrderRepository @Inject constructor(
         }
     }
 
-    fun initiatePayment(orderId: String, method: String = "QRIS"): Flow<Result<String>> = flow {
+    fun createCustomerPaymentSession(orderId: String): Flow<Result<CustomerPaymentSetup>> = flow {
         try {
-            val response = apiService.initiatePayment(orderId, PaymentRequest(method))
-            val paymentUrl = response.body()?.data?.paymentUrl
-            if (response.isSuccessful && paymentUrl != null) {
-                emit(Result.success(paymentUrl))
+            val response = apiService.createCustomerPaymentSession(orderId)
+            val body = response.body()
+            val payment = body?.payment
+            if (response.isSuccessful && body?.success == true && payment != null) {
+                emit(Result.success(payment))
             } else {
-                emit(Result.failure(Exception("Gagal memicu pembayaran")))
+                emit(Result.failure(Exception(body?.message ?: body?.error ?: "Gagal menyiapkan pembayaran")))
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
+        }
+    }
+
+    suspend fun getCustomerPaymentStatus(orderId: String): Result<CustomerPaymentSetup> {
+        return try {
+            val response = apiService.getCustomerPaymentStatus(orderId)
+            val body = response.body()
+            val payment = body?.payment
+            if (response.isSuccessful && body?.success == true && payment != null) {
+                Result.success(payment)
+            } else {
+                Result.failure(Exception(body?.message ?: body?.error ?: "Gagal mengecek status pembayaran"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun confirmCustomerPayment(orderId: String): Result<CustomerPaymentSetup> {
+        return try {
+            val response = apiService.confirmCustomerPayment(orderId)
+            val body = response.body()
+            val payment = body?.payment ?: CustomerPaymentSetup(
+                id = "PAY-$orderId",
+                method = "MIDTRANS_SNAP",
+                status = body?.paymentStatus ?: "paid",
+                paymentStatus = body?.paymentStatus ?: "paid",
+                orderStatus = body?.orderStatus ?: "pending",
+                redirectUrl = body?.redirectUrl,
+                snapToken = body?.snapToken,
+                midtransOrderId = body?.midtransOrderId,
+                expiresIn = body?.expiresIn ?: 0,
+                expiresAt = body?.expiresAt
+            )
+            if (response.isSuccessful && body?.success == true) {
+                Result.success(payment)
+            } else {
+                Result.failure(Exception(body?.message ?: body?.error ?: "Gagal mengonfirmasi pembayaran"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }

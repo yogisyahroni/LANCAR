@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { scanMobileCourierOrder, uploadMobileCourierPod } from './controllers/courierAuth.controller';
+import { getOrderTracking } from './controllers/customerOrder.controller';
 import { db } from './db';
 import { createNotification } from './notifications';
 import { getIO } from './websocket';
@@ -238,5 +239,64 @@ describe('on-demand courier proof to ledger lifecycle', () => {
       }),
     }));
     expect(getIO).toHaveBeenCalled();
+
+    (db.query as jest.Mock)
+      .mockResolvedValueOnce({
+        rows: [{
+          id: 'order-1',
+          order_number: 'LCR-OD-1',
+          status: 'delivered',
+          customer_id: 'customer-1',
+          courier_id: 'courier-1',
+          courier_profile_id: 'courier-profile-1',
+          pickup_address: 'Monas, Jakarta Pusat',
+          dropoff_address: 'GBK, Jakarta Pusat',
+          pickup_latitude: '-6.175392',
+          pickup_longitude: '106.827153',
+          dropoff_latitude: '-6.218285',
+          dropoff_longitude: '106.802433',
+        }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{
+          pickup_scan_verified: true,
+          pickup_photo_verified: true,
+          pod_verified: true,
+          pickup_cancelled: false,
+        }],
+      })
+      .mockResolvedValueOnce({
+        rows: [{
+          courier_id: 'courier-profile-1',
+          latitude: '-6.218285',
+          longitude: '106.802433',
+          heading_deg: '180',
+          speed_kmh: '0',
+          accuracy_m: '8',
+          recorded_at: '2026-05-18T04:21:00.000Z',
+        }],
+      });
+
+    const trackingRes = makeResponse();
+    await getOrderTracking({
+      user: { id: 'customer-1', role: 'customer' },
+      query: { order_id: 'order-1' },
+    } as any, trackingRes);
+
+    expect(trackingRes.json).toHaveBeenCalledWith(expect.objectContaining({
+      success: true,
+      data: expect.objectContaining({
+        order_id: 'order-1',
+        stage: 'selesai',
+        status: 'delivered',
+        proof_summary: expect.objectContaining({
+          pickup_scan_verified: true,
+          pickup_photo_verified: true,
+          pod_verified: true,
+        }),
+        route_provider: expect.any(String),
+        eta_minutes: expect.any(Number),
+      }),
+    }));
   });
 });

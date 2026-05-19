@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 
@@ -57,18 +58,65 @@ fun PaymentScreen(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                is PaymentUiState.Error -> {
+                is PaymentUiState.Verifying -> {
                     Column(
                         modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text(res.message, color = MaterialTheme.colorScheme.error)
+                        CircularProgressIndicator()
+                        Text(
+                            text = "Mengecek pembayaran...",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
-                is PaymentUiState.Success -> {
+                is PaymentUiState.Paid -> {
+                    LaunchedEffect(Unit) {
+                        onPaymentSuccess()
+                    }
+                    Text(
+                        text = "Pembayaran berhasil",
+                        modifier = Modifier.align(Alignment.Center),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                is PaymentUiState.Expired -> {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(res.message, color = MaterialTheme.colorScheme.error)
+                        Button(onClick = { viewModel.startPayment(orderId) }) {
+                            Text("Buat sesi baru")
+                        }
+                    }
+                }
+                is PaymentUiState.Error -> {
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(res.message, color = MaterialTheme.colorScheme.error)
+                        Button(onClick = { viewModel.startPayment(orderId) }) {
+                            Text("Coba lagi")
+                        }
+                    }
+                }
+                is PaymentUiState.Ready -> {
                     PaymentWebView(
                         url = res.url,
-                        onPaymentSuccess = onPaymentSuccess
+                        onPaymentSuccess = {
+                            viewModel.verifyPayment(orderId)
+                        }
                     )
                 }
                 else -> {}

@@ -12,6 +12,11 @@ interface LANCARApiService {
         @Query("type") type: String
     ): Response<AppVersion>
 
+    @GET("api/v1/maps/config")
+    suspend fun getMapsProviderConfig(
+        @Query("scope") scope: String = "customer_mobile"
+    ): Response<MapsProviderConfig>
+
 
     // Auth Endpoints
 
@@ -107,11 +112,20 @@ interface LANCARApiService {
     ): Response<ApiResponse<Unit>>
 
     // Payment Endpoints
-    @POST("api/v1/orders/{id}/payment")
-    suspend fun initiatePayment(
-        @Path("id") id: String,
-        @Body request: PaymentRequest
-    ): Response<ApiResponse<PaymentResponse>>
+    @POST("api/v1/customer/orders/{id}/payment")
+    suspend fun createCustomerPaymentSession(
+        @Path("id") id: String
+    ): Response<CustomerPaymentSessionResponse>
+
+    @GET("api/v1/customer/orders/{id}/payment/status")
+    suspend fun getCustomerPaymentStatus(
+        @Path("id") id: String
+    ): Response<CustomerPaymentSessionResponse>
+
+    @POST("api/v1/customer/orders/{id}/payment/check")
+    suspend fun confirmCustomerPayment(
+        @Path("id") id: String
+    ): Response<CustomerPaymentSessionResponse>
 
     // Profile Endpoints
     @GET("api/v1/profile")

@@ -2,6 +2,7 @@ package com.lancar.customer.data.repository
 
 import com.lancar.customer.data.api.LANCARApiService
 import com.lancar.customer.data.model.ApiResponse
+import com.lancar.customer.data.model.MapsProviderConfig
 import com.lancar.customer.data.model.TrackingResponse
 import retrofit2.Response
 import javax.inject.Inject
@@ -21,6 +22,20 @@ class TrackingRepository @Inject constructor(
             handleResponse(response)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun getMapsProviderConfig(): Result<MapsProviderConfig> {
+        return try {
+            val response = apiService.getMapsProviderConfig("customer_mobile")
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body)
+            } else {
+                Result.failure(Exception("Gagal memuat konfigurasi peta (${response.code()})"))
+            }
+        } catch (exception: Exception) {
+            Result.failure(exception)
         }
     }
 

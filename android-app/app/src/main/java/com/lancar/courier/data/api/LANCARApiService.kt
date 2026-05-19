@@ -27,6 +27,7 @@ import com.lancar.courier.data.model.LocationRequest
 import com.lancar.courier.data.model.LocationResponse
 import com.lancar.courier.data.model.LoginData
 import com.lancar.courier.data.model.LoginRequest
+import com.lancar.courier.data.model.MapsProviderConfig
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.ScanRequest
 import com.lancar.courier.data.model.ScanResponse
@@ -59,6 +60,11 @@ interface LANCARApiService {
     suspend fun getLatestVersion(
         @Query("type") type: String
     ): Response<AppVersion>
+
+    @GET("api/v1/maps/config")
+    suspend fun getMapsProviderConfig(
+        @Query("scope") scope: String = "courier_mobile"
+    ): Response<MapsProviderConfig>
 
 
     // ── AUTH ────────────────────────────────────────────────────

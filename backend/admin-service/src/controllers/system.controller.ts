@@ -3,6 +3,15 @@ import { db, readDb } from '../db';
 import { redis } from '../redis';
 import { getIO } from '../websocket';
 import { getOnDemandExternalReadiness } from '../services/onDemandExternalReadiness';
+import {
+  buildMapsRouteEtaSnapshot,
+  getMapsProviderOpsSnapshot,
+  getMapsProviderConfigValue,
+  getPublicMapsProviderConfig,
+  geocodeAddress,
+  reverseGeocodePoint,
+  updateMapsProviderConfigValue,
+} from '../services/mapsProviderConfig';
 
 export const getThreeLegsReadiness = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -85,6 +94,113 @@ export const getOnDemandReadiness = async (req: Request, res: Response): Promise
     res.json(getOnDemandExternalReadiness());
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const getPublicMapsProviderRuntimeConfig = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const scope = typeof req.query.scope === 'string' ? req.query.scope : 'global';
+    const config = await getPublicMapsProviderConfig(scope);
+    res.setHeader('Cache-Control', `public, max-age=${Math.min(config.ttl_seconds, 300)}`);
+    res.json(config);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getPublicMapsRoutePreview = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const from = {
+      latitude: Number(req.query.from_latitude ?? req.query.from_lat),
+      longitude: Number(req.query.from_longitude ?? req.query.from_lng),
+    };
+    const to = {
+      latitude: Number(req.query.to_latitude ?? req.query.to_lat),
+      longitude: Number(req.query.to_longitude ?? req.query.to_lng),
+    };
+    if (![from.latitude, from.longitude, to.latitude, to.longitude].every(Number.isFinite)) {
+      res.status(400).json({ error: 'Valid from/to coordinates are required' });
+      return;
+    }
+    const scope = typeof req.query.scope === 'string' ? req.query.scope : 'tracking';
+    const route = await buildMapsRouteEtaSnapshot(from, to, scope as any);
+    res.json(route);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getPublicMapsGeocode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const query = typeof req.query.query === 'string' ? req.query.query : '';
+    if (query.trim().length < 3) {
+      res.status(400).json({ error: 'query must contain at least 3 characters' });
+      return;
+    }
+    const scope = typeof req.query.scope === 'string' ? req.query.scope : 'web_customer';
+    const results = await geocodeAddress(query, scope as any);
+    res.json({ results });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getPublicMapsReverseGeocode = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const latitude = Number(req.query.latitude ?? req.query.lat);
+    const longitude = Number(req.query.longitude ?? req.query.lng);
+    if (![latitude, longitude].every(Number.isFinite)) {
+      res.status(400).json({ error: 'Valid latitude and longitude are required' });
+      return;
+    }
+    const scope = typeof req.query.scope === 'string' ? req.query.scope : 'web_customer';
+    const result = await reverseGeocodePoint({ latitude, longitude }, scope as any);
+    res.json({ result });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getAdminMapsProviderRuntimeConfig = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const value = await getMapsProviderConfigValue();
+    const resolved = await Promise.all([
+      getPublicMapsProviderConfig('global'),
+      getPublicMapsProviderConfig('customer_mobile'),
+      getPublicMapsProviderConfig('courier_mobile'),
+      getPublicMapsProviderConfig('web_customer'),
+    ]);
+    res.json({
+      value,
+      ops: await getMapsProviderOpsSnapshot(),
+      resolved: {
+        global: resolved[0],
+        customer_mobile: resolved[1],
+        courier_mobile: resolved[2],
+        web_customer: resolved[3],
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateAdminMapsProviderRuntimeConfig = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const next = await updateMapsProviderConfigValue(req.body || {});
+    getIO().emit('config:changed', { key: 'maps_provider_config', value: next, updated_at: new Date() });
+    res.json({
+      value: next,
+      ops: await getMapsProviderOpsSnapshot(),
+      resolved: {
+        global: await getPublicMapsProviderConfig('global'),
+        customer_mobile: await getPublicMapsProviderConfig('customer_mobile'),
+        courier_mobile: await getPublicMapsProviderConfig('courier_mobile'),
+        web_customer: await getPublicMapsProviderConfig('web_customer'),
+      },
+    });
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
   }
 };
 

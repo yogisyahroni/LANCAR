@@ -3,9 +3,93 @@ import { getIO } from './websocket';
 import * as admin from 'firebase-admin';
 import { recordPushDelivery, recordRealtimeMetric } from './services/realtimeObservability';
 
-// Initialize Firebase Admin SDK
-const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+type FirebaseTarget = 'default' | 'customer' | 'courier';
+type DeviceRecipient = {
+  device_token: string;
+  user_type: string;
+};
+
+const firebaseApps: Partial<Record<FirebaseTarget, admin.app.App>> = {};
 let firebaseApp: admin.app.App | null = null;
+const FCM_SEND_TIMEOUT_MS = Number(process.env.FCM_SEND_TIMEOUT_MS || 15000);
+
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
+  let timeout: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+};
+
+const decodeBase64ServiceAccount = (encoded?: string): string | undefined => {
+  if (!encoded || !encoded.trim()) return undefined;
+  try {
+    return Buffer.from(encoded.trim(), 'base64').toString('utf8');
+  } catch (error) {
+    console.error('[Notification] Failed to decode Firebase service account base64:', error);
+    return undefined;
+  }
+};
+
+const getServiceAccountJson = (raw?: string, encoded?: string): string | undefined =>
+  raw && raw.trim() ? raw : decodeBase64ServiceAccount(encoded);
+
+const parseServiceAccountJson = (raw: string | undefined, label: string): admin.ServiceAccount | null => {
+  if (!raw || !raw.trim()) return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed.project_id || !parsed.client_email || !parsed.private_key) {
+      console.warn(`[Notification] Firebase service account for ${label} is missing required fields`);
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    console.error(`[Notification] Failed to parse Firebase service account for ${label}:`, error);
+    return null;
+  }
+};
+
+const initializeNamedFirebaseApp = (
+  target: FirebaseTarget,
+  appName: string,
+  rawServiceAccount: string | undefined
+): admin.app.App | null => {
+  const serviceAccount = parseServiceAccountJson(rawServiceAccount, target);
+  if (!serviceAccount) return null;
+
+  const existingApp = admin.apps.find((app) => app?.name === appName);
+  const app =
+    existingApp ||
+    admin.initializeApp(
+      {
+        credential: admin.credential.cert(serviceAccount),
+        projectId: serviceAccount.projectId
+      },
+      appName
+    );
+
+  firebaseApps[target] = app;
+  console.log(`[Notification] Firebase Admin initialized for ${target}`);
+  return app;
+};
+
+export const getFirebaseAppForUserType = (userType?: string): admin.app.App | null => {
+  const normalized = (userType || '').toLowerCase();
+  if (normalized === 'customer') return firebaseApps.customer || firebaseApps.default || null;
+  if (normalized === 'courier') return firebaseApps.courier || firebaseApps.default || null;
+  return firebaseApps.default || firebaseApps.customer || firebaseApps.courier || null;
+};
+
+export const getConfiguredFirebaseTargets = (): string[] =>
+  Object.entries(firebaseApps)
+    .filter(([, app]) => Boolean(app))
+    .map(([target]) => target);
 
 export const ensureUserDevicesTable = async () => {
   try {
@@ -29,24 +113,32 @@ export const ensureUserDevicesTable = async () => {
 export const initFirebase = async () => {
   if (firebaseApp) return firebaseApp;
 
-  if (serviceAccountJson) {
-    try {
-      const serviceAccount = JSON.parse(serviceAccountJson);
-      firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-      });
-      console.log('[Notification] Firebase Admin initialized successfully');
-      
-      // Ensure DB table exists
-      await ensureUserDevicesTable();
-      
-      return firebaseApp;
-    } catch (error) {
-      console.error('[Notification] Failed to parse FIREBASE_SERVICE_ACCOUNT:', error);
-    }
-  } else {
-    console.warn('[Notification] FIREBASE_SERVICE_ACCOUNT not found. Push notifications will be skipped.');
+  const defaultServiceAccount = getServiceAccountJson(
+    process.env.FIREBASE_SERVICE_ACCOUNT,
+    process.env.FIREBASE_SERVICE_ACCOUNT_B64
+  );
+  const customerServiceAccount = getServiceAccountJson(
+    process.env.FIREBASE_CUSTOMER_SERVICE_ACCOUNT,
+    process.env.FIREBASE_CUSTOMER_SERVICE_ACCOUNT_B64
+  );
+  const courierServiceAccount = getServiceAccountJson(
+    process.env.FIREBASE_COURIER_SERVICE_ACCOUNT,
+    process.env.FIREBASE_COURIER_SERVICE_ACCOUNT_B64
+  );
+
+  initializeNamedFirebaseApp('default', 'lancar-default', defaultServiceAccount);
+  initializeNamedFirebaseApp('customer', 'lancar-customer', customerServiceAccount || defaultServiceAccount);
+  initializeNamedFirebaseApp('courier', 'lancar-courier', courierServiceAccount || defaultServiceAccount);
+
+  firebaseApp = firebaseApps.default || firebaseApps.customer || firebaseApps.courier || null;
+
+  if (firebaseApp) {
+    await ensureUserDevicesTable();
+    console.log(`[Notification] Firebase targets ready: ${getConfiguredFirebaseTargets().join(', ')}`);
+    return firebaseApp;
   }
+
+  console.warn('[Notification] Firebase Admin credentials not found. Push notifications will be skipped.');
   return null;
 };
 
@@ -90,20 +182,32 @@ export const createNotification = async (payload: NotificationPayload) => {
     if (firebaseApp) {
       try {
         // Fetch user devices
-        const deviceResult = await db.query(
-          'SELECT device_token FROM user_devices WHERE user_id = $1',
+        const deviceResult = await db.query<DeviceRecipient>(
+          `
+          SELECT
+            ud.device_token,
+            CASE
+              WHEN c.id IS NOT NULL THEN 'customer'
+              WHEN cr.id IS NOT NULL THEN 'courier'
+              ELSE COALESCE(u.role, 'unknown')
+            END AS user_type
+          FROM user_devices ud
+          LEFT JOIN customers c ON c.id = ud.user_id
+          LEFT JOIN couriers cr ON cr.id = ud.user_id
+          LEFT JOIN users u ON u.id = ud.user_id
+          WHERE ud.user_id = $1
+          `,
           [user_id]
         );
+
+        const devices = deviceResult.rows;
         
-        const tokens = deviceResult.rows.map(r => r.device_token);
-        
-        if (tokens.length > 0) {
+        if (devices.length > 0) {
           const metadataData = Object.fromEntries(
             Object.entries(metadata || {}).map(([key, value]) => [key, value == null ? '' : String(value)])
           );
 
-          const message: admin.messaging.MulticastMessage = {
-            tokens: tokens,
+          const baseMessage = {
             notification: {
               title: title,
               body: body,
@@ -116,7 +220,7 @@ export const createNotification = async (payload: NotificationPayload) => {
               deep_link: deep_link || ''
             },
             android: {
-              priority: 'high',
+              priority: 'high' as const,
               notification: {
                 clickAction: 'FLUTTER_NOTIFICATION_CLICK', // For common framework compatibility
                 sound: 'default'
@@ -124,33 +228,58 @@ export const createNotification = async (payload: NotificationPayload) => {
             }
           };
 
-          const fcmResponse = await admin.messaging().sendEachForMulticast(message);
+          const groupedDevices = devices.reduce((groups, device) => {
+            const targetApp = getFirebaseAppForUserType(device.user_type);
+            if (!targetApp) return groups;
+            const key = targetApp.name;
+            const existing = groups.get(key) || { app: targetApp, tokens: [] as string[] };
+            existing.tokens.push(device.device_token);
+            groups.set(key, existing);
+            return groups;
+          }, new Map<string, { app: admin.app.App; tokens: string[] }>());
+
+          let totalSuccessCount = 0;
+          let totalFailureCount = 0;
+          const invalidTokens: string[] = [];
+
+          for (const group of groupedDevices.values()) {
+            const message: admin.messaging.MulticastMessage = {
+              ...baseMessage,
+              tokens: group.tokens
+            };
+
+            const fcmResponse = await withTimeout(
+              admin.messaging(group.app).sendEachForMulticast(message),
+              FCM_SEND_TIMEOUT_MS,
+              `FCM send (${group.app.name})`
+            );
+            totalSuccessCount += fcmResponse.successCount;
+            totalFailureCount += fcmResponse.failureCount;
+
+            fcmResponse.responses.forEach((resp, idx) => {
+              if (!resp.success && resp.error?.code === 'messaging/registration-token-not-registered') {
+                invalidTokens.push(group.tokens[idx]);
+              }
+            });
+          }
+
           recordPushDelivery({
             user_id,
             type,
             order_id,
-            device_count: tokens.length,
-            success_count: fcmResponse.successCount,
-            failure_count: fcmResponse.failureCount,
+            device_count: devices.length,
+            success_count: totalSuccessCount,
+            failure_count: totalFailureCount,
           });
-          console.log(`[FCM] Sent to ${fcmResponse.successCount} devices for user ${user_id}. Failures: ${fcmResponse.failureCount}`);
+          console.log(`[FCM] Sent to ${totalSuccessCount} devices for user ${user_id}. Failures: ${totalFailureCount}`);
           
           // Cleanup invalid tokens
-          if (fcmResponse.failureCount > 0) {
-            const invalidTokens: string[] = [];
-            fcmResponse.responses.forEach((resp, idx) => {
-              if (!resp.success && resp.error?.code === 'messaging/registration-token-not-registered') {
-                invalidTokens.push(tokens[idx]);
-              }
-            });
-            
-            if (invalidTokens.length > 0) {
-              await db.query(
-                'DELETE FROM user_devices WHERE device_token = ANY($1)',
-                [invalidTokens]
-              );
-              console.log(`[FCM] Cleaned up ${invalidTokens.length} invalid tokens`);
-            }
+          if (invalidTokens.length > 0) {
+            await db.query(
+              'DELETE FROM user_devices WHERE device_token = ANY($1)',
+              [invalidTokens]
+            );
+            console.log(`[FCM] Cleaned up ${invalidTokens.length} invalid tokens`);
           }
         } else {
           recordPushDelivery({
