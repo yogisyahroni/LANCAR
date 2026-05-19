@@ -4,12 +4,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.maps.model.LatLng
 import com.lancar.customer.data.model.CustomerOrderCreateRequest
+import com.lancar.customer.data.model.CustomerAddress
+import com.lancar.customer.data.model.CustomerAddressRequest
 import com.lancar.customer.data.model.CustomerPriceEstimateRequest
 import com.lancar.customer.data.model.DeliveryServiceProduct
 import com.lancar.customer.data.model.DimensionsPayload
 import com.lancar.customer.data.model.LocationPayload
 import com.lancar.customer.data.model.PackageDetailsPayload
 import com.lancar.customer.data.model.PriceBreakdown
+import com.lancar.customer.data.model.ReceiverLocationCreateRequest
+import com.lancar.customer.data.model.ReceiverLocationLink
 import com.lancar.customer.data.repository.OrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -23,7 +27,7 @@ import javax.inject.Inject
 
 data class BookingState(
     val pickupLocation: LatLng? = null,
-    val pickupAddress: String = "Monas, Jakarta Pusat",
+    val pickupAddress: String = "",
     val destinationLocation: LatLng? = null,
     val destinationAddress: String = "",
     val estimatedPrice: Long = 0,
@@ -43,7 +47,11 @@ data class BookingState(
     val deliveryCodeEnabled: Boolean = false,
     val insuranceEnabled: Boolean = false,
     val itemValue: Long = 0,
-    val dimensionsScanned: Boolean = false
+    val dimensionsScanned: Boolean = false,
+    val receiverLocationLink: ReceiverLocationLink? = null,
+    val isCreatingLocationLink: Boolean = false,
+    val addressBook: List<CustomerAddress> = emptyList(),
+    val isSavingAddress: Boolean = false
 )
 
 @HiltViewModel
@@ -58,9 +66,17 @@ class BookingViewModel @Inject constructor(
     val bookingSuccess = _bookingSuccess.asSharedFlow()
 
     init {
-        val monas = LatLng(-6.175392, 106.827153)
-        _bookingState.value = _bookingState.value.copy(pickupLocation = monas)
         loadServices()
+        loadAddressBook()
+    }
+
+    fun loadAddressBook() {
+        viewModelScope.launch {
+            val result = orderRepository.getCustomerAddresses()
+            result.onSuccess { addresses ->
+                _bookingState.value = _bookingState.value.copy(addressBook = addresses)
+            }
+        }
     }
 
     fun loadServices() {
@@ -105,6 +121,60 @@ class BookingViewModel @Inject constructor(
         calculateRoute()
     }
 
+    fun selectSavedAddress(savedAddress: CustomerAddress, asPickup: Boolean) {
+        val location = LatLng(savedAddress.lat, savedAddress.lng)
+        if (asPickup) {
+            setPickup(location, savedAddress.address)
+        } else {
+            setDestination(location, savedAddress.address)
+            if (savedAddress.contactName?.isNotBlank() == true && _bookingState.value.recipientName.isBlank()) {
+                _bookingState.value = _bookingState.value.copy(recipientName = savedAddress.contactName)
+            }
+        }
+    }
+
+    fun saveAddressAndSelect(
+        label: String,
+        address: String,
+        location: LatLng,
+        kind: String,
+        asPickup: Boolean
+    ) {
+        if (asPickup) {
+            setPickup(location, address)
+        } else {
+            setDestination(location, address)
+        }
+
+        viewModelScope.launch {
+            _bookingState.value = _bookingState.value.copy(isSavingAddress = true, error = null)
+            val result = orderRepository.createCustomerAddress(
+                CustomerAddressRequest(
+                    label = label.ifBlank { if (asPickup) "Pickup favorit" else "Tujuan favorit" },
+                    address = address,
+                    location = LocationPayload(location.latitude, location.longitude),
+                    contactName = if (asPickup) null else _bookingState.value.recipientName.ifBlank { null },
+                    contactPhone = if (asPickup) null else _bookingState.value.recipientPhone.ifBlank { null },
+                    kind = kind,
+                    isFavorite = true,
+                    markUsed = true
+                )
+            )
+            result.onSuccess { savedAddress ->
+                _bookingState.value = _bookingState.value.copy(
+                    isSavingAddress = false,
+                    addressBook = listOf(savedAddress) + _bookingState.value.addressBook.filterNot { it.id == savedAddress.id }
+                )
+            }
+            result.onFailure { e ->
+                _bookingState.value = _bookingState.value.copy(
+                    isSavingAddress = false,
+                    error = e.localizedMessage ?: "Alamat dipakai untuk order, tapi gagal disimpan ke favorit."
+                )
+            }
+        }
+    }
+
     fun setDimensions(l: Int, w: Int, h: Int) {
         _bookingState.value = _bookingState.value.copy(
             packageLength = l,
@@ -130,7 +200,7 @@ class BookingViewModel @Inject constructor(
             packageLength = dimensions.length,
             packageWidth = dimensions.width,
             packageHeight = dimensions.height,
-            dimensionsScanned = true
+            dimensionsScanned = false
         )
         calculateRoute()
     }
@@ -171,7 +241,7 @@ class BookingViewModel @Inject constructor(
                             weightKg = state.packageWeight,
                             hasInsurance = state.insuranceEnabled,
                             itemValue = state.itemValue,
-                            dimensionScanVerified = true,
+                            dimensionScanVerified = state.dimensionsScanned,
                             serviceCode = service.code,
                             sizeTier = state.sizeTier
                         )
@@ -241,6 +311,80 @@ class BookingViewModel @Inject constructor(
                         error = e.localizedMessage ?: "Gagal melakukan pemesanan"
                     )
                 }
+            }
+        }
+    }
+
+    fun createReceiverLocationLink() {
+        val state = _bookingState.value
+        val pickupLocation = state.pickupLocation
+        if (state.pickupAddress.isBlank()) {
+            _bookingState.value = state.copy(error = "Alamat pickup wajib diisi sebelum membuat link.")
+            return
+        }
+
+        viewModelScope.launch {
+            _bookingState.value = _bookingState.value.copy(isCreatingLocationLink = true, error = null)
+            val result = orderRepository.createReceiverLocationRequest(
+                ReceiverLocationCreateRequest(
+                    pickupAddress = state.pickupAddress,
+                    pickupLocation = pickupLocation?.let { LocationPayload(it.latitude, it.longitude) },
+                    recipientName = state.recipientName.ifBlank { null },
+                    recipientPhone = state.recipientPhone.ifBlank { null },
+                    expiresHours = 24
+                )
+            )
+            result.onSuccess { link ->
+                _bookingState.value = _bookingState.value.copy(
+                    receiverLocationLink = link,
+                    isCreatingLocationLink = false
+                )
+            }
+            result.onFailure { e ->
+                _bookingState.value = _bookingState.value.copy(
+                    isCreatingLocationLink = false,
+                    error = e.localizedMessage ?: "Gagal membuat link lokasi penerima"
+                )
+            }
+        }
+    }
+
+    fun refreshReceiverLocationLink() {
+        val linkId = _bookingState.value.receiverLocationLink?.id
+        if (linkId.isNullOrBlank()) {
+            _bookingState.value = _bookingState.value.copy(error = "Buat link lokasi penerima terlebih dahulu.")
+            return
+        }
+
+        viewModelScope.launch {
+            _bookingState.value = _bookingState.value.copy(isCreatingLocationLink = true, error = null)
+            val result = orderRepository.getReceiverLocationRequest(linkId)
+            result.onSuccess { link ->
+                val lat = link.submittedLat
+                val lng = link.submittedLng
+                val submittedAddress = link.submittedAddress.orEmpty()
+                if (link.status == "submitted" && lat != null && lng != null && submittedAddress.isNotBlank()) {
+                    _bookingState.value = _bookingState.value.copy(
+                        receiverLocationLink = link,
+                        isCreatingLocationLink = false,
+                        destinationLocation = LatLng(lat, lng),
+                        destinationAddress = submittedAddress,
+                        recipientName = link.submittedContactName?.takeIf { it.isNotBlank() } ?: _bookingState.value.recipientName
+                    )
+                    calculateRoute()
+                } else {
+                    _bookingState.value = _bookingState.value.copy(
+                        receiverLocationLink = link,
+                        isCreatingLocationLink = false,
+                        error = "Penerima belum mengirim lokasi."
+                    )
+                }
+            }
+            result.onFailure { e ->
+                _bookingState.value = _bookingState.value.copy(
+                    isCreatingLocationLink = false,
+                    error = e.localizedMessage ?: "Gagal mengecek lokasi penerima"
+                )
             }
         }
     }

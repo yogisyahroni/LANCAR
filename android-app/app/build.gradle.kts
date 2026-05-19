@@ -42,6 +42,8 @@ android {
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = getEnvVariable("GOOGLE_MAPS_API_KEY")
         
         buildConfigField("String", "BASE_URL", "\"${getEnvVariable("BASE_URL")}\"")
+        buildConfigField("String", "API_CERT_SHA256_PIN_PRIMARY", "\"${getEnvVariable("API_CERT_SHA256_PIN_PRIMARY")}\"")
+        buildConfigField("String", "API_CERT_SHA256_PIN_BACKUP", "\"${getEnvVariable("API_CERT_SHA256_PIN_BACKUP")}\"")
     }
 
     buildTypes {

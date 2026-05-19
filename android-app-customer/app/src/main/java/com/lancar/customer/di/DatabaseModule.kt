@@ -67,7 +67,7 @@ object DatabaseModule {
             "order_database"
         )
         .openHelperFactory(factory) // 🔒 Enforce on-disk AES-256 SQLCipher Encryption
-        .fallbackToDestructiveMigration()
+        .addMigrations(OrderDatabase.MIGRATION_1_2)
         .build()
     }
 

@@ -71,19 +71,18 @@ object NetworkModule {
                 "api.lancar.com" // Fallback only if URL parsing fails
             }
 
-            // CRITICAL ACTION REQUIRED BEFORE PRODUCTION:
-            // Run this command to get the actual SHA-256 pin for your domain:
-            // openssl s_client -servername api.lancar.com -connect api.lancar.com:443 | openssl x509 -pubkey -noout | openssl pkey -pubin -outform der | openssl dgst -sha256 -binary | openssl enc -base64
-            
-            // Note: ALWAYS provide a backup pin (e.g., your next certificate's public key)
-            // If you only have one pin and the certificate expires/is revoked, THE APP WILL BRICK.
-            val PRODUCTION_SHA256_PIN_PRIMARY = "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-            val PRODUCTION_SHA256_PIN_BACKUP = "sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB="
+            val productionPinPrimary = BuildConfig.API_CERT_SHA256_PIN_PRIMARY.trim()
+            val productionPinBackup = BuildConfig.API_CERT_SHA256_PIN_BACKUP.trim()
+            require(productionPinPrimary.startsWith("sha256/")) {
+                "API_CERT_SHA256_PIN_PRIMARY wajib diisi untuk release build."
+            }
 
-            val certificatePinner = CertificatePinner.Builder()
-                .add(hostName, PRODUCTION_SHA256_PIN_PRIMARY)
-                .add(hostName, PRODUCTION_SHA256_PIN_BACKUP)
-                .build()
+            val certificatePinnerBuilder = CertificatePinner.Builder()
+                .add(hostName, productionPinPrimary)
+            if (productionPinBackup.startsWith("sha256/") && productionPinBackup != productionPinPrimary) {
+                certificatePinnerBuilder.add(hostName, productionPinBackup)
+            }
+            val certificatePinner = certificatePinnerBuilder.build()
                 
             builder.certificatePinner(certificatePinner)
         }

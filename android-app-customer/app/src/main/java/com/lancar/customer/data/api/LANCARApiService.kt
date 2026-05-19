@@ -75,6 +75,32 @@ interface LANCARApiService {
         @Body request: CustomerOrderCreateRequest
     ): Response<CustomerOrderCreateResponse>
 
+    @GET("api/v1/customer/addresses")
+    suspend fun getCustomerAddresses(
+        @Query("kind") kind: String? = null
+    ): Response<CustomerAddressListResponse>
+
+    @POST("api/v1/customer/addresses")
+    suspend fun createCustomerAddress(
+        @Body request: CustomerAddressRequest
+    ): Response<CustomerAddressResponse>
+
+    @PATCH("api/v1/customer/addresses/{id}")
+    suspend fun updateCustomerAddress(
+        @Path("id") id: String,
+        @Body request: CustomerAddressRequest
+    ): Response<CustomerAddressResponse>
+
+    @POST("api/v1/customer/location-requests")
+    suspend fun createReceiverLocationRequest(
+        @Body request: ReceiverLocationCreateRequest
+    ): Response<ReceiverLocationRequestResponse>
+
+    @GET("api/v1/customer/location-requests/{id}")
+    suspend fun getReceiverLocationRequest(
+        @Path("id") id: String
+    ): Response<ReceiverLocationRequestResponse>
+
     @POST("api/v1/orders/{id}/cancel")
     suspend fun cancelOrder(
         @Path("id") id: String

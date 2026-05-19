@@ -137,6 +137,85 @@ data class CustomerOrderCreateResponse(
 )
 
 @Serializable
+data class ReceiverLocationCreateRequest(
+    @SerialName("pickup_address") val pickupAddress: String,
+    @SerialName("pickup_location") val pickupLocation: LocationPayload?,
+    @SerialName("recipient_name") val recipientName: String? = null,
+    @SerialName("recipient_phone") val recipientPhone: String? = null,
+    @SerialName("expires_hours") val expiresHours: Int = 24
+)
+
+@Serializable
+data class ReceiverLocationRequestResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("data") val data: ReceiverLocationLink? = null,
+    @SerialName("message") val message: String? = null
+)
+
+@Serializable
+data class ReceiverLocationLink(
+    @SerialName("id") val id: String,
+    @SerialName("status") val status: String = "pending",
+    @SerialName("pickup_address") val pickupAddress: String = "",
+    @SerialName("recipient_name") val recipientName: String? = null,
+    @SerialName("submitted_address") val submittedAddress: String? = null,
+    @SerialName("submitted_lat") val submittedLat: Double? = null,
+    @SerialName("submitted_lng") val submittedLng: Double? = null,
+    @SerialName("submitted_contact_name") val submittedContactName: String? = null,
+    @SerialName("submitted_notes") val submittedNotes: String? = null,
+    @SerialName("submitted_at") val submittedAt: String? = null,
+    @SerialName("expires_at") val expiresAt: String = "",
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("url") val url: String = "",
+    @SerialName("token") val token: String = ""
+)
+
+@Serializable
+data class CustomerAddressListResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("data") val data: List<CustomerAddress> = emptyList(),
+    @SerialName("message") val message: String? = null
+)
+
+@Serializable
+data class CustomerAddressResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("data") val data: CustomerAddress? = null,
+    @SerialName("message") val message: String? = null
+)
+
+@Serializable
+data class CustomerAddress(
+    @SerialName("id") val id: String,
+    @SerialName("label") val label: String,
+    @SerialName("contact_name") val contactName: String? = null,
+    @SerialName("contact_phone_masked") val contactPhoneMasked: String? = null,
+    @SerialName("address") val address: String,
+    @SerialName("lat") val lat: Double,
+    @SerialName("lng") val lng: Double,
+    @SerialName("notes") val notes: String? = null,
+    @SerialName("kind") val kind: String = "receiver",
+    @SerialName("is_favorite") val isFavorite: Boolean = false,
+    @SerialName("usage_count") val usageCount: Int = 0,
+    @SerialName("last_used_at") val lastUsedAt: String? = null,
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("updated_at") val updatedAt: String = ""
+)
+
+@Serializable
+data class CustomerAddressRequest(
+    @SerialName("label") val label: String,
+    @SerialName("contact_name") val contactName: String? = null,
+    @SerialName("contact_phone") val contactPhone: String? = null,
+    @SerialName("address") val address: String,
+    @SerialName("location") val location: LocationPayload,
+    @SerialName("notes") val notes: String? = null,
+    @SerialName("kind") val kind: String = "receiver",
+    @SerialName("is_favorite") val isFavorite: Boolean = true,
+    @SerialName("mark_used") val markUsed: Boolean = true
+)
+
+@Serializable
 data class CreatedCustomerOrder(
     @SerialName("id") val id: String,
     @SerialName("order_number") val orderNumber: String = "",

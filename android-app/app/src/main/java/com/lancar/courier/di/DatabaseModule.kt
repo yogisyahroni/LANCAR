@@ -77,9 +77,9 @@ object DatabaseModule {
                 OrderDatabase.MIGRATION_5_6,
                 OrderDatabase.MIGRATION_6_7,
                 OrderDatabase.MIGRATION_7_8,
-                OrderDatabase.MIGRATION_8_9
+                OrderDatabase.MIGRATION_8_9,
+                OrderDatabase.MIGRATION_9_10
             )
-            .fallbackToDestructiveMigration()
             .build()
     }
 

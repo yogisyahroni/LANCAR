@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -108,8 +109,8 @@ fun DashboardScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            contentPadding = PaddingValues(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
                 HeroHeader(
@@ -149,30 +150,37 @@ private fun HeroHeader(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(390.dp)
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF0A6ED1), Color(0xFF0B8F69), Color(0xFFF3F5F8)),
-                    startY = 0f,
-                    endY = 900f
-                )
-            )
+            .height(326.dp)
+            .background(Color(0xFFF3F5F8))
             .statusBarsPadding()
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(218.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color(0xFF0B68C7), Color(0xFF0B8A70)),
+                        startY = 0f,
+                        endY = 520f
+                    )
+                )
+        )
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 22.dp, vertical = 18.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 20.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.Top
         ) {
             Column(Modifier.weight(1f)) {
-                Text("LANCAR", color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)
-                Text("Kirim instan, pantau real-time.", color = Color.White.copy(alpha = 0.86f), fontSize = 15.sp)
+                Text("LANCAR", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Kirim instan, pantau real-time.", color = Color.White.copy(alpha = 0.88f), fontSize = 14.sp)
             }
             IconButton(
                 onClick = onLogout,
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(44.dp)
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.14f))
             ) {
@@ -183,21 +191,28 @@ private fun HeroHeader(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 22.dp)
-                .align(Alignment.Center),
-            shape = RoundedCornerShape(28.dp),
+                .padding(horizontal = 20.dp)
+                .align(Alignment.BottomCenter),
+            shape = RoundedCornerShape(26.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(8.dp)
+            elevation = CardDefaults.cardElevation(10.dp)
         ) {
-            Column(Modifier.padding(22.dp)) {
+            Column(Modifier.padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Halo, $customerName", fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = Ink)
-                        Text("Mau kirim paket ke mana hari ini?", color = Muted, fontSize = 15.sp)
+                        Text(
+                            "Halo, $customerName",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 21.sp,
+                            color = Ink,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text("Mau kirim paket ke mana hari ini?", color = Muted, fontSize = 14.sp)
                     }
                     Box(
                         modifier = Modifier
-                            .size(54.dp)
+                            .size(52.dp)
                             .clip(RoundedCornerShape(18.dp))
                             .background(SoftBlue),
                         contentAlignment = Alignment.Center
@@ -205,7 +220,7 @@ private fun HeroHeader(
                         Icon(Icons.Default.LocalShipping, null, tint = Primary, modifier = Modifier.size(30.dp))
                     }
                 }
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(18.dp))
                 RouteEntry(onBookingClick = onBookingClick)
             }
         }
@@ -220,10 +235,10 @@ private fun RouteEntry(onBookingClick: () -> Unit) {
             .clip(RoundedCornerShape(22.dp))
             .background(Color(0xFFF7F9FC))
             .clickable { onBookingClick() }
-            .padding(16.dp)
+            .padding(15.dp)
     ) {
         RouteLine(Icons.Default.Place, LcGreen, "Ambil paket di", "Lokasi kamu saat ini")
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(9.dp))
         RouteLine(Icons.Default.Navigation, Secondary, "Kirim paket ke mana?", "Tambah alamat tujuan")
     }
 }
@@ -233,7 +248,7 @@ private fun RouteLine(icon: ImageVector, color: Color, label: String, value: Str
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
-                .size(38.dp)
+                .size(40.dp)
                 .clip(RoundedCornerShape(14.dp))
                 .background(color.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center
@@ -243,7 +258,14 @@ private fun RouteLine(icon: ImageVector, color: Color, label: String, value: Str
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(label, fontSize = 12.sp, color = Muted)
-            Text(value, fontSize = 17.sp, color = Ink, fontWeight = FontWeight.ExtraBold)
+            Text(
+                value,
+                fontSize = 16.sp,
+                color = Ink,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
         Icon(Icons.Default.KeyboardArrowRight, null, tint = Color(0xFFAAB2C0))
     }
@@ -255,17 +277,17 @@ private fun QuickOrderCard(onBookingClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Row(
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(54.dp)
-                    .clip(RoundedCornerShape(18.dp))
+                    .size(50.dp)
+                    .clip(RoundedCornerShape(17.dp))
                     .background(SoftGreen),
                 contentAlignment = Alignment.Center
             ) {
@@ -273,8 +295,13 @@ private fun QuickOrderCard(onBookingClick: () -> Unit) {
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("Minta lokasi penerima", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-                Text("Bagikan link agar alamat dropoff lebih akurat.", color = Muted, fontSize = 13.sp)
+                Text("Minta lokasi penerima", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+                Text(
+                    "Bagikan link agar alamat dropoff akurat.",
+                    color = Muted,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
             }
             TextButton(onClick = onBookingClick) { Text("Mulai") }
         }
@@ -309,12 +336,12 @@ private fun BenefitsCard() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Column(Modifier.padding(18.dp)) {
-            Text("Siap bantu kebutuhan harian", fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-            Spacer(Modifier.height(12.dp))
+        Column(Modifier.padding(horizontal = 18.dp, vertical = 17.dp)) {
+            Text("Siap bantu kebutuhan harian", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+            Spacer(Modifier.height(10.dp))
             BenefitRow(Icons.Default.LocalShipping, "Kurir on-demand", "Request diteruskan ke kurir aktif terdekat.")
             BenefitRow(Icons.Default.Map, "Tracking transparan", "Pantau posisi, timeline, chat, dan bukti pengiriman.")
             BenefitRow(Icons.Default.VerifiedUser, "Bukti pickup & POD", "Foto dan status tersimpan untuk audit pengiriman.")
@@ -324,20 +351,27 @@ private fun BenefitsCard() {
 
 @Composable
 private fun BenefitRow(icon: ImageVector, title: String, body: String) {
-    Row(Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(16.dp))
+                .size(46.dp)
+                .clip(RoundedCornerShape(15.dp))
                 .background(SoftBlue),
             contentAlignment = Alignment.Center
         ) {
             Icon(icon, null, tint = Primary)
         }
         Spacer(Modifier.width(14.dp))
-        Column {
-            Text(title, fontWeight = FontWeight.ExtraBold, color = Ink)
-            Text(body, color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
+        Column(Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.ExtraBold, color = Ink, fontSize = 15.sp)
+            Text(
+                body,
+                color = Muted,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -351,9 +385,28 @@ private fun ServicesCarousel(
         Text("Layanan LANCAR", fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         Text("Pilihan layanan mengikuti pricing admin.", color = Muted, fontSize = 13.sp)
         Spacer(Modifier.height(12.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(end = 16.dp)) {
-            items(services.ifEmpty { fallbackServices() }) { service ->
-                ServiceCard(service = service, onClick = onBookingClick)
+        if (services.isEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 16.dp),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White)
+            ) {
+                Column(Modifier.padding(18.dp)) {
+                    Text("Layanan belum tersedia", fontWeight = FontWeight.ExtraBold, color = Ink)
+                    Text(
+                        "Data pricing belum mengembalikan layanan on-demand aktif.",
+                        color = Muted,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(end = 16.dp)) {
+                items(services) { service ->
+                    ServiceCard(service = service, onClick = onBookingClick)
+                }
             }
         }
     }
@@ -391,9 +444,3 @@ private fun ServiceCard(service: DeliveryServiceProduct, onClick: () -> Unit) {
         }
     }
 }
-
-private fun fallbackServices(): List<DeliveryServiceProduct> = listOf(
-    DeliveryServiceProduct(code = "lancar_instant", name = "LANCAR Instant", maxEtaMinutes = 240, vehicleTypes = listOf("motor")),
-    DeliveryServiceProduct(code = "lancar_prioritas", name = "LANCAR Prioritas", maxEtaMinutes = 120, vehicleTypes = listOf("motor")),
-    DeliveryServiceProduct(code = "lancar_mobil", name = "LANCAR Mobil", maxEtaMinutes = 240, vehicleTypes = listOf("car"))
-)

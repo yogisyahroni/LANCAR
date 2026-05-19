@@ -4,12 +4,13 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.lancar.customer.worker.CustomerResyncWorker
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            Log.d(TAG, "Boot completed, setting up services")
-            // TODO: Start necessary services
+            Log.d(TAG, "Boot completed, scheduling customer session resync")
+            CustomerResyncWorker.enqueue(context, "boot_completed")
         }
     }
 

@@ -5,6 +5,7 @@ import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.lancar.customer.data.repository.NotificationRepository
 import com.lancar.customer.util.NotificationHelper
+import com.lancar.customer.worker.CustomerResyncWorker
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +57,7 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
         // Also check if message contains data payload.
         if (remoteMessage.data.isNotEmpty()) {
             Log.d(TAG, "Message data payload: ${remoteMessage.data}")
+            CustomerResyncWorker.enqueue(this, "fcm_data_message")
             
             // If there's no notification payload but there is data, we might still want to show a notification
             if (remoteMessage.notification == null) {

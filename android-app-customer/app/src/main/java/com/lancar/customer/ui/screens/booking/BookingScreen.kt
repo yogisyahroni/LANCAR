@@ -49,6 +49,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -75,7 +76,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -92,10 +95,10 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.lancar.customer.data.model.CustomerAddress
 import com.lancar.customer.data.model.DeliveryServiceProduct
 import com.lancar.customer.data.model.DimensionsPayload
 import com.lancar.customer.data.model.PriceBreakdown
-import com.lancar.customer.ui.components.VolumetricScanner
 import com.lancar.customer.ui.theme.Primary
 import com.lancar.customer.ui.theme.Secondary
 import kotlinx.coroutines.flow.collectLatest
@@ -119,8 +122,11 @@ fun BookingScreen(
 ) {
     val uiState by viewModel.bookingState.collectAsState()
     val context = LocalContext.current
-    var showScanner by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
     var showServiceSheet by remember { mutableStateOf(false) }
+    var showPickupSheet by remember { mutableStateOf(false) }
+    var showDestinationSheet by remember { mutableStateOf(false) }
+    var showLocationRequestSheet by remember { mutableStateOf(false) }
     val defaultJakarta = remember { LatLng(-6.2088, 106.8456) }
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(defaultJakarta, 11f)
@@ -170,12 +176,9 @@ fun BookingScreen(
             item {
                 DeliveryDetailCard(
                     state = uiState,
-                    onDestinationDemo = {
-                        viewModel.setDestination(
-                            LatLng(-6.2431, 106.8006),
-                            "Jl. Senopati No. 18, Kebayoran Baru"
-                        )
-                    }
+                    onPickupClick = { showPickupSheet = true },
+                    onDestinationClick = { showDestinationSheet = true },
+                    onRequestLocationClick = { showLocationRequestSheet = true }
                 )
             }
             item {
@@ -191,8 +194,7 @@ fun BookingScreen(
                     state = uiState,
                     onTierSelected = { code, weight, dimensions ->
                         viewModel.setSizeTier(code, weight, dimensions)
-                    },
-                    onScanClick = { showScanner = true }
+                    }
                 )
             }
             item {
@@ -235,13 +237,94 @@ fun BookingScreen(
         }
     }
 
-    if (showScanner) {
-        VolumetricScanner(
-            onDimensionsDetected = { l, w, h ->
-                viewModel.setDimensions(l, w, h)
-            },
-            onClose = { showScanner = false }
-        )
+    if (showDestinationSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showDestinationSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = Color.White
+        ) {
+            LocationInputSheet(
+                title = "Kirim paket ke mana?",
+                subtitle = "Masukkan alamat dan koordinat tujuan asli dari Maps agar harga dan rute dihitung dari data nyata.",
+                buttonLabel = "Gunakan alamat tujuan",
+                savedAddresses = uiState.addressBook.filter { it.kind == "receiver" || it.kind == "both" },
+                addressKind = "receiver",
+                onSelect = { location, address ->
+                    viewModel.setDestination(location, address)
+                    showDestinationSheet = false
+                },
+                onSavedAddressSelected = { address ->
+                    viewModel.selectSavedAddress(address, asPickup = false)
+                    showDestinationSheet = false
+                },
+                onSaveAndSelect = { label, location, address ->
+                    viewModel.saveAddressAndSelect(
+                        label = label,
+                        location = location,
+                        address = address,
+                        kind = "receiver",
+                        asPickup = false
+                    )
+                    showDestinationSheet = false
+                }
+            )
+        }
+    }
+
+    if (showPickupSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showPickupSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = Color.White
+        ) {
+            LocationInputSheet(
+                title = "Ambil paket di mana?",
+                subtitle = "Masukkan alamat dan koordinat pickup asli supaya kurir menerima titik penjemputan yang akurat.",
+                buttonLabel = "Gunakan alamat pickup",
+                savedAddresses = uiState.addressBook.filter { it.kind == "pickup" || it.kind == "both" },
+                addressKind = "pickup",
+                onSelect = { location, address ->
+                    viewModel.setPickup(location, address)
+                    showPickupSheet = false
+                },
+                onSavedAddressSelected = { address ->
+                    viewModel.selectSavedAddress(address, asPickup = true)
+                    showPickupSheet = false
+                },
+                onSaveAndSelect = { label, location, address ->
+                    viewModel.saveAddressAndSelect(
+                        label = label,
+                        location = location,
+                        address = address,
+                        kind = "pickup",
+                        asPickup = true
+                    )
+                    showPickupSheet = false
+                }
+            )
+        }
+    }
+
+    if (showLocationRequestSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showLocationRequestSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = Color.White
+        ) {
+            RequestReceiverLocationSheet(
+                link = uiState.receiverLocationLink?.url.orEmpty(),
+                isLoading = uiState.isCreatingLocationLink,
+                onCreateLink = viewModel::createReceiverLocationLink,
+                onRefresh = viewModel::refreshReceiverLocationLink,
+                onCopy = {
+                    val link = uiState.receiverLocationLink?.url.orEmpty()
+                    if (link.isNotBlank()) {
+                        clipboardManager.setText(AnnotatedString(link))
+                        Toast.makeText(context, "Link lokasi disalin", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+        }
     }
 
     if (uiState.isLoading) {
@@ -290,7 +373,9 @@ private fun BookingHeader(onBackClick: () -> Unit) {
 @Composable
 private fun DeliveryDetailCard(
     state: BookingState,
-    onDestinationDemo: () -> Unit
+    onPickupClick: () -> Unit,
+    onDestinationClick: () -> Unit,
+    onRequestLocationClick: () -> Unit
 ) {
     ElevatedCard(
         modifier = Modifier
@@ -305,8 +390,8 @@ private fun DeliveryDetailCard(
                 Text("Detail pengiriman", fontWeight = FontWeight.ExtraBold, fontSize = 21.sp, color = Ink)
                 Spacer(Modifier.weight(1f))
                 AssistChip(
-                    onClick = onDestinationDemo,
-                    label = { Text("Demo tujuan") },
+                    onClick = onDestinationClick,
+                    label = { Text("Pilih tujuan") },
                     leadingIcon = { Icon(Icons.Default.Place, null, Modifier.size(18.dp)) }
                 )
             }
@@ -316,7 +401,8 @@ private fun DeliveryDetailCard(
                 iconColor = LcGreen,
                 title = "Ambil paket di",
                 address = state.pickupAddress.ifBlank { "Pilih titik pickup" },
-                emphasized = state.pickupAddress.isNotBlank()
+                emphasized = state.pickupAddress.isNotBlank(),
+                onClick = onPickupClick
             )
             DottedConnector()
             AddressRow(
@@ -324,14 +410,15 @@ private fun DeliveryDetailCard(
                 iconColor = Secondary,
                 title = "Kirim paket ke",
                 address = state.destinationAddress.ifBlank { "Pilih lokasi tujuan" },
-                emphasized = state.destinationAddress.isNotBlank()
+                emphasized = state.destinationAddress.isNotBlank(),
+                onClick = onDestinationClick
             )
             Spacer(Modifier.height(14.dp))
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(18.dp))
                     .background(SoftGreen)
-                    .clickable { }
+                    .clickable { onRequestLocationClick() }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -355,9 +442,17 @@ private fun AddressRow(
     iconColor: Color,
     title: String,
     address: String,
-    emphasized: Boolean
+    emphasized: Boolean,
+    onClick: (() -> Unit)?
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(enabled = onClick != null) { onClick?.invoke() }
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         Box(
             modifier = Modifier
                 .size(42.dp)
@@ -378,7 +473,9 @@ private fun AddressRow(
                 maxLines = 2
             )
         }
-        Icon(Icons.Default.KeyboardArrowRight, null, tint = Color(0xFFB2BAC6))
+        if (onClick != null) {
+            Icon(Icons.Default.KeyboardArrowRight, null, tint = Color(0xFFB2BAC6))
+        }
     }
 }
 
@@ -437,8 +534,7 @@ private fun RecipientCard(
 @Composable
 private fun PackageCard(
     state: BookingState,
-    onTierSelected: (String, Double, DimensionsPayload) -> Unit,
-    onScanClick: () -> Unit
+    onTierSelected: (String, Double, DimensionsPayload) -> Unit
 ) {
     val tiers = listOf(
         PackageTier("small", "Kecil", "Maks. 5 kg", 1.0, DimensionsPayload(40, 40, 17)),
@@ -449,12 +545,6 @@ private fun PackageCard(
     LcCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Ukuran & berat paket", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-            Spacer(Modifier.weight(1f))
-            TextButton(onClick = onScanClick) {
-                Icon(Icons.Default.Scale, null, Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Scan")
-            }
         }
         Text("Pastikan ukuran sesuai agar harga dan perlindungan paket akurat.", color = Muted, fontSize = 14.sp)
         Spacer(Modifier.height(16.dp))
@@ -497,7 +587,7 @@ private fun PackageCard(
                 color = Ink
             )
             Spacer(Modifier.weight(1f))
-            Text(if (state.dimensionsScanned) "Terverifikasi" else "Manual", color = LcGreen, fontWeight = FontWeight.Bold)
+            Text(if (state.dimensionsScanned) "Scan valid" else "Dipilih manual", color = LcGreen, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -800,6 +890,258 @@ private fun ServiceRow(
             }
         }
         Text(formatRupiah(price?.totalPriceIdr ?: 0), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+    }
+}
+
+@Composable
+private fun LocationInputSheet(
+    title: String,
+    subtitle: String,
+    buttonLabel: String,
+    savedAddresses: List<CustomerAddress>,
+    addressKind: String,
+    onSelect: (LatLng, String) -> Unit,
+    onSavedAddressSelected: (CustomerAddress) -> Unit,
+    onSaveAndSelect: (String, LatLng, String) -> Unit
+) {
+    var address by remember { mutableStateOf("") }
+    var latitude by remember { mutableStateOf("") }
+    var longitude by remember { mutableStateOf("") }
+    var saveFavorite by remember { mutableStateOf(false) }
+    var label by remember { mutableStateOf(if (addressKind == "pickup") "Pickup utama" else "Tujuan favorit") }
+    val parsedLatitude = latitude.toDoubleOrNull()
+    val parsedLongitude = longitude.toDoubleOrNull()
+    val canSave = address.trim().length >= 6 &&
+        parsedLatitude != null &&
+        parsedLongitude != null &&
+        parsedLatitude in -90.0..90.0 &&
+        parsedLongitude in -180.0..180.0
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(title, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+        Text(subtitle, color = Muted)
+        if (savedAddresses.isNotEmpty()) {
+            Text("Alamat tersimpan", color = Ink, fontWeight = FontWeight.ExtraBold)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(savedAddresses, key = { it.id }) { savedAddress ->
+                    SavedAddressChip(
+                        address = savedAddress,
+                        onClick = { onSavedAddressSelected(savedAddress) }
+                    )
+                }
+            }
+        }
+        OutlinedTextField(
+            value = address,
+            onValueChange = { address = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Alamat tujuan") },
+            minLines = 2,
+            shape = RoundedCornerShape(18.dp)
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedTextField(
+                value = latitude,
+                onValueChange = { latitude = it },
+                modifier = Modifier.weight(1f),
+                label = { Text("Latitude") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                shape = RoundedCornerShape(18.dp)
+            )
+            OutlinedTextField(
+                value = longitude,
+                onValueChange = { longitude = it },
+                modifier = Modifier.weight(1f),
+                label = { Text("Longitude") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                singleLine = true,
+                shape = RoundedCornerShape(18.dp)
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(FieldBg)
+                .clickable { saveFavorite = !saveFavorite }
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(checked = saveFavorite, onCheckedChange = { saveFavorite = it })
+            Column(Modifier.weight(1f)) {
+                Text("Simpan ke alamat favorit", fontWeight = FontWeight.Bold, color = Ink)
+                Text("Alamat ini akan muncul lagi saat membuat pengiriman berikutnya.", color = Muted, fontSize = 12.sp)
+            }
+        }
+        if (saveFavorite) {
+            OutlinedTextField(
+                value = label,
+                onValueChange = { label = it.take(80) },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Nama alamat") },
+                singleLine = true,
+                shape = RoundedCornerShape(18.dp)
+            )
+        }
+        Button(
+            onClick = {
+                if (parsedLatitude != null && parsedLongitude != null) {
+                    val selectedLocation = LatLng(parsedLatitude, parsedLongitude)
+                    if (saveFavorite) {
+                        onSaveAndSelect(label.trim(), selectedLocation, address.trim())
+                    } else {
+                        onSelect(selectedLocation, address.trim())
+                    }
+                }
+            },
+            enabled = canSave && (!saveFavorite || label.trim().length >= 2),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
+        ) {
+            Text(buttonLabel, fontWeight = FontWeight.ExtraBold)
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun SavedAddressChip(
+    address: CustomerAddress,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .width(240.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .border(BorderStroke(1.dp, Color(0xFFDCE3EE)), RoundedCornerShape(18.dp))
+            .background(Color.White)
+            .clickable { onClick() }
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(if (address.kind == "pickup") SoftGreen else SoftOrange),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                if (address.kind == "pickup") Icons.Default.MyLocation else Icons.Default.Place,
+                null,
+                tint = if (address.kind == "pickup") LcGreen else Secondary
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(address.label, color = Ink, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            Text(address.address, color = Muted, fontSize = 12.sp, maxLines = 2)
+        }
+    }
+}
+
+@Composable
+private fun RequestReceiverLocationSheet(
+    link: String,
+    isLoading: Boolean,
+    onCreateLink: () -> Unit,
+    onRefresh: () -> Unit,
+    onCopy: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 22.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(76.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(SoftGreen),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.Map, null, tint = LcGreen, modifier = Modifier.size(38.dp))
+        }
+        Spacer(Modifier.height(18.dp))
+        Text(
+            "Minta lokasi penerima",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = Ink
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Bagikan link agar penerima mengisi alamat dropoff yang lebih akurat. Setelah penerima mengirim, cek kembali untuk memakai titik tersebut.",
+            color = Muted,
+            fontSize = 14.sp,
+            lineHeight = 20.sp
+        )
+        Spacer(Modifier.height(18.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(FieldBg)
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Lock, null, tint = Muted)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                link.ifBlank { "Link belum dibuat" },
+                color = Ink,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+                maxLines = 2
+            )
+            TextButton(onClick = onCopy, enabled = link.isNotBlank()) {
+                Text("Salin", color = LcGreen, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        if (link.isNotBlank()) {
+            Button(
+                onClick = onRefresh,
+                enabled = !isLoading,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+            ) {
+                Text(if (isLoading) "Mengecek..." else "Cek jawaban penerima", fontWeight = FontWeight.ExtraBold)
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+        Button(
+            onClick = if (link.isBlank()) onCreateLink else onCopy,
+            enabled = !isLoading,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
+        ) {
+            Text(
+                when {
+                    isLoading -> "Membuat link..."
+                    link.isBlank() -> "Buat link lokasi"
+                    else -> "Salin link"
+                },
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+        Spacer(Modifier.height(18.dp))
     }
 }
 

@@ -40,6 +40,8 @@ android {
         vectorDrawables { useSupportLibrary = true }
 
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = getEnvVariable("GOOGLE_MAPS_API_KEY")
+        buildConfigField("String", "API_CERT_SHA256_PIN_PRIMARY", "\"${getEnvVariable("API_CERT_SHA256_PIN_PRIMARY")}\"")
+        buildConfigField("String", "API_CERT_SHA256_PIN_BACKUP", "\"${getEnvVariable("API_CERT_SHA256_PIN_BACKUP")}\"")
     }
 
     buildTypes {
@@ -170,4 +172,6 @@ dependencies {
     implementation("com.google.dagger:hilt-android:2.48")
     ksp("com.google.dagger:hilt-android-compiler:2.48")
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
+    implementation("androidx.hilt:hilt-work:1.1.0")
+    ksp("androidx.hilt:hilt-compiler:1.1.0")
 }

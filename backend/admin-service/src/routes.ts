@@ -94,6 +94,12 @@ routes.get('/api/v1/customer/orders/:id/tracking-detail', requireMobileOrWebAuth
 routes.get('/api/v1/customer/delivery-services', requireMobileOrWebAuth, (req, res) => controllers.deliveryServices.listCustomerDeliveryServices(req, res));
 routes.post('/api/v1/customer/orders/calculate', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.calculatePrice(req, res));
 routes.post('/api/v1/customer/orders', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
+routes.get('/api/v1/customer/addresses', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.listCustomerAddresses(req, res));
+routes.post('/api/v1/customer/addresses', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createCustomerAddress(req, res));
+routes.patch('/api/v1/customer/addresses/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.updateCustomerAddress(req, res));
+routes.delete('/api/v1/customer/addresses/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.deleteCustomerAddress(req, res));
+routes.post('/api/v1/customer/location-requests', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createReceiverLocationRequest(req, res));
+routes.get('/api/v1/customer/location-requests/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getReceiverLocationRequestForCustomer(req, res));
 routes.post('/api/v1/customer/notifications/register-token', requireMobileOrWebAuth, (req, res) => controllers.registerDeviceToken(req, res));
 
 // Bulk Order Routes
@@ -112,6 +118,8 @@ routes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res))
 routes.get('/api/v1/system/latest-version', (req, res) => controllers.getLatestVersion(req, res));
 routes.get('/api/v1/system/on-demand-readiness', (req, res) => controllers.getOnDemandReadiness(req, res));
 routes.get('/track/:token', (req, res) => controllers.getPublicTripShare(req, res));
+routes.get('/api/v1/public/location-requests/:token', (req, res) => controllers.customerOrder.getReceiverLocationRequestPublic(req, res));
+routes.post('/api/v1/public/location-requests/:token', (req, res) => controllers.customerOrder.submitReceiverLocationRequestPublic(req, res));
 routes.post('/payments/midtrans/notification', (req, res) => controllers.customerOrder.handleMidtransNotification(req, res));
 routes.post('/webhooks/courier-payout-provider', (req, res) => controllers.handleCourierPayoutProviderWebhook(req, res));
 

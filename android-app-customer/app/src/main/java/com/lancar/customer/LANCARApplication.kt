@@ -2,11 +2,17 @@ package com.lancar.customer
 
 import android.app.Application
 import android.util.Log
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import com.lancar.customer.util.FirebaseInitializer
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 @HiltAndroidApp
-class LANCARApplication : Application() {
+class LANCARApplication : Application(), Configuration.Provider {
+
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
 
     private val TAG = "LANCARApplication"
 
@@ -15,4 +21,9 @@ class LANCARApplication : Application() {
         FirebaseInitializer.initializeIfConfigured(this)
         Log.d(TAG, "Customer Application created")
     }
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
 }

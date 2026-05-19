@@ -82,6 +82,65 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun getCustomerAddresses(kind: String? = null): Result<List<CustomerAddress>> {
+        return try {
+            val response = apiService.getCustomerAddresses(kind)
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                Result.success(body.data)
+            } else {
+                Result.failure(Exception(body?.message ?: "Gagal memuat alamat tersimpan"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createCustomerAddress(request: CustomerAddressRequest): Result<CustomerAddress> {
+        return try {
+            val response = apiService.createCustomerAddress(request)
+            val body = response.body()
+            val address = body?.data
+            if (response.isSuccessful && body?.success == true && address != null) {
+                Result.success(address)
+            } else {
+                Result.failure(Exception(body?.message ?: "Gagal menyimpan alamat"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createReceiverLocationRequest(request: ReceiverLocationCreateRequest): Result<ReceiverLocationLink> {
+        return try {
+            val response = apiService.createReceiverLocationRequest(request)
+            val body = response.body()
+            val link = body?.data
+            if (response.isSuccessful && body?.success == true && link != null) {
+                Result.success(link)
+            } else {
+                Result.failure(Exception(body?.message ?: "Gagal membuat link lokasi penerima"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getReceiverLocationRequest(id: String): Result<ReceiverLocationLink> {
+        return try {
+            val response = apiService.getReceiverLocationRequest(id)
+            val body = response.body()
+            val link = body?.data
+            if (response.isSuccessful && body?.success == true && link != null) {
+                Result.success(link)
+            } else {
+                Result.failure(Exception(body?.message ?: "Lokasi penerima belum tersedia"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     fun getOrderDetail(orderId: String): Flow<Result<Order>> = flow {
         try {
             val detailResult = getOrderTrackingDetail(orderId)

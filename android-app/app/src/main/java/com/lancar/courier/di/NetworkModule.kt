@@ -88,15 +88,18 @@ object NetworkModule {
                 "api.lancar.id" // Fallback to production domain
             }
 
-            // TODO: Replace these placeholder pins with real certificate SHA-256 hashes
-            // before production release. See OpenSSL command above.
-            val PRODUCTION_SHA256_PIN_PRIMARY = "sha256/REPLACE_WITH_REAL_PRIMARY_CERT_SHA256_HASH="
-            val PRODUCTION_SHA256_PIN_BACKUP  = "sha256/REPLACE_WITH_REAL_BACKUP_CERT_SHA256_HASH="
+            val productionPinPrimary = BuildConfig.API_CERT_SHA256_PIN_PRIMARY.trim()
+            val productionPinBackup = BuildConfig.API_CERT_SHA256_PIN_BACKUP.trim()
+            require(productionPinPrimary.startsWith("sha256/")) {
+                "API_CERT_SHA256_PIN_PRIMARY wajib diisi untuk release build."
+            }
 
-            val certificatePinner = CertificatePinner.Builder()
-                .add(productionHostname, PRODUCTION_SHA256_PIN_PRIMARY)
-                .add(productionHostname, PRODUCTION_SHA256_PIN_BACKUP)  // For cert rotation
-                .build()
+            val certificatePinnerBuilder = CertificatePinner.Builder()
+                .add(productionHostname, productionPinPrimary)
+            if (productionPinBackup.startsWith("sha256/") && productionPinBackup != productionPinPrimary) {
+                certificatePinnerBuilder.add(productionHostname, productionPinBackup)
+            }
+            val certificatePinner = certificatePinnerBuilder.build()
             builder.certificatePinner(certificatePinner)
         }
 

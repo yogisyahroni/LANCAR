@@ -4,11 +4,12 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.lancar.customer.worker.CustomerResyncWorker
 
 class NotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Log.d(TAG, "Notification action received: ${intent.action}")
-        // TODO: Handle notification actions
+        CustomerResyncWorker.enqueue(context, intent.action ?: "notification_action")
     }
 
     companion object {
@@ -19,5 +20,6 @@ class NotificationReceiver : BroadcastReceiver() {
 class NotificationDismissReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Log.d("NotifDismissReceiver", "Notification dismissed")
+        CustomerResyncWorker.enqueue(context, "notification_dismissed")
     }
 }

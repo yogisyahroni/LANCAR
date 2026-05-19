@@ -2,6 +2,8 @@ package com.lancar.customer.data.db
 
 import android.content.Context
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import com.lancar.customer.data.model.Location
 
@@ -28,6 +30,14 @@ abstract class OrderDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: OrderDatabase? = null
 
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_order_id` ON `orders` (`order_id`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_status` ON `orders` (`status`)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS `index_locations_order_id` ON `locations` (`order_id`)")
+            }
+        }
+
         fun getDatabase(context: Context): OrderDatabase {
             return INSTANCE ?: synchronized(this) {
                 // 🔐 SECURITY: Implementation of SQLCipher SupportFactory for on-disk encryption
@@ -43,7 +53,7 @@ abstract class OrderDatabase : RoomDatabase() {
                     "order_database"
                 )
                     .openHelperFactory(factory)
-                    .fallbackToDestructiveMigration()
+                    .addMigrations(MIGRATION_1_2)
                     .build()
                 INSTANCE = instance
                 instance

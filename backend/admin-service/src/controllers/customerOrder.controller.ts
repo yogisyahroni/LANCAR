@@ -13,10 +13,13 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
-// Helper to calculate distance based on coordinates (Haversine formula mock)
+type CoordinatePayload = {
+  lat: number;
+  lng: number;
+};
+
+// Helper to calculate distance based on coordinates (Haversine formula)
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  // Simplified mock distance calculation.
-  // In production, integrate with Google Maps Distance Matrix API.
   const radlat1 = Math.PI * lat1 / 180;
   const radlat2 = Math.PI * lat2 / 180;
   const theta = lon1 - lon2;
@@ -45,6 +48,47 @@ const publicBaseUrl = () =>
 
 const sha256 = (value: string) =>
   crypto.createHash('sha256').update(value).digest('hex');
+
+const receiverLocationBaseUrl = () =>
+  process.env.RECEIVER_LOCATION_PUBLIC_URL || publicBaseUrl();
+
+const maskPhone = (value: any) => {
+  const normalized = String(value || '').replace(/[^\d+]/g, '');
+  if (!normalized) return null;
+  return normalized.replace(/\d(?=\d{4})/g, '*');
+};
+
+const normalizeCoordinatePayload = (value: any): CoordinatePayload | null => {
+  const lat = Number(value?.lat);
+  const lng = Number(value?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+};
+
+const validAddress = (value: any) => typeof value === 'string' && value.trim().length >= 6;
+
+const normalizeAddressKind = (value: any) => {
+  const kind = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  return ['pickup', 'receiver', 'both'].includes(kind) ? kind : 'receiver';
+};
+
+const publicCustomerAddress = (row: any) => ({
+  id: row.id,
+  label: row.label,
+  contact_name: row.contact_name,
+  contact_phone_masked: row.contact_phone_masked,
+  address: row.address,
+  lat: row.lat === null || row.lat === undefined ? null : Number(row.lat),
+  lng: row.lng === null || row.lng === undefined ? null : Number(row.lng),
+  notes: row.notes,
+  kind: row.kind,
+  is_favorite: Boolean(row.is_favorite),
+  usage_count: Number(row.usage_count || 0),
+  last_used_at: row.last_used_at,
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+});
 
 const resolveSizeTier = (service: DeliveryServiceProduct, requestedCode?: string) => {
   if (!service.uses_size_tier || service.size_tiers.length === 0) return null;
@@ -82,12 +126,22 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const pLat = pickup?.lat || -6.200000;
-    const pLon = pickup?.lng || 106.816666;
-    const dLat = dropoff?.lat || -6.210000;
-    const dLon = dropoff?.lng || 106.820000;
+    const pickupPoint = normalizeCoordinatePayload(pickup);
+    const dropoffPoint = normalizeCoordinatePayload(dropoff);
+    if (!pickupPoint || !dropoffPoint) {
+      res.status(400).json({
+        code: 'ERR_ROUTE_LOCATION_REQUIRED',
+        message: 'Lokasi pickup dan tujuan wajib valid sebelum harga dihitung.'
+      });
+      return;
+    }
 
-    const distance = calculateDistance(pLat, pLon, dLat, dLon);
+    const distance = calculateDistance(
+      pickupPoint.lat,
+      pickupPoint.lng,
+      dropoffPoint.lat,
+      dropoffPoint.lng
+    );
 
     if (service.max_distance_km && distance > service.max_distance_km) {
       res.status(400).json({
@@ -192,6 +246,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
   try {
     const customer_id = req.user?.id;
     if (!customer_id) {
+      client.release();
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
@@ -215,6 +270,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
     const service = await findDeliveryServiceByCode(price_breakdown?.service_code || service_code);
     if (!service) {
+      client.release();
       res.status(400).json({
         code: 'ERR_SERVICE_NOT_AVAILABLE',
         error: 'Layanan pengiriman tidak tersedia'
@@ -223,9 +279,21 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     }
 
     if (service.requires_dimension_scan && !package_details?.dimensions_scanned) {
+      client.release();
       res.status(400).json({
         code: 'ERR_DIMENSION_SCAN_REQUIRED',
         error: `${service.name} wajib scan dimensi sebelum order dibuat`
+      });
+      return;
+    }
+
+    const pickupPoint = normalizeCoordinatePayload(pickup_location);
+    const dropoffPoint = normalizeCoordinatePayload(dropoff_location);
+    if (!validAddress(pickup_address) || !validAddress(dropoff_address) || !pickupPoint || !dropoffPoint) {
+      client.release();
+      res.status(400).json({
+        code: 'ERR_ORDER_ROUTE_REQUIRED',
+        error: 'Alamat dan koordinat pickup/dropoff wajib valid sebelum order dibuat'
       });
       return;
     }
@@ -284,14 +352,14 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     const values = [
       customer_id,
       order_number,
-      pickup_address,
-      pickup_location?.lng || 106.816666,
-      pickup_location?.lat || -6.200000,
-      dropoff_address,
-      dropoff_location?.lng || 106.820000,
-      dropoff_location?.lat || -6.210000,
+      pickup_address.trim(),
+      pickupPoint.lng,
+      pickupPoint.lat,
+      dropoff_address.trim(),
+      dropoffPoint.lng,
+      dropoffPoint.lat,
       recipient_name,
-      recipient_phone?.replace(/\\d(?=\\d{4})/g, "*") || '*****', // masking phone simple
+      maskPhone(recipient_phone) || '*****',
       service.route_model,
       service.code,
       JSON.stringify(price_breakdown?.service_snapshot || publicServiceSnapshot(service)),
@@ -1280,6 +1348,433 @@ export const sendOrderChat = async (req: Request, res: Response): Promise<void> 
     res.status(201).json({ success: true, chat: chatMessage });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const listCustomerAddresses = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customerId = req.user?.id;
+    if (!customerId) {
+      res.status(401).json({ success: false, data: [], message: 'Unauthorized' });
+      return;
+    }
+
+    const kind = typeof req.query.kind === 'string' ? req.query.kind : '';
+    const validKind = ['pickup', 'receiver', 'both'].includes(kind) ? kind : null;
+    const params: any[] = [customerId];
+    let kindClause = '';
+    if (validKind) {
+      params.push(validKind);
+      kindClause = `AND (kind = $2 OR kind = 'both')`;
+    }
+
+    const { rows } = await db.query(
+      `SELECT id, label, contact_name, contact_phone_masked, address,
+              ST_Y(location::geometry) AS lat,
+              ST_X(location::geometry) AS lng,
+              notes, kind, is_favorite, usage_count, last_used_at, created_at, updated_at
+       FROM customer_addresses
+       WHERE customer_id = $1
+         AND deleted_at IS NULL
+         ${kindClause}
+       ORDER BY is_favorite DESC, last_used_at DESC NULLS LAST, created_at DESC
+       LIMIT 50`,
+      params
+    );
+
+    res.json({
+      success: true,
+      data: rows.map(publicCustomerAddress),
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: [], message: error.message });
+  }
+};
+
+export const createCustomerAddress = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customerId = req.user?.id;
+    if (!customerId) {
+      res.status(401).json({ success: false, data: null, message: 'Unauthorized' });
+      return;
+    }
+
+    const {
+      label,
+      contact_name,
+      contact_phone,
+      address,
+      location,
+      notes,
+      kind,
+      is_favorite,
+    } = req.body || {};
+
+    const point = normalizeCoordinatePayload(location);
+    const cleanLabel = typeof label === 'string' && label.trim().length >= 2
+      ? label.trim().slice(0, 80)
+      : null;
+    if (!cleanLabel || !validAddress(address) || !point) {
+      res.status(400).json({
+        success: false,
+        data: null,
+        message: 'Label, alamat, dan koordinat alamat wajib valid.',
+      });
+      return;
+    }
+
+    const { rows } = await db.query(
+      `INSERT INTO customer_addresses (
+          customer_id, label, contact_name, contact_phone_masked, address,
+          location, notes, kind, is_favorite, last_used_at
+       ) VALUES (
+          $1, $2, NULLIF($3, ''), $4, $5,
+          ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography,
+          NULLIF($8, ''), $9, $10, NOW()
+       )
+       RETURNING id, label, contact_name, contact_phone_masked, address,
+                 ST_Y(location::geometry) AS lat,
+                 ST_X(location::geometry) AS lng,
+                 notes, kind, is_favorite, usage_count, last_used_at, created_at, updated_at`,
+      [
+        customerId,
+        cleanLabel,
+        typeof contact_name === 'string' ? contact_name.trim().slice(0, 160) : '',
+        maskPhone(contact_phone),
+        String(address).trim(),
+        point.lng,
+        point.lat,
+        typeof notes === 'string' ? notes.trim().slice(0, 500) : '',
+        normalizeAddressKind(kind),
+        Boolean(is_favorite),
+      ]
+    );
+
+    res.status(201).json({
+      success: true,
+      data: publicCustomerAddress(rows[0]),
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message });
+  }
+};
+
+export const updateCustomerAddress = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customerId = req.user?.id;
+    const id = String(req.params.id || '');
+    if (!customerId) {
+      res.status(401).json({ success: false, data: null, message: 'Unauthorized' });
+      return;
+    }
+
+    const point = req.body?.location ? normalizeCoordinatePayload(req.body.location) : null;
+    if (req.body?.location && !point) {
+      res.status(400).json({ success: false, data: null, message: 'Koordinat alamat tidak valid.' });
+      return;
+    }
+
+    const current = await db.query(
+      `SELECT * FROM customer_addresses WHERE id = $1 AND customer_id = $2 AND deleted_at IS NULL`,
+      [id, customerId]
+    );
+    if (current.rows.length === 0) {
+      res.status(404).json({ success: false, data: null, message: 'Alamat tidak ditemukan.' });
+      return;
+    }
+
+    const existing = current.rows[0];
+    const label = typeof req.body?.label === 'string' && req.body.label.trim().length >= 2
+      ? req.body.label.trim().slice(0, 80)
+      : existing.label;
+    const address = validAddress(req.body?.address) ? String(req.body.address).trim() : existing.address;
+    const kind = req.body?.kind ? normalizeAddressKind(req.body.kind) : existing.kind;
+
+    const { rows } = await db.query(
+      `UPDATE customer_addresses
+       SET label = $3,
+           contact_name = COALESCE(NULLIF($4, ''), contact_name),
+           contact_phone_masked = COALESCE($5, contact_phone_masked),
+           address = $6,
+           location = CASE WHEN $7::double precision IS NULL OR $8::double precision IS NULL
+             THEN location
+             ELSE ST_SetSRID(ST_MakePoint($8, $7), 4326)::geography
+           END,
+           notes = COALESCE($9, notes),
+           kind = $10,
+           is_favorite = COALESCE($11, is_favorite),
+           usage_count = usage_count + CASE WHEN $12::boolean THEN 1 ELSE 0 END,
+           last_used_at = CASE WHEN $12::boolean THEN NOW() ELSE last_used_at END,
+           updated_at = NOW()
+       WHERE id = $1 AND customer_id = $2 AND deleted_at IS NULL
+       RETURNING id, label, contact_name, contact_phone_masked, address,
+                 ST_Y(location::geometry) AS lat,
+                 ST_X(location::geometry) AS lng,
+                 notes, kind, is_favorite, usage_count, last_used_at, created_at, updated_at`,
+      [
+        id,
+        customerId,
+        label,
+        typeof req.body?.contact_name === 'string' ? req.body.contact_name.trim().slice(0, 160) : '',
+        req.body?.contact_phone ? maskPhone(req.body.contact_phone) : null,
+        address,
+        point?.lat ?? null,
+        point?.lng ?? null,
+        typeof req.body?.notes === 'string' ? req.body.notes.trim().slice(0, 500) : null,
+        kind,
+        typeof req.body?.is_favorite === 'boolean' ? req.body.is_favorite : null,
+        Boolean(req.body?.mark_used),
+      ]
+    );
+
+    res.json({ success: true, data: publicCustomerAddress(rows[0]) });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message });
+  }
+};
+
+export const deleteCustomerAddress = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customerId = req.user?.id;
+    const id = String(req.params.id || '');
+    if (!customerId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const result = await db.query(
+      `UPDATE customer_addresses
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND customer_id = $2 AND deleted_at IS NULL`,
+      [id, customerId]
+    );
+
+    if (result.rowCount === 0) {
+      res.status(404).json({ success: false, message: 'Alamat tidak ditemukan.' });
+      return;
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const createReceiverLocationRequest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customerId = req.user?.id;
+    if (!customerId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const {
+      pickup_address,
+      pickup_location,
+      recipient_name,
+      recipient_phone,
+      expires_hours = 24
+    } = req.body || {};
+
+    if (!validAddress(pickup_address)) {
+      res.status(400).json({
+        success: false,
+        message: 'Alamat pickup wajib diisi sebelum membuat link lokasi penerima.'
+      });
+      return;
+    }
+
+    const pickupPoint = normalizeCoordinatePayload(pickup_location);
+    const boundedExpiresHours = Math.min(Math.max(Number(expires_hours) || 24, 1), 72);
+    const rawToken = crypto.randomBytes(24).toString('hex');
+    const tokenHash = sha256(rawToken);
+
+    const insertSql = `
+      INSERT INTO customer_receiver_location_requests (
+        customer_id,
+        token_hash,
+        pickup_address,
+        pickup_location,
+        recipient_name,
+        recipient_phone_masked,
+        requested_payload,
+        expires_at
+      ) VALUES (
+        $1,
+        $2,
+        $3,
+        CASE WHEN $4::double precision IS NULL OR $5::double precision IS NULL
+          THEN NULL
+          ELSE ST_SetSRID(ST_MakePoint($5, $4), 4326)::geography
+        END,
+        $6,
+        $7,
+        $8,
+        NOW() + ($9::int * INTERVAL '1 hour')
+      )
+      RETURNING id, status, pickup_address, recipient_name, expires_at, created_at
+    `;
+
+    const { rows } = await db.query(insertSql, [
+      customerId,
+      tokenHash,
+      String(pickup_address).trim(),
+      pickupPoint?.lat ?? null,
+      pickupPoint?.lng ?? null,
+      typeof recipient_name === 'string' ? recipient_name.trim() : null,
+      maskPhone(recipient_phone),
+      JSON.stringify({ source: 'customer_mobile', expires_hours: boundedExpiresHours }),
+      boundedExpiresHours
+    ]);
+
+    const linkUrl = `${receiverLocationBaseUrl().replace(/\/$/, '')}/location-requests/${rawToken}`;
+    res.status(201).json({
+      success: true,
+      data: {
+        ...rows[0],
+        url: linkUrl,
+        token: rawToken
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getReceiverLocationRequestPublic = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const token = String(req.params.token || '');
+    if (token.length < 32) {
+      res.status(404).json({ success: false, message: 'Link lokasi tidak tersedia.' });
+      return;
+    }
+
+    const { rows } = await db.query(
+      `SELECT id, pickup_address, recipient_name, status, submitted_address, submitted_contact_name,
+              submitted_notes, submitted_at, expires_at, created_at,
+              ST_Y(submitted_location::geometry) AS submitted_lat,
+              ST_X(submitted_location::geometry) AS submitted_lng
+       FROM customer_receiver_location_requests
+       WHERE token_hash = $1
+       LIMIT 1`,
+      [sha256(token)]
+    );
+
+    const request = rows[0];
+    if (!request) {
+      res.status(404).json({ success: false, message: 'Link lokasi tidak tersedia.' });
+      return;
+    }
+
+    if (new Date(request.expires_at).getTime() < Date.now() && request.status === 'pending') {
+      await db.query(
+        `UPDATE customer_receiver_location_requests
+         SET status = 'expired', updated_at = NOW()
+         WHERE id = $1 AND status = 'pending'`,
+        [request.id]
+      );
+      res.status(410).json({ success: false, message: 'Link lokasi sudah kedaluwarsa.' });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: request
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getReceiverLocationRequestForCustomer = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customerId = req.user?.id;
+    const id = String(req.params.id || '');
+    if (!customerId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const { rows } = await db.query(
+      `SELECT id, status, pickup_address, recipient_name, submitted_address,
+              submitted_contact_name, submitted_notes, submitted_at, expires_at, created_at,
+              ST_Y(submitted_location::geometry) AS submitted_lat,
+              ST_X(submitted_location::geometry) AS submitted_lng
+       FROM customer_receiver_location_requests
+       WHERE id = $1 AND customer_id = $2
+       LIMIT 1`,
+      [id, customerId]
+    );
+
+    if (rows.length === 0) {
+      res.status(404).json({ success: false, message: 'Request lokasi tidak ditemukan.' });
+      return;
+    }
+
+    res.json({ success: true, data: rows[0] });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const submitReceiverLocationRequestPublic = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const token = String(req.params.token || '');
+    const {
+      address,
+      location,
+      contact_name,
+      contact_phone,
+      notes
+    } = req.body || {};
+    const dropoffPoint = normalizeCoordinatePayload(location);
+
+    if (token.length < 32 || !validAddress(address) || !dropoffPoint) {
+      res.status(400).json({
+        success: false,
+        message: 'Alamat dan titik lokasi penerima wajib valid.'
+      });
+      return;
+    }
+
+    const { rows } = await db.query(
+      `UPDATE customer_receiver_location_requests
+       SET status = 'submitted',
+           submitted_address = $2,
+           submitted_location = ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography,
+           submitted_contact_name = NULLIF($5, ''),
+           submitted_contact_phone_masked = $6,
+           submitted_notes = NULLIF($7, ''),
+           submitted_at = NOW(),
+           updated_at = NOW()
+       WHERE token_hash = $1
+         AND status = 'pending'
+         AND expires_at > NOW()
+       RETURNING id, status, submitted_address, submitted_contact_name, submitted_notes, submitted_at, expires_at,
+                 ST_Y(submitted_location::geometry) AS submitted_lat,
+                 ST_X(submitted_location::geometry) AS submitted_lng`,
+      [
+        sha256(token),
+        String(address).trim(),
+        dropoffPoint.lng,
+        dropoffPoint.lat,
+        typeof contact_name === 'string' ? contact_name.trim() : '',
+        maskPhone(contact_phone),
+        typeof notes === 'string' ? notes.trim() : ''
+      ]
+    );
+
+    if (rows.length === 0) {
+      res.status(409).json({
+        success: false,
+        message: 'Link lokasi sudah dipakai, kedaluwarsa, atau tidak aktif.'
+      });
+      return;
+    }
+
+    res.json({ success: true, data: rows[0] });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
