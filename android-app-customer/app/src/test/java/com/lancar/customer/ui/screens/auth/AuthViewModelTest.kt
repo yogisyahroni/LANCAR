@@ -159,16 +159,19 @@ class AuthViewModelTest {
     @Test
     fun `completeProfile updates customer profile and transitions to ProfileCompleted`() = runTest {
         val email = "new@lancar.com"
+        val phone = "6281234567890"
         viewModel.setPhoneNumber(email)
+        viewModel.setPendingRegistrationProfile("Andi Customer", phone)
         coEvery { sessionManager.getTokenOnce() } returns "token"
         every {
-            profileRepository.updateProfile(UpdateProfileRequest("Andi Customer", email))
+            profileRepository.updateProfile(UpdateProfileRequest("Andi Customer", phone))
         } returns kotlinx.coroutines.flow.flowOf(
             Result.success(
                 ProfileResponse(
                     id = "USER-NEW",
                     name = "Andi Customer",
-                    phoneNumber = email,
+                    phoneNumber = phone,
+                    email = email,
                     walletBalance = 0,
                     profileImageUrl = null
                 )
@@ -180,7 +183,7 @@ class AuthViewModelTest {
             viewModel.completeProfile("Andi Customer")
             assertEquals(AuthState.Loading, awaitItem())
             assertEquals(AuthState.ProfileCompleted, awaitItem())
-            coVerify(exactly = 1) { sessionManager.saveUserData("token", "Andi Customer") }
+            coVerify(exactly = 1) { sessionManager.updateCustomerName("Andi Customer") }
         }
     }
 }
