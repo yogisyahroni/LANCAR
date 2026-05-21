@@ -26,7 +26,9 @@ const hasUsableSecret = (value?: string): boolean => {
 };
 
 export const hasGoogleDirectionsConfig = (env: NodeJS.ProcessEnv = process.env): boolean =>
-  hasUsableSecret(env.GOOGLE_DIRECTIONS_API_KEY) || hasUsableSecret(env.GOOGLE_MAPS_API_KEY);
+  hasUsableSecret(env.GOOGLE_ROUTES_API_KEY) ||
+  hasUsableSecret(env.GOOGLE_DIRECTIONS_API_KEY) ||
+  hasUsableSecret(env.GOOGLE_MAPS_API_KEY);
 
 const decodeBase64 = (encoded?: string): string | undefined => {
   if (!encoded || !encoded.trim()) return undefined;
@@ -94,13 +96,13 @@ export const getOnDemandExternalReadiness = (
   const checks: OnDemandExternalReadinessCheck[] = [
     {
       key: 'google_directions',
-      label: 'Google Maps Directions',
+      label: 'Google Maps Routes / Directions',
       status: googleReady ? 'ready' : 'waiting_for_secret',
       configured: googleReady,
-      required_env: ['GOOGLE_MAPS_API_KEY', 'GOOGLE_DIRECTIONS_API_KEY'],
+      required_env: ['GOOGLE_ROUTES_API_KEY', 'GOOGLE_MAPS_API_KEY', 'GOOGLE_DIRECTIONS_API_KEY'],
       message: googleReady
-        ? 'Route polyline dan ETA akurat siap memakai provider eksternal.'
-        : 'Isi GOOGLE_MAPS_API_KEY atau GOOGLE_DIRECTIONS_API_KEY dengan key yang sudah mengaktifkan Directions API.'
+        ? 'Route polyline, ETA, dan traffic-aware policy siap memakai provider eksternal.'
+        : 'Isi GOOGLE_ROUTES_API_KEY atau GOOGLE_MAPS_API_KEY dengan key yang sudah mengaktifkan Routes API. GOOGLE_DIRECTIONS_API_KEY tetap bisa dipakai sebagai fallback legacy.'
     },
     {
       key: 'firebase_admin',

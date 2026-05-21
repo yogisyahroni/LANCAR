@@ -124,7 +124,16 @@ export const getPublicMapsRoutePreview = async (req: Request, res: Response): Pr
       return;
     }
     const scope = typeof req.query.scope === 'string' ? req.query.scope : 'tracking';
-    const route = await buildMapsRouteEtaSnapshot(from, to, scope as any);
+    const route = await buildMapsRouteEtaSnapshot(from, to, scope as any, {
+      serviceCode: typeof req.query.service_code === 'string' ? req.query.service_code : null,
+      vehicleType: typeof req.query.vehicle_type === 'string' ? req.query.vehicle_type : null,
+      routeProfile: typeof req.query.route_profile === 'string' ? req.query.route_profile : null,
+      requestId: typeof req.headers['x-request-id'] === 'string'
+        ? req.headers['x-request-id']
+        : typeof req.query.request_id === 'string'
+          ? req.query.request_id
+          : null,
+    });
     res.json(route);
   } catch (error: any) {
     res.status(500).json({ error: error.message });

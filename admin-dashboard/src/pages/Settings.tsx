@@ -505,6 +505,8 @@ export default function Settings() {
                             { label: 'P95 latency', value: `${mapsProviderConfig?.ops?.latency?.p95_ms || 0}ms` },
                             { label: 'Cache hit', value: mapsProviderConfig?.ops?.cache?.hits || 0 },
                             { label: 'Fallback', value: mapsProviderConfig?.ops?.fallback?.total || 0 },
+                            { label: 'Route OK', value: `${mapsProviderConfig?.ops?.route_quality?.road_route_successes || 0}/${mapsProviderConfig?.ops?.route_quality?.route_events || 0}` },
+                            { label: 'Anomaly', value: mapsProviderConfig?.ops?.route_quality?.distance_anomalies || 0 },
                           ].map((metric) => (
                             <div key={metric.label} className="rounded-2xl bg-black/20 border border-white/10 px-4 py-3">
                               <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">{metric.label}</p>

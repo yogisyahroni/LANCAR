@@ -625,13 +625,30 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          o.dropoff_address AS drop_address,
          ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
          ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
-         COALESCE(o.distance_km, 0)::text AS distance,
-         COALESCE(ol.assigned_fee_idr, o.total_price_idr, 0)::text AS fee,
-         COALESCE(o.courier_payout_estimate_idr, 0)::int AS courier_payout_estimate_idr,
-         COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
-         COALESCE(o.platform_commission_idr, 0)::int AS platform_commission_idr,
-         o.service_code,
-         COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR Service') AS service_name,
+          COALESCE(
+            NULLIF(o.route_snapshot->>'distance_km', '')::numeric,
+            CASE
+              WHEN COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0) > 0
+              THEN ROUND(COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int)::numeric / 1000.0, 2)
+              ELSE NULL
+            END,
+            o.distance_km,
+            0
+          )::text AS distance,
+          COALESCE(ol.assigned_fee_idr, o.total_price_idr, 0)::text AS fee,
+          COALESCE(o.courier_payout_estimate_idr, 0)::int AS courier_payout_estimate_idr,
+          COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
+          COALESCE(o.platform_commission_idr, 0)::int AS platform_commission_idr,
+          o.service_code,
+          o.route_snapshot,
+          o.route_provider,
+          o.route_profile,
+          COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,
+          COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
+          o.route_polyline,
+          o.route_fallback_reason,
+          NULLIF(o.route_snapshot->>'vehicle_type', '') AS route_vehicle_type,
+          COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR Service') AS service_name,
          COALESCE(dsp.service_category, 'network') AS service_category,
          COALESCE(dsp.service_family, 'regular') AS service_family,
          COALESCE(dsp.route_model, o.model, 'hub_and_spoke') AS service_route_model,
@@ -669,11 +686,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
     res.json({
       success: true,
       data: result.rows
-        .map((order) => ({
-          ...order,
-          created_at: Number(order.created_at),
-          updated_at: Number(order.updated_at),
-        }))
+        .map(normalizeMobileOrder)
         .sort((a, b) => b.created_at - a.created_at),
       message: 'Courier orders loaded',
     });
@@ -704,7 +717,16 @@ const mobileOrderSelect = `
   o.dropoff_address AS drop_address,
   ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
   ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
-  COALESCE(o.distance_km, 0)::text AS distance,
+  COALESCE(
+    NULLIF(o.route_snapshot->>'distance_km', '')::numeric,
+    CASE
+      WHEN COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0) > 0
+      THEN ROUND(COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int)::numeric / 1000.0, 2)
+      ELSE NULL
+    END,
+    o.distance_km,
+    0
+  )::text AS distance,
   COALESCE(
     NULLIF(ol.assigned_fee_idr, 0),
     NULLIF(o.courier_payout_estimate_idr, 0),
@@ -715,6 +737,14 @@ const mobileOrderSelect = `
   COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
   COALESCE(o.platform_commission_idr, 0)::int AS platform_commission_idr,
   o.service_code,
+  o.route_snapshot,
+  o.route_provider,
+  o.route_profile,
+  COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,
+  COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
+  o.route_polyline,
+  o.route_fallback_reason,
+  NULLIF(o.route_snapshot->>'vehicle_type', '') AS route_vehicle_type,
   COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR On Demand') AS service_name,
   COALESCE(dsp.service_category, 'on_demand') AS service_category,
   COALESCE(dsp.service_family, 'regular') AS service_family,
@@ -742,13 +772,28 @@ const mobileOrderSelect = `
   ) AS pickup_photo_verified
 `;
 
-const normalizeMobileOrder = (order: any) => ({
-  ...order,
-  created_at: Number(order.created_at),
-  updated_at: Number(order.updated_at),
-  offer_expires_at: order.offer_expires_at ? Number(order.offer_expires_at) : null,
-  offer_ttl_seconds: order.offer_ttl_seconds ? Number(order.offer_ttl_seconds) : null,
-});
+const normalizeMobileOrder = (order: any) => {
+  const routeContract = routeContractFromOrder(order);
+  return {
+    ...order,
+    distance: routeContract.distance_km > 0 ? String(routeContract.distance_km) : order.distance,
+    route_snapshot: routeContract.snapshot,
+    route_provider: routeContract.provider,
+    route_profile: routeContract.route_profile,
+    route_polyline: routeContract.route_polyline,
+    route_distance_meters: routeContract.distance_meters,
+    route_duration_seconds: routeContract.duration_seconds,
+    route_vehicle_type: routeContract.vehicle_type,
+    eta_minutes: routeContract.eta_minutes,
+    route_snapshot_hash: routeContract.snapshot_hash,
+    route_snapshot_version: routeContract.snapshot_version,
+    route_version: routeContract.route_version,
+    created_at: Number(order.created_at),
+    updated_at: Number(order.updated_at),
+    offer_expires_at: order.offer_expires_at ? Number(order.offer_expires_at) : null,
+    offer_ttl_seconds: order.offer_ttl_seconds ? Number(order.offer_ttl_seconds) : null,
+  };
+};
 
 const normalizeOfferMobileOrder = (order: any) => ({
   ...normalizeMobileOrder(order),
@@ -856,6 +901,52 @@ const haversineKm = (aLat: number, aLng: number, bLat: number, bLng: number) => 
   const endLat = toRad(bLat);
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(startLat) * Math.cos(endLat) * Math.sin(dLng / 2) ** 2;
   return 2 * radiusKm * Math.asin(Math.sqrt(h));
+};
+
+const parseJsonObject = (value: unknown): Record<string, any> | null => {
+  if (!value) return null;
+  if (typeof value === 'object' && !Array.isArray(value)) return value as Record<string, any>;
+  if (typeof value !== 'string') return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const toFiniteNumber = (value: unknown, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const routeContractFromOrder = (order: any) => {
+  const snapshot = parseJsonObject(order.route_snapshot);
+  const snapshotDistanceMeters = toFiniteNumber(snapshot?.distance_meters, 0);
+  const storedDistanceMeters = toFiniteNumber(order.route_distance_meters, 0);
+  const distanceMeters = storedDistanceMeters > 0 ? storedDistanceMeters : snapshotDistanceMeters;
+  const distanceKm = distanceMeters > 0
+    ? Number((distanceMeters / 1000).toFixed(2))
+    : toFiniteNumber(snapshot?.distance_km, toFiniteNumber(order.distance, 0));
+  const durationSeconds = toFiniteNumber(order.route_duration_seconds, toFiniteNumber(snapshot?.duration_seconds, 0));
+  const etaMinutes = toFiniteNumber(snapshot?.eta_minutes, durationSeconds > 0 ? Math.ceil(durationSeconds / 60) : 0);
+
+  return {
+    snapshot,
+    provider: order.route_provider || snapshot?.provider || null,
+    route_profile: order.route_profile || snapshot?.route_profile || null,
+    route_polyline: order.route_polyline || snapshot?.route_polyline || null,
+    vehicle_type: order.route_vehicle_type || snapshot?.vehicle_type || null,
+    service_code: order.service_code || snapshot?.service_code || null,
+    distance_km: distanceKm,
+    distance_meters: distanceMeters,
+    duration_seconds: durationSeconds,
+    eta_minutes: etaMinutes,
+    snapshot_version: snapshot?.snapshot_version || null,
+    route_version: snapshot?.route_version || null,
+    snapshot_hash: snapshot?.snapshot_hash || null,
+    fallback_reason: order.route_fallback_reason || snapshot?.fallback_reason || null,
+  };
 };
 
 const parseLatLng = (row: any) => ({
@@ -1522,9 +1613,18 @@ export const getMobileCourierRoutePreview = async (req: Request, res: Response) 
          ST_Y(o.pickup_location::geometry)::float8 AS pickup_latitude,
          ST_X(o.pickup_location::geometry)::float8 AS pickup_longitude,
          ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
-         ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
-         COALESCE(o.distance_km, 0)::float8 AS stored_distance_km
-       FROM orders o
+          ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
+          COALESCE(o.distance_km, 0)::float8 AS stored_distance_km,
+          o.service_code,
+          o.route_snapshot,
+          o.route_provider,
+          o.route_profile,
+          o.route_distance_meters,
+          o.route_duration_seconds,
+          o.route_polyline,
+          o.route_fallback_reason,
+          NULLIF(o.route_snapshot->>'vehicle_type', '') AS route_vehicle_type
+        FROM orders o
        LEFT JOIN order_legs ol ON ol.order_id = o.id
        WHERE o.id = $1
          AND (ol.courier_id = $2 OR o.status IN ('pending', 'pending_payment', 'paid', 'matched', 'dispatching', 'offered'))
@@ -1539,26 +1639,57 @@ export const getMobileCourierRoutePreview = async (req: Request, res: Response) 
     }
 
     const coords = parseLatLng(row);
-    const routeSnapshot = await buildMapsRouteEtaSnapshot(
-      { latitude: coords.pickup_latitude, longitude: coords.pickup_longitude },
-      { latitude: coords.drop_latitude, longitude: coords.drop_longitude },
-      'courier_mobile'
-    );
-    const distanceKm = routeSnapshot.distance_km > 0
-      ? routeSnapshot.distance_km
+    let routeSnapshot = parseJsonObject(row.route_snapshot);
+    if (!routeSnapshot || (!routeSnapshot.distance_meters && !routeSnapshot.distance_km)) {
+      routeSnapshot = await buildMapsRouteEtaSnapshot(
+        { latitude: coords.pickup_latitude, longitude: coords.pickup_longitude },
+        { latitude: coords.drop_latitude, longitude: coords.drop_longitude },
+        'courier_mobile',
+        {
+          serviceCode: row.service_code || null,
+          vehicleType: row.route_vehicle_type || null,
+          routeProfile: row.route_profile || null,
+        }
+      );
+      routeSnapshot = {
+        ...routeSnapshot,
+        source: 'legacy_order_route_preview_recalculation',
+      };
+    }
+    const routeContract = routeContractFromOrder({ ...row, route_snapshot: routeSnapshot });
+    const distanceKm = routeContract.distance_km > 0
+      ? routeContract.distance_km
       : Number(row.stored_distance_km || 0) > 0
         ? Number(row.stored_distance_km)
         : haversineKm(coords.pickup_latitude, coords.pickup_longitude, coords.drop_latitude, coords.drop_longitude);
-    const etaMinutes = routeSnapshot.eta_minutes || Math.max(8, Math.ceil(distanceKm / 22 * 60));
-    const polyline = [
+    const etaMinutes = routeContract.eta_minutes || Math.max(8, Math.ceil(distanceKm / 22 * 60));
+    const fallbackPolyline = [
       { latitude: coords.pickup_latitude, longitude: coords.pickup_longitude },
       { latitude: coords.drop_latitude, longitude: coords.drop_longitude },
     ];
+    const legacyPolyline = routeContract.fallback_reason ? fallbackPolyline : [];
 
     await db.query(
-      `INSERT INTO courier_route_snapshots (order_id, courier_id, distance_km, eta_minutes, polyline)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [orderId, req.user.id, distanceKm.toFixed(2), etaMinutes, JSON.stringify(polyline)]
+      `INSERT INTO courier_route_snapshots (
+         order_id, courier_id, distance_km, eta_minutes, polyline, provider,
+         route_snapshot, route_profile, route_distance_meters, route_duration_seconds,
+         route_polyline, route_fallback_reason
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12)`,
+      [
+        orderId,
+        req.user.id,
+        distanceKm.toFixed(2),
+        etaMinutes,
+        JSON.stringify(legacyPolyline),
+        routeContract.provider,
+        JSON.stringify(routeSnapshot),
+        routeContract.route_profile,
+        routeContract.distance_meters,
+        routeContract.duration_seconds,
+        routeContract.route_polyline,
+        routeContract.fallback_reason || null,
+      ]
     );
 
     res.json({
@@ -1567,8 +1698,15 @@ export const getMobileCourierRoutePreview = async (req: Request, res: Response) 
         order_id: orderId,
         distance_km: Number(distanceKm.toFixed(2)),
         eta_minutes: etaMinutes,
-        provider: routeSnapshot.provider,
-        polyline,
+        provider: routeContract.provider,
+        route_snapshot: routeSnapshot,
+        route_polyline: routeContract.route_polyline,
+        route_profile: routeContract.route_profile,
+        vehicle_type: routeContract.vehicle_type,
+        route_snapshot_hash: routeContract.snapshot_hash,
+        route_version: routeContract.route_version,
+        fallback_reason: routeContract.fallback_reason || null,
+        polyline: legacyPolyline,
       },
       message: 'Route preview loaded',
     });
@@ -1799,6 +1937,17 @@ type CreatedDispatchOffer = {
   customer_name: string | null;
   expires_at: Date;
   service_name?: string | null;
+  service_code?: string | null;
+  vehicle_type?: string | null;
+  route_profile?: string | null;
+  route_provider?: string | null;
+  route_distance_meters?: number | null;
+  route_duration_seconds?: number | null;
+  eta_minutes?: number | null;
+  route_snapshot_hash?: string | null;
+  route_snapshot_version?: number | null;
+  route_version?: string | null;
+  courier_payout_estimate_idr?: number | null;
 };
 
 const expireStaleOnDemandOffers = async (client: any): Promise<CreatedDispatchOffer[]> => {
@@ -1859,13 +2008,37 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
          COALESCE(ST_Distance(cp.current_location, o.pickup_location)::int, 0) AS distance_m,
          COALESCE(cp.avg_partner_rating, cp.relay_score, 5.00)::numeric(3,2) AS rating_snapshot,
          COALESCE(cp.acceptance_rate_pct, 100)::int AS acceptance_rate_snapshot,
-         COALESCE(cp.completion_rate_pct, 100)::int AS completion_rate_snapshot,
-         o.pickup_address,
-         o.dropoff_address,
-         COALESCE(o.distance_km, 0)::text AS distance,
-         COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::text AS fee,
-         COALESCE(u.full_name, 'Customer') AS customer_name,
-         COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR On Demand') AS service_name
+          COALESCE(cp.completion_rate_pct, 100)::int AS completion_rate_snapshot,
+          o.pickup_address,
+          o.dropoff_address,
+          COALESCE(
+            NULLIF(o.route_snapshot->>'distance_km', '')::numeric,
+            CASE
+              WHEN COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0) > 0
+              THEN ROUND(COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int)::numeric / 1000.0, 2)
+              ELSE NULL
+            END,
+            o.distance_km,
+            0
+          )::text AS distance,
+          COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::text AS fee,
+          COALESCE(NULLIF(o.courier_payout_estimate_idr, 0), GREATEST(o.total_price_idr - o.platform_commission_idr, 0), 0)::int AS courier_payout_estimate_idr,
+          COALESCE(o.total_price_idr, 0)::int AS customer_price_idr,
+          o.route_snapshot,
+          o.route_provider,
+          o.route_profile,
+          COALESCE(o.route_distance_meters, NULLIF(o.route_snapshot->>'distance_meters', '')::int, 0)::int AS route_distance_meters,
+          COALESCE(o.route_duration_seconds, NULLIF(o.route_snapshot->>'duration_seconds', '')::int, 0)::int AS route_duration_seconds,
+          o.route_polyline,
+          o.route_fallback_reason,
+          NULLIF(o.route_snapshot->>'vehicle_type', '') AS vehicle_type,
+          NULLIF(o.route_snapshot->>'eta_minutes', '')::int AS eta_minutes,
+          NULLIF(o.route_snapshot->>'snapshot_hash', '') AS route_snapshot_hash,
+          NULLIF(o.route_snapshot->>'snapshot_version', '')::int AS route_snapshot_version,
+          NULLIF(o.route_snapshot->>'route_version', '') AS route_version,
+          o.service_code,
+          COALESCE(u.full_name, 'Customer') AS customer_name,
+          COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR On Demand') AS service_name
        FROM orders o
        JOIN delivery_service_products dsp ON dsp.code = o.service_code
         AND dsp.is_enabled = TRUE
@@ -1925,6 +2098,22 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
 
   const nextCourier = candidate.rows[0];
   if (!nextCourier) return null;
+  const routeContract = routeContractFromOrder(nextCourier);
+  const routeDispatchMetadata = {
+    source: 'dispatch_engine_v1',
+    route_snapshot_hash: routeContract.snapshot_hash,
+    route_snapshot_version: routeContract.snapshot_version,
+    route_version: routeContract.route_version,
+    route_provider: routeContract.provider,
+    route_profile: routeContract.route_profile,
+    route_distance_meters: routeContract.distance_meters,
+    route_duration_seconds: routeContract.duration_seconds,
+    eta_minutes: routeContract.eta_minutes,
+    vehicle_type: routeContract.vehicle_type,
+    service_code: routeContract.service_code,
+    courier_payout_estimate_idr: Number(nextCourier.courier_payout_estimate_idr || 0),
+    customer_price_idr: Number(nextCourier.customer_price_idr || 0),
+  };
 
   const rank = await client.query(
     `SELECT COALESCE(MAX(rank_number), 0) + 1 AS next_rank
@@ -1961,7 +2150,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
       nextCourier.acceptance_rate_snapshot,
       nextCourier.completion_rate_snapshot,
       ON_DEMAND_OFFER_TTL_SECONDS,
-      JSON.stringify({ source: 'dispatch_engine_v1' }),
+      JSON.stringify(routeDispatchMetadata),
     ]
   );
 
@@ -1990,6 +2179,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
         ttl_seconds: ON_DEMAND_OFFER_TTL_SECONDS,
         rank_number: Number(rank.rows[0]?.next_rank || 1),
         score: Number(nextCourier.score || 0),
+        ...routeDispatchMetadata,
       }),
     ]
   );
@@ -2000,11 +2190,22 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
     courier_id: nextCourier.courier_id,
     pickup_address: nextCourier.pickup_address,
     dropoff_address: nextCourier.dropoff_address,
-    distance: nextCourier.distance,
+    distance: routeContract.distance_km > 0 ? String(routeContract.distance_km) : nextCourier.distance,
     fee: nextCourier.fee,
     customer_name: nextCourier.customer_name,
     expires_at: dispatch.expires_at,
     service_name: nextCourier.service_name,
+    service_code: nextCourier.service_code,
+    vehicle_type: routeContract.vehicle_type,
+    route_profile: routeContract.route_profile,
+    route_provider: routeContract.provider,
+    route_distance_meters: routeContract.distance_meters,
+    route_duration_seconds: routeContract.duration_seconds,
+    eta_minutes: routeContract.eta_minutes,
+    route_snapshot_hash: routeContract.snapshot_hash,
+    route_snapshot_version: routeContract.snapshot_version,
+    route_version: routeContract.route_version,
+    courier_payout_estimate_idr: Number(nextCourier.courier_payout_estimate_idr || 0),
   };
 };
 
@@ -2051,6 +2252,17 @@ export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
           fee: offer.fee || '',
           customer_name: offer.customer_name || '',
           service_name: offer.service_name || 'LANCAR On Demand',
+          service_code: offer.service_code || '',
+          vehicle_type: offer.vehicle_type || '',
+          route_profile: offer.route_profile || '',
+          route_provider: offer.route_provider || '',
+          route_distance_meters: offer.route_distance_meters || 0,
+          route_duration_seconds: offer.route_duration_seconds || 0,
+          eta_minutes: offer.eta_minutes || 0,
+          route_snapshot_hash: offer.route_snapshot_hash || '',
+          route_snapshot_version: offer.route_snapshot_version || null,
+          route_version: offer.route_version || '',
+          courier_payout_estimate_idr: offer.courier_payout_estimate_idr || Number(offer.fee || 0) || 0,
           expires_at: offer.expires_at,
           offer_ttl_seconds: ON_DEMAND_OFFER_TTL_SECONDS,
         },
@@ -2072,6 +2284,17 @@ export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
           fee: offer.fee || '',
           customer_name: offer.customer_name || '',
           service_name: offer.service_name || 'LANCAR On Demand',
+          service_code: offer.service_code || '',
+          vehicle_type: offer.vehicle_type || '',
+          route_profile: offer.route_profile || '',
+          route_provider: offer.route_provider || '',
+          route_distance_meters: String(offer.route_distance_meters || 0),
+          route_duration_seconds: String(offer.route_duration_seconds || 0),
+          eta_minutes: String(offer.eta_minutes || 0),
+          route_snapshot_hash: offer.route_snapshot_hash || '',
+          route_snapshot_version: String(offer.route_snapshot_version || ''),
+          route_version: offer.route_version || '',
+          courier_payout_estimate_idr: String(offer.courier_payout_estimate_idr || Number(offer.fee || 0) || 0),
           model: 'p2p',
           workflow_role: 'on_demand',
           offer_expires_at: new Date(offer.expires_at).getTime().toString(),
@@ -2152,17 +2375,26 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
          d.id AS dispatch_id,
          d.order_id,
          d.courier_id,
-         d.status AS dispatch_status,
-         d.expires_at,
-         d.zone_id,
-         o.model,
-         o.total_price_idr,
-         o.courier_payout_estimate_idr,
-         o.platform_commission_idr,
-         o.pickup_location,
-         o.service_code,
-         o.customer_id,
-         o.order_number
+          d.status AS dispatch_status,
+          d.expires_at,
+          d.zone_id,
+          d.metadata AS dispatch_metadata,
+          o.model,
+          o.total_price_idr,
+          o.courier_payout_estimate_idr,
+          o.platform_commission_idr,
+          o.pickup_location,
+          o.service_code,
+          o.customer_id,
+          o.order_number,
+          o.route_snapshot,
+          o.route_provider,
+          o.route_profile,
+          o.route_distance_meters,
+          o.route_duration_seconds,
+          o.route_polyline,
+          o.route_fallback_reason,
+          NULLIF(o.route_snapshot->>'vehicle_type', '') AS route_vehicle_type
        FROM courier_offer_dispatches d
        JOIN orders o ON o.id = d.order_id
        WHERE (d.id = $1 OR d.order_id = $1)
@@ -2179,6 +2411,20 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       res.status(404).json({ success: false, data: null, message: 'Offer not found', code: 'ERR_NOT_FOUND' });
       return;
     }
+    const acceptedRouteContract = routeContractFromOrder(dispatch);
+    const acceptedRouteMetadata = {
+      route_snapshot_hash: acceptedRouteContract.snapshot_hash,
+      route_snapshot_version: acceptedRouteContract.snapshot_version,
+      route_version: acceptedRouteContract.route_version,
+      route_provider: acceptedRouteContract.provider,
+      route_profile: acceptedRouteContract.route_profile,
+      route_distance_meters: acceptedRouteContract.distance_meters,
+      route_duration_seconds: acceptedRouteContract.duration_seconds,
+      eta_minutes: acceptedRouteContract.eta_minutes,
+      vehicle_type: acceptedRouteContract.vehicle_type,
+      service_code: acceptedRouteContract.service_code || dispatch.service_code,
+      courier_payout_estimate_idr: Number(dispatch.courier_payout_estimate_idr || 0),
+    };
 
     if (dispatch.dispatch_status !== 'offered' || new Date(dispatch.expires_at).getTime() <= Date.now()) {
       await client.query('ROLLBACK');
@@ -2308,7 +2554,11 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
     await client.query(
       `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
        VALUES ($1, $2, 'offer_accepted', 'Courier accepted on-demand offer', $3)`,
-      [dispatch.order_id, req.user.id, JSON.stringify({ source: 'courier_app', dispatch_id: dispatch.dispatch_id })]
+      [dispatch.order_id, req.user.id, JSON.stringify({
+        source: 'courier_app',
+        dispatch_id: dispatch.dispatch_id,
+        ...acceptedRouteMetadata,
+      })]
     );
 
     const accepted = await client.query(
@@ -2334,8 +2584,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       stage: 'courier_otw_pickup',
       metadata: {
         dispatch_id: dispatch.dispatch_id,
-        service_code: dispatch.service_code,
-        courier_payout_estimate_idr: dispatch.courier_payout_estimate_idr,
+        ...acceptedRouteMetadata,
       },
     });
     emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.COURIER_OTW_PICKUP, {
@@ -2347,7 +2596,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
       stage: 'courier_otw_pickup',
       metadata: {
         dispatch_id: dispatch.dispatch_id,
-        service_code: dispatch.service_code,
+        ...acceptedRouteMetadata,
       },
     });
     if (dispatch.customer_id) {
@@ -2363,6 +2612,8 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
             order_number: dispatch.order_number || '',
             courier_id: req.user.id,
             dispatch_id: dispatch.dispatch_id,
+            route_snapshot_hash: acceptedRouteMetadata.route_snapshot_hash || '',
+            route_provider: acceptedRouteMetadata.route_provider || '',
           },
         });
       } catch (notificationError) {

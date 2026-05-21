@@ -66,6 +66,44 @@ private val LogisticsOrange = Color(0xFFFF6D00)
 private val DeepForest = Color(0xFF0A2F20)
 private val OnDemandSurface = Color(0xFFF2F5F0)
 
+private fun decodeRoutePolyline(encoded: String?): List<LatLng> {
+    if (encoded.isNullOrBlank()) return emptyList()
+
+    val points = mutableListOf<LatLng>()
+    var index = 0
+    var latitude = 0
+    var longitude = 0
+
+    while (index < encoded.length) {
+        var result = 0
+        var shift = 0
+        var byteValue: Int
+        do {
+            if (index >= encoded.length) return points
+            byteValue = encoded[index++].code - 63
+            result = result or ((byteValue and 0x1f) shl shift)
+            shift += 5
+        } while (byteValue >= 0x20)
+        val deltaLatitude = if ((result and 1) != 0) (result shr 1).inv() else result shr 1
+        latitude += deltaLatitude
+
+        result = 0
+        shift = 0
+        do {
+            if (index >= encoded.length) return points
+            byteValue = encoded[index++].code - 63
+            result = result or ((byteValue and 0x1f) shl shift)
+            shift += 5
+        } while (byteValue >= 0x20)
+        val deltaLongitude = if ((result and 1) != 0) (result shr 1).inv() else result shr 1
+        longitude += deltaLongitude
+
+        points.add(LatLng(latitude / 1E5, longitude / 1E5))
+    }
+
+    return points
+}
+
 /**
  * Order Detail Screen
  * 
@@ -243,13 +281,24 @@ private fun DeliveryMapCard(
                         pickupLatLng?.let { add(RuntimeMapMarker("pickup", it, "Pickup", order.pickupAddress)) }
                         dropLatLng?.let { add(RuntimeMapMarker("dropoff", it, "Dropoff", order.dropAddress)) }
                     }
-                    val backendRoutePoints = routePreview?.polyline
-                        ?.map { LatLng(it.latitude, it.longitude) }
-                        .orEmpty()
-                    val routePoints = backendRoutePoints.ifEmpty {
-                        val pickup = pickupLatLng
-                        val dropoff = dropLatLng
-                        if (pickup != null && dropoff != null) listOf(pickup, dropoff) else emptyList()
+                    val encodedRoutePoints = decodeRoutePolyline(
+                        routePreview?.routePolyline ?: routePreview?.routeSnapshot?.routePolyline
+                    )
+                    val canShowBackendFallbackLine =
+                        routePreview?.fallbackReason?.isNotBlank() == true ||
+                            routePreview?.routeSnapshot?.fallbackReason?.isNotBlank() == true
+                    val legacyFallbackPoints = if (canShowBackendFallbackLine) {
+                        routePreview?.polyline
+                            ?.map { LatLng(it.latitude, it.longitude) }
+                            .orEmpty()
+                    } else {
+                        emptyList()
+                    }
+                    val routePoints = when {
+                        encodedRoutePoints.isNotEmpty() -> encodedRoutePoints
+                        legacyFallbackPoints.isNotEmpty() -> legacyFallbackPoints
+                        canShowBackendFallbackLine && pickupLatLng != null && dropLatLng != null -> listOf(pickupLatLng!!, dropLatLng!!)
+                        else -> emptyList()
                     }
                     RuntimeMapRenderer(
                         providerConfig = mapsProviderConfig,
@@ -841,6 +890,14 @@ private fun saveCancellationPhoto(context: android.content.Context, orderId: Str
 
 @Composable
 private fun RoutePreviewStrip(routePreview: CourierRoutePreview) {
+    val snapshot = routePreview.routeSnapshot
+    val distanceKm = snapshot?.distanceKm?.takeIf { it > 0.0 } ?: routePreview.distanceKm
+    val etaMinutes = snapshot?.etaMinutes?.takeIf { it > 0 } ?: routePreview.etaMinutes
+    val provider = snapshot?.activeProvider?.takeIf { it.isNotBlank() }
+        ?: snapshot?.provider?.takeIf { it.isNotBlank() }
+        ?: routePreview.provider
+    val hasRouteGeometry = !routePreview.routePolyline.isNullOrBlank() || !snapshot?.routePolyline.isNullOrBlank()
+    val hasFallback = !routePreview.fallbackReason.isNullOrBlank() || !snapshot?.fallbackReason.isNullOrBlank()
     Surface(
         color = Color.White.copy(alpha = 0.82f),
         shape = RoundedCornerShape(8.dp),
@@ -856,13 +913,20 @@ private fun RoutePreviewStrip(routePreview: CourierRoutePreview) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Preview rute", fontWeight = FontWeight.Bold, color = DeepForest)
                 Text(
-                    "${"%.1f".format(routePreview.distanceKm)} km • ETA ${routePreview.etaMinutes} menit",
+                    "${String.format(Locale.US, "%.1f", distanceKm)} km • ETA $etaMinutes menit",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (!hasRouteGeometry || hasFallback) {
+                    Text(
+                        "Estimasi sementara. Rute sedang diperbarui.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             Surface(color = PrimaryLight, shape = RoundedCornerShape(8.dp)) {
-                Text(routePreview.provider.uppercase(), modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = Primary, fontWeight = FontWeight.Bold)
+                Text(provider.uppercase(Locale.getDefault()), modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp), style = MaterialTheme.typography.labelSmall, color = Primary, fontWeight = FontWeight.Bold)
             }
         }
     }

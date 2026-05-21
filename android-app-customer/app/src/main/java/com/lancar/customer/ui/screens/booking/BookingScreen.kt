@@ -58,11 +58,13 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -121,14 +123,57 @@ private fun BookingState.selectedService(): DeliveryServiceProduct? {
     return services.firstOrNull { it.code == selectedServiceCode }
 }
 
+private fun PriceBreakdown.hasRoadRouteSnapshot(): Boolean {
+    val snapshot = routeSnapshot
+    val routePolyline = snapshot?.routePolyline?.trim().orEmpty()
+    val provider = snapshot?.provider.orEmpty()
+    return routePolyline.isNotBlank() &&
+        decodeRoutePolyline(routePolyline).size > 1 &&
+        !provider.contains("haversine", ignoreCase = true) &&
+        (snapshot?.distanceKm?.takeIf { it > 0.0 } ?: distanceKm) > 0.0
+}
+
 private fun BookingState.selectedPrice(): PriceBreakdown? {
-    return priceBreakdowns[selectedServiceCode]
+    return priceBreakdowns[selectedServiceCode]?.takeIf { it.hasRoadRouteSnapshot() }
 }
 
 private fun BookingState.isRecipientReady(): Boolean {
     return recipientName.trim().length >= 2 &&
         recipientPhone.trim().length >= 8 &&
         itemDescription.trim().length >= 3
+}
+
+private fun decodeRoutePolyline(encoded: String?): List<LatLng> {
+    if (encoded.isNullOrBlank()) return emptyList()
+    val routePoints = mutableListOf<LatLng>()
+    var index = 0
+    var lat = 0
+    var lng = 0
+
+    while (index < encoded.length) {
+        var result = 0
+        var shift = 0
+        do {
+            if (index >= encoded.length) return routePoints
+            val byteValue = encoded[index++].code - 63
+            result = result or ((byteValue and 0x1f) shl shift)
+            shift += 5
+        } while (byteValue >= 0x20)
+        lat += if ((result and 1) != 0) (result shr 1).inv() else result shr 1
+
+        result = 0
+        shift = 0
+        do {
+            if (index >= encoded.length) return routePoints
+            val byteValue = encoded[index++].code - 63
+            result = result or ((byteValue and 0x1f) shl shift)
+            shift += 5
+        } while (byteValue >= 0x20)
+        lng += if ((result and 1) != 0) (result shr 1).inv() else result shr 1
+        routePoints.add(LatLng(lat / 1E5, lng / 1E5))
+    }
+
+    return routePoints
 }
 
 @OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
@@ -182,6 +227,7 @@ fun BookingScreen(
     LaunchedEffect(serviceAutoKey, uiState.selectedServiceCode) {
         if (
             uiState.isRouteComplete() &&
+            !uiState.isCalculatingRoute &&
             uiState.priceBreakdowns.isNotEmpty() &&
             uiState.selectedServiceCode.isBlank() &&
             serviceAutoKey != lastAutoServiceKey
@@ -198,16 +244,26 @@ fun BookingScreen(
         }
     }
 
+    fun openServicePicker() {
+        when {
+            !uiState.isRouteComplete() -> Toast.makeText(context, "Pilih lokasi pickup dan tujuan dulu.", Toast.LENGTH_SHORT).show()
+            uiState.isCalculatingRoute -> Toast.makeText(context, "Sistem sedang menghitung rute jalan dan harga.", Toast.LENGTH_SHORT).show()
+            uiState.priceBreakdowns.isEmpty() -> Toast.makeText(context, "Rute jalan belum tersedia untuk alamat ini.", Toast.LENGTH_SHORT).show()
+            else -> showServiceSheet = true
+        }
+    }
+
     Scaffold(
         containerColor = Color(0xFFF3F5F8),
         bottomBar = {
             SelectedServiceBar(
                 state = uiState,
-                onChooseService = { showServiceSheet = true },
+                onChooseService = { openServicePicker() },
                 onContinue = {
                     when {
                         !uiState.isRouteComplete() -> Toast.makeText(context, "Pilih lokasi pickup dan tujuan dulu.", Toast.LENGTH_SHORT).show()
-                        uiState.selectedPrice() == null -> showServiceSheet = true
+                        uiState.isCalculatingRoute -> Toast.makeText(context, "Sistem sedang menghitung rute jalan dan harga.", Toast.LENGTH_SHORT).show()
+                        uiState.selectedPrice() == null -> openServicePicker()
                         !uiState.isRecipientReady() -> Toast.makeText(context, "Lengkapi detail penerima dan isi paket.", Toast.LENGTH_SHORT).show()
                         else -> showReviewSheet = true
                     }
@@ -248,7 +304,7 @@ fun BookingScreen(
                 item {
                     ServiceInlinePreview(
                         state = uiState,
-                        onChooseService = { showServiceSheet = true }
+                        onChooseService = { openServicePicker() }
                     )
                 }
                 if (uiState.selectedPrice() != null) {
@@ -269,11 +325,21 @@ fun BookingScreen(
                         )
                     }
                 }
-                item {
-                    RoutePreviewCard(
-                        state = uiState,
-                        locationEnabled = locationPermissionState.status.isGranted
-                    )
+                if (uiState.isCalculatingRoute) {
+                    item {
+                        RoutePricingProgressCard()
+                    }
+                } else if (uiState.selectedPrice() != null) {
+                    item {
+                        RoutePreviewCard(
+                            state = uiState,
+                            locationEnabled = locationPermissionState.status.isGranted
+                        )
+                    }
+                } else if (uiState.priceBreakdowns.isEmpty()) {
+                    item {
+                        RouteUnavailableCard()
+                    }
                 }
             } else {
                 item {
@@ -892,12 +958,14 @@ private fun RoutePreviewCard(
     locationEnabled: Boolean
 ) {
     LcCard {
-        val selectedPrice = state.priceBreakdowns[state.selectedServiceCode]
+        val selectedPrice = state.selectedPrice()
+        val selectedSnapshot = selectedPrice?.routeSnapshot
+        val selectedDistanceKm = selectedSnapshot?.distanceKm?.takeIf { it > 0.0 } ?: selectedPrice?.distanceKm
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Preview rute", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
             Spacer(Modifier.weight(1f))
-            if (selectedPrice != null) {
-                Text("${selectedPrice.distanceKm} km", color = LcGreen, fontWeight = FontWeight.ExtraBold)
+            if (selectedDistanceKm != null) {
+                Text("${String.format(Locale.US, "%.1f", selectedDistanceKm)} km", color = LcGreen, fontWeight = FontWeight.ExtraBold)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -916,15 +984,14 @@ private fun RoutePreviewCard(
                     add(RuntimeMapMarker("dropoff", it, "Dropoff", state.destinationAddress))
                 }
             }
-            val routePoints = if (state.pickupLocation != null && state.destinationLocation != null) {
-                listOf(state.pickupLocation, state.destinationLocation)
-            } else {
-                emptyList()
-            }
+            val routeSnapshot = selectedSnapshot
+            val backendRoutePoints = decodeRoutePolyline(routeSnapshot?.routePolyline)
+            val routePoints = backendRoutePoints
             RuntimeMapRenderer(
                 providerConfig = state.mapsProviderConfig,
                 markers = markers,
                 routePoints = routePoints,
+                followLocation = null,
                 googleProperties = MapProperties(isMyLocationEnabled = locationEnabled),
                 googleUiSettings = MapUiSettings(
                     zoomControlsEnabled = false,
@@ -935,8 +1002,8 @@ private fun RoutePreviewCard(
                     mapToolbarEnabled = false
                 ),
                 routeColor = LcGreen,
-                fallbackTitle = "Preview rute siap",
-                fallbackMessage = "Pilih titik pickup dan tujuan. Rute dihitung oleh backend sesuai provider peta aktif.",
+                fallbackTitle = "Rute belum tersedia",
+                fallbackMessage = "Harga baru tampil setelah rute jalan valid dari provider peta.",
                 modifier = Modifier.fillMaxSize()
             )
             if (state.destinationLocation == null) {
@@ -954,12 +1021,48 @@ private fun RoutePreviewCard(
 }
 
 @Composable
+private fun RoutePricingProgressCard() {
+    LcCard {
+        Text("Menghitung rute & harga", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Sistem mengambil rute jalan dari provider peta aktif sebelum layanan bisa dipilih.",
+            color = Muted,
+            lineHeight = 20.sp
+        )
+        Spacer(Modifier.height(16.dp))
+        LinearProgressIndicator(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(CircleShape),
+            color = LcGreen,
+            trackColor = SoftGreen
+        )
+    }
+}
+
+@Composable
+private fun RouteUnavailableCard() {
+    LcCard {
+        Text("Rute belum tersedia", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "Pilih alamat yang lebih spesifik. Harga tidak akan ditampilkan jika sistem belum mendapat rute jalan yang valid.",
+            color = Muted,
+            lineHeight = 20.sp
+        )
+    }
+}
+
+@Composable
 private fun ServiceInlinePreview(
     state: BookingState,
     onChooseService: () -> Unit
 ) {
     val selected = state.selectedService()
     val price = state.selectedPrice()
+    val isPricingReady = state.priceBreakdowns.isNotEmpty() && !state.isCalculatingRoute
     LcCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -973,21 +1076,40 @@ private fun ServiceInlinePreview(
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(selected?.name ?: "Pilih layanan", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
                 Text(
-                    if (price != null) "Estimasi ${etaLabel(price.etaMinutes)}" else "Harga sudah dihitung. Pilih layanan yang cocok.",
+                    when {
+                        state.isCalculatingRoute -> "Menghitung layanan"
+                        selected != null -> selected.name
+                        else -> "Pilih layanan"
+                    },
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Ink
+                )
+                Text(
+                    when {
+                        state.isCalculatingRoute -> "Rute jalan dan harga sedang diproses."
+                        price != null -> "Estimasi ${etaLabel(price.etaMinutes)}"
+                        isPricingReady -> "Harga sudah dihitung. Pilih layanan yang cocok."
+                        else -> "Harga tampil setelah rute jalan valid."
+                    },
                     color = Muted,
                     fontSize = 14.sp
                 )
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    if (price != null) formatRupiah(price.totalPriceIdr) else "${state.priceBreakdowns.size} opsi",
+                    if (price != null) formatRupiah(price.totalPriceIdr) else if (isPricingReady) "${state.priceBreakdowns.size} opsi" else "-",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Ink
                 )
-                TextButton(onClick = onChooseService) { Text(if (selected == null) "Pilih" else "Ganti") }
+                TextButton(
+                    onClick = onChooseService,
+                    enabled = isPricingReady
+                ) {
+                    Text(if (selected == null) "Pilih" else "Ganti")
+                }
             }
         }
     }
@@ -1003,8 +1125,10 @@ private fun SelectedServiceBar(
     val price = state.selectedPrice()
     val routeReady = state.isRouteComplete()
     val recipientReady = state.isRecipientReady()
+    val isPricingReady = state.priceBreakdowns.isNotEmpty() && !state.isCalculatingRoute
     val buttonLabel = when {
         !routeReady -> "Lengkapi alamat"
+        state.isCalculatingRoute -> "Menghitung harga..."
         price == null -> "Pilih layanan"
         !recipientReady -> "Tambah detail pengiriman"
         else -> "Kirim ${selected?.name ?: "LANCAR"} • ${formatRupiah(price.totalPriceIdr)}"
@@ -1041,6 +1165,7 @@ private fun SelectedServiceBar(
                 Text(
                     when {
                         !routeReady -> "Alamat pickup dan tujuan wajib diisi"
+                        state.isCalculatingRoute -> "Rute jalan sedang dihitung"
                         price == null -> "Pilih service setelah harga tampil"
                         !recipientReady -> "Lengkapi penerima dan isi paket"
                         else -> "Review sebelum order dikirim"
@@ -1049,7 +1174,7 @@ private fun SelectedServiceBar(
                     fontSize = 13.sp
                 )
             }
-            TextButton(onClick = onChooseService) {
+            TextButton(onClick = onChooseService, enabled = isPricingReady) {
                 Text(if (state.services.size > 1) "Pilih" else "Detail", fontWeight = FontWeight.Bold)
             }
             Text(
@@ -1062,7 +1187,7 @@ private fun SelectedServiceBar(
         Spacer(Modifier.height(14.dp))
         Button(
             onClick = onContinue,
-            enabled = routeReady && state.priceBreakdowns.isNotEmpty() && !state.isLoading,
+            enabled = routeReady && price != null && !state.isLoading && !state.isCalculatingRoute,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -1097,7 +1222,25 @@ private fun ServicePickerSheet(
         )
         Text("Pilih layanan LANCAR", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         Text("Harga final dihitung dari pricing admin, jarak, berat, dan fitur tambahan.", color = Muted, lineHeight = 20.sp)
-        if (state.priceBreakdowns.isEmpty()) {
+        if (state.isCalculatingRoute) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = SoftGreen),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Menghitung harga dari rute jalan", color = Ink, fontWeight = FontWeight.ExtraBold)
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(CircleShape),
+                        color = LcGreen,
+                        trackColor = Color.White
+                    )
+                }
+            }
+        } else if (state.priceBreakdowns.isEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = SoftOrange),
@@ -1215,6 +1358,7 @@ private fun BookingReviewSheet(
         Text("Cek lagi detail pengiriman", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         Text("Pastikan alamat, penerima, layanan, dan harga sudah benar sebelum order diteruskan ke kurir.", color = Muted)
         ReviewRouteBlock(state)
+        ReviewRouteSnapshotBlock(state = state, price = price)
         ReviewInfoRow("Penerima", state.recipientName, state.recipientPhone)
         ReviewInfoRow("Isi paket", state.itemDescription, "${state.packageWeight.toInt()} kg • ${state.packageLength}x${state.packageWidth}x${state.packageHeight} cm")
         Row(
@@ -1249,6 +1393,94 @@ private fun BookingReviewSheet(
             )
         }
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun ReviewRouteSnapshotBlock(state: BookingState, price: PriceBreakdown?) {
+    val snapshot = price?.routeSnapshot
+    val pickupPoint = state.pickupLocation
+    val dropoffPoint = state.destinationLocation
+    val backendRoutePoints = decodeRoutePolyline(snapshot?.routePolyline)
+    val routePoints = backendRoutePoints
+    val markers = buildList {
+        pickupPoint?.let { add(RuntimeMapMarker("review-pickup", it, "Pickup", state.pickupAddress)) }
+        dropoffPoint?.let { add(RuntimeMapMarker("review-dropoff", it, "Dropoff", state.destinationAddress)) }
+    }
+    val distanceKm = snapshot?.distanceKm?.takeIf { it > 0.0 } ?: price?.distanceKm
+    val etaText = snapshot?.eta?.takeIf { it.isNotBlank() }
+        ?: snapshot?.etaMinutes?.takeIf { it > 0 }?.let { etaLabel(it) }
+        ?: price?.etaMinutes?.takeIf { it > 0 }?.let { etaLabel(it) }
+        ?: "Estimasi sementara"
+    val provider = snapshot?.activeProvider?.takeIf { it.isNotBlank() }
+        ?: snapshot?.provider?.takeIf { it.isNotBlank() }
+        ?: state.mapsProviderConfig.activeProvider
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .border(BorderStroke(1.dp, Color(0xFFDCEFE7)), RoundedCornerShape(22.dp))
+            .background(Color(0xFFF6FFFA))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Rute & estimasi", color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                Text(
+                    listOfNotNull(
+                        distanceKm?.let { "${String.format(Locale.US, "%.1f", it)} km" },
+                        etaText
+                    ).joinToString(" • "),
+                    color = Muted,
+                    fontSize = 13.sp
+                )
+            }
+            Surface(color = SoftGreen, shape = RoundedCornerShape(12.dp)) {
+                Text(
+                    provider.uppercase(Locale.getDefault()),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    color = LcGreen,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 11.sp
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(158.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(SoftBlue)
+        ) {
+            RuntimeMapRenderer(
+                providerConfig = state.mapsProviderConfig,
+                markers = markers,
+                routePoints = routePoints,
+                followLocation = null,
+                googleProperties = MapProperties(isMyLocationEnabled = false),
+                googleUiSettings = MapUiSettings(
+                    zoomControlsEnabled = false,
+                    compassEnabled = false,
+                    myLocationButtonEnabled = false,
+                    scrollGesturesEnabled = false,
+                    zoomGesturesEnabled = false,
+                    mapToolbarEnabled = false
+                ),
+                routeColor = LcGreen,
+                fallbackTitle = "Rute sedang diperbarui",
+                fallbackMessage = "Estimasi sementara tetap aman dipakai untuk order ini.",
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        if (snapshot?.fallbackReason?.isNotBlank() == true) {
+            Text(
+                "Estimasi sementara. Rute akan diperbarui otomatis saat provider aktif.",
+                color = Muted,
+                fontSize = 12.sp
+            )
+        }
     }
 }
 

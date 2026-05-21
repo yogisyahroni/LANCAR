@@ -20,6 +20,10 @@ describe('on-demand tracking policy', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
+    delete process.env.GOOGLE_ROUTES_API_KEY;
+    delete process.env.GOOGLE_ROUTES_API_URL;
+    delete process.env.GOOGLE_ROUTES_ALLOWED_HOSTS;
+    delete process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED;
     delete process.env.GOOGLE_MAPS_API_KEY;
     delete process.env.GOOGLE_DIRECTIONS_API_KEY;
   });
@@ -126,13 +130,14 @@ describe('on-demand tracking policy', () => {
   });
 
   it('caches successful Google route and falls back safely on provider errors', async () => {
-    process.env.GOOGLE_DIRECTIONS_API_KEY = 'directions-real-key';
+    process.env.GOOGLE_ROUTES_API_KEY = 'routes-real-key';
     (redis.get as jest.Mock).mockResolvedValueOnce(null);
-    (axios.get as jest.Mock).mockResolvedValueOnce({
+    (axios.post as jest.Mock).mockResolvedValueOnce({
       data: {
         routes: [{
-          overview_polyline: { points: 'fresh-polyline' },
-          legs: [{ duration: { text: '9 mins', value: 540 } }],
+          duration: '540s',
+          distanceMeters: 5100,
+          polyline: { encodedPolyline: 'fresh-polyline' },
         }],
       },
     });
@@ -143,14 +148,17 @@ describe('on-demand tracking policy', () => {
     );
 
     expect(route).toEqual(expect.objectContaining({
-      provider: 'google_directions',
+      provider: 'google_routes_drive_traffic_aware_fallback',
       eta_minutes: 9,
       route_polyline: 'fresh-polyline',
+      distance_meters: 5100,
+      traffic_aware: true,
     }));
     expect(redis.set).toHaveBeenCalledWith(expect.stringMatching(/^route:on-demand:/), expect.any(String), 'EX', 60);
 
+    process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED = 'true';
     (redis.get as jest.Mock).mockResolvedValueOnce(null);
-    (axios.get as jest.Mock).mockRejectedValueOnce(new Error('provider down'));
+    (axios.post as jest.Mock).mockRejectedValueOnce(new Error('provider down'));
 
     const fallback = await buildRouteEtaSnapshot(
       { latitude: -6.175392, longitude: 106.827153 },

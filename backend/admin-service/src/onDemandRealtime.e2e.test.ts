@@ -1,5 +1,5 @@
 import { getOrderTracking, sendOrderChat, syncCourierTracking } from './controllers/customerOrder.controller';
-import { notifyOnDemandOffers } from './controllers/courierAuth.controller';
+import { dispatchNextOnDemandCourier, notifyOnDemandOffers } from './controllers/courierAuth.controller';
 import { db } from './db';
 import { createNotification } from './notifications';
 import { getIO } from './websocket';
@@ -239,6 +239,17 @@ describe('on-demand realtime lifecycle contract', () => {
       customer_name: 'Customer Test',
       expires_at: new Date('2026-05-18T04:10:15.000Z'),
       service_name: 'LANCAR Instant',
+      service_code: 'LANCAR_INSTANT',
+      vehicle_type: 'motorcycle',
+      route_profile: 'motorcycle',
+      route_provider: 'openstreetmap',
+      route_distance_meters: 2400,
+      route_duration_seconds: 900,
+      eta_minutes: 15,
+      route_snapshot_hash: 'route-hash-1',
+      route_snapshot_version: 1,
+      route_version: 'route_snapshot_v1',
+      courier_payout_estimate_idr: 12000,
     }]);
 
     expect(to).toHaveBeenCalledWith('order:order-2');
@@ -253,6 +264,10 @@ describe('on-demand realtime lifecycle contract', () => {
         dispatch_id: 'dispatch-1',
         pickup_address: 'Monas, Jakarta Pusat',
         offer_ttl_seconds: 15,
+        route_snapshot_hash: 'route-hash-1',
+        route_distance_meters: 2400,
+        eta_minutes: 15,
+        courier_payout_estimate_idr: 12000,
       }),
     }));
     expect(emit).toHaveBeenCalledWith(ON_DEMAND_REALTIME_EVENTS.OFFER_CREATED, expect.objectContaining({
@@ -266,7 +281,99 @@ describe('on-demand realtime lifecycle contract', () => {
       metadata: expect.objectContaining({
         dispatch_id: 'dispatch-1',
         offer_ttl_seconds: '15',
+        route_snapshot_hash: 'route-hash-1',
+        route_distance_meters: '2400',
+        eta_minutes: '15',
       }),
+    }));
+  });
+
+  it('dispatches on-demand courier offers from the stored route snapshot contract', async () => {
+    const client = {
+      query: jest.fn(),
+    };
+    const routeSnapshot = {
+      generated_at: '2026-05-18T04:10:00.000Z',
+      provider: 'openstreetmap',
+      route_profile: 'motorcycle',
+      vehicle_type: 'motorcycle',
+      service_code: 'LANCAR_INSTANT',
+      distance_km: 2.4,
+      distance_meters: 2400,
+      duration_seconds: 900,
+      eta_minutes: 15,
+      route_polyline: 'encoded-route',
+      snapshot_version: 1,
+      route_version: 'route_snapshot_v1',
+      snapshot_hash: 'route-hash-1',
+    };
+
+    client.query
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
+        rows: [{
+          courier_id: 'courier-user-2',
+          zone_id: 'zone-1',
+          distance_m: 125,
+          rating_snapshot: '4.90',
+          acceptance_rate_snapshot: 100,
+          completion_rate_snapshot: 99,
+          pickup_address: 'Monas, Jakarta Pusat',
+          dropoff_address: 'GBK, Jakarta Pusat',
+          distance: '2.4',
+          fee: '12000',
+          courier_payout_estimate_idr: 12000,
+          customer_price_idr: 15000,
+          route_snapshot: routeSnapshot,
+          route_provider: 'openstreetmap',
+          route_profile: 'motorcycle',
+          route_distance_meters: 2400,
+          route_duration_seconds: 900,
+          route_polyline: 'encoded-route',
+          route_fallback_reason: null,
+          vehicle_type: 'motorcycle',
+          eta_minutes: 15,
+          route_snapshot_hash: 'route-hash-1',
+          route_snapshot_version: 1,
+          route_version: 'route_snapshot_v1',
+          service_code: 'LANCAR_INSTANT',
+          customer_name: 'Customer Test',
+          service_name: 'LANCAR Instant',
+          score: '98.20',
+        }],
+      })
+      .mockResolvedValueOnce({ rows: [{ next_rank: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'dispatch-1', expires_at: new Date('2026-05-18T04:10:15.000Z') }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const offer = await dispatchNextOnDemandCourier(client, 'order-2');
+
+    expect(offer).toEqual(expect.objectContaining({
+      dispatch_id: 'dispatch-1',
+      order_id: 'order-2',
+      courier_id: 'courier-user-2',
+      distance: '2.4',
+      fee: '12000',
+      eta_minutes: 15,
+      route_snapshot_hash: 'route-hash-1',
+      route_distance_meters: 2400,
+      courier_payout_estimate_idr: 12000,
+    }));
+    const insertDispatchCall = client.query.mock.calls.find(([sql]: [string]) => sql.includes('INSERT INTO courier_offer_dispatches'));
+    expect(JSON.parse(insertDispatchCall?.[1]?.[10])).toEqual(expect.objectContaining({
+      source: 'dispatch_engine_v1',
+      route_snapshot_hash: 'route-hash-1',
+      route_distance_meters: 2400,
+      route_duration_seconds: 900,
+      courier_payout_estimate_idr: 12000,
+    }));
+    const eventCall = client.query.mock.calls.find(([sql]: [string]) => sql.includes('offer_dispatched'));
+    expect(JSON.parse(eventCall?.[1]?.[2])).toEqual(expect.objectContaining({
+      dispatch_id: 'dispatch-1',
+      route_snapshot_hash: 'route-hash-1',
+      eta_minutes: 15,
     }));
   });
 });

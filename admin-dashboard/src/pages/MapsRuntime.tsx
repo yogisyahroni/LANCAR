@@ -75,6 +75,7 @@ interface PublicMapsConfig {
 
 interface MapsProviderObservation {
   recorded_at: string
+  request_id?: string | null
   operation: string
   scope: MapScopeId
   requested_provider: MapProviderId
@@ -86,6 +87,12 @@ interface MapsProviderObservation {
   fallback_reason?: string | null
   error_message?: string | null
   result_count?: number | null
+  service_code?: string | null
+  route_profile?: string | null
+  vehicle_type?: string | null
+  distance_meters?: number | null
+  distance_km?: number | null
+  duration_seconds?: number | null
 }
 
 interface MapsOpsSnapshot {
@@ -117,6 +124,13 @@ interface MapsOpsSnapshot {
     total: number
     osm_fallbacks: number
     haversine_fallbacks: number
+  }
+  route_quality: {
+    route_events: number
+    road_route_successes: number
+    distance_anomalies: number
+    straight_line_fallbacks: number
+    cache_hit_rate_percent: number
   }
   last_error: MapsProviderObservation | null
   recent_events: MapsProviderObservation[]
@@ -462,7 +476,7 @@ export default function MapsRuntime() {
         </div>
       </div>
 
-      <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <MetricCard
           icon={Globe2}
           label="Active"
@@ -478,7 +492,7 @@ export default function MapsRuntime() {
         <MetricCard
           icon={Activity}
           label="Cache"
-          value={`${cacheHitRate}%`}
+          value={`${ops.route_quality?.cache_hit_rate_percent ?? cacheHitRate}%`}
           caption={`${ops.cache.hits} hit / ${ops.cache.misses} miss`}
         />
         <MetricCard
@@ -486,6 +500,12 @@ export default function MapsRuntime() {
           label="Fallback"
           value={`${ops.fallback.total}`}
           caption={`${ops.fallback.osm_fallbacks} OSM, ${ops.fallback.haversine_fallbacks} haversine`}
+        />
+        <MetricCard
+          icon={Route}
+          label="Route"
+          value={`${ops.route_quality?.road_route_successes || 0}/${ops.route_quality?.route_events || 0}`}
+          caption={`${ops.route_quality?.distance_anomalies || 0} anomaly, ${ops.route_quality?.straight_line_fallbacks || 0} straight-line fallback`}
         />
       </div>
 
@@ -760,10 +780,12 @@ export default function MapsRuntime() {
         </div>
 
         <div className="overflow-hidden rounded-3xl border border-white/10">
-          <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] border-b border-white/10 bg-white/[0.035] px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
+          <div className="grid grid-cols-[1fr_0.8fr_1fr_1fr_1fr_0.8fr] border-b border-white/10 bg-white/[0.035] px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">
             <span>Waktu</span>
             <span>Scope</span>
+            <span>Service</span>
             <span>Provider</span>
+            <span>Route</span>
             <span>Status</span>
           </div>
           {eventRows.length === 0 ? (
@@ -774,11 +796,16 @@ export default function MapsRuntime() {
             eventRows.map((event, index) => (
               <div
                 key={`${event.recorded_at}-${event.scope}-${index}`}
-                className="grid grid-cols-[1.2fr_1fr_1fr_1fr] items-center gap-3 border-b border-white/5 px-5 py-4 text-sm last:border-b-0"
+                className="grid grid-cols-[1fr_0.8fr_1fr_1fr_1fr_0.8fr] items-center gap-3 border-b border-white/5 px-5 py-4 text-sm last:border-b-0"
               >
                 <span className="font-medium text-zinc-300">{formatDateTime(event.recorded_at)}</span>
                 <span className="font-bold text-zinc-400">{event.scope}</span>
+                <span className="font-bold text-zinc-500">{event.service_code || '-'}</span>
                 <span className="font-bold text-zinc-400">{event.provider}</span>
+                <span className="font-bold text-zinc-500">
+                  {event.distance_meters ? `${Math.round(event.distance_meters / 100) / 10}km` : '-'}
+                  {event.duration_seconds ? ` · ${Math.ceil(event.duration_seconds / 60)}m` : ''}
+                </span>
                 <span className={cn(
                   'w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-[0.14em]',
                   event.status === 'failure'

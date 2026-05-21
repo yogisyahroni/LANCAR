@@ -82,12 +82,35 @@ data class CustomerPriceEstimateRequest(
 )
 
 @Serializable
+data class RouteSnapshot(
+    @SerialName("generated_at") val generatedAt: String = "",
+    @SerialName("provider") val provider: String = "",
+    @SerialName("requested_provider") val requestedProvider: String = "",
+    @SerialName("active_provider") val activeProvider: String = "",
+    @SerialName("scope") val scope: String = "",
+    @SerialName("route_profile") val routeProfile: String = "",
+    @SerialName("vehicle_type") val vehicleType: String = "",
+    @SerialName("service_code") val serviceCode: String? = null,
+    @SerialName("distance_km") val distanceKm: Double = 0.0,
+    @SerialName("distance_meters") val distanceMeters: Int = 0,
+    @SerialName("duration_seconds") val durationSeconds: Int? = null,
+    @SerialName("eta") val eta: String? = null,
+    @SerialName("eta_minutes") val etaMinutes: Int? = null,
+    @SerialName("route_polyline") val routePolyline: String? = null,
+    @SerialName("route_geometry") val routeGeometry: String? = null,
+    @SerialName("traffic_aware") val trafficAware: Boolean = false,
+    @SerialName("confidence") val confidence: String = "low",
+    @SerialName("fallback_reason") val fallbackReason: String? = null
+)
+
+@Serializable
 data class PriceBreakdown(
     @SerialName("service_code") val serviceCode: String = "",
     @SerialName("service_name") val serviceName: String = "",
     @SerialName("service_snapshot") val serviceSnapshot: DeliveryServiceProduct? = null,
     @SerialName("selected_size_tier") val selectedSizeTier: ServiceSizeTier? = null,
     @SerialName("distance_km") val distanceKm: Double = 0.0,
+    @SerialName("route_snapshot") val routeSnapshot: RouteSnapshot? = null,
     @SerialName("base_price_idr") val basePriceIdr: Long = 0,
     @SerialName("actual_weight_kg") val actualWeightKg: Double = 0.0,
     @SerialName("dimensional_weight_kg") val dimensionalWeightKg: Double = 0.0,
@@ -98,6 +121,21 @@ data class PriceBreakdown(
     @SerialName("delivery_model") val deliveryModel: String = "p2p",
     @SerialName("eta_minutes") val etaMinutes: Int = 0,
     @SerialName("total_price_idr") val totalPriceIdr: Long = 0
+)
+
+@Serializable
+data class CustomerBulkPriceError(
+    @SerialName("service_code") val serviceCode: String = "",
+    @SerialName("code") val code: String = "",
+    @SerialName("message") val message: String = ""
+)
+
+@Serializable
+data class CustomerBulkPriceEstimateResponse(
+    @SerialName("success") val success: Boolean = false,
+    @SerialName("data") val data: List<PriceBreakdown> = emptyList(),
+    @SerialName("errors") val errors: List<CustomerBulkPriceError> = emptyList(),
+    @SerialName("message") val message: String? = null
 )
 
 @Serializable
@@ -220,7 +258,8 @@ data class CustomerAddressRequest(
 data class CreatedCustomerOrder(
     @SerialName("id") val id: String,
     @SerialName("order_number") val orderNumber: String = "",
-    @SerialName("total_price_idr") val totalPriceIdr: Long = 0
+    @SerialName("total_price_idr") val totalPriceIdr: Long = 0,
+    @SerialName("route_snapshot") val routeSnapshot: RouteSnapshot? = null
 )
 
 @Serializable

@@ -54,6 +54,18 @@ data class TrackingOrder(
     val courierRating: Double? = null,
     @SerialName("courier_phone")
     val courierPhone: String? = null,
+    @SerialName("route_snapshot")
+    val routeSnapshot: RouteSnapshot? = null,
+    @SerialName("route_provider")
+    val routeProvider: String? = null,
+    @SerialName("route_profile")
+    val routeProfile: String? = null,
+    @SerialName("route_polyline")
+    val routePolyline: String? = null,
+    @SerialName("route_distance_meters")
+    val routeDistanceMeters: Int? = null,
+    @SerialName("route_duration_seconds")
+    val routeDurationSeconds: Int? = null,
     @SerialName("created_at")
     val createdAt: String? = null,
     @SerialName("updated_at")

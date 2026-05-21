@@ -15,7 +15,37 @@ data class TrackingResponse(
     val eta: String? = null,
     
     @SerialName("route_polyline")
-    val routePolyline: String? = null
+    val routePolyline: String? = null,
+
+    @SerialName("eta_minutes")
+    val etaMinutes: Int? = null,
+
+    @SerialName("route_provider")
+    val routeProvider: String? = null,
+
+    @SerialName("order_route_snapshot")
+    val orderRouteSnapshot: RouteSnapshot? = null,
+
+    @SerialName("order_route_provider")
+    val orderRouteProvider: String? = null,
+
+    @SerialName("order_route_profile")
+    val orderRouteProfile: String? = null,
+
+    @SerialName("order_route_polyline")
+    val orderRoutePolyline: String? = null,
+
+    @SerialName("order_route_distance_meters")
+    val orderRouteDistanceMeters: Int? = null,
+
+    @SerialName("order_route_duration_seconds")
+    val orderRouteDurationSeconds: Int? = null,
+
+    @SerialName("order_route_snapshot_hash")
+    val orderRouteSnapshotHash: String? = null,
+
+    @SerialName("order_route_version")
+    val orderRouteVersion: String? = null
 )
 
 @Serializable

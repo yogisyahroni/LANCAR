@@ -3,12 +3,13 @@ import { db } from '../db';
 import { createNotification } from '../notifications';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../midtrans';
 import { isExpiredOrFailedTransaction, isSuccessfulTransaction } from '../midtrans';
-import { calculateServiceSettlement, customerFacingService, DeliveryServiceProduct, findDeliveryServiceByCode } from './deliveryServices.controller';
+import { calculateServiceSettlement, customerFacingService, DeliveryServiceProduct, findDeliveryServiceByCode, listEnabledDeliveryServicesForCustomer } from './deliveryServices.controller';
 import { advanceOnDemandDispatchQueue, notifyOnDemandOffers } from './courierAuth.controller';
 import { redis } from '../redis';
 import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../services/onDemandRealtime';
 import { buildOnDemandTrackingSnapshot, evaluateLocationQuality, writeLocationSafetyEvent } from '../services/onDemandTracking';
 import { evaluateOnDemandRealtimeAlerts } from '../services/realtimeObservability';
+import { buildMapsRouteEtaSnapshot, RouteEtaSnapshot } from '../services/mapsProviderConfig';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -253,6 +254,186 @@ const normalizePackageDetailsForOrder = (
   };
 };
 
+const routeVehicleTypeForService = (service: DeliveryServiceProduct) => {
+  const vehicles = (service.vehicle_types || []).map((item) => String(item).toLowerCase());
+  return vehicles.includes('car') || vehicles.includes('mobil') ? 'car' : 'motorcycle';
+};
+
+const ROUTE_SNAPSHOT_CONTRACT_VERSION = 1;
+
+const routeSnapshotHash = (snapshot: Record<string, unknown>) =>
+  crypto
+    .createHash('sha256')
+    .update(JSON.stringify(snapshot, Object.keys(snapshot).sort()))
+    .digest('hex');
+
+const publicRouteSnapshot = (route: RouteEtaSnapshot) => {
+  const snapshot = {
+    generated_at: route.generated_at,
+    provider: route.provider,
+    requested_provider: route.requested_provider,
+    active_provider: route.active_provider,
+    scope: route.scope,
+    route_profile: route.route_profile,
+    vehicle_type: route.vehicle_type,
+    service_code: route.service_code,
+    distance_km: route.distance_km,
+    distance_meters: route.distance_meters,
+    duration_seconds: route.duration_seconds,
+    eta: route.eta,
+    eta_minutes: route.eta_minutes,
+    route_polyline: route.route_polyline,
+    route_geometry: route.route_geometry,
+    traffic_aware: route.traffic_aware,
+    confidence: route.confidence,
+    fallback_reason: route.fallback_reason || null,
+  };
+
+  return {
+    ...snapshot,
+    snapshot_version: ROUTE_SNAPSHOT_CONTRACT_VERSION,
+    route_version: `route_snapshot_v${ROUTE_SNAPSHOT_CONTRACT_VERSION}`,
+    snapshot_hash: routeSnapshotHash(snapshot),
+    source: 'maps_provider_gateway',
+  };
+};
+
+type CustomerPriceCalculationInput = {
+  service: DeliveryServiceProduct;
+  pickupPoint: CoordinatePayload;
+  dropoffPoint: CoordinatePayload;
+  dimensions?: any;
+  weightKg?: any;
+  hasInsurance?: any;
+  itemValue?: any;
+  sizeTier?: string | null;
+  routeSnapshotOverride?: RouteEtaSnapshot;
+};
+
+const calculateCustomerPriceBreakdown = async ({
+  service,
+  pickupPoint,
+  dropoffPoint,
+  dimensions,
+  weightKg,
+  hasInsurance,
+  itemValue,
+  sizeTier,
+  routeSnapshotOverride,
+}: CustomerPriceCalculationInput) => {
+  const routeSnapshot = {
+    ...(routeSnapshotOverride || await buildMapsRouteEtaSnapshot(
+      { latitude: pickupPoint.lat, longitude: pickupPoint.lng },
+      { latitude: dropoffPoint.lat, longitude: dropoffPoint.lng },
+      'customer_mobile',
+      {
+        serviceCode: service.code,
+        vehicleType: routeVehicleTypeForService(service),
+        routeProfile: routeVehicleTypeForService(service),
+        requireRoadRoute: true,
+      }
+    )),
+    service_code: service.code,
+  };
+
+  const distance = Math.max(0, Number(routeSnapshot.distance_km || 0));
+  if (distance <= 0) {
+    const error = new Error('Rute pickup dan tujuan belum bisa dihitung. Coba pilih alamat yang lebih lengkap.');
+    (error as any).statusCode = 422;
+    (error as any).code = 'ERR_ROUTE_UNAVAILABLE';
+    throw error;
+  }
+
+  if (service.max_distance_km && distance > service.max_distance_km) {
+    const error = new Error(`${service.name} maksimal ${service.max_distance_km} km. Jarak order ini ${distance} km.`);
+    (error as any).statusCode = 400;
+    (error as any).code = 'ERR_SERVICE_DISTANCE_LIMIT';
+    throw error;
+  }
+
+  const selectedTier = resolveSizeTier(service, sizeTier || undefined);
+  const divisor = toNumber(service.dimension_rules?.volumetric_divisor, 6000);
+  const surchargeThreshold = toNumber(service.dimension_rules?.surcharge_threshold_kg, service.max_weight_kg || 20);
+  const surchargePerKg = toNumber(service.dimension_rules?.surcharge_per_kg_idr, 2000);
+
+  let volumetricWeight = 0;
+  const actualWeight = toNumber(weightKg, 0);
+  if (selectedTier?.max_weight_kg && actualWeight > toNumber(selectedTier.max_weight_kg)) {
+    const error = new Error(`Berat aktual melewati tier ${selectedTier.name}. Pilih tier yang lebih besar.`);
+    (error as any).statusCode = 400;
+    (error as any).code = 'ERR_SIZE_TIER_WEIGHT_LIMIT';
+    throw error;
+  }
+
+  let chargeableWeight = actualWeight;
+  if (dimensions?.length && dimensions?.width && dimensions?.height) {
+    volumetricWeight = (toNumber(dimensions.length) * toNumber(dimensions.width) * toNumber(dimensions.height)) / divisor;
+    chargeableWeight = Math.max(volumetricWeight, actualWeight);
+  }
+
+  if (service.max_weight_kg && chargeableWeight > service.max_weight_kg) {
+    const error = new Error(`${service.name} maksimal ${service.max_weight_kg} kg. Berat hitung order ini ${chargeableWeight.toFixed(2)} kg.`);
+    (error as any).statusCode = 400;
+    (error as any).code = 'ERR_SERVICE_WEIGHT_LIMIT';
+    throw error;
+  }
+
+  const distanceChargeKm = Math.max(0, Math.ceil(distance - service.included_distance_km));
+  const tierMultiplier = toNumber(selectedTier?.multiplier, 1);
+  const tierDelta = toNumber(selectedTier?.price_delta_idr, 0);
+  const baseBeforeMultiplier = service.base_fare_idr + (distanceChargeKm * service.per_km_idr) + tierDelta;
+  const basePrice = roundRupiah(baseBeforeMultiplier * service.service_multiplier * tierMultiplier);
+  const volumetricSurcharge = chargeableWeight > surchargeThreshold
+    ? Math.ceil(chargeableWeight - surchargeThreshold) * surchargePerKg
+    : 0;
+
+  let insurancePremium = 0;
+  if (hasInsurance && itemValue) {
+    insurancePremium = Math.ceil((itemValue * 0.2) / 100);
+    if (insurancePremium < 1000) insurancePremium = 1000;
+  }
+
+  const hour = new Date().getHours();
+  const isPeakHour = (hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 20);
+  let dynamicPrice = isPeakHour ? Math.ceil(basePrice * 0.15) : 0;
+
+  try {
+    const weatherDataStr = await redis.get('current_weather_surge');
+    if (weatherDataStr) {
+      const weatherData = JSON.parse(weatherDataStr);
+      if (weatherData.surgeMultiplier > 0) {
+        const weatherSurge = Math.ceil(basePrice * weatherData.surgeMultiplier);
+        dynamicPrice += weatherSurge;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to apply weather surge:', error);
+  }
+
+  const routeEta = routeSnapshot.eta_minutes || Math.ceil(20 + (distance * 3.5) + (service.batching_allowed ? 120 : 0));
+  const etaMinutes = Math.min(service.max_eta_minutes, Math.max(20, routeEta));
+  const totalPrice = basePrice + volumetricSurcharge + insurancePremium + dynamicPrice;
+
+  return {
+    service_code: service.code,
+    service_name: service.name,
+    service_snapshot: publicServiceSnapshot(service),
+    selected_size_tier: selectedTier,
+    distance_km: distance,
+    route_snapshot: publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` }),
+    base_price_idr: basePrice,
+    actual_weight_kg: Number(actualWeight.toFixed(2)),
+    dimensional_weight_kg: Number(volumetricWeight.toFixed(2)),
+    chargeable_weight_kg: Number(chargeableWeight.toFixed(2)),
+    volumetric_surcharge_idr: volumetricSurcharge,
+    insurance_premium_idr: insurancePremium,
+    dynamic_price_idr: dynamicPrice,
+    delivery_model: service.route_model,
+    eta_minutes: etaMinutes,
+    total_price_idr: totalPrice,
+  };
+};
+
 export const calculatePrice = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
@@ -294,108 +475,129 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const distance = calculateDistance(
-      pickupPoint.lat,
-      pickupPoint.lng,
-      dropoffPoint.lat,
-      dropoffPoint.lng
-    );
-
-    if (service.max_distance_km && distance > service.max_distance_km) {
-      res.status(400).json({
-        code: 'ERR_SERVICE_DISTANCE_LIMIT',
-        message: `${service.name} maksimal ${service.max_distance_km} km. Jarak order ini ${distance} km.`
-      });
-      return;
-    }
-
-    const selectedTier = resolveSizeTier(service, size_tier);
-    const divisor = toNumber(service.dimension_rules?.volumetric_divisor, 6000);
-    const surchargeThreshold = toNumber(service.dimension_rules?.surcharge_threshold_kg, service.max_weight_kg || 20);
-    const surchargePerKg = toNumber(service.dimension_rules?.surcharge_per_kg_idr, 2000);
-
-    let volumetricWeight = 0;
-    const actualWeight = toNumber(weight_kg, 0);
-    if (selectedTier?.max_weight_kg && actualWeight > toNumber(selectedTier.max_weight_kg)) {
-      res.status(400).json({
-        code: 'ERR_SIZE_TIER_WEIGHT_LIMIT',
-        message: `Berat aktual melewati tier ${selectedTier.name}. Pilih tier yang lebih besar.`
-      });
-      return;
-    }
-
-    let chargeableWeight = actualWeight;
-    if (dimensions?.length && dimensions?.width && dimensions?.height) {
-      volumetricWeight = (toNumber(dimensions.length) * toNumber(dimensions.width) * toNumber(dimensions.height)) / divisor;
-      chargeableWeight = Math.max(volumetricWeight, actualWeight);
-    }
-
-    if (service.max_weight_kg && chargeableWeight > service.max_weight_kg) {
-      res.status(400).json({
-        code: 'ERR_SERVICE_WEIGHT_LIMIT',
-        message: `${service.name} maksimal ${service.max_weight_kg} kg. Berat hitung order ini ${chargeableWeight.toFixed(2)} kg.`
-      });
-      return;
-    }
-
-    const distanceChargeKm = Math.max(0, Math.ceil(distance - service.included_distance_km));
-    const tierMultiplier = toNumber(selectedTier?.multiplier, 1);
-    const tierDelta = toNumber(selectedTier?.price_delta_idr, 0);
-    const baseBeforeMultiplier = service.base_fare_idr + (distanceChargeKm * service.per_km_idr) + tierDelta;
-    const base_price = roundRupiah(baseBeforeMultiplier * service.service_multiplier * tierMultiplier);
-    const volumetric_surcharge = chargeableWeight > surchargeThreshold
-      ? Math.ceil(chargeableWeight - surchargeThreshold) * surchargePerKg
-      : 0;
-
-    let insurance_premium = 0;
-    if (has_insurance && item_value) {
-      insurance_premium = Math.ceil((item_value * 0.2) / 100);
-      if (insurance_premium < 1000) insurance_premium = 1000;
-    }
-
-    const hour = new Date().getHours();
-    const isPeakHour = (hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 20);
-    let dynamic_price = isPeakHour ? Math.ceil(base_price * 0.15) : 0;
-
-    // Apply Weather Surge from Worker
-    try {
-      const weatherDataStr = await redis.get('current_weather_surge');
-      if (weatherDataStr) {
-        const weatherData = JSON.parse(weatherDataStr);
-        if (weatherData.surgeMultiplier > 0) {
-          const weatherSurge = Math.ceil(base_price * weatherData.surgeMultiplier);
-          dynamic_price += weatherSurge;
-        }
-      }
-    } catch (e) {
-      console.error('Failed to apply weather surge:', e);
-    }
-
-    const delivery_model = service.route_model;
-    const calculatedEta = Math.ceil(20 + (distance * 3.5) + (service.batching_allowed ? 120 : 0));
-    const eta_minutes = Math.min(service.max_eta_minutes, Math.max(20, calculatedEta));
-
-    const total_price = base_price + volumetric_surcharge + insurance_premium + dynamic_price;
-
-    res.json({
-      service_code: service.code,
-      service_name: service.name,
-      service_snapshot: publicServiceSnapshot(service),
-      selected_size_tier: selectedTier,
-      distance_km: distance,
-      base_price_idr: base_price,
-      actual_weight_kg: Number(actualWeight.toFixed(2)),
-      dimensional_weight_kg: Number(volumetricWeight.toFixed(2)),
-      chargeable_weight_kg: Number(chargeableWeight.toFixed(2)),
-      volumetric_surcharge_idr: volumetric_surcharge,
-      insurance_premium_idr: insurance_premium,
-      dynamic_price_idr: dynamic_price,
-      delivery_model,
-      eta_minutes,
-      total_price_idr: total_price
+    const breakdown = await calculateCustomerPriceBreakdown({
+      service,
+      pickupPoint,
+      dropoffPoint,
+      dimensions,
+      weightKg: weight_kg,
+      hasInsurance: has_insurance,
+      itemValue: item_value,
+      sizeTier: size_tier,
     });
+
+    res.json(breakdown);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(error?.statusCode || 500).json({
+      code: error?.code || 'ERR_PRICE_CALCULATION_FAILED',
+      error: error.message,
+      message: error.message,
+    });
+  }
+};
+
+export const calculatePrices = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const {
+      pickup,
+      dropoff,
+      dimensions,
+      weight_kg,
+      has_insurance,
+      item_value,
+      dimension_scan_verified,
+      size_tier
+    } = req.body;
+
+    const pickupPoint = normalizeCoordinatePayload(pickup);
+    const dropoffPoint = normalizeCoordinatePayload(dropoff);
+    if (!pickupPoint || !dropoffPoint) {
+      res.status(400).json({
+        code: 'ERR_ROUTE_LOCATION_REQUIRED',
+        message: 'Lokasi pickup dan tujuan wajib valid sebelum harga dihitung.'
+      });
+      return;
+    }
+
+    const services = await listEnabledDeliveryServicesForCustomer();
+    const routeSnapshots = new Map<string, Promise<RouteEtaSnapshot>>();
+
+    const routeForService = (service: DeliveryServiceProduct) => {
+      const vehicleType = routeVehicleTypeForService(service);
+      if (!routeSnapshots.has(vehicleType)) {
+        routeSnapshots.set(
+          vehicleType,
+          buildMapsRouteEtaSnapshot(
+            { latitude: pickupPoint.lat, longitude: pickupPoint.lng },
+            { latitude: dropoffPoint.lat, longitude: dropoffPoint.lng },
+            'customer_mobile',
+            {
+              serviceCode: `bulk_${vehicleType}`,
+              vehicleType,
+              routeProfile: vehicleType,
+              requireRoadRoute: true,
+            }
+          )
+        );
+      }
+      return routeSnapshots.get(vehicleType)!;
+    };
+
+    const settled = await Promise.all(services.map(async (service) => {
+      try {
+        if (service.requires_dimension_scan && !dimension_scan_verified) {
+          const error = new Error(`${service.name} wajib scan dimensi sebelum menghitung harga`);
+          (error as any).code = 'ERR_DIMENSION_SCAN_REQUIRED';
+          throw error;
+        }
+
+        const routeSnapshot = await routeForService(service);
+        const breakdown = await calculateCustomerPriceBreakdown({
+          service,
+          pickupPoint,
+          dropoffPoint,
+          dimensions,
+          weightKg: weight_kg,
+          hasInsurance: has_insurance,
+          itemValue: item_value,
+          sizeTier: size_tier,
+          routeSnapshotOverride: routeSnapshot,
+        });
+        return { ok: true as const, service_code: service.code, breakdown };
+      } catch (error: any) {
+        return {
+          ok: false as const,
+          service_code: service.code,
+          code: error?.code || 'ERR_PRICE_CALCULATION_FAILED',
+          message: error?.message || 'Gagal menghitung harga layanan',
+        };
+      }
+    }));
+
+    const estimates = settled
+      .filter((item): item is Extract<typeof item, { ok: true }> => item.ok)
+      .map((item) => item.breakdown);
+    const errors = settled
+      .filter((item): item is Extract<typeof item, { ok: false }> => !item.ok)
+      .map(({ service_code, code, message }) => ({ service_code, code, message }));
+
+    if (estimates.length === 0) {
+      res.status(422).json({
+        success: false,
+        code: errors[0]?.code || 'ERR_ROUTE_UNAVAILABLE',
+        message: errors[0]?.message || 'Rute jalan belum tersedia. Harga tidak dihitung dari garis lurus.',
+        errors,
+      });
+      return;
+    }
+
+    res.json({ success: true, data: estimates, errors });
+  } catch (error: any) {
+    res.status(error?.statusCode || 500).json({
+      success: false,
+      code: error?.code || 'ERR_PRICE_CALCULATION_FAILED',
+      message: error.message,
+    });
   }
 };
 
@@ -483,6 +685,18 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       return;
     }
 
+    const trustedPriceBreakdown = await calculateCustomerPriceBreakdown({
+      service,
+      pickupPoint,
+      dropoffPoint,
+      dimensions: packageDimensions,
+      weightKg: packageActualWeight,
+      hasInsurance: has_insurance,
+      itemValue: item_value,
+      sizeTier: package_details?.size_tier,
+    });
+    const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
+
     await client.query('BEGIN');
 
     // Generate simple order number
@@ -519,19 +733,27 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         customer_notes,
         schedule_type,
         scheduled_at,
+        route_snapshot,
+        route_provider,
+        route_profile,
+        route_distance_meters,
+        route_duration_seconds,
+        route_polyline,
+        route_fallback_reason,
         created_at
       ) VALUES (
         $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
         $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
-        $11, $12, $13, 'pending_payment', $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, NOW()
-      ) RETURNING id, order_number, total_price_idr
+        $11, $12, $13, 'pending_payment', $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+        $31, $32, $33, $34, $35, $36, $37, NOW()
+      ) RETURNING id, order_number, total_price_idr, route_snapshot
     `;
 
-    const totalPrice = price_breakdown?.total_price_idr || 0;
+    const totalPrice = trustedPriceBreakdown.total_price_idr || 0;
     const settlement = calculateServiceSettlement(
       service,
       totalPrice,
-      price_breakdown?.insurance_premium_idr || 0
+      trustedPriceBreakdown.insurance_premium_idr || 0
     );
 
     const values = [
@@ -547,12 +769,12 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       maskPhone(recipient_phone) || '*****',
       service.route_model,
       service.code,
-      JSON.stringify(price_breakdown?.service_snapshot || publicServiceSnapshot(service)),
-      price_breakdown?.distance_km || 0,
-      price_breakdown?.base_price_idr || 0,
-      price_breakdown?.volumetric_surcharge_idr || 0,
-      price_breakdown?.insurance_premium_idr || 0,
-      price_breakdown?.dynamic_price_idr || 0,
+      JSON.stringify(trustedPriceBreakdown.service_snapshot || publicServiceSnapshot(service)),
+      trustedPriceBreakdown.distance_km || 0,
+      trustedPriceBreakdown.base_price_idr || 0,
+      trustedPriceBreakdown.volumetric_surcharge_idr || 0,
+      trustedPriceBreakdown.insurance_premium_idr || 0,
+      trustedPriceBreakdown.dynamic_price_idr || 0,
       totalPrice,
       settlement.ppn_idr,
       settlement.mdr_idr,
@@ -564,7 +786,14 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       JSON.stringify(normalizePackageDetailsForOrder(package_details || {}, service, selectedTier, packageChargeableWeight)),
       customer_notes || '',
       schedule_type || 'now',
-      scheduled_at ? new Date(scheduled_at) : null
+      scheduled_at ? new Date(scheduled_at) : null,
+      JSON.stringify(trustedRouteSnapshot),
+      trustedRouteSnapshot.provider,
+      trustedRouteSnapshot.route_profile,
+      trustedRouteSnapshot.distance_meters,
+      trustedRouteSnapshot.duration_seconds,
+      trustedRouteSnapshot.route_polyline,
+      trustedRouteSnapshot.fallback_reason
     ];
 
     const result = await client.query(insertQuery, values);
@@ -1137,7 +1366,11 @@ const toMobileCustomerOrderDto = (row: any) => {
     courier_name: row.courier_name || null,
     courier_vehicle: row.courier_vehicle || null,
     courier_plate: row.courier_plate || null,
-    courier_phone: row.courier_phone || null
+    courier_phone: row.courier_phone || null,
+    route_snapshot: row.route_snapshot || null,
+    route_provider: row.route_provider || row.route_snapshot?.provider || null,
+    route_profile: row.route_profile || row.route_snapshot?.route_profile || null,
+    route_polyline: row.route_polyline || row.route_snapshot?.route_polyline || null,
   };
 };
 
@@ -1152,7 +1385,9 @@ export const getCustomerOrders = async (req: Request, res: Response): Promise<vo
     const { status, search, startDate, endDate, model, limit, offset } = req.query;
 
     let queryStr = `
-      SELECT id, order_number, pickup_address, dropoff_address, recipient_name, model, status, distance_km, total_price_idr, created_at
+      SELECT id, order_number, pickup_address, dropoff_address, recipient_name, model, status,
+             distance_km, total_price_idr, route_snapshot, route_provider, route_profile,
+             route_polyline, created_at
       FROM orders
       WHERE customer_id = $1
     `;
@@ -1365,6 +1600,10 @@ export const getMobileCustomerOrders = async (req: Request, res: Response): Prom
              o.model,
              o.status,
              o.distance_km,
+             o.route_snapshot,
+             o.route_provider,
+             o.route_profile,
+             o.route_polyline,
              o.total_price_idr,
              o.scheduled_at,
              o.created_at,
@@ -1423,6 +1662,10 @@ export const getMobileCustomerOrder = async (req: Request, res: Response): Promi
              o.model,
              o.status,
              o.distance_km,
+             o.route_snapshot,
+             o.route_provider,
+             o.route_profile,
+             o.route_polyline,
              o.total_price_idr,
              o.scheduled_at,
              o.created_at,
@@ -1474,7 +1717,8 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
     }
 
     const queryStr = `
-      SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name, o.recipient_phone_masked, o.model, o.status, o.distance_km, 
+      SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name, o.recipient_phone_masked, o.model, o.status, o.distance_km,
+             o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              o.base_price_idr, o.volumetric_surcharge_idr, o.insurance_premium_idr, o.total_price_idr, o.has_insurance, o.insured_value_idr, 
              o.package_details, o.customer_notes, o.schedule_type, o.scheduled_at, o.created_at,
              u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate, cp.avg_partner_rating as courier_rating,
@@ -1557,6 +1801,7 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
     const orderQuery = `
       SELECT o.id, o.order_number, o.pickup_address, o.dropoff_address, o.recipient_name,
              o.recipient_phone_masked, o.model, o.status, o.distance_km, o.total_price_idr,
+             o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              o.package_details, o.customer_notes, o.created_at, o.updated_at,
              u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate,
              cp.avg_partner_rating as courier_rating, u.phone as courier_phone

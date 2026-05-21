@@ -25,6 +25,18 @@ const toNumber = (value: any, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const parseJsonObject = (value: unknown): Record<string, any> | null => {
+  if (!value) return null;
+  if (typeof value === 'object' && !Array.isArray(value)) return value as Record<string, any>;
+  if (typeof value !== 'string') return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
 const distanceKm = (a: TrackingPoint, b: TrackingPoint) => {
   const rad = Math.PI / 180;
   const dLat = (b.latitude - a.latitude) * rad;
@@ -160,10 +172,16 @@ export const buildOnDemandTrackingSnapshot = async (
             o.dropoff_address,
             ST_Y(o.pickup_location::geometry) AS pickup_latitude,
             ST_X(o.pickup_location::geometry) AS pickup_longitude,
-            ST_Y(o.dropoff_location::geometry) AS dropoff_latitude,
-            ST_X(o.dropoff_location::geometry) AS dropoff_longitude,
-            ol.courier_id,
-            cp.id AS courier_profile_id
+             ST_Y(o.dropoff_location::geometry) AS dropoff_latitude,
+             ST_X(o.dropoff_location::geometry) AS dropoff_longitude,
+             o.route_snapshot,
+             o.route_provider,
+             o.route_profile,
+             o.route_distance_meters,
+             o.route_duration_seconds,
+             o.route_polyline,
+             ol.courier_id,
+             cp.id AS courier_profile_id
      FROM orders o
      LEFT JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
      LEFT JOIN courier_profiles cp ON cp.user_id = ol.courier_id
@@ -232,6 +250,7 @@ export const buildOnDemandTrackingSnapshot = async (
     : null;
   const target = ['menuju_tujuan', 'selesai'].includes(stage) ? dropoffTarget : pickupTarget;
   const route = await buildRouteEtaSnapshot(location, target ? { latitude: target.latitude, longitude: target.longitude } : null);
+  const orderRouteSnapshot = parseJsonObject(order.route_snapshot);
 
   return {
     order_id: order.id,
@@ -248,6 +267,14 @@ export const buildOnDemandTrackingSnapshot = async (
     eta_minutes: route.eta_minutes,
     route_polyline: route.route_polyline,
     route_provider: route.provider,
+    order_route_snapshot: orderRouteSnapshot,
+    order_route_provider: order.route_provider || orderRouteSnapshot?.provider || null,
+    order_route_profile: order.route_profile || orderRouteSnapshot?.route_profile || null,
+    order_route_polyline: order.route_polyline || orderRouteSnapshot?.route_polyline || null,
+    order_route_distance_meters: toNumber(order.route_distance_meters, toNumber(orderRouteSnapshot?.distance_meters, 0)),
+    order_route_duration_seconds: toNumber(order.route_duration_seconds, toNumber(orderRouteSnapshot?.duration_seconds, 0)),
+    order_route_snapshot_hash: orderRouteSnapshot?.snapshot_hash || null,
+    order_route_version: orderRouteSnapshot?.route_version || null,
     quality: {
       source: location ? 'last_valid_location' : 'unavailable',
       customer_visible: Boolean(location),

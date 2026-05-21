@@ -2,6 +2,58 @@
 
 ## Active
 
+- [x] **P0 - Unified road-route contract untuk customer, courier, web, pricing, dan dispatch** - semua aplikasi harus memakai satu kontrak route berbasis jalan, bukan garis lurus client-side.
+  - Backend wajib punya kontrak route tunggal: pickup/dropoff coordinate, service code, vehicle type, provider aktif, route profile, distance meter, duration second, encoded polyline/geometry, traffic state, confidence, dan fallback reason.
+  - Database/order payload wajib menyimpan route snapshot yang dipakai saat hitung harga agar customer, kurir, admin, dan ledger membaca jarak/ETA yang sama.
+  - Customer web, mobile customer, dan mobile kurir wajib berhenti memakai jarak garis lurus sebagai sumber final price/ETA; haversine hanya boleh menjadi fallback terlabel saat provider route gagal.
+  - Admin maps runtime config wajib menjadi sumber tunggal provider: `open_street_map`, `google_maps`, atau `text_only`.
+  - API harus menolak final order on-demand jika pickup/dropoff coordinate tidak valid atau route final tidak bisa dihitung, kecuali admin mengaktifkan emergency fallback policy.
+  - Acceptance criteria: satu endpoint route backend menghasilkan jarak, ETA, polyline, provider, dan vehicle profile yang sama untuk customer web, mobile customer, mobile kurir, pricing, dan dispatch.
+
+- [x] **P1 - OpenStreetMap road routing engine** - OSM aktif harus memakai routing jalan sungguhan, bukan jarak terdekat garis lurus.
+  - Backend maps gateway wajib menghubungkan OSM provider ke route engine berbasis OpenStreetMap seperti OSRM/Valhalla/GraphHopper.
+  - Route profile minimal: `motorcycle` untuk layanan motor dan `car` untuk LANCAR Mobil.
+  - Jika OSRM standar tidak mendukung motor secara presisi, gunakan Valhalla/GraphHopper atau custom profile; jangan menyamakan motor dengan mobil tanpa label policy.
+  - Route response wajib mengembalikan polyline jalan, distance meter, duration second, dan provider metadata.
+  - Cache route pendek wajib aktif berdasarkan pickup/dropoff/service/vehicle/provider supaya mobile tidak memukul provider terus-menerus.
+  - Unit dan integration test wajib membuktikan OSM route tidak lagi berupa straight-line geometry.
+  - Acceptance criteria: saat admin memilih OpenStreetMap, preview rute customer dan kurir mengikuti jalan, km mengikuti route engine, dan pricing memakai km route tersebut.
+
+- [x] **P2 - Google Maps traffic-aware route provider** - saat admin memilih Google, route harus mengikuti aturan Google dan kendaraan/service yang dipilih.
+  - Backend maps gateway wajib memakai Google Routes/Directions API server-side tanpa mengekspos API key ke mobile/web.
+  - Layanan motor wajib memakai travel mode roda dua jika tersedia; layanan mobil wajib memakai driving/car route.
+  - Route preference harus mendukung traffic-aware untuk Google, sehingga jalur boleh lebih jauh jika ETA lebih baik atau menghindari macet sesuai policy service.
+  - Service policy wajib bisa membedakan Prioritas/Instant/Hemat/Same Day/Mobil untuk preferensi ETA, cost, dan allowed vehicle profile.
+  - Jika Google two-wheeler tidak tersedia di region/request tertentu, fallback harus eksplisit ke policy yang aman dan tercatat di route metadata.
+  - Quota, timeout, retry, dan fallback ke OSM/text-only wajib dikendalikan dari backend, bukan dari app.
+  - Acceptance criteria: saat admin memilih Google, customer mobile/web dan kurir otomatis melihat route/ETA Google tanpa rebuild app, dengan profile motor/mobil sesuai service.
+
+- [x] **P3 - Pricing, dispatch, dan order lifecycle memakai route snapshot yang sama** - tidak boleh ada harga, jarak, ETA, dan tawaran kurir yang saling beda.
+  - Price calculation wajib memakai `distance_meter` dari route snapshot provider aktif, bukan kalkulasi ulang client.
+  - Order creation wajib menyimpan route snapshot final dan route version/provider yang dipakai.
+  - Dispatch offer ke kurir wajib membawa jarak, ETA, service, vehicle profile, dan payout dari snapshot yang sama.
+  - Courier offer TTL 15 detik, customer tracking, dan admin order detail wajib membaca route snapshot yang sama.
+  - Jika customer mengubah alamat, ukuran/berat, atau service, route snapshot wajib dihitung ulang sebelum harga final.
+  - Ledger/payout tidak boleh berubah karena recalculation route setelah order paid; perubahan hanya melalui adjustment/audit flow.
+  - Acceptance criteria: satu order on-demand dari customer menghasilkan price, route preview, courier offer, tracking, dan payout yang konsisten dari snapshot yang sama.
+
+- [x] **P4 - UI runtime route preview untuk web customer, mobile customer, dan mobile kurir** - semua surface menampilkan route jalan sesuai provider aktif.
+  - Mobile customer booking review wajib menampilkan polyline route jalan dan km/ETA dari backend untuk service yang dipilih.
+  - Mobile customer service sheet wajib refresh harga/ETA saat service motor/mobil berubah.
+  - Web customer booking dan tracking wajib memakai endpoint route yang sama dan menampilkan fallback jelas jika provider tidak tersedia.
+  - Mobile kurir offer, active job, dan detail pengantaran wajib menampilkan route jalan yang sama dengan order snapshot.
+  - Jika admin switch OSM/Google/text-only, app harus mengikuti config runtime setelah refresh/config TTL habis tanpa rebuild.
+  - UI fallback wajib tenang: “Rute sedang diperbarui” atau “Estimasi sementara”, bukan crash atau data kosong.
+  - Acceptance criteria: customer dan kurir melihat route preview konsisten di mobile/web, provider bisa diganti dari admin, dan app tetap berjalan tanpa deploy ulang.
+
+- [x] **P5 - Observability, safety, dan E2E route validation** - route engine bisa dipantau dan dibuktikan end-to-end.
+  - Structured log route sekarang mencatat `request_id`, provider aktif, profile, service, vehicle type, distance, duration, cache hit/miss, fallback reason, latency, dan status.
+  - Alert route mencakup provider failure spike, route latency tinggi, quota hampir habis, distance anomaly, dan straight-line fallback terlalu sering.
+  - Admin Maps Runtime/Settings menampilkan provider aktif, health, last error, fallback count, cache hit rate, route success/anomaly/fallback quality, dan tombol emergency text-only/OSM fallback.
+  - E2E route validation command tersedia: `npm run test:e2e:route-validation`.
+  - Coverage command mencakup OSM motor route, OSM car route, Google motor route mock/contract, Google car route mock/contract, admin provider switch, customer-visible tracking, courier offer, dan lifecycle realtime.
+  - Migration `20260521000003_unified_route_snapshot.sql` memiliki Up/Down untuk route snapshot order/courier snapshot, kolom provider/profile/distance/duration/polyline/fallback, index read path, dan sudah divalidasi `goose up/version/down` di database test sementara.
+
 - [x] **P2 - Maps provider observability dan ops safety** - perubahan provider maps harus aman untuk operasional nasional.
   - [x] Log structured untuk provider aktif, fallback provider, route/geocode latency, error rate, cache hit/miss, dan disabled mode.
   - [x] Alert saat provider gagal tinggi, latency tinggi, kuota mendekati limit, atau fallback OSM terlalu sering.

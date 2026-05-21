@@ -5,6 +5,7 @@
   "scripts": {
     "test": "jest --forceExit --detectOpenHandles",
     "test:e2e:waiting-on:no-maps": "jest --forceExit --detectOpenHandles onDemandWaitingOnNoMaps.e2e.test.ts",
+    "test:e2e:route-validation": "jest --forceExit --detectOpenHandles src/services/mapsProviderConfig.test.ts onDemandRealtime.e2e.test.ts onDemandTracking.test.ts",
     "fcm:probe": "ts-node src/scripts/sendFcmDeviceProbe.ts",
     "build": "tsc",
     "seed:comprehensive": "ts-node src/seed-comprehensive.ts"

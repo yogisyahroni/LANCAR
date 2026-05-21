@@ -110,6 +110,25 @@ class AuthViewModelTest {
     }
 
     @Test
+    fun `password login with legacy otp message transitions to OtpSent`() = runTest {
+        val email = "customer.mobile@lancar.id"
+        val password = "Customer123!"
+        viewModel.setPhoneNumber(email)
+        viewModel.setPassword(password)
+        coEvery { authRepository.startPasswordLogin(email, password) } returns Result.success(
+            AuthResponse(success = true, message = "Credential verified, OTP sent")
+        )
+
+        viewModel.authState.test {
+            assertEquals(AuthState.Idle, awaitItem())
+            viewModel.startPasswordLogin()
+            assertEquals(AuthState.Loading, awaitItem())
+            assertEquals(AuthState.OtpSent, awaitItem())
+            coVerify(exactly = 0) { sessionManager.saveSession(any(), any(), any()) }
+        }
+    }
+
+    @Test
     fun `verifyOtp success saves session and transitions to Success`() = runTest {
         // Given
         val email = "success@lancar.com"

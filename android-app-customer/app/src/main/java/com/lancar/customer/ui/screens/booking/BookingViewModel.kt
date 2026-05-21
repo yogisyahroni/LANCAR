@@ -34,6 +34,7 @@ data class BookingState(
     val destinationAddress: String = "",
     val estimatedPrice: Long = 0,
     val isLoading: Boolean = false,
+    val isCalculatingRoute: Boolean = false,
     val error: String? = null,
     val services: List<DeliveryServiceProduct> = emptyList(),
     val selectedServiceCode: String = "",
@@ -74,6 +75,15 @@ class BookingViewModel @Inject constructor(
 
     private val _bookingSuccess = MutableSharedFlow<String>()
     val bookingSuccess = _bookingSuccess.asSharedFlow()
+    private var routeCalculationVersion = 0
+
+    private fun PriceBreakdown.hasRoadRoute(): Boolean {
+        val polyline = routeSnapshot?.routePolyline?.trim().orEmpty()
+        val provider = routeSnapshot?.provider.orEmpty()
+        return polyline.isNotBlank() &&
+            !provider.contains("haversine", ignoreCase = true) &&
+            (routeSnapshot?.distanceKm ?: distanceKm) > 0.0
+    }
 
     init {
         loadServices()
@@ -138,7 +148,8 @@ class BookingViewModel @Inject constructor(
             pickupLocation = location,
             pickupAddress = address,
             selectedServiceCode = "",
-            estimatedPrice = 0
+            estimatedPrice = 0,
+            priceBreakdowns = emptyMap()
         )
         calculateRoute()
     }
@@ -148,7 +159,8 @@ class BookingViewModel @Inject constructor(
             destinationLocation = location,
             destinationAddress = address,
             selectedServiceCode = "",
-            estimatedPrice = 0
+            estimatedPrice = 0,
+            priceBreakdowns = emptyMap()
         )
         calculateRoute()
     }
@@ -295,7 +307,10 @@ class BookingViewModel @Inject constructor(
             packageLength = l,
             packageWidth = w,
             packageHeight = h,
-            dimensionsScanned = true
+            dimensionsScanned = true,
+            selectedServiceCode = "",
+            estimatedPrice = 0,
+            priceBreakdowns = emptyMap()
         )
         calculateRoute()
     }
@@ -317,7 +332,8 @@ class BookingViewModel @Inject constructor(
             packageHeight = dimensions.height,
             dimensionsScanned = false,
             selectedServiceCode = "",
-            estimatedPrice = 0
+            estimatedPrice = 0,
+            priceBreakdowns = emptyMap()
         )
         calculateRoute()
     }
@@ -339,43 +355,80 @@ class BookingViewModel @Inject constructor(
     }
 
     fun toggleInsurance(enabled: Boolean) {
-        _bookingState.value = _bookingState.value.copy(insuranceEnabled = enabled)
+        _bookingState.value = _bookingState.value.copy(
+            insuranceEnabled = enabled,
+            selectedServiceCode = "",
+            estimatedPrice = 0,
+            priceBreakdowns = emptyMap()
+        )
         calculateRoute()
     }
 
     private fun calculateRoute() {
         val state = _bookingState.value
         if (state.pickupLocation != null && state.destinationLocation != null && state.services.isNotEmpty()) {
+            val calculationVersion = ++routeCalculationVersion
+            _bookingState.value = state.copy(
+                isCalculatingRoute = true,
+                selectedServiceCode = "",
+                estimatedPrice = 0,
+                priceBreakdowns = emptyMap(),
+                error = null
+            )
             viewModelScope.launch {
                 val dimensions = DimensionsPayload(state.packageLength, state.packageWidth, state.packageHeight)
-                val estimates = mutableMapOf<String, PriceBreakdown>()
-                state.services.forEach { service ->
-                    val estimate = orderRepository.calculateCustomerOrderPrice(
-                        CustomerPriceEstimateRequest(
-                            pickup = LocationPayload(state.pickupLocation.latitude, state.pickupLocation.longitude),
-                            dropoff = LocationPayload(state.destinationLocation.latitude, state.destinationLocation.longitude),
-                            dimensions = dimensions,
-                            weightKg = state.packageWeight,
-                            hasInsurance = state.insuranceEnabled,
-                            itemValue = state.itemValue,
-                            dimensionScanVerified = state.dimensionsScanned,
-                            serviceCode = service.code,
-                            sizeTier = state.sizeTier
-                        )
+                val estimateResult = orderRepository.calculateCustomerOrderPrices(
+                    CustomerPriceEstimateRequest(
+                        pickup = LocationPayload(state.pickupLocation.latitude, state.pickupLocation.longitude),
+                        dropoff = LocationPayload(state.destinationLocation.latitude, state.destinationLocation.longitude),
+                        dimensions = dimensions,
+                        weightKg = state.packageWeight,
+                        hasInsurance = state.insuranceEnabled,
+                        itemValue = state.itemValue,
+                        dimensionScanVerified = state.dimensionsScanned,
+                        serviceCode = "ALL_ON_DEMAND",
+                        sizeTier = state.sizeTier
                     )
-                    estimate.onSuccess { estimates[service.code] = it }
+                )
+                val estimates = estimateResult.getOrNull()
+                    ?.filter { it.hasRoadRoute() }
+                    ?.associateBy { it.serviceCode }
+                    .orEmpty()
+                val firstError = estimateResult.exceptionOrNull()?.localizedMessage
+                    ?: if (estimates.isEmpty()) "Rute jalan belum tersedia. Harga tidak dihitung dari garis lurus." else null
+
+                if (calculationVersion != routeCalculationVersion) {
+                    return@launch
                 }
 
-                val selectedCode = state.selectedServiceCode.takeIf { estimates.containsKey(it) }.orEmpty()
+                val preferredCode = when {
+                    state.selectedServiceCode.isNotBlank() && estimates.containsKey(state.selectedServiceCode) -> state.selectedServiceCode
+                    estimates.containsKey("LANCAR_INSTANT") -> "LANCAR_INSTANT"
+                    estimates.isNotEmpty() -> estimates.keys.first()
+                    else -> ""
+                }
                 _bookingState.value = _bookingState.value.copy(
+                    isCalculatingRoute = false,
                     priceBreakdowns = estimates,
-                    selectedServiceCode = selectedCode,
-                    estimatedPrice = estimates[selectedCode]?.totalPriceIdr ?: 0
+                    selectedServiceCode = preferredCode,
+                    estimatedPrice = estimates[preferredCode]?.totalPriceIdr ?: 0,
+                    error = if (estimates.isEmpty()) {
+                        firstError ?: "Rute jalan belum tersedia. Coba pilih alamat yang lebih spesifik."
+                    } else {
+                        null
+                    }
                 )
             }
+        } else {
+            routeCalculationVersion++
+            _bookingState.value = state.copy(
+                isCalculatingRoute = false,
+                selectedServiceCode = "",
+                estimatedPrice = 0,
+                priceBreakdowns = emptyMap()
+            )
         }
     }
-
     fun confirmBooking() {
         val state = _bookingState.value
         if (state.pickupLocation == null || state.destinationLocation == null) {

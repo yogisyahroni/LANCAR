@@ -89,14 +89,28 @@ class TrackingViewModel @Inject constructor(
         val result = repository.getTrackingData(orderId)
         
         result.onSuccess { data ->
-            _uiState.update {
-                it.copy(
+            val liveRoutePoints = decodeEncodedPolyline(data.routePolyline)
+            _uiState.update { currentState ->
+                val orderRoutePolyline = data.orderRoutePolyline
+                    ?: data.orderRouteSnapshot?.routePolyline
+                    ?: currentState.detail?.order?.routePolyline
+                    ?: currentState.detail?.order?.routeSnapshot?.routePolyline
+                val orderRoutePoints = decodeEncodedPolyline(orderRoutePolyline)
+                val resolvedRoutePoints = when {
+                    liveRoutePoints.isNotEmpty() -> liveRoutePoints
+                    orderRoutePoints.isNotEmpty() -> orderRoutePoints
+                    else -> currentState.routePoints
+                }
+                val etaFromSnapshot = data.orderRouteSnapshot?.eta
+                    ?: data.orderRouteSnapshot?.etaMinutes?.takeIf { minutes -> minutes > 0 }?.let { minutes -> "$minutes menit" }
+                    ?: data.etaMinutes?.takeIf { minutes -> minutes > 0 }?.let { minutes -> "$minutes menit" }
+                currentState.copy(
                     isLoading = false,
                     error = null,
                     courierLocation = LatLng(data.location.latitude, data.location.longitude),
                     courierHeading = data.location.heading.toFloat(),
-                    routePoints = decodeEncodedPolyline(data.routePolyline),
-                    eta = data.eta ?: it.eta
+                    routePoints = resolvedRoutePoints,
+                    eta = data.eta ?: etaFromSnapshot ?: currentState.eta
                 )
             }
         }.onFailure { exception ->
@@ -127,7 +141,16 @@ class TrackingViewModel @Inject constructor(
 
     private suspend fun fetchLatestOrder(orderId: String) {
         orderRepository.getOrderTrackingDetail(orderId).onSuccess { detail ->
-            _uiState.update { it.copy(detail = detail) }
+            val orderRoutePoints = decodeEncodedPolyline(detail.order.routePolyline ?: detail.order.routeSnapshot?.routePolyline)
+            _uiState.update { currentState ->
+                val etaFromOrder = detail.order.routeSnapshot?.eta
+                    ?: detail.order.routeSnapshot?.etaMinutes?.takeIf { minutes -> minutes > 0 }?.let { minutes -> "$minutes menit" }
+                currentState.copy(
+                    detail = detail,
+                    routePoints = if (currentState.routePoints.isEmpty() && orderRoutePoints.isNotEmpty()) orderRoutePoints else currentState.routePoints,
+                    eta = currentState.eta ?: etaFromOrder
+                )
+            }
         }
     }
 

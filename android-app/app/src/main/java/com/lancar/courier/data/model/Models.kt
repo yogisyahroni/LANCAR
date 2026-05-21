@@ -199,6 +199,46 @@ data class CourierRoutePoint(
 )
 
 @Serializable
+data class CourierRouteSnapshot(
+    @SerialName("generated_at")
+    val generatedAt: String? = null,
+    @SerialName("provider")
+    val provider: String? = null,
+    @SerialName("requested_provider")
+    val requestedProvider: String? = null,
+    @SerialName("active_provider")
+    val activeProvider: String? = null,
+    @SerialName("scope")
+    val scope: String? = null,
+    @SerialName("service_code")
+    val serviceCode: String? = null,
+    @SerialName("vehicle_type")
+    val vehicleType: String? = null,
+    @SerialName("route_profile")
+    val routeProfile: String? = null,
+    @SerialName("distance_km")
+    val distanceKm: Double = 0.0,
+    @SerialName("distance_meters")
+    val distanceMeters: Int = 0,
+    @SerialName("duration_seconds")
+    val durationSeconds: Int = 0,
+    @SerialName("eta_minutes")
+    val etaMinutes: Int = 0,
+    @SerialName("eta")
+    val eta: String? = null,
+    @SerialName("route_polyline")
+    val routePolyline: String? = null,
+    @SerialName("route_geometry")
+    val routeGeometry: String? = null,
+    @SerialName("traffic_aware")
+    val trafficAware: Boolean = false,
+    @SerialName("confidence")
+    val confidence: String? = null,
+    @SerialName("fallback_reason")
+    val fallbackReason: String? = null
+)
+
+@Serializable
 data class CourierRoutePreview(
     @SerialName("order_id")
     val orderId: String,
@@ -209,7 +249,17 @@ data class CourierRoutePreview(
     @SerialName("provider")
     val provider: String = "internal",
     @SerialName("polyline")
-    val polyline: List<CourierRoutePoint> = emptyList()
+    val polyline: List<CourierRoutePoint> = emptyList(),
+    @SerialName("route_snapshot")
+    val routeSnapshot: CourierRouteSnapshot? = null,
+    @SerialName("route_polyline")
+    val routePolyline: String? = null,
+    @SerialName("route_profile")
+    val routeProfile: String? = null,
+    @SerialName("vehicle_type")
+    val vehicleType: String? = null,
+    @SerialName("fallback_reason")
+    val fallbackReason: String? = null
 )
 
 @Serializable

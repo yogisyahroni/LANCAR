@@ -106,7 +106,7 @@ class AuthViewModel @Inject constructor(
             _authState.value = AuthState.Loading
             authRepository.startPasswordLogin(email, password)
                 .onSuccess { response ->
-                    if (response.requireOtp) {
+                    if (response.requiresOtpChallenge()) {
                         _authState.value = AuthState.OtpSent
                     } else {
                         completeAuthenticatedSession(response)
@@ -228,5 +228,16 @@ class AuthViewModel @Inject constructor(
         } else {
             _authState.value = AuthState.Error("Data autentikasi kosong")
         }
+    }
+
+    private fun com.lancar.customer.data.model.AuthResponse.requiresOtpChallenge(): Boolean {
+        if (requireOtp) return true
+        val normalizedMessage = message.orEmpty().lowercase()
+        return normalizedMessage.contains("otp") &&
+            (
+                normalizedMessage.contains("sent") ||
+                    normalizedMessage.contains("dikirim") ||
+                    normalizedMessage.contains("terkirim")
+            )
     }
 }

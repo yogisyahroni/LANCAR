@@ -1,7 +1,21 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Clock, Package, MapPin, ShieldCheck, Truck, Zap } from "lucide-react";
+import { Clock, Package, MapPin, Route, ShieldCheck, Truck, Zap } from "lucide-react";
+
+interface RouteSnapshot {
+  active_provider?: string;
+  provider?: string;
+  route_profile?: string;
+  vehicle_type?: string;
+  distance_km?: number;
+  distance_meters?: number;
+  duration_seconds?: number;
+  eta?: string;
+  eta_minutes?: number;
+  route_polyline?: string;
+  fallback_reason?: string | null;
+}
 
 interface OrderSummaryProps {
   isLoading: boolean;
@@ -16,6 +30,7 @@ interface OrderSummaryProps {
     dynamic_price_idr?: number;
     delivery_model?: "p2p" | "two_legs" | "three_legs";
     eta_minutes?: number;
+    route_snapshot?: RouteSnapshot | null;
     total_price_idr: number;
   } | null;
   isValid: boolean;
@@ -29,6 +44,17 @@ const modelLabel: Record<string, string> = {
 
 export function OrderSummary({ isLoading, pricing, isValid }: OrderSummaryProps) {
   const surgeAmount = pricing?.dynamic_price_idr || 0;
+  const routeSnapshot = pricing?.route_snapshot || null;
+  const routeDistanceKm =
+    routeSnapshot?.distance_km ||
+    (routeSnapshot?.distance_meters ? routeSnapshot.distance_meters / 1000 : undefined) ||
+    pricing?.distance_km;
+  const routeEtaMinutes =
+    routeSnapshot?.eta_minutes ||
+    (routeSnapshot?.duration_seconds ? Math.ceil(routeSnapshot.duration_seconds / 60) : undefined) ||
+    pricing?.eta_minutes;
+  const routeProvider = routeSnapshot?.active_provider || routeSnapshot?.provider || "runtime";
+  const hasRouteGeometry = Boolean(routeSnapshot?.route_polyline);
 
   return (
     <div className="sticky top-8 rounded-2xl border border-white/10 bg-background/50 p-6 shadow-xl backdrop-blur-md">
@@ -131,6 +157,45 @@ export function OrderSummary({ isLoading, pricing, isValid }: OrderSummaryProps)
               {pricing?.eta_minutes ? `~${pricing.eta_minutes} menit` : "-"}
             </span>
           </div>
+        </div>
+
+        <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.06] p-4">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div className="flex items-start gap-2">
+              <Route className="mt-0.5 h-4 w-4 text-emerald-400" />
+              <div>
+                <p className="text-sm font-semibold tracking-tight text-foreground">Preview rute</p>
+                <p className="text-xs text-muted-foreground">
+                  {pricing
+                    ? `${routeDistanceKm ? `${routeDistanceKm.toFixed(1)} km` : "Jarak dihitung"}${routeEtaMinutes ? ` • ~${routeEtaMinutes} menit` : ""}`
+                    : "Lengkapi alamat untuk estimasi."}
+                </p>
+              </div>
+            </div>
+            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+              {routeProvider}
+            </span>
+          </div>
+          <div className="relative h-24 overflow-hidden rounded-xl border border-white/10 bg-background/45">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_78%_62%,rgba(59,130,246,0.12),transparent_26%)]" />
+            <svg viewBox="0 0 320 96" className="absolute inset-0 h-full w-full" role="img" aria-label="Preview rute pengiriman">
+              <path
+                d="M34 70 C88 26, 126 78, 172 46 S250 30, 286 62"
+                fill="none"
+                stroke={hasRouteGeometry ? "#10b981" : "#64748b"}
+                strokeDasharray={hasRouteGeometry ? "0" : "7 7"}
+                strokeLinecap="round"
+                strokeWidth="5"
+              />
+              <circle cx="34" cy="70" r="9" fill="#10b981" />
+              <circle cx="286" cy="62" r="9" fill="#f97316" />
+            </svg>
+          </div>
+          {pricing && (!hasRouteGeometry || routeSnapshot?.fallback_reason) && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Rute sedang diperbarui. Harga dan ETA tetap memakai estimasi backend terbaru.
+            </p>
+          )}
         </div>
       </div>
 

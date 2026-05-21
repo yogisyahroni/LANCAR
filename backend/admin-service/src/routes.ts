@@ -98,6 +98,7 @@ routes.get('/api/v1/customer/orders', requireMobileOrWebAuth, (req, res) => cont
 routes.get('/api/v1/customer/orders/:id/tracking-detail', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrderTrackingDetail(req, res));
 routes.get('/api/v1/customer/delivery-services', requireMobileOrWebAuth, (req, res) => controllers.deliveryServices.listCustomerDeliveryServices(req, res));
 routes.post('/api/v1/customer/orders/calculate', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.calculatePrice(req, res));
+routes.post('/api/v1/customer/orders/calculate-all', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.calculatePrices(req, res));
 routes.post('/api/v1/customer/orders', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
 routes.post('/api/v1/customer/orders/:id/payment', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createCustomerOrderPaymentSession(req, res));
 routes.get('/api/v1/customer/orders/:id/payment/status', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getCustomerOrderPaymentStatus(req, res));

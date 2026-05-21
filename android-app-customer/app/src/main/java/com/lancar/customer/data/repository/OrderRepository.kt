@@ -54,6 +54,23 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun calculateCustomerOrderPrices(request: CustomerPriceEstimateRequest): Result<List<PriceBreakdown>> {
+        return try {
+            val response = apiService.calculateCustomerOrderPrices(request)
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                Result.success(body.data)
+            } else {
+                val fallbackMessage = body?.message
+                    ?: body?.errors?.firstOrNull()?.message
+                    ?: "Gagal menghitung rute dan harga"
+                Result.failure(Exception(response.readErrorMessage(fallbackMessage)))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     fun createCustomerOnDemandOrder(request: CustomerOrderCreateRequest): Flow<Result<CreatedCustomerOrder>> = flow {
         try {
             val response = apiService.createCustomerOnDemandOrder(request)

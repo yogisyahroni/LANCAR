@@ -157,16 +157,21 @@ export const findDeliveryServiceByCode = async (
   return rows[0] ? normalizeService(rows[0]) : null;
 };
 
+export const listEnabledDeliveryServicesForCustomer = async (): Promise<DeliveryServiceProduct[]> => {
+  const { rows } = await db.query(
+    `SELECT *
+     FROM delivery_service_products
+     WHERE is_enabled = TRUE
+     ORDER BY display_order ASC, name ASC`
+  );
+
+  return rows.map(normalizeService);
+};
+
 export const listCustomerDeliveryServices = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const { rows } = await db.query(
-      `SELECT *
-       FROM delivery_service_products
-       WHERE is_enabled = TRUE
-       ORDER BY display_order ASC, name ASC`
-    );
-
-    res.json({ success: true, services: rows.map(normalizeService).map(customerFacingService) });
+    const services = await listEnabledDeliveryServicesForCustomer();
+    res.json({ success: true, services: services.map(customerFacingService) });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

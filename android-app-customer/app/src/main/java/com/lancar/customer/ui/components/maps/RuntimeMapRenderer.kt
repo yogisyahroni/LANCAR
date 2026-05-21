@@ -53,6 +53,8 @@ import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.floor
 import kotlin.math.ln
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sinh
@@ -63,6 +65,11 @@ data class RuntimeMapMarker(
     val position: LatLng,
     val title: String,
     val snippet: String? = null
+)
+
+private data class RuntimeMapViewport(
+    val center: LatLng,
+    val zoom: Int
 )
 
 @Composable
@@ -85,24 +92,23 @@ fun RuntimeMapRenderer(
 ) {
     val validMarkers = remember(markers) { markers.filter { it.position.isValidLatLng() } }
     val validRoutePoints = remember(routePoints) { routePoints.filter { it.isValidLatLng() } }
-    val center = remember(validMarkers, validRoutePoints, followLocation) {
-        when {
-            followLocation?.isValidLatLng() == true -> followLocation
-            validRoutePoints.isNotEmpty() -> validRoutePoints[validRoutePoints.lastIndex / 2]
-            validMarkers.isNotEmpty() -> validMarkers.first().position
-            else -> LatLng(-6.2088, 106.8456)
-        }
+    val viewport = remember(validMarkers, validRoutePoints, followLocation) {
+        resolveViewport(
+            markers = validMarkers,
+            routePoints = validRoutePoints,
+            followLocation = followLocation
+        )
     }
 
     when {
         providerConfig.activeProvider == "google_maps" -> {
             val cameraPositionState = rememberCameraPositionState {
-                position = CameraPosition.fromLatLngZoom(center, if (validRoutePoints.size > 1) 13f else 15f)
+                position = CameraPosition.fromLatLngZoom(viewport.center, viewport.zoom.toFloat())
             }
-            LaunchedEffect(center.latitude, center.longitude) {
+            LaunchedEffect(viewport.center.latitude, viewport.center.longitude, viewport.zoom) {
                 cameraPositionState.animate(
                     CameraUpdateFactory.newCameraPosition(
-                        CameraPosition.fromLatLngZoom(center, cameraPositionState.position.zoom.coerceIn(12f, 17f))
+                        CameraPosition.fromLatLngZoom(viewport.center, viewport.zoom.toFloat())
                     ),
                     800
                 )
@@ -132,7 +138,7 @@ fun RuntimeMapRenderer(
                 providerConfig = providerConfig,
                 markers = validMarkers,
                 routePoints = validRoutePoints,
-                center = center,
+                viewport = viewport,
                 modifier = modifier,
                 routeColor = routeColor,
                 onMapClick = onMapClick
@@ -144,7 +150,7 @@ fun RuntimeMapRenderer(
                 title = fallbackTitle,
                 message = providerConfig.reason?.replace("_", " ") ?: fallbackMessage,
                 provider = providerConfig.activeProvider,
-                center = center,
+                center = viewport.center,
                 modifier = modifier
             )
         }
@@ -156,7 +162,7 @@ private fun OpenStreetMapTileRenderer(
     providerConfig: MapsProviderConfig,
     markers: List<RuntimeMapMarker>,
     routePoints: List<LatLng>,
-    center: LatLng,
+    viewport: RuntimeMapViewport,
     modifier: Modifier,
     routeColor: Color,
     onMapClick: ((LatLng) -> Unit)?
@@ -166,9 +172,9 @@ private fun OpenStreetMapTileRenderer(
     }
     val attribution = providerConfig.openStreetMap.attribution
         ?: "© OpenStreetMap contributors"
-    val zoom = if (routePoints.size > 1) 12 else 15
-    val centerTile = remember(center.latitude, center.longitude, zoom) {
-        center.toOsmTileCoordinate(zoom)
+    val zoom = viewport.zoom
+    val centerTile = remember(viewport.center.latitude, viewport.center.longitude, zoom) {
+        viewport.center.toOsmTileCoordinate(zoom)
     }
 
     BoxWithConstraints(
@@ -293,6 +299,61 @@ private fun RuntimeMapFallback(
 
 private fun LatLng.isValidLatLng(): Boolean {
     return latitude in -90.0..90.0 && longitude in -180.0..180.0 && !(latitude == 0.0 && longitude == 0.0)
+}
+
+private fun resolveViewport(
+    markers: List<RuntimeMapMarker>,
+    routePoints: List<LatLng>,
+    followLocation: LatLng?
+): RuntimeMapViewport {
+    val allPoints = (routePoints + markers.map { it.position })
+        .filter { it.isValidLatLng() }
+        .distinctBy { point -> "${"%.6f".format(point.latitude)}:${"%.6f".format(point.longitude)}" }
+
+    if (allPoints.size >= 2) {
+        var minLatitude = allPoints.first().latitude
+        var maxLatitude = allPoints.first().latitude
+        var minLongitude = allPoints.first().longitude
+        var maxLongitude = allPoints.first().longitude
+
+        allPoints.forEach { point ->
+            minLatitude = min(minLatitude, point.latitude)
+            maxLatitude = max(maxLatitude, point.latitude)
+            minLongitude = min(minLongitude, point.longitude)
+            maxLongitude = max(maxLongitude, point.longitude)
+        }
+
+        val latitudeSpan = maxLatitude - minLatitude
+        val longitudeSpan = maxLongitude - minLongitude
+        val largestSpan = max(latitudeSpan, longitudeSpan)
+        val zoom = when {
+            largestSpan > 2.0 -> 8
+            largestSpan > 1.0 -> 9
+            largestSpan > 0.5 -> 10
+            largestSpan > 0.25 -> 11
+            largestSpan > 0.04 -> 12
+            largestSpan > 0.02 -> 13
+            largestSpan > 0.01 -> 14
+            else -> 15
+        }
+
+        return RuntimeMapViewport(
+            center = LatLng(
+                (minLatitude + maxLatitude) / 2.0,
+                (minLongitude + maxLongitude) / 2.0
+            ),
+            zoom = zoom
+        )
+    }
+
+    return RuntimeMapViewport(
+        center = when {
+            followLocation?.isValidLatLng() == true -> followLocation
+            allPoints.isNotEmpty() -> allPoints.first()
+            else -> LatLng(-6.2088, 106.8456)
+        },
+        zoom = 15
+    )
 }
 
 private const val OsmTileSizePx = 256f

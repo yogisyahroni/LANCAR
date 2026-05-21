@@ -43,6 +43,32 @@ interface Order {
   courier_vehicle?: string;
   courier_plate?: string;
   courier_rating?: number;
+  route_snapshot?: RouteSnapshot | null;
+  route_provider?: string | null;
+  route_profile?: string | null;
+  route_polyline?: string | null;
+  route_distance_meters?: number | null;
+  route_duration_seconds?: number | null;
+}
+
+interface RouteSnapshot {
+  generated_at?: string;
+  provider?: string;
+  requested_provider?: string;
+  active_provider?: string;
+  scope?: string;
+  route_profile?: string;
+  vehicle_type?: string;
+  service_code?: string;
+  distance_km?: number;
+  distance_meters?: number;
+  duration_seconds?: number;
+  eta?: string;
+  eta_minutes?: number;
+  route_polyline?: string;
+  traffic_aware?: boolean;
+  confidence?: string;
+  fallback_reason?: string | null;
 }
 
 interface ChatMessage {
@@ -65,7 +91,17 @@ interface TrackingData {
     timestamp?: string;
   };
   eta?: string;
+  eta_minutes?: number;
+  route_provider?: string;
   route_polyline?: string;
+  order_route_snapshot?: RouteSnapshot | null;
+  order_route_provider?: string | null;
+  order_route_profile?: string | null;
+  order_route_polyline?: string | null;
+  order_route_distance_meters?: number | null;
+  order_route_duration_seconds?: number | null;
+  order_route_snapshot_hash?: string | null;
+  order_route_version?: string | null;
 }
 
 interface TrackingProof {
@@ -90,6 +126,132 @@ interface OnDemandRealtimePayload {
   stage?: string;
   location?: TrackingData['location'];
   chat?: ChatMessage;
+}
+
+function decodePolyline(encoded?: string | null): Array<{ lat: number; lng: number }> {
+  if (!encoded) return [];
+  const points: Array<{ lat: number; lng: number }> = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+
+  while (index < encoded.length) {
+    let shift = 0;
+    let result = 0;
+    let byteValue = 0;
+    do {
+      if (index >= encoded.length) return points;
+      byteValue = encoded.charCodeAt(index++) - 63;
+      result |= (byteValue & 0x1f) << shift;
+      shift += 5;
+    } while (byteValue >= 0x20);
+    const deltaLat = (result & 1) ? ~(result >> 1) : result >> 1;
+    lat += deltaLat;
+
+    shift = 0;
+    result = 0;
+    do {
+      if (index >= encoded.length) return points;
+      byteValue = encoded.charCodeAt(index++) - 63;
+      result |= (byteValue & 0x1f) << shift;
+      shift += 5;
+    } while (byteValue >= 0x20);
+    const deltaLng = (result & 1) ? ~(result >> 1) : result >> 1;
+    lng += deltaLng;
+
+    points.push({ lat: lat / 100000, lng: lng / 100000 });
+  }
+
+  return points;
+}
+
+function buildSvgRoute(points: Array<{ lat: number; lng: number }>) {
+  if (points.length < 2) return "M28 112 C96 36, 150 130, 220 70 S320 44, 372 96";
+  const minLat = Math.min(...points.map((point) => point.lat));
+  const maxLat = Math.max(...points.map((point) => point.lat));
+  const minLng = Math.min(...points.map((point) => point.lng));
+  const maxLng = Math.max(...points.map((point) => point.lng));
+  const latSpan = Math.max(maxLat - minLat, 0.0001);
+  const lngSpan = Math.max(maxLng - minLng, 0.0001);
+  return points.map((point, index) => {
+    const x = 28 + ((point.lng - minLng) / lngSpan) * 344;
+    const y = 24 + (1 - ((point.lat - minLat) / latSpan)) * 112;
+    return `${index === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(" ");
+}
+
+function RouteSnapshotPanel({ order, tracking }: { order: Order; tracking: TrackingData | null }) {
+  const snapshot = tracking?.order_route_snapshot || order.route_snapshot || null;
+  const routePolyline =
+    tracking?.route_polyline ||
+    tracking?.order_route_polyline ||
+    snapshot?.route_polyline ||
+    order.route_polyline ||
+    null;
+  const routePoints = decodePolyline(routePolyline);
+  const distanceMeters =
+    tracking?.order_route_distance_meters ||
+    snapshot?.distance_meters ||
+    order.route_distance_meters ||
+    (snapshot?.distance_km ? Math.round(snapshot.distance_km * 1000) : null);
+  const durationSeconds =
+    tracking?.order_route_duration_seconds ||
+    snapshot?.duration_seconds ||
+    order.route_duration_seconds ||
+    (snapshot?.eta_minutes ? snapshot.eta_minutes * 60 : null);
+  const provider =
+    snapshot?.active_provider ||
+    tracking?.order_route_provider ||
+    tracking?.route_provider ||
+    order.route_provider ||
+    snapshot?.provider ||
+    "runtime";
+  const routeProfile = snapshot?.route_profile || tracking?.order_route_profile || order.route_profile || "on-demand";
+  const distanceLabel = distanceMeters ? `${(distanceMeters / 1000).toFixed(1)} km` : "Estimasi jarak";
+  const etaLabel = durationSeconds ? `~${Math.ceil(durationSeconds / 60)} menit` : snapshot?.eta || tracking?.eta || "ETA diperbarui";
+  const svgPath = buildSvgRoute(routePoints);
+  const hasProviderFallback = !routePolyline || Boolean(snapshot?.fallback_reason);
+
+  return (
+    <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.06] p-4 shadow-sm">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">Route snapshot</p>
+          <h3 className="mt-1 text-base font-bold tracking-tight text-white">Rute pengiriman</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{distanceLabel} • {etaLabel}</p>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+            {provider}
+          </span>
+          <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            {routeProfile}
+          </span>
+        </div>
+      </div>
+      <div className="relative h-36 overflow-hidden rounded-2xl border border-white/10 bg-background/45">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_28%,rgba(16,185,129,0.18),transparent_28%),radial-gradient(circle_at_80%_68%,rgba(249,115,22,0.14),transparent_26%)]" />
+        <svg viewBox="0 0 400 160" className="absolute inset-0 h-full w-full" role="img" aria-label="Polyline rute order">
+          <path
+            d={svgPath}
+            fill="none"
+            stroke={routePoints.length >= 2 ? "#10b981" : "#64748b"}
+            strokeDasharray={routePoints.length >= 2 ? "0" : "8 8"}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="6"
+          />
+          <circle cx="28" cy={routePoints.length >= 2 ? "112" : "112"} r="10" fill="#10b981" />
+          <circle cx="372" cy={routePoints.length >= 2 ? "96" : "96"} r="10" fill="#f97316" />
+        </svg>
+      </div>
+      {hasProviderFallback && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Rute sedang diperbarui. Customer dan kurir tetap memakai estimasi backend yang sama sampai provider peta mengirim geometri terbaru.
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default function OrderDetailPage() {
@@ -633,6 +795,8 @@ export default function OrderDetailPage() {
               )}
             </div>
           </div>
+
+          <RouteSnapshotPanel order={order} tracking={tracking} />
 
           {/* Inline Chat Module */}
           <div className="bg-card/40 backdrop-blur-md border border-white/10 rounded-2xl shadow-sm p-4 space-y-4">

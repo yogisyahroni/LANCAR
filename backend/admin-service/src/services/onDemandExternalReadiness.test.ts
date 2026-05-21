@@ -13,7 +13,8 @@ describe('onDemandExternalReadiness', () => {
       private_key: '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n'
     });
 
-  it('marks Google Directions ready when either maps key is configured', () => {
+  it('marks Google routing ready when routes, maps, or directions key is configured', () => {
+    expect(hasGoogleDirectionsConfig({ GOOGLE_ROUTES_API_KEY: 'routes-real-key' })).toBe(true);
     expect(hasGoogleDirectionsConfig({ GOOGLE_MAPS_API_KEY: 'AIza-real-key' })).toBe(true);
     expect(hasGoogleDirectionsConfig({ GOOGLE_DIRECTIONS_API_KEY: 'directions-real-key' })).toBe(true);
     expect(hasGoogleDirectionsConfig({ GOOGLE_MAPS_API_KEY: 'your_google_maps_api_key' })).toBe(false);
@@ -55,7 +56,7 @@ describe('onDemandExternalReadiness', () => {
 
   it('returns ready for staging validation after Google and Firebase config exist', () => {
     const readiness = getOnDemandExternalReadiness({
-      GOOGLE_MAPS_API_KEY: 'AIza-real-key',
+      GOOGLE_ROUTES_API_KEY: 'routes-real-key',
       FIREBASE_SERVICE_ACCOUNT: makeServiceAccount('lancar-staging')
     });
 
@@ -69,7 +70,7 @@ describe('onDemandExternalReadiness', () => {
 
   it('returns ready when customer and courier Firebase projects are configured separately', () => {
     const readiness = getOnDemandExternalReadiness({
-      GOOGLE_MAPS_API_KEY: 'AIza-real-key',
+      GOOGLE_ROUTES_API_KEY: 'routes-real-key',
       FIREBASE_CUSTOMER_SERVICE_ACCOUNT_B64: Buffer.from(
         makeServiceAccount('android-customer-c2872'),
         'utf8'

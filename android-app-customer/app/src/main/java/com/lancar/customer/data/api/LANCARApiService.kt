@@ -77,6 +77,11 @@ interface LANCARApiService {
         @Body request: CustomerPriceEstimateRequest
     ): Response<PriceBreakdown>
 
+    @POST("api/v1/customer/orders/calculate-all")
+    suspend fun calculateCustomerOrderPrices(
+        @Body request: CustomerPriceEstimateRequest
+    ): Response<CustomerBulkPriceEstimateResponse>
+
     @POST("api/v1/customer/orders")
     suspend fun createCustomerOnDemandOrder(
         @Body request: CustomerOrderCreateRequest
