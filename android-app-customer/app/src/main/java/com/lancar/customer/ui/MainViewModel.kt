@@ -8,7 +8,7 @@ import com.lancar.customer.data.session.AuthSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,6 +26,7 @@ class MainViewModel @Inject constructor(
 
     init {
         checkAuth()
+        observeAuthSession()
     }
 
     private fun checkAuth() {
@@ -51,6 +52,14 @@ class MainViewModel @Inject constructor(
                 }
         } catch (_: RuntimeException) {
             // FCM is optional until Firebase credentials are configured for this app.
+        }
+    }
+
+    private fun observeAuthSession() {
+        viewModelScope.launch {
+            sessionManager.isLoggedIn.collectLatest { loggedIn ->
+                _startDestination.value = if (loggedIn) "dashboard" else "auth_graph"
+            }
         }
     }
 

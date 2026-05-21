@@ -17,14 +17,21 @@ interface LANCARApiService {
         @Query("scope") scope: String = "customer_mobile"
     ): Response<MapsProviderConfig>
 
+    @GET("api/v1/maps/geocode")
+    suspend fun geocodeAddress(
+        @Query("query") query: String,
+        @Query("scope") scope: String = "customer_mobile"
+    ): Response<MapsGeocodeResponse>
+
+    @GET("api/v1/maps/reverse-geocode")
+    suspend fun reverseGeocodePoint(
+        @Query("latitude") latitude: Double,
+        @Query("longitude") longitude: Double,
+        @Query("scope") scope: String = "customer_mobile"
+    ): Response<MapsReverseGeocodeResponse>
+
 
     // Auth Endpoints
-
-    @POST("auth/customer/otp-request")
-    suspend fun requestOtp(@Body request: OtpRequest): Response<AuthResponse>
-
-    @POST("auth/customer/login")
-    suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
 
     @POST("api/v1/auth/otp/send")
     suspend fun requestOtpV1(@Body request: OtpV1Request): Response<AuthResponse>
@@ -49,10 +56,10 @@ interface LANCARApiService {
     ): Response<ApiResponse<TrackingResponse>>
 
     // Order Endpoints
-    @GET("api/v1/orders")
+    @GET("api/v1/customer/orders")
     suspend fun getOrderHistory(): Response<ApiResponse<List<Order>>>
 
-    @GET("api/v1/orders/{id}")
+    @GET("api/v1/customer/orders/{id}")
     suspend fun getOrderDetail(
         @Path("id") id: String
     ): Response<ApiResponse<Order>>
@@ -61,11 +68,6 @@ interface LANCARApiService {
     suspend fun getOrderTrackingDetail(
         @Path("id") id: String
     ): Response<OrderTrackingDetailResponse>
-
-    @POST("api/v1/orders")
-    suspend fun createOrder(
-        @Body request: CreateOrderRequest
-    ): Response<ApiResponse<Order>>
 
     @GET("api/v1/customer/delivery-services")
     suspend fun getCustomerDeliveryServices(): Response<DeliveryServicesResponse>
@@ -106,11 +108,6 @@ interface LANCARApiService {
         @Path("id") id: String
     ): Response<ReceiverLocationRequestResponse>
 
-    @POST("api/v1/orders/{id}/cancel")
-    suspend fun cancelOrder(
-        @Path("id") id: String
-    ): Response<ApiResponse<Unit>>
-
     // Payment Endpoints
     @POST("api/v1/customer/orders/{id}/payment")
     suspend fun createCustomerPaymentSession(
@@ -128,10 +125,10 @@ interface LANCARApiService {
     ): Response<CustomerPaymentSessionResponse>
 
     // Profile Endpoints
-    @GET("api/v1/profile")
+    @GET("api/v1/customer/profile")
     suspend fun getProfile(): Response<ApiResponse<ProfileResponse>>
 
-    @PUT("api/v1/profile")
+    @PUT("api/v1/customer/profile")
     suspend fun updateProfile(
         @Body request: UpdateProfileRequest
     ): Response<ApiResponse<ProfileResponse>>

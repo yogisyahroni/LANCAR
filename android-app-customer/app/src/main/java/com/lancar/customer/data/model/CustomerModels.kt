@@ -260,10 +260,11 @@ data class UpdateProfileRequest(
 
 @Serializable
 data class ProfileResponse(
-    @SerialName("id") val id: String,
-    @SerialName("name") val name: String,
-    @SerialName("phone_number") val phoneNumber: String,
-    @SerialName("wallet_balance") val walletBalance: Long,
+    @SerialName("id") val id: String = "",
+    @SerialName("name") val name: String = "",
+    @SerialName("email") val email: String = "",
+    @SerialName("phone_number") val phoneNumber: String = "",
+    @SerialName("wallet_balance") val walletBalance: Long = 0L,
     @SerialName("profile_image_url") val profileImageUrl: String? = null
 )
 

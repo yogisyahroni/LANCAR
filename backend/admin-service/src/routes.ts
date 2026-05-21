@@ -15,6 +15,7 @@ export const routes = Router();
 
 // Web Portal Auth Routes
 routes.post('/auth/web/login', (req, res) => controllers.loginWeb(req, res));
+routes.post('/auth/web/session/exchange', (req, res) => controllers.exchangeCustomerJwtForWebSession(req, res));
 routes.post('/auth/web/logout', (req, res) => controllers.logoutWeb(req, res));
 routes.post('/auth/web/refresh-token', (req, res) => controllers.refreshToken(req, res));
 
@@ -89,7 +90,10 @@ routes.post('/auth/web/disputes/:id/chats', verifyWebSession, (req, res) => cont
 routes.post('/auth/web/disputes/:id/upload', verifyWebSession, upload.single('file'), (req, res) => controllers.uploadDisputeFile(req, res));
 
 // Customer Mobile Portal Routes
+routes.get('/api/v1/customer/profile', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerProfile(req, res));
+routes.put('/api/v1/customer/profile', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.updateMobileCustomerProfile(req, res));
 routes.get('/api/v1/customer/dashboard/stats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getCustomerDashboardStats(req, res));
+routes.get('/api/v1/customer/orders', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrders(req, res));
 routes.get('/api/v1/customer/orders/:id/tracking-detail', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrderTrackingDetail(req, res));
 routes.get('/api/v1/customer/delivery-services', requireMobileOrWebAuth, (req, res) => controllers.deliveryServices.listCustomerDeliveryServices(req, res));
 routes.post('/api/v1/customer/orders/calculate', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.calculatePrice(req, res));
@@ -97,6 +101,7 @@ routes.post('/api/v1/customer/orders', requireMobileOrWebAuth, (req, res) => con
 routes.post('/api/v1/customer/orders/:id/payment', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createCustomerOrderPaymentSession(req, res));
 routes.get('/api/v1/customer/orders/:id/payment/status', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getCustomerOrderPaymentStatus(req, res));
 routes.post('/api/v1/customer/orders/:id/payment/check', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.confirmCustomerOrderPayment(req, res));
+routes.get('/api/v1/customer/orders/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrder(req, res));
 routes.get('/api/v1/customer/addresses', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.listCustomerAddresses(req, res));
 routes.post('/api/v1/customer/addresses', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createCustomerAddress(req, res));
 routes.patch('/api/v1/customer/addresses/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.updateCustomerAddress(req, res));
@@ -121,6 +126,7 @@ routes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res))
 routes.get('/api/v1/system/latest-version', (req, res) => controllers.getLatestVersion(req, res));
 routes.get('/api/v1/system/on-demand-readiness', (req, res) => controllers.getOnDemandReadiness(req, res));
 routes.get('/api/v1/maps/config', (req, res) => controllers.getPublicMapsProviderRuntimeConfig(req, res));
+routes.get('/api/v1/maps/tiles/:z/:x/:y.png', (req, res) => controllers.getPublicOpenStreetMapTile(req, res));
 routes.get('/api/v1/maps/route', (req, res) => controllers.getPublicMapsRoutePreview(req, res));
 routes.get('/api/v1/maps/geocode', (req, res) => controllers.getPublicMapsGeocode(req, res));
 routes.get('/api/v1/maps/reverse-geocode', (req, res) => controllers.getPublicMapsReverseGeocode(req, res));

@@ -424,6 +424,37 @@ app.use(createProxyMiddleware({
   }
 }));
 
+// Public Maps Runtime Routes (provider config, geocode, reverse geocode, routes, and OSM tile proxy)
+// These endpoints must stay unauthenticated because customer/courier apps need map runtime config
+// before a booking flow can safely complete, while the admin-service owns provider policy.
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/maps',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[35m[Proxy Maps]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) {
+        adminBreaker.fire(null);
+      }
+    },
+    error: (err: Error, req: any, res: any) => {
+      adminBreaker.fire(null);
+      console.error(`Proxy Error (${ADMIN_SERVICE_URL}/maps):`, err);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({
+          status: 'error',
+          code: 'ERR_BAD_GATEWAY',
+          message: 'Maps service is currently unavailable',
+        });
+      }
+    }
+  }
+}));
+
 // Customer Mobile Portal Routes (JWT-authenticated, backed by Admin Service aggregates)
 app.use('/api/v1/customer', authenticateJWT);
 app.use(createProxyMiddleware({

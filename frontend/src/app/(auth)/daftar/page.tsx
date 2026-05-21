@@ -1,383 +1,281 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2, Package, CheckCircle2, Circle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { ArrowRight, CheckCircle2, Loader2, Mail, Package, Phone, ShieldCheck, UserRound } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 
+type RegisterStep = 'identity' | 'otp';
+
 export default function RegisterPage() {
   const router = useRouter();
   const setAuth = useAuthStore((state) => state.setAuth);
-
-  const [step, setStep] = useState(1);
-  const [apiError, setApiError] = useState<string | null>(null);
-
-  // Step 1: Phone + OTP
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [countdown, setCountdown] = useState(0);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
-
-  // Step 2: Details
-  const [name, setName] = useState('');
+  const [step, setStep] = useState<RegisterStep>('identity');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [referralCode, setReferralCode] = useState('');
-
-  // Step 3: PIN
-  const [pin, setPin] = useState('');
-  const [confirmPin, setConfirmPin] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [countdown, setCountdown] = useState(0);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Timer countdown
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (countdown > 0) {
-      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    if (countdown <= 0) {
+      return;
     }
-    return () => clearTimeout(timer);
+    const timer = window.setTimeout(() => setCountdown((current) => current - 1), 1000);
+    return () => window.clearTimeout(timer);
   }, [countdown]);
 
-  const handleSendOtp = async () => {
-    if (!phone || phone.length < 8) {
-      setApiError('Please enter a valid phone number');
-      return;
+  const validateIdentity = () => {
+    if (fullName.trim().length < 2) {
+      return 'Nama lengkap wajib diisi.';
     }
-    setApiError(null);
-    setIsSendingOtp(true);
-    try {
-      await api.post('/auth/web/send-otp', { phone });
-      setOtpSent(true);
-      setCountdown(60);
-    } catch (error: any) {
-      setOtpSent(true);
-      setCountdown(60);
-      console.error('Send OTP fallback/success:', error);
-    } finally {
-      setIsSendingOtp(false);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return 'Alamat email tidak valid.';
     }
+    if (phoneNumber.replace(/\D/g, '').length < 9) {
+      return 'Nomor handphone tidak valid.';
+    }
+    if (password.length < 8) {
+      return 'Password minimal 8 karakter.';
+    }
+    if (password !== confirmPassword) {
+      return 'Konfirmasi password tidak sama.';
+    }
+    return null;
   };
 
-  const verifyOtp = async () => {
-    if (!otp || otp.length < 6) {
-      setApiError('Please enter a valid 6-digit OTP');
+  const startRegistration = async () => {
+    const validationError = validateIdentity();
+    if (validationError) {
+      setApiError(validationError);
       return;
     }
+
     setApiError(null);
     setIsSubmitting(true);
     try {
-      await api.post('/auth/web/verify-otp', { phone, otp });
-      setStep(2);
-    } catch (err) {
-      // Allow fallback for demonstration
-      setStep(2);
+      await api.post('/auth/customer/register/start', {
+        full_name: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        phone_number: phoneNumber.trim(),
+        password,
+      });
+      setStep('otp');
+      setCountdown(60);
+    } catch (error: any) {
+      setApiError(error.response?.data?.message || error.response?.data?.error || 'Pendaftaran belum berhasil. Coba lagi.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDetailsSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name) {
-      setApiError('Name is required');
-      return;
-    }
-    setApiError(null);
-    setStep(3);
-  };
-
-  const handlePinSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pin || pin.length < 6) {
-      setApiError('PIN must be exactly 6 digits');
-      return;
-    }
-    if (pin !== confirmPin) {
-      setApiError('PIN confirmation does not match');
+  const resendOtp = async () => {
+    if (countdown > 0) {
       return;
     }
     setApiError(null);
     setIsSubmitting(true);
     try {
-      const response = await api.post('/auth/web/register', {
-        phone,
-        name,
-        email,
-        referralCode,
-        pin
+      await api.post('/auth/otp/send', { phone_number: email.trim().toLowerCase() });
+      setCountdown(60);
+    } catch (error: any) {
+      setApiError(error.response?.data?.message || error.response?.data?.error || 'OTP belum bisa dikirim ulang.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const verifyAndCreateSession = async () => {
+    if (!/^\d{6}$/.test(otp)) {
+      setApiError('Masukkan 6 digit OTP.');
+      return;
+    }
+
+    setApiError(null);
+    setIsSubmitting(true);
+    try {
+      const otpResponse = await api.post('/auth/otp/verify', {
+        phone_number: email.trim().toLowerCase(),
+        code: otp,
+        device_id: 'customer-web',
+        device_info: {
+          platform: 'web',
+          flow: 'customer-registration',
+          user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+        },
       });
-      setAuth(true, response.data.user);
+      const sessionResponse = await api.post('/auth/web/session/exchange', {
+        access_token: otpResponse.data.access_token,
+      });
+      setAuth(true, sessionResponse.data.user);
       router.push('/dashboard');
     } catch (error: any) {
-      console.error('Registration error:', error);
-      // Fallback for demonstration if endpoint is missing/not present in current service
-      const dummyUser = {
-        id: 'usr_reg_123',
-        name,
-        email: email || `${name.toLowerCase().replace(/\s+/g, '')}@lancar.com`,
-        role: 'customer'
-      };
-      setAuth(true, dummyUser);
-      router.push('/dashboard');
+      setApiError(error.response?.data?.message || error.response?.data?.error || 'Verifikasi OTP gagal.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-8">
-      {/* Background Decorative Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-1/2 -right-1/2 w-full h-full bg-primary/10 blur-[120px] rounded-full" />
-        <div className="absolute -bottom-1/2 -left-1/2 w-full h-full bg-blue-500/10 blur-[120px] rounded-full" />
-      </div>
-
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md relative z-10"
+        transition={{ duration: 0.35 }}
+        className="w-full max-w-lg"
       >
-        <div className="bg-card/40 backdrop-blur-xl border border-border/40 rounded-2xl p-8 shadow-2xl">
-          <div className="flex flex-col items-center mb-6">
-            <div className="h-12 w-12 bg-primary/20 rounded-xl flex items-center justify-center mb-4">
-              <Package className="h-6 w-6 text-primary" />
+        <div className="rounded-3xl border border-border/50 bg-card shadow-2xl p-8">
+          <div className="mb-8 flex items-start gap-4">
+            <div className="h-14 w-14 rounded-2xl bg-primary/15 flex items-center justify-center">
+              <Package className="h-7 w-7 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Register your Account</h1>
-            <p className="text-sm text-muted-foreground mt-2 text-center">
-              Complete the steps to join Lancar Logistics
-            </p>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">Daftar Customer LANCAR</h1>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Satu akun untuk customer web dan mobile app. OTP dipakai sebagai verifikasi akhir sebelum sesi dibuat.
+              </p>
+            </div>
           </div>
 
-          {/* Stepper Progress */}
-          <div className="flex items-center justify-between mb-8 px-4">
-            {[1, 2, 3].map((s) => (
-              <div key={s} className="flex items-center flex-1 last:flex-initial">
-                <div className="flex flex-col items-center relative">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm transition-all duration-300 ${
-                      step >= s
-                        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/30'
-                        : 'bg-muted/40 text-muted-foreground border border-border'
-                    }`}
-                  >
-                    {step > s ? <CheckCircle2 className="h-4 w-4" /> : s}
-                  </div>
-                  <span
-                    className={`text-xs mt-1.5 font-medium whitespace-nowrap absolute -bottom-6 ${
-                      step === s ? 'text-primary' : 'text-muted-foreground'
-                    }`}
-                  >
-                    {s === 1 ? 'Contact' : s === 2 ? 'Identity' : 'Security'}
-                  </span>
-                </div>
-                {s < 3 && (
-                  <div
-                    className={`h-1 flex-1 mx-2 rounded transition-all duration-300 ${
-                      step > s ? 'bg-primary' : 'bg-muted/40'
-                    }`}
-                  />
-                )}
+          <div className="mb-8 grid grid-cols-2 gap-3">
+            <div className={`rounded-2xl border p-4 ${step === 'identity' ? 'border-primary bg-primary/10' : 'border-border bg-muted/20'}`}>
+              <UserRound className="mb-2 h-5 w-5 text-primary" />
+              <p className="text-sm font-semibold text-foreground">Identitas</p>
+              <p className="text-xs text-muted-foreground">Email, nomor, password</p>
+            </div>
+            <div className={`rounded-2xl border p-4 ${step === 'otp' ? 'border-primary bg-primary/10' : 'border-border bg-muted/20'}`}>
+              <ShieldCheck className="mb-2 h-5 w-5 text-primary" />
+              <p className="text-sm font-semibold text-foreground">OTP</p>
+              <p className="text-xs text-muted-foreground">Aktivasi sesi aman</p>
+            </div>
+          </div>
+
+          {apiError && (
+            <div className="mb-6 rounded-2xl border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
+              {apiError}
+            </div>
+          )}
+
+          {step === 'identity' ? (
+            <div className="space-y-5">
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <UserRound className="h-4 w-4 text-muted-foreground" /> Nama lengkap
+                </span>
+                <input
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-foreground outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/15"
+                  placeholder="Yogi Customer"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Mail className="h-4 w-4 text-muted-foreground" /> Email
+                </span>
+                <input
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  type="email"
+                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-foreground outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/15"
+                  placeholder="customer@lancar.id"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Phone className="h-4 w-4 text-muted-foreground" /> Nomor handphone
+                </span>
+                <input
+                  value={phoneNumber}
+                  onChange={(event) => setPhoneNumber(event.target.value)}
+                  type="tel"
+                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-foreground outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/15"
+                  placeholder="+628123456789"
+                />
+              </label>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <input
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  type="password"
+                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-foreground outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/15"
+                  placeholder="Password"
+                />
+                <input
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  type="password"
+                  className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-foreground outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/15"
+                  placeholder="Ulangi password"
+                />
               </div>
-            ))}
-          </div>
 
-          {/* Stepper Content with animations */}
-          <div className="mt-10">
-            {apiError && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg p-3 mb-6"
+              <button
+                type="button"
+                onClick={startRegistration}
+                disabled={isSubmitting}
+                className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-5 py-4 font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
               >
-                {apiError}
-              </motion.div>
-            )}
-
-            <AnimatePresence mode="wait">
-              {step === 1 && (
-                <motion.div
-                  key="step-1"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-4"
-                >
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Phone Number</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="flex-1 px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground"
-                        placeholder="+62812345678"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSendOtp}
-                        disabled={countdown > 0 || isSendingOtp}
-                        className="px-3 bg-secondary text-secondary-foreground text-xs font-medium rounded-lg hover:brightness-110 active:scale-[0.98] disabled:opacity-50 transition-all whitespace-nowrap"
-                      >
-                        {isSendingOtp ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : countdown > 0 ? (
-                          `Resend (${countdown}s)`
-                        ) : (
-                          'Send OTP'
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {otpSent && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="space-y-2"
-                    >
-                      <label className="text-sm font-medium text-foreground">6-Digit OTP</label>
-                      <input
-                        type="text"
-                        maxLength={6}
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value)}
-                        className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground text-center font-mono text-lg tracking-[0.5em] placeholder:text-muted-foreground"
-                        placeholder="••••••"
-                      />
-                    </motion.div>
-                  )}
-
-                  <button
-                    onClick={verifyOtp}
-                    disabled={!otpSent || isSubmitting}
-                    className="w-full bg-primary text-primary-foreground font-medium py-2 px-4 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed mt-4"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      'Verify & Continue'
-                    )}
-                  </button>
-                </motion.div>
-              )}
-
-              {step === 2 && (
-                <motion.form
-                  key="step-2"
-                  onSubmit={handleDetailsSubmit}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-4"
-                >
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Full Name</label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                      className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground"
-                      placeholder="John Doe"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Email Address (Optional)</label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground"
-                      placeholder="john@company.com"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Referral Code (Optional)</label>
-                    <input
-                      type="text"
-                      value={referralCode}
-                      onChange={(e) => setReferralCode(e.target.value)}
-                      className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground uppercase tracking-wider"
-                      placeholder="LANCARPROMO"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full bg-primary text-primary-foreground font-medium py-2 px-4 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 mt-4"
-                  >
-                    Continue to Security
-                  </button>
-                </motion.form>
-              )}
-
-              {step === 3 && (
-                <motion.form
-                  key="step-3"
-                  onSubmit={handlePinSubmit}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  transition={{ duration: 0.2 }}
-                  className="space-y-4"
-                >
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">6-Digit PIN</label>
-                    <input
-                      type="password"
-                      maxLength={6}
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value)}
-                      required
-                      className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground text-center font-mono text-xl tracking-[0.5em]"
-                      placeholder="••••••"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Confirm PIN</label>
-                    <input
-                      type="password"
-                      maxLength={6}
-                      value={confirmPin}
-                      onChange={(e) => setConfirmPin(e.target.value)}
-                      required
-                      className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground text-center font-mono text-xl tracking-[0.5em]"
-                      placeholder="••••••"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full bg-primary text-primary-foreground font-medium py-2 px-4 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 flex items-center justify-center disabled:opacity-70 mt-4"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating Account...
-                      </>
-                    ) : (
-                      'Complete Registration'
-                    )}
-                  </button>
-                </motion.form>
-              )}
-            </AnimatePresence>
-
-            <div className="mt-8 text-center text-sm text-muted-foreground border-t border-border/40 pt-6">
-              Already have an account?{' '}
-              <a href="/login" className="text-primary hover:underline font-medium">
-                Sign in here
-              </a>
+                {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <ArrowRight className="h-5 w-5" />}
+                Daftar dan kirim OTP
+              </button>
             </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="rounded-2xl border border-border bg-muted/20 p-5">
+                <div className="mb-3 flex items-center gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  <p className="font-semibold text-foreground">OTP dikirim ke {email}</p>
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Masukkan kode 6 digit untuk mengaktifkan akun dan membuat sesi customer web.
+                </p>
+              </div>
+
+              <input
+                value={otp}
+                onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputMode="numeric"
+                maxLength={6}
+                className="w-full rounded-2xl border border-border bg-background px-4 py-4 text-center font-mono text-2xl tracking-[0.5em] text-foreground outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/15"
+                placeholder="000000"
+              />
+
+              <button
+                type="button"
+                onClick={verifyAndCreateSession}
+                disabled={isSubmitting}
+                className="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary px-5 py-4 font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+              >
+                {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <ShieldCheck className="h-5 w-5" />}
+                Verifikasi dan masuk
+              </button>
+
+              <button
+                type="button"
+                onClick={resendOtp}
+                disabled={countdown > 0 || isSubmitting}
+                className="w-full rounded-2xl border border-border px-5 py-3 text-sm font-semibold text-foreground transition-all hover:bg-muted/40 active:scale-[0.98] disabled:opacity-50"
+              >
+                {countdown > 0 ? `Kirim ulang OTP (${countdown})` : 'Kirim ulang OTP'}
+              </button>
+            </div>
+          )}
+
+          <div className="mt-8 text-center text-sm text-muted-foreground">
+            Sudah punya akun?{' '}
+            <a href="/login" className="font-semibold text-primary hover:underline">
+              Masuk
+            </a>
           </div>
         </div>
       </motion.div>

@@ -4,6 +4,7 @@ import com.lancar.customer.data.api.LANCARApiService
 import com.lancar.customer.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import org.json.JSONObject
 import retrofit2.Response
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,21 +19,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.success == true) {
                 emit(Result.success(response.body()?.data ?: emptyList()))
             } else {
-                emit(Result.failure(Exception(response.body()?.message ?: "Unknown Error")))
-            }
-        } catch (e: Exception) {
-            emit(Result.failure(e))
-        }
-    }
-
-    fun createOrder(request: CreateOrderRequest): Flow<Result<Order>> = flow {
-        try {
-            val response = apiService.createOrder(request)
-            val data = response.body()?.data
-            if (response.isSuccessful && response.body()?.success == true && data != null) {
-                emit(Result.success(data))
-            } else {
-                emit(Result.failure(Exception(response.body()?.message ?: "Failed to create order")))
+                emit(Result.failure(Exception(response.body()?.message ?: response.readErrorMessage("Gagal memuat riwayat pesanan"))))
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -46,7 +33,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true) {
                 emit(Result.success(body.services))
             } else {
-                emit(Result.failure(Exception("Layanan belum tersedia")))
+                emit(Result.failure(Exception(response.readErrorMessage("Layanan belum tersedia"))))
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -60,7 +47,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body != null) {
                 Result.success(body)
             } else {
-                Result.failure(Exception("Gagal menghitung harga"))
+                Result.failure(Exception(response.readErrorMessage("Gagal menghitung harga")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -110,6 +97,39 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun geocodeAddress(query: String): Result<List<MapsGeocodeResult>> {
+        return try {
+            val response = apiService.geocodeAddress(query.trim(), "customer_mobile")
+            val body = response.body()
+            if (response.isSuccessful && body != null) {
+                Result.success(body.results)
+            } else {
+                Result.failure(Exception(response.readErrorMessage("Gagal mencari alamat")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun reverseGeocodePoint(location: LocationPayload): Result<MapsGeocodeResult> {
+        return try {
+            val response = apiService.reverseGeocodePoint(
+                latitude = location.lat,
+                longitude = location.lng,
+                scope = "customer_mobile"
+            )
+            val body = response.body()
+            val result = body?.result
+            if (response.isSuccessful && result != null) {
+                Result.success(result)
+            } else {
+                Result.failure(Exception(response.readErrorMessage("Gagal membaca alamat dari titik peta")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun createCustomerAddress(request: CustomerAddressRequest): Result<CustomerAddress> {
         return try {
             val response = apiService.createCustomerAddress(request)
@@ -118,7 +138,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true && address != null) {
                 Result.success(address)
             } else {
-                Result.failure(Exception(body?.message ?: "Gagal menyimpan alamat"))
+                Result.failure(Exception(body?.message ?: response.readErrorMessage("Gagal menyimpan alamat")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -252,6 +272,18 @@ class OrderRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    private fun <T> Response<T>.readErrorMessage(fallback: String): String {
+        return try {
+            val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback
+            val parsedMessage = runCatching {
+                JSONObject(raw).optString("message").takeIf { it.isNotBlank() }
+            }.getOrNull()
+            parsedMessage ?: raw.take(240)
+        } catch (_: Exception) {
+            fallback
         }
     }
 }

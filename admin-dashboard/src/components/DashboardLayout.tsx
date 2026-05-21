@@ -143,6 +143,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: Map, label: "Zones", path: "/zones" },
+    { icon: Map, label: "Maps Runtime", path: "/maps-runtime" },
     { icon: Ticket, label: "Vouchers", path: "/vouchers" },
     { icon: Bell, label: "Notifications", path: "/notifications" },
     { icon: Package, label: "Orders", path: "/orders" },

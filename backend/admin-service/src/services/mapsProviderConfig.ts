@@ -73,6 +73,12 @@ export type MapsGeocodeResult = {
   confidence?: number | null;
 };
 
+export type MapsTileSnapshot = {
+  body: Buffer;
+  contentType: string;
+  cacheControl: string;
+};
+
 export type MapsProviderObservationStatus = 'success' | 'failure' | 'fallback' | 'disabled' | 'cache_hit';
 
 export type MapsProviderObservation = {
@@ -171,6 +177,91 @@ const mapsProviderOpsState = {
 };
 
 const googleServerKeyAvailable = () => Boolean(process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_DIRECTIONS_API_KEY);
+
+const parseTileCoordinate = (value: string, name: string): number => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`Invalid OSM tile ${name}`);
+  }
+  return parsed;
+};
+
+const buildOsmTileUrl = (z: number, x: number, y: number): string => {
+  if (z < 0 || z > 19) {
+    throw new Error('Invalid OSM tile zoom');
+  }
+  const scale = 2 ** z;
+  if (y < 0 || y >= scale) {
+    throw new Error('Invalid OSM tile y');
+  }
+  const wrappedX = ((x % scale) + scale) % scale;
+  const baseUrl = (process.env.OSM_TILE_BASE_URL || 'https://tile.openstreetmap.org').replace(/\/$/, '');
+  const allowedHosts = new Set(
+    (process.env.OSM_TILE_ALLOWED_HOSTS || 'tile.openstreetmap.org,a.tile.openstreetmap.org,b.tile.openstreetmap.org,c.tile.openstreetmap.org')
+      .split(',')
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const url = new URL(`${baseUrl}/${z}/${wrappedX}/${y}.png`);
+  if (!allowedHosts.has(url.hostname.toLowerCase())) {
+    throw new Error('OSM tile host is not allowlisted');
+  }
+  return url.toString();
+};
+
+export const fetchOpenStreetMapTile = async (zParam: string, xParam: string, yParam: string): Promise<MapsTileSnapshot> => {
+  const z = parseTileCoordinate(zParam, 'z');
+  const x = parseTileCoordinate(xParam, 'x');
+  const y = parseTileCoordinate(yParam, 'y');
+  const tileUrl = buildOsmTileUrl(z, x, y);
+  const startedAt = Date.now();
+
+  try {
+    const response = await axios.get<ArrayBuffer>(tileUrl, {
+      responseType: 'arraybuffer',
+      timeout: 3500,
+      headers: {
+        'User-Agent': process.env.OSM_TILE_USER_AGENT || 'LANCAR-Logistics/1.0 ops@lancar.com',
+        Accept: 'image/png,image/*;q=0.8,*/*;q=0.5',
+      },
+      validateStatus: (status) => status >= 200 && status < 500,
+    });
+
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error(`OSM tile provider returned ${response.status}`);
+    }
+
+    recordMapsProviderObservation({
+      operation: 'config',
+      scope: 'global',
+      requested_provider: 'openstreetmap',
+      active_provider: 'openstreetmap',
+      provider: 'openstreetmap_tile_proxy',
+      status: 'success',
+      latency_ms: Date.now() - startedAt,
+      cache_hit: false,
+    });
+
+    return {
+      body: Buffer.from(response.data),
+      contentType: String(response.headers['content-type'] || 'image/png'),
+      cacheControl: 'public, max-age=86400, stale-while-revalidate=604800',
+    };
+  } catch (error) {
+    recordMapsProviderObservation({
+      operation: 'config',
+      scope: 'global',
+      requested_provider: 'openstreetmap',
+      active_provider: 'openstreetmap',
+      provider: 'openstreetmap_tile_proxy',
+      status: 'failure',
+      latency_ms: Date.now() - startedAt,
+      cache_hit: false,
+      error_message: error,
+    });
+    throw error;
+  }
+};
 
 const toNumber = (value: unknown, fallback: number) => {
   const parsed = Number(value);

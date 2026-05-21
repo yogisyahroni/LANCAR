@@ -19,6 +19,7 @@ import Vouchers from './pages/Vouchers'
 import Notifications from './pages/Notifications'
 import Finance from './pages/Finance'
 import Settings from './pages/Settings'
+import MapsRuntime from './pages/MapsRuntime'
 import AuditLogs from './pages/AuditLogs'
 import FeatureFlags from './pages/FeatureFlags'
 import WarehouseOperations from './pages/WarehouseOperations'
@@ -209,6 +210,14 @@ function App() {
                 <Settings />
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/maps-runtime"
+            element={
+              <ProtectedRoute>
+                <MapsRuntime />
+              </ProtectedRoute>
+            }
           />
         </Routes>
       </Router>

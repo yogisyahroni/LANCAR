@@ -1,12 +1,48 @@
 import { Request, Response } from 'express';
 import { db } from '../db';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
+
+type CustomerJwtPayload = {
+  user_id?: string;
+  id?: string;
+  role?: string;
+};
+
+const customerCookieOptions = (expiresAt: Date) => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax' as const,
+  path: '/',
+  expires: expiresAt,
+});
+
+const createCustomerWebSession = async (req: Request, customerId: string) => {
+  const sessionToken = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  await db.query(
+    `INSERT INTO customer_sessions (user_id, session_token, expires_at, ip_address, user_agent)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [customerId, sessionToken, expiresAt, req.ip, req.headers['user-agent']]
+  );
+
+  return { sessionToken, expiresAt };
+};
 
 export const loginWeb = async (req: Request, res: Response) => {
   const { email, password, portal } = req.body; // portal: 'admin' or 'customer'
 
   if (!email || !password) {
     res.status(400).json({ error: 'Email and password are required' });
+    return;
+  }
+
+  if (portal !== 'admin') {
+    res.status(410).json({
+      error: 'Customer web login requires the customer OTP flow',
+      next: '/api/v1/auth/customer/login/start',
+    });
     return;
   }
 
@@ -72,6 +108,56 @@ export const loginWeb = async (req: Request, res: Response) => {
   }
 };
 
+export const exchangeCustomerJwtForWebSession = async (req: Request, res: Response) => {
+  const token = typeof req.body?.access_token === 'string' ? req.body.access_token.trim() : '';
+  const jwtSecret = process.env.JWT_SECRET;
+
+  if (!jwtSecret) {
+    res.status(500).json({ error: 'Authentication service is not configured' });
+    return;
+  }
+
+  if (!token) {
+    res.status(400).json({ error: 'Access token is required' });
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(token, jwtSecret) as CustomerJwtPayload;
+    const customerId = decoded.user_id || decoded.id;
+
+    if (!customerId || decoded.role !== 'customer') {
+      res.status(403).json({ error: 'Only customer tokens can create customer web sessions' });
+      return;
+    }
+
+    const result = await db.query(
+      `SELECT id, full_name as name, email, role, status
+       FROM customers
+       WHERE id = $1`,
+      [customerId]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Customer account not found' });
+      return;
+    }
+
+    const user = result.rows[0];
+    if (user.status !== 'active') {
+      res.status(403).json({ error: 'Customer account is not active' });
+      return;
+    }
+
+    const { sessionToken, expiresAt } = await createCustomerWebSession(req, user.id);
+    res.cookie('customer_session', sessionToken, customerCookieOptions(expiresAt));
+    res.json({ message: 'Customer web session created', user });
+  } catch (error) {
+    console.error('Customer JWT exchange error:', error);
+    res.status(401).json({ error: 'Invalid or expired customer token' });
+  }
+};
+
 export const refreshToken = async (req: Request, res: Response) => {
   // Check all possible session cookies
   const sessionToken = req.cookies?.admin_session || req.cookies?.customer_session || req.cookies?.web_session;
@@ -112,15 +198,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     console.log(`\x1b[36m[Auth Refresh]\x1b[0m User: ${user.email}, Refreshing cookie: ${cookieName}`);
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: false, 
-      sameSite: 'lax' as const,
-      path: '/',
-      expires: newExpiresAt,
-    };
-
-    res.cookie(cookieName, sessionToken, cookieOptions);
+    res.cookie(cookieName, sessionToken, customerCookieOptions(newExpiresAt));
 
     res.json({ message: 'Session refreshed' });
   } catch (error) {

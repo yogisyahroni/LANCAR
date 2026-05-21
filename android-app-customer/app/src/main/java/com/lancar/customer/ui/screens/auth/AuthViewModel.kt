@@ -197,7 +197,7 @@ class AuthViewModel @Inject constructor(
                 )
             ).collect { result ->
                 result.onSuccess { profile ->
-                    sessionManager.saveUserData(sessionManager.getTokenOnce() ?: "", profile.name)
+                    sessionManager.updateCustomerName(profile.name)
                     _authState.value = AuthState.ProfileCompleted
                 }.onFailure { exception ->
                     _authState.value = AuthState.Error(exception.localizedMessage ?: "Gagal melengkapi profil")

@@ -14,7 +14,7 @@ class TokenRefreshInterceptor @Inject constructor(
         val request = chain.request()
         val response = chain.proceed(request)
 
-        if (response.code == 401) {
+        if (response.code == 401 || response.code == 403) {
             // Token expired or invalid, clear session to force logout
             runBlocking {
                 sessionManager.clearSession()

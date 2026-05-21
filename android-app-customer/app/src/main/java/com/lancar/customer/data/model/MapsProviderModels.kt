@@ -53,3 +53,33 @@ data class OpenStreetMapRuntimeConfig(
     @SerialName("attribution")
     val attribution: String? = null
 )
+
+@Serializable
+data class MapsGeocodeResponse(
+    @SerialName("results")
+    val results: List<MapsGeocodeResult> = emptyList()
+)
+
+@Serializable
+data class MapsReverseGeocodeResponse(
+    @SerialName("result")
+    val result: MapsGeocodeResult? = null
+)
+
+@Serializable
+data class MapsGeocodeResult(
+    @SerialName("label")
+    val label: String = "",
+
+    @SerialName("latitude")
+    val latitude: Double = 0.0,
+
+    @SerialName("longitude")
+    val longitude: Double = 0.0,
+
+    @SerialName("provider")
+    val provider: String = "",
+
+    @SerialName("confidence")
+    val confidence: Double? = null
+)

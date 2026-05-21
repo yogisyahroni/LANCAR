@@ -42,11 +42,25 @@ class AuthSessionManager(private val context: Context) {
 
     fun saveUserData(token: String, name: String) {
         sharedPreferences.edit().apply {
-            putString(KEY_AUTH_TOKEN, token)
+            if (token.isNotBlank()) {
+                putString(KEY_AUTH_TOKEN, token)
+            }
             putString(KEY_CUSTOMER_NAME, name)
             apply()
         }
-        _authToken.value = token
+        if (token.isNotBlank()) {
+            _authToken.value = token
+        }
+        _customerName.value = name
+        _isLoggedIn.value = !sharedPreferences.getString(KEY_AUTH_TOKEN, null).isNullOrEmpty() &&
+            !sharedPreferences.getString(KEY_CUSTOMER_ID, null).isNullOrEmpty()
+    }
+
+    fun updateCustomerName(name: String) {
+        sharedPreferences.edit().apply {
+            putString(KEY_CUSTOMER_NAME, name)
+            apply()
+        }
         _customerName.value = name
     }
 

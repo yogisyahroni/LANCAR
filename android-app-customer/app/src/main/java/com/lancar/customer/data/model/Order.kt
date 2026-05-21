@@ -11,7 +11,7 @@ import kotlinx.serialization.Serializable
 data class Order(
     @PrimaryKey(autoGenerate = true)
     @ColumnInfo(name = "id")
-    @SerialName("id")
+    @SerialName("local_id")
     val localId: Long = 0,
 
     @ColumnInfo(name = "order_id")

@@ -7,7 +7,6 @@ import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.junit4.MockKRule
 import kotlinx.coroutines.test.runTest
 import okhttp3.ResponseBody.Companion.toResponseBody
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -33,8 +32,7 @@ class AuthRepositoryTest {
     fun `requestOtp failure propagates exception as Result failure`() = runTest {
         // Given
         val email = "error@lancar.com"
-        coEvery { apiService.requestOtp(any()) } throws RuntimeException("Network connection lost")
-        coEvery { apiService.requestOtpV1(any()) } throws RuntimeException("Fallback endpoint unavailable")
+        coEvery { apiService.requestOtpV1(any()) } throws RuntimeException("Network connection lost")
 
         // When
         val result = repository.requestOtp(email)
@@ -45,10 +43,9 @@ class AuthRepositoryTest {
     }
 
     @Test
-    fun `requestOtp falls back to v1 endpoint when legacy route is missing`() = runTest {
+    fun `requestOtp uses v1 endpoint successfully`() = runTest {
         // Given
-        val email = "fallback@lancar.com"
-        coEvery { apiService.requestOtp(any()) } returns Response.error(404, "Not Found".toResponseBody(null))
+        val email = "customer@lancar.com"
         coEvery { apiService.requestOtpV1(any()) } returns Response.success(AuthResponse(message = "OTP sent"))
 
         // When
@@ -63,7 +60,7 @@ class AuthRepositoryTest {
         // Given
         val email = "server-broken@lancar.com"
         val rawResponse = Response.error<AuthResponse>(500, "Internal Error".toResponseBody(null))
-        coEvery { apiService.requestOtp(any()) } returns rawResponse
+        coEvery { apiService.requestOtpV1(any()) } returns rawResponse
 
         // When
         val result = repository.requestOtp(email)
@@ -77,7 +74,7 @@ class AuthRepositoryTest {
     fun `verifyOtp handles invalid payload where success field is false`() = runTest {
         // Given
         val mockFailResponse = AuthResponse(success = false, message = "Token Expired", data = null)
-        coEvery { apiService.login(any()) } returns Response.success(mockFailResponse)
+        coEvery { apiService.loginV1(any()) } returns Response.success(mockFailResponse)
 
         // When
         val result = repository.verifyOtp("email", "otp")

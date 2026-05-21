@@ -58,6 +58,41 @@ const maskPhone = (value: any) => {
   return normalized.replace(/\d(?=\d{4})/g, '*');
 };
 
+const toMobileCustomerProfileDto = (row: any) => ({
+  id: row.id,
+  name: row.full_name || '',
+  phone_number: row.phone_number || '',
+  wallet_balance: Number(row.wallet_balance || 0),
+  profile_image_url: row.photo_url || null
+});
+
+const getCustomerWalletBalance = async (customerId: string) => {
+  const tableCheck = await db.query(`SELECT to_regclass('public.customer_wallets') AS table_name`);
+  if (!tableCheck.rows[0]?.table_name) return 0;
+
+  const { rows } = await db.query(
+    `SELECT COALESCE(SUM(balance), 0)::bigint AS wallet_balance
+     FROM customer_wallets
+     WHERE customer_id = $1`,
+    [customerId]
+  );
+  return Number(rows[0]?.wallet_balance || 0);
+};
+
+const normalizeCustomerProfileName = (value: any) => {
+  const name = String(value || '').trim().replace(/\s+/g, ' ');
+  if (name.length < 2 || name.length > 120) return null;
+  return name;
+};
+
+const normalizeCustomerProfilePhone = (value: any) => {
+  const raw = String(value || '').trim();
+  if (!raw || raw.includes('@')) return null;
+  const normalized = raw.replace(/[^\d+]/g, '');
+  if (normalized.length < 8 || normalized.length > 20) return null;
+  return normalized;
+};
+
 const normalizeCoordinatePayload = (value: any): CoordinatePayload | null => {
   const lat = Number(value?.lat);
   const lng = Number(value?.lng);
@@ -831,6 +866,30 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
   }
 };
 
+const toMobileCustomerOrderDto = (row: any) => {
+  const createdAtMs = row.created_at ? new Date(row.created_at).getTime() : Date.now();
+  const updatedAtMs = row.updated_at ? new Date(row.updated_at).getTime() : createdAtMs;
+
+  return {
+    local_id: 0,
+    order_id: row.id,
+    pickup_address: row.pickup_address || '',
+    pickup_time: row.scheduled_at ? new Date(row.scheduled_at).toISOString() : '',
+    drop_address: row.dropoff_address || '',
+    distance: row.distance_km !== null && row.distance_km !== undefined ? String(row.distance_km) : '',
+    fee: row.total_price_idr !== null && row.total_price_idr !== undefined ? String(row.total_price_idr) : '',
+    customer_name: row.recipient_name || row.customer_name || '',
+    status: row.status || 'pending',
+    created_at: Number.isFinite(createdAtMs) ? createdAtMs : Date.now(),
+    updated_at: Number.isFinite(updatedAtMs) ? updatedAtMs : Date.now(),
+    customer_phone: row.recipient_phone_masked || row.customer_phone || null,
+    courier_name: row.courier_name || null,
+    courier_vehicle: row.courier_vehicle || null,
+    courier_plate: row.courier_plate || null,
+    courier_phone: row.courier_phone || null
+  };
+};
+
 export const getCustomerOrders = async (req: Request, res: Response): Promise<void> => {
   try {
     const customer_id = req.user?.id;
@@ -892,6 +951,268 @@ export const getCustomerOrders = async (req: Request, res: Response): Promise<vo
   }
 };
 
+export const getMobileCustomerProfile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customerId = req.user?.id;
+    if (!customerId) {
+      res.status(401).json({
+        success: false,
+        data: null,
+        message: 'Sesi tidak valid. Silakan masuk kembali.',
+        code: 'UNAUTHORIZED'
+      });
+      return;
+    }
+
+    const walletBalance = await getCustomerWalletBalance(customerId);
+    const { rows } = await db.query(`
+      SELECT id,
+             full_name,
+             phone_number,
+             photo_url
+      FROM customers
+      WHERE id = $1 AND deleted_at IS NULL
+      LIMIT 1
+    `, [customerId]);
+
+    if (rows.length === 0) {
+      res.status(404).json({
+        success: false,
+        data: null,
+        message: 'Profil customer tidak ditemukan.',
+        code: 'CUSTOMER_PROFILE_NOT_FOUND'
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: toMobileCustomerProfileDto({ ...rows[0], wallet_balance: walletBalance }),
+      message: 'Profil customer berhasil dimuat.'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      data: null,
+      message: 'Gagal memuat profil customer.',
+      code: 'CUSTOMER_PROFILE_FAILED'
+    });
+  }
+};
+
+export const updateMobileCustomerProfile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customerId = req.user?.id;
+    if (!customerId) {
+      res.status(401).json({
+        success: false,
+        data: null,
+        message: 'Sesi tidak valid. Silakan masuk kembali.',
+        code: 'UNAUTHORIZED'
+      });
+      return;
+    }
+
+    const normalizedName = normalizeCustomerProfileName(req.body?.name);
+    if (!normalizedName) {
+      res.status(400).json({
+        success: false,
+        data: null,
+        message: 'Nama customer harus 2-120 karakter.',
+        code: 'INVALID_CUSTOMER_NAME'
+      });
+      return;
+    }
+
+    const normalizedPhone = normalizeCustomerProfilePhone(req.body?.phone_number);
+
+    const { rows } = await db.query(`
+      UPDATE customers
+      SET full_name = $2,
+          phone_number = COALESCE($3, phone_number),
+          updated_at = NOW()
+      WHERE id = $1 AND deleted_at IS NULL
+      RETURNING id,
+                full_name,
+                phone_number,
+                photo_url
+    `, [customerId, normalizedName, normalizedPhone]);
+
+    if (rows.length === 0) {
+      res.status(404).json({
+        success: false,
+        data: null,
+        message: 'Profil customer tidak ditemukan.',
+        code: 'CUSTOMER_PROFILE_NOT_FOUND'
+      });
+      return;
+    }
+
+    const walletBalance = await getCustomerWalletBalance(customerId);
+
+    res.json({
+      success: true,
+      data: toMobileCustomerProfileDto({ ...rows[0], wallet_balance: walletBalance }),
+      message: 'Profil customer berhasil diperbarui.'
+    });
+  } catch (error: any) {
+    if (error?.code === '23505') {
+      res.status(409).json({
+        success: false,
+        data: null,
+        message: 'Nomor handphone sudah digunakan akun lain.',
+        code: 'CUSTOMER_PHONE_CONFLICT'
+      });
+      return;
+    }
+
+    res.status(500).json({
+      success: false,
+      data: null,
+      message: 'Gagal memperbarui profil customer.',
+      code: 'CUSTOMER_PROFILE_UPDATE_FAILED'
+    });
+  }
+};
+
+export const getMobileCustomerOrders = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customer_id = req.user?.id;
+    if (!customer_id) {
+      res.status(401).json({
+        success: false,
+        data: null,
+        message: 'Sesi tidak valid. Silakan masuk kembali.',
+        code: 'UNAUTHORIZED'
+      });
+      return;
+    }
+
+    const { status, limit, offset } = req.query;
+    const limitVal = Math.min(Math.max(parseInt(limit as string, 10) || 50, 1), 100);
+    const offsetVal = Math.max(parseInt(offset as string, 10) || 0, 0);
+    const params: any[] = [customer_id];
+    let statusFilter = '';
+
+    if (typeof status === 'string' && status.trim() && status !== 'all') {
+      params.push(status.trim());
+      statusFilter = ` AND o.status = $${params.length}`;
+    }
+
+    params.push(limitVal);
+    const limitParam = params.length;
+    params.push(offsetVal);
+    const offsetParam = params.length;
+
+    const { rows } = await db.query(`
+      SELECT o.id,
+             o.order_number,
+             o.pickup_address,
+             o.dropoff_address,
+             o.recipient_name,
+             o.recipient_phone_masked,
+             o.model,
+             o.status,
+             o.distance_km,
+             o.total_price_idr,
+             o.scheduled_at,
+             o.created_at,
+             o.updated_at,
+             u.full_name AS courier_name,
+             cp.vehicle_type AS courier_vehicle,
+             cp.vehicle_plate AS courier_plate,
+             u.phone_number AS courier_phone
+      FROM orders o
+      LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
+      LEFT JOIN users u ON ol.courier_id = u.id
+      LEFT JOIN courier_profiles cp ON u.id = cp.user_id
+      WHERE o.customer_id = $1
+      ${statusFilter}
+      ORDER BY o.created_at DESC
+      LIMIT $${limitParam}
+      OFFSET $${offsetParam}
+    `, params);
+
+    res.json({
+      success: true,
+      data: rows.map(toMobileCustomerOrderDto),
+      message: 'Riwayat pesanan berhasil dimuat'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      data: null,
+      message: 'Gagal memuat riwayat pesanan.',
+      code: 'CUSTOMER_ORDER_HISTORY_FAILED'
+    });
+  }
+};
+
+export const getMobileCustomerOrder = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customer_id = req.user?.id;
+    const { id } = req.params;
+    if (!customer_id) {
+      res.status(401).json({
+        success: false,
+        data: null,
+        message: 'Sesi tidak valid. Silakan masuk kembali.',
+        code: 'UNAUTHORIZED'
+      });
+      return;
+    }
+
+    const { rows } = await db.query(`
+      SELECT o.id,
+             o.order_number,
+             o.pickup_address,
+             o.dropoff_address,
+             o.recipient_name,
+             o.recipient_phone_masked,
+             o.model,
+             o.status,
+             o.distance_km,
+             o.total_price_idr,
+             o.scheduled_at,
+             o.created_at,
+             o.updated_at,
+             u.full_name AS courier_name,
+             cp.vehicle_type AS courier_vehicle,
+             cp.vehicle_plate AS courier_plate,
+             u.phone_number AS courier_phone
+      FROM orders o
+      LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
+      LEFT JOIN users u ON ol.courier_id = u.id
+      LEFT JOIN courier_profiles cp ON u.id = cp.user_id
+      WHERE o.customer_id = $1 AND o.id = $2
+      LIMIT 1
+    `, [customer_id, id]);
+
+    if (rows.length === 0) {
+      res.status(404).json({
+        success: false,
+        data: null,
+        message: 'Pesanan tidak ditemukan.',
+        code: 'ORDER_NOT_FOUND'
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: toMobileCustomerOrderDto(rows[0]),
+      message: 'Detail pesanan berhasil dimuat'
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      data: null,
+      message: 'Gagal memuat detail pesanan.',
+      code: 'CUSTOMER_ORDER_DETAIL_FAILED'
+    });
+  }
+};
+
 export const getCustomerOrderById = async (req: Request, res: Response): Promise<void> => {
   try {
     const customer_id = req.user?.id;
@@ -906,7 +1227,7 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
              o.base_price_idr, o.volumetric_surcharge_idr, o.insurance_premium_idr, o.total_price_idr, o.has_insurance, o.insured_value_idr, 
              o.package_details, o.customer_notes, o.schedule_type, o.scheduled_at, o.created_at,
              u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate, cp.avg_partner_rating as courier_rating,
-             u.phone as courier_phone
+             u.phone_number as courier_phone
       FROM orders o
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id

@@ -3,7 +3,11 @@ package com.lancar.customer.ui.navigation
 sealed class Screen(val route: String) {
     object AuthGraph : Screen("auth_graph")
     object Dashboard : Screen("dashboard")
-    object Booking : Screen("booking")
+    object Booking : Screen("booking?open={open}") {
+        fun createRoute(open: String? = null): String {
+            return if (open.isNullOrBlank()) "booking" else "booking?open=$open"
+        }
+    }
     object History : Screen("history")
     object Profile : Screen("profile")
     

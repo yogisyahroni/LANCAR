@@ -4,6 +4,8 @@ import com.lancar.customer.data.api.LANCARApiService
 import com.lancar.customer.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import org.json.JSONObject
+import retrofit2.Response
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -18,7 +20,7 @@ class ProfileRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.success == true && data != null) {
                 emit(Result.success(data))
             } else {
-                emit(Result.failure(Exception("Gagal mengambil profil")))
+                emit(Result.failure(Exception(response.readErrorMessage("Gagal mengambil profil"))))
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -32,10 +34,22 @@ class ProfileRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.success == true && data != null) {
                 emit(Result.success(data))
             } else {
-                emit(Result.failure(Exception("Gagal mengupdate profil")))
+                emit(Result.failure(Exception(response.readErrorMessage("Gagal mengupdate profil"))))
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
+        }
+    }
+
+    private fun <T> Response<T>.readErrorMessage(fallback: String): String {
+        return try {
+            val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback
+            val parsedMessage = runCatching {
+                JSONObject(raw).optString("message").takeIf { it.isNotBlank() }
+            }.getOrNull()
+            parsedMessage ?: raw.take(240)
+        } catch (_: Exception) {
+            fallback
         }
     }
 }

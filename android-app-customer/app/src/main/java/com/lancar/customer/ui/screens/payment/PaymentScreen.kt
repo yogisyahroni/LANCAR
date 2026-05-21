@@ -64,7 +64,6 @@ fun PaymentScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        CircularProgressIndicator()
                         Text(
                             text = "Mengecek pembayaran...",
                             color = MaterialTheme.colorScheme.primary,

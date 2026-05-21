@@ -10,6 +10,7 @@ import com.lancar.customer.data.model.CustomerPriceEstimateRequest
 import com.lancar.customer.data.model.DeliveryServiceProduct
 import com.lancar.customer.data.model.DimensionsPayload
 import com.lancar.customer.data.model.LocationPayload
+import com.lancar.customer.data.model.MapsGeocodeResult
 import com.lancar.customer.data.model.MapsProviderConfig
 import com.lancar.customer.data.model.PackageDetailsPayload
 import com.lancar.customer.data.model.PriceBreakdown
@@ -42,7 +43,7 @@ data class BookingState(
     val packageHeight: Int = 17,
     val packageWeight: Double = 1.0,
     val sizeTier: String = "small",
-    val itemDescription: String = "Paket on-demand",
+    val itemDescription: String = "",
     val recipientName: String = "",
     val recipientPhone: String = "",
     val deliveryCodeEnabled: Boolean = false,
@@ -53,6 +54,12 @@ data class BookingState(
     val isCreatingLocationLink: Boolean = false,
     val addressBook: List<CustomerAddress> = emptyList(),
     val isSavingAddress: Boolean = false,
+    val geocodeResults: List<MapsGeocodeResult> = emptyList(),
+    val isSearchingLocation: Boolean = false,
+    val geocodeError: String? = null,
+    val mapPickerLocation: LatLng? = null,
+    val mapPickerAddress: String = "",
+    val isResolvingMapPoint: Boolean = false,
     val mapsProviderConfig: MapsProviderConfig = MapsProviderConfig(),
     val mapsProviderError: String? = null
 )
@@ -111,7 +118,8 @@ class BookingViewModel @Inject constructor(
                         isLoading = false,
                         services = onDemandServices,
                         selectedServiceCode = _bookingState.value.selectedServiceCode
-                            .ifBlank { onDemandServices.firstOrNull()?.code.orEmpty() }
+                            .takeIf { selectedCode -> onDemandServices.any { it.code == selectedCode } }
+                            .orEmpty()
                     )
                     calculateRoute()
                 }
@@ -128,7 +136,9 @@ class BookingViewModel @Inject constructor(
     fun setPickup(location: LatLng, address: String) {
         _bookingState.value = _bookingState.value.copy(
             pickupLocation = location,
-            pickupAddress = address
+            pickupAddress = address,
+            selectedServiceCode = "",
+            estimatedPrice = 0
         )
         calculateRoute()
     }
@@ -136,7 +146,9 @@ class BookingViewModel @Inject constructor(
     fun setDestination(location: LatLng, address: String) {
         _bookingState.value = _bookingState.value.copy(
             destinationLocation = location,
-            destinationAddress = address
+            destinationAddress = address,
+            selectedServiceCode = "",
+            estimatedPrice = 0
         )
         calculateRoute()
     }
@@ -195,6 +207,89 @@ class BookingViewModel @Inject constructor(
         }
     }
 
+    fun searchAddress(query: String) {
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.length < 3) {
+            _bookingState.value = _bookingState.value.copy(
+                geocodeResults = emptyList(),
+                geocodeError = "Ketik minimal 3 karakter untuk mencari alamat."
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            _bookingState.value = _bookingState.value.copy(
+                isSearchingLocation = true,
+                geocodeError = null
+            )
+            val result = orderRepository.geocodeAddress(normalizedQuery)
+            result.onSuccess { locations ->
+                _bookingState.value = _bookingState.value.copy(
+                    isSearchingLocation = false,
+                    geocodeResults = locations,
+                    geocodeError = if (locations.isEmpty()) "Alamat tidak ditemukan. Coba kata kunci yang lebih spesifik." else null
+                )
+            }
+            result.onFailure { e ->
+                _bookingState.value = _bookingState.value.copy(
+                    isSearchingLocation = false,
+                    geocodeResults = emptyList(),
+                    geocodeError = e.localizedMessage ?: "Gagal mencari alamat."
+                )
+            }
+        }
+    }
+
+    fun selectGeocodeResult(result: MapsGeocodeResult) {
+        _bookingState.value = _bookingState.value.copy(
+            mapPickerLocation = LatLng(result.latitude, result.longitude),
+            mapPickerAddress = result.label,
+            geocodeError = null
+        )
+    }
+
+    fun selectMapPoint(location: LatLng) {
+        if (location.latitude !in -90.0..90.0 || location.longitude !in -180.0..180.0) {
+            _bookingState.value = _bookingState.value.copy(geocodeError = "Titik peta tidak valid.")
+            return
+        }
+
+        viewModelScope.launch {
+            val coordinateLabel = "Titik peta ${"%.5f".format(location.latitude)}, ${"%.5f".format(location.longitude)}"
+            _bookingState.value = _bookingState.value.copy(
+                mapPickerLocation = location,
+                mapPickerAddress = coordinateLabel,
+                isResolvingMapPoint = true,
+                geocodeError = null
+            )
+            val result = orderRepository.reverseGeocodePoint(LocationPayload(location.latitude, location.longitude))
+            result.onSuccess { address ->
+                _bookingState.value = _bookingState.value.copy(
+                    mapPickerLocation = LatLng(address.latitude, address.longitude),
+                    mapPickerAddress = address.label.ifBlank { coordinateLabel },
+                    isResolvingMapPoint = false
+                )
+            }
+            result.onFailure { e ->
+                _bookingState.value = _bookingState.value.copy(
+                    isResolvingMapPoint = false,
+                    geocodeError = e.localizedMessage ?: "Alamat titik peta belum terbaca. Titik tetap bisa digunakan."
+                )
+            }
+        }
+    }
+
+    fun clearLocationSearch() {
+        _bookingState.value = _bookingState.value.copy(
+            geocodeResults = emptyList(),
+            isSearchingLocation = false,
+            geocodeError = null,
+            mapPickerLocation = null,
+            mapPickerAddress = "",
+            isResolvingMapPoint = false
+        )
+    }
+
     fun setDimensions(l: Int, w: Int, h: Int) {
         _bookingState.value = _bookingState.value.copy(
             packageLength = l,
@@ -220,7 +315,9 @@ class BookingViewModel @Inject constructor(
             packageLength = dimensions.length,
             packageWidth = dimensions.width,
             packageHeight = dimensions.height,
-            dimensionsScanned = false
+            dimensionsScanned = false,
+            selectedServiceCode = "",
+            estimatedPrice = 0
         )
         calculateRoute()
     }
@@ -269,7 +366,7 @@ class BookingViewModel @Inject constructor(
                     estimate.onSuccess { estimates[service.code] = it }
                 }
 
-                val selectedCode = state.selectedServiceCode.ifBlank { state.services.firstOrNull()?.code.orEmpty() }
+                val selectedCode = state.selectedServiceCode.takeIf { estimates.containsKey(it) }.orEmpty()
                 _bookingState.value = _bookingState.value.copy(
                     priceBreakdowns = estimates,
                     selectedServiceCode = selectedCode,
@@ -292,6 +389,14 @@ class BookingViewModel @Inject constructor(
         }
         if (state.recipientName.isBlank() || state.recipientPhone.isBlank()) {
             _bookingState.value = state.copy(error = "Lengkapi nama dan nomor penerima.")
+            return
+        }
+        if (state.recipientName.trim().length < 2 || state.recipientPhone.trim().length < 8) {
+            _bookingState.value = state.copy(error = "Data penerima belum valid.")
+            return
+        }
+        if (state.itemDescription.trim().length < 3) {
+            _bookingState.value = state.copy(error = "Isi paket wajib diisi agar kurir tahu barang yang diambil.")
             return
         }
 

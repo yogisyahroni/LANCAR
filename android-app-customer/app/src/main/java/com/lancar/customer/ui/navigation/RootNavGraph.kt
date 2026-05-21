@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -49,6 +50,16 @@ fun RootNavGraph(
         return 
     }
 
+    LaunchedEffect(startDestination) {
+        if (startDestination == Screen.AuthGraph.route &&
+            navController.currentDestination?.route != Screen.AuthGraph.route
+        ) {
+            navController.navigate(Screen.AuthGraph.route) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -71,8 +82,8 @@ fun RootNavGraph(
                         popUpTo(0) { inclusive = true }
                     }
                 },
-                onBookingClick = {
-                    navController.navigate(Screen.Booking.route)
+                onBookingClick = { open ->
+                    navController.navigate(Screen.Booking.createRoute(open))
                 },
                 onTrackingClick = { orderId ->
                     // Navigate to tracking directly for live tracking
@@ -87,10 +98,19 @@ fun RootNavGraph(
             )
         }
 
-        composable(Screen.Booking.route) {
+        composable(
+            route = Screen.Booking.route,
+            arguments = listOf(navArgument("open") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            })
+        ) { backStackEntry ->
+            val initialOpen = backStackEntry.arguments?.getString("open")
             val bookingViewModel: BookingViewModel = hiltViewModel()
             BookingScreen(
                 viewModel = bookingViewModel,
+                initialOpen = initialOpen,
                 onBackClick = {
                     navController.popBackStack()
                 },
@@ -227,4 +247,3 @@ fun PlaceholderScreen(title: String) {
         Text(title)
     }
 }
-

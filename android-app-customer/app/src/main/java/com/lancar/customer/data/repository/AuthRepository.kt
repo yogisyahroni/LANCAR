@@ -4,9 +4,7 @@ import com.lancar.customer.data.api.LANCARApiService
 import com.lancar.customer.data.model.AuthResponse
 import com.lancar.customer.data.model.CustomerPasswordLoginStartRequest
 import com.lancar.customer.data.model.CustomerPasswordRegisterStartRequest
-import com.lancar.customer.data.model.LoginRequest
 import com.lancar.customer.data.model.LoginV1Request
-import com.lancar.customer.data.model.OtpRequest
 import com.lancar.customer.data.model.OtpV1Request
 import retrofit2.Response
 import javax.inject.Inject
@@ -18,10 +16,11 @@ class AuthRepository @Inject constructor(
 ) {
 
     suspend fun requestOtp(phone: String): Result<AuthResponse> {
-        return withFallback(
-            primary = { apiService.requestOtp(OtpRequest(phone)) },
-            fallback = { apiService.requestOtpV1(OtpV1Request(phone)) }
-        )
+        return try {
+            handleResponse(apiService.requestOtpV1(OtpV1Request(phone)))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun startPasswordLogin(email: String, password: String): Result<AuthResponse> {
@@ -50,35 +49,10 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun verifyOtp(phone: String, otpCode: String): Result<AuthResponse> {
-        return withFallback(
-            primary = { apiService.login(LoginRequest(phone, otpCode)) },
-            fallback = { apiService.loginV1(LoginV1Request(phone, otpCode)) }
-        )
-    }
-
-    private suspend fun withFallback(
-        primary: suspend () -> Response<AuthResponse>,
-        fallback: suspend () -> Response<AuthResponse>
-    ): Result<AuthResponse> {
-        var primaryException: Exception? = null
-        val primaryResponse = try {
-            primary()
-        } catch (e: Exception) {
-            primaryException = e
-            null
-        }
-
-        if (primaryResponse != null) {
-            val primaryResult = handleResponse(primaryResponse)
-            if (primaryResult.isSuccess || !primaryResponse.shouldTryFallback()) {
-                return primaryResult
-            }
-        }
-
         return try {
-            handleResponse(fallback())
+            handleResponse(apiService.loginV1(LoginV1Request(phone, otpCode)))
         } catch (e: Exception) {
-            Result.failure(primaryException ?: e)
+            Result.failure(e)
         }
     }
 
@@ -95,7 +69,4 @@ class AuthRepository @Inject constructor(
         }
     }
 
-    private fun Response<AuthResponse>.shouldTryFallback(): Boolean {
-        return code() in setOf(400, 404, 405, 422)
-    }
 }

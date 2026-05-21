@@ -5,6 +5,7 @@ import { getIO } from '../websocket';
 import { getOnDemandExternalReadiness } from '../services/onDemandExternalReadiness';
 import {
   buildMapsRouteEtaSnapshot,
+  fetchOpenStreetMapTile,
   getMapsProviderOpsSnapshot,
   getMapsProviderConfigValue,
   getPublicMapsProviderConfig,
@@ -158,6 +159,20 @@ export const getPublicMapsReverseGeocode = async (req: Request, res: Response): 
     res.json({ result });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const getPublicOpenStreetMapTile = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const tile = await fetchOpenStreetMapTile(String(req.params.z), String(req.params.x), String(req.params.y));
+    res.setHeader('Content-Type', tile.contentType);
+    res.setHeader('Cache-Control', tile.cacheControl);
+    res.send(tile.body);
+  } catch (error: any) {
+    res.status(502).json({
+      error: 'OpenStreetMap tile is temporarily unavailable',
+      detail: error?.message || 'tile_provider_unavailable',
+    });
   }
 };
 

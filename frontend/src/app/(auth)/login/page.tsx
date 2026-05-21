@@ -29,6 +29,7 @@ export default function LoginPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [pendingOtpIdentifier, setPendingOtpIdentifier] = useState<string | null>(null);
 
   const [rememberMe, setRememberMe] = useState(false);
 
@@ -57,25 +58,30 @@ export default function LoginPage() {
   }, [countdown]);
 
   const handleSendOtp = async () => {
-    if (!phoneValue || phoneValue.length < 8) {
-      setApiError('Please enter a valid phone number before sending OTP.');
+    const identifier = pendingOtpIdentifier || phoneValue;
+    if (!identifier || identifier.length < 8) {
+      setApiError('Please enter a valid email or phone number before sending OTP.');
       return;
     }
     setApiError(null);
     setIsSendingOtp(true);
     try {
-      // Actual API call to send OTP through Gateway
-      await api.post('/auth/otp/send', { phone_number: phoneValue });
+      await api.post('/auth/otp/send', { phone_number: identifier });
       setOtpSent(true);
       setCountdown(60);
     } catch (error: any) {
-      // For demonstration and fallback, show success if endpoint does not exist
-      setOtpSent(true);
-      setCountdown(60);
-      console.error('OTP Send error or fallback:', error);
+      console.error('OTP send error:', error);
+      setApiError(error.response?.data?.message || error.response?.data?.error || 'Unable to send OTP. Please try again.');
     } finally {
       setIsSendingOtp(false);
     }
+  };
+
+  const createWebSessionFromCustomerToken = async (accessToken: string) => {
+    const response = await api.post('/auth/web/session/exchange', {
+      access_token: accessToken,
+    });
+    return response.data.user;
   };
 
   const onSubmit = async (data: LoginFormValues) => {
@@ -86,44 +92,42 @@ export default function LoginPage() {
           setApiError('Email and Password are required for password login');
           return;
         }
-        const response = await api.post('/auth/web/login', {
+        await api.post('/auth/customer/login/start', {
           email: data.email,
           password: data.password,
-          rememberMe,
-          portal: 'customer'
         });
-        setAuth(true, response.data.user);
-        router.push('/dashboard');
+        setPendingOtpIdentifier(data.email);
+        setOtpSent(true);
+        setCountdown(60);
+        setLoginMethod('otp');
+        setApiError('Credential valid. Enter the OTP sent to your email to continue.');
       } else {
-        if (!data.phone || !data.otp) {
-          setApiError('Phone and OTP are required for OTP login');
+        const identifier = pendingOtpIdentifier || data.phone;
+        if (!identifier || !data.otp) {
+          setApiError('Email/phone and OTP are required for OTP login');
           return;
         }
         const response = await api.post('/auth/otp/verify', {
-          phone_number: data.phone,
+          phone_number: identifier,
           code: data.otp,
-          rememberMe
+          device_id: 'customer-web',
+          device_info: {
+            platform: 'web',
+            remember_me: rememberMe,
+            user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+          },
         });
-        setAuth(true, response.data.user);
+        const user = await createWebSessionFromCustomerToken(response.data.access_token);
+        setAuth(true, user);
         router.push('/dashboard');
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      // Mock successful login redirection for testing if the specific backend returns 404 or fails
-      if (error.response?.status === 404 || !error.response) {
-        const dummyUser = {
-          id: 'usr_123',
-          name: 'Demo Customer',
-          email: data.email || 'customer@lancar.com',
-          role: 'customer'
-        };
-        setAuth(true, dummyUser);
-        router.push('/dashboard');
-      } else {
-        setApiError(
-          error.response?.data?.error || 'An unexpected error occurred. Please try again.'
-        );
-      }
+      setApiError(
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          'An unexpected error occurred. Please try again.'
+      );
     }
   };
 
@@ -252,14 +256,16 @@ export default function LoginPage() {
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground flex items-center gap-2">
                       <Phone className="h-4 w-4 text-muted-foreground" />
-                      Phone Number
+                      {pendingOtpIdentifier ? 'Verified account' : 'Email or Phone Number'}
                     </label>
                     <div className="flex gap-2">
                       <input
                         {...register('phone')}
-                        type="tel"
+                        type="text"
+                        value={pendingOtpIdentifier || phoneValue || ''}
+                        readOnly={!!pendingOtpIdentifier}
                         className="flex-1 px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground placeholder:text-muted-foreground"
-                        placeholder="+62812345678"
+                        placeholder="customer@lancar.id or +62812345678"
                       />
                       <button
                         type="button"
