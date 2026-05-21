@@ -21,6 +21,7 @@ routes.post('/auth/web/refresh-token', (req, res) => controllers.refreshToken(re
 
 // Courier Mobile Auth Routes
 routes.post('/api/v1/auth/courier/login', (req, res) => controllers.loginCourier(req, res));
+routes.post('/api/v1/auth/courier/otp/verify', (req, res) => controllers.verifyCourierLoginOtp(req, res));
 routes.post('/api/v1/auth/courier/documents/upload', upload.single('file'), (req, res) => controllers.uploadCourierOnDemandDocument(req, res));
 routes.post('/api/v1/auth/courier/register', (req, res) => controllers.submitOnDemandCourierApplication(req, res));
 routes.get('/api/v1/auth/courier/registration-links/:token', (req, res) => controllers.getPublicCourierRegistrationLink(req, res));

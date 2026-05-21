@@ -226,10 +226,13 @@ data class CreatedCustomerOrder(
 @Serializable
 data class CustomerPaymentSetup(
     @SerialName("id") val id: String = "",
+    @SerialName("provider") val provider: String? = null,
     @SerialName("method") val method: String = "",
     @SerialName("status") val status: String = "pending",
     @SerialName("payment_status") val paymentStatus: String = "pending",
     @SerialName("order_status") val orderStatus: String = "",
+    @SerialName("amount_idr") val amountIdr: Long = 0L,
+    @SerialName("wallet_balance_idr") val walletBalanceIdr: Long = 0L,
     @SerialName("snap_token") val snapToken: String? = null,
     @SerialName("redirect_url") val redirectUrl: String? = null,
     @SerialName("midtrans_order_id") val midtransOrderId: String? = null,
@@ -250,6 +253,11 @@ data class CustomerPaymentSessionResponse(
     @SerialName("expires_at") val expiresAt: String? = null,
     @SerialName("message") val message: String? = null,
     @SerialName("error") val error: String? = null
+)
+
+@Serializable
+data class CustomerPaymentCreateRequest(
+    @SerialName("payment_method") val paymentMethod: String
 )
 
 @Serializable

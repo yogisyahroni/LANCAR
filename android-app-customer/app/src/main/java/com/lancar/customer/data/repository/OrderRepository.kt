@@ -62,7 +62,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true && order != null) {
                 emit(Result.success(order))
             } else {
-                emit(Result.failure(Exception(body?.error ?: "Gagal membuat order")))
+                emit(Result.failure(Exception(body?.error ?: response.readErrorMessage("Gagal membuat order"))))
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -219,15 +219,18 @@ class OrderRepository @Inject constructor(
         }
     }
 
-    fun createCustomerPaymentSession(orderId: String): Flow<Result<CustomerPaymentSetup>> = flow {
+    fun createCustomerPaymentSession(orderId: String, paymentMethod: String): Flow<Result<CustomerPaymentSetup>> = flow {
         try {
-            val response = apiService.createCustomerPaymentSession(orderId)
+            val response = apiService.createCustomerPaymentSession(
+                orderId,
+                CustomerPaymentCreateRequest(paymentMethod = paymentMethod)
+            )
             val body = response.body()
             val payment = body?.payment
             if (response.isSuccessful && body?.success == true && payment != null) {
                 emit(Result.success(payment))
             } else {
-                emit(Result.failure(Exception(body?.message ?: body?.error ?: "Gagal menyiapkan pembayaran")))
+                emit(Result.failure(Exception(body?.message ?: body?.error ?: response.readErrorMessage("Gagal menyiapkan pembayaran"))))
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -279,7 +282,10 @@ class OrderRepository @Inject constructor(
         return try {
             val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback
             val parsedMessage = runCatching {
-                JSONObject(raw).optString("message").takeIf { it.isNotBlank() }
+                val json = JSONObject(raw)
+                json.optString("message").takeIf { it.isNotBlank() }
+                    ?: json.optString("error").takeIf { it.isNotBlank() }
+                    ?: json.optString("code").takeIf { it.isNotBlank() }
             }.getOrNull()
             parsedMessage ?: raw.take(240)
         } catch (_: Exception) {

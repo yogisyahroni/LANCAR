@@ -484,11 +484,11 @@ private fun LoginCard(
                 )
 
                 Text(
-                    text = if (entryMode == AuthEntryMode.Register) {
-                        "Setelah data akun disimpan, OTP dikirim ke email untuk verifikasi."
-                    } else {
-                        "Setelah email dan password valid, kami kirim OTP sebagai verifikasi tambahan."
-                    },
+                        text = if (entryMode == AuthEntryMode.Register) {
+                            "Setelah data akun disimpan, OTP dikirim ke email untuk verifikasi."
+                        } else {
+                            "OTP hanya diminta saat perangkat baru terdeteksi."
+                        },
                     color = Muted,
                     fontSize = 12.sp,
                     lineHeight = 16.sp
@@ -522,7 +522,7 @@ private fun LoginCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = if (entryMode == AuthEntryMode.Register) "Daftar dan kirim OTP" else "Masuk dan kirim OTP",
+                                text = if (entryMode == AuthEntryMode.Register) "Daftar dan kirim OTP" else "Masuk",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )

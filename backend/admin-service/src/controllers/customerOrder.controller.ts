@@ -79,6 +79,31 @@ const getCustomerWalletBalance = async (customerId: string) => {
   return Number(rows[0]?.wallet_balance || 0);
 };
 
+type CustomerPaymentMethod = 'qris' | 'lapay';
+
+const normalizeCustomerPaymentMethod = (value: any): CustomerPaymentMethod => {
+  const method = String(value || '').trim().toLowerCase();
+  if (method === 'lapay') return 'lapay';
+  if (method === 'qris' || method === 'midtrans' || method === 'midtrans_qris' || method === 'snap') return 'qris';
+  return 'qris';
+};
+
+const customerPaymentMethodLabel = (provider?: string | null, method?: string | null) => {
+  const normalizedProvider = String(provider || '').toLowerCase();
+  const normalizedMethod = String(method || '').toLowerCase();
+  if (normalizedProvider === 'lapay' || normalizedMethod === 'lapay') return 'LAPAY';
+  return 'QRIS';
+};
+
+const requireMidtransConfig = () => {
+  if (!process.env.MIDTRANS_SERVER_KEY || !process.env.MIDTRANS_CLIENT_KEY) {
+    const error = new Error('QRIS belum aktif. Lengkapi MIDTRANS_SERVER_KEY dan MIDTRANS_CLIENT_KEY di environment admin-service.');
+    (error as any).statusCode = 503;
+    (error as any).code = 'ERR_MIDTRANS_NOT_CONFIGURED';
+    throw error;
+  }
+};
+
 const normalizeCustomerProfileName = (value: any) => {
   const name = String(value || '').trim().replace(/\s+/g, ' ');
   if (name.length < 2 || name.length > 120) return null;
@@ -130,16 +155,22 @@ const publicCustomerPaymentSession = (row: any) => {
   const expiresIn = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / 1000)) : 0;
   const paymentStatus = row.payment_status === 'paid'
     ? 'paid'
-    : expiresIn <= 0
+    : row.payment_status === 'failed' || row.payment_status === 'expired'
+      ? row.payment_status
+    : expiresAt && expiresIn <= 0
       ? 'expired'
       : (row.payment_status || 'pending');
+  const method = customerPaymentMethodLabel(row.provider, row.method);
 
   return {
     id: row.payment_id || `PAY-${row.order_number}`,
-    method: 'MIDTRANS_SNAP',
+    provider: row.provider || null,
+    method,
     status: paymentStatus,
     payment_status: paymentStatus,
     order_status: row.order_status,
+    amount_idr: Number(row.amount_idr || row.total_price_idr || 0),
+    wallet_balance_idr: Number(row.wallet_balance || 0),
     snap_token: row.snap_token || null,
     redirect_url: row.redirect_url || null,
     midtrans_order_id: row.provider_reference || null,
@@ -160,7 +191,10 @@ const getCustomerOrderPaymentRow = async (customerId: string, orderId: string) =
             o.recipient_name,
             o.recipient_phone_masked,
             p.id AS payment_id,
+            p.provider,
+            p.method,
             p.status AS payment_status,
+            p.amount_idr,
             p.expires_at,
             p.provider_reference,
             p.snap_token,
@@ -172,7 +206,9 @@ const getCustomerOrderPaymentRow = async (customerId: string, orderId: string) =
       WHERE o.id = $1 AND o.customer_id = $2`,
     [orderId, customerId]
   );
-  return rows[0] || null;
+  if (!rows[0]) return null;
+  rows[0].wallet_balance = await getCustomerWalletBalance(customerId);
+  return rows[0];
 };
 
 const resolveSizeTier = (service: DeliveryServiceProduct, requestedCode?: string) => {
@@ -534,15 +570,13 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     const result = await client.query(insertQuery, values);
     const newOrder = result.rows[0];
 
-    const midtransOrderId = `${order_number}-${Date.now()}`;
-    
-    // Insert pending payment record BEFORE calling external API
+    // Insert a pending payment shell. The actual provider is selected explicitly on the payment screen.
     await client.query(`
       INSERT INTO payments (
         order_id, payment_number, provider, method, status, amount_idr,
         mdr_amount_idr, ppn_amount_idr, weather_reserve_idr, insurance_reserve_idr,
         net_operational_idr, provider_reference, expires_at
-      ) VALUES ($1, $2, 'midtrans', 'snap', 'pending', $3, $4, $5, 0, $6, $7, $8, NOW() + INTERVAL '30 minutes')
+      ) VALUES ($1, $2, 'midtrans', 'unselected', 'pending', $3, $4, $5, 0, $6, $7, NULL, NOW() + INTERVAL '30 minutes')
     `, [
       newOrder.id,
       `PAY-${order_number}`,
@@ -550,8 +584,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       settlement.mdr_idr,
       settlement.ppn_idr,
       settlement.insurance_reserve_idr,
-      settlement.net_operational_idr,
-      midtransOrderId
+      settlement.net_operational_idr
     ]);
 
     // Create Order Event
@@ -560,83 +593,14 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       VALUES ($1, $2, 'created', 'Customer created order via Web Portal')
     `, [newOrder.id, customer_id]);
 
-    // COMMIT the database transaction BEFORE calling external Midtrans API
-    // This prevents ghost transactions in Midtrans if the DB commit fails.
     await client.query('COMMIT');
-    client.release(); // Release client early as DB work is done
+    client.release();
 
-    try {
-      const ppn_amount = Math.ceil(totalPrice * 0.011); // 1.1% PPN
-      const reserve_amount = Math.ceil(totalPrice * 0.02); // 2% Cuaca
-      const insurance_amount = price_breakdown?.insurance_premium_idr || 0;
-      const operational_amount = totalPrice - ppn_amount - reserve_amount - insurance_amount;
-
-      const snap = await createSnapTransaction({
-        orderId: midtransOrderId,
-        grossAmount: totalPrice,
-        itemDetails: [
-          {
-            id: order_number,
-            price: totalPrice,
-            quantity: 1,
-            name: `LANCAR Delivery ${order_number}`
-          }
-        ],
-        customerDetails: {
-          first_name: recipient_name,
-          phone: recipient_phone
-        },
-        routingDetails: {
-          ppn_amount,
-          reserve_amount,
-          insurance_amount,
-          operational_amount
-        },
-        customFields: {
-          custom_field1: String(newOrder.id),
-          custom_field3: String(customer_id)
-        },
-        expiryMinutes: 30
-      });
-
-      await db.query(
-        `UPDATE payments
-            SET snap_token = $1,
-                redirect_url = $2,
-                client_key = $3,
-                snap_js_url = $4,
-                expires_at = $5,
-                updated_at = NOW()
-          WHERE provider_reference = $6`,
-        [snap.token, snap.redirect_url, getMidtransClientKey(), getMidtransSnapJsUrl(), snap.expires_at, midtransOrderId]
-      );
-
-      res.status(201).json({
-        success: true,
-        order: newOrder,
-        payment: {
-          id: `PAY-${newOrder.order_number}`,
-          method: 'MIDTRANS_SNAP',
-          snap_token: snap.token,
-          redirect_url: snap.redirect_url,
-          midtrans_order_id: snap.midtrans_order_id,
-          client_key: getMidtransClientKey(),
-          snap_js_url: getMidtransSnapJsUrl(),
-          expires_in: 1800,
-          expires_at: snap.expires_at
-        }
-      });
-    } catch (midtransError: any) {
-      // Order and Payment records exist, but Snap token failed. 
-      // User can retry payment later.
-      console.error('[Midtrans Error] Failed to create snap token after DB commit:', midtransError);
-      res.status(201).json({
-        success: true,
-        order: newOrder,
-        payment_setup_error: 'Gagal menghubungi sistem pembayaran. Silakan coba bayar ulang dari menu pesanan.',
-        payment: null
-      });
-    }
+    res.status(201).json({
+      success: true,
+      order: newOrder,
+      payment: null
+    });
 
   } catch (error: any) {
     await client.query('ROLLBACK');
@@ -673,13 +637,239 @@ export const getCustomerOrderPaymentStatus = async (req: Request, res: Response)
   }
 };
 
+const completeCustomerLapayPayment = async (customerId: string, orderId: string) => {
+  const client = await db.connect();
+  let createdOffers: Awaited<ReturnType<typeof advanceOnDemandDispatchQueue>> = [];
+
+  try {
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
+      `SELECT o.id,
+              o.order_number,
+              o.status AS order_status,
+              o.total_price_idr,
+              o.service_snapshot,
+              o.recipient_name,
+              o.recipient_phone_masked,
+              p.id AS payment_id,
+              p.provider,
+              p.method,
+              p.status AS payment_status,
+              p.amount_idr,
+              p.expires_at,
+              p.provider_reference,
+              p.snap_token,
+              p.redirect_url,
+              p.client_key,
+              p.snap_js_url
+         FROM orders o
+         LEFT JOIN payments p ON p.order_id = o.id
+        WHERE o.id = $1 AND o.customer_id = $2
+        FOR UPDATE OF o`,
+      [orderId, customerId]
+    );
+
+    if (rows.length === 0) {
+      const error = new Error('Order not found');
+      (error as any).statusCode = 404;
+      throw error;
+    }
+
+    const order = rows[0];
+    const amountIdr = Number(order.amount_idr || order.total_price_idr || 0);
+    if (!Number.isInteger(amountIdr) || amountIdr <= 0) {
+      const error = new Error('Nominal pembayaran tidak valid.');
+      (error as any).statusCode = 422;
+      (error as any).code = 'ERR_INVALID_PAYMENT_AMOUNT';
+      throw error;
+    }
+
+    if (order.payment_status === 'paid') {
+      await client.query('COMMIT');
+      return {
+        payment: publicCustomerPaymentSession({ ...order, provider: order.provider || 'lapay', method: order.method || 'lapay' }),
+        createdOffers
+      };
+    }
+
+    if (order.order_status !== 'pending_payment') {
+      const error = new Error('Order ini tidak berada pada fase pembayaran.');
+      (error as any).statusCode = 409;
+      (error as any).code = 'ERR_PAYMENT_NOT_ALLOWED';
+      throw error;
+    }
+
+    const walletTableCheck = await client.query(`SELECT to_regclass('public.customer_wallets') AS table_name`);
+    if (!walletTableCheck.rows[0]?.table_name) {
+      const error = new Error('LAPAY belum aktif. Jalankan migration customer wallet terlebih dahulu.');
+      (error as any).statusCode = 503;
+      (error as any).code = 'ERR_LAPAY_NOT_READY';
+      throw error;
+    }
+
+    const walletResult = await client.query(
+      `SELECT id, balance
+         FROM customer_wallets
+        WHERE customer_id = $1
+          AND status = 'active'
+        ORDER BY created_at ASC, id ASC
+        FOR UPDATE`,
+      [customerId]
+    );
+    const wallets = walletResult.rows;
+    const walletBalance = wallets.reduce((sum, wallet) => sum + Number(wallet.balance || 0), 0);
+
+    if (walletBalance < amountIdr) {
+      const error = new Error('Saldo LAPAY belum cukup untuk pembayaran order ini.');
+      (error as any).statusCode = 402;
+      (error as any).code = 'ERR_LAPAY_INSUFFICIENT_BALANCE';
+      (error as any).walletBalance = walletBalance;
+      throw error;
+    }
+
+    const paymentResult = await client.query(
+      `INSERT INTO payments (
+          order_id, payment_number, provider, method, status, amount_idr,
+          mdr_amount_idr, ppn_amount_idr, weather_reserve_idr, insurance_reserve_idr,
+          net_operational_idr, provider_reference, snap_token, redirect_url, client_key, snap_js_url,
+          expires_at, paid_at, updated_at
+        ) VALUES (
+          $1, $2, 'lapay', 'lapay', 'paid', $3,
+          COALESCE((SELECT mdr_amount_idr FROM payments WHERE order_id = $1), 0),
+          COALESCE((SELECT ppn_amount_idr FROM payments WHERE order_id = $1), 0),
+          COALESCE((SELECT weather_reserve_idr FROM payments WHERE order_id = $1), 0),
+          COALESCE((SELECT insurance_reserve_idr FROM payments WHERE order_id = $1), 0),
+          COALESCE((SELECT net_operational_idr FROM payments WHERE order_id = $1), $3),
+          $4, NULL, NULL, NULL, NULL,
+          NOW() + INTERVAL '5 minutes', NOW(), NOW()
+        )
+        ON CONFLICT (order_id) DO UPDATE
+          SET provider = 'lapay',
+              method = 'lapay',
+              status = 'paid',
+              amount_idr = EXCLUDED.amount_idr,
+              provider_reference = EXCLUDED.provider_reference,
+              snap_token = NULL,
+              redirect_url = NULL,
+              client_key = NULL,
+              snap_js_url = NULL,
+              expires_at = EXCLUDED.expires_at,
+              paid_at = COALESCE(payments.paid_at, NOW()),
+              updated_at = NOW()
+        WHERE payments.status <> 'paid'
+        RETURNING id AS payment_id,
+                  provider,
+                  method,
+                  status AS payment_status,
+                  amount_idr,
+                  expires_at,
+                  provider_reference,
+                  snap_token,
+                  redirect_url,
+                  client_key,
+                  snap_js_url`,
+      [orderId, `PAY-${order.order_number}`, amountIdr, `LAPAY-${order.order_number}`]
+    );
+
+    if (paymentResult.rows.length === 0) {
+      const error = new Error('Status pembayaran sudah final.');
+      (error as any).statusCode = 409;
+      (error as any).code = 'ERR_PAYMENT_ALREADY_FINAL';
+      throw error;
+    }
+
+    let remaining = amountIdr;
+    let runningBalance = walletBalance;
+    for (const wallet of wallets) {
+      if (remaining <= 0) break;
+      const walletBalanceBefore = Number(wallet.balance || 0);
+      if (walletBalanceBefore <= 0) continue;
+      const debitAmount = Math.min(walletBalanceBefore, remaining);
+      runningBalance -= debitAmount;
+      remaining -= debitAmount;
+
+      await client.query(
+        `UPDATE customer_wallets
+            SET balance = balance - $2,
+                updated_at = NOW()
+          WHERE id = $1
+            AND balance >= $2`,
+        [wallet.id, debitAmount]
+      );
+
+      await client.query(
+        `INSERT INTO customer_wallet_ledger_entries (
+            customer_id, wallet_id, order_id, payment_id, idempotency_key,
+            entry_type, direction, amount_idr, balance_after_idr, metadata
+          ) VALUES ($1, $2, $3, $4, $5, 'order_payment', 'debit', $6, $7, $8::jsonb)
+          ON CONFLICT (idempotency_key) DO NOTHING`,
+        [
+          customerId,
+          wallet.id,
+          orderId,
+          paymentResult.rows[0].payment_id,
+          `lapay:${orderId}:${wallet.id}`,
+          debitAmount,
+          runningBalance,
+          JSON.stringify({ order_number: order.order_number, payment_method: 'LAPAY' })
+        ]
+      );
+    }
+
+    if (remaining !== 0) {
+      const error = new Error('Saldo LAPAY berubah saat pembayaran diproses. Silakan coba lagi.');
+      (error as any).statusCode = 409;
+      (error as any).code = 'ERR_LAPAY_CONCURRENT_BALANCE_CHANGE';
+      throw error;
+    }
+
+    await client.query(
+      `UPDATE orders SET status = 'pending', updated_at = NOW() WHERE id = $1 AND status = 'pending_payment'`,
+      [orderId]
+    );
+
+    await client.query(
+      `INSERT INTO order_events (order_id, user_id, event_type, description)
+       VALUES ($1, $2, 'payment_confirmed', 'Customer paid order using LAPAY balance')`,
+      [orderId, customerId]
+    );
+
+    createdOffers = await advanceOnDemandDispatchQueue(client, 1);
+
+    await client.query('COMMIT');
+
+    const payment = publicCustomerPaymentSession({
+      ...order,
+      ...paymentResult.rows[0],
+      order_status: 'pending',
+      wallet_balance: runningBalance
+    });
+
+    return { payment, createdOffers };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 export const createCustomerOrderPaymentSession = async (req: Request, res: Response): Promise<void> => {
   try {
     const customerId = req.user?.id;
     const orderId = String(req.params.id);
+    const requestedMethod = normalizeCustomerPaymentMethod(req.body?.payment_method || req.body?.method);
 
     if (!customerId) {
       res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    if (requestedMethod === 'lapay') {
+      const { payment, createdOffers } = await completeCustomerLapayPayment(customerId, orderId);
+      await notifyOnDemandOffers(createdOffers);
+      res.json({ success: true, payment, ...payment });
       return;
     }
 
@@ -705,6 +895,8 @@ export const createCustomerOrderPaymentSession = async (req: Request, res: Respo
       });
       return;
     }
+
+    requireMidtransConfig();
 
     if (currentPayment.snap_token && currentPayment.redirect_url && currentPayment.expires_in > 30) {
       res.json({ success: true, payment: currentPayment, ...currentPayment });
@@ -739,6 +931,8 @@ export const createCustomerOrderPaymentSession = async (req: Request, res: Respo
     const { rows } = await db.query(
       `UPDATE payments
           SET status = 'pending',
+              provider = 'midtrans',
+              method = 'qris',
               provider_reference = $2,
               snap_token = $3,
               redirect_url = $4,
@@ -750,6 +944,9 @@ export const createCustomerOrderPaymentSession = async (req: Request, res: Respo
           AND status <> 'paid'
       RETURNING id AS payment_id,
                 status AS payment_status,
+                provider,
+                method,
+                amount_idr,
                 expires_at,
                 provider_reference,
                 snap_token,
@@ -780,7 +977,12 @@ export const createCustomerOrderPaymentSession = async (req: Request, res: Respo
 
     res.json({ success: true, payment, ...payment });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(error.statusCode || 500).json({
+      success: false,
+      code: error.code,
+      message: error.message,
+      wallet_balance_idr: error.walletBalance
+    });
   }
 };
 
@@ -799,7 +1001,23 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
     await client.query('BEGIN');
 
     const { rows } = await client.query(
-      `SELECT o.id, o.order_number, o.status, o.created_at, p.expires_at, p.status as payment_status
+      `SELECT o.id,
+              o.order_number,
+              o.status,
+              o.status AS order_status,
+              o.created_at,
+              o.total_price_idr,
+              p.id AS payment_id,
+              p.provider,
+              p.method,
+              p.amount_idr,
+              p.expires_at,
+              p.provider_reference,
+              p.snap_token,
+              p.redirect_url,
+              p.client_key,
+              p.snap_js_url,
+              p.status AS payment_status
        FROM orders o
        LEFT JOIN payments p ON p.order_id = o.id
        WHERE o.id = $1 AND o.customer_id = $2
@@ -820,43 +1038,76 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
       return;
     }
 
-    if (order.status === 'pending_payment') {
+    const manualConfirmEnabled = process.env.ALLOW_CUSTOMER_MANUAL_PAYMENT_CONFIRM === 'true';
+    const paymentAlreadyPaid = order.payment_status === 'paid';
+
+    if (order.status === 'pending_payment' && (paymentAlreadyPaid || manualConfirmEnabled)) {
       await client.query(
         `UPDATE orders SET status = 'pending', updated_at = NOW() WHERE id = $1`,
         [id]
       );
-      await client.query(
-        `UPDATE payments SET status = 'paid', paid_at = NOW(), updated_at = NOW() WHERE order_id = $1`,
-        [id]
-      );
+      if (manualConfirmEnabled && !paymentAlreadyPaid) {
+        await client.query(
+          `UPDATE payments SET status = 'paid', paid_at = NOW(), updated_at = NOW() WHERE order_id = $1`,
+          [id]
+        );
+      }
       await client.query(
         `INSERT INTO order_events (order_id, user_id, event_type, description)
-         VALUES ($1, $2, 'payment_confirmed', 'Customer confirmed QRIS payment via Web Portal')`,
-        [id, customer_id]
+         VALUES ($1, $2, 'payment_confirmed', $3)`,
+        [
+          id,
+          customer_id,
+          manualConfirmEnabled && !paymentAlreadyPaid
+            ? 'Customer payment manually confirmed in dev mode'
+            : 'Customer payment status reconciled as paid'
+        ]
       );
       createdOffers = await advanceOnDemandDispatchQueue(client, 1);
+    }
+
+    if (order.status === 'pending_payment' && !paymentAlreadyPaid && !manualConfirmEnabled) {
+      await client.query('COMMIT');
+      const payment = publicCustomerPaymentSession(order);
+      res.json({
+        success: true,
+        payment_status: payment.payment_status,
+        order_status: payment.order_status,
+        payment,
+        message: 'Pembayaran QRIS sedang menunggu konfirmasi gateway.'
+      });
+      return;
     }
 
     await client.query('COMMIT');
     await notifyOnDemandOffers(createdOffers);
 
-    try {
-      await createNotification({
-        user_id: customer_id,
-        title: `Pembayaran diterima - ${order.order_number}`,
-        body: 'Order Anda sedang masuk antrean dispatch.',
-        type: 'payment',
-        order_id: id,
-        deep_link: `/orders/${id}`
-      });
-    } catch (notificationError) {
-      console.warn('Failed to create payment notification:', notificationError);
+    if (createdOffers.length > 0 || paymentAlreadyPaid || manualConfirmEnabled) {
+      try {
+        await createNotification({
+          user_id: customer_id,
+          title: `Pembayaran diterima - ${order.order_number}`,
+          body: 'Order Anda sedang masuk antrean dispatch.',
+          type: 'payment',
+          order_id: id,
+          deep_link: `/orders/${id}`
+        });
+      } catch (notificationError) {
+        console.warn('Failed to create payment notification:', notificationError);
+      }
     }
+
+    const payment = publicCustomerPaymentSession({
+      ...order,
+      payment_status: paymentAlreadyPaid || manualConfirmEnabled ? 'paid' : order.payment_status,
+      order_status: paymentAlreadyPaid || manualConfirmEnabled ? 'pending' : order.order_status
+    });
 
     res.json({
       success: true,
-      payment_status: 'paid',
-      order_status: 'pending'
+      payment_status: payment.payment_status,
+      order_status: payment.order_status,
+      payment
     });
   } catch (error: any) {
     await client.query('ROLLBACK');

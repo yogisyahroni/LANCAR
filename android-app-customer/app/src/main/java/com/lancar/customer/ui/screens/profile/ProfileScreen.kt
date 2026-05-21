@@ -62,6 +62,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,7 +77,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.lancar.customer.data.model.ProfileResponse
+import com.lancar.customer.data.security.LocalDeviceSecurityManager
+import com.lancar.customer.ui.security.LocalSecuritySettingsPanel
 import com.lancar.customer.ui.theme.Primary
+import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -93,6 +97,11 @@ fun ProfileScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val localSecurityManager = remember(context) {
+        LocalDeviceSecurityManager(context.applicationContext)
+    }
     var activeDialog by remember { mutableStateOf<ProfileDialog?>(null) }
 
     LaunchedEffect(state) {
@@ -169,7 +178,11 @@ fun ProfileScreen(
             }
         )
         ProfileDialog.Security -> SecurityDialog(
+            securityManager = localSecurityManager,
             onDismiss = { activeDialog = null },
+            onNotice = { message ->
+                scope.launch { snackbarHostState.showSnackbar(message) }
+            },
             onLogout = {
                 activeDialog = null
                 viewModel.logout(onLogout)
@@ -522,16 +535,25 @@ private fun SettingsDialog(onDismiss: () -> Unit, onRefresh: () -> Unit) {
 }
 
 @Composable
-private fun SecurityDialog(onDismiss: () -> Unit, onLogout: () -> Unit) {
+private fun SecurityDialog(
+    securityManager: LocalDeviceSecurityManager,
+    onDismiss: () -> Unit,
+    onNotice: (String) -> Unit,
+    onLogout: () -> Unit
+) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Keamanan Akun", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 StatusRow(Icons.Default.Lock, "Penyimpanan token", "EncryptedSharedPreferences aktif")
-                StatusRow(Icons.Default.Shield, "Verifikasi sesi", "OTP dan token API aktif")
+                StatusRow(Icons.Default.Shield, "Verifikasi sesi", "OTP hanya untuk registrasi dan perangkat baru")
+                LocalSecuritySettingsPanel(
+                    securityManager = securityManager,
+                    onNotice = onNotice
+                )
                 Text(
-                    text = "Keluar akun akan menghapus token terenkripsi dari perangkat ini.",
+                    text = "Saat proteksi aktif, pembayaran dan aksi sensitif perlu PIN atau biometrik lokal. Keluar akun tetap menghapus token terenkripsi dari perangkat ini.",
                     color = Color(0xFF6B7280),
                     fontSize = 12.sp
                 )

@@ -105,7 +105,13 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             authRepository.startPasswordLogin(email, password)
-                .onSuccess { _authState.value = AuthState.OtpSent }
+                .onSuccess { response ->
+                    if (response.requireOtp) {
+                        _authState.value = AuthState.OtpSent
+                    } else {
+                        completeAuthenticatedSession(response)
+                    }
+                }
                 .onFailure { exception ->
                     _authState.value = AuthState.Error(exception.localizedMessage ?: "Email atau password tidak sesuai")
                 }
@@ -152,25 +158,7 @@ class AuthViewModel @Inject constructor(
             val result = authRepository.verifyOtp(phone, code)
             
             result.onSuccess { response ->
-                val data = response.data
-                val token = data?.token ?: response.accessToken
-                val customerId = data?.customerId ?: response.user?.id
-                val customerName = data?.name ?: response.user?.fullName ?: response.user?.name
-                if (!token.isNullOrBlank() && !customerId.isNullOrBlank()) {
-                    // Save authentication data securely
-                    sessionManager.saveSession(
-                        token = token,
-                        id = customerId,
-                        name = customerName
-                    )
-                    val needsProfile = response.isNewUser ||
-                        customerName.isNullOrBlank() ||
-                        customerName.equals("New User", ignoreCase = true)
-                    _authState.value = AuthState.Success(isNewUser = needsProfile)
-                    syncFcmToken()
-                } else {
-                    _authState.value = AuthState.Error("Data autentikasi kosong")
-                }
+                completeAuthenticatedSession(response)
             }.onFailure { exception ->
                 _authState.value = AuthState.Error(exception.localizedMessage ?: "Kode OTP salah")
             }
@@ -218,6 +206,27 @@ class AuthViewModel @Inject constructor(
                 }
         } catch (_: RuntimeException) {
             // Firebase may be unavailable in JVM unit tests or early app bootstrap.
+        }
+    }
+
+    private suspend fun completeAuthenticatedSession(response: com.lancar.customer.data.model.AuthResponse) {
+        val data = response.data
+        val token = data?.token ?: response.accessToken
+        val customerId = data?.customerId ?: response.user?.id
+        val customerName = data?.name ?: response.user?.fullName ?: response.user?.name
+        if (!token.isNullOrBlank() && !customerId.isNullOrBlank()) {
+            sessionManager.saveSession(
+                token = token,
+                id = customerId,
+                name = customerName
+            )
+            val needsProfile = response.isNewUser ||
+                customerName.isNullOrBlank() ||
+                customerName.equals("New User", ignoreCase = true)
+            _authState.value = AuthState.Success(isNewUser = needsProfile)
+            syncFcmToken()
+        } else {
+            _authState.value = AuthState.Error("Data autentikasi kosong")
         }
     }
 }

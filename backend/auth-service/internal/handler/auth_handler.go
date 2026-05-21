@@ -13,8 +13,8 @@ import (
 type AuthHandler struct {
 	svc interface {
 		RequestOTP(ctx context.Context, phoneNumber string) error
-		StartCustomerPasswordLogin(ctx context.Context, email, password string) error
-		StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password string) error
+		StartCustomerPasswordLogin(ctx context.Context, email, password, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
+		StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
 		VerifyOTP(ctx context.Context, phoneNumber, code, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
 		RefreshToken(ctx context.Context, oldRefreshToken, deviceID string) (*service.AuthResponse, error)
 		Logout(ctx context.Context, refreshToken string) error
@@ -41,40 +41,47 @@ type AuthHandler struct {
 
 func (h *AuthHandler) StartCustomerPasswordLogin(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email      string          `json:"email"`
+		Password   string          `json:"password"`
+		DeviceID   string          `json:"device_id"`
+		DeviceInfo json.RawMessage `json:"device_info"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	if err := h.svc.StartCustomerPasswordLogin(r.Context(), req.Email, req.Password); err != nil {
+	res, err := h.svc.StartCustomerPasswordLogin(r.Context(), req.Email, req.Password, req.DeviceID, req.DeviceInfo)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Credential verified, OTP sent"})
+	json.NewEncoder(w).Encode(res)
 }
 
 func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		FullName    string `json:"full_name"`
-		Email       string `json:"email"`
-		PhoneNumber string `json:"phone_number"`
-		Password    string `json:"password"`
+		FullName    string          `json:"full_name"`
+		Email       string          `json:"email"`
+		PhoneNumber string          `json:"phone_number"`
+		Password    string          `json:"password"`
+		DeviceID    string          `json:"device_id"`
+		DeviceInfo  json.RawMessage `json:"device_info"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-	if err := h.svc.StartCustomerPasswordRegistration(r.Context(), req.FullName, req.Email, req.PhoneNumber, req.Password); err != nil {
+	res, err := h.svc.StartCustomerPasswordRegistration(r.Context(), req.FullName, req.Email, req.PhoneNumber, req.Password, req.DeviceID, req.DeviceInfo)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Customer registered, OTP sent"})
+	json.NewEncoder(w).Encode(res)
 }
-
 
 func NewAuthHandler(svc *service.AuthService) *AuthHandler {
 	return &AuthHandler{svc: svc}

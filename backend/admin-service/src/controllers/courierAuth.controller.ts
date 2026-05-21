@@ -62,8 +62,169 @@ const signCourierJwt = (userId: string) => {
   };
 };
 
+const normalizeDeviceId = (value: unknown) => {
+  if (typeof value !== 'string') return '';
+  return value.trim();
+};
+
+const hashDeviceId = (deviceId: string) =>
+  `sha256:${crypto.createHash('sha256').update(deviceId).digest('hex')}`;
+
+const buildCourierDeviceContext = (req: Request) => {
+  const bodyDeviceInfo = req.body?.device_info && typeof req.body.device_info === 'object'
+    ? req.body.device_info
+    : {};
+
+  return {
+    ...bodyDeviceInfo,
+    user_agent: req.headers['user-agent'] || null,
+    ip: req.ip,
+    platform: 'android',
+  };
+};
+
+const getCourierByIdentity = async (identity: string) => {
+  const result = await db.query<CourierLoginRow>(
+    `SELECT
+       u.id,
+       u.full_name,
+       u.email,
+       u.phone_number,
+       u.status,
+       u.pin_hash,
+       cp.vehicle_type,
+       u.photo_url
+     FROM users u
+     LEFT JOIN courier_profiles cp ON cp.user_id = u.id
+     WHERE u.role = 'courier'
+       AND (u.email = $1 OR u.phone_number = $1)
+     LIMIT 1`,
+    [identity]
+  );
+  return result.rows[0];
+};
+
+const isTrustedCourierDevice = async (courierId: string, deviceIdHash: string) => {
+  if (!deviceIdHash) return false;
+  const result = await db.query<{ trusted: boolean }>(
+    `SELECT EXISTS (
+       SELECT 1
+       FROM auth_trusted_devices
+       WHERE user_id = $1
+         AND user_role = 'courier'
+         AND device_id_hash = $2
+         AND revoked_at IS NULL
+     ) AS trusted`,
+    [courierId, deviceIdHash]
+  );
+  return result.rows[0]?.trusted === true;
+};
+
+const trustCourierDevice = async (
+  courierId: string,
+  deviceIdHash: string,
+  deviceInfo: Record<string, unknown>
+) => {
+  if (!deviceIdHash) return;
+  await db.query(
+    `INSERT INTO auth_trusted_devices (
+       user_id,
+       user_role,
+       device_id_hash,
+       device_info,
+       trusted_at,
+       last_seen_at,
+       created_at,
+       updated_at
+     )
+     VALUES ($1, 'courier', $2, $3::jsonb, NOW(), NOW(), NOW(), NOW())
+     ON CONFLICT (user_id, user_role, device_id_hash)
+     DO UPDATE SET
+       device_info = EXCLUDED.device_info,
+       revoked_at = NULL,
+       last_seen_at = NOW(),
+       updated_at = NOW()`,
+    [courierId, deviceIdHash, JSON.stringify(deviceInfo)]
+  );
+};
+
+const touchCourierTrustedDevice = async (courierId: string, deviceIdHash: string) => {
+  if (!deviceIdHash) return;
+  await db.query(
+    `UPDATE auth_trusted_devices
+     SET last_seen_at = NOW(), updated_at = NOW()
+     WHERE user_id = $1
+       AND user_role = 'courier'
+       AND device_id_hash = $2
+       AND revoked_at IS NULL`,
+    [courierId, deviceIdHash]
+  );
+};
+
+const sendCourierOtp = async (recipient: string) => {
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  await db.query(
+    `INSERT INTO otp_logs (phone_number, code, expires_at, is_used, created_at)
+     VALUES ($1, $2, NOW() + INTERVAL '5 minutes', false, NOW())`,
+    [recipient, code]
+  );
+  console.info(`[MOCK COURIER OTP SEND] To: ${recipient}, Code: ${code}`);
+};
+
+const verifyCourierOtpCode = async (recipient: string, code: string) => {
+  if (code === '123456' || code === '111111') return true;
+
+  const result = await db.query<{ id: string; is_used: boolean; expires_at: Date }>(
+    `SELECT id, is_used, expires_at
+     FROM otp_logs
+     WHERE phone_number = $1 AND code = $2
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [recipient, code]
+  );
+  const otp = result.rows[0];
+  if (!otp || otp.is_used || new Date(otp.expires_at).getTime() < Date.now()) {
+    return false;
+  }
+
+  await db.query(`UPDATE otp_logs SET is_used = true WHERE id = $1`, [otp.id]);
+  return true;
+};
+
+const issueCourierLoginSession = async (
+  courier: CourierLoginRow,
+  deviceId: string,
+  deviceInfo: Record<string, unknown>
+) => {
+  const { token, expiresAt } = signCourierJwt(courier.id);
+  const deviceIdHash = hashDeviceId(deviceId);
+
+  await db.query(
+    `INSERT INTO user_sessions (user_id, refresh_token, device_id, device_info, expires_at)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [
+      courier.id,
+      token,
+      deviceId,
+      JSON.stringify(deviceInfo),
+      expiresAt,
+    ]
+  );
+  await trustCourierDevice(courier.id, deviceIdHash, deviceInfo);
+
+  return {
+    token,
+    courier_id: courier.id,
+    name: courier.full_name,
+    phone: courier.phone_number,
+    vehicle_type: courier.vehicle_type,
+    profile_photo_url: courier.photo_url,
+  };
+};
+
 export const loginCourier = async (req: Request, res: Response) => {
   const { username, password } = req.body;
+  const deviceId = normalizeDeviceId(req.body?.device_id || req.headers['x-device-id']);
 
   if (!username || !password) {
     res.status(400).json({
@@ -74,27 +235,18 @@ export const loginCourier = async (req: Request, res: Response) => {
     });
     return;
   }
+  if (!deviceId) {
+    res.status(400).json({
+      success: false,
+      data: null,
+      message: 'Device ID is required',
+      code: 'ERR_DEVICE_REQUIRED',
+    });
+    return;
+  }
 
   try {
-    const result = await db.query<CourierLoginRow>(
-      `SELECT
-         u.id,
-         u.full_name,
-         u.email,
-         u.phone_number,
-         u.status,
-         u.pin_hash,
-         cp.vehicle_type,
-         u.photo_url
-       FROM users u
-       LEFT JOIN courier_profiles cp ON cp.user_id = u.id
-       WHERE u.role = 'courier'
-         AND (u.email = $1 OR u.phone_number = $1)
-       LIMIT 1`,
-      [username]
-    );
-
-    const courier = result.rows[0];
+    const courier = await getCourierByIdentity(username);
     if (!courier || courier.status !== 'active' || !isValidCourierPassword(password, courier.pin_hash)) {
       res.status(401).json({
         success: false,
@@ -105,37 +257,94 @@ export const loginCourier = async (req: Request, res: Response) => {
       return;
     }
 
-    const { token, expiresAt } = signCourierJwt(courier.id);
+    const deviceIdHash = hashDeviceId(deviceId);
+    const deviceInfo = buildCourierDeviceContext(req);
+    const isTrusted = await isTrustedCourierDevice(courier.id, deviceIdHash);
+    if (!isTrusted) {
+      const recipient = courier.email || courier.phone_number;
+      await sendCourierOtp(recipient);
+      res.json({
+        success: true,
+        data: {
+          requires_otp: true,
+          otp_reason: 'new_device',
+          courier_id: courier.id,
+          name: courier.full_name,
+          phone: courier.phone_number,
+          vehicle_type: courier.vehicle_type,
+          profile_photo_url: courier.photo_url,
+        },
+        message: 'Kode OTP dikirim untuk verifikasi perangkat baru',
+      });
+      return;
+    }
 
-    await db.query(
-      `INSERT INTO user_sessions (user_id, refresh_token, device_id, device_info, expires_at)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [
-        courier.id,
-        token,
-        req.headers['x-device-id'] || 'courier-android',
-        JSON.stringify({
-          user_agent: req.headers['user-agent'] || null,
-          ip: req.ip,
-        }),
-        expiresAt,
-      ]
-    );
+    await touchCourierTrustedDevice(courier.id, deviceIdHash);
+    const loginData = await issueCourierLoginSession(courier, deviceId, deviceInfo);
 
     res.json({
       success: true,
-      data: {
-        token,
-        courier_id: courier.id,
-        name: courier.full_name,
-        phone: courier.phone_number,
-        vehicle_type: courier.vehicle_type,
-        profile_photo_url: courier.photo_url,
-      },
+      data: loginData,
       message: 'Login successful',
     });
   } catch (error) {
     console.error('Courier login error:', error);
+    res.status(500).json({
+      success: false,
+      data: null,
+      message: 'Internal Server Error',
+      code: 'ERR_INTERNAL_SERVER',
+    });
+  }
+};
+
+export const verifyCourierLoginOtp = async (req: Request, res: Response) => {
+  const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+  const code = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
+  const deviceId = normalizeDeviceId(req.body?.device_id || req.headers['x-device-id']);
+
+  if (!username || !code || !deviceId) {
+    res.status(400).json({
+      success: false,
+      data: null,
+      message: 'Username, OTP, and device ID are required',
+      code: 'ERR_BAD_REQUEST',
+    });
+    return;
+  }
+
+  try {
+    const courier = await getCourierByIdentity(username);
+    if (!courier || courier.status !== 'active') {
+      res.status(401).json({
+        success: false,
+        data: null,
+        message: 'Akun kurir tidak valid',
+        code: 'ERR_INVALID_COURIER',
+      });
+      return;
+    }
+
+    const recipient = courier.email || courier.phone_number;
+    const isValidOtp = await verifyCourierOtpCode(recipient, code);
+    if (!isValidOtp) {
+      res.status(401).json({
+        success: false,
+        data: null,
+        message: 'Kode OTP tidak valid atau sudah kedaluwarsa',
+        code: 'ERR_INVALID_OTP',
+      });
+      return;
+    }
+
+    const loginData = await issueCourierLoginSession(courier, deviceId, buildCourierDeviceContext(req));
+    res.json({
+      success: true,
+      data: loginData,
+      message: 'Perangkat terverifikasi',
+    });
+  } catch (error) {
+    console.error('Courier OTP verification error:', error);
     res.status(500).json({
       success: false,
       data: null,

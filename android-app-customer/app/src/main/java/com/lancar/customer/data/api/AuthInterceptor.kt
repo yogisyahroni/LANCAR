@@ -1,6 +1,7 @@
 package com.lancar.customer.data.api
 
 import com.lancar.customer.data.session.AuthSessionManager
+import com.lancar.customer.data.session.SessionInvalidationReason
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
@@ -23,6 +24,13 @@ class AuthInterceptor(private val sessionManager: AuthSessionManager) : Intercep
         
         // If token is missing, proceed with original request (e.g. for login/otp)
         if (token.isNullOrEmpty()) {
+            return chain.proceed(originalRequest)
+        }
+
+        if (sessionManager.isTokenExpired(token)) {
+            runBlocking {
+                sessionManager.clearSession(SessionInvalidationReason.TOKEN_EXPIRED)
+            }
             return chain.proceed(originalRequest)
         }
 

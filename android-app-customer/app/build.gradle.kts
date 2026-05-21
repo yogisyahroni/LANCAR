@@ -105,6 +105,8 @@ dependencies {
     // DataStore & Security
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.biometric:biometric:1.1.0")
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
 
     // Room Database for offline order queue (PTLAAA-45)
     val roomVersion = "2.6.1"

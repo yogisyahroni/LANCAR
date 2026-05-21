@@ -30,7 +30,13 @@ data class LoginV1Request(
     val phoneNumber: String,
 
     @SerialName("code")
-    val code: String
+    val code: String,
+
+    @SerialName("device_id")
+    val deviceId: String,
+
+    @SerialName("device_info")
+    val deviceInfo: Map<String, String> = emptyMap()
 )
 
 @Serializable
@@ -39,7 +45,13 @@ data class CustomerPasswordLoginStartRequest(
     val email: String,
 
     @SerialName("password")
-    val password: String
+    val password: String,
+
+    @SerialName("device_id")
+    val deviceId: String,
+
+    @SerialName("device_info")
+    val deviceInfo: Map<String, String> = emptyMap()
 )
 
 @Serializable
@@ -54,7 +66,13 @@ data class CustomerPasswordRegisterStartRequest(
     val phoneNumber: String,
 
     @SerialName("password")
-    val password: String
+    val password: String,
+
+    @SerialName("device_id")
+    val deviceId: String,
+
+    @SerialName("device_info")
+    val deviceInfo: Map<String, String> = emptyMap()
 )
 
 @Serializable
@@ -70,6 +88,12 @@ data class AuthResponse(
 
     @SerialName("is_new_user")
     val isNewUser: Boolean = false,
+
+    @SerialName("require_otp")
+    val requireOtp: Boolean = false,
+
+    @SerialName("otp_reason")
+    val otpReason: String? = null,
 
     @SerialName("access_token")
     val accessToken: String? = null,

@@ -158,6 +158,7 @@ fun BookingScreen(
 
     LaunchedEffect(viewModel) {
         viewModel.bookingSuccess.collectLatest { orderId ->
+            showReviewSheet = false
             Toast.makeText(context, "Order berhasil dibuat", Toast.LENGTH_SHORT).show()
             onBookingSuccess(orderId)
         }
@@ -430,7 +431,6 @@ fun BookingScreen(
             BookingReviewSheet(
                 state = uiState,
                 onSubmit = {
-                    showReviewSheet = false
                     viewModel.confirmBooking()
                 }
             )
@@ -1235,7 +1235,7 @@ private fun BookingReviewSheet(
         }
         Button(
             onClick = onSubmit,
-            enabled = price != null,
+            enabled = price != null && !state.isLoading,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(58.dp),
@@ -1243,7 +1243,7 @@ private fun BookingReviewSheet(
             colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
         ) {
             Text(
-                "Kirim ${service?.name ?: "LANCAR"} • ${formatRupiah(price?.totalPriceIdr ?: 0)}",
+                if (state.isLoading) "Mengirim order..." else "Kirim ${service?.name ?: "LANCAR"} • ${formatRupiah(price?.totalPriceIdr ?: 0)}",
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 16.sp
             )

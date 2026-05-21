@@ -65,6 +65,7 @@ import com.lancar.courier.data.model.displayServiceName
 import com.lancar.courier.data.model.etaMinutesValue
 import com.lancar.courier.data.model.normalizedWorkflowRole
 import com.lancar.courier.data.model.toRupiahCompact
+import com.lancar.courier.data.security.LocalDeviceSecurityManager
 import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.service.LocationTrackerService
 import com.lancar.courier.ui.components.maps.RuntimeMapMarker
@@ -76,6 +77,8 @@ import com.lancar.courier.ui.screens.pod.ProofOfDeliveryScreen
 import com.lancar.courier.ui.screens.profile.resolvePayoutActionState
 import com.lancar.courier.ui.screens.scan.ScanScreen
 import com.lancar.courier.ui.screens.chat.ChatScreen
+import com.lancar.courier.ui.security.LocalSecurityChallengeDialog
+import com.lancar.courier.ui.security.LocalSecuritySettingsPanel
 import com.lancar.courier.ui.theme.Primary
 import com.lancar.courier.ui.theme.PrimaryLight
 import com.lancar.courier.ui.theme.Secondary
@@ -113,6 +116,10 @@ fun MainScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val localSecurityManager = remember(context) {
+        LocalDeviceSecurityManager(context.applicationContext)
+    }
+    val localSecuritySettings by localSecurityManager.settings.collectAsState()
 
     // Real ViewModel backed by Hilt/Room DB
     val orderViewModel: OrderViewModel = hiltViewModel()
@@ -163,6 +170,7 @@ fun MainScreen(
     var pickupScanVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var pickupPhotoVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var pendingDutySecurityTarget by remember { mutableStateOf<Boolean?>(null) }
 
     suspend fun sendSafetyEvent(order: Order?, eventType: String, severity: String, message: String) {
         val location = getLastKnownDutyLocation(context)
@@ -178,6 +186,64 @@ fun MainScreen(
         snackbarHostState.showSnackbar(
             result.getOrElse { it.message ?: "Laporan belum terkirim. Coba lagi." }
         )
+    }
+
+    suspend fun performDutyToggle(online: Boolean) {
+        if (!online) {
+            val hasActiveJobs = allOrders.any { it.status != "delivered" && it.status != "failed" }
+            if (hasActiveJobs) {
+                snackbarHostState.showSnackbar("Peringatan: Selesaikan semua tugas pengiriman sebelum nonaktif.")
+                return
+            }
+        }
+
+        if (online) {
+            val isRooted = com.lancar.courier.util.SecurityUtils.isDeviceRooted(context)
+            if (isRooted) {
+                snackbarHostState.showSnackbar("Akses ditolak: perangkat terdeteksi rooted. Gunakan perangkat operasional yang aman.")
+                return
+            }
+        }
+
+        try {
+            if (online) {
+                val location = getLastKnownDutyLocation(context)
+                if (location == null) {
+                    snackbarHostState.showSnackbar("Lokasi perangkat belum tersedia. Aktifkan GPS dan coba lagi untuk mulai On Duty.")
+                    return
+                }
+
+                val dutyResult = orderViewModel.updateDutyStatus(
+                    online = true,
+                    latitude = location.latitude,
+                    longitude = location.longitude,
+                    accuracy = location.accuracy
+                )
+                dutyResult.onFailure { e ->
+                    snackbarHostState.showSnackbar(
+                        e.message ?: "Lokasi Anda belum memenuhi area operasional aktif."
+                    )
+                    return
+                }
+
+                authSessionManager.setOnlineStatus(true)
+                val intent = LocationTrackerService.startIntent(context)
+                androidx.core.content.ContextCompat.startForegroundService(context, intent)
+                snackbarHostState.showSnackbar("Status aktif. Tracking operasional berjalan.")
+            } else {
+                val dutyResult = orderViewModel.updateDutyStatus(online = false)
+                dutyResult.onFailure { e ->
+                    snackbarHostState.showSnackbar(e.message ?: "Gagal memperbarui status Off Duty.")
+                    return
+                }
+
+                authSessionManager.setOnlineStatus(false)
+                context.stopService(LocationTrackerService.stopIntent(context))
+                snackbarHostState.showSnackbar("Status nonaktif. Tracking berhenti.")
+            }
+        } catch (e: Exception) {
+            snackbarHostState.showSnackbar("Gagal memperbarui status tracking.")
+        }
     }
 
     if (courierRole == "on_demand") onDemandOffers.firstOrNull()?.let { offer ->
@@ -471,6 +537,19 @@ fun MainScreen(
         )
     }
 
+    pendingDutySecurityTarget?.let { targetOnline ->
+        LocalSecurityChallengeDialog(
+            securityManager = localSecurityManager,
+            title = "Verifikasi mulai bekerja",
+            message = "Gunakan PIN atau biometrik lokal sebelum mengaktifkan duty.",
+            onCancel = { pendingDutySecurityTarget = null },
+            onVerified = {
+                pendingDutySecurityTarget = null
+                scope.launch { performDutyToggle(targetOnline) }
+            }
+        )
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -574,64 +653,10 @@ fun MainScreen(
                     mapsProviderConfig = mapsProviderConfig,
                     isOnline = isOnline,
                     onOnlineToggle = { online ->
-                        scope.launch {
-                            // Business Rule Guard: Prevent going Off-Duty if there are active jobs
-                            if (!online) {
-                                val hasActiveJobs = allOrders.any { it.status != "delivered" && it.status != "failed" }
-                                if (hasActiveJobs) {
-                                    snackbarHostState.showSnackbar("Peringatan: Selesaikan semua tugas pengiriman sebelum NONAKTIF!")
-                                    return@launch
-                                }
-                            }
-
-                            // Security Guard: Prevent going On-Duty if the device is rooted (Anti-GPS Spoofing)
-                            if (online) {
-                                val isRooted = com.lancar.courier.util.SecurityUtils.isDeviceRooted(context)
-                                if (isRooted) {
-                                    snackbarHostState.showSnackbar("⚠️ AKSES DITOLAK: Perangkat terdeteksi ROOTED. Dilarang bekerja demi integritas GPS!")
-                                    return@launch
-                                }
-                            }
-
-                            try {
-                                if (online) {
-                                    val location = getLastKnownDutyLocation(context)
-                                    if (location == null) {
-                                        snackbarHostState.showSnackbar("Lokasi perangkat belum tersedia. Aktifkan GPS dan coba lagi untuk mulai On Duty.")
-                                        return@launch
-                                    }
-
-                                    val dutyResult = orderViewModel.updateDutyStatus(
-                                        online = true,
-                                        latitude = location.latitude,
-                                        longitude = location.longitude,
-                                        accuracy = location.accuracy
-                                    )
-                                    dutyResult.onFailure { e ->
-                                        snackbarHostState.showSnackbar(
-                                            e.message ?: "Lokasi Anda belum memenuhi area operasional aktif."
-                                        )
-                                        return@launch
-                                    }
-
-                                    authSessionManager.setOnlineStatus(true)
-                                    val intent = LocationTrackerService.startIntent(context)
-                                    androidx.core.content.ContextCompat.startForegroundService(context, intent)
-                                    snackbarHostState.showSnackbar("Status Berhasil Diubah Ke: ON DUTY. GPS Aktif.")
-                                } else {
-                                    val dutyResult = orderViewModel.updateDutyStatus(online = false)
-                                    dutyResult.onFailure { e ->
-                                        snackbarHostState.showSnackbar(e.message ?: "Gagal memperbarui status Off Duty.")
-                                        return@launch
-                                    }
-
-                                    authSessionManager.setOnlineStatus(false)
-                                    context.stopService(LocationTrackerService.stopIntent(context))
-                                    snackbarHostState.showSnackbar("Status Berhasil Diubah Ke: OFF DUTY. GPS Berhenti.")
-                                }
-                            } catch (e: Exception) {
-                                snackbarHostState.showSnackbar("Gagal merubah status tracking.")
-                            }
+                        if (online && localSecuritySettings.active) {
+                            pendingDutySecurityTarget = true
+                        } else {
+                            scope.launch { performDutyToggle(online) }
                         }
                     },
                     onCapturePod = { order ->
@@ -661,6 +686,7 @@ fun MainScreen(
                 2 -> ProfileContent(
                     courierName = displayCourierName,
                     courierRole = courierRole,
+                    localSecurityManager = localSecurityManager,
                     pendingSyncCount = rolePendingOrders.size,
                     todayEarningsIdr = roleEarningsToday,
                     totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
@@ -2248,6 +2274,7 @@ private fun OrdersContent(
 private fun ProfileContent(
     courierName: String,
     courierRole: String,
+    localSecurityManager: LocalDeviceSecurityManager,
     pendingSyncCount: Int,
     todayEarningsIdr: Int,
     totalEarningsIdr: Int,
@@ -2268,6 +2295,7 @@ private fun ProfileContent(
     var showDiagnostics by remember { mutableStateOf(false) }
     var showResetLocalDataDialog by remember { mutableStateOf(false) }
     var showPayoutDialog by remember { mutableStateOf(false) }
+    var showPayoutSecurityChallenge by remember { mutableStateOf(false) }
     var selectedPayoutRequest by remember { mutableStateOf<CourierPayoutRequestItem?>(null) }
 
     if (showResetLocalDataDialog) {
@@ -2313,6 +2341,19 @@ private fun ProfileContent(
                 showPayoutDialog = false
                 selectedPayoutRequest = request
                 onRefreshPayout()
+            }
+        )
+    }
+
+    if (showPayoutSecurityChallenge) {
+        LocalSecurityChallengeDialog(
+            securityManager = localSecurityManager,
+            title = "Verifikasi pencairan saldo",
+            message = "Gunakan PIN atau biometrik lokal sebelum membuka pengajuan pencairan.",
+            onCancel = { showPayoutSecurityChallenge = false },
+            onVerified = {
+                showPayoutSecurityChallenge = false
+                showPayoutDialog = true
             }
         )
     }
@@ -2385,6 +2426,11 @@ private fun ProfileContent(
                 }
             }
         }
+
+        LocalSecuritySettingsPanel(
+            securityManager = localSecurityManager,
+            onNotice = {}
+        )
 
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -2624,7 +2670,13 @@ private fun ProfileContent(
             payoutRequests = payoutRequests,
             isSubmitting = isPayoutSubmitting,
             onRefresh = onRefreshPayout,
-            onRequestClick = { showPayoutDialog = true },
+            onRequestClick = {
+                if (localSecurityManager.settings.value.active) {
+                    showPayoutSecurityChallenge = true
+                } else {
+                    showPayoutDialog = true
+                }
+            },
             onRequestDetail = { selectedPayoutRequest = it }
         )
 

@@ -9,6 +9,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -36,6 +37,8 @@ import com.lancar.customer.ui.screens.payment.PaymentScreen
 import com.lancar.customer.ui.screens.payment.PaymentViewModel
 import com.lancar.customer.ui.screens.chat.ChatScreen
 import com.lancar.customer.ui.screens.chat.ChatViewModel
+import com.lancar.customer.data.session.SessionInvalidationReason
+import android.widget.Toast
 
 @Composable
 fun RootNavGraph(
@@ -44,6 +47,8 @@ fun RootNavGraph(
 ) {
     val isLoading by viewModel.isLoading.collectAsState()
     val startDestination by viewModel.startDestination.collectAsState()
+    val sessionInvalidationReason by viewModel.sessionInvalidationReason.collectAsState()
+    val context = LocalContext.current
 
     if (isLoading) {
         // Preload logic here if needed
@@ -57,6 +62,17 @@ fun RootNavGraph(
             navController.navigate(Screen.AuthGraph.route) {
                 popUpTo(0) { inclusive = true }
             }
+        }
+    }
+
+    LaunchedEffect(sessionInvalidationReason) {
+        if (sessionInvalidationReason == SessionInvalidationReason.TOKEN_EXPIRED) {
+            Toast.makeText(
+                context,
+                "Sesi kamu sudah berakhir. Silakan masuk kembali.",
+                Toast.LENGTH_LONG
+            ).show()
+            viewModel.consumeSessionInvalidationNotice()
         }
     }
 

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
 import com.lancar.customer.data.repository.NotificationRepository
 import com.lancar.customer.data.session.AuthSessionManager
+import com.lancar.customer.data.session.SessionInvalidationReason
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,6 +24,7 @@ class MainViewModel @Inject constructor(
 
     private val _startDestination = MutableStateFlow<String>("auth_graph")
     val startDestination = _startDestination.asStateFlow()
+    val sessionInvalidationReason = sessionManager.sessionInvalidationReason
 
     init {
         checkAuth()
@@ -32,7 +34,10 @@ class MainViewModel @Inject constructor(
     private fun checkAuth() {
         viewModelScope.launch {
             val token = sessionManager.getTokenOnce()
-            if (!token.isNullOrEmpty()) {
+            if (!token.isNullOrEmpty() && sessionManager.isCurrentTokenExpired()) {
+                sessionManager.clearSession(SessionInvalidationReason.TOKEN_EXPIRED)
+                _startDestination.value = "auth_graph"
+            } else if (!token.isNullOrEmpty()) {
                 _startDestination.value = "dashboard"
                 syncFcmToken()
             }
@@ -68,5 +73,9 @@ class MainViewModel @Inject constructor(
             sessionManager.clearSession()
             _startDestination.value = "auth_graph"
         }
+    }
+
+    fun consumeSessionInvalidationNotice() {
+        sessionManager.consumeSessionInvalidationReason()
     }
 }

@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -39,7 +41,7 @@ func NewAuthService(u domain.UserRepository, a domain.AuthRepository, s domain.S
 
 func (s *AuthService) RequestOTP(ctx context.Context, phoneNumber string) error {
 	code := generateOTP(6)
-	
+
 	otp := &domain.OTPLog{
 		PhoneNumber: phoneNumber,
 		Code:        code,
@@ -59,44 +61,79 @@ func (s *AuthService) RequestOTP(ctx context.Context, phoneNumber string) error 
 	return nil
 }
 
-func (s *AuthService) StartCustomerPasswordLogin(ctx context.Context, email, password string) error {
+func (s *AuthService) StartCustomerPasswordLogin(ctx context.Context, email, password, deviceID string, deviceInfo []byte) (*AuthResponse, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" || password == "" {
-		return errors.New("email and password are required")
+		return nil, errors.New("email and password are required")
+	}
+	if strings.TrimSpace(deviceID) == "" {
+		return nil, errors.New("device_id is required")
 	}
 
 	user, err := s.userRepo.GetByPhoneNumber(ctx, email)
 	if err != nil || user.Role != domain.RoleCustomer {
-		return errors.New("invalid email or password")
+		return nil, errors.New("invalid email or password")
 	}
 	if user.PasswordHash == nil || !utils.CheckPasswordHash(password, *user.PasswordHash) {
-		return errors.New("invalid email or password")
+		return nil, errors.New("invalid email or password")
 	}
-	if user.Status != domain.StatusActive {
-		return errors.New("customer account is not active")
+	if user.Status == domain.StatusPendingVerification && !user.IsVerified {
+		if err := s.RequestOTP(ctx, email); err != nil {
+			return nil, err
+		}
+		return &AuthResponse{
+			User:       user,
+			RequireOTP: true,
+			OTPReason:  "registration",
+			IsNewUser:  true,
+		}, nil
 	}
 
-	return s.RequestOTP(ctx, email)
+	if user.Status != domain.StatusActive {
+		return nil, errors.New("customer account is not active")
+	}
+
+	deviceIDHash := hashDeviceID(deviceID)
+	isTrusted, err := s.sessionRepo.IsTrustedDevice(ctx, user.ID, string(user.Role), deviceIDHash)
+	if err != nil {
+		return nil, err
+	}
+	if isTrusted {
+		_ = s.sessionRepo.TouchTrustedDevice(ctx, user.ID, string(user.Role), deviceIDHash)
+		return s.issueAuthSession(ctx, user, deviceID, deviceInfo, false, false)
+	}
+
+	if err := s.RequestOTP(ctx, email); err != nil {
+		return nil, err
+	}
+	return &AuthResponse{
+		User:       user,
+		RequireOTP: true,
+		OTPReason:  "new_device",
+	}, nil
 }
 
-func (s *AuthService) StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password string) error {
+func (s *AuthService) StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password, deviceID string, deviceInfo []byte) (*AuthResponse, error) {
 	fullName = strings.TrimSpace(fullName)
 	email = strings.TrimSpace(strings.ToLower(email))
 	phoneNumber = strings.TrimSpace(phoneNumber)
 	if len(fullName) < 2 || email == "" || len(phoneNumber) < 9 || len(password) < 8 {
-		return errors.New("registration data is incomplete")
+		return nil, errors.New("registration data is incomplete")
+	}
+	if strings.TrimSpace(deviceID) == "" {
+		return nil, errors.New("device_id is required")
 	}
 
 	if existing, err := s.userRepo.GetByPhoneNumber(ctx, email); err == nil && existing.ID != "" {
-		return errors.New("email is already registered")
+		return nil, errors.New("email is already registered")
 	}
 	if existing, err := s.userRepo.GetByPhoneNumber(ctx, phoneNumber); err == nil && existing.ID != "" {
-		return errors.New("phone number is already registered")
+		return nil, errors.New("phone number is already registered")
 	}
 
 	passwordHash, err := utils.HashPassword(password)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	emailVal := email
 	user := &domain.User{
@@ -105,21 +142,30 @@ func (s *AuthService) StartCustomerPasswordRegistration(ctx context.Context, ful
 		Email:        &emailVal,
 		FullName:     fullName,
 		Role:         domain.RoleCustomer,
-		Status:       domain.StatusActive,
-		IsVerified:   true,
+		Status:       domain.StatusPendingVerification,
+		IsVerified:   false,
 		PasswordHash: &passwordHash,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
 	if err := s.userRepo.Create(ctx, user); err != nil {
-		return err
+		return nil, err
 	}
 
 	randomPart, _ := utils.GenerateRandomString(6)
 	refCode := fmt.Sprintf("RLY-%s", randomPart)
 	_ = s.userRepo.SetReferralCode(ctx, user.ID, refCode)
 
-	return s.RequestOTP(ctx, email)
+	if err := s.RequestOTP(ctx, email); err != nil {
+		return nil, err
+	}
+
+	return &AuthResponse{
+		User:       user,
+		IsNewUser:  true,
+		RequireOTP: true,
+		OTPReason:  "registration",
+	}, nil
 }
 
 type AuthResponse struct {
@@ -128,6 +174,8 @@ type AuthResponse struct {
 	ExpiresIn    int64        `json:"expires_in,omitempty"`
 	User         *domain.User `json:"user,omitempty"`
 	IsNewUser    bool         `json:"is_new_user"`
+	RequireOTP   bool         `json:"require_otp,omitempty"`
+	OTPReason    string       `json:"otp_reason,omitempty"`
 	Require2FA   bool         `json:"require_2fa,omitempty"`
 	MFAUserID    string       `json:"mfa_user_id,omitempty"`
 }
@@ -157,14 +205,13 @@ func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID
 	user, err := s.userRepo.GetByPhoneNumber(ctx, phoneNumber)
 	if err != nil {
 		isNewUser = true
-		// Auto-register logic (Minimal user)
 		user = &domain.User{
 			ID:          uuid.New().String(),
 			PhoneNumber: phoneNumber,
 			FullName:    "New User",
 			Role:        domain.RoleCustomer,
 			Status:      domain.StatusPendingVerification,
-			IsVerified:  true,
+			IsVerified:  false,
 			CreatedAt:   time.Now(),
 			UpdatedAt:   time.Now(),
 		}
@@ -184,6 +231,12 @@ func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID
 		user.ReferralCode = &refCode
 	}
 
+	_ = s.userRepo.MarkVerified(ctx, user.ID)
+	user.IsVerified = true
+	if user.Status == domain.StatusPendingVerification {
+		user.Status = domain.StatusActive
+	}
+
 	// Check 2FA Policy
 	if user.Is2FAEnabled || user.Role == domain.RoleSuperAdmin || user.Role == domain.RoleFinance {
 		// If 2FA is enabled or mandated for the role, return challenge
@@ -194,15 +247,16 @@ func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID
 		}, nil
 	}
 
-	// Generate Tokens
-	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), false, 15*time.Minute)
+	return s.issueAuthSession(ctx, user, deviceID, deviceInfo, isNewUser, false)
+}
+
+func (s *AuthService) issueAuthSession(ctx context.Context, user *domain.User, deviceID string, deviceInfo []byte, isNewUser bool, totpVerified bool) (*AuthResponse, error) {
+	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), totpVerified, 15*time.Minute)
 	if err != nil {
 		return nil, err
 	}
 
 	refreshToken := uuid.New().String()
-	
-	// Create Session
 	session := &domain.Session{
 		ID:           uuid.New().String(),
 		UserID:       user.ID,
@@ -210,26 +264,35 @@ func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID
 		DeviceID:     deviceID,
 		DeviceInfo:   deviceInfo,
 		IsRevoked:    false,
-		ExpiresAt:    time.Now().Add(7 * 24 * time.Hour), // 7 days
+		ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
 
-	err = s.sessionRepo.CreateSession(ctx, session)
-	if err != nil {
+	if err := s.sessionRepo.CreateSession(ctx, session); err != nil {
 		return nil, err
 	}
 
-	// Update Last Login
+	deviceIDHash := hashDeviceID(deviceID)
+	_ = s.sessionRepo.TrustDevice(ctx, user.ID, string(user.Role), deviceIDHash, deviceInfo)
 	_ = s.userRepo.UpdateLastLogin(ctx, user.ID)
 
 	return &AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
-		ExpiresIn:    900, // 15 mins
+		ExpiresIn:    900,
 		User:         user,
 		IsNewUser:    isNewUser,
 	}, nil
+}
+
+func hashDeviceID(deviceID string) string {
+	normalized := strings.TrimSpace(deviceID)
+	if normalized == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(normalized))
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 func (s *AuthService) RefreshToken(ctx context.Context, oldRefreshToken, deviceID string) (*AuthResponse, error) {
@@ -260,7 +323,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, oldRefreshToken, deviceI
 	}
 
 	newRefreshToken := uuid.New().String()
-	
+
 	newSession := &domain.Session{
 		ID:           uuid.New().String(),
 		UserID:       user.ID,
@@ -615,45 +678,12 @@ func (s *AuthService) Complete2FALogin(ctx context.Context, userID, code, device
 		return nil, errors.New("2FA not required for this user")
 	}
 
-	// Generate Tokens
-	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), true, 15*time.Minute)
-	if err != nil {
-		return nil, err
-	}
-
-	refreshToken := uuid.New().String()
-	
-	// Create Session
-	session := &domain.Session{
-		ID:           uuid.New().String(),
-		UserID:       user.ID,
-		RefreshToken: refreshToken,
-		DeviceID:     deviceID,
-		DeviceInfo:   deviceInfo,
-		IsRevoked:    false,
-		ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-	}
-
-	err = s.sessionRepo.CreateSession(ctx, session)
-	if err != nil {
-		return nil, err
-	}
-
-	_ = s.userRepo.UpdateLastLogin(ctx, user.ID)
-
-	return &AuthResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		ExpiresIn:    900,
-		User:         user,
-	}, nil
+	return s.issueAuthSession(ctx, user, deviceID, deviceInfo, false, true)
 }
 
 func (s *AuthService) CreateAdminUser(ctx context.Context, actorID string, fullName, phoneNumber, role string) (*domain.User, error) {
 	// Only super_admin can create admins (enforced in handler, but good to check here if needed)
-	
+
 	// Check if user already exists
 	existing, _ := s.userRepo.GetByPhoneNumber(ctx, phoneNumber)
 	if existing != nil {

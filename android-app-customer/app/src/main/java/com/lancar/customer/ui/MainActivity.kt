@@ -5,12 +5,12 @@ package com.lancar.customer.ui
 
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.fragment.app.FragmentActivity
 import com.lancar.customer.ui.screens.auth.AuthNavGraph
 import com.lancar.customer.ui.theme.LANCARCustomerTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -22,7 +22,7 @@ import com.lancar.customer.data.model.AppVersion
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     @Inject
     lateinit var updateManager: UpdateManager

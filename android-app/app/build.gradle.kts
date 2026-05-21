@@ -106,6 +106,8 @@ dependencies {
 
     // Security & Anti-Fraud
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.biometric:biometric:1.1.0")
+    implementation("androidx.fragment:fragment-ktx:1.6.2")
     implementation("com.scottyab:rootbeer-lib:0.1.0")
 
     // Room Database for offline order queue (PTLAAA-45)

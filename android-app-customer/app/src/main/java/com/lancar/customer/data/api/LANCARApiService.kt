@@ -111,7 +111,8 @@ interface LANCARApiService {
     // Payment Endpoints
     @POST("api/v1/customer/orders/{id}/payment")
     suspend fun createCustomerPaymentSession(
-        @Path("id") id: String
+        @Path("id") id: String,
+        @Body request: CustomerPaymentCreateRequest
     ): Response<CustomerPaymentSessionResponse>
 
     @GET("api/v1/customer/orders/{id}/payment/status")

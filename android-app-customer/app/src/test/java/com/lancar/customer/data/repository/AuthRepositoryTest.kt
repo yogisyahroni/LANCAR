@@ -1,8 +1,10 @@
 package com.lancar.customer.data.repository
 
 import com.lancar.customer.data.api.LANCARApiService
+import com.lancar.customer.data.device.DeviceIdentityProvider
 import com.lancar.customer.data.model.AuthResponse
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.junit4.MockKRule
 import kotlinx.coroutines.test.runTest
@@ -21,11 +23,16 @@ class AuthRepositoryTest {
     @RelaxedMockK
     private lateinit var apiService: LANCARApiService
 
+    @RelaxedMockK
+    private lateinit var deviceIdentityProvider: DeviceIdentityProvider
+
     private lateinit var repository: AuthRepository
 
     @Before
     fun setUp() {
-        repository = AuthRepository(apiService)
+        every { deviceIdentityProvider.deviceId() } returns "unit-test-device"
+        every { deviceIdentityProvider.deviceInfo() } returns mapOf("platform" to "android-test")
+        repository = AuthRepository(apiService, deviceIdentityProvider)
     }
 
     @Test

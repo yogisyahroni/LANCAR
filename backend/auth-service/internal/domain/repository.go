@@ -7,6 +7,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id string) (*User, error)
 	Create(ctx context.Context, user *User) error
 	Update(ctx context.Context, user *User) error
+	MarkVerified(ctx context.Context, userID string) error
 	SetPIN(ctx context.Context, userID, pinHash string) error
 	UpdateLastLogin(ctx context.Context, userID string) error
 	UpdatePhotoURL(ctx context.Context, userID, url string) error
@@ -22,6 +23,9 @@ type SessionRepository interface {
 	GetSessionByToken(ctx context.Context, token string) (*Session, error)
 	RevokeSession(ctx context.Context, token string) error
 	RevokeUserSessions(ctx context.Context, userID string) error
+	IsTrustedDevice(ctx context.Context, userID, userRole, deviceIDHash string) (bool, error)
+	TrustDevice(ctx context.Context, userID, userRole, deviceIDHash string, deviceInfo []byte) error
+	TouchTrustedDevice(ctx context.Context, userID, userRole, deviceIDHash string) error
 }
 
 type AuditRepository interface {
@@ -41,5 +45,3 @@ type CourierRepository interface {
 	SetZone(ctx context.Context, id string, zoneID string) error
 	UpdateLivenessStatus(ctx context.Context, id string, status bool) error
 }
-
-

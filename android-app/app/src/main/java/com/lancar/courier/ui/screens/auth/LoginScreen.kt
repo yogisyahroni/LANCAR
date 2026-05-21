@@ -9,8 +9,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -191,13 +193,96 @@ fun LoginScreen(
                         keyboardActions = KeyboardActions(
                             onDone = {
                                 focusManager.clearFocus()
-                                viewModel.login()
+                                if (uiState.requiresOtp) {
+                                    viewModel.verifyOtp()
+                                } else {
+                                    viewModel.login()
+                                }
                             }
                         ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp)
                     )
+
+                    AnimatedVisibility(
+                        visible = uiState.requiresOtp,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.VerifiedUser,
+                                        contentDescription = null,
+                                        tint = Primary
+                                    )
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Verifikasi perangkat baru",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Masukkan OTP 6 digit. Setelah berhasil, perangkat ini tidak perlu OTP lagi.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                OutlinedTextField(
+                                    value = uiState.otpCode,
+                                    onValueChange = viewModel::onOtpCodeChange,
+                                    label = { Text("Kode OTP") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Lock, contentDescription = null)
+                                    },
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.NumberPassword,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onDone = {
+                                            focusManager.clearFocus()
+                                            viewModel.verifyOtp()
+                                        }
+                                    ),
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+
+                                TextButton(
+                                    onClick = {
+                                        focusManager.clearFocus()
+                                        viewModel.cancelOtpChallenge()
+                                    },
+                                    modifier = Modifier.align(Alignment.End)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Ganti akun")
+                                }
+                            }
+                        }
+                    }
 
                     // Error banner
                     AnimatedVisibility(
@@ -225,9 +310,13 @@ fun LoginScreen(
                     Button(
                         onClick = {
                             focusManager.clearFocus()
-                            viewModel.login()
+                            if (uiState.requiresOtp) {
+                                viewModel.verifyOtp()
+                            } else {
+                                viewModel.login()
+                            }
                         },
-                        enabled = !uiState.isLoading,
+                        enabled = !uiState.isLoading && (!uiState.requiresOtp || uiState.otpCode.length == 6),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
@@ -242,7 +331,7 @@ fun LoginScreen(
                             )
                         } else {
                             Text(
-                                text = "Masuk",
+                                text = if (uiState.requiresOtp) "Verifikasi Perangkat" else "Masuk",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold
                             )

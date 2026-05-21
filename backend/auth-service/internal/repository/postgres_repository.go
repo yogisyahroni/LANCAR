@@ -38,8 +38,8 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 		) users_combined WHERE phone_number = $1 OR email = $1`
 	user := &domain.User{}
 	err := r.readDB.QueryRowContext(ctx, query, phoneNumber).Scan(
-		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status, 
-		&user.ReferralCode, &user.ReferredBy, &user.PasswordHash, &user.PINHash, &user.IsVerified, 
+		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status,
+		&user.ReferralCode, &user.ReferredBy, &user.PasswordHash, &user.PINHash, &user.IsVerified,
 		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
@@ -64,8 +64,8 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.User, er
 		) users_combined WHERE id = $1`
 	user := &domain.User{}
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
-		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status, 
-		&user.ReferralCode, &user.ReferredBy, &user.PasswordHash, &user.PINHash, &user.IsVerified, 
+		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status,
+		&user.ReferralCode, &user.ReferredBy, &user.PasswordHash, &user.PINHash, &user.IsVerified,
 		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
@@ -84,7 +84,7 @@ func (r *postgresRepo) Create(ctx context.Context, user *domain.User) error {
 
 	query := `INSERT INTO ` + table + ` (phone_number, email, full_name, role, status, is_verified, referral_code, password_hash, created_at, updated_at) 
 			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`
-	return r.db.QueryRowContext(ctx, query, 
+	return r.db.QueryRowContext(ctx, query,
 		user.PhoneNumber, user.Email, user.FullName, user.Role, user.Status, user.IsVerified, user.ReferralCode, user.PasswordHash, time.Now(), time.Now(),
 	).Scan(&user.ID)
 }
@@ -93,7 +93,7 @@ func (r *postgresRepo) Update(ctx context.Context, user *domain.User) error {
 	// Note: In a real-world scenario, we'd need the role/table info or check all tables.
 	// For these updates, we'll try to update across the tables where the ID might exist.
 	// This is a temporary measure for the hybrid period.
-	
+
 	tables := []string{"customers", "couriers", "staff"}
 	for _, t := range tables {
 		query := `UPDATE ` + t + ` SET full_name = $1, email = $2, photo_url = $3, updated_at = $4 WHERE id = $5`
@@ -107,10 +107,32 @@ func (r *postgresRepo) Update(ctx context.Context, user *domain.User) error {
 	return sql.ErrNoRows
 }
 
+func (r *postgresRepo) MarkVerified(ctx context.Context, userID string) error {
+	tables := []string{"customers", "couriers", "staff"}
+	for _, t := range tables {
+		query := `UPDATE ` + t + ` SET is_verified = true, status = CASE WHEN status = 'pending_verification' THEN 'active' ELSE status END, updated_at = $1 WHERE id = $2`
+		res, err := r.db.ExecContext(ctx, query, time.Now(), userID)
+		if err == nil {
+			if count, _ := res.RowsAffected(); count > 0 {
+				return nil
+			}
+		}
+	}
+	return sql.ErrNoRows
+}
+
 func (r *postgresRepo) UpdateLastLogin(ctx context.Context, userID string) error {
-	query := `UPDATE users SET last_login_at = $1 WHERE id = $2`
-	_, err := r.db.ExecContext(ctx, query, time.Now(), userID)
-	return err
+	tables := []string{"customers", "couriers", "staff", "users"}
+	for _, t := range tables {
+		query := `UPDATE ` + t + ` SET last_login_at = $1 WHERE id = $2`
+		res, err := r.db.ExecContext(ctx, query, time.Now(), userID)
+		if err == nil {
+			if count, _ := res.RowsAffected(); count > 0 {
+				return nil
+			}
+		}
+	}
+	return sql.ErrNoRows
 }
 
 func (r *postgresRepo) SetPIN(ctx context.Context, userID, pinHash string) error {
@@ -201,6 +223,68 @@ func (r *postgresRepo) RevokeSession(ctx context.Context, token string) error {
 func (r *postgresRepo) RevokeUserSessions(ctx context.Context, userID string) error {
 	query := `UPDATE user_sessions SET is_revoked = true, updated_at = $1 WHERE user_id = $2 AND is_revoked = false`
 	_, err := r.db.ExecContext(ctx, query, time.Now(), userID)
+	return err
+}
+
+func (r *postgresRepo) IsTrustedDevice(ctx context.Context, userID, userRole, deviceIDHash string) (bool, error) {
+	if deviceIDHash == "" {
+		return false, nil
+	}
+
+	query := `SELECT EXISTS (
+		SELECT 1
+		FROM auth_trusted_devices
+		WHERE user_id = $1
+		  AND user_role = $2
+		  AND device_id_hash = $3
+		  AND revoked_at IS NULL
+	)`
+	var trusted bool
+	err := r.readDB.QueryRowContext(ctx, query, userID, userRole, deviceIDHash).Scan(&trusted)
+	return trusted, err
+}
+
+func (r *postgresRepo) TrustDevice(ctx context.Context, userID, userRole, deviceIDHash string, deviceInfo []byte) error {
+	if deviceIDHash == "" {
+		return nil
+	}
+	if len(deviceInfo) == 0 {
+		deviceInfo = []byte(`{}`)
+	}
+
+	query := `INSERT INTO auth_trusted_devices (
+			user_id,
+			user_role,
+			device_id_hash,
+			device_info,
+			trusted_at,
+			last_seen_at,
+			created_at,
+			updated_at
+		)
+		VALUES ($1, $2, $3, $4::jsonb, NOW(), NOW(), NOW(), NOW())
+		ON CONFLICT (user_id, user_role, device_id_hash)
+		DO UPDATE SET
+			device_info = EXCLUDED.device_info,
+			revoked_at = NULL,
+			last_seen_at = NOW(),
+			updated_at = NOW()`
+	_, err := r.db.ExecContext(ctx, query, userID, userRole, deviceIDHash, string(deviceInfo))
+	return err
+}
+
+func (r *postgresRepo) TouchTrustedDevice(ctx context.Context, userID, userRole, deviceIDHash string) error {
+	if deviceIDHash == "" {
+		return nil
+	}
+
+	query := `UPDATE auth_trusted_devices
+		SET last_seen_at = NOW(), updated_at = NOW()
+		WHERE user_id = $1
+		  AND user_role = $2
+		  AND device_id_hash = $3
+		  AND revoked_at IS NULL`
+	_, err := r.db.ExecContext(ctx, query, userID, userRole, deviceIDHash)
 	return err
 }
 

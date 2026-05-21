@@ -14,7 +14,28 @@ data class LoginRequest(
     val username: String,
 
     @SerialName("password")
-    val password: String
+    val password: String,
+
+    @SerialName("device_id")
+    val deviceId: String,
+
+    @SerialName("device_info")
+    val deviceInfo: Map<String, String> = emptyMap()
+)
+
+@Serializable
+data class CourierOtpVerifyRequest(
+    @SerialName("username")
+    val username: String,
+
+    @SerialName("code")
+    val code: String,
+
+    @SerialName("device_id")
+    val deviceId: String,
+
+    @SerialName("device_info")
+    val deviceInfo: Map<String, String> = emptyMap()
 )
 
 /**
@@ -25,13 +46,13 @@ data class LoginRequest(
 @Serializable
 data class LoginData(
     @SerialName("token")
-    val token: String,
+    val token: String? = null,
 
     @SerialName("courier_id")
-    val courierId: String,
+    val courierId: String? = null,
 
     @SerialName("name")
-    val name: String,
+    val name: String? = null,
 
     @SerialName("phone")
     val phone: String? = null,
@@ -40,7 +61,13 @@ data class LoginData(
     val vehicleType: String? = null,
 
     @SerialName("profile_photo_url")
-    val profilePhotoUrl: String? = null
+    val profilePhotoUrl: String? = null,
+
+    @SerialName("requires_otp")
+    val requiresOtp: Boolean = false,
+
+    @SerialName("otp_reason")
+    val otpReason: String? = null
 )
 
 /**

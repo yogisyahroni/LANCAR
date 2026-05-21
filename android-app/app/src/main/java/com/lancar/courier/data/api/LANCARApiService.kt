@@ -19,6 +19,7 @@ import com.lancar.courier.data.model.CourierServiceProduct
 import com.lancar.courier.data.model.CourierTrainingCompleteRequest
 import com.lancar.courier.data.model.CourierTrainingCompletion
 import com.lancar.courier.data.model.CourierDocumentUploadData
+import com.lancar.courier.data.model.CourierOtpVerifyRequest
 import com.lancar.courier.data.model.CourierRegistrationData
 import com.lancar.courier.data.model.CourierRegistrationRequest
 import com.lancar.courier.data.model.DutyStatusRequest
@@ -76,6 +77,11 @@ interface LANCARApiService {
     @POST("api/v1/auth/courier/login")
     suspend fun login(
         @Body request: LoginRequest
+    ): Response<ApiResponse<LoginData>>
+
+    @POST("api/v1/auth/courier/otp/verify")
+    suspend fun verifyCourierLoginOtp(
+        @Body request: CourierOtpVerifyRequest
     ): Response<ApiResponse<LoginData>>
 
     @POST("api/v1/auth/courier/register")

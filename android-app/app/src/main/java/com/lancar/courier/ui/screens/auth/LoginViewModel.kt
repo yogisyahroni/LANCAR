@@ -3,6 +3,9 @@ package com.lancar.courier.ui.screens.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.device.DeviceIdentityProvider
+import com.lancar.courier.data.model.CourierOtpVerifyRequest
+import com.lancar.courier.data.model.LoginData
 import com.lancar.courier.data.model.LoginRequest
 import com.lancar.courier.data.session.AuthSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,6 +19,8 @@ import javax.inject.Inject
 data class LoginUiState(
     val username: String = "",
     val password: String = "",
+    val otpCode: String = "",
+    val requiresOtp: Boolean = false,
     val isLoading: Boolean = false,
     val isLoggedIn: Boolean = false,
     val error: String? = null,
@@ -33,7 +38,8 @@ data class LoginUiState(
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val authSessionManager: AuthSessionManager,
-    private val apiService: LANCARApiService
+    private val apiService: LANCARApiService,
+    private val deviceIdentityProvider: DeviceIdentityProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -45,6 +51,16 @@ class LoginViewModel @Inject constructor(
 
     fun onPasswordChange(value: String) {
         _uiState.update { it.copy(password = value, passwordError = null, error = null) }
+    }
+
+    fun onOtpCodeChange(value: String) {
+        if (value.all { it.isDigit() } && value.length <= 6) {
+            _uiState.update { it.copy(otpCode = value, error = null) }
+        }
+    }
+
+    fun cancelOtpChallenge() {
+        _uiState.update { it.copy(requiresOtp = false, otpCode = "", error = null) }
     }
 
     fun clearError() {
@@ -85,7 +101,9 @@ class LoginViewModel @Inject constructor(
                 val response = apiService.login(
                     LoginRequest(
                         username = state.username.trim(),
-                        password = state.password
+                        password = state.password,
+                        deviceId = deviceIdentityProvider.deviceId(),
+                        deviceInfo = deviceIdentityProvider.deviceInfo()
                     )
                 )
 
@@ -99,13 +117,19 @@ class LoginViewModel @Inject constructor(
                         return@launch
                     }
 
-                    // Persist session to DataStore
-                    authSessionManager.saveSession(
-                        authToken = loginData.token,
-                        courierId = loginData.courierId,
-                        courierName = loginData.name
-                    )
-                    _uiState.update { it.copy(isLoading = false, isLoggedIn = true) }
+                    if (loginData.requiresOtp) {
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                requiresOtp = true,
+                                otpCode = "",
+                                error = null
+                            )
+                        }
+                        return@launch
+                    }
+
+                    persistLoginSession(loginData)
                 } else {
                     val message = responseBody?.message
                         ?: when (response.code()) {
@@ -130,5 +154,63 @@ class LoginViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun verifyOtp() {
+        val state = _uiState.value
+        if (state.otpCode.length != 6) {
+            _uiState.update { it.copy(error = "Masukkan 6 digit kode OTP") }
+            return
+        }
+
+        _uiState.update { it.copy(isLoading = true, error = null) }
+        viewModelScope.launch {
+            try {
+                val response = apiService.verifyCourierLoginOtp(
+                    CourierOtpVerifyRequest(
+                        username = state.username.trim(),
+                        code = state.otpCode,
+                        deviceId = deviceIdentityProvider.deviceId(),
+                        deviceInfo = deviceIdentityProvider.deviceInfo()
+                    )
+                )
+                val responseBody = response.body()
+                if (response.isSuccessful && responseBody?.success == true && responseBody.data != null) {
+                    persistLoginSession(responseBody.data)
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = responseBody?.message ?: "Kode OTP tidak valid"
+                        )
+                    }
+                }
+            } catch (e: java.net.UnknownHostException) {
+                _uiState.update { it.copy(isLoading = false, error = "Tidak ada koneksi internet") }
+            } catch (e: java.net.SocketTimeoutException) {
+                _uiState.update { it.copy(isLoading = false, error = "Server tidak merespons. Coba lagi") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, error = "Error: ${e.message}") }
+            }
+        }
+    }
+
+    private suspend fun persistLoginSession(loginData: LoginData) {
+        val token = loginData.token
+        val courierId = loginData.courierId
+        val courierName = loginData.name
+        if (token.isNullOrBlank() || courierId.isNullOrBlank() || courierName.isNullOrBlank()) {
+            _uiState.update {
+                it.copy(isLoading = false, error = "Login gagal: data sesi kosong dari server")
+            }
+            return
+        }
+
+        authSessionManager.saveSession(
+            authToken = token,
+            courierId = courierId,
+            courierName = courierName
+        )
+        _uiState.update { it.copy(isLoading = false, isLoggedIn = true, requiresOtp = false) }
     }
 }
