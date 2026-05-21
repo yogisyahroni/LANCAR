@@ -96,7 +96,6 @@ import com.lancar.customer.data.model.CustomerAddress
 import com.lancar.customer.data.model.DeliveryServiceProduct
 import com.lancar.customer.data.model.DimensionsPayload
 import com.lancar.customer.data.model.MapsGeocodeResult
-import com.lancar.customer.data.model.MapsProviderConfig
 import com.lancar.customer.data.model.PriceBreakdown
 import com.lancar.customer.ui.components.maps.RuntimeMapMarker
 import com.lancar.customer.ui.components.maps.RuntimeMapRenderer
@@ -310,7 +309,7 @@ fun BookingScreen(
         ) {
             LocationInputSheet(
                 title = "Kirim paket ke mana?",
-                subtitle = "Cari alamat tujuan lalu pilih titik di peta agar harga dan rute dihitung dari data nyata.",
+                subtitle = "Cari alamat tujuan lalu pilih hasil yang paling sesuai agar harga dan rute dihitung dari data nyata.",
                 buttonLabel = "Gunakan alamat tujuan",
                 savedAddresses = uiState.addressBook.filter { it.kind == "receiver" || it.kind == "both" },
                 addressKind = "receiver",
@@ -320,11 +319,8 @@ fun BookingScreen(
                 selectedMapLocation = uiState.mapPickerLocation,
                 selectedMapAddress = uiState.mapPickerAddress,
                 isResolvingMapPoint = uiState.isResolvingMapPoint,
-                mapsProviderConfig = uiState.mapsProviderConfig,
-                mapsProviderError = uiState.mapsProviderError,
                 onSearch = viewModel::searchAddress,
                 onGeocodeSelected = viewModel::selectGeocodeResult,
-                onMapPointSelected = viewModel::selectMapPoint,
                 onSelect = { location, address ->
                     viewModel.setDestination(location, address)
                     viewModel.clearLocationSearch()
@@ -361,7 +357,7 @@ fun BookingScreen(
         ) {
             LocationInputSheet(
                 title = "Ambil paket di mana?",
-                subtitle = "Cari alamat pickup lalu pilih titik di peta supaya kurir menerima lokasi penjemputan yang akurat.",
+                subtitle = "Cari alamat pickup lalu pilih hasil yang paling sesuai supaya kurir menerima lokasi penjemputan yang akurat.",
                 buttonLabel = "Gunakan alamat pickup",
                 savedAddresses = uiState.addressBook.filter { it.kind == "pickup" || it.kind == "both" },
                 addressKind = "pickup",
@@ -371,11 +367,8 @@ fun BookingScreen(
                 selectedMapLocation = uiState.mapPickerLocation,
                 selectedMapAddress = uiState.mapPickerAddress,
                 isResolvingMapPoint = uiState.isResolvingMapPoint,
-                mapsProviderConfig = uiState.mapsProviderConfig,
-                mapsProviderError = uiState.mapsProviderError,
                 onSearch = viewModel::searchAddress,
                 onGeocodeSelected = viewModel::selectGeocodeResult,
-                onMapPointSelected = viewModel::selectMapPoint,
                 onSelect = { location, address ->
                     viewModel.setPickup(location, address)
                     viewModel.clearLocationSearch()
@@ -1319,11 +1312,8 @@ private fun LocationInputSheet(
     selectedMapLocation: LatLng?,
     selectedMapAddress: String,
     isResolvingMapPoint: Boolean,
-    mapsProviderConfig: MapsProviderConfig,
-    mapsProviderError: String?,
     onSearch: (String) -> Unit,
     onGeocodeSelected: (MapsGeocodeResult) -> Unit,
-    onMapPointSelected: (LatLng) -> Unit,
     onSelect: (LatLng, String) -> Unit,
     onSavedAddressSelected: (CustomerAddress) -> Unit,
     onSaveAndSelect: (String, LatLng, String) -> Unit
@@ -1354,83 +1344,56 @@ private fun LocationInputSheet(
                 }
             }
         }
-        Box(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(260.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(SoftBlue)
-        ) {
-            val mapCenter = selectedMapLocation ?: LatLng(-6.2088, 106.8456)
-            RuntimeMapRenderer(
-                providerConfig = mapsProviderConfig,
-                markers = selectedMapLocation?.let {
-                    listOf(
-                        RuntimeMapMarker(
-                            id = "selected-location",
-                            position = it,
-                            title = if (addressKind == "pickup") "Titik pickup" else "Titik tujuan",
-                            snippet = selectedAddress
-                        )
-                    )
-                } ?: emptyList(),
-                routePoints = emptyList(),
-                followLocation = mapCenter,
-                googleUiSettings = MapUiSettings(
-                    zoomControlsEnabled = false,
-                    compassEnabled = false,
-                    myLocationButtonEnabled = false,
-                    mapToolbarEnabled = false
-                ),
-                fallbackTitle = "Peta runtime belum aktif",
-                fallbackMessage = "Admin dapat memilih OpenStreetMap atau Google Maps. Pencarian alamat tetap berjalan lewat backend.",
-                modifier = Modifier.fillMaxSize(),
-                onMapClick = { point ->
-                    onMapPointSelected(point)
-                    address = ""
-                }
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(12.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(Color.White.copy(alpha = 0.94f))
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    if (mapsProviderConfig.activeProvider == "google_maps") "Google Maps aktif" else "OpenStreetMap aktif",
-                    color = Ink,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
+                .clip(RoundedCornerShape(22.dp))
+                .background(if (selectedMapLocation == null) FieldBg else Color(0xFFEAF7F0))
+                .border(
+                    BorderStroke(
+                        1.dp,
+                        if (selectedMapLocation == null) Color(0xFFE1E7EF) else Color(0xFFB7E5CA)
+                    ),
+                    RoundedCornerShape(22.dp)
                 )
-            }
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(54.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.92f)),
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (selectedMapLocation == null) Color.White else Color(0xFFDDF6EA)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Place, null, tint = Secondary, modifier = Modifier.size(32.dp))
+                Icon(
+                    if (selectedMapLocation == null) Icons.Default.Search else Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = if (selectedMapLocation == null) Muted else LcGreen,
+                    modifier = Modifier.size(24.dp)
+                )
             }
-        }
-        Text(
-            if (selectedMapLocation == null) {
-                "Cari alamat lalu pilih hasilnya, atau tap langsung di peta untuk menentukan titik."
-            } else if (isResolvingMapPoint) {
-                "Membaca alamat dari titik peta..."
-            } else {
-                selectedAddress
-            },
-            color = if (selectedMapLocation == null) Muted else Ink,
-            fontWeight = if (selectedMapLocation == null) FontWeight.Normal else FontWeight.Bold,
-            fontSize = 13.sp,
-            lineHeight = 18.sp
-        )
-        mapsProviderError?.let { message ->
-            Text(message, color = Secondary, fontSize = 12.sp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    if (selectedMapLocation == null) "Cari alamat lewat nama lokasi" else "Alamat terpilih",
+                    color = Ink,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    if (selectedMapLocation == null) {
+                        "Ketik nama gedung, jalan, atau area lalu pilih dari hasil pencarian."
+                    } else if (isResolvingMapPoint) {
+                        "Menyinkronkan alamat terpilih..."
+                    } else {
+                        selectedAddress
+                    },
+                    color = Muted,
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
+                )
+            }
         }
         OutlinedTextField(
             value = address,
