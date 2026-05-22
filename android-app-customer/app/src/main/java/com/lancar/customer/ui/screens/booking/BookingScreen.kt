@@ -58,7 +58,6 @@ import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -117,6 +116,15 @@ private val SoftOrange = Color(0xFFFFF3E8)
 
 private fun BookingState.isRouteComplete(): Boolean {
     return pickupLocation != null && pickupAddress.isNotBlank() && destinationLocation != null && destinationAddress.isNotBlank()
+}
+
+private fun BookingState.isPackageReady(): Boolean {
+    return isPackageSizeSelected &&
+        sizeTier.isNotBlank() &&
+        packageWeight > 0.0 &&
+        packageLength > 0 &&
+        packageWidth > 0 &&
+        packageHeight > 0
 }
 
 private fun BookingState.selectedService(): DeliveryServiceProduct? {
@@ -221,12 +229,14 @@ fun BookingScreen(
         uiState.destinationAddress,
         uiState.sizeTier,
         uiState.packageWeight.toString(),
+        "${uiState.packageLength}x${uiState.packageWidth}x${uiState.packageHeight}",
         uiState.priceBreakdowns.keys.sorted().joinToString(",")
     ).joinToString("|")
 
     LaunchedEffect(serviceAutoKey, uiState.selectedServiceCode) {
         if (
             uiState.isRouteComplete() &&
+            uiState.isPackageReady() &&
             !uiState.isCalculatingRoute &&
             uiState.priceBreakdowns.isNotEmpty() &&
             uiState.selectedServiceCode.isBlank() &&
@@ -247,6 +257,7 @@ fun BookingScreen(
     fun openServicePicker() {
         when {
             !uiState.isRouteComplete() -> Toast.makeText(context, "Pilih lokasi pickup dan tujuan dulu.", Toast.LENGTH_SHORT).show()
+            !uiState.isPackageReady() -> Toast.makeText(context, "Pilih ukuran dan berat paket dulu.", Toast.LENGTH_SHORT).show()
             uiState.isCalculatingRoute -> Toast.makeText(context, "Sistem sedang menghitung rute jalan dan harga.", Toast.LENGTH_SHORT).show()
             uiState.priceBreakdowns.isEmpty() -> Toast.makeText(context, "Rute jalan belum tersedia untuk alamat ini.", Toast.LENGTH_SHORT).show()
             else -> showServiceSheet = true
@@ -262,6 +273,7 @@ fun BookingScreen(
                 onContinue = {
                     when {
                         !uiState.isRouteComplete() -> Toast.makeText(context, "Pilih lokasi pickup dan tujuan dulu.", Toast.LENGTH_SHORT).show()
+                        !uiState.isPackageReady() -> Toast.makeText(context, "Pilih ukuran dan berat paket dulu.", Toast.LENGTH_SHORT).show()
                         uiState.isCalculatingRoute -> Toast.makeText(context, "Sistem sedang menghitung rute jalan dan harga.", Toast.LENGTH_SHORT).show()
                         uiState.selectedPrice() == null -> openServicePicker()
                         !uiState.isRecipientReady() -> Toast.makeText(context, "Lengkapi detail penerima dan isi paket.", Toast.LENGTH_SHORT).show()
@@ -336,7 +348,7 @@ fun BookingScreen(
                             locationEnabled = locationPermissionState.status.isGranted
                         )
                     }
-                } else if (uiState.priceBreakdowns.isEmpty()) {
+                } else if (uiState.isPackageReady() && uiState.priceBreakdowns.isEmpty()) {
                     item {
                         RouteUnavailableCard()
                     }
@@ -713,7 +725,7 @@ private fun BookingStepHintCard() {
 private fun BookingProgressPills(state: BookingState) {
     val steps = listOf(
         Triple("Alamat", state.isRouteComplete(), Icons.Default.Place),
-        Triple("Berat", state.isRouteComplete(), Icons.Default.Scale),
+        Triple("Berat", state.isPackageReady(), Icons.Default.Scale),
         Triple("Layanan", state.selectedPrice() != null, Icons.Default.LocalShipping),
         Triple("Detail", state.isRecipientReady(), Icons.Default.CheckCircle)
     )
@@ -831,7 +843,7 @@ private fun PackageCard(
         Spacer(Modifier.height(16.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(items = tiers, key = { it.code }) { tier: PackageTier ->
-                val selected = state.sizeTier == tier.code
+                val selected = state.isPackageReady() && state.sizeTier == tier.code
                 val availableForService = serviceMaxWeight == null || tier.maxWeightKg <= serviceMaxWeight
                 Column(
                     modifier = Modifier
@@ -853,23 +865,41 @@ private fun PackageCard(
             }
         }
         Spacer(Modifier.height(14.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(FieldBg)
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.Scale, null, tint = Primary)
-            Spacer(Modifier.width(10.dp))
-            Text(
-                "${state.packageWeight.toInt()} kg • ${state.packageLength}x${state.packageWidth}x${state.packageHeight} cm",
-                fontWeight = FontWeight.Bold,
-                color = Ink
-            )
-            Spacer(Modifier.weight(1f))
-            Text(if (state.dimensionsScanned) "Scan valid" else "Dipilih manual", color = LcGreen, fontWeight = FontWeight.Bold)
+        if (state.isPackageReady()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(FieldBg)
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Scale, null, tint = Primary)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "${state.packageWeight.toInt()} kg • ${state.packageLength}x${state.packageWidth}x${state.packageHeight} cm",
+                    fontWeight = FontWeight.Bold,
+                    color = Ink
+                )
+                Spacer(Modifier.weight(1f))
+                Text(if (state.dimensionsScanned) "Scan valid" else "Dipilih manual", color = LcGreen, fontWeight = FontWeight.Bold)
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(FieldBg)
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Scale, null, tint = Muted)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Belum memilih ukuran paket", fontWeight = FontWeight.Bold, color = Ink)
+                    Text("Pilih kecil, sedang, atau besar untuk menghitung harga.", color = Muted, fontSize = 12.sp)
+                }
+            }
         }
         selectedService?.let { service ->
             if (service.maxWeightKg != null) {
@@ -1021,6 +1051,28 @@ private fun RoutePreviewCard(
 }
 
 @Composable
+private fun RoadPricingProgressBar(
+    trackColor: Color,
+    indicatorColor: Color
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(6.dp)
+            .clip(CircleShape)
+            .background(trackColor)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.42f)
+                .height(6.dp)
+                .clip(CircleShape)
+                .background(indicatorColor)
+        )
+    }
+}
+
+@Composable
 private fun RoutePricingProgressCard() {
     LcCard {
         Text("Menghitung rute & harga", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
@@ -1031,13 +1083,9 @@ private fun RoutePricingProgressCard() {
             lineHeight = 20.sp
         )
         Spacer(Modifier.height(16.dp))
-        LinearProgressIndicator(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(6.dp)
-                .clip(CircleShape),
-            color = LcGreen,
-            trackColor = SoftGreen
+        RoadPricingProgressBar(
+            trackColor = SoftGreen,
+            indicatorColor = LcGreen
         )
     }
 }
@@ -1062,7 +1110,8 @@ private fun ServiceInlinePreview(
 ) {
     val selected = state.selectedService()
     val price = state.selectedPrice()
-    val isPricingReady = state.priceBreakdowns.isNotEmpty() && !state.isCalculatingRoute
+    val packageReady = state.isPackageReady()
+    val isPricingReady = packageReady && state.priceBreakdowns.isNotEmpty() && !state.isCalculatingRoute
     LcCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -1078,6 +1127,7 @@ private fun ServiceInlinePreview(
             Column(Modifier.weight(1f)) {
                 Text(
                     when {
+                        !packageReady -> "Pilih ukuran paket"
                         state.isCalculatingRoute -> "Menghitung layanan"
                         selected != null -> selected.name
                         else -> "Pilih layanan"
@@ -1088,6 +1138,7 @@ private fun ServiceInlinePreview(
                 )
                 Text(
                     when {
+                        !packageReady -> "Berat paket diperlukan sebelum harga final dihitung."
                         state.isCalculatingRoute -> "Rute jalan dan harga sedang diproses."
                         price != null -> "Estimasi ${etaLabel(price.etaMinutes)}"
                         isPricingReady -> "Harga sudah dihitung. Pilih layanan yang cocok."
@@ -1124,10 +1175,12 @@ private fun SelectedServiceBar(
     val selected = state.selectedService()
     val price = state.selectedPrice()
     val routeReady = state.isRouteComplete()
+    val packageReady = state.isPackageReady()
     val recipientReady = state.isRecipientReady()
-    val isPricingReady = state.priceBreakdowns.isNotEmpty() && !state.isCalculatingRoute
+    val isPricingReady = packageReady && state.priceBreakdowns.isNotEmpty() && !state.isCalculatingRoute
     val buttonLabel = when {
         !routeReady -> "Lengkapi alamat"
+        !packageReady -> "Pilih ukuran paket"
         state.isCalculatingRoute -> "Menghitung harga..."
         price == null -> "Pilih layanan"
         !recipientReady -> "Tambah detail pengiriman"
@@ -1165,6 +1218,7 @@ private fun SelectedServiceBar(
                 Text(
                     when {
                         !routeReady -> "Alamat pickup dan tujuan wajib diisi"
+                        !packageReady -> "Pilih berat agar harga layanan tampil"
                         state.isCalculatingRoute -> "Rute jalan sedang dihitung"
                         price == null -> "Pilih service setelah harga tampil"
                         !recipientReady -> "Lengkapi penerima dan isi paket"
@@ -1230,15 +1284,24 @@ private fun ServicePickerSheet(
             ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Menghitung harga dari rute jalan", color = Ink, fontWeight = FontWeight.ExtraBold)
-                    LinearProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(CircleShape),
-                        color = LcGreen,
-                        trackColor = Color.White
+                    RoadPricingProgressBar(
+                        trackColor = Color.White,
+                        indicatorColor = LcGreen
                     )
                 }
+            }
+        } else if (!state.isPackageReady()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = SoftBlue),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Text(
+                    "Pilih ukuran dan berat paket terlebih dahulu. Setelah itu sistem akan menghitung harga dan menampilkan layanan yang tersedia.",
+                    modifier = Modifier.padding(14.dp),
+                    color = Ink,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         } else if (state.priceBreakdowns.isEmpty()) {
             Card(

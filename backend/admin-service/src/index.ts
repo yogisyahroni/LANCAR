@@ -12,7 +12,9 @@ import { routes } from './routes';
 import { initWebSocket } from './websocket';
 import { startWeatherWorker } from './workers/weather-worker';
 import { startPayoutDispatcherWorker } from './workers/payout-dispatcher-worker';
+import { startEventOutboxWorker } from './workers/event-outbox-worker';
 import { initFirebase } from './notifications';
+import { requestContext } from './middleware/requestContext';
 
 const app = express();
 
@@ -35,6 +37,7 @@ app.use(helmet({
 // CORS is now handled by the API Gateway to prevent double headers.
 // app.use(cors({...}));
 
+app.use(requestContext);
 
 app.use(express.json({
   verify: (req: any, _res, buf) => {
@@ -83,4 +86,5 @@ server.listen(port, async () => {
   await initFirebase();
   startWeatherWorker();
   startPayoutDispatcherWorker();
+  startEventOutboxWorker();
 });

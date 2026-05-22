@@ -39,11 +39,12 @@ data class BookingState(
     val services: List<DeliveryServiceProduct> = emptyList(),
     val selectedServiceCode: String = "",
     val priceBreakdowns: Map<String, PriceBreakdown> = emptyMap(),
-    val packageLength: Int = 40,
-    val packageWidth: Int = 40,
-    val packageHeight: Int = 17,
-    val packageWeight: Double = 1.0,
-    val sizeTier: String = "small",
+    val packageLength: Int = 0,
+    val packageWidth: Int = 0,
+    val packageHeight: Int = 0,
+    val packageWeight: Double = 0.0,
+    val sizeTier: String = "",
+    val isPackageSizeSelected: Boolean = false,
     val itemDescription: String = "",
     val recipientName: String = "",
     val recipientPhone: String = "",
@@ -307,6 +308,9 @@ class BookingViewModel @Inject constructor(
             packageLength = l,
             packageWidth = w,
             packageHeight = h,
+            packageWeight = _bookingState.value.packageWeight.takeIf { it > 0.0 } ?: 1.0,
+            sizeTier = _bookingState.value.sizeTier.ifBlank { "custom" },
+            isPackageSizeSelected = true,
             dimensionsScanned = true,
             selectedServiceCode = "",
             estimatedPrice = 0,
@@ -330,6 +334,7 @@ class BookingViewModel @Inject constructor(
             packageLength = dimensions.length,
             packageWidth = dimensions.width,
             packageHeight = dimensions.height,
+            isPackageSizeSelected = true,
             dimensionsScanned = false,
             selectedServiceCode = "",
             estimatedPrice = 0,
@@ -366,11 +371,20 @@ class BookingViewModel @Inject constructor(
 
     private fun calculateRoute() {
         val state = _bookingState.value
-        if (state.pickupLocation != null && state.destinationLocation != null && state.services.isNotEmpty()) {
+        if (
+            state.pickupLocation != null &&
+            state.destinationLocation != null &&
+            state.services.isNotEmpty() &&
+            state.isPackageSizeSelected &&
+            state.sizeTier.isNotBlank() &&
+            state.packageWeight > 0.0 &&
+            state.packageLength > 0 &&
+            state.packageWidth > 0 &&
+            state.packageHeight > 0
+        ) {
             val calculationVersion = ++routeCalculationVersion
             _bookingState.value = state.copy(
                 isCalculatingRoute = true,
-                selectedServiceCode = "",
                 estimatedPrice = 0,
                 priceBreakdowns = emptyMap(),
                 error = null
@@ -403,8 +417,6 @@ class BookingViewModel @Inject constructor(
 
                 val preferredCode = when {
                     state.selectedServiceCode.isNotBlank() && estimates.containsKey(state.selectedServiceCode) -> state.selectedServiceCode
-                    estimates.containsKey("LANCAR_INSTANT") -> "LANCAR_INSTANT"
-                    estimates.isNotEmpty() -> estimates.keys.first()
                     else -> ""
                 }
                 _bookingState.value = _bookingState.value.copy(
@@ -433,6 +445,17 @@ class BookingViewModel @Inject constructor(
         val state = _bookingState.value
         if (state.pickupLocation == null || state.destinationLocation == null) {
             _bookingState.value = state.copy(error = "Lengkapi rute penjemputan dan tujuan.")
+            return
+        }
+        if (
+            !state.isPackageSizeSelected ||
+            state.sizeTier.isBlank() ||
+            state.packageWeight <= 0.0 ||
+            state.packageLength <= 0 ||
+            state.packageWidth <= 0 ||
+            state.packageHeight <= 0
+        ) {
+            _bookingState.value = state.copy(error = "Pilih ukuran dan berat paket terlebih dahulu.")
             return
         }
         val priceBreakdown = state.priceBreakdowns[state.selectedServiceCode]

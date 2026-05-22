@@ -51,6 +51,35 @@ services:
       - lancar-net
 
   # ─────────────────────────────────────────────
+  # PGBOUNCER — Production-like connection pooler
+  # Enable with: docker compose --profile scale up -d pgbouncer
+  # ─────────────────────────────────────────────
+  pgbouncer:
+    image: bitnami/pgbouncer:1.24.0
+    container_name: lancar-pgbouncer
+    restart: unless-stopped
+    profiles:
+      - scale
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRESQL_HOST: db
+      POSTGRESQL_PORT: 5432
+      POSTGRESQL_USERNAME: ${POSTGRES_USER:-postgres}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+      POSTGRESQL_DATABASE: ${POSTGRES_DB:-lancar}
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_MAX_CLIENT_CONN: ${PGBOUNCER_MAX_CLIENT_CONN:-2000}
+      PGBOUNCER_DEFAULT_POOL_SIZE: ${PGBOUNCER_DEFAULT_POOL_SIZE:-80}
+      PGBOUNCER_RESERVE_POOL_SIZE: ${PGBOUNCER_RESERVE_POOL_SIZE:-20}
+      PGBOUNCER_QUERY_TIMEOUT: ${PGBOUNCER_QUERY_TIMEOUT:-15000}
+    ports:
+      - "${PGBOUNCER_PORT:-6432}:6432"
+    networks:
+      - lancar-net
+
+  # ─────────────────────────────────────────────
   # CACHE — Redis 7
   # ─────────────────────────────────────────────
   redis:
@@ -107,6 +136,8 @@ services:
         condition: service_started
       redis:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
       READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
@@ -144,9 +175,28 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      DATABASE_URL: "${ADMIN_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public}"
+      READ_DATABASE_URL: "${ADMIN_READ_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public}"
       REDIS_URL: "redis://redis:6379"
+      SOCKET_REDIS_ADAPTER_ENABLED: ${SOCKET_REDIS_ADAPTER_ENABLED:-true}
+      PG_POOL_MAX: ${ADMIN_PG_POOL_MAX:-20}
+      PG_READ_POOL_MAX: ${ADMIN_PG_READ_POOL_MAX:-30}
+      PG_POOL_IDLE_TIMEOUT_MS: ${PG_POOL_IDLE_TIMEOUT_MS:-30000}
+      PG_POOL_CONNECTION_TIMEOUT_MS: ${PG_POOL_CONNECTION_TIMEOUT_MS:-5000}
+      PG_STATEMENT_TIMEOUT_MS: ${PG_STATEMENT_TIMEOUT_MS:-15000}
+      PG_QUERY_TIMEOUT_MS: ${PG_QUERY_TIMEOUT_MS:-15000}
+      PG_APPLICATION_NAME: ${PG_APPLICATION_NAME:-lancar-admin}
+      EVENT_OUTBOX_WORKER_ENABLED: ${EVENT_OUTBOX_WORKER_ENABLED:-true}
+      EVENT_OUTBOX_INTERVAL_MS: ${EVENT_OUTBOX_INTERVAL_MS:-1000}
+      EVENT_OUTBOX_BATCH_SIZE: ${EVENT_OUTBOX_BATCH_SIZE:-100}
+      OUTBOX_RABBITMQ_ENABLED: ${OUTBOX_RABBITMQ_ENABLED:-false}
+      OUTBOX_RABBITMQ_EXCHANGE: ${OUTBOX_RABBITMQ_EXCHANGE:-lancar.events}
+      OUTBOX_MAX_ATTEMPTS: ${OUTBOX_MAX_ATTEMPTS:-8}
+      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      ROUTE_PRICING_CACHE_TTL_SECONDS: ${ROUTE_PRICING_CACHE_TTL_SECONDS:-300}
+      ROUTE_PRICING_STALE_CACHE_TTL_SECONDS: ${ROUTE_PRICING_STALE_CACHE_TTL_SECONDS:-86400}
+      MAPS_PROVIDER_CIRCUIT_FAILURE_THRESHOLD: ${MAPS_PROVIDER_CIRCUIT_FAILURE_THRESHOLD:-5}
+      MAPS_PROVIDER_CIRCUIT_OPEN_SECONDS: ${MAPS_PROVIDER_CIRCUIT_OPEN_SECONDS:-30}
       PORT: 3000
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SEED_DB: "true"

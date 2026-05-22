@@ -10,6 +10,7 @@ import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../services/onD
 import { buildOnDemandTrackingSnapshot, evaluateLocationQuality, writeLocationSafetyEvent } from '../services/onDemandTracking';
 import { evaluateOnDemandRealtimeAlerts } from '../services/realtimeObservability';
 import { buildMapsRouteEtaSnapshot, RouteEtaSnapshot } from '../services/mapsProviderConfig';
+import { enqueueOutboxEvent } from '../services/eventOutbox';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -822,6 +823,31 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       VALUES ($1, $2, 'created', 'Customer created order via Web Portal')
     `, [newOrder.id, customer_id]);
 
+    await enqueueOutboxEvent(client, {
+      aggregateType: 'order',
+      aggregateId: newOrder.id,
+      eventType: 'order.created',
+      eventVersion: 1,
+      headers: {
+        request_id: res.locals.requestId || null,
+        correlation_id: res.locals.correlationId || null,
+        idempotency_key: res.locals.idempotencyKey || null,
+      },
+      payload: {
+        order_id: newOrder.id,
+        order_number,
+        customer_id,
+        model: service.route_model,
+        service_code: service.code,
+        status: 'pending_payment',
+        total_price_idr: totalPrice,
+        distance_km: trustedPriceBreakdown.distance_km || 0,
+        route_snapshot_hash: trustedRouteSnapshot.snapshot_hash || null,
+        route_provider: trustedRouteSnapshot.provider || null,
+        created_at: new Date().toISOString(),
+      },
+    });
+
     await client.query('COMMIT');
     client.release();
 
@@ -1064,6 +1090,21 @@ const completeCustomerLapayPayment = async (customerId: string, orderId: string)
       [orderId, customerId]
     );
 
+    await enqueueOutboxEvent(client, {
+      aggregateType: 'payment',
+      aggregateId: paymentResult.rows[0].payment_id,
+      eventType: 'payment.paid',
+      eventVersion: 1,
+      payload: {
+        order_id: orderId,
+        order_number: order.order_number,
+        customer_id: customerId,
+        provider: 'lapay',
+        method: 'lapay',
+        amount_idr: amountIdr,
+      },
+    });
+
     createdOffers = await advanceOnDemandDispatchQueue(client, 1);
 
     await client.query('COMMIT');
@@ -1292,6 +1333,21 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
             : 'Customer payment status reconciled as paid'
         ]
       );
+      await enqueueOutboxEvent(client, {
+        aggregateType: 'payment',
+        aggregateId: order.payment_id,
+        eventType: 'payment.paid',
+        eventVersion: 1,
+        payload: {
+          order_id: id,
+          order_number: order.order_number,
+          customer_id,
+          provider: order.provider || 'midtrans',
+          method: order.method || 'qris',
+          amount_idr: Number(order.amount_idr || order.total_price_idr || 0),
+          manual_confirmed: manualConfirmEnabled && !paymentAlreadyPaid,
+        },
+      });
       createdOffers = await advanceOnDemandDispatchQueue(client, 1);
     }
 

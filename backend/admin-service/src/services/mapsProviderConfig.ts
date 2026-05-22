@@ -398,6 +398,118 @@ const routeCacheKey = (provider: string, from: MapPoint, to: MapPoint, context =
   return `route:on-demand:${crypto.createHash('sha1').update(raw).digest('hex')}`;
 };
 
+const routeCacheTtlSeconds = () => {
+  const parsed = Number(process.env.ROUTE_PRICING_CACHE_TTL_SECONDS || process.env.MAPS_ROUTE_CACHE_TTL_SECONDS || 300);
+  return Number.isFinite(parsed) && parsed >= 30 && parsed <= 3600 ? parsed : 300;
+};
+
+const routeStaleCacheTtlSeconds = () => {
+  const parsed = Number(process.env.ROUTE_PRICING_STALE_CACHE_TTL_SECONDS || 86400);
+  return Number.isFinite(parsed) && parsed >= 300 && parsed <= 604800 ? parsed : 86400;
+};
+
+const parseCachedRoute = (value: string | null): RouteEtaSnapshot | null => {
+  if (!value) return null;
+  try {
+    return JSON.parse(value) as RouteEtaSnapshot;
+  } catch {
+    return null;
+  }
+};
+
+const redisClient = redis as any;
+
+const safeRedisGet = async (key: string): Promise<string | null> => {
+  if (typeof redisClient.get !== 'function') return null;
+  return redisClient.get(key);
+};
+
+const safeRedisSet = async (key: string, value: string, ttlSeconds: number): Promise<void> => {
+  if (typeof redisClient.set !== 'function') return;
+  await redisClient.set(key, value, 'EX', ttlSeconds);
+};
+
+const safeRedisDelete = async (...keys: string[]): Promise<void> => {
+  if (typeof redisClient.del !== 'function' || keys.length === 0) return;
+  await redisClient.del(...keys);
+};
+
+const safeRedisIncrement = async (key: string): Promise<number> => {
+  if (typeof redisClient.incr !== 'function') return 1;
+  const count = await redisClient.incr(key);
+  const parsed = Number(count);
+  return Number.isFinite(parsed) ? parsed : 1;
+};
+
+const safeRedisExpire = async (key: string, ttlSeconds: number): Promise<void> => {
+  if (typeof redisClient.expire !== 'function') return;
+  await redisClient.expire(key, ttlSeconds);
+};
+
+const getCachedRoute = async (cacheKey: string) => parseCachedRoute(await safeRedisGet(cacheKey));
+
+const getStaleCachedRoute = async (cacheKey: string, provider: string, reason: string) => {
+  const stale = parseCachedRoute(await safeRedisGet(`${cacheKey}:stale`));
+  if (!stale) return null;
+  return {
+    ...stale,
+    provider: `${provider}_stale_cache`,
+    fallback_reason: reason,
+    confidence: stale.confidence === 'high' ? 'medium' : stale.confidence,
+  } as RouteEtaSnapshot;
+};
+
+const setCachedRoute = async (cacheKey: string, payload: RouteEtaSnapshot) => {
+  const serialized = JSON.stringify(payload);
+  if (typeof redisClient.multi === 'function') {
+    await redisClient
+      .multi()
+      .set(cacheKey, serialized, 'EX', routeCacheTtlSeconds())
+      .set(`${cacheKey}:stale`, serialized, 'EX', routeStaleCacheTtlSeconds())
+      .exec();
+    return;
+  }
+  await safeRedisSet(cacheKey, serialized, routeCacheTtlSeconds());
+  await safeRedisSet(`${cacheKey}:stale`, serialized, routeStaleCacheTtlSeconds());
+};
+
+const circuitOpenKey = (provider: string) => `maps:circuit:${provider}:open`;
+const circuitFailuresKey = (provider: string) => `maps:circuit:${provider}:failures`;
+
+const assertProviderCircuitClosed = async (provider: string) => {
+  const open = await safeRedisGet(circuitOpenKey(provider));
+  if (open) {
+    throw new Error(`MAPS_PROVIDER_CIRCUIT_OPEN:${provider}`);
+  }
+};
+
+const recordProviderSuccess = async (provider: string) => {
+  await safeRedisDelete(circuitFailuresKey(provider), circuitOpenKey(provider));
+};
+
+const recordProviderFailure = async (provider: string) => {
+  const threshold = Number(process.env.MAPS_PROVIDER_CIRCUIT_FAILURE_THRESHOLD || 5);
+  const openSeconds = Number(process.env.MAPS_PROVIDER_CIRCUIT_OPEN_SECONDS || 30);
+  const failureCount = await safeRedisIncrement(circuitFailuresKey(provider));
+  await safeRedisExpire(circuitFailuresKey(provider), 60);
+  if (failureCount >= (Number.isFinite(threshold) && threshold > 0 ? threshold : 5)) {
+    await safeRedisSet(
+      circuitOpenKey(provider),
+      String(failureCount),
+      Number.isFinite(openSeconds) && openSeconds > 0 ? openSeconds : 30,
+    );
+  }
+};
+
+const assertGoogleQuotaHealthy = () => {
+  const remainingValue = process.env.GOOGLE_MAPS_QUOTA_REMAINING_PERCENT || process.env.MAPS_PROVIDER_QUOTA_REMAINING_PERCENT;
+  if (remainingValue === undefined) return;
+  const remaining = Number(remainingValue);
+  if (Number.isFinite(remaining) && remaining <= 1) {
+    throw new Error('GOOGLE_MAPS_QUOTA_GUARD_OPEN');
+  }
+};
+
 type OpenStreetMapRouteEngine = {
   baseUrl: string;
   profile: string;
@@ -1244,22 +1356,27 @@ const buildGoogleRoute = async (
 
   const initialPolicy = resolveGoogleRoutePolicy(context);
   const cacheKey = routeCacheKey(initialPolicy.provider, from, to, context);
-  const cached = await redis.get(cacheKey);
+  const cached = await getCachedRoute(cacheKey);
   if (cached) {
-    const parsed = JSON.parse(cached);
-    return { ...parsed, provider: `${parsed.provider || initialPolicy.provider}_cache` };
+    return { ...cached, provider: `${cached.provider || initialPolicy.provider}_cache` };
   }
 
   let payload: RouteEtaSnapshot;
   try {
+    assertGoogleQuotaHealthy();
+    await assertProviderCircuitClosed(initialPolicy.provider);
     payload = await routeFromGoogleRoutesApi(from, to, fallback, providerConfig, context, apiKey, initialPolicy);
   } catch (routesError: any) {
     if (shouldRetryGoogleTwoWheelerAsDrive(initialPolicy, routesError)) {
       const drivePolicy = resolveGoogleRoutePolicy(context, 'DRIVE');
       try {
+        await assertProviderCircuitClosed(drivePolicy.provider);
         payload = await routeFromGoogleRoutesApi(from, to, fallback, providerConfig, context, apiKey, drivePolicy);
       } catch (driveRoutesError: any) {
         if (String(process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED || '').toLowerCase() === 'true') {
+          await recordProviderFailure(drivePolicy.provider);
+          const stale = await getStaleCachedRoute(cacheKey, drivePolicy.provider, googleRoutesErrorCode(driveRoutesError));
+          if (stale) return stale;
           throw driveRoutesError;
         }
         const fallbackReason = `google_two_wheeler_unavailable_drive_legacy_used:${googleRoutesErrorCode(driveRoutesError)}`;
@@ -1275,6 +1392,9 @@ const buildGoogleRoute = async (
         );
       }
     } else if (String(process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED || '').toLowerCase() === 'true') {
+      await recordProviderFailure(initialPolicy.provider);
+      const stale = await getStaleCachedRoute(cacheKey, initialPolicy.provider, googleRoutesErrorCode(routesError));
+      if (stale) return stale;
       throw routesError;
     } else {
       const fallbackReason = `google_routes_api_unavailable_legacy_directions_used:${googleRoutesErrorCode(routesError)}`;
@@ -1290,7 +1410,8 @@ const buildGoogleRoute = async (
       );
     }
   }
-  await redis.set(cacheKey, JSON.stringify(payload), 'EX', 60);
+  await recordProviderSuccess(initialPolicy.provider);
+  await setCachedRoute(cacheKey, payload);
   return payload;
 };
 
@@ -1303,46 +1424,56 @@ const buildOpenStreetMapRoute = async (
 ): Promise<RouteEtaSnapshot> => {
   const engine = resolveOpenStreetMapRouteEngine(context);
   const cacheKey = routeCacheKey(engine.provider, from, to, context);
-  const cached = await redis.get(cacheKey);
-  if (cached) return { ...JSON.parse(cached), provider: `${engine.provider}_cache` };
+  const cached = await getCachedRoute(cacheKey);
+  if (cached) return { ...cached, provider: `${engine.provider}_cache` };
+
+  await assertProviderCircuitClosed(engine.provider);
 
   const coordinates = `${from.longitude},${from.latitude};${to.longitude},${to.latitude}`;
-  const response = await axios.get(`${engine.baseUrl}/route/v1/${engine.profile}/${coordinates}`, {
-    params: {
-      overview: 'full',
-      geometries: 'polyline',
-      steps: false,
-    },
-    headers: {
-      'User-Agent': process.env.OSM_USER_AGENT || 'LANCAR-Logistics/1.0 maps-runtime',
-    },
-    timeout: osmRoutingTimeoutMs(),
-  });
+  try {
+    const response = await axios.get(`${engine.baseUrl}/route/v1/${engine.profile}/${coordinates}`, {
+      params: {
+        overview: 'full',
+        geometries: 'polyline',
+        steps: false,
+      },
+      headers: {
+        'User-Agent': process.env.OSM_USER_AGENT || 'LANCAR-Logistics/1.0 maps-runtime',
+      },
+      timeout: osmRoutingTimeoutMs(),
+    });
 
-  const route = response.data?.routes?.[0];
-  if (!route) throw new Error(response.data?.code || 'OSM_NO_ROUTE');
+    const route = response.data?.routes?.[0];
+    if (!route) throw new Error(response.data?.code || 'OSM_NO_ROUTE');
 
-  const geometry = typeof route.geometry === 'string' ? route.geometry.trim() : '';
-  if (!geometry) throw new Error('OSM_ROUTE_GEOMETRY_MISSING');
+    const geometry = typeof route.geometry === 'string' ? route.geometry.trim() : '';
+    if (!geometry) throw new Error('OSM_ROUTE_GEOMETRY_MISSING');
 
-  const durationSeconds = Number(route.duration);
-  const distanceMeters = Number(route.distance);
-  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) throw new Error('OSM_ROUTE_DURATION_INVALID');
-  if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) throw new Error('OSM_ROUTE_DISTANCE_INVALID');
+    const durationSeconds = Number(route.duration);
+    const distanceMeters = Number(route.distance);
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) throw new Error('OSM_ROUTE_DURATION_INVALID');
+    if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) throw new Error('OSM_ROUTE_DISTANCE_INVALID');
 
-  const payload: RouteEtaSnapshot = enrichRouteSnapshot({
-    eta: `${Math.max(1, Math.ceil(durationSeconds / 60))} menit`,
-    eta_minutes: Math.max(1, Math.ceil(durationSeconds / 60)),
-    distance_km: Number((distanceMeters / 1000).toFixed(2)),
-    distance_meters: distanceMeters,
-    duration_seconds: durationSeconds,
-    route_polyline: geometry,
-    route_geometry: geometry,
-    provider: engine.provider,
-    fallback_reason: engine.fallbackReason,
-  }, fallback, providerConfig, context, engine.confidence);
-  await redis.set(cacheKey, JSON.stringify(payload), 'EX', 60);
-  return payload;
+    const payload: RouteEtaSnapshot = enrichRouteSnapshot({
+      eta: `${Math.max(1, Math.ceil(durationSeconds / 60))} menit`,
+      eta_minutes: Math.max(1, Math.ceil(durationSeconds / 60)),
+      distance_km: Number((distanceMeters / 1000).toFixed(2)),
+      distance_meters: distanceMeters,
+      duration_seconds: durationSeconds,
+      route_polyline: geometry,
+      route_geometry: geometry,
+      provider: engine.provider,
+      fallback_reason: engine.fallbackReason,
+    }, fallback, providerConfig, context, engine.confidence);
+    await recordProviderSuccess(engine.provider);
+    await setCachedRoute(cacheKey, payload);
+    return payload;
+  } catch (error: any) {
+    await recordProviderFailure(engine.provider);
+    const stale = await getStaleCachedRoute(cacheKey, engine.provider, error?.message || 'osm_route_provider_failed');
+    if (stale) return stale;
+    throw error;
+  }
 };
 
 export const buildMapsRouteEtaSnapshot = async (

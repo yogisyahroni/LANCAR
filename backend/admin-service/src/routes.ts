@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as controllers from './controllers/index';
 import { requireAuth, requireRole, requireTotp, verifyWebSession, verifySession, requireMobileOrWebAuth } from './middlewares';
 import { toggleRateLimiter } from './rateLimit';
+import { requireIdempotencyKey } from './middleware/idempotencyRequirement';
 import multer from 'multer';
 
 // Multer setup for memory storage (max 10MB)
@@ -38,8 +39,8 @@ routes.get('/api/v1/courier/capabilities', requireMobileOrWebAuth, (req, res) =>
 routes.post('/api/v1/courier/training/complete', requireMobileOrWebAuth, (req, res) => controllers.completeMobileCourierTraining(req, res));
 routes.get('/api/v1/courier/orders', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOrders(req, res));
 routes.get('/api/v1/courier/offers', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOffers(req, res));
-routes.post('/api/v1/courier/offers/:id/accept', requireMobileOrWebAuth, (req, res) => controllers.acceptMobileCourierOffer(req, res));
-routes.post('/api/v1/courier/offers/:id/reject', requireMobileOrWebAuth, (req, res) => controllers.rejectMobileCourierOffer(req, res));
+routes.post('/api/v1/courier/offers/:id/accept', requireMobileOrWebAuth, requireIdempotencyKey('courier.offer.accept'), (req, res) => controllers.acceptMobileCourierOffer(req, res));
+routes.post('/api/v1/courier/offers/:id/reject', requireMobileOrWebAuth, requireIdempotencyKey('courier.offer.reject'), (req, res) => controllers.rejectMobileCourierOffer(req, res));
 routes.patch('/api/v1/courier/duty', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierDuty(req, res));
 routes.post('/api/v1/courier/safety-events', requireMobileOrWebAuth, (req, res) => controllers.createMobileCourierSafetyEvent(req, res));
 routes.post('/api/v1/courier/trip-share', requireMobileOrWebAuth, (req, res) => controllers.createMobileCourierTripShare(req, res));
@@ -47,8 +48,8 @@ routes.get('/api/v1/courier/orders/:orderId/route', requireMobileOrWebAuth, (req
 routes.post('/api/v1/courier/orders/:orderId/cancel-pickup', requireMobileOrWebAuth, upload.single('photo'), (req, res) => controllers.cancelMobileCourierOnDemandPickup(req, res));
 routes.post('/api/v1/tracking/sync', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.syncCourierTracking(req, res));
 routes.get('/api/v1/tracking', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderTracking(req, res));
-routes.post('/api/v1/orders/scan', requireMobileOrWebAuth, (req, res) => controllers.scanMobileCourierOrder(req, res));
-routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, upload.single('photo'), (req, res) => controllers.uploadMobileCourierPod(req, res));
+routes.post('/api/v1/orders/scan', requireMobileOrWebAuth, requireIdempotencyKey('courier.proof.scan'), (req, res) => controllers.scanMobileCourierOrder(req, res));
+routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, requireIdempotencyKey('courier.pod.upload'), upload.single('photo'), (req, res) => controllers.uploadMobileCourierPod(req, res));
 
 routes.get('/auth/web/me', verifySession, (req, res) => controllers.me(req, res));
 routes.get('/auth/web/notifications', verifySession, (req, res) => controllers.getUserNotifications(req, res));
@@ -73,10 +74,10 @@ routes.get('/auth/web/dashboard/stats', verifyWebSession, (req, res) => controll
 
 // Web Portal Order Routes
 routes.post('/auth/web/orders/calculate', verifyWebSession, (req, res) => controllers.customerOrder.calculatePrice(req, res));
-routes.post('/auth/web/orders', verifyWebSession, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
+routes.post('/auth/web/orders', verifyWebSession, requireIdempotencyKey('web.order.create'), (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
 routes.get('/auth/web/orders', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrders(req, res));
 routes.get('/auth/web/orders/:id/payment/status', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderPaymentStatus(req, res));
-routes.post('/auth/web/orders/:id/payment/check', verifyWebSession, (req, res) => controllers.customerOrder.confirmCustomerOrderPayment(req, res));
+routes.post('/auth/web/orders/:id/payment/check', verifyWebSession, requireIdempotencyKey('web.payment.confirm'), (req, res) => controllers.customerOrder.confirmCustomerOrderPayment(req, res));
 routes.get('/auth/web/orders/:id', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderById(req, res));
 routes.post('/auth/web/orders/:id/public-tracking-link', verifyWebSession, (req, res) => controllers.customerOrder.createCustomerPublicTrackingLink(req, res));
 routes.get('/auth/web/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));
@@ -99,10 +100,10 @@ routes.get('/api/v1/customer/orders/:id/tracking-detail', requireMobileOrWebAuth
 routes.get('/api/v1/customer/delivery-services', requireMobileOrWebAuth, (req, res) => controllers.deliveryServices.listCustomerDeliveryServices(req, res));
 routes.post('/api/v1/customer/orders/calculate', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.calculatePrice(req, res));
 routes.post('/api/v1/customer/orders/calculate-all', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.calculatePrices(req, res));
-routes.post('/api/v1/customer/orders', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
-routes.post('/api/v1/customer/orders/:id/payment', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createCustomerOrderPaymentSession(req, res));
+routes.post('/api/v1/customer/orders', requireMobileOrWebAuth, requireIdempotencyKey('customer.order.create'), (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
+routes.post('/api/v1/customer/orders/:id/payment', requireMobileOrWebAuth, requireIdempotencyKey('customer.payment.init'), (req, res) => controllers.customerOrder.createCustomerOrderPaymentSession(req, res));
 routes.get('/api/v1/customer/orders/:id/payment/status', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getCustomerOrderPaymentStatus(req, res));
-routes.post('/api/v1/customer/orders/:id/payment/check', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.confirmCustomerOrderPayment(req, res));
+routes.post('/api/v1/customer/orders/:id/payment/check', requireMobileOrWebAuth, requireIdempotencyKey('customer.payment.confirm'), (req, res) => controllers.customerOrder.confirmCustomerOrderPayment(req, res));
 routes.get('/api/v1/customer/orders/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrder(req, res));
 routes.get('/api/v1/customer/addresses', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.listCustomerAddresses(req, res));
 routes.post('/api/v1/customer/addresses', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createCustomerAddress(req, res));

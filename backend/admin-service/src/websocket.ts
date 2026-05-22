@@ -1,9 +1,13 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HttpServer } from 'http';
+import { createAdapter } from '@socket.io/redis-adapter';
 import { db } from './db';
+import { redis } from './redis';
 import { recordRealtimeMetric, realtimeStructuredLog } from './services/realtimeObservability';
 
 let io: SocketIOServer;
+let socketRedisPubClient: ReturnType<typeof redis.duplicate> | undefined;
+let socketRedisSubClient: ReturnType<typeof redis.duplicate> | undefined;
 
 export const initWebSocket = (server: HttpServer) => {
   io = new SocketIOServer(server, {
@@ -27,6 +31,24 @@ export const initWebSocket = (server: HttpServer) => {
       credentials: true,
     },
   });
+
+  if (process.env.SOCKET_REDIS_ADAPTER_ENABLED === 'true') {
+    socketRedisPubClient = redis.duplicate();
+    socketRedisSubClient = redis.duplicate();
+    io.adapter(createAdapter(socketRedisPubClient, socketRedisSubClient));
+    realtimeStructuredLog('info', 'socket_redis_adapter_enabled', {
+      redis_url_configured: Boolean(process.env.REDIS_URL),
+    });
+
+    socketRedisPubClient.on('error', (error) => {
+      void recordRealtimeMetric('socket_redis_adapter_error', { role: 'pub' });
+      realtimeStructuredLog('error', 'socket_redis_adapter_pub_error', { message: error.message });
+    });
+    socketRedisSubClient.on('error', (error) => {
+      void recordRealtimeMetric('socket_redis_adapter_error', { role: 'sub' });
+      realtimeStructuredLog('error', 'socket_redis_adapter_sub_error', { message: error.message });
+    });
+  }
 
   io.use((socket, next) => {
     let token = socket.handshake.auth.token || socket.handshake.query.token;
@@ -239,6 +261,14 @@ export const closeWebSocket = async () => {
       io.close(() => resolve());
     });
     io = undefined as any;
+    if (socketRedisPubClient) {
+      socketRedisPubClient.disconnect();
+      socketRedisPubClient = undefined;
+    }
+    if (socketRedisSubClient) {
+      socketRedisSubClient.disconnect();
+      socketRedisSubClient = undefined;
+    }
     console.log('[WebSocket] Server closed');
   }
 };

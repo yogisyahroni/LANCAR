@@ -632,8 +632,12 @@ describe('mapsProviderConfig', () => {
     );
 
     const cacheKeys = redis.set.mock.calls.map((call: any[]) => call[0]);
-    expect(cacheKeys).toHaveLength(2);
-    expect(new Set(cacheKeys).size).toBe(2);
+    const primaryCacheKeys = cacheKeys.filter((key: string) => !key.endsWith(':stale'));
+    const staleCacheKeys = cacheKeys.filter((key: string) => key.endsWith(':stale'));
+    expect(primaryCacheKeys).toHaveLength(2);
+    expect(staleCacheKeys).toHaveLength(2);
+    expect(new Set(primaryCacheKeys).size).toBe(2);
+    expect(staleCacheKeys).toEqual(primaryCacheKeys.map((key: string) => `${key}:stale`));
   });
 
   it('rejects non-allowlisted OSM routing hosts to prevent SSRF', async () => {
