@@ -19,6 +19,38 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+const CUSTOMER_WEB_DEVICE_ID_KEY = 'lancar_customer_web_device_id';
+
+const getOrCreateCustomerWebDeviceId = () => {
+  if (typeof window === 'undefined') return 'customer-web-server';
+
+  const existing = window.localStorage.getItem(CUSTOMER_WEB_DEVICE_ID_KEY);
+  if (existing) return existing;
+
+  const randomId =
+    typeof window.crypto?.randomUUID === 'function'
+      ? window.crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const deviceId = `customer-web-${randomId}`;
+  window.localStorage.setItem(CUSTOMER_WEB_DEVICE_ID_KEY, deviceId);
+  return deviceId;
+};
+
+const buildCustomerWebDeviceInfo = (rememberMe: boolean) => ({
+  platform: 'web',
+  app: 'customer-portal',
+  remember_me: rememberMe,
+  user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  language: typeof navigator !== 'undefined' ? navigator.language : 'unknown',
+});
+
+const getApiErrorMessage = (error: any, fallback: string) => {
+  const data = error.response?.data;
+  if (typeof data === 'string' && data.trim()) return data;
+  return data?.message || data?.error || fallback;
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((state) => state.setAuth);
@@ -71,7 +103,7 @@ export default function LoginPage() {
       setCountdown(60);
     } catch (error: any) {
       console.error('OTP send error:', error);
-      setApiError(error.response?.data?.message || error.response?.data?.error || 'Unable to send OTP. Please try again.');
+      setApiError(getApiErrorMessage(error, 'Unable to send OTP. Please try again.'));
     } finally {
       setIsSendingOtp(false);
     }
@@ -92,30 +124,45 @@ export default function LoginPage() {
           setApiError('Email and Password are required for password login');
           return;
         }
-        await api.post('/auth/customer/login/start', {
+        const deviceId = getOrCreateCustomerWebDeviceId();
+        const response = await api.post('/auth/customer/login/start', {
           email: data.email,
           password: data.password,
+          device_id: deviceId,
+          device_info: buildCustomerWebDeviceInfo(rememberMe),
         });
-        setPendingOtpIdentifier(data.email);
-        setOtpSent(true);
-        setCountdown(60);
-        setLoginMethod('otp');
-        setApiError('Credential valid. Enter the OTP sent to your email to continue.');
+
+        if (response.data?.require_otp) {
+          setPendingOtpIdentifier(data.email);
+          setOtpSent(true);
+          setCountdown(60);
+          setLoginMethod('otp');
+          const reason = response.data?.otp_reason === 'new_device' ? 'perangkat baru' : 'registrasi';
+          setApiError(`Verifikasi OTP diperlukan untuk ${reason}. Masukkan kode yang dikirim ke email kamu.`);
+          return;
+        }
+
+        const accessToken = response.data?.access_token;
+        if (!accessToken) {
+          setApiError('Login berhasil diverifikasi, tetapi token sesi tidak tersedia. Silakan coba lagi.');
+          return;
+        }
+
+        const user = await createWebSessionFromCustomerToken(accessToken);
+        setAuth(true, user);
+        router.push('/dashboard');
       } else {
         const identifier = pendingOtpIdentifier || data.phone;
         if (!identifier || !data.otp) {
           setApiError('Email/phone and OTP are required for OTP login');
           return;
         }
+        const deviceId = getOrCreateCustomerWebDeviceId();
         const response = await api.post('/auth/otp/verify', {
           phone_number: identifier,
           code: data.otp,
-          device_id: 'customer-web',
-          device_info: {
-            platform: 'web',
-            remember_me: rememberMe,
-            user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-          },
+          device_id: deviceId,
+          device_info: buildCustomerWebDeviceInfo(rememberMe),
         });
         const user = await createWebSessionFromCustomerToken(response.data.access_token);
         setAuth(true, user);
@@ -123,11 +170,7 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      setApiError(
-        error.response?.data?.message ||
-          error.response?.data?.error ||
-          'An unexpected error occurred. Please try again.'
-      );
+      setApiError(getApiErrorMessage(error, 'An unexpected error occurred. Please try again.'));
     }
   };
 

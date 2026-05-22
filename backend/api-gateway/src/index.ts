@@ -156,6 +156,20 @@ const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
+const authenticateCustomerApi = (req: Request, res: Response, next: NextFunction) => {
+  const hasWebCustomerSession = Boolean(
+    req.headers.cookie
+      ?.split(';')
+      .some((cookie) => cookie.trim().startsWith('customer_session='))
+  );
+
+  if (hasWebCustomerSession) {
+    return next();
+  }
+
+  return authenticateJWT(req, res, next);
+};
+
 
 
 // --- ENTERPRISE CORS HARDENING ---
@@ -256,16 +270,14 @@ const proxyWithResilience = (target: string, breaker: any) =>
 
 // WebSocket Proxy for Admin Service (Socket.io)
 const adminWsProxy = createProxyMiddleware({
+  pathFilter: '/socket.io',
   target: ADMIN_SERVICE_URL,
   ws: true,
   changeOrigin: true,
-  pathRewrite: {
-    '^/socket.io': '/socket.io',
-  },
 });
 
 // Use the proxy for socket.io path
-app.use('/socket.io', adminWsProxy);
+app.use(adminWsProxy);
 
 // Static upload files served by Admin Service.
 app.use(createProxyMiddleware({
@@ -455,8 +467,39 @@ app.use(createProxyMiddleware({
   }
 }));
 
+// Public customer handoff routes.
+// Receiver location links are intentionally unauthenticated: the token is the access boundary
+// and admin-service validates expiry/status before accepting any submitted location.
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/public',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      console.log(`\x1b[35m[Proxy Public]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      fixRequestBody(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) {
+        adminBreaker.fire(null);
+      }
+    },
+    error: (err: Error, req: any, res: any) => {
+      adminBreaker.fire(null);
+      console.error(`Proxy Error (${ADMIN_SERVICE_URL}/public):`, err);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({
+          status: 'error',
+          code: 'ERR_BAD_GATEWAY',
+          message: 'Public customer service is currently unavailable',
+        });
+      }
+    }
+  }
+}));
+
 // Customer Mobile Portal Routes (JWT-authenticated, backed by Admin Service aggregates)
-app.use('/api/v1/customer', authenticateJWT);
+app.use('/api/v1/customer', authenticateCustomerApi);
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/customer',
   target: ADMIN_SERVICE_URL,

@@ -3,6 +3,20 @@ import { useAuthStore } from '../store/authStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
 
+const PUBLIC_AUTH_PATHS = [
+  '/auth/customer/login/start',
+  '/auth/customer/register/start',
+  '/auth/otp/send',
+  '/auth/otp/verify',
+  '/auth/web/session/exchange',
+  '/auth/web/login',
+];
+
+const isPublicAuthRequest = (url?: string) => {
+  if (!url) return false;
+  return PUBLIC_AUTH_PATHS.some((path) => url.includes(path));
+};
+
 export const api = axios.create({
   baseURL: API_URL,
   withCredentials: true, // Important for HttpOnly cookies
@@ -35,7 +49,12 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     // Check if error is due to expired or missing token (401 Unauthorized)
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+    if (
+      error.response &&
+      error.response.status === 401 &&
+      !originalRequest._retry &&
+      !isPublicAuthRequest(originalRequest.url)
+    ) {
       if (originalRequest.url?.includes('/auth/web/refresh-token')) {
         return Promise.reject(error);
       }

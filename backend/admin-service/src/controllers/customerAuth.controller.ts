@@ -159,8 +159,14 @@ export const exchangeCustomerJwtForWebSession = async (req: Request, res: Respon
 };
 
 export const refreshToken = async (req: Request, res: Response) => {
-  // Check all possible session cookies
-  const sessionToken = req.cookies?.admin_session || req.cookies?.customer_session || req.cookies?.web_session;
+  const portal = typeof req.headers['x-portal'] === 'string' ? req.headers['x-portal'] : '';
+  const adminSessionToken = req.cookies?.admin_session;
+  const customerSessionToken = req.cookies?.customer_session;
+  const sessionToken = portal === 'customer'
+    ? customerSessionToken
+    : portal === 'admin'
+      ? adminSessionToken
+      : adminSessionToken || customerSessionToken || req.cookies?.web_session;
 
   if (!sessionToken) {
     res.status(401).json({ error: 'Unauthorized: No session' });
@@ -168,16 +174,25 @@ export const refreshToken = async (req: Request, res: Response) => {
   }
 
   try {
-    // We check both tables but prioritize the role-appropriate one
-    const adminResult = await db.query(
-      `SELECT s.user_id, s.expires_at, u.email, u.role FROM admin_sessions s JOIN staff u ON s.user_id = u.id WHERE s.session_token = $1 AND s.expires_at > NOW()`,
-      [sessionToken]
-    );
+    const adminResult = portal === 'customer'
+      ? { rows: [] }
+      : await db.query(
+        `SELECT s.user_id, s.expires_at, u.email, u.role
+         FROM admin_sessions s
+         JOIN staff u ON s.user_id = u.id
+         WHERE s.session_token = $1 AND s.expires_at > NOW()`,
+        [sessionToken]
+      );
 
-    const customerResult = await db.query(
-      `SELECT s.user_id, s.expires_at, u.email, u.role FROM customer_sessions s JOIN customers u ON s.user_id = u.id WHERE s.session_token = $1 AND s.expires_at > NOW()`,
-      [sessionToken]
-    );
+    const customerResult = portal === 'admin'
+      ? { rows: [] }
+      : await db.query(
+        `SELECT s.user_id, s.expires_at, u.email, u.role
+         FROM customer_sessions s
+         JOIN customers u ON s.user_id = u.id
+         WHERE s.session_token = $1 AND s.expires_at > NOW()`,
+        [sessionToken]
+      );
 
     const user = adminResult.rows[0] || customerResult.rows[0];
     const sessionTable = adminResult.rows.length > 0 ? 'admin_sessions' : 'customer_sessions';

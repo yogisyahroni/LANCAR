@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DeliveryService, OrderForm, OrderFormValues } from "@/components/orders/OrderForm";
 import { OrderSummary } from "@/components/orders/OrderSummary";
 import { PaymentModal } from "@/components/orders/PaymentModal";
@@ -9,12 +9,37 @@ import { useRouter } from "next/navigation";
 import { useNotificationStore } from "@/store/useNotificationStore";
 import { Info } from "lucide-react";
 
+interface RoutePreviewSnapshot {
+  active_provider?: string;
+  provider?: string;
+  route_profile?: string;
+  vehicle_type?: string;
+  distance_km?: number;
+  distance_meters?: number;
+  duration_seconds?: number;
+  eta?: string;
+  eta_minutes?: number;
+  route_polyline?: string;
+  fallback_reason?: string | null;
+}
+
+const deriveRouteVehicleType = (service?: DeliveryService) => {
+  const vehicleTypes = service?.vehicle_types?.map((vehicleType) => vehicleType.toLowerCase()) || [];
+  if (vehicleTypes.some((vehicleType) => vehicleType.includes("car") || vehicleType.includes("mobil"))) {
+    return "car";
+  }
+  return "motorcycle";
+};
+
 export default function NewOrderPage() {
   const [formData, setFormData] = useState<Partial<OrderFormValues>>({});
   const [isValid, setIsValid] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [isRoutePreviewLoading, setIsRoutePreviewLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pricing, setPricing] = useState<any>(null);
+  const [routePreview, setRoutePreview] = useState<RoutePreviewSnapshot | null>(null);
+  const [routePreviewError, setRoutePreviewError] = useState<string | null>(null);
   const [coverageError, setCoverageError] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<DeliveryService | undefined>();
   const [scanRequired, setScanRequired] = useState(false);
@@ -25,6 +50,59 @@ export default function NewOrderPage() {
 
   const router = useRouter();
   const { addNotification } = useNotificationStore();
+  const routePreviewRequestRef = useRef(0);
+
+  const calculateRoutePreview = useCallback(async (data: Partial<OrderFormValues>, service?: DeliveryService) => {
+    const pickup = data.pickup_location;
+    const dropoff = data.dropoff_location;
+    if (!pickup || !dropoff) {
+      routePreviewRequestRef.current += 1;
+      setRoutePreview(null);
+      setRoutePreviewError(null);
+      setIsRoutePreviewLoading(false);
+      return;
+    }
+
+    const requestId = routePreviewRequestRef.current + 1;
+    routePreviewRequestRef.current = requestId;
+    const vehicleType = deriveRouteVehicleType(service);
+
+    setIsRoutePreviewLoading(true);
+    setRoutePreviewError(null);
+
+    try {
+      const res = await api.get("/maps/route", {
+        params: {
+          from_lat: pickup.lat,
+          from_lng: pickup.lng,
+          to_lat: dropoff.lat,
+          to_lng: dropoff.lng,
+          scope: "web_customer",
+          service_code: data.service_code || service?.code || "web_customer_route_preview",
+          vehicle_type: vehicleType,
+          route_profile: vehicleType
+        }
+      });
+
+      if (routePreviewRequestRef.current !== requestId) return;
+
+      setRoutePreview(res.data);
+      setRoutePreviewError(null);
+    } catch (error: any) {
+      if (routePreviewRequestRef.current !== requestId) return;
+
+      setRoutePreview(null);
+      setRoutePreviewError(
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Rute jalan belum bisa dihitung. Periksa titik pickup dan tujuan."
+      );
+    } finally {
+      if (routePreviewRequestRef.current === requestId) {
+        setIsRoutePreviewLoading(false);
+      }
+    }
+  }, []);
 
   const calculatePricing = useCallback(async (data: Partial<OrderFormValues>) => {
     setIsCalculating(true);
@@ -42,6 +120,10 @@ export default function NewOrderPage() {
         item_value: data.item_value
       });
       setPricing(res.data);
+      if (res.data?.route_snapshot) {
+        setRoutePreview(res.data.route_snapshot);
+        setRoutePreviewError(null);
+      }
     } catch (error: any) {
       console.error("Failed to calculate pricing", error);
       setCoverageError(
@@ -54,6 +136,23 @@ export default function NewOrderPage() {
       setIsCalculating(false);
     }
   }, []);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      calculateRoutePreview(formData, selectedService);
+    }, 500);
+
+    return () => clearTimeout(handler);
+  }, [
+    formData.pickup_location?.lat,
+    formData.pickup_location?.lng,
+    formData.dropoff_location?.lat,
+    formData.dropoff_location?.lng,
+    formData.service_code,
+    selectedService?.code,
+    selectedService?.vehicle_types?.join(","),
+    calculateRoutePreview
+  ]);
 
   // Debounce effect for price calculation based on individual fields
   useEffect(() => {
@@ -168,6 +267,9 @@ export default function NewOrderPage() {
         <div className="relative">
           <OrderSummary 
             isLoading={isCalculating || isSubmitting}
+            isRouteLoading={isRoutePreviewLoading}
+            routePreview={routePreview}
+            routeError={routePreviewError}
             pricing={pricing}
             isValid={isValid}
           />

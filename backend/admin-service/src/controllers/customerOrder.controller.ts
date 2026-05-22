@@ -1805,34 +1805,40 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
 
     const { rows: proofs } = await db.query(`
       SELECT id,
-             scan_type,
              CASE
-               WHEN scan_type IN ('pickup', 'pickup_scan') THEN 'Scan pickup'
-               WHEN scan_type = 'pickup_photo' THEN 'Foto barang pickup'
-               WHEN scan_type = 'pod' THEN 'Foto POD'
-               WHEN scan_type = 'pickup_cancellation' THEN 'Bukti pembatalan pickup'
+               WHEN COALESCE(override_reason, '') ILIKE 'pickup_cancellation:%' THEN 'pickup_cancellation'
+               WHEN scanned_by_role = 'courier' AND image_urls IS NOT NULL AND array_length(image_urls, 1) > 0 THEN 'pickup_photo'
+               WHEN scanned_by_role = 'courier' THEN 'pickup_scan'
+               ELSE 'operational'
+             END AS scan_type,
+             CASE
+               WHEN COALESCE(override_reason, '') ILIKE 'pickup_cancellation:%' THEN 'Bukti pembatalan pickup'
+               WHEN scanned_by_role = 'courier' AND image_urls IS NOT NULL AND array_length(image_urls, 1) > 0 THEN 'Foto barang pickup'
+               WHEN scanned_by_role = 'courier' THEN 'Scan pickup'
                ELSE 'Bukti operasional'
              END AS proof_label,
              CASE
-               WHEN scan_type = 'pickup_cancellation' THEN 'cancellation'
-               WHEN scan_type = 'pod' THEN 'pod'
-               WHEN scan_type IN ('pickup', 'pickup_scan', 'pickup_photo') THEN 'pickup'
+               WHEN COALESCE(override_reason, '') ILIKE 'pickup_cancellation:%' THEN 'cancellation'
+               WHEN scanned_by_role = 'courier' THEN 'pickup'
                ELSE 'operational'
              END AS proof_category,
-             photo_url,
+             CASE
+               WHEN image_urls IS NOT NULL AND array_length(image_urls, 1) > 0 THEN image_urls[1]
+               ELSE NULL
+             END AS photo_url,
              image_urls,
              override_reason,
              CASE
-               WHEN scan_type = 'pickup_cancellation' THEN SPLIT_PART(COALESCE(override_reason, ''), ':', 1)
+               WHEN COALESCE(override_reason, '') ILIKE 'pickup_cancellation:%' THEN SPLIT_PART(COALESCE(override_reason, ''), ':', 1)
                ELSE NULL
              END AS reason_code,
              CASE
-               WHEN scan_type = 'pickup_cancellation' AND COALESCE(override_reason, '') LIKE '%:%'
+               WHEN COALESCE(override_reason, '') ILIKE 'pickup_cancellation:%' AND COALESCE(override_reason, '') LIKE '%:%'
                  THEN NULLIF(TRIM(REGEXP_REPLACE(override_reason, '^[^:]+:\\s*', '')), '')
                ELSE NULL
              END AS reason_note,
-             latitude,
-             longitude,
+             CASE WHEN scan_location IS NOT NULL THEN ST_Y(scan_location::geometry) ELSE NULL END AS latitude,
+             CASE WHEN scan_location IS NOT NULL THEN ST_X(scan_location::geometry) ELSE NULL END AS longitude,
              COALESCE(scanned_at, created_at) AS recorded_at
       FROM package_scans
       WHERE order_id = $1
@@ -1860,7 +1866,7 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
              o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              o.package_details, o.customer_notes, o.created_at, o.updated_at,
              u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate,
-             cp.avg_partner_rating as courier_rating, u.phone as courier_phone
+             cp.avg_partner_rating as courier_rating, u.phone_number as courier_phone
       FROM orders o
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
@@ -1882,34 +1888,40 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
 
     const { rows: proofs } = await db.query(`
       SELECT id,
-             scan_type,
              CASE
-               WHEN scan_type IN ('pickup', 'pickup_scan') THEN 'Scan pickup'
-               WHEN scan_type = 'pickup_photo' THEN 'Foto barang pickup'
-               WHEN scan_type = 'pod' THEN 'Foto POD'
-               WHEN scan_type = 'pickup_cancellation' THEN 'Bukti pembatalan pickup'
+               WHEN COALESCE(override_reason, '') ILIKE 'pickup_cancellation:%' THEN 'pickup_cancellation'
+               WHEN scanned_by_role = 'courier' AND image_urls IS NOT NULL AND array_length(image_urls, 1) > 0 THEN 'pickup_photo'
+               WHEN scanned_by_role = 'courier' THEN 'pickup_scan'
+               ELSE 'operational'
+             END AS scan_type,
+             CASE
+               WHEN COALESCE(override_reason, '') ILIKE 'pickup_cancellation:%' THEN 'Bukti pembatalan pickup'
+               WHEN scanned_by_role = 'courier' AND image_urls IS NOT NULL AND array_length(image_urls, 1) > 0 THEN 'Foto barang pickup'
+               WHEN scanned_by_role = 'courier' THEN 'Scan pickup'
                ELSE 'Bukti operasional'
              END AS proof_label,
              CASE
-               WHEN scan_type = 'pickup_cancellation' THEN 'cancellation'
-               WHEN scan_type = 'pod' THEN 'pod'
-               WHEN scan_type IN ('pickup', 'pickup_scan', 'pickup_photo') THEN 'pickup'
+               WHEN COALESCE(override_reason, '') ILIKE 'pickup_cancellation:%' THEN 'cancellation'
+               WHEN scanned_by_role = 'courier' THEN 'pickup'
                ELSE 'operational'
              END AS proof_category,
-             photo_url,
+             CASE
+               WHEN image_urls IS NOT NULL AND array_length(image_urls, 1) > 0 THEN image_urls[1]
+               ELSE NULL
+             END AS photo_url,
              image_urls,
              override_reason,
              CASE
-               WHEN scan_type = 'pickup_cancellation' THEN SPLIT_PART(COALESCE(override_reason, ''), ':', 1)
+               WHEN COALESCE(override_reason, '') ILIKE 'pickup_cancellation:%' THEN SPLIT_PART(COALESCE(override_reason, ''), ':', 1)
                ELSE NULL
              END AS reason_code,
              CASE
-               WHEN scan_type = 'pickup_cancellation' AND COALESCE(override_reason, '') LIKE '%:%'
+               WHEN COALESCE(override_reason, '') ILIKE 'pickup_cancellation:%' AND COALESCE(override_reason, '') LIKE '%:%'
                  THEN NULLIF(TRIM(REGEXP_REPLACE(override_reason, '^[^:]+:\\s*', '')), '')
                ELSE NULL
              END AS reason_note,
-             latitude,
-             longitude,
+             CASE WHEN scan_location IS NOT NULL THEN ST_Y(scan_location::geometry) ELSE NULL END AS latitude,
+             CASE WHEN scan_location IS NOT NULL THEN ST_X(scan_location::geometry) ELSE NULL END AS longitude,
              COALESCE(scanned_at, created_at) AS recorded_at
       FROM package_scans
       WHERE order_id = $1
@@ -2263,27 +2275,26 @@ export const getCustomerDashboardStats = async (req: Request, res: Response): Pr
 
     const { rows: summaryRows } = await db.query(`
       WITH current_month AS (
-        SELECT *
+        SELECT
+          COUNT(*) FILTER (WHERE status NOT IN ('delivered', 'completed', 'cancelled', 'failed'))::int AS active_orders,
+          COUNT(*) FILTER (WHERE status IN ('delivered', 'completed'))::int AS completed_orders_month,
+          COUNT(*) FILTER (WHERE status IN ('cancelled', 'failed'))::int AS cancelled_orders_month,
+          COALESCE(SUM(total_price_idr), 0)::bigint AS total_spend_month
         FROM orders
         WHERE customer_id = $1
           AND created_at >= DATE_TRUNC('month', NOW())
       ),
       previous_month AS (
-        SELECT *
+        SELECT
+          COUNT(*)::int AS previous_orders_month,
+          COALESCE(SUM(total_price_idr), 0)::bigint AS previous_spend_month
         FROM orders
         WHERE customer_id = $1
           AND created_at >= DATE_TRUNC('month', NOW()) - INTERVAL '1 month'
           AND created_at < DATE_TRUNC('month', NOW())
       )
-      SELECT
-        COUNT(*) FILTER (WHERE cm.status NOT IN ('delivered', 'completed', 'cancelled', 'failed'))::int AS active_orders,
-        COUNT(*) FILTER (WHERE cm.status IN ('delivered', 'completed'))::int AS completed_orders_month,
-        COUNT(*) FILTER (WHERE cm.status IN ('cancelled', 'failed'))::int AS cancelled_orders_month,
-        COALESCE(SUM(cm.total_price_idr), 0)::bigint AS total_spend_month,
-        COALESCE(SUM(pm.total_price_idr), 0)::bigint AS previous_spend_month,
-        COUNT(pm.*)::int AS previous_orders_month
-      FROM current_month cm
-      FULL OUTER JOIN previous_month pm ON false
+      SELECT *
+      FROM current_month, previous_month
     `, [customer_id]);
 
     const { rows: weeklyRows } = await db.query(`
@@ -2292,7 +2303,7 @@ export const getCustomerDashboardStats = async (req: Request, res: Response): Pr
       ),
       orders_by_week AS (
         SELECT
-          FLOOR(EXTRACT(DAY FROM (NOW()::date - created_at::date)) / 7)::int AS week_bucket,
+          FLOOR((NOW()::date - created_at::date) / 7.0)::int AS week_bucket,
           COUNT(*)::int AS count,
           COALESCE(SUM(total_price_idr), 0)::bigint AS value
         FROM orders

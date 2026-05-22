@@ -13,7 +13,11 @@ type LocationRequestResponse = {
 };
 
 const apiRoot = () => {
-  const configured = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+  const configured =
+    process.env.SERVER_API_URL ||
+    process.env.INTERNAL_API_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://localhost:8080/api/v1';
   return configured.replace(/\/api\/v1\/?$/, '');
 };
 
@@ -27,15 +31,23 @@ const formatExpiry = (value?: string) => {
 };
 
 async function getLocationRequest(token: string): Promise<LocationRequestResponse> {
-  const response = await fetch(`${apiRoot()}/api/v1/public/location-requests/${token}`, {
-    cache: 'no-store',
-    next: { revalidate: 0 },
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    return { success: false, message: body?.message || 'Link lokasi tidak tersedia.' };
+  try {
+    const response = await fetch(`${apiRoot()}/api/v1/public/location-requests/${token}`, {
+      cache: 'no-store',
+      next: { revalidate: 0 },
+    });
+    const contentType = response.headers.get('content-type') || '';
+    const body = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {};
+    if (!response.ok) {
+      return { success: false, message: body?.message || 'Link lokasi tidak tersedia.' };
+    }
+    return body;
+  } catch {
+    return {
+      success: false,
+      message: 'Layanan lokasi sedang tidak tersedia. Coba muat ulang beberapa saat lagi.',
+    };
   }
-  return body;
 }
 
 export default async function ReceiverLocationRequestPage({ params }: { params: Promise<{ token: string }> }) {
@@ -57,7 +69,7 @@ export default async function ReceiverLocationRequestPage({ params }: { params: 
             </div>
           </div>
           <p className="mt-4 text-sm leading-6 text-white/85">
-            Isi alamat dan koordinat tujuan supaya kurir mendapat titik dropoff yang akurat.
+            Isi alamat tujuan supaya kurir mendapat titik dropoff yang akurat.
           </p>
         </div>
 

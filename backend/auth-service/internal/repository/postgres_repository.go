@@ -35,7 +35,16 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 			UNION ALL
 			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, NULL as password_hash, pin_hash, is_verified, 
 				   NULL as totp_secret, NULL as is_2fa_enabled, NULL as totp_backup_codes, last_login_at, created_at, updated_at FROM couriers
-		) users_combined WHERE phone_number = $1 OR email = $1`
+		) users_combined
+		WHERE phone_number = $1 OR email = $1
+		ORDER BY
+			CASE
+				WHEN email = $1 THEN 0
+				WHEN phone_number = $1 THEN 1
+				ELSE 2
+			END,
+			created_at DESC
+		LIMIT 1`
 	user := &domain.User{}
 	err := r.readDB.QueryRowContext(ctx, query, phoneNumber).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status,

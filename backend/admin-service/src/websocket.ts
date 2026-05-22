@@ -53,6 +53,7 @@ export const initWebSocket = (server: HttpServer) => {
   io.use((socket, next) => {
     let token = socket.handshake.auth.token || socket.handshake.query.token;
     let adminSessionToken: string | undefined;
+    let customerSessionToken: string | undefined;
     
     // Try to extract token from cookies if not found in auth/query (for Next.js webapp)
     if (socket.handshake.headers.cookie) {
@@ -63,32 +64,42 @@ export const initWebSocket = (server: HttpServer) => {
       }, {});
       token = token || cookies.accessToken || cookies.access_token || cookies.token || cookies.jwt;
       adminSessionToken = cookies.admin_session;
+      customerSessionToken = cookies.customer_session || cookies.web_session;
     }
 
-    if (!token && !adminSessionToken) {
+    if (!token && !adminSessionToken && !customerSessionToken) {
       void recordRealtimeMetric('socket_auth_failed', { reason: 'token_missing' });
       return next(new Error('Authentication error: Token missing'));
     }
 
-    if (adminSessionToken && !token) {
+    if ((adminSessionToken || customerSessionToken) && !token) {
+      const sessionToken = adminSessionToken || customerSessionToken;
+      const isCustomerSession = Boolean(customerSessionToken && !adminSessionToken);
+      const sessionQuery = isCustomerSession
+        ? `SELECT s.user_id AS id, u.role, u.full_name
+           FROM customer_sessions s
+           JOIN customers u ON s.user_id = u.id
+           WHERE s.session_token = $1 AND s.expires_at > NOW()`
+        : `SELECT s.user_id AS id, u.role, u.full_name
+           FROM admin_sessions s
+           JOIN staff u ON s.user_id = u.id
+           WHERE s.session_token = $1 AND s.expires_at > NOW()`;
+
       db.query(
-        `SELECT s.user_id AS id, u.role, u.full_name
-         FROM admin_sessions s
-         JOIN staff u ON s.user_id = u.id
-         WHERE s.session_token = $1 AND s.expires_at > NOW()`,
-        [adminSessionToken]
+        sessionQuery,
+        [sessionToken]
       )
         .then((result) => {
           if (result.rows.length === 0) {
-            void recordRealtimeMetric('socket_auth_failed', { reason: 'invalid_admin_session' });
+            void recordRealtimeMetric('socket_auth_failed', { reason: isCustomerSession ? 'invalid_customer_session' : 'invalid_admin_session' });
             return next(new Error('Authentication error: Invalid session'));
           }
           (socket as any).user = result.rows[0];
           next();
         })
         .catch((err) => {
-          console.error('WebSocket admin session verification failed', err);
-          void recordRealtimeMetric('socket_auth_failed', { reason: 'admin_session_lookup_error' });
+          console.error('WebSocket session verification failed', err);
+          void recordRealtimeMetric('socket_auth_failed', { reason: isCustomerSession ? 'customer_session_lookup_error' : 'admin_session_lookup_error' });
           next(new Error('Internal server error'));
         });
       return;

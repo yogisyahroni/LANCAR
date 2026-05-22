@@ -17,8 +17,13 @@ interface RouteSnapshot {
   fallback_reason?: string | null;
 }
 
+type RoutePoint = { lat: number; lng: number };
+
 interface OrderSummaryProps {
   isLoading: boolean;
+  isRouteLoading?: boolean;
+  routePreview?: RouteSnapshot | null;
+  routeError?: string | null;
   pricing: {
     distance_km: number;
     base_price_idr: number;
@@ -36,15 +41,234 @@ interface OrderSummaryProps {
   isValid: boolean;
 }
 
+const routeCanvas = {
+  width: 320,
+  height: 96,
+  tileSize: 256,
+  padding: 24
+};
+
 const modelLabel: Record<string, string> = {
   p2p: "P2P",
   two_legs: "2-Kaki",
   three_legs: "3-Kaki"
 };
 
-export function OrderSummary({ isLoading, pricing, isValid }: OrderSummaryProps) {
+const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1").replace(/\/$/, "");
+
+function decodePolyline(encoded?: string): RoutePoint[] {
+  if (!encoded) return [];
+  const points: RoutePoint[] = [];
+  let index = 0;
+  let lat = 0;
+  let lng = 0;
+
+  while (index < encoded.length) {
+    let result = 0;
+    let shift = 0;
+    let byte = 0;
+
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index < encoded.length);
+
+    const deltaLat = (result & 1) ? ~(result >> 1) : (result >> 1);
+    lat += deltaLat;
+
+    result = 0;
+    shift = 0;
+
+    do {
+      byte = encoded.charCodeAt(index++) - 63;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index < encoded.length);
+
+    const deltaLng = (result & 1) ? ~(result >> 1) : (result >> 1);
+    lng += deltaLng;
+
+    points.push({ lat: lat / 1e5, lng: lng / 1e5 });
+  }
+
+  return points.filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
+}
+
+function mercatorProject(point: RoutePoint, zoom: number) {
+  const sinLat = Math.sin((point.lat * Math.PI) / 180);
+  const scale = routeCanvas.tileSize * 2 ** zoom;
+  return {
+    x: ((point.lng + 180) / 360) * scale,
+    y: (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * scale
+  };
+}
+
+function buildRouteMap(points: RoutePoint[]) {
+  if (points.length < 2) return null;
+
+  let selectedZoom = 12;
+  let projected = points.map((point) => mercatorProject(point, selectedZoom));
+
+  for (let zoom = 16; zoom >= 9; zoom -= 1) {
+    const candidate = points.map((point) => mercatorProject(point, zoom));
+    const xs = candidate.map((point) => point.x);
+    const ys = candidate.map((point) => point.y);
+    const spanX = Math.max(...xs) - Math.min(...xs);
+    const spanY = Math.max(...ys) - Math.min(...ys);
+
+    if (
+      spanX <= routeCanvas.width - routeCanvas.padding * 2 &&
+      spanY <= routeCanvas.height - routeCanvas.padding * 2
+    ) {
+      selectedZoom = zoom;
+      projected = candidate;
+      break;
+    }
+
+    if (zoom === 9) {
+      selectedZoom = zoom;
+      projected = candidate;
+    }
+  }
+
+  const xs = projected.map((point) => point.x);
+  const ys = projected.map((point) => point.y);
+  const centerX = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const centerY = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const routePoints = projected
+    .map((point) => `${(routeCanvas.width / 2 + point.x - centerX).toFixed(1)},${(routeCanvas.height / 2 + point.y - centerY).toFixed(1)}`)
+    .join(" ");
+  const start = projected[0];
+  const end = projected[projected.length - 1];
+  const toViewPoint = (point: { x: number; y: number }) => ({
+    x: routeCanvas.width / 2 + point.x - centerX,
+    y: routeCanvas.height / 2 + point.y - centerY
+  });
+
+  const centerTileX = Math.floor(centerX / routeCanvas.tileSize);
+  const centerTileY = Math.floor(centerY / routeCanvas.tileSize);
+  const tiles = [];
+  const maxTile = 2 ** selectedZoom;
+
+  for (let dx = -1; dx <= 1; dx += 1) {
+    for (let dy = -1; dy <= 1; dy += 1) {
+      const tileX = centerTileX + dx;
+      const tileY = centerTileY + dy;
+      if (tileX < 0 || tileY < 0 || tileX >= maxTile || tileY >= maxTile) continue;
+      tiles.push({
+        key: `${selectedZoom}-${tileX}-${tileY}`,
+        x: tileX,
+        y: tileY,
+        left: routeCanvas.width / 2 + tileX * routeCanvas.tileSize - centerX,
+        top: routeCanvas.height / 2 + tileY * routeCanvas.tileSize - centerY
+      });
+    }
+  }
+
+  return {
+    zoom: selectedZoom,
+    routePoints,
+    start: toViewPoint(start),
+    end: toViewPoint(end),
+    tiles
+  };
+}
+
+function RoadRoutePreview({
+  routeSnapshot,
+  isRouteLoading,
+  routeError
+}: {
+  routeSnapshot: RouteSnapshot | null;
+  isRouteLoading?: boolean;
+  routeError?: string | null;
+}) {
+  const decodedPoints = decodePolyline(routeSnapshot?.route_polyline);
+  const routeMap = buildRouteMap(decodedPoints);
+
+  if (isRouteLoading) {
+    return (
+      <div className="relative flex h-24 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-background/45">
+        <div className="absolute inset-0 animate-pulse bg-white/[0.06]" />
+        <span className="relative text-xs font-semibold text-muted-foreground">Menghitung rute jalan...</span>
+      </div>
+    );
+  }
+
+  if (!routeMap) {
+    return (
+      <div className="relative flex h-24 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-background/45 px-4 text-center">
+        <p className="text-xs font-medium text-muted-foreground">
+          {routeError || "Rute jalan akan tampil setelah pickup dan tujuan lengkap."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-24 overflow-hidden rounded-xl border border-white/10 bg-background/45">
+      <div
+        className="absolute left-1/2 top-1/2 overflow-hidden"
+        style={{
+          width: routeCanvas.width,
+          height: routeCanvas.height,
+          transform: "translate(-50%, -50%)"
+        }}
+      >
+        {routeMap.tiles.map((tile) => (
+          <img
+            key={tile.key}
+            alt=""
+            aria-hidden="true"
+            src={`${apiBaseUrl}/maps/tiles/${routeMap.zoom}/${tile.x}/${tile.y}.png`}
+            className="absolute max-w-none select-none"
+            draggable={false}
+            style={{
+              left: tile.left,
+              top: tile.top,
+              width: routeCanvas.tileSize,
+              height: routeCanvas.tileSize
+            }}
+          />
+        ))}
+        <div className="absolute inset-0 bg-black/20" />
+        <svg
+          viewBox={`0 0 ${routeCanvas.width} ${routeCanvas.height}`}
+          className="absolute inset-0 h-full w-full"
+          role="img"
+          aria-label="Preview rute jalan pengiriman"
+        >
+          <polyline
+            points={routeMap.routePoints}
+            fill="none"
+            stroke="rgba(6, 78, 59, 0.65)"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="8"
+          />
+          <polyline
+            points={routeMap.routePoints}
+            fill="none"
+            stroke="#10b981"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="4"
+          />
+          <circle cx={routeMap.start.x} cy={routeMap.start.y} r="7" fill="#10b981" stroke="#ecfdf5" strokeWidth="3" />
+          <circle cx={routeMap.end.x} cy={routeMap.end.y} r="7" fill="#f97316" stroke="#fff7ed" strokeWidth="3" />
+        </svg>
+        <div className="absolute bottom-1 left-2 rounded bg-white/75 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
+          © OpenStreetMap contributors
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function OrderSummary({ isLoading, isRouteLoading, routePreview, routeError, pricing, isValid }: OrderSummaryProps) {
   const surgeAmount = pricing?.dynamic_price_idr || 0;
-  const routeSnapshot = pricing?.route_snapshot || null;
+  const routeSnapshot = pricing?.route_snapshot || routePreview || null;
   const routeDistanceKm =
     routeSnapshot?.distance_km ||
     (routeSnapshot?.distance_meters ? routeSnapshot.distance_meters / 1000 : undefined) ||
@@ -55,6 +279,7 @@ export function OrderSummary({ isLoading, pricing, isValid }: OrderSummaryProps)
     pricing?.eta_minutes;
   const routeProvider = routeSnapshot?.active_provider || routeSnapshot?.provider || "runtime";
   const hasRouteGeometry = Boolean(routeSnapshot?.route_polyline);
+  const hasRouteEstimate = Boolean(routeSnapshot || pricing);
 
   return (
     <div className="sticky top-8 rounded-2xl border border-white/10 bg-background/50 p-6 shadow-xl backdrop-blur-md">
@@ -166,7 +391,7 @@ export function OrderSummary({ isLoading, pricing, isValid }: OrderSummaryProps)
               <div>
                 <p className="text-sm font-semibold tracking-tight text-foreground">Preview rute</p>
                 <p className="text-xs text-muted-foreground">
-                  {pricing
+                  {hasRouteEstimate
                     ? `${routeDistanceKm ? `${routeDistanceKm.toFixed(1)} km` : "Jarak dihitung"}${routeEtaMinutes ? ` • ~${routeEtaMinutes} menit` : ""}`
                     : "Lengkapi alamat untuk estimasi."}
                 </p>
@@ -176,24 +401,15 @@ export function OrderSummary({ isLoading, pricing, isValid }: OrderSummaryProps)
               {routeProvider}
             </span>
           </div>
-          <div className="relative h-24 overflow-hidden rounded-xl border border-white/10 bg-background/45">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_25%,rgba(16,185,129,0.16),transparent_28%),radial-gradient(circle_at_78%_62%,rgba(59,130,246,0.12),transparent_26%)]" />
-            <svg viewBox="0 0 320 96" className="absolute inset-0 h-full w-full" role="img" aria-label="Preview rute pengiriman">
-              <path
-                d="M34 70 C88 26, 126 78, 172 46 S250 30, 286 62"
-                fill="none"
-                stroke={hasRouteGeometry ? "#10b981" : "#64748b"}
-                strokeDasharray={hasRouteGeometry ? "0" : "7 7"}
-                strokeLinecap="round"
-                strokeWidth="5"
-              />
-              <circle cx="34" cy="70" r="9" fill="#10b981" />
-              <circle cx="286" cy="62" r="9" fill="#f97316" />
-            </svg>
-          </div>
-          {pricing && (!hasRouteGeometry || routeSnapshot?.fallback_reason) && (
+          <RoadRoutePreview routeSnapshot={routeSnapshot} isRouteLoading={isRouteLoading} routeError={routeError} />
+          {!pricing && hasRouteEstimate && (!hasRouteGeometry || routeSnapshot?.fallback_reason) && (
             <p className="mt-3 text-xs text-muted-foreground">
-              Rute sedang diperbarui. Harga dan ETA tetap memakai estimasi backend terbaru.
+              Preview rute ini untuk estimasi jarak. Harga final muncul setelah detail pengiriman lengkap.
+            </p>
+          )}
+          {pricing && !hasRouteGeometry && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Harga final sudah dihitung backend. Visual rute belum tersedia dari provider aktif.
             </p>
           )}
         </div>

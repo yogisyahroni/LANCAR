@@ -1,7 +1,7 @@
 'use client';
 
 import { FormEvent, useMemo, useState } from 'react';
-import { CheckCircle2, Loader2, MapPin, Navigation, Phone, UserRound } from 'lucide-react';
+import { CheckCircle2, Loader2, LocateFixed, MapPin, Phone, UserRound } from 'lucide-react';
 
 type LocationRequestPayload = {
   pickup_address: string;
@@ -16,6 +16,21 @@ type Props = {
 };
 
 type SubmitState = 'idle' | 'submitting' | 'success' | 'error';
+type LocationSource = 'device' | 'address' | null;
+
+type ResolvedLocation = {
+  lat: number;
+  lng: number;
+  label?: string;
+};
+
+type GeocodeResult = {
+  label?: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+const RECEIVER_LOCATION_STORAGE_KEY = 'lancar_receiver_location_submitted_v1';
 
 const apiRoot = () => {
   const configured = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
@@ -24,8 +39,9 @@ const apiRoot = () => {
 
 export function LocationRequestForm({ token, initialRequest }: Props) {
   const [address, setAddress] = useState('');
-  const [lat, setLat] = useState('');
-  const [lng, setLng] = useState('');
+  const [resolvedLocation, setResolvedLocation] = useState<ResolvedLocation | null>(null);
+  const [locationSource, setLocationSource] = useState<LocationSource>(null);
+  const [isLocating, setIsLocating] = useState(false);
   const [contactName, setContactName] = useState(initialRequest.recipient_name || '');
   const [contactPhone, setContactPhone] = useState('');
   const [notes, setNotes] = useState('');
@@ -33,18 +49,79 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
   const [message, setMessage] = useState('');
 
   const canSubmit = useMemo(() => {
-    const parsedLat = Number(lat);
-    const parsedLng = Number(lng);
-    return (
-      address.trim().length >= 6 &&
-      Number.isFinite(parsedLat) &&
-      Number.isFinite(parsedLng) &&
-      parsedLat >= -90 &&
-      parsedLat <= 90 &&
-      parsedLng >= -180 &&
-      parsedLng <= 180
+    return address.trim().length >= 8;
+  }, [address]);
+
+  const updateAddress = (value: string) => {
+    setAddress(value);
+    setResolvedLocation(null);
+    setLocationSource(null);
+    if (message) setMessage('');
+  };
+
+  const useDeviceLocation = () => {
+    if (!navigator.geolocation) {
+      setSubmitState('error');
+      setMessage('Perangkat ini belum mendukung deteksi lokasi otomatis.');
+      return;
+    }
+
+    setIsLocating(true);
+    setMessage('');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setResolvedLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          label: 'Titik dari lokasi perangkat',
+        });
+        setLocationSource('device');
+        setIsLocating(false);
+      },
+      () => {
+        setIsLocating(false);
+        setSubmitState('error');
+        setMessage('Lokasi perangkat belum bisa dibaca. Pastikan izin lokasi aktif, atau isi alamat lebih lengkap.');
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 30000,
+      }
     );
-  }, [address, lat, lng]);
+  };
+
+  const resolveAddressLocation = async (): Promise<ResolvedLocation> => {
+    if (resolvedLocation) return resolvedLocation;
+
+    const response = await fetch(
+      `${apiRoot()}/api/v1/maps/geocode?query=${encodeURIComponent(address.trim())}&scope=web_customer`,
+      { method: 'GET' }
+    );
+    const contentType = response.headers.get('content-type') || '';
+    const body = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {};
+
+    if (!response.ok) {
+      throw new Error(body?.error || 'Alamat belum bisa divalidasi. Coba tulis alamat lebih lengkap.');
+    }
+
+    const firstResult = (Array.isArray(body?.results) ? body.results : []).find((item: GeocodeResult) => {
+      return Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude));
+    });
+
+    if (!firstResult) {
+      throw new Error('Alamat belum cukup spesifik. Tambahkan nama jalan, nomor, kecamatan, dan kota.');
+    }
+
+    const nextLocation = {
+      lat: Number(firstResult.latitude),
+      lng: Number(firstResult.longitude),
+      label: firstResult.label || address.trim(),
+    };
+    setResolvedLocation(nextLocation);
+    setLocationSource('address');
+    return nextLocation;
+  };
 
   const submitLocation = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -54,20 +131,33 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
     setMessage('');
 
     try {
+      const location = await resolveAddressLocation();
       const response = await fetch(`${apiRoot()}/api/v1/public/location-requests/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           address,
-          location: { lat: Number(lat), lng: Number(lng) },
+          location: { lat: location.lat, lng: location.lng },
           contact_name: contactName,
           contact_phone: contactPhone,
           notes,
         }),
       });
-      const body = await response.json().catch(() => ({}));
+      const contentType = response.headers.get('content-type') || '';
+      const body = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {};
       if (!response.ok || body?.success === false) {
         throw new Error(body?.message || 'Lokasi belum bisa dikirim.');
+      }
+      try {
+        window.localStorage.setItem(
+          RECEIVER_LOCATION_STORAGE_KEY,
+          JSON.stringify({
+            token,
+            submitted_at: new Date().toISOString(),
+          })
+        );
+      } catch {
+        // Cross-tab notification is best-effort. The pemesan page also polls the server.
       }
       setSubmitState('success');
       setMessage('Lokasi penerima berhasil dikirim ke pemesan.');
@@ -106,39 +196,36 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
           </span>
           <textarea
             value={address}
-            onChange={(event) => setAddress(event.target.value)}
+            onChange={(event) => updateAddress(event.target.value)}
             className="min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-            placeholder="Nama gedung, jalan, nomor, patokan, kota"
+            placeholder="Nama gedung, jalan, nomor, patokan, kecamatan, kota"
             required
           />
         </label>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-800">
-              <Navigation className="h-4 w-4 text-emerald-600" />
-              Latitude
-            </span>
-            <input
-              value={lat}
-              onChange={(event) => setLat(event.target.value)}
-              inputMode="decimal"
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-              placeholder="-6.2000"
-              required
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-sm font-bold text-slate-800">Longitude</span>
-            <input
-              value={lng}
-              onChange={(event) => setLng(event.target.value)}
-              inputMode="decimal"
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-950 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
-              placeholder="106.8166"
-              required
-            />
-          </label>
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-black text-slate-950">Titik lokasi otomatis</p>
+              <p className="mt-1 text-sm leading-5 text-slate-600">
+                Kami akan menentukan titik dari alamat. Gunakan lokasi perangkat jika penerima sedang berada di alamat tujuan.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={useDeviceLocation}
+              disabled={isLocating || submitState === 'submitting'}
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-white px-4 text-sm font-black text-emerald-700 shadow-sm ring-1 ring-emerald-100 transition hover:bg-emerald-100 active:scale-[0.98] disabled:text-slate-400"
+            >
+              {isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+              Lokasi saya
+            </button>
+          </div>
+          {resolvedLocation ? (
+            <p className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-emerald-800">
+              Titik siap dipakai dari {locationSource === 'device' ? 'lokasi perangkat' : 'alamat yang diisi'}.
+            </p>
+          ) : null}
         </div>
 
         <label className="block">

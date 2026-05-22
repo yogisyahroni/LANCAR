@@ -16,6 +16,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const midtransClientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
+
   return (
     <html lang="en" className="dark h-full antialiased" suppressHydrationWarning>
       <body className={`${inter.className} min-h-full flex flex-col bg-background text-foreground selection:bg-primary/30`}>
@@ -23,11 +25,13 @@ export default function RootLayout({
           {children}
         </QueryProvider>
         <Analytics />
-        <script 
-          src="https://app.sandbox.midtrans.com/snap/snap.js" 
-          data-client-key={process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY}
-          async
-        />
+        {midtransClientKey ? (
+          <script
+            src="https://app.sandbox.midtrans.com/snap/snap.js"
+            data-client-key={midtransClientKey}
+            async
+          />
+        ) : null}
       </body>
     </html>
   );

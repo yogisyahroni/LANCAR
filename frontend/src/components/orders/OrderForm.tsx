@@ -28,6 +28,10 @@ const coordinateSchema = z.object({
   lng: z.number()
 });
 
+const CUSTOMER_ORDER_DRAFT_KEY = "lancar_customer_order_draft_v1";
+const RECEIVER_LOCATION_STORAGE_KEY = "lancar_receiver_location_submitted_v1";
+const RECEIVER_LOCATION_POLL_MS = 4000;
+
 export const orderSchema = z.object({
   service_code: z.string().min(1, "Pilih layanan pengiriman"),
   size_tier: z.string().optional(),
@@ -816,6 +820,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
     watch,
     setValue,
     getValues,
+    reset,
     formState: { errors, isValid }
   } = useForm<OrderFormValues>({
     resolver: customZodResolver,
@@ -854,6 +859,58 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
   const item_value = watch("item_value");
   const schedule_type = watch("schedule_type");
   const scheduled_at = watch("scheduled_at");
+  const receiverLocationLinkRef = useRef<ReceiverLocationLink | null>(null);
+  const receiverLocationPollInFlightRef = useRef(false);
+  const draftHydratedRef = useRef(false);
+
+  const persistOrderDraft = useCallback((link: ReceiverLocationLink | null = receiverLocationLinkRef.current) => {
+    if (typeof window === "undefined" || !draftHydratedRef.current) return;
+    try {
+      window.sessionStorage.setItem(
+        CUSTOMER_ORDER_DRAFT_KEY,
+        JSON.stringify({
+          version: 1,
+          saved_at: new Date().toISOString(),
+          form: getValues(),
+          receiver_location_link: link
+        })
+      );
+    } catch {
+      // Session draft is a convenience layer only. Form submission remains the source of truth.
+    }
+  }, [getValues]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || draftHydratedRef.current) return;
+    draftHydratedRef.current = true;
+    try {
+      const rawDraft = window.sessionStorage.getItem(CUSTOMER_ORDER_DRAFT_KEY);
+      if (!rawDraft) return;
+      const parsedDraft = JSON.parse(rawDraft);
+      if (parsedDraft?.form && typeof parsedDraft.form === "object") {
+        reset({ ...getValues(), ...parsedDraft.form });
+      }
+      if (parsedDraft?.receiver_location_link && typeof parsedDraft.receiver_location_link === "object") {
+        const draftLink = parsedDraft.receiver_location_link as ReceiverLocationLink;
+        receiverLocationLinkRef.current = draftLink;
+        setReceiverLocationLink(draftLink);
+      }
+    } catch {
+      window.sessionStorage.removeItem(CUSTOMER_ORDER_DRAFT_KEY);
+    }
+  }, [getValues, reset]);
+
+  useEffect(() => {
+    receiverLocationLinkRef.current = receiverLocationLink;
+    persistOrderDraft(receiverLocationLink);
+  }, [persistOrderDraft, receiverLocationLink]);
+
+  useEffect(() => {
+    const subscription = watch(() => {
+      persistOrderDraft(receiverLocationLinkRef.current);
+    });
+    return () => subscription.unsubscribe();
+  }, [persistOrderDraft, watch]);
 
   const volumetricWeight = useMemo(() => {
     const l = Number(length) || 0;
@@ -982,8 +1039,10 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
       const currentNotes = getValues("customer_notes");
       setValue("customer_notes", currentNotes ? currentNotes : link.submitted_notes, { shouldDirty: true, shouldValidate: true });
     }
+    const currentLink = receiverLocationLinkRef.current;
+    persistOrderDraft(currentLink ? { ...currentLink, ...link } : link);
     return true;
-  }, [getValues, setValue]);
+  }, [getValues, persistOrderDraft, setValue]);
 
   const createReceiverLocationRequest = useCallback(async () => {
     if (!pickup_address || pickup_address.trim().length < 5) {
@@ -1003,7 +1062,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
       });
       const link = response.data?.data as ReceiverLocationLink;
       setReceiverLocationLink(link);
-      setReceiverLocationMessage("Link lokasi dibuat. Bagikan ke penerima, lalu cek jawaban setelah mereka mengisi.");
+      setReceiverLocationMessage("Link lokasi dibuat. Bagikan ke penerima. Jawaban akan masuk otomatis tanpa refresh.");
     } catch (error: any) {
       setReceiverLocationMessage(error?.response?.data?.message || "Link lokasi belum bisa dibuat.");
     } finally {
@@ -1011,31 +1070,97 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
     }
   }, [getValues, pickup_address, pickup_location]);
 
-  const refreshReceiverLocationRequest = useCallback(async () => {
-    if (!receiverLocationLink?.id) {
+  const syncReceiverLocationRequest = useCallback(async (options: { silent?: boolean } = {}) => {
+    const currentLink = receiverLocationLinkRef.current;
+    if (!currentLink?.id) {
       setReceiverLocationMessage("Buat link lokasi penerima terlebih dahulu.");
-      return;
+      return false;
+    }
+    if (receiverLocationPollInFlightRef.current) {
+      return false;
     }
 
-    setReceiverLocationBusy(true);
-    setReceiverLocationMessage(null);
+    receiverLocationPollInFlightRef.current = true;
+    if (!options.silent) {
+      setReceiverLocationBusy(true);
+      setReceiverLocationMessage(null);
+    }
     try {
-      const response = await api.get(`/customer/location-requests/${receiverLocationLink.id}`);
+      const response = await api.get(`/customer/location-requests/${currentLink.id}`);
       const link = response.data?.data as ReceiverLocationLink;
-      setReceiverLocationLink((current) => ({ ...link, url: current?.url || link.url }));
-      if (applyReceiverLocation(link)) {
-        setReceiverLocationMessage("Lokasi penerima sudah diterapkan ke detail pengiriman.");
+      const mergedLink = { ...link, url: currentLink.url || link.url };
+      setReceiverLocationLink(mergedLink);
+      if (applyReceiverLocation(mergedLink)) {
+        setReceiverLocationMessage(options.silent ? "Alamat penerima masuk otomatis ke detail pengiriman." : "Lokasi penerima sudah diterapkan ke detail pengiriman.");
+        return true;
       } else if (link.status === "expired") {
-        setReceiverLocationMessage("Link sudah kedaluwarsa. Buat link baru jika penerima belum mengisi.");
-      } else {
+        if (!options.silent) {
+          setReceiverLocationMessage("Link sudah kedaluwarsa. Buat link baru jika penerima belum mengisi.");
+        }
+      } else if (!options.silent) {
         setReceiverLocationMessage("Penerima belum mengirim lokasi. Cek kembali setelah mereka selesai mengisi.");
       }
+      return false;
     } catch (error: any) {
-      setReceiverLocationMessage(error?.response?.data?.message || "Status lokasi penerima belum bisa dicek.");
+      if (!options.silent) {
+        setReceiverLocationMessage(error?.response?.data?.message || "Status lokasi penerima belum bisa dicek.");
+      }
+      return false;
     } finally {
-      setReceiverLocationBusy(false);
+      receiverLocationPollInFlightRef.current = false;
+      if (!options.silent) {
+        setReceiverLocationBusy(false);
+      }
     }
-  }, [applyReceiverLocation, receiverLocationLink?.id]);
+  }, [applyReceiverLocation]);
+
+  const refreshReceiverLocationRequest = useCallback(async () => {
+    await syncReceiverLocationRequest({ silent: false });
+  }, [syncReceiverLocationRequest]);
+
+  useEffect(() => {
+    if (!receiverLocationLink?.id || receiverLocationLink.status !== "pending") return;
+
+    const pollReceiverLocation = () => {
+      void syncReceiverLocationRequest({ silent: true });
+    };
+    const handleVisibilitySync = () => {
+      if (document.visibilityState === "visible") {
+        pollReceiverLocation();
+      }
+    };
+    const intervalId = window.setInterval(pollReceiverLocation, RECEIVER_LOCATION_POLL_MS);
+    window.addEventListener("focus", pollReceiverLocation);
+    document.addEventListener("visibilitychange", handleVisibilitySync);
+    pollReceiverLocation();
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", pollReceiverLocation);
+      document.removeEventListener("visibilitychange", handleVisibilitySync);
+    };
+  }, [receiverLocationLink?.id, receiverLocationLink?.status, syncReceiverLocationRequest]);
+
+  useEffect(() => {
+    if (!receiverLocationLink?.url) return;
+    const receiverToken = receiverLocationLink.url.split("/").filter(Boolean).pop();
+    if (!receiverToken) return;
+
+    const handleReceiverLocationSignal = (event: StorageEvent) => {
+      if (event.key !== RECEIVER_LOCATION_STORAGE_KEY || !event.newValue) return;
+      try {
+        const payload = JSON.parse(event.newValue);
+        if (payload?.token === receiverToken) {
+          void syncReceiverLocationRequest({ silent: true });
+        }
+      } catch {
+        // Ignore malformed cross-tab messages.
+      }
+    };
+
+    window.addEventListener("storage", handleReceiverLocationSignal);
+    return () => window.removeEventListener("storage", handleReceiverLocationSignal);
+  }, [receiverLocationLink?.url, syncReceiverLocationRequest]);
 
   const copyReceiverLocationLink = useCallback(async () => {
     const url = receiverLocationLink?.url;
@@ -1180,7 +1305,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
               <div>
                 <p className="text-sm font-semibold text-emerald-300">Minta lokasi dari penerima</p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Buat link aman agar penerima mengisi alamat, titik koordinat, catatan, dan kontak. Setelah terkirim, sistem bisa menerapkan dropoff tanpa input ulang.
+                  Buat link aman agar penerima mengisi alamat, titik lokasi, catatan, dan kontak. Setelah terkirim, sistem menerapkan dropoff otomatis tanpa input ulang.
                 </p>
                 {receiverLocationLink && (
                   <p className="mt-2 text-xs text-muted-foreground">
@@ -1197,7 +1322,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
                   className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-400 disabled:opacity-60"
                 >
                   {receiverLocationBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : receiverLocationLink ? <RefreshCw className="h-4 w-4" /> : <Navigation className="h-4 w-4" />}
-                  {receiverLocationLink ? "Cek jawaban" : "Buat link"}
+                  {receiverLocationLink ? "Sinkronkan" : "Buat link"}
                 </button>
                 {receiverLocationLink?.url && (
                   <button

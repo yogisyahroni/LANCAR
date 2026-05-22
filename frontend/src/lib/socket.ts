@@ -18,7 +18,7 @@ export const getSocket = (userId?: string, role: string = 'customer') => {
     socket = io(SOCKET_URL, {
       query: { userId, role },
       withCredentials: true,
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
     });
 
     socket.on('connect', () => {

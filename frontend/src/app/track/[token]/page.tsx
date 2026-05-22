@@ -22,7 +22,11 @@ type PublicTrackingResponse = {
 };
 
 const apiRoot = () => {
-  const configured = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+  const configured =
+    process.env.SERVER_API_URL ||
+    process.env.INTERNAL_API_URL ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    'http://localhost:8080/api/v1';
   return configured.replace(/\/api\/v1\/?$/, '');
 };
 
@@ -45,15 +49,23 @@ const formatTime = (value?: string | null) => {
 };
 
 async function getTracking(token: string): Promise<PublicTrackingResponse> {
-  const response = await fetch(`${apiRoot()}/track/${token}`, {
-    cache: 'no-store',
-    next: { revalidate: 0 },
-  });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    return { success: false, message: body?.message || 'Link tracking tidak tersedia.' };
+  try {
+    const response = await fetch(`${apiRoot()}/track/${token}`, {
+      cache: 'no-store',
+      next: { revalidate: 0 },
+    });
+    const contentType = response.headers.get('content-type') || '';
+    const body = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {};
+    if (!response.ok) {
+      return { success: false, message: body?.message || 'Link tracking tidak tersedia.' };
+    }
+    return body;
+  } catch {
+    return {
+      success: false,
+      message: 'Layanan tracking sedang tidak tersedia. Coba muat ulang beberapa saat lagi.',
+    };
   }
-  return body;
 }
 
 export default async function PublicTrackingPage({ params }: { params: Promise<{ token: string }> }) {
