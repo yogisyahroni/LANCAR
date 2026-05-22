@@ -1041,26 +1041,33 @@ const enrichRouteSnapshot = (
   providerConfig: PublicMapsProviderConfig,
   context: ReturnType<typeof routeContext>,
   confidence: RouteEtaSnapshot['confidence']
-): RouteEtaSnapshot => ({
-  generated_at: new Date().toISOString(),
-  eta: route.eta ?? fallback.eta,
-  eta_minutes: route.eta_minutes ?? fallback.eta_minutes,
-  distance_km: Number((route.distance_km ?? fallback.distance_km).toFixed(2)),
-  distance_meters: Math.max(1, Math.round(route.distance_meters ?? ((route.distance_km ?? fallback.distance_km) * 1000))),
-  duration_seconds: route.duration_seconds ?? (((route.eta_minutes ?? fallback.eta_minutes) || 0) * 60),
-  route_polyline: route.route_polyline ?? null,
-  route_geometry: route.route_geometry ?? (route.route_polyline ?? null),
-  provider: route.provider || fallback.provider,
-  requested_provider: providerConfig.requested_provider,
-  active_provider: providerConfig.active_provider,
-  scope: context.scope,
-  route_profile: context.route_profile,
-  vehicle_type: context.vehicle_type,
-  service_code: context.service_code,
-  traffic_aware: Boolean(route.traffic_aware),
-  confidence,
-  fallback_reason: route.fallback_reason ?? null,
-});
+): RouteEtaSnapshot => {
+  const rawDurationSeconds = route.duration_seconds ?? (((route.eta_minutes ?? fallback.eta_minutes) || 0) * 60);
+  const normalizedDurationSeconds = Number.isFinite(Number(rawDurationSeconds))
+    ? Math.max(1, Math.round(Number(rawDurationSeconds)))
+    : null;
+
+  return {
+    generated_at: new Date().toISOString(),
+    eta: route.eta ?? fallback.eta,
+    eta_minutes: route.eta_minutes ?? fallback.eta_minutes,
+    distance_km: Number((route.distance_km ?? fallback.distance_km).toFixed(2)),
+    distance_meters: Math.max(1, Math.round(route.distance_meters ?? ((route.distance_km ?? fallback.distance_km) * 1000))),
+    duration_seconds: normalizedDurationSeconds,
+    route_polyline: route.route_polyline ?? null,
+    route_geometry: route.route_geometry ?? (route.route_polyline ?? null),
+    provider: route.provider || fallback.provider,
+    requested_provider: providerConfig.requested_provider,
+    active_provider: providerConfig.active_provider,
+    scope: context.scope,
+    route_profile: context.route_profile,
+    vehicle_type: context.vehicle_type,
+    service_code: context.service_code,
+    traffic_aware: Boolean(route.traffic_aware),
+    confidence,
+    fallback_reason: route.fallback_reason ?? null,
+  };
+};
 
 const googleRoutesEndpoint = () => assertAllowlistedGoogleRoutesUrl(
   envText('GOOGLE_ROUTES_API_URL') || 'https://routes.googleapis.com/directions/v2:computeRoutes'

@@ -109,7 +109,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db-read:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       AUTH_PORT: ${AUTH_PORT:-8081}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
@@ -197,7 +197,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db-read:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       ROUTING_PORT: 8082
       ROUTING_SERVICE_PORT: 8082
@@ -230,7 +230,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db-read:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       ORDER_PORT: ${ORDER_PORT:-8083}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}

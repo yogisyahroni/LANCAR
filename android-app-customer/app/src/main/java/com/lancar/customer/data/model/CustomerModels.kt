@@ -93,7 +93,7 @@ data class RouteSnapshot(
     @SerialName("service_code") val serviceCode: String? = null,
     @SerialName("distance_km") val distanceKm: Double = 0.0,
     @SerialName("distance_meters") val distanceMeters: Int = 0,
-    @SerialName("duration_seconds") val durationSeconds: Int? = null,
+    @SerialName("duration_seconds") val durationSeconds: Double? = null,
     @SerialName("eta") val eta: String? = null,
     @SerialName("eta_minutes") val etaMinutes: Int? = null,
     @SerialName("route_polyline") val routePolyline: String? = null,
