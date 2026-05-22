@@ -25,11 +25,22 @@ CREATE TABLE IF NOT EXISTS customer_receiver_location_requests (
 ALTER TABLE customer_receiver_location_requests
   DROP CONSTRAINT IF EXISTS customer_receiver_location_requests_customer_id_fkey;
 
-ALTER TABLE customer_receiver_location_requests
-  ADD CONSTRAINT customer_receiver_location_requests_customer_id_fkey
-  FOREIGN KEY (customer_id)
-  REFERENCES customers(id)
-  ON DELETE CASCADE;
+DO $$
+BEGIN
+  IF to_regclass('public.customers') IS NOT NULL THEN
+    ALTER TABLE customer_receiver_location_requests
+      ADD CONSTRAINT customer_receiver_location_requests_customer_id_fkey
+      FOREIGN KEY (customer_id)
+      REFERENCES customers(id)
+      ON DELETE CASCADE;
+  ELSIF to_regclass('public.users') IS NOT NULL THEN
+    ALTER TABLE customer_receiver_location_requests
+      ADD CONSTRAINT customer_receiver_location_requests_customer_id_fkey
+      FOREIGN KEY (customer_id)
+      REFERENCES users(id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_customer_receiver_location_requests_customer
   ON customer_receiver_location_requests(customer_id, created_at DESC);
@@ -46,9 +57,14 @@ CREATE INDEX IF NOT EXISTS idx_customer_receiver_location_requests_submitted_loc
 ALTER TABLE customer_receiver_location_requests
   DROP CONSTRAINT IF EXISTS customer_receiver_location_requests_customer_id_fkey;
 
-ALTER TABLE customer_receiver_location_requests
-  ADD CONSTRAINT customer_receiver_location_requests_customer_id_fkey
-  FOREIGN KEY (customer_id)
-  REFERENCES users(id)
-  ON DELETE CASCADE;
+DO $$
+BEGIN
+  IF to_regclass('public.users') IS NOT NULL THEN
+    ALTER TABLE customer_receiver_location_requests
+      ADD CONSTRAINT customer_receiver_location_requests_customer_id_fkey
+      FOREIGN KEY (customer_id)
+      REFERENCES users(id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
 -- +goose StatementEnd

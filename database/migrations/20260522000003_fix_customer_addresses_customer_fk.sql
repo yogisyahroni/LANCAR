@@ -21,11 +21,22 @@ CREATE TABLE IF NOT EXISTS customer_addresses (
 ALTER TABLE customer_addresses
     DROP CONSTRAINT IF EXISTS customer_addresses_customer_id_fkey;
 
-ALTER TABLE customer_addresses
-    ADD CONSTRAINT customer_addresses_customer_id_fkey
-    FOREIGN KEY (customer_id)
-    REFERENCES customers(id)
-    ON DELETE CASCADE;
+DO $$
+BEGIN
+  IF to_regclass('public.customers') IS NOT NULL THEN
+    ALTER TABLE customer_addresses
+      ADD CONSTRAINT customer_addresses_customer_id_fkey
+      FOREIGN KEY (customer_id)
+      REFERENCES customers(id)
+      ON DELETE CASCADE;
+  ELSIF to_regclass('public.users') IS NOT NULL THEN
+    ALTER TABLE customer_addresses
+      ADD CONSTRAINT customer_addresses_customer_id_fkey
+      FOREIGN KEY (customer_id)
+      REFERENCES users(id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_customer_addresses_customer_active
     ON customer_addresses(customer_id)
@@ -45,9 +56,14 @@ CREATE INDEX IF NOT EXISTS idx_customer_addresses_location
 ALTER TABLE customer_addresses
     DROP CONSTRAINT IF EXISTS customer_addresses_customer_id_fkey;
 
-ALTER TABLE customer_addresses
-    ADD CONSTRAINT customer_addresses_customer_id_fkey
-    FOREIGN KEY (customer_id)
-    REFERENCES users(id)
-    ON DELETE CASCADE;
+DO $$
+BEGIN
+  IF to_regclass('public.users') IS NOT NULL THEN
+    ALTER TABLE customer_addresses
+      ADD CONSTRAINT customer_addresses_customer_id_fkey
+      FOREIGN KEY (customer_id)
+      REFERENCES users(id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
 -- +goose StatementEnd
