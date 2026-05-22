@@ -154,7 +154,15 @@ describe('on-demand tracking policy', () => {
       distance_meters: 5100,
       traffic_aware: true,
     }));
-    expect(redis.set).toHaveBeenCalledWith(expect.stringMatching(/^route:on-demand:/), expect.any(String), 'EX', 60);
+    const routeCacheWrites = (redis.set as jest.Mock).mock.calls.filter((call: any[]) =>
+      typeof call[0] === 'string' && call[0].startsWith('route:on-demand:')
+    );
+    expect(routeCacheWrites).toEqual(
+      expect.arrayContaining([
+        [expect.stringMatching(/^route:on-demand:[^:]+$/), expect.any(String), 'EX', 300],
+        [expect.stringMatching(/^route:on-demand:[^:]+:stale$/), expect.any(String), 'EX', 86400],
+      ])
+    );
 
     process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED = 'true';
     (redis.get as jest.Mock).mockResolvedValueOnce(null);
