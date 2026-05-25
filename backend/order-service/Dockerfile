@@ -3,7 +3,7 @@
 # ============================================================
 
 # Stage 1: Builder
-FROM golang:1.24.3-alpine AS builder
+FROM golang:1.25.10-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
@@ -26,7 +26,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     ./cmd/api/main.go
 
 # Stage 2: Final
-FROM alpine:3.20
+FROM alpine:3.22
 
 RUN apk --no-cache add ca-certificates tzdata && \
     addgroup -S appgroup && \

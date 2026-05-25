@@ -13,7 +13,9 @@ RUN npm run build
 # Production stage — gunakan serve (static file server, sangat ringan)
 FROM node:22-alpine
 WORKDIR /app
-RUN npm install -g serve
+RUN npm install -g serve && \
+    npm cache clean --force && \
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 COPY --from=build /app/dist ./dist
 

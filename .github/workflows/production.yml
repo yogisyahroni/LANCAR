@@ -46,7 +46,7 @@ jobs:
       # Go Services
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.3'
+          go-version: '1.25.10'
       - run: |
           cd backend/auth-service && go mod tidy && go test -v -timeout 5m ./...
           cd ../routing-service && go mod tidy && go test -v -timeout 5m ./...
@@ -128,7 +128,7 @@ jobs:
         with:
           scan-type: image
           image-ref: lancar-local/${{ matrix.image }}:${{ github.sha }}
-          scanners: secret,vuln,config
+          scanners: secret,vuln,misconfig
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: '1'

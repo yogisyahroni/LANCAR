@@ -4,7 +4,7 @@
 # ============================================================
 
 # Stage 1: Builder
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 
 # Security: create non-root user
 RUN addgroup -S appgroup && \
@@ -35,7 +35,8 @@ COPY package*.json ./
 
 # Install production dependencies only
 RUN npm ci --omit=dev --ignore-scripts && \
-    npm cache clean --force
+    npm cache clean --force && \
+    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 # Copy built dist from builder
 COPY --from=builder /app/dist ./dist
