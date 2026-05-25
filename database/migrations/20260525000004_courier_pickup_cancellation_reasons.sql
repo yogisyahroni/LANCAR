@@ -1,6 +1,7 @@
 -- P0: Move courier pickup cancellation reasons out of mobile/backend source code.
 -- These rows are operational configuration and can be managed through admin tooling later.
 
+-- +goose Up
 CREATE TABLE IF NOT EXISTS courier_pickup_cancellation_reasons (
   code TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -31,5 +32,6 @@ ON CONFLICT (code) DO UPDATE SET
   display_order = EXCLUDED.display_order,
   updated_at = NOW();
 
--- down
--- DROP TABLE IF EXISTS courier_pickup_cancellation_reasons;
+-- +goose Down
+DROP INDEX IF EXISTS idx_courier_pickup_cancellation_reasons_active_order;
+DROP TABLE IF EXISTS courier_pickup_cancellation_reasons;
