@@ -116,7 +116,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
       - name: Generate CycloneDX SBOM
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: lancar-local/${{ matrix.image }}:${{ github.sha }}
@@ -124,7 +124,7 @@ jobs:
           output: sbom-${{ matrix.image }}.cdx.json
 
       - name: Scan image for secrets, vulnerabilities, and config risks
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
           image-ref: lancar-local/${{ matrix.image }}:${{ github.sha }}
