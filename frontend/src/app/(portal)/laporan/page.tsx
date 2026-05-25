@@ -1,611 +1,632 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { downloadCsv } from '@/lib/csv';
-import { useNotificationStore } from '@/store/useNotificationStore';
-import { 
-  BarChart3, 
-  Calendar, 
-  Download, 
-  FileSpreadsheet, 
-  FileText, 
-  Loader2, 
-  Lock, 
-  Sparkles, 
-  TrendingUp, 
-  Wallet, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  ChevronRight, 
-  Filter,
-  RefreshCw 
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { motion } from 'framer-motion';
+import {
+  BarChart3,
+  Calendar,
+  CheckCircle,
+  FileSpreadsheet,
+  FileText,
+  Loader2,
+  RefreshCw,
+  TrendingUp,
+  Wallet,
+  XCircle,
 } from 'lucide-react';
+import { api } from '@/lib/api';
+import { downloadCsv, type CsvRow } from '@/lib/csv';
+import { useNotificationStore } from '@/store/useNotificationStore';
 
-// Data shapes for our components
-interface OrderSummary {
-  totalOrders: number;
-  completed: number;
-  failed: number;
-  totalSpend: number;
-  onTimeRate: number;
-  avgWeight: number;
-  avgCost: number;
+type ReportPeriod = 'bulan_ini' | 'bulan_lalu' | 'q1' | 'q2' | 'q3' | 'q4' | 'custom';
+
+interface ReportSummary {
+  total_orders: number;
+  completed_orders: number;
+  failed_orders: number;
+  total_spend: number;
+  completion_rate: number | null;
+  on_time_rate: number | null;
+  avg_weight: number;
+  avg_cost: number;
 }
 
-interface ChartPoint {
-  day: number;
-  orders: number;
-  spend: number;
+interface ReportTrendPoint {
+  date: string;
+  label: string;
+  order_count: number;
+  total_spend: number;
 }
 
-export default function LaporanPage() {
-  const { addNotification } = useNotificationStore();
+interface ReportModelDistribution {
+  name: string;
+  count: number;
+  total_spend: number;
+}
 
-  // Premium / Upgrade Simulation Toggle
-  const [isPremium, setIsPremium] = useState(false);
+interface ReportDestinationZone {
+  zone: string;
+  order_count: number;
+  total_spend: number;
+}
 
-  // Filter conditions & state
-  const [period, setPeriod] = useState<string>('bulan_ini');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+interface ReportExportRow {
+  no_order: string;
+  tanggal: string;
+  penerima: string;
+  tujuan: string;
+  berat_kg: number;
+  model: string;
+  harga: number;
+  status: string;
+}
 
-  // Loaded report data state
-  const [loading, setLoading] = useState(false);
-  const [summary, setSummary] = useState<OrderSummary>({
-    totalOrders: 0,
-    completed: 0,
-    failed: 0,
-    totalSpend: 0,
-    onTimeRate: 0,
-    avgWeight: 0,
-    avgCost: 0,
-  });
-
-  const [trendData, setTrendData] = useState<ChartPoint[]>([]);
-  const [modelDistribution, setModelDistribution] = useState<{ name: string; value: number }[]>([]);
-  const [destinationZones, setDestinationZones] = useState<{ zone: string; orders: number }[]>([]);
-
-  // Action / Generation loading states
-  const [isExportingExcel, setIsExportingExcel] = useState(false);
-  const [isExportingPDF, setIsExportingPDF] = useState(false);
-
-  // Set default initial data
-  useEffect(() => {
-    // Check if premium mode or simulate data
-    const savedPremium = localStorage.getItem('lancar_umkm_premium');
-    if (savedPremium === 'true') {
-      setIsPremium(true);
-    }
-    loadData();
-  }, [period, isPremium]);
-
-  const togglePremiumMode = (val: boolean) => {
-    setIsPremium(val);
-    localStorage.setItem('lancar_umkm_premium', String(val));
-    addNotification({
-      title: val ? 'Premium Aktif' : 'Status Reset',
-      message: val ? 'Selamat! Mode Premium UMKM berhasil diaktifkan.' : 'Mode UMKM dinonaktifkan.',
-      type: val ? 'success' : 'info',
-    });
+interface UmkmReportData {
+  period: ReportPeriod;
+  range: {
+    start_date: string;
+    end_date: string;
   };
+  summary: ReportSummary;
+  trend: ReportTrendPoint[];
+  model_distribution: ReportModelDistribution[];
+  destination_zones: ReportDestinationZone[];
+  export_rows: ReportExportRow[];
+}
 
-  const loadData = () => {
-    setLoading(true);
+const periodOptions: Array<{ value: ReportPeriod; label: string }> = [
+  { value: 'bulan_ini', label: 'Bulan Ini' },
+  { value: 'bulan_lalu', label: 'Bulan Lalu' },
+  { value: 'q1', label: 'Q1' },
+  { value: 'q2', label: 'Q2' },
+  { value: 'q3', label: 'Q3' },
+  { value: 'q4', label: 'Q4' },
+];
 
-    // Dynamic data generator simulating full backend response based on period
-    setTimeout(() => {
-      let multiplier = 1;
-      if (period === 'bulan_lalu') multiplier = 1.15;
-      if (period === 'Q1') multiplier = 2.8;
-      if (period === 'Q2') multiplier = 3.2;
-      if (period === 'Q3') multiplier = 3.5;
-      if (period === 'Q4') multiplier = 4.1;
+const distributionColors = ['#009864', '#6366f1', '#f97316', '#0ea5e9', '#f43f5e', '#a855f7'];
 
-      const baseOrders = Math.round(48 * multiplier);
-      const baseSpend = Math.round(7200000 * multiplier);
+const formatCurrency = (value: number) => new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  maximumFractionDigits: 0,
+}).format(value);
 
-      setSummary({
-        totalOrders: baseOrders,
-        completed: Math.round(baseOrders * 0.94),
-        failed: Math.round(baseOrders * 0.06),
-        totalSpend: baseSpend,
-        onTimeRate: 98.4,
-        avgWeight: 2.35,
-        avgCost: Math.round(baseSpend / baseOrders),
-      });
+const formatNumber = (value: number) => new Intl.NumberFormat('id-ID').format(value);
 
-      // Daily Trend Data Generation for Premium Charting
-      const dailyPoints: ChartPoint[] = [];
-      const days = period.startsWith('Q') ? 90 : 30;
-      for (let i = 1; i <= days; i++) {
-        if (days === 90 && i % 3 !== 0) continue; // Sample days for longer periods
-        dailyPoints.push({
-          day: i,
-          orders: Math.round(2 + Math.sin(i * 0.4) * 1.5 + multiplier * 0.5),
-          spend: Math.round(300000 + Math.sin(i * 0.4) * 120000 * multiplier),
-        });
-      }
-      setTrendData(dailyPoints);
+const formatPercent = (value: number | null) => (value === null ? '-' : `${value.toFixed(1)}%`);
 
-      // Model distribution breakdown
-      setModelDistribution([
-        { name: 'P2P (Same Day)', value: Math.round(baseOrders * 0.65) },
-        { name: '2-Kaki (Next Day)', value: Math.round(baseOrders * 0.35) },
-      ]);
+const defaultReportData: UmkmReportData = {
+  period: 'bulan_ini',
+  range: {
+    start_date: '',
+    end_date: '',
+  },
+  summary: {
+    total_orders: 0,
+    completed_orders: 0,
+    failed_orders: 0,
+    total_spend: 0,
+    completion_rate: null,
+    on_time_rate: null,
+    avg_weight: 0,
+    avg_cost: 0,
+  },
+  trend: [],
+  model_distribution: [],
+  destination_zones: [],
+  export_rows: [],
+};
 
-      // Destination zones breakdown
-      setDestinationZones([
-        { zone: 'Jabodetabek', orders: Math.round(baseOrders * 0.45) },
-        { zone: 'Jawa Barat', orders: Math.round(baseOrders * 0.22) },
-        { zone: 'Jawa Tengah', orders: Math.round(baseOrders * 0.15) },
-        { zone: 'Jawa Timur', orders: Math.round(baseOrders * 0.11) },
-        { zone: 'Luar Jawa', orders: Math.round(baseOrders * 0.07) },
-      ]);
+const chartWidth = 720;
+const chartHeight = 260;
+const chartPadding = 36;
 
-      setLoading(false);
-    }, 450);
-  };
+const buildPolylinePoints = (values: number[]) => {
+  if (values.length === 0) return '';
 
-  const handleExportCsv = () => {
-    setIsExportingExcel(true);
-    setTimeout(() => {
-      try {
-        const orderRows = [
-          {
-            'No Resi': 'LCR-2026-0001',
-            'Tanggal': '2026-05-01',
-            'Penerima': 'Siska Amalia',
-            'Alamat': 'Jl. Kebagusan Dalam No. 12, Jakarta Selatan',
-            'Berat (kg)': 1.5,
-            'Model': 'P2P',
-            'Harga (Rp)': 15000,
-            'Status': 'DELIVERED',
-          },
-          {
-            'No Resi': 'LCR-2026-0002',
-            'Tanggal': '2026-05-02',
-            'Penerima': 'Budi Santoso',
-            'Alamat': 'Jl. Braga No. 89, Bandung',
-            'Berat (kg)': 3.0,
-            'Model': '2-Kaki',
-            'Harga (Rp)': 45000,
-            'Status': 'DELIVERED',
-          },
-          {
-            'No Resi': 'LCR-2026-0003',
-            'Tanggal': '2026-05-03',
-            'Penerima': 'Doni Haris',
-            'Alamat': 'Jl. Ahmad Yani No. 100, Surabaya',
-            'Berat (kg)': 2.5,
-            'Model': 'P2P',
-            'Harga (Rp)': 25000,
-            'Status': 'DELIVERED',
-          },
-        ];
+  const maxValue = Math.max(...values, 1);
+  const usableWidth = chartWidth - chartPadding * 2;
+  const usableHeight = chartHeight - chartPadding * 2;
+  const xStep = values.length > 1 ? usableWidth / (values.length - 1) : usableWidth;
 
-        downloadCsv(`Laporan_UMKM_${period.toUpperCase()}_LANCAR.csv`, orderRows);
-        addNotification({ title: 'Sukses Export', message: 'Laporan CSV berhasil diunduh.', type: 'success' });
-      } catch (err) {
-        console.error('Failed to export report CSV:', err);
-        addNotification({ title: 'Gagal', message: 'Gagal mengunduh laporan CSV.', type: 'error' });
-      } finally {
-        setIsExportingExcel(false);
-      }
-    }, 600);
-  };
+  return values.map((value, index) => {
+    const x = chartPadding + index * xStep;
+    const y = chartPadding + usableHeight - ((value / maxValue) * usableHeight);
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  }).join(' ');
+};
 
-  // Simulated server PDF print trigger (Puppeteer)
-  const handleExportPDF = () => {
-    setIsExportingPDF(true);
-    setTimeout(() => {
-      setIsExportingPDF(false);
-      addNotification({
-        title: 'Sukses Cetak PDF',
-        message: 'Laporan PDF performa UMKM berhasil diunduh.',
-        type: 'success',
-      });
-    }, 2200);
-  };
-
-  // Conditional Upgrade/Notice view for non-premium customers (<10 orders)
-  if (!isPremium) {
-    return (
-      <div className="space-y-6 select-none max-w-4xl mx-auto py-8">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="bg-card border border-border/40 p-8 rounded-2xl text-center space-y-6 shadow-sm select-none relative overflow-hidden"
-        >
-          {/* Accent decoration background */}
-          <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-transparent pointer-events-none" />
-
-          <div className="mx-auto h-16 w-16 bg-primary/10 border border-primary/20 flex items-center justify-center rounded-2xl select-none mb-4">
-            <Lock className="h-7 w-7 text-primary" />
-          </div>
-
-          <div className="max-w-md mx-auto space-y-2 select-none">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground flex items-center justify-center gap-2 select-none">
-              Fitur Laporan UMKM Terkunci
-            </h2>
-            <p className="text-xs text-muted-foreground leading-relaxed select-none">
-              Dashboard laporan mendalam dan analisis performa UMKM hanya tersedia untuk pelanggan yang melakukan lebih dari 10 pengiriman per bulan.
-            </p>
-          </div>
-
-          {/* Simulated Premium activation or Unlock activator */}
-          <div className="p-4 bg-muted/40 border border-border/40 rounded-xl max-w-sm mx-auto space-y-3 select-none">
-            <span className="text-xs font-bold text-foreground block select-none">
-              Ingin mengevaluasi Laporan UMKM sekarang?
-            </span>
-            <button
-              onClick={() => togglePremiumMode(true)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
-            >
-              <Sparkles className="h-4 w-4" /> Aktifkan Mode Premium UMKM
-            </button>
-          </div>
-        </motion.div>
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="h-24 rounded-[28px] border border-white/10 bg-white/5 animate-pulse" />
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div key={index} className="h-36 rounded-[28px] border border-white/10 bg-white/5 animate-pulse" />
+        ))}
       </div>
-    );
+      <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_0.7fr] gap-6">
+        <div className="h-96 rounded-[28px] border border-white/10 bg-white/5 animate-pulse" />
+        <div className="h-96 rounded-[28px] border border-white/10 bg-white/5 animate-pulse" />
+      </div>
+    </div>
+  );
+}
+
+function EmptyPanel({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="flex min-h-[220px] flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/[0.03] p-8 text-center">
+      <BarChart3 className="mb-4 h-10 w-10 text-zinc-600" />
+      <p className="text-lg font-semibold text-white">{title}</p>
+      <p className="mt-2 max-w-md text-sm text-zinc-500">{message}</p>
+    </div>
+  );
+}
+
+function TrendLineChart({ data }: { data: ReportTrendPoint[] }) {
+  if (data.length === 0) {
+    return <EmptyPanel title="Belum ada tren" message="Belum ada order pada periode ini, jadi grafik belum dapat dibentuk." />;
   }
 
+  const orderPoints = buildPolylinePoints(data.map((item) => item.order_count));
+  const spendPoints = buildPolylinePoints(data.map((item) => item.total_spend));
+  const maxSpend = Math.max(...data.map((item) => item.total_spend), 0);
+  const hasSpend = maxSpend > 0;
+
   return (
-    <div className="space-y-6 select-none">
-      {/* Upper header section */}
+    <div className="rounded-[28px] border border-white/10 bg-black/20 p-5">
+      <div className="mb-4 flex flex-wrap items-center gap-4 text-xs font-semibold text-zinc-400">
+        <span className="inline-flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          Jumlah order
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-indigo-500" />
+          Pengeluaran
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="h-[300px] w-full overflow-visible" role="img" aria-label="Tren order dan pengeluaran harian">
+        <defs>
+          <linearGradient id="umkmSpendGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.9" />
+          </linearGradient>
+        </defs>
+        {[0, 1, 2, 3].map((line) => {
+          const y = chartPadding + (line * ((chartHeight - chartPadding * 2) / 3));
+          return (
+            <line
+              key={line}
+              x1={chartPadding}
+              x2={chartWidth - chartPadding}
+              y1={y}
+              y2={y}
+              stroke="rgba(148, 163, 184, 0.18)"
+              strokeDasharray="6 8"
+            />
+          );
+        })}
+        {hasSpend && (
+          <polyline
+            fill="none"
+            points={spendPoints}
+            stroke="url(#umkmSpendGradient)"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="4"
+          />
+        )}
+        <polyline
+          fill="none"
+          points={orderPoints}
+          stroke="#009864"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="4"
+        />
+        {data.map((item, index) => {
+          const values = data.map((point) => point.order_count);
+          const maxValue = Math.max(...values, 1);
+          const usableWidth = chartWidth - chartPadding * 2;
+          const usableHeight = chartHeight - chartPadding * 2;
+          const xStep = data.length > 1 ? usableWidth / (data.length - 1) : usableWidth;
+          const x = chartPadding + index * xStep;
+          const y = chartPadding + usableHeight - ((item.order_count / maxValue) * usableHeight);
+          const shouldShowLabel = data.length <= 12 || index === 0 || index === data.length - 1 || index % Math.ceil(data.length / 8) === 0;
+
+          return (
+            <g key={item.date}>
+              <circle cx={x} cy={y} r="5" fill="#050505" stroke="#009864" strokeWidth="3" />
+              {shouldShowLabel && (
+                <text x={x} y={chartHeight - 8} textAnchor="middle" className="fill-zinc-500 text-[12px] font-semibold">
+                  {item.label}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+export default function UMKMReportsPage() {
+  const { addNotification } = useNotificationStore();
+  const [period, setPeriod] = useState<ReportPeriod>('bulan_ini');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [reportData, setReportData] = useState<UmkmReportData>(defaultReportData);
+  const [loading, setLoading] = useState(true);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+
+  const hasOrders = reportData.summary.total_orders > 0;
+  const maxModelCount = useMemo(
+    () => Math.max(...reportData.model_distribution.map((item) => item.count), 1),
+    [reportData.model_distribution],
+  );
+  const maxZoneCount = useMemo(
+    () => Math.max(...reportData.destination_zones.map((item) => item.order_count), 1),
+    [reportData.destination_zones],
+  );
+
+  const loadReport = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, string> = { period };
+      if (period === 'custom') {
+        params.start_date = startDate;
+        params.end_date = endDate;
+      }
+
+      const response = await api.get('/auth/web/reports/umkm', { params });
+      setReportData(response.data.data || defaultReportData);
+    } catch (error: any) {
+      setReportData(defaultReportData);
+      addNotification({
+        title: 'Gagal memuat laporan',
+        message: error?.response?.data?.message || 'Data laporan belum dapat diambil dari database.',
+        type: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [addNotification, endDate, period, startDate]);
+
+  useEffect(() => {
+    if (period === 'custom' && (!startDate || !endDate)) {
+      setLoading(false);
+      return;
+    }
+
+    loadReport();
+  }, [loadReport, period, startDate, endDate]);
+
+  const handleExportCsv = async () => {
+    if (reportData.export_rows.length === 0) {
+      addNotification({
+        title: 'Tidak ada data',
+        message: 'Tidak ada order pada periode ini untuk diekspor.',
+        type: 'warning',
+      });
+      return;
+    }
+
+    setIsExportingCsv(true);
+    try {
+      const csvRows: CsvRow[] = reportData.export_rows.map((row) => ({
+        no_order: row.no_order,
+        tanggal: row.tanggal,
+        penerima: row.penerima,
+        tujuan: row.tujuan,
+        status: row.status,
+        model: row.model,
+        berat_kg: row.berat_kg,
+        harga: row.harga,
+      }));
+      downloadCsv(`laporan-umkm-${reportData.range.start_date}-${reportData.range.end_date}.csv`, csvRows);
+      addNotification({
+        title: 'CSV siap',
+        message: 'Laporan dari database berhasil diunduh.',
+        type: 'success',
+      });
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
+
+  const handlePrintReport = () => {
+    window.print();
+  };
+
+  return (
+    <div className="space-y-8">
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
+        initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-center justify-between gap-6 select-none"
+        transition={{ duration: 0.3 }}
+        className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"
       >
         <div>
-          <div className="flex items-center gap-2 select-none">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
-              Dashboard & Laporan UMKM
-            </h1>
-            <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 font-bold px-2 py-0.5 rounded-full select-none flex items-center gap-1">
-              <Sparkles className="h-3 w-3" /> PREMIUM
-            </span>
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.24em] text-emerald-400">
+            <BarChart3 className="h-4 w-4" />
+            Database Report
           </div>
-          <p className="text-sm text-muted-foreground mt-1 select-none">
-            Pantau dan analisis perkembangan metrik pengiriman dan biaya bisnis Anda secara terpusat.
+          <h1 className="text-4xl font-bold tracking-tight text-white">Dashboard & Laporan UMKM</h1>
+          <p className="mt-2 max-w-3xl text-zinc-400">
+            Semua angka di halaman ini dihitung dari order customer aktif di database. Tidak ada data simulasi.
           </p>
         </div>
 
-        {/* Top-right Actions & Tools */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap gap-3">
           <button
-            onClick={() => togglePremiumMode(false)}
-            className="flex items-center gap-2 px-3 py-2 bg-card border border-border/40 hover:bg-muted text-muted-foreground text-xs font-semibold rounded-xl transition-all cursor-pointer select-none"
+            type="button"
+            onClick={loadReport}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/10 active:scale-[0.98] disabled:opacity-50"
           >
-            Matikan Premium
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Sync DB
           </button>
           <button
+            type="button"
             onClick={handleExportCsv}
-            disabled={isExportingExcel}
-            className="flex items-center gap-2 px-4 py-2.5 bg-card border border-border/40 hover:bg-muted text-foreground font-semibold text-xs rounded-xl transition-all cursor-pointer shadow-sm select-none"
+            disabled={isExportingCsv || loading}
+            className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/10 active:scale-[0.98] disabled:opacity-50"
           >
-            {isExportingExcel ? (
-              <Loader2 className="h-4 w-4 animate-spin select-none" />
-            ) : (
-              <FileSpreadsheet className="h-4 w-4 select-none" />
-            )}
+            {isExportingCsv ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
             CSV
           </button>
           <button
-            onClick={handleExportPDF}
-            disabled={isExportingPDF}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
+            type="button"
+            onClick={handlePrintReport}
+            className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-950/30 transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
           >
-            {isExportingPDF ? (
-              <Loader2 className="h-4 w-4 animate-spin select-none" />
-            ) : (
-              <FileText className="h-4 w-4 select-none" />
-            )}
+            <FileText className="h-4 w-4" />
             PDF Report
           </button>
         </div>
       </motion.div>
 
-      {/* Period Selector Panel */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="p-4 border bg-card/60 border-border/40 rounded-2xl flex flex-wrap items-center justify-between gap-4 select-none shadow-sm"
-      >
-        <div className="flex flex-wrap items-center gap-2 select-none">
-          <Calendar className="h-4 w-4 text-muted-foreground hidden md:block select-none" />
-          <span className="text-xs font-bold text-muted-foreground select-none pr-1">Pilihan Periode:</span>
-          {[
-            { id: 'bulan_ini', label: 'Bulan Ini' },
-            { id: 'bulan_lalu', label: 'Bulan Lalu' },
-            { id: 'Q1', label: 'Q1' },
-            { id: 'Q2', label: 'Q2' },
-            { id: 'Q3', label: 'Q3' },
-            { id: 'Q4', label: 'Q4' },
-          ].map((item) => (
+      <section className="rounded-[32px] border border-white/15 bg-white/[0.03] p-5 shadow-sm">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex items-center gap-2 text-sm font-bold text-white">
+              <Calendar className="h-4 w-4" />
+              Pilihan Periode:
+            </div>
+            {periodOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setPeriod(option.value)}
+                className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                  period === option.value
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/30'
+                    : 'border border-white/15 text-zinc-200 hover:bg-white/10'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
             <button
-              key={item.id}
-              onClick={() => setPeriod(item.id)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all select-none cursor-pointer ${
-                period === item.id
-                  ? 'bg-primary text-white shadow-sm'
-                  : 'bg-muted/40 hover:bg-muted text-muted-foreground border border-border/40'
+              type="button"
+              onClick={() => setPeriod('custom')}
+              className={`rounded-full px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+                period === 'custom'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/30'
+                  : 'border border-white/15 text-zinc-200 hover:bg-white/10'
               }`}
             >
-              {item.label}
+              Custom
             </button>
-          ))}
-        </div>
-
-        {/* Custom date range inputs */}
-        <div className="flex items-center gap-2 select-none">
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => {
-              setStartDate(e.target.value);
-              setPeriod('custom');
-            }}
-            className="bg-muted/40 border border-border/40 px-3 py-1.5 rounded-xl text-xs font-semibold focus:outline-none focus:border-primary/60 select-none cursor-pointer"
-          />
-          <span className="text-muted-foreground text-xs select-none">s/d</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => {
-              setEndDate(e.target.value);
-              setPeriod('custom');
-            }}
-            className="bg-muted/40 border border-border/40 px-3 py-1.5 rounded-xl text-xs font-semibold focus:outline-none focus:border-primary/60 select-none cursor-pointer"
-          />
-        </div>
-      </motion.div>
-
-      {/* High-fidelity responsive Summary Cards Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 select-none">
-        <div className="p-4 border border-border/40 bg-card/40 backdrop-blur-md rounded-2xl space-y-3 shadow-sm select-none">
-          <div className="flex justify-between items-center select-none">
-            <span className="text-[11px] font-bold text-muted-foreground select-none uppercase">Total Order</span>
-            <TrendingUp className="h-4 w-4 text-primary select-none" />
-          </div>
-          <p className="text-2xl font-bold text-foreground select-none">
-            {summary.totalOrders}
-          </p>
-          <span className="text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-full select-none">
-            +14% vs last period
-          </span>
-        </div>
-
-        <div className="p-4 border border-border/40 bg-card/40 backdrop-blur-md rounded-2xl space-y-3 shadow-sm select-none">
-          <div className="flex justify-between items-center select-none">
-            <span className="text-[11px] font-bold text-muted-foreground select-none uppercase">Selesai</span>
-            <CheckCircle className="h-4 w-4 text-emerald-500 select-none" />
-          </div>
-          <p className="text-2xl font-bold text-foreground select-none">
-            {summary.completed}
-          </p>
-          <span className="text-[10px] font-semibold text-muted-foreground select-none">
-            Berhasil terkirim
-          </span>
-        </div>
-
-        <div className="p-4 border border-border/40 bg-card/40 backdrop-blur-md rounded-2xl space-y-3 shadow-sm select-none">
-          <div className="flex justify-between items-center select-none">
-            <span className="text-[11px] font-bold text-muted-foreground select-none uppercase">Gagal</span>
-            <XCircle className="h-4 w-4 text-destructive select-none" />
-          </div>
-          <p className="text-2xl font-bold text-foreground select-none">
-            {summary.failed}
-          </p>
-          <span className="text-[10px] font-semibold text-muted-foreground select-none">
-            Retur/Kendala
-          </span>
-        </div>
-
-        <div className="p-4 border border-border/40 bg-card/40 backdrop-blur-md rounded-2xl space-y-3 shadow-sm select-none">
-          <div className="flex justify-between items-center select-none">
-            <span className="text-[11px] font-bold text-muted-foreground select-none uppercase">Total Biaya</span>
-            <Wallet className="h-4 w-4 text-indigo-500 select-none" />
-          </div>
-          <p className="text-2xl font-bold text-foreground select-none">
-            Rp{summary.totalSpend.toLocaleString('id-ID')}
-          </p>
-          <span className="text-[10px] font-semibold text-muted-foreground select-none">
-            Akumulasi pengeluaran
-          </span>
-        </div>
-
-        <div className="p-4 border border-border/40 bg-card/40 backdrop-blur-md rounded-2xl space-y-3 shadow-sm select-none">
-          <div className="flex justify-between items-center select-none">
-            <span className="text-[11px] font-bold text-muted-foreground select-none uppercase">On-Time Rate</span>
-            <Clock className="h-4 w-4 text-primary select-none" />
-          </div>
-          <p className="text-2xl font-bold text-foreground select-none">
-            {summary.onTimeRate}%
-          </p>
-          <span className="text-[10px] font-semibold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-full select-none">
-            Tinggi • On Time
-          </span>
-        </div>
-      </div>
-
-      {/* Main Analysis and Premium Custom Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 select-none">
-        {/* Customized interactive SVG Line Chart: Tren Order & Pengeluaran */}
-        <div className="lg:col-span-2 border border-border/40 bg-card/60 backdrop-blur-md rounded-2xl p-6 space-y-5 shadow-sm select-none min-h-[360px]">
-          <div className="flex justify-between items-center select-none">
-            <div>
-              <h3 className="text-sm font-bold text-foreground select-none">Tren Order & Pengeluaran Harian</h3>
-              <p className="text-xs text-muted-foreground select-none">Rincian aktivitas harian periode {period.toUpperCase()}</p>
-            </div>
           </div>
 
-          {/* SVG Line chart visualization canvas */}
-          <div className="relative h-60 w-full select-none">
-            {loading ? (
-              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs select-none">
-                <Loader2 className="h-5 w-5 animate-spin mr-2" /> Memuat chart...
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(event) => {
+                setStartDate(event.target.value);
+                setPeriod('custom');
+              }}
+              className="rounded-full border border-white/15 bg-black/30 px-5 py-3 text-sm font-semibold text-white outline-none transition-all focus:border-emerald-500"
+            />
+            <span className="text-center text-sm font-bold text-zinc-500">s/d</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(event) => {
+                setEndDate(event.target.value);
+                setPeriod('custom');
+              }}
+              className="rounded-full border border-white/15 bg-black/30 px-5 py-3 text-sm font-semibold text-white outline-none transition-all focus:border-emerald-500"
+            />
+          </div>
+        </div>
+      </section>
+
+      {loading ? (
+        <LoadingSkeleton />
+      ) : (
+        <>
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <SummaryCard
+              title="Total Order"
+              value={formatNumber(reportData.summary.total_orders)}
+              subtitle={reportData.range.start_date ? `${reportData.range.start_date} s/d ${reportData.range.end_date}` : 'Periode aktif'}
+              icon={<TrendingUp className="h-5 w-5 text-emerald-400" />}
+            />
+            <SummaryCard
+              title="Selesai"
+              value={formatNumber(reportData.summary.completed_orders)}
+              subtitle="Berhasil terkirim"
+              icon={<CheckCircle className="h-5 w-5 text-emerald-400" />}
+            />
+            <SummaryCard
+              title="Gagal"
+              value={formatNumber(reportData.summary.failed_orders)}
+              subtitle="Cancel, gagal, atau ditolak"
+              icon={<XCircle className="h-5 w-5 text-red-400" />}
+            />
+            <SummaryCard
+              title="Total Biaya"
+              value={formatCurrency(reportData.summary.total_spend)}
+              subtitle="Akumulasi dari order DB"
+              icon={<Wallet className="h-5 w-5 text-indigo-400" />}
+            />
+            <SummaryCard
+              title="Completion"
+              value={formatPercent(reportData.summary.completion_rate)}
+              subtitle="Selesai dibanding final status"
+              icon={<BarChart3 className="h-5 w-5 text-emerald-400" />}
+            />
+          </section>
+
+          <section className="grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_0.75fr]">
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-[32px] border border-white/15 bg-white/[0.03] p-7"
+            >
+              <div className="mb-6">
+                <h2 className="text-xl font-bold tracking-tight text-white">Tren Order & Pengeluaran Harian</h2>
+                <p className="mt-1 text-sm text-zinc-400">
+                  Rincian aktivitas harian periode {reportData.range.start_date || '-'} sampai {reportData.range.end_date || '-'}.
+                </p>
               </div>
-            ) : trendData.length > 0 ? (
-              <svg className="w-full h-full select-none">
-                {/* Horizontal guide lines */}
-                {[0, 1, 2, 3].map((g, idx) => (
-                  <line
-                    key={idx}
-                    x1="0%"
-                    y1={`${idx * 30 + 5}%`}
-                    x2="100%"
-                    y2={`${idx * 30 + 5}%`}
-                    className="stroke-muted/40 stroke-1 stroke-dasharray-[4,4] select-none"
-                  />
-                ))}
+              <TrendLineChart data={reportData.trend} />
+            </motion.div>
 
-                {/* Draw active line matching orders count */}
-                <path
-                  d={trendData.reduce((acc, point, index) => {
-                    const x = (index / (trendData.length - 1)) * 100;
-                    const maxOrders = Math.max(...trendData.map((d) => d.orders)) || 1;
-                    const y = 90 - (point.orders / maxOrders) * 80;
-                    return acc + `${index === 0 ? 'M' : 'L'} ${x}% ${y}%`;
-                  }, '')}
-                  fill="none"
-                  className="stroke-primary stroke-2 transition-all select-none"
-                />
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-[32px] border border-white/15 bg-white/[0.03] p-7"
+            >
+              <h2 className="text-xl font-bold tracking-tight text-white">Distribusi Model</h2>
+              <p className="mt-1 text-sm text-zinc-400">Pilihan model pengiriman dari order aktual.</p>
 
-                {/* Draw points & interactions for order days */}
-                {trendData.map((point, index) => {
-                  const x = (index / (trendData.length - 1)) * 100;
-                  const maxOrders = Math.max(...trendData.map((d) => d.orders)) || 1;
-                  const y = 90 - (point.orders / maxOrders) * 80;
-                  return (
-                    <circle
-                      key={index}
-                      cx={`${x}%`}
-                      cy={`${y}%`}
-                      r="4"
-                      className="fill-card stroke-primary stroke-2 transition-all hover:scale-125 select-none cursor-pointer"
-                    >
-                      <title>{`Hari ${point.day}: ${point.orders} Order • Rp${point.spend.toLocaleString('id-ID')}`}</title>
-                    </circle>
-                  );
-                })}
-              </svg>
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs select-none">
-                Belum ada data trend harian.
+              {reportData.model_distribution.length === 0 ? (
+                <EmptyPanel title="Belum ada model" message="Distribusi model akan muncul setelah ada order pada periode ini." />
+              ) : (
+                <div className="mt-6 space-y-4">
+                  {reportData.model_distribution.map((item, index) => (
+                    <div key={item.name} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <div className="mb-3 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: distributionColors[index % distributionColors.length] }}
+                          />
+                          <p className="font-semibold text-white">{item.name}</p>
+                        </div>
+                        <p className="text-sm font-bold text-zinc-200">{formatNumber(item.count)} order</p>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.max((item.count / maxModelCount) * 100, 3)}%`,
+                            backgroundColor: distributionColors[index % distributionColors.length],
+                          }}
+                        />
+                      </div>
+                      <p className="mt-2 text-xs font-semibold text-zinc-500">{formatCurrency(item.total_spend)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </section>
+
+          <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-[32px] border border-white/15 bg-white/[0.03] p-7"
+            >
+              <h2 className="text-xl font-bold tracking-tight text-white">Top 5 Zona Tujuan</h2>
+              <p className="mt-1 text-sm text-zinc-400">Wilayah paling sering menerima paket berdasarkan alamat dropoff.</p>
+              {reportData.destination_zones.length === 0 ? (
+                <EmptyPanel title="Belum ada zona" message="Zona tujuan akan muncul setelah ada alamat dropoff di order aktual." />
+              ) : (
+                <div className="mt-6 space-y-4">
+                  {reportData.destination_zones.map((item) => (
+                    <div key={item.zone}>
+                      <div className="mb-2 flex items-center justify-between gap-4 text-sm font-semibold">
+                        <span className="text-white">{item.zone}</span>
+                        <span className="text-zinc-300">{formatNumber(item.order_count)} order</span>
+                      </div>
+                      <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-emerald-600 transition-all duration-500"
+                          style={{ width: `${Math.max((item.order_count / maxZoneCount) * 100, 3)}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-xs font-semibold text-zinc-500">{formatCurrency(item.total_spend)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-[32px] border border-white/15 bg-white/[0.03] p-7"
+            >
+              <h2 className="text-xl font-bold tracking-tight text-white">Rata-rata & Performa</h2>
+              <p className="mt-1 text-sm text-zinc-400">Metrik operasional dari order yang tersimpan di database.</p>
+              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <MetricTile title="AVG Berat" value={`${reportData.summary.avg_weight.toFixed(2)} kg`} />
+                <MetricTile title="AVG Ongkos" value={formatCurrency(reportData.summary.avg_cost)} />
+                <MetricTile title="On-Time Rate" value={formatPercent(reportData.summary.on_time_rate)} />
+                <MetricTile title="Export Row" value={formatNumber(reportData.export_rows.length)} />
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Donut Chart: Distribusi Model Pengiriman */}
-        <div className="border border-border/40 bg-card/60 backdrop-blur-md rounded-2xl p-6 space-y-4 shadow-sm select-none min-h-[360px] flex flex-col justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-foreground select-none">Distribusi Model</h3>
-            <p className="text-xs text-muted-foreground select-none">Pilihan kurir / model pengiriman</p>
-          </div>
-
-          {/* Canvas SVG Donut */}
-          <div className="flex flex-col items-center justify-center space-y-4 flex-1 select-none">
-            <svg className="w-32 h-32 transform -rotate-90 select-none">
-              {/* Outer stroke radius circle segmenting models */}
-              <circle
-                cx="64"
-                cy="64"
-                r="48"
-                className="stroke-primary stroke-[16] fill-none select-none"
-                strokeDasharray={`${modelDistribution[0]?.value * 4 || 190} 301`}
-              />
-              <circle
-                cx="64"
-                cy="64"
-                r="48"
-                className="stroke-indigo-500 stroke-[16] fill-none select-none"
-                strokeDasharray={`${modelDistribution[1]?.value * 4 || 111} 301`}
-                strokeDashoffset={`-${modelDistribution[0]?.value * 4 || 190}`}
-              />
-            </svg>
-
-            {/* Premium Legend & details */}
-            <div className="w-full grid grid-cols-2 gap-2 select-none">
-              {modelDistribution.map((model, idx) => (
-                <div key={idx} className="bg-muted/40 border border-border/40 p-2.5 rounded-xl space-y-1 select-none">
-                  <span className="flex items-center gap-1.5 text-xs font-bold text-foreground select-none">
-                    <span className={`h-2.5 w-2.5 rounded-full select-none ${idx === 0 ? 'bg-primary' : 'bg-indigo-500'}`} />
-                    {model.name}
-                  </span>
-                  <span className="text-xs text-muted-foreground block pl-4 font-bold select-none">
-                    {model.value} Order
-                  </span>
+              {!hasOrders && (
+                <div className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-semibold text-amber-200">
+                  Belum ada order pada periode ini. Laporan tetap kosong agar tidak menampilkan data simulasi.
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
+              )}
+            </motion.div>
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
+
+function SummaryCard({
+  title,
+  value,
+  subtitle,
+  icon,
+}: {
+  title: string;
+  value: string;
+  subtitle: string;
+  icon: ReactNode;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-[28px] border border-white/15 bg-white/[0.03] p-6 transition-all duration-200 hover:bg-white/[0.05]"
+    >
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-400">{title}</p>
+        <div className="rounded-2xl bg-white/5 p-2">{icon}</div>
       </div>
+      <p className="break-words text-3xl font-bold tracking-tight text-white">{value}</p>
+      <p className="mt-3 text-sm font-semibold text-zinc-500">{subtitle}</p>
+    </motion.div>
+  );
+}
 
-      {/* Extra Detail Stats & Top Destinations Bar Graph */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 select-none">
-        {/* Custom horizontal stacked bar chart: Top 5 Destinations */}
-        <div className="p-6 border border-border/40 bg-card/40 backdrop-blur-md rounded-2xl space-y-5 shadow-sm select-none">
-          <div>
-            <h3 className="text-sm font-bold text-foreground select-none">Top 5 Zona Tujuan</h3>
-            <p className="text-xs text-muted-foreground select-none">Wilayah paling sering menerima paket</p>
-          </div>
-
-          <div className="space-y-3.5 select-none">
-            {destinationZones.map((zone, idx) => {
-              const maxOrders = Math.max(...destinationZones.map((z) => z.orders)) || 1;
-              const barWidth = `${Math.round((zone.orders / maxOrders) * 100)}%`;
-              return (
-                <div key={idx} className="space-y-1 select-none">
-                  <div className="flex justify-between text-xs font-semibold text-foreground select-none">
-                    <span>{zone.zone}</span>
-                    <span className="font-bold">{zone.orders} Order</span>
-                  </div>
-                  <div className="w-full bg-muted/40 h-2 rounded-full overflow-hidden select-none">
-                    <div
-                      className="bg-primary h-full rounded-full transition-all duration-300 select-none"
-                      style={{ width: barWidth }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Averages & performance KPI card metrics */}
-        <div className="p-6 border border-border/40 bg-card/40 backdrop-blur-md rounded-2xl space-y-4 shadow-sm select-none flex flex-col justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-foreground select-none">Rata-rata & Performa</h3>
-            <p className="text-xs text-muted-foreground select-none">Metrik operasional pengiriman bisnis UMKM</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 select-none">
-            <div className="p-4 bg-muted/40 border border-border/40 rounded-2xl space-y-1.5 select-none">
-              <span className="text-[10px] font-bold text-muted-foreground select-none uppercase block">Avg Berat</span>
-              <p className="text-xl font-bold text-foreground select-none">{summary.avgWeight} kg</p>
-              <p className="text-[10px] text-muted-foreground select-none">Berat rata-rata paket</p>
-            </div>
-
-            <div className="p-4 bg-muted/40 border border-border/40 rounded-2xl space-y-1.5 select-none">
-              <span className="text-[10px] font-bold text-muted-foreground select-none uppercase block">Avg Ongkos</span>
-              <p className="text-xl font-bold text-foreground select-none">Rp{summary.avgCost.toLocaleString('id-ID')}</p>
-              <p className="text-[10px] text-muted-foreground select-none">Ongkir rata-rata per order</p>
-            </div>
-          </div>
-
-          <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center gap-2 select-none">
-            <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0 select-none" />
-            <p className="text-xs font-semibold text-emerald-500 leading-relaxed select-none">
-              Bisnis Anda memiliki tingkat on-time pengiriman sangat baik sebesar <strong className="font-bold">{summary.onTimeRate}%</strong>. Pertahankan SLA untuk loyalitas pelanggan.
-            </p>
-          </div>
-        </div>
-      </div>
+function MetricTile({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/15 bg-black/20 p-5">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-zinc-500">{title}</p>
+      <p className="mt-3 text-2xl font-bold tracking-tight text-white">{value}</p>
     </div>
   );
 }

@@ -2346,6 +2346,261 @@ export const getCustomerDashboardStats = async (req: Request, res: Response): Pr
   }
 };
 
+type CustomerReportPeriod = 'bulan_ini' | 'bulan_lalu' | 'q1' | 'q2' | 'q3' | 'q4' | 'custom';
+
+const CUSTOMER_REPORT_PERIODS = new Set<CustomerReportPeriod>(['bulan_ini', 'bulan_lalu', 'q1', 'q2', 'q3', 'q4', 'custom']);
+
+const toDateOnly = (value: Date): string => value.toISOString().slice(0, 10);
+
+const addUtcDays = (value: Date, days: number): Date => {
+  const nextValue = new Date(value);
+  nextValue.setUTCDate(nextValue.getUTCDate() + days);
+  return nextValue;
+};
+
+const isDateOnlyInput = (value: unknown): value is string => (
+  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+);
+
+const parseUtcDateOnly = (value: string): Date => {
+  const parsedDate = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new Error('Invalid date');
+  }
+  return parsedDate;
+};
+
+const getCustomerReportRange = (periodInput: unknown, startDateInput: unknown, endDateInput: unknown) => {
+  const normalizedPeriod = typeof periodInput === 'string' && CUSTOMER_REPORT_PERIODS.has(periodInput as CustomerReportPeriod)
+    ? periodInput as CustomerReportPeriod
+    : 'bulan_ini';
+
+  const now = new Date();
+  const currentYear = now.getUTCFullYear();
+  const currentMonth = now.getUTCMonth();
+
+  if (normalizedPeriod === 'custom') {
+    if (!isDateOnlyInput(startDateInput) || !isDateOnlyInput(endDateInput)) {
+      return {
+        error: 'Tanggal mulai dan tanggal selesai wajib diisi untuk periode custom',
+      };
+    }
+
+    const startDate = parseUtcDateOnly(startDateInput);
+    const endDateInclusive = parseUtcDateOnly(endDateInput);
+    if (endDateInclusive < startDate) {
+      return {
+        error: 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai',
+      };
+    }
+
+    const endDateExclusive = addUtcDays(endDateInclusive, 1);
+    const rangeDays = Math.ceil((endDateExclusive.getTime() - startDate.getTime()) / 86_400_000);
+    if (rangeDays > 366) {
+      return {
+        error: 'Rentang laporan maksimal 366 hari',
+      };
+    }
+
+    return {
+      period: normalizedPeriod,
+      startDate: toDateOnly(startDate),
+      endDateExclusive: toDateOnly(endDateExclusive),
+      endDateInclusive: toDateOnly(endDateInclusive),
+    };
+  }
+
+  if (normalizedPeriod === 'bulan_lalu') {
+    const startDate = new Date(Date.UTC(currentYear, currentMonth - 1, 1));
+    const endDateExclusive = new Date(Date.UTC(currentYear, currentMonth, 1));
+    return {
+      period: normalizedPeriod,
+      startDate: toDateOnly(startDate),
+      endDateExclusive: toDateOnly(endDateExclusive),
+      endDateInclusive: toDateOnly(addUtcDays(endDateExclusive, -1)),
+    };
+  }
+
+  if (normalizedPeriod.startsWith('q')) {
+    const quarterIndex = Number(normalizedPeriod.replace('q', '')) - 1;
+    const startDate = new Date(Date.UTC(currentYear, quarterIndex * 3, 1));
+    const endDateExclusive = new Date(Date.UTC(currentYear, quarterIndex * 3 + 3, 1));
+    return {
+      period: normalizedPeriod,
+      startDate: toDateOnly(startDate),
+      endDateExclusive: toDateOnly(endDateExclusive),
+      endDateInclusive: toDateOnly(addUtcDays(endDateExclusive, -1)),
+    };
+  }
+
+  const startDate = new Date(Date.UTC(currentYear, currentMonth, 1));
+  const endDateExclusive = new Date(Date.UTC(currentYear, currentMonth + 1, 1));
+  return {
+    period: 'bulan_ini' as CustomerReportPeriod,
+    startDate: toDateOnly(startDate),
+    endDateExclusive: toDateOnly(endDateExclusive),
+    endDateInclusive: toDateOnly(addUtcDays(endDateExclusive, -1)),
+  };
+};
+
+export const getCustomerUmkmReport = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customerId = req.user?.id;
+    if (!customerId) {
+      res.status(401).json({ success: false, data: null, message: 'Unauthorized' });
+      return;
+    }
+
+    const reportRange = getCustomerReportRange(req.query.period, req.query.start_date, req.query.end_date);
+    if ('error' in reportRange) {
+      res.status(400).json({ success: false, data: null, message: reportRange.error });
+      return;
+    }
+
+    const queryParams = [customerId, reportRange.startDate, reportRange.endDateExclusive];
+
+    const [summaryResult, trendResult, modelResult, zoneResult, exportResult] = await Promise.all([
+      db.query(`
+        SELECT
+          COUNT(*)::int AS total_orders,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) IN ('delivered', 'completed', 'pod_completed'))::int AS completed_orders,
+          COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) IN ('cancelled', 'canceled', 'failed', 'rejected'))::int AS failed_orders,
+          COALESCE(SUM(COALESCE(total_price_idr, 0)), 0)::bigint AS total_spend,
+          COALESCE(AVG(NULLIF(COALESCE(package_weight_kg, 0), 0)), 0)::numeric AS avg_weight,
+          COALESCE(AVG(NULLIF(COALESCE(total_price_idr, 0), 0)), 0)::numeric AS avg_cost
+        FROM orders
+        WHERE customer_id = $1
+          AND created_at >= $2::date
+          AND created_at < $3::date
+      `, queryParams),
+      db.query(`
+        WITH days AS (
+          SELECT generate_series($2::date, ($3::date - INTERVAL '1 day')::date, INTERVAL '1 day')::date AS day
+        ),
+        daily_orders AS (
+          SELECT
+            created_at::date AS day,
+            COUNT(*)::int AS order_count,
+            COALESCE(SUM(COALESCE(total_price_idr, 0)), 0)::bigint AS total_spend
+          FROM orders
+          WHERE customer_id = $1
+            AND created_at >= $2::date
+            AND created_at < $3::date
+          GROUP BY 1
+        )
+        SELECT
+          days.day::text AS date,
+          TO_CHAR(days.day, 'DD Mon') AS label,
+          COALESCE(daily_orders.order_count, 0)::int AS order_count,
+          COALESCE(daily_orders.total_spend, 0)::bigint AS total_spend
+        FROM days
+        LEFT JOIN daily_orders ON daily_orders.day = days.day
+        ORDER BY days.day ASC
+      `, queryParams),
+      db.query(`
+        SELECT
+          COALESCE(NULLIF(INITCAP(REPLACE(COALESCE(model::text, ''), '_', ' ')), ''), 'Tidak tersedia') AS name,
+          COUNT(*)::int AS count,
+          COALESCE(SUM(COALESCE(total_price_idr, 0)), 0)::bigint AS total_spend
+        FROM orders
+        WHERE customer_id = $1
+          AND created_at >= $2::date
+          AND created_at < $3::date
+        GROUP BY 1
+        ORDER BY count DESC, name ASC
+      `, queryParams),
+      db.query(`
+        SELECT
+          COALESCE(
+            NULLIF(TRIM(SPLIT_PART(COALESCE(dropoff_address, ''), ',', 2)), ''),
+            NULLIF(TRIM(SPLIT_PART(COALESCE(dropoff_address, ''), ',', 1)), ''),
+            'Tujuan tidak tersedia'
+          ) AS zone,
+          COUNT(*)::int AS order_count,
+          COALESCE(SUM(COALESCE(total_price_idr, 0)), 0)::bigint AS total_spend
+        FROM orders
+        WHERE customer_id = $1
+          AND created_at >= $2::date
+          AND created_at < $3::date
+        GROUP BY 1
+        ORDER BY order_count DESC, zone ASC
+        LIMIT 5
+      `, queryParams),
+      db.query(`
+        SELECT
+          COALESCE(order_number, id::text) AS order_number,
+          created_at::date::text AS order_date,
+          COALESCE(recipient_name, '') AS recipient_name,
+          COALESCE(dropoff_address, '') AS dropoff_address,
+          COALESCE(package_weight_kg, 0)::numeric AS package_weight_kg,
+          COALESCE(model::text, '') AS model,
+          COALESCE(total_price_idr, 0)::bigint AS total_price_idr,
+          COALESCE(status::text, '') AS status
+        FROM orders
+        WHERE customer_id = $1
+          AND created_at >= $2::date
+          AND created_at < $3::date
+        ORDER BY created_at DESC
+        LIMIT 1000
+      `, queryParams),
+    ]);
+
+    const summary = summaryResult.rows[0] || {};
+    const completedOrders = Number(summary.completed_orders || 0);
+    const failedOrders = Number(summary.failed_orders || 0);
+    const completedOrFailedOrders = completedOrders + failedOrders;
+
+    res.json({
+      success: true,
+      data: {
+        period: reportRange.period,
+        range: {
+          start_date: reportRange.startDate,
+          end_date: reportRange.endDateInclusive,
+        },
+        summary: {
+          total_orders: Number(summary.total_orders || 0),
+          completed_orders: completedOrders,
+          failed_orders: failedOrders,
+          total_spend: Number(summary.total_spend || 0),
+          completion_rate: completedOrFailedOrders > 0 ? Number(((completedOrders / completedOrFailedOrders) * 100).toFixed(1)) : null,
+          on_time_rate: null,
+          avg_weight: Number(Number(summary.avg_weight || 0).toFixed(2)),
+          avg_cost: Math.round(Number(summary.avg_cost || 0)),
+        },
+        trend: trendResult.rows.map((row) => ({
+          date: row.date,
+          label: row.label,
+          order_count: Number(row.order_count || 0),
+          total_spend: Number(row.total_spend || 0),
+        })),
+        model_distribution: modelResult.rows.map((row) => ({
+          name: row.name,
+          count: Number(row.count || 0),
+          total_spend: Number(row.total_spend || 0),
+        })),
+        destination_zones: zoneResult.rows.map((row) => ({
+          zone: row.zone,
+          order_count: Number(row.order_count || 0),
+          total_spend: Number(row.total_spend || 0),
+        })),
+        export_rows: exportResult.rows.map((row) => ({
+          no_order: row.order_number,
+          tanggal: row.order_date,
+          penerima: row.recipient_name,
+          tujuan: row.dropoff_address,
+          berat_kg: Number(row.package_weight_kg || 0),
+          model: row.model,
+          harga: Number(row.total_price_idr || 0),
+          status: row.status,
+        })),
+      },
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message });
+  }
+};
+
 export const getOrderChats = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id;

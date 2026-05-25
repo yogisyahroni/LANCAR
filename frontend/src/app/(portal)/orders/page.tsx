@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import Link from 'next/link';
 import { useNotificationStore } from '@/store/useNotificationStore';
-import { Search, Filter, ArrowUpDown, Calendar, Download, Eye, FileText, ChevronLeft, ChevronRight, Loader2, Layers } from 'lucide-react';
+import { downloadCsv, type CsvRow } from '@/lib/csv';
+import { Search, Filter, Calendar, Download, Eye, ChevronLeft, ChevronRight, Loader2, Layers } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -122,11 +123,31 @@ export default function OrderListPage() {
 
   const handleBulkDownloadResi = () => {
     if (selectedOrders.length === 0) return;
-    addNotification({ title: 'Proses', message: `Sedang mengunduh ${selectedOrders.length} resi...`, type: 'info' });
-    // Implement or mock bulk download trigger here
-    setTimeout(() => {
-      addNotification({ title: 'Selesai', message: 'Pengunduhan resi berhasil disimulasikan.', type: 'success' });
-    }, 1500);
+    const selectedRows = orders.filter((order) => selectedOrders.includes(order.id));
+    if (selectedRows.length === 0) return;
+
+    const csvRows: CsvRow[] = selectedRows.map((order) => ({
+      'No Order': order.order_number,
+      Penerima: order.recipient_name,
+      Tujuan: order.dropoff_address,
+      Status: order.status,
+      Model: order.model || '',
+      'Jarak (km)': Number(order.distance_km || 0),
+      'Harga (Rp)': Number(order.total_price_idr || 0),
+      Tanggal: formatDate(order.created_at),
+    }));
+
+    downloadCsv(`resi-terpilih-${new Date().toISOString().slice(0, 10)}.csv`, csvRows, [
+      'No Order',
+      'Penerima',
+      'Tujuan',
+      'Status',
+      'Model',
+      'Jarak (km)',
+      'Harga (Rp)',
+      'Tanggal',
+    ]);
+    addNotification({ title: 'Selesai', message: `${selectedRows.length} resi diunduh dari data order.`, type: 'success' });
   };
 
   const formatPrice = (price: number) => {

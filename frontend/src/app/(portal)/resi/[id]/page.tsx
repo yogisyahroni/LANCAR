@@ -1,23 +1,16 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { 
   Printer, 
-  Download, 
   Share2, 
-  Camera, 
   ArrowLeft, 
-  CheckCircle, 
-  RefreshCcw, 
-  Loader2, 
   Copy, 
   MapPin, 
   Check, 
-  X, 
   User 
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
@@ -40,7 +33,6 @@ interface Order {
 }
 
 export default function ResiDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const router = useRouter();
   const { addNotification } = useNotificationStore();
   const resolvedParams = use(params);
 
@@ -50,11 +42,6 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
   // Copy success indicator
   const [isCopied, setIsCopied] = useState(false);
 
-  // Webcam scanning mock modal
-  const [isWebcamOpen, setIsWebcamOpen] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
-  const [isScanSuccess, setIsScanSuccess] = useState(false);
-
   const fetchOrder = async () => {
     try {
       setLoading(true);
@@ -62,40 +49,13 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
       if (res.data && res.data.success && res.data.order) {
         setOrder(res.data.order);
       } else {
-        // Mock fallback if specific order id doesn't match API
-        setOrder({
-          id: resolvedParams.id,
-          order_number: 'ORD/2026/05/0001',
-          pickup_address: 'Jl. Jend. Sudirman No. 12, Jakarta Pusat',
-          dropoff_address: 'Jl. Asia Afrika No. 89, Bandung',
-          recipient_name: 'Budi Santoso',
-          recipient_phone: '081234567890',
-          sender_name: 'Wisma Mandiri Admin',
-          sender_phone: '085678912345',
-          model: 'instant',
-          status: 'pickup',
-          distance_km: 154.2,
-          total_price_idr: 450000,
-          created_at: new Date().toISOString(),
-        });
+        setOrder(null);
+        addNotification({ title: 'Gagal', message: 'Resi tidak ditemukan pada database.', type: 'error' });
       }
     } catch (error) {
       console.error('Failed to fetch order resi:', error);
-      setOrder({
-        id: resolvedParams.id,
-        order_number: 'ORD/2026/05/0001',
-        pickup_address: 'Jl. Jend. Sudirman No. 12, Jakarta Pusat',
-        dropoff_address: 'Jl. Asia Afrika No. 89, Bandung',
-        recipient_name: 'Budi Santoso',
-        recipient_phone: '081234567890',
-        sender_name: 'Wisma Mandiri Admin',
-        sender_phone: '085678912345',
-        model: 'instant',
-        status: 'pickup',
-        distance_km: 154.2,
-        total_price_idr: 450000,
-        created_at: new Date().toISOString(),
-      });
+      setOrder(null);
+      addNotification({ title: 'Gagal', message: 'Gagal mengambil detail resi dari server.', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -123,43 +83,6 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
     const text = `Halo, berikut rincian Resi Pengiriman Lancar: \n\nNo. Resi: ${order.order_number}\nPenerima: ${order.recipient_name}\nLayanan: ${order.model.toUpperCase()}\nStatus: ${order.status.replace('_', ' ')}\n\nLihat rincian lengkapnya di: ${window.location.origin}/resi/${order.id}`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
-  };
-
-  // Webcam Mock verification trigger
-  const handleScanWebcam = () => {
-    setIsWebcamOpen(true);
-    setIsScanning(true);
-    setIsScanSuccess(false);
-
-    setTimeout(() => {
-      setIsScanning(false);
-      setIsScanSuccess(true);
-      addNotification({ title: 'Berhasil', message: 'Resi berhasil diverifikasi via scan QR!', type: 'success' });
-    }, 2000);
-  };
-
-  const executeDownloadPng = () => {
-    const blob = new Blob([`PNG Visual download resi simulation for: ${order?.order_number}`], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `resi_${order?.order_number}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const executeDownloadPdf = () => {
-    const blob = new Blob([`PDF Visual download resi simulation for: ${order?.order_number}`], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `resi_${order?.order_number}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   const formatIDR = (val: number) => {
@@ -206,24 +129,6 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
 
         {/* Buttons Action toolbar */}
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleScanWebcam}
-            className="flex items-center gap-1.5 px-3 py-2 bg-card hover:bg-muted border border-border/40 text-foreground text-xs font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm select-none"
-          >
-            <Camera className="h-3.5 w-3.5" /> Scan QR
-          </button>
-          <button
-            onClick={executeDownloadPdf}
-            className="flex items-center gap-1.5 px-3 py-2 bg-card hover:bg-muted border border-border/40 text-foreground text-xs font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm select-none"
-          >
-            <Download className="h-3.5 w-3.5" /> Unduh PDF
-          </button>
-          <button
-            onClick={executeDownloadPng}
-            className="flex items-center gap-1.5 px-3 py-2 bg-card hover:bg-muted border border-border/40 text-foreground text-xs font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm select-none"
-          >
-            <Download className="h-3.5 w-3.5" /> Unduh PNG
-          </button>
           <button
             onClick={handleShareWA}
             className="flex items-center gap-1.5 px-3 py-2 bg-card hover:bg-muted border border-border/40 text-foreground text-xs font-bold rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer shadow-sm select-none"
@@ -327,58 +232,6 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
         </div>
       </motion.div>
 
-      {/* Webcam scanning preview modal */}
-      <AnimatePresence>
-        {isWebcamOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-background/80 backdrop-blur-md flex items-center justify-center p-4 z-50 select-none"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 15 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 15 }}
-              className="bg-card border border-border/40 max-w-md w-full rounded-2xl p-6 shadow-xl space-y-4"
-            >
-              <div className="flex items-center justify-between select-none">
-                <h3 className="text-base font-bold text-foreground">Scan QR via Webcam</h3>
-                <button
-                  onClick={() => setIsWebcamOpen(false)}
-                  className="p-1 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer select-none"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="h-48 w-full bg-slate-900 rounded-xl border border-border/40 flex items-center justify-center text-xs text-slate-400 relative overflow-hidden select-none">
-                {isScanning && (
-                  <div className="flex flex-col items-center gap-2 select-none">
-                    <RefreshCcw className="h-5 w-5 animate-spin text-primary" />
-                    <span>Mengaktifkan kamera & memindai...</span>
-                  </div>
-                )}
-                {isScanSuccess && (
-                  <div className="flex flex-col items-center gap-2 text-emerald-500 select-none animate-pulse">
-                    <CheckCircle className="h-8 w-8" />
-                    <span className="text-xs font-bold">Resi Terverifikasi!</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-end gap-3 select-none">
-                <button
-                  onClick={() => setIsWebcamOpen(false)}
-                  className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground font-semibold text-xs rounded-xl transition-all cursor-pointer select-none"
-                >
-                  Tutup
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
