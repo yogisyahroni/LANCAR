@@ -15,10 +15,20 @@ interface NotificationStore {
   removeNotification: (id: string) => void;
 }
 
+const createNotificationId = () => {
+  const webCrypto = globalThis.crypto;
+  if (typeof webCrypto?.randomUUID === 'function') {
+    return webCrypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  webCrypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+};
+
 export const useNotificationStore = create<NotificationStore>((set) => ({
   notifications: [],
   addNotification: (n) => {
-    const id = Math.random().toString(36).slice(2);
+    const id = createNotificationId();
     set((state) => ({ notifications: [...state.notifications, { ...n, id }] }));
     // Auto-remove after 5 seconds
     setTimeout(() => {

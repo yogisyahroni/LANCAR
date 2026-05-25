@@ -622,7 +622,7 @@ function DimensionScanModal({
   const [cameraState, setCameraState] = useState<"idle" | "starting" | "ready" | "blocked">("idle");
   const [scanState, setScanState] = useState<"idle" | "scanning" | "done">("idle");
   const [cameraMessage, setCameraMessage] = useState("Menyiapkan kamera...");
-  const [result, setResult] = useState({ length: 28, width: 20, height: 12, weight_kg: 1.2 });
+  const [result, setResult] = useState<{ length: number; width: number; height: number; weight_kg: number } | null>(null);
 
   const stopCamera = useCallback(() => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -683,16 +683,7 @@ function DimensionScanModal({
   const runScan = () => {
     setScanState("scanning");
     window.setTimeout(() => {
-      const length = Math.round(22 + Math.random() * 18);
-      const width = Math.round(14 + Math.random() * 12);
-      const height = Math.round(8 + Math.random() * 14);
-      const volumetric = (length * width * height) / 6000;
-      setResult({
-        length,
-        width,
-        height,
-        weight_kg: Math.max(0.5, Number(volumetric.toFixed(1)))
-      });
+      setResult(null);
       setScanState("done");
     }, 1200);
   };
@@ -752,12 +743,18 @@ function DimensionScanModal({
           <div className="space-y-4">
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Estimasi hasil</p>
-              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-                <div>Panjang: <b>{result.length} cm</b></div>
-                <div>Lebar: <b>{result.width} cm</b></div>
-                <div>Tinggi: <b>{result.height} cm</b></div>
-                <div>Berat: <b>{result.weight_kg} kg</b></div>
-              </div>
+              {result ? (
+                <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                  <div>Panjang: <b>{result.length} cm</b></div>
+                  <div>Lebar: <b>{result.width} cm</b></div>
+                  <div>Tinggi: <b>{result.height} cm</b></div>
+                  <div>Berat: <b>{result.weight_kg} kg</b></div>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  Hasil dimensi otomatis belum tersedia. Isi ukuran paket secara manual di form.
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -770,9 +767,12 @@ function DimensionScanModal({
             <button
               type="button"
               onClick={() => {
-                onApply(result);
-                onClose();
+                if (result) {
+                  onApply(result);
+                  onClose();
+                }
               }}
+              disabled={!result}
               className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold hover:bg-white/10"
             >
               Terapkan ke Form
@@ -1396,17 +1396,12 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Kategori Barang</label>
-              <select
+              <input
                 {...register("package_details.category")}
+                type="text"
                 className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 px-4 py-3 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
-              >
-                <option value="">Pilih Kategori</option>
-                <option value="document">Dokumen</option>
-                <option value="food">Makanan / Minuman</option>
-                <option value="electronics">Elektronik</option>
-                <option value="clothes">Pakaian</option>
-                <option value="other">Lainnya</option>
-              </select>
+                placeholder="Isi kategori sesuai barang sebenarnya"
+              />
               {errors.package_details?.category && <p className="mt-1 text-xs text-destructive">{errors.package_details.category.message}</p>}
             </div>
             <div>

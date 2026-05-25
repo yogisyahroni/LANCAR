@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,28 +32,7 @@ func (s *relayMatchingService) FindAndAssignRelayCouriers(ctx context.Context, o
 	}
 	defer s.relayRepo.ReleaseMatchLock(ctx, orderID)
 
-	// 2. Mocking PostGIS / Redis query for 3 specific couriers across zones
-	// In reality, this queries `redisRepo.FindNearbyCouriers` for each leg's pickup location.
-	courierLeg1 := uuid.New()
-	courierLeg2 := uuid.New()
-	courierLeg3 := uuid.New()
-
-	log.Printf("[RelayMatching] Found 3 optimal couriers: %s, %s, %s", courierLeg1, courierLeg2, courierLeg3)
-
-	// 3. ETA Synchronization: check if ETAs to meeting points match within ±10 mins window
-	eta1 := time.Now().Add(15 * time.Minute)
-	eta2 := time.Now().Add(12 * time.Minute) // Matches well
-	eta3 := time.Now().Add(25 * time.Minute) // Too slow!
-
-	if err := s.SynchronizeETA(ctx, []time.Time{eta1, eta2, eta3}); err != nil {
-		log.Printf("[RelayMatching] ETA Mismatch: %v. Adjusting dispatch timers...", err)
-		// Delay dispatch for courier 1 and 2, or replace courier 3.
-	}
-
-	// 4. Batch Dispatch: In a real system, send push notifications to all 3 couriers simultaneously.
-	// The transaction only succeeds if ALL 3 accept (Atomic).
-
-	return nil
+	return fmt.Errorf("relay matching candidate repository is not configured for order %s", orderID)
 }
 
 func (s *relayMatchingService) SynchronizeETA(ctx context.Context, etas []time.Time) error {
@@ -72,26 +50,15 @@ func (s *relayMatchingService) SynchronizeETA(ctx context.Context, etas []time.T
 }
 
 func (s *relayMatchingService) HandleRelayCancellation(ctx context.Context, orderID uuid.UUID, droppedCourierID uuid.UUID, legIndex int) error {
-	// Relay cancellation flow: jika 1 kurir drop out, find replacement tanpa ganggu leg lain
-	
-	log.Printf("[RelayMatching] Courier %s dropped out of leg %d for order %s. Initiating replacement flow.", droppedCourierID, legIndex, orderID)
-
 	lockAcquired, err := s.relayRepo.AcquireMatchLock(ctx, orderID, 1*time.Minute)
 	if err != nil || !lockAcquired {
 		return fmt.Errorf("failed to acquire match lock during cancellation replacement")
 	}
 	defer s.relayRepo.ReleaseMatchLock(ctx, orderID)
 
-	// Only replace for `legIndex`
-	newCourier := uuid.New()
-	log.Printf("[RelayMatching] Successfully found replacement courier %s for leg %d", newCourier, legIndex)
-
-	return nil
+	return fmt.Errorf("relay cancellation replacement repository is not configured for order %s leg %d courier %s", orderID, legIndex, droppedCourierID)
 }
 
 func (s *relayMatchingService) ResolveMeetingPointConflict(ctx context.Context, meetingPointID uuid.UUID, timeWindow time.Time) error {
-	// Meeting point conflict resolution: jika 2 relay butuh meeting point yang sama di waktu sama
-	log.Printf("[RelayMatching] Resolving conflict at meeting point %s around %v", meetingPointID, timeWindow)
-	// Suggest alternate meeting point or adjust ETAs
-	return nil
+	return fmt.Errorf("meeting point conflict resolver is not configured for meeting point %s at %s", meetingPointID, timeWindow.Format(time.RFC3339))
 }

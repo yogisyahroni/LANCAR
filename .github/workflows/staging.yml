@@ -284,17 +284,89 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
 
   # ═══════════════════════════════════════════════════════════
-  # PHASE 3: DOCKER BUILD & PUSH
+  # PHASE 3: CONTAINER SUPPLY-CHAIN SECURITY GATE
+  # ═══════════════════════════════════════════════════════════
+
+  container-security:
+    name: Container SBOM & Secret Audit (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [security]
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: auth-service
+            context: ./backend/auth-service
+          - image: routing-service
+            context: ./backend/routing-service
+          - image: admin-service
+            context: ./backend/admin-service
+          - image: order-service
+            context: ./backend/order-service
+          - image: payment-service
+            context: ./backend/payment-service
+          - image: api-gateway
+            context: ./backend/api-gateway
+          - image: frontend
+            context: ./frontend
+          - image: admin-dashboard
+            context: ./admin-dashboard
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build local image for audit
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          load: true
+          tags: lancar-local/${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+      - name: Generate CycloneDX SBOM
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: lancar-local/${{ matrix.image }}:${{ github.sha }}
+          format: cyclonedx
+          output: sbom-${{ matrix.image }}.cdx.json
+
+      - name: Scan image for secrets, vulnerabilities, and config risks
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: image
+          image-ref: lancar-local/${{ matrix.image }}:${{ github.sha }}
+          scanners: secret,vuln,config
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          format: table
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.image }}
+          path: sbom-${{ matrix.image }}.cdx.json
+          retention-days: 30
+
+  # ═══════════════════════════════════════════════════════════
+  # PHASE 4: DOCKER BUILD & PUSH
   # ═══════════════════════════════════════════════════════════
 
   docker-build-push:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: [security]
+    needs: [container-security]
     if: github.ref == 'refs/heads/staging'
     permissions:
       contents: read
@@ -370,18 +442,8 @@ jobs:
             ghcr.io/${{ env.REPO_LOWER }}/admin-dashboard:staging
             ghcr.io/${{ env.REPO_LOWER }}/admin-dashboard:staging-${{ github.sha }}
 
-      # ── Trivy: scan pushed images for vulnerabilities ─────
-      - name: Trivy scan (admin-service)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ghcr.io/${{ env.REPO_LOWER }}/admin-service:staging-${{ github.sha }}
-          format: table
-          exit-code: '0'
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-
   # ═══════════════════════════════════════════════════════════
-  # PHASE 4: DEPLOY TO STAGING
+  # PHASE 5: DEPLOY TO STAGING
   # ═══════════════════════════════════════════════════════════
 
   deploy:

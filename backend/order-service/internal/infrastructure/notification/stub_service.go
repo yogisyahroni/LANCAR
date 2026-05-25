@@ -30,12 +30,17 @@ func (s *stubNotificationService) MarkAsRead(ctx context.Context, notificationID
 	return nil
 }
 
+func (s *stubNotificationService) GetNotificationByID(ctx context.Context, id uuid.UUID) (*domain.Notification, error) {
+	log.Printf("[NotificationStub] GetNotificationByID for Notification %s", id)
+	return nil, nil
+}
+
 func (s *stubNotificationService) GetPreferences(ctx context.Context, userID uuid.UUID) (*domain.UserNotificationPreference, error) {
 	return &domain.UserNotificationPreference{
-		UserID:         userID,
-		EmailEnabled:   true,
-		PushEnabled:    true,
-		SMSEnabled:     true,
+		UserID:          userID,
+		EmailEnabled:    true,
+		PushEnabled:     true,
+		SMSEnabled:      true,
 		WhatsAppEnabled: true,
 	}, nil
 }

@@ -9,10 +9,8 @@ import {
   AlertCircle, 
   CheckCircle, 
   CreditCard, 
-  Award, 
   Plus, 
   Layers, 
-  ChevronRight, 
   MapPin, 
   RefreshCcw, 
   Calendar, 
@@ -109,6 +107,7 @@ export default function DashboardPage() {
   // Calculate statistics
   const activeOrdersCount = dashboardStats?.active_orders ?? orders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled' && o.status !== 'delivered').length;
   const completedOrdersCount = dashboardStats?.completed_orders_month ?? orders.filter((o) => o.status === 'completed' || o.status === 'delivered').length;
+  const cancelledOrdersCount = dashboardStats?.cancelled_orders_month ?? orders.filter((o) => o.status === 'cancelled').length;
   const totalSpend = dashboardStats?.total_spend_month ?? orders.reduce((sum, order) => sum + Number(order.total_price_idr || 0), 0);
 
   // SVG-based custom premium Bar Chart Data
@@ -189,29 +188,6 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* Promo banner */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-        className="p-5 bg-gradient-to-r from-primary/20 via-primary/5 to-transparent border border-primary/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
-      >
-        <div>
-          <h4 className="text-sm font-bold text-primary flex items-center gap-1.5 select-none">
-            <Award className="h-4 w-4 shrink-0" /> Promo Bulan Ini
-          </h4>
-          <p className="text-xs text-muted-foreground mt-1 select-none">
-            Gunakan voucher <strong className="text-foreground">LANCARNEW</strong> untuk diskon ongkir <strong className="text-foreground">15%</strong> khusus pengiriman Instant.
-          </p>
-        </div>
-        <Link
-          href="/orders/new"
-          className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline shrink-0 select-none cursor-pointer"
-        >
-          Klaim Voucher <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-        </Link>
-      </motion.div>
-
       {/* Widget Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Active Orders */}
@@ -279,7 +255,7 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
-        {/* Loyalty Tier Progress */}
+        {/* Cancelled this month */}
         <motion.div
           initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
@@ -288,21 +264,15 @@ export default function DashboardPage() {
         >
           <div className="flex items-start justify-between z-10">
             <div>
-              <p className="text-xs font-medium text-muted-foreground">Loyalty Tier</p>
-              <h3 className="text-xl font-extrabold text-primary mt-2">Gold Member</h3>
+              <p className="text-xs font-medium text-muted-foreground">Dibatalkan Bulan Ini</p>
+              <h3 className="text-2xl font-extrabold text-foreground mt-2">{cancelledOrdersCount}</h3>
             </div>
-            <div className="h-10 w-10 bg-amber-500/10 rounded-xl flex items-center justify-center text-amber-500 group-hover:scale-105 transition-all">
-              <Award className="h-5 w-5 shrink-0" />
+            <div className="h-10 w-10 bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-500 group-hover:scale-105 transition-all">
+              <AlertCircle className="h-5 w-5 shrink-0" />
             </div>
           </div>
-          <div className="z-10 mt-2">
-            <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1 select-none">
-              <span>Next: Platinum</span>
-              <span>75%</span>
-            </div>
-            <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden select-none">
-              <div className="h-full w-[75%] bg-primary rounded-full transition-all duration-300 select-none" />
-            </div>
+          <div className="text-xs text-muted-foreground mt-2 z-10">
+            Berdasarkan status order aktual
           </div>
         </motion.div>
       </div>

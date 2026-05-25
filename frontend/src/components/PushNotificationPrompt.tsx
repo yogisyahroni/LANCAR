@@ -6,6 +6,15 @@ import { BellRing, X, Check, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useNotificationStore } from '@/store/useNotificationStore';
 
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+};
+
 export default function PushNotificationPrompt() {
   const { addNotification } = useNotificationStore();
   const [isVisible, setIsVisible] = useState(false);
@@ -48,26 +57,20 @@ export default function PushNotificationPrompt() {
         // Check if there's an active Service Worker
         const registration = await navigator.serviceWorker.getRegistration();
         if (registration) {
-          // In real production we use standard public VAPID key.
-          // Here we generate or simulate keys.
+          if (!VAPID_PUBLIC_KEY) {
+            throw new Error('NEXT_PUBLIC_VAPID_PUBLIC_KEY is not configured');
+          }
+
           const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: 'BLuW4q8hD_R3r7y7K9V4tX0-E3Wq7P-Y7T6T9E4E3_V-Z0P-Y7T6T9E4E3_V8'
-          }).catch(async () => {
-            // Fallback for simulation/testing: mock subscription parameters
-            return {
-              endpoint: `https://fcm.googleapis.com/fcm/send/simulated_${Date.now()}`,
-              keys: {
-                p256dh: 'BAsK-1V7W8y9X0_A-Z0P-Y7T6T9E4E3_V8',
-                auth: 'X0_AZ0PY7T6T9E4E3_V8'
-              }
-            };
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
           });
+          const serializedSubscription = subscription.toJSON();
 
           // Post to our updated subscription backend route
           await api.post('/auth/web/notifications/subscribe', {
             endpoint: subscription.endpoint,
-            keys: (subscription as any).keys || { p256dh: '', auth: '' }
+            keys: serializedSubscription.keys || { p256dh: '', auth: '' }
           });
 
           addNotification({

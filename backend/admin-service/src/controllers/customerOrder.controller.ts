@@ -390,8 +390,15 @@ const calculateCustomerPriceBreakdown = async ({
 
   let insurancePremium = 0;
   if (hasInsurance && itemValue) {
-    insurancePremium = Math.ceil((itemValue * 0.2) / 100);
-    if (insurancePremium < 1000) insurancePremium = 1000;
+    const insuranceRate = toNumber(service.metadata?.insurance_premium_rate_percent, 0);
+    const insuranceMinimum = toNumber(service.metadata?.insurance_min_premium_idr, 0);
+    if (!insuranceRate) {
+      const error = new Error(`${service.name} belum memiliki konfigurasi premi asuransi aktif.`);
+      (error as any).statusCode = 422;
+      (error as any).code = 'ERR_INSURANCE_CONFIG_MISSING';
+      throw error;
+    }
+    insurancePremium = Math.max(insuranceMinimum, Math.ceil((toNumber(itemValue) * insuranceRate) / 100));
   }
 
   const hour = new Date().getHours();

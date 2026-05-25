@@ -27,6 +27,8 @@ type AuthService struct {
 	storageService  StorageService
 }
 
+const customerAuthOTPRequiredFlag = "customer_auth_otp_required"
+
 func NewAuthService(u domain.UserRepository, a domain.AuthRepository, s domain.SessionRepository, c domain.CourierRepository, au domain.AuditRepository, l LivenessService, st StorageService) *AuthService {
 	return &AuthService{
 		userRepo:        u,
@@ -39,8 +41,28 @@ func NewAuthService(u domain.UserRepository, a domain.AuthRepository, s domain.S
 	}
 }
 
+func (s *AuthService) isCustomerAuthOTPRequired(ctx context.Context) bool {
+	required, err := s.authRepo.IsFeatureFlagEnabled(ctx, customerAuthOTPRequiredFlag, true)
+	if err != nil {
+		return true
+	}
+	return required
+}
+
+func hashSensitiveIdentifier(value string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(strings.ToLower(value))))
+	return hex.EncodeToString(sum[:])
+}
+
 func (s *AuthService) RequestOTP(ctx context.Context, phoneNumber string) error {
-	code := generateOTP(6)
+	if !s.isCustomerAuthOTPRequired(ctx) {
+		return nil
+	}
+
+	code, err := generateOTP(6)
+	if err != nil {
+		return err
+	}
 
 	otp := &domain.OTPLog{
 		PhoneNumber: phoneNumber,
@@ -50,13 +72,14 @@ func (s *AuthService) RequestOTP(ctx context.Context, phoneNumber string) error 
 		CreatedAt:   time.Now(),
 	}
 
-	err := s.authRepo.SaveOTP(ctx, otp)
-	if err != nil {
+	if err := s.authRepo.SaveOTP(ctx, otp); err != nil {
 		return err
 	}
 
-	// TODO: Integrate with WhatsApp API (WATI/Twilio)
-	fmt.Printf("[MOCK OTP SEND] To: %s, Code: %s\n", phoneNumber, code)
+	fmt.Printf(
+		"{\"event\":\"customer_otp_issued\",\"recipient_hash\":\"%s\",\"expires_in_seconds\":300}\n",
+		hashSensitiveIdentifier(phoneNumber),
+	)
 
 	return nil
 }
@@ -77,7 +100,15 @@ func (s *AuthService) StartCustomerPasswordLogin(ctx context.Context, email, pas
 	if user.PasswordHash == nil || !utils.CheckPasswordHash(password, *user.PasswordHash) {
 		return nil, errors.New("invalid email or password")
 	}
+	otpRequired := s.isCustomerAuthOTPRequired(ctx)
 	if user.Status == domain.StatusPendingVerification && !user.IsVerified {
+		if !otpRequired {
+			_ = s.userRepo.MarkVerified(ctx, user.ID)
+			user.IsVerified = true
+			user.Status = domain.StatusActive
+			return s.issueAuthSession(ctx, user, deviceID, deviceInfo, true, false)
+		}
+
 		if err := s.RequestOTP(ctx, email); err != nil {
 			return nil, err
 		}
@@ -100,6 +131,10 @@ func (s *AuthService) StartCustomerPasswordLogin(ctx context.Context, email, pas
 	}
 	if isTrusted {
 		_ = s.sessionRepo.TouchTrustedDevice(ctx, user.ID, string(user.Role), deviceIDHash)
+		return s.issueAuthSession(ctx, user, deviceID, deviceInfo, false, false)
+	}
+
+	if !otpRequired {
 		return s.issueAuthSession(ctx, user, deviceID, deviceInfo, false, false)
 	}
 
@@ -156,6 +191,13 @@ func (s *AuthService) StartCustomerPasswordRegistration(ctx context.Context, ful
 	refCode := fmt.Sprintf("RLY-%s", randomPart)
 	_ = s.userRepo.SetReferralCode(ctx, user.ID, refCode)
 
+	if !s.isCustomerAuthOTPRequired(ctx) {
+		_ = s.userRepo.MarkVerified(ctx, user.ID)
+		user.IsVerified = true
+		user.Status = domain.StatusActive
+		return s.issueAuthSession(ctx, user, deviceID, deviceInfo, true, false)
+	}
+
 	if err := s.RequestOTP(ctx, email); err != nil {
 		return nil, err
 	}
@@ -181,12 +223,7 @@ type AuthResponse struct {
 }
 
 func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID string, deviceInfo []byte) (*AuthResponse, error) {
-	var isDevBypass bool
-	if code == "123456" || code == "111111" {
-		isDevBypass = true
-	}
-
-	if !isDevBypass {
+	if s.isCustomerAuthOTPRequired(ctx) {
 		otp, err := s.authRepo.VerifyOTP(ctx, phoneNumber, code)
 		if err != nil {
 			return nil, errors.New("invalid or expired OTP")
@@ -595,7 +632,11 @@ func (s *AuthService) Setup2FA(ctx context.Context, userID string) (string, stri
 	// We also generate backup codes
 	backupCodes := make([]string, 10)
 	for i := 0; i < 10; i++ {
-		backupCodes[i] = generateOTP(8)
+		backupCode, err := generateOTP(8)
+		if err != nil {
+			return "", "", err
+		}
+		backupCodes[i] = backupCode
 	}
 
 	err = s.userRepo.UpdateTOTP(ctx, userID, key.Secret(), backupCodes)
@@ -750,15 +791,19 @@ func (s *AuthService) VerifyCourierLiveness(ctx context.Context, userID string, 
 	return success, nil
 }
 
-func generateOTP(max int) string {
+func generateOTP(max int) (string, error) {
+	if max <= 0 {
+		return "", errors.New("OTP length must be positive")
+	}
+
 	var table = [...]byte{'1', '2', '3', '4', '5', '6', '7', '8', '9', '0'}
 	b := make([]byte, max)
 	n, err := io.ReadAtLeast(rand.Reader, b, max)
 	if n != max || err != nil {
-		return "123456"
+		return "", errors.New("failed to generate secure OTP")
 	}
 	for i := 0; i < len(b); i++ {
 		b[i] = table[int(b[i])%len(table)]
 	}
-	return string(b)
+	return string(b), nil
 }

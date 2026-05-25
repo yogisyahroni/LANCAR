@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"lancar/payment-service/internal/domain"
 	"strconv"
 	"time"
@@ -27,16 +28,16 @@ func (r *postgresWalletRepository) GetByUserID(ctx context.Context, userID uuid.
 	// For Extreme Security, we check both tables but in practice, we should know the role.
 	// We'll try customers first.
 	query := `SELECT id, customer_id as user_id, balance, currency, version, created_at, updated_at FROM customer_wallets WHERE customer_id = $1`
-	
+
 	var w domain.Wallet
 	err := r.readDB.QueryRowContext(ctx, query, userID).Scan(
 		&w.ID, &w.UserID, &w.Balance, &w.Currency, &w.Version, &w.CreatedAt, &w.UpdatedAt,
 	)
-	
+
 	if err == nil {
 		return &w, nil
 	}
-	
+
 	if err != sql.ErrNoRows {
 		return nil, err
 	}
@@ -53,19 +54,19 @@ func (r *postgresWalletRepository) GetByUserID(ctx context.Context, userID uuid.
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &w, nil
 }
 
 func (r *postgresWalletRepository) Create(ctx context.Context, userID uuid.UUID) (*domain.Wallet, error) {
-	// We need to know if it's a customer or courier. 
+	// We need to know if it's a customer or courier.
 	// For now, we'll try to check the role in customers table first.
 	var role string
 	err := r.readDB.QueryRowContext(ctx, "SELECT 'customer' FROM customers WHERE id = $1", userID).Scan(&role)
-	
+
 	table := "customer_wallets"
 	col := "customer_id"
-	
+
 	if err == sql.ErrNoRows {
 		table = "courier_wallets"
 		col = "courier_id"
@@ -74,16 +75,16 @@ func (r *postgresWalletRepository) Create(ctx context.Context, userID uuid.UUID)
 	}
 
 	query := `INSERT INTO ` + table + ` (` + col + `) VALUES ($1) RETURNING id, ` + col + ` as user_id, balance, currency, version, created_at, updated_at`
-	
+
 	var w domain.Wallet
 	err = r.db.QueryRowContext(ctx, query, userID).Scan(
 		&w.ID, &w.UserID, &w.Balance, &w.Currency, &w.Version, &w.CreatedAt, &w.UpdatedAt,
 	)
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &w, nil
 }
 
@@ -91,7 +92,7 @@ func (r *postgresWalletRepository) UpdateBalance(ctx context.Context, walletID u
 	// Try updating customer_wallets first
 	query := `UPDATE customer_wallets SET balance = balance + $1, version = version + 1, updated_at = $2 
 	          WHERE id = $3 AND version = $4`
-	
+
 	res, err := r.db.ExecContext(ctx, query, amount, time.Now(), walletID, version)
 	if err == nil {
 		if count, _ := res.RowsAffected(); count > 0 {
@@ -102,21 +103,21 @@ func (r *postgresWalletRepository) UpdateBalance(ctx context.Context, walletID u
 	// Try courier_wallets
 	query = `UPDATE courier_wallets SET balance = balance + $1, version = version + 1, updated_at = $2 
 	          WHERE id = $3 AND version = $4`
-	
+
 	res, err = r.db.ExecContext(ctx, query, amount, time.Now(), walletID, version)
 	if err != nil {
 		return err
 	}
-	
+
 	rows, err := res.RowsAffected()
 	if err != nil {
 		return err
 	}
-	
+
 	if rows == 0 {
 		return errors.New("concurrent update detected or wallet not found")
 	}
-	
+
 	return nil
 }
 
@@ -124,7 +125,7 @@ func (r *postgresWalletRepository) CreateTransaction(ctx context.Context, tx *do
 	// Determine if wallet_id is customer or courier
 	var exists bool
 	err := r.readDB.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM customer_wallets WHERE id = $1)", tx.WalletID).Scan(&exists)
-	
+
 	table := "customer_wallet_transactions"
 	if err != nil || !exists {
 		table = "courier_wallet_transactions"
@@ -133,11 +134,11 @@ func (r *postgresWalletRepository) CreateTransaction(ctx context.Context, tx *do
 	query := `INSERT INTO ` + table + ` (wallet_id, type, amount, fee, status, reference_id, metadata) 
 	          VALUES ($1, $2, $3, $4, $5, $6, $7) 
 	          RETURNING id, created_at, updated_at`
-	
-	err = r.db.QueryRowContext(ctx, query, 
+
+	err = r.db.QueryRowContext(ctx, query,
 		tx.WalletID, tx.Type, tx.Amount, tx.Fee, tx.Status, tx.ReferenceID, tx.Metadata,
 	).Scan(&tx.ID, &tx.CreatedAt, &tx.UpdatedAt)
-	
+
 	return err
 }
 
@@ -145,7 +146,7 @@ func (r *postgresWalletRepository) GetTransactions(ctx context.Context, walletID
 	// Try customer transactions first
 	query := `SELECT id, wallet_id, type, amount, fee, status, reference_id, metadata, created_at, updated_at 
 	          FROM customer_wallet_transactions WHERE wallet_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
-	
+
 	rows, err := r.readDB.QueryContext(ctx, query, walletID, limit, offset)
 	if err != nil || rows.Err() != nil {
 		// Try courier transactions
@@ -157,7 +158,7 @@ func (r *postgresWalletRepository) GetTransactions(ctx context.Context, walletID
 		}
 	}
 	defer rows.Close()
-	
+
 	var txs []*domain.WalletTransaction
 	for rows.Next() {
 		var tx domain.WalletTransaction
@@ -169,7 +170,7 @@ func (r *postgresWalletRepository) GetTransactions(ctx context.Context, walletID
 		}
 		txs = append(txs, &tx)
 	}
-	
+
 	return txs, nil
 }
 
@@ -186,12 +187,15 @@ func (r *postgresWalletRepository) GetFee(ctx context.Context, role string) (flo
 	if role == "courier" {
 		key = "withdrawal_fee_courier"
 	}
-	
+
 	val, err := r.GetSetting(ctx, key)
 	if err != nil {
-		return 5000.0, nil // Fallback to safe default
+		return 0, fmt.Errorf("fee setting %s is not configured: %w", key, err)
 	}
-	
-	fee, _ := strconv.ParseFloat(val, 64)
+
+	fee, err := strconv.ParseFloat(val, 64)
+	if err != nil {
+		return 0, fmt.Errorf("fee setting %s is invalid: %w", key, err)
+	}
 	return fee, nil
 }

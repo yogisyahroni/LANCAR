@@ -43,9 +43,8 @@ export default function ForgotPinPage() {
       setOtpSent(true);
       setCountdown(60);
     } catch (error: any) {
-      setOtpSent(true);
-      setCountdown(60);
-      console.error('Send OTP fallback:', error);
+      setOtpSent(false);
+      setApiError(error.response?.data?.message || error.response?.data?.error || 'OTP belum bisa dikirim. Coba lagi nanti.');
     } finally {
       setIsSendingOtp(false);
     }
@@ -61,8 +60,8 @@ export default function ForgotPinPage() {
     try {
       await api.post('/auth/web/verify-otp', { phone, otp });
       setStep(2);
-    } catch (err) {
-      setStep(2);
+    } catch (error: any) {
+      setApiError(error.response?.data?.message || error.response?.data?.error || 'Verifikasi OTP gagal.');
     } finally {
       setIsSubmitting(false);
     }
@@ -83,9 +82,8 @@ export default function ForgotPinPage() {
     try {
       await api.post('/auth/web/reset-pin', { phone, newPin });
       router.push('/login');
-    } catch (err) {
-      // Fallback redirection on missing/mock API endpoint
-      router.push('/login');
+    } catch (error: any) {
+      setApiError(error.response?.data?.message || error.response?.data?.error || 'Reset PIN gagal. Coba lagi nanti.');
     } finally {
       setIsSubmitting(false);
     }

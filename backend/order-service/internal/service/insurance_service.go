@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,24 +24,24 @@ func NewInsuranceService(insuranceRepo domain.InsuranceRepository, notifService 
 }
 
 func (s *insuranceService) EnrollBPJSTK(ctx context.Context, courierID uuid.UUID) (*domain.CourierInsurance, error) {
-	// Mock BPJS API enrollment
-	policyNumber := fmt.Sprintf("BPJS-TK-%s", uuid.New().String()[:8])
-	
 	validFrom := time.Now()
-	validUntil := validFrom.AddDate(1, 0, 0) // 1 year
+	providerName := strings.TrimSpace(os.Getenv("BPJS_TK_PROVIDER_NAME"))
+	if providerName == "" {
+		providerName = "bpjs_ketenagakerjaan"
+	}
 
 	ins := &domain.CourierInsurance{
 		CourierID:         courierID,
 		Type:              "bpjs_tk",
-		Provider:          "bpjs_ketenagakerjaan",
-		PolicyNumber:      policyNumber,
-		CoverageIDR:       50000000, // 50jt accident coverage
+		Provider:          providerName,
+		PolicyNumber:      "",
+		CoverageIDR:       50000000,
 		PremiumMonthlyIDR: 16800,
 		CompanyShareIDR:   10000,
 		CourierShareIDR:   6800,
-		Status:            domain.InsuranceStatusActive,
+		Status:            domain.InsuranceStatusPendingProviderActivation,
 		ValidFrom:         validFrom,
-		ValidUntil:        &validUntil,
+		ValidUntil:        nil,
 	}
 
 	err := s.insuranceRepo.CreateCourierInsurance(ctx, ins)
@@ -56,7 +58,7 @@ func (s *insuranceService) CalculateOrderPremium(ctx context.Context, declaredVa
 	if premium < 1000 {
 		premium = 1000
 	}
-	
+
 	// Coverage limit is 100% of declared value, capped at Rp 10.000.000
 	coverageLimit := declaredValue
 	if coverageLimit > 10000000 {
@@ -74,8 +76,8 @@ func (s *insuranceService) CreateOrderInsurance(ctx context.Context, orderID uui
 		DeclaredValue: declaredValue,
 		PremiumFee:    premium,
 		CoverageLimit: coverageLimit,
-		Status:        domain.InsuranceStatusActive,
-		Provider:      "pasarpolis",
+		Status:        domain.InsuranceStatusPendingProviderActivation,
+		Provider:      orderInsuranceProviderName(),
 	}
 
 	err := s.insuranceRepo.CreateOrderInsurance(ctx, ins)
@@ -84,6 +86,14 @@ func (s *insuranceService) CreateOrderInsurance(ctx context.Context, orderID uui
 	}
 
 	return ins, nil
+}
+
+func orderInsuranceProviderName() string {
+	providerName := strings.TrimSpace(os.Getenv("ORDER_INSURANCE_PROVIDER_NAME"))
+	if providerName == "" {
+		return "pending_provider_activation"
+	}
+	return providerName
 }
 
 func (s *insuranceService) ProcessInsuranceReminders(ctx context.Context) error {
@@ -98,7 +108,7 @@ func (s *insuranceService) ProcessInsuranceReminders(ctx context.Context) error 
 
 		for _, ins := range expiring {
 			msg := fmt.Sprintf("Asuransi %s Anda akan kedaluwarsa dalam %d hari. Pastikan saldo cukup untuk perpanjangan otomatis.", ins.Provider, days)
-			
+
 			// Send notification
 			s.notifService.Send(ctx, domain.NotificationRequest{
 				UserID:  ins.CourierID.String(),

@@ -9,6 +9,7 @@ import (
 	"lancar/order-service/internal/featureflags"
 	"lancar/order-service/pkg/utils"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,18 +20,20 @@ type orderServiceImpl struct {
 	eventRepo       domain.OrderEventRepository
 	redisRepo       domain.RedisRepository
 	pricingRepo     domain.PricingRepository
+	relayRepo       domain.RelayRepository
 	eventBus        domain.EventBus
 	taskQueue       queue.Queue
 	flagReader      featureflags.FlagReader
 	notificationSvc domain.NotificationService
 }
 
-func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService) domain.OrderService {
+func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService) domain.OrderService {
 	return &orderServiceImpl{
 		orderRepo:       o,
 		eventRepo:       er,
 		redisRepo:       r,
 		pricingRepo:     p,
+		relayRepo:       relayRepo,
 		eventBus:        eb,
 		taskQueue:       tq,
 		flagReader:      f,
@@ -351,18 +354,46 @@ type scoredCourier struct {
 func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []string, order *domain.Order) []scoredCourier {
 	scored := make([]scoredCourier, 0, len(courierIDs))
 	for _, id := range courierIDs {
-		// Formula: score = (relay_score × 0.5) + (proximity_score × 0.3) + (acceptance_rate × 0.2)
-		// For now, using placeholders for relay_score and acceptance_rate
-		relayScore := 4.5     // Default
-		acceptanceRate := 0.9 // Default
-		proximityScore := 5.0 // Calculate based on distance if needed
+		courierUUID, err := uuid.Parse(id)
+		if err != nil {
+			log.Printf("Skipping courier %s: invalid UUID from courier location index", id)
+			continue
+		}
+		stats, err := s.relayRepo.GetCourierDispatchScoreStats(ctx, courierUUID, order.PickupLat, order.PickupLng)
+		if err != nil {
+			log.Printf("Skipping courier %s: dispatch score stats unavailable: %v", id, err)
+			continue
+		}
 
+		relayScore := clampFloat(stats.RelayScore, 0, 5) / 5
+		acceptanceRate := clampFloat(stats.AcceptanceRatePct, 0, 100) / 100
+		proximityScore := proximityScoreFromDistance(stats.DistanceMeters)
 		score := (relayScore * 0.5) + (proximityScore * 0.3) + (acceptanceRate * 0.2)
 		scored = append(scored, scoredCourier{ID: id, Score: score})
 	}
 
-	// Sort by score descending (implementation omitted for brevity, but implied)
+	sort.SliceStable(scored, func(i, j int) bool {
+		return scored[i].Score > scored[j].Score
+	})
 	return scored
+}
+
+func clampFloat(value float64, minValue float64, maxValue float64) float64 {
+	if value < minValue {
+		return minValue
+	}
+	if value > maxValue {
+		return maxValue
+	}
+	return value
+}
+
+func proximityScoreFromDistance(distanceMeters float64) float64 {
+	if distanceMeters <= 0 {
+		return 1
+	}
+	score := 1 - (distanceMeters / 10000)
+	return clampFloat(score, 0, 1)
 }
 
 func (s *orderServiceImpl) notifyCourierOfNewOrder(ctx context.Context, courierID string, order *domain.Order) {

@@ -36,9 +36,16 @@ func (h *InsuranceHandler) EnrollBPJSTK(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	statusCode := http.StatusOK
+	message := "Successfully enrolled to BPJS Ketenagakerjaan"
+	if ins.Status == domain.InsuranceStatusPendingProviderActivation {
+		statusCode = http.StatusAccepted
+		message = "BPJS enrollment recorded and pending provider activation"
+	}
+
+	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"message": "Successfully enrolled to BPJS Ketenagakerjaan",
+		"message": message,
 		"data":    ins,
 	})
 }

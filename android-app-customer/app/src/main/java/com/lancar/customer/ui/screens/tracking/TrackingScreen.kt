@@ -138,6 +138,8 @@ fun TrackingScreen(
             CourierStatusCard(
                 eta = uiState.eta ?: "Menghitung...",
                 detail = uiState.detail,
+                staleTrackingReason = uiState.staleTrackingReason,
+                lastLiveTrackingAt = uiState.lastLiveTrackingAt,
                 onCallClick = {
                     val phone = uiState.detail?.order?.courierPhone
                     if (!phone.isNullOrBlank()) {
@@ -236,6 +238,8 @@ private fun RuntimeMapFallback(
 fun CourierStatusCard(
     eta: String,
     detail: OrderTrackingDetail?,
+    staleTrackingReason: String?,
+    lastLiveTrackingAt: Long?,
     onCallClick: () -> Unit,
     onChatClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -281,6 +285,19 @@ fun CourierStatusCard(
                 fontSize = 13.sp,
                 modifier = Modifier.padding(start = 32.dp, top = 6.dp)
             )
+            staleTrackingReason?.let { reason ->
+                Text(
+                    text = "${trackingFreshnessLabel(lastLiveTrackingAt)}. $reason",
+                    color = Color(0xFF92400E),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .padding(top = 10.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFFFFBEB))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -531,6 +548,16 @@ private fun trackingStageText(status: String?): String {
         "delivered", "completed" -> "Pengiriman selesai"
         "cancelled", "failed" -> "Pengiriman tidak dilanjutkan"
         else -> "Menunggu update pengiriman"
+    }
+}
+
+private fun trackingFreshnessLabel(lastLiveTrackingAt: Long?): String {
+    if (lastLiveTrackingAt == null) return "Data tracking belum pernah tersinkron"
+    val elapsedSeconds = ((System.currentTimeMillis() - lastLiveTrackingAt) / 1000).coerceAtLeast(0)
+    return when {
+        elapsedSeconds < 60 -> "Posisi terakhir ${elapsedSeconds} detik lalu"
+        elapsedSeconds < 3600 -> "Posisi terakhir ${elapsedSeconds / 60} menit lalu"
+        else -> "Posisi terakhir lebih dari 1 jam lalu"
     }
 }
 

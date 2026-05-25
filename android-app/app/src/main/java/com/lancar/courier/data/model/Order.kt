@@ -288,8 +288,7 @@ fun Order.distanceKmValue(): Double {
 
 fun Order.etaMinutesValue(): Int {
     if (serviceMaxEtaMinutes > 0) return serviceMaxEtaMinutes
-    val calculated = (distanceKmValue() / 18.0 * 60.0).toInt().coerceAtLeast(8)
-    return calculated.coerceAtMost(240)
+    return 0
 }
 
 fun Int.toRupiahCompact(): String {

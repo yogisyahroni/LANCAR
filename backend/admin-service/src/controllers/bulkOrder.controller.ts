@@ -1,75 +1,91 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { db } from '../db';
 import { redis } from '../redis';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../midtrans';
-import { calculateServiceSettlement, customerFacingService, findDeliveryServiceByCode } from './deliveryServices.controller';
+import { calculateServiceSettlement, customerFacingService, DeliveryServiceProduct, findDeliveryServiceByCode } from './deliveryServices.controller';
+import { buildMapsRouteEtaSnapshot, RouteEtaSnapshot } from '../services/mapsProviderConfig';
 
-// A simple distance calculation mock
-const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const radlat1 = Math.PI * lat1 / 180;
-  const radlat2 = Math.PI * lat2 / 180;
-  const theta = lon1 - lon2;
-  const radtheta = Math.PI * theta / 180;
-  let dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
-  if (dist > 1) dist = 1;
-  dist = Math.acos(dist);
-  dist = dist * 180 / Math.PI;
-  dist = dist * 60 * 1.1515;
-  dist = dist * 1.609344; // kilometers
-  
-  return Math.max(1, parseFloat(dist.toFixed(2))); // Min 1km
+type BulkPricingResult = {
+  price: Record<string, number | string | null>;
+  errors: string[];
 };
 
-// Pricing rules mock
-const calculateRowPrice = (distance: number, weight_kg: number, dimensions?: any, has_insurance?: boolean, item_value?: number) => {
-  const BASE_FARE_FIRST_KM = 10000;
-  const PRICE_PER_KM = 4000;
-  
-  let base_price = BASE_FARE_FIRST_KM;
-  if (distance > 1) {
-    base_price += Math.ceil(distance - 1) * PRICE_PER_KM;
-  }
-
+const calculateRowPrice = (
+  service: DeliveryServiceProduct,
+  route: RouteEtaSnapshot,
+  weight_kg: number,
+  dimensions?: any,
+  has_insurance?: boolean,
+  item_value?: number
+): BulkPricingResult => {
+  const errors: string[] = [];
+  const distance = Number(route.distance_km || 0);
+  const extraDistance = Math.max(0, distance - Number(service.included_distance_km || 0));
+  const base_price = Math.ceil(
+    (Number(service.base_fare_idr || 0) + (Math.ceil(extraDistance) * Number(service.per_km_idr || 0))) *
+    Number(service.service_multiplier || 1)
+  );
   let volumetric_surcharge = 0;
   const actualWeight = parseFloat(weight_kg as any) || 0;
   let volumetricWeight = 0;
   let chargeableWeight = actualWeight;
+  const dimensionRules = service.dimension_rules || {};
+  const volumetricDivisor = Number(dimensionRules.volumetric_divisor_cm3_per_kg || 0);
+  const includedWeightKg = Number(dimensionRules.included_weight_kg || service.max_weight_kg || 0);
+  const overweightSurcharge = Number(dimensionRules.overweight_surcharge_idr_per_kg || 0);
+
   if (dimensions && dimensions.length && dimensions.width && dimensions.height) {
-    volumetricWeight = (dimensions.length * dimensions.width * dimensions.height) / 6000;
-    chargeableWeight = Math.max(volumetricWeight, actualWeight);
-    if (chargeableWeight > 5) {
-      volumetric_surcharge = Math.ceil(chargeableWeight - 5) * 2000;
+    if (!volumetricDivisor) {
+      errors.push('Konfigurasi volumetric divisor layanan belum tersedia');
+    } else {
+      volumetricWeight = (dimensions.length * dimensions.width * dimensions.height) / volumetricDivisor;
     }
-  } else {
-    if (actualWeight > 5) {
-      volumetric_surcharge = Math.ceil(actualWeight - 5) * 2000;
+    chargeableWeight = Math.max(volumetricWeight, actualWeight);
+  }
+  if (includedWeightKg > 0 && chargeableWeight > includedWeightKg) {
+    if (!overweightSurcharge) {
+      errors.push('Konfigurasi surcharge berat layanan belum tersedia');
+    } else {
+      volumetric_surcharge = Math.ceil(chargeableWeight - includedWeightKg) * overweightSurcharge;
     }
   }
 
   let insurance_premium = 0;
   if (has_insurance && item_value) {
-    insurance_premium = Math.ceil((item_value * 0.2) / 100);
-    if (insurance_premium < 1000) insurance_premium = 1000;
+    const insuranceRate = Number(service.metadata?.insurance_premium_rate_percent || 0);
+    const insuranceMinimum = Number(service.metadata?.insurance_min_premium_idr || 0);
+    if (!insuranceRate) {
+      errors.push('Konfigurasi premi asuransi layanan belum tersedia');
+    } else {
+      insurance_premium = Math.max(insuranceMinimum, Math.ceil((item_value * insuranceRate) / 100));
+    }
   }
 
-  const hour = new Date().getHours();
-  const isPeakHour = (hour >= 7 && hour <= 9) || (hour >= 17 && hour <= 20);
-  const dynamic_price = isPeakHour ? Math.ceil(base_price * 0.15) : 0;
-  const delivery_model = distance < 15 ? 'p2p' : distance < 30 ? 'two_legs' : 'three_legs';
-  const eta_minutes = Math.ceil(20 + (distance * 3.5) + (delivery_model === 'two_legs' ? 12 : delivery_model === 'three_legs' ? 24 : 0));
+  const dynamic_price = 0;
+  const eta_minutes = route.duration_seconds ? Math.ceil(route.duration_seconds / 60) : route.eta_minutes;
 
   return {
-    distance_km: distance,
-    base_price_idr: base_price,
-    actual_weight_kg: Number(actualWeight.toFixed(2)),
-    dimensional_weight_kg: Number(volumetricWeight.toFixed(2)),
-    chargeable_weight_kg: Number(chargeableWeight.toFixed(2)),
-    volumetric_surcharge_idr: volumetric_surcharge,
-    insurance_premium_idr: insurance_premium,
-    dynamic_price_idr: dynamic_price,
-    delivery_model,
-    eta_minutes,
-    total_price_idr: base_price + volumetric_surcharge + insurance_premium + dynamic_price
+    errors,
+    price: {
+      distance_km: distance,
+      distance_meters: route.distance_meters,
+      duration_seconds: route.duration_seconds,
+      route_provider: route.provider,
+      route_profile: route.route_profile,
+      route_fallback_reason: route.fallback_reason || null,
+      service_code: service.code,
+      base_price_idr: base_price,
+      actual_weight_kg: Number(actualWeight.toFixed(2)),
+      dimensional_weight_kg: Number(volumetricWeight.toFixed(2)),
+      chargeable_weight_kg: Number(chargeableWeight.toFixed(2)),
+      volumetric_surcharge_idr: volumetric_surcharge,
+      insurance_premium_idr: insurance_premium,
+      dynamic_price_idr: dynamic_price,
+      delivery_model: service.route_model,
+      eta_minutes,
+      total_price_idr: base_price + volumetric_surcharge + insurance_premium + dynamic_price
+    }
   };
 };
 
@@ -163,7 +179,12 @@ const parseUploadedRows = (file: Express.Multer.File): any[] => {
 
 const validatePhone = (value: string) => /^(\+?62|0)8[0-9]{8,13}$/.test(String(value || '').replace(/\s|-/g, ''));
 
-const buildRowFromExcel = (row: any, index: number, pickup: { address: string; lat: number; lng: number }) => {
+const buildRowFromExcel = async (
+  row: any,
+  index: number,
+  pickup: { address: string; lat: number; lng: number },
+  service: DeliveryServiceProduct
+) => {
   const recipientName = String(getCell(row, ['recipient_name', 'Nama Penerima', 'Penerima', 'nama_penerima'])).trim();
   const recipientPhone = String(getCell(row, ['recipient_phone', 'No HP Penerima', 'HP', 'Phone', 'no_hp_penerima'])).trim();
   const dropoffAddress = String(getCell(row, ['dropoff_address', 'Alamat Tujuan', 'Tujuan', 'Alamat', 'alamat_tujuan'])).trim();
@@ -188,13 +209,50 @@ const buildRowFromExcel = (row: any, index: number, pickup: { address: string; l
   if (hasInsurance && itemValue < 1000) errorMessages.push('Nilai barang minimal Rp 1.000 jika asuransi aktif');
   if (notes.length > 200) errorMessages.push('Catatan maksimal 200 karakter');
 
-  // If customer supplies coordinates, use them. Otherwise derive a deterministic Jakarta point
-  // from row index so validation and pricing stay stable until a real geocoder is attached.
-  const dLat = Number.isFinite(dropoffLat) ? dropoffLat : -6.210000 - (index * 0.001);
-  const dLon = Number.isFinite(dropoffLng) ? dropoffLng : 106.820000 + (index * 0.001);
+  if (!Number.isFinite(pickup.lat) || !Number.isFinite(pickup.lng)) {
+    errorMessages.push('Koordinat pickup harus berasal dari input pengguna atau alamat tersimpan');
+  }
+  if (!Number.isFinite(dropoffLat) || !Number.isFinite(dropoffLng)) {
+    errorMessages.push('Koordinat tujuan wajib diisi; pricing bulk tidak memakai koordinat buatan');
+  }
+
+  const dLat = dropoffLat;
+  const dLon = dropoffLng;
   const dimensions = length && width && height ? { length, width, height } : undefined;
-  const distance = calculateDistance(pickup.lat, pickup.lng, dLat, dLon);
-  const priceData = calculateRowPrice(distance, weightKg || 1, dimensions, hasInsurance, itemValue);
+  let priceData: Record<string, number | string | null> = {
+    distance_km: 0,
+    base_price_idr: 0,
+    actual_weight_kg: Number((weightKg || 0).toFixed(2)),
+    dimensional_weight_kg: 0,
+    chargeable_weight_kg: Number((weightKg || 0).toFixed(2)),
+    volumetric_surcharge_idr: 0,
+    insurance_premium_idr: 0,
+    dynamic_price_idr: 0,
+    delivery_model: service.route_model,
+    eta_minutes: null,
+    total_price_idr: 0
+  };
+
+  if (errorMessages.length === 0) {
+    try {
+      const route = await buildMapsRouteEtaSnapshot(
+        { latitude: pickup.lat, longitude: pickup.lng },
+        { latitude: dLat, longitude: dLon },
+        'web_customer',
+        {
+          serviceCode: service.code,
+          vehicleType: 'motorcycle',
+          routeProfile: 'motorcycle',
+          requireRoadRoute: true,
+        }
+      );
+      const pricing = calculateRowPrice(service, route, weightKg || 1, dimensions, hasInsurance, itemValue);
+      priceData = pricing.price;
+      errorMessages.push(...pricing.errors);
+    } catch (error: any) {
+      errorMessages.push(error?.message || 'Route provider gagal menghitung jarak berbasis jalan');
+    }
+  }
 
   return {
     id: `row_${index}`,
@@ -231,10 +289,13 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    // Default pickup coords from frontend payload
-    const pLat = parseFloat(req.body.pickup_lat) || -6.200000;
-    const pLon = parseFloat(req.body.pickup_lng) || 106.816666;
-    const pickup_address = req.body.pickup_address || 'Pickup Address';
+    const pLat = parseFloat(req.body.pickup_lat);
+    const pLon = parseFloat(req.body.pickup_lng);
+    const pickup_address = String(req.body.pickup_address || '').trim();
+    if (!pickup_address || !Number.isFinite(pLat) || !Number.isFinite(pLon)) {
+      res.status(400).json({ error: 'Pickup address and coordinates are required for production bulk pricing' });
+      return;
+    }
 
     const rawRows = parseUploadedRows(req.file);
 
@@ -247,7 +308,13 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const jobId = `bulk_job_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const bulkService = await findDeliveryServiceByCode('lancar_instant');
+    if (!bulkService) {
+      res.status(400).json({ error: 'Layanan bulk default tidak tersedia' });
+      return;
+    }
+
+    const jobId = `bulk_job_${crypto.randomUUID()}`;
 
     // Set initial job state
     await redis.set(jobId, JSON.stringify({
@@ -266,7 +333,7 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
       const processedRows = [];
       let completed = 0;
       for (const [index, row] of rawRows.entries()) {
-        processedRows.push(buildRowFromExcel(row, index, { address: pickup_address, lat: pLat, lng: pLon }));
+        processedRows.push(await buildRowFromExcel(row, index, { address: pickup_address, lat: pLat, lng: pLon }, bulkService));
 
         completed++;
         // Update Redis periodically
@@ -280,9 +347,6 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
             rows: completed === rawRows.length ? processedRows : []
           }), 'EX', 3600);
         }
-        
-        // Mock delay for UI progress visibility
-        await new Promise(resolve => setTimeout(resolve, 50)); 
       }
     })();
 
@@ -347,12 +411,17 @@ export const validateBulkRow = async (req: Request, res: Response): Promise<void
           dropoff_lat: row.dropoff_location?.lat,
           dropoff_lng: row.dropoff_location?.lng
         };
+        const bulkService = await findDeliveryServiceByCode(row.price_breakdown?.service_code as string || 'lancar_instant');
+        if (!bulkService) {
+          res.status(400).json({ error: 'Layanan bulk tidak tersedia untuk validasi ulang' });
+          return;
+        }
         jobData.rows[i] = {
-          ...buildRowFromExcel(mergedOriginal, Number(String(row.id).replace('row_', '')) || i, {
+          ...await buildRowFromExcel(mergedOriginal, Number(String(row.id).replace('row_', '')) || i, {
             address: row.pickup_address,
             lat: row.pickup_location.lat,
             lng: row.pickup_location.lng
-          }),
+          }, bulkService),
           id: row.id
         };
       }
@@ -436,7 +505,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
 
     // Bulk insert (using a loop for simplicity, can be optimized with UNNEST in prod)
     for (const row of validRows) {
-      const order_number = `LNC-BLK-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 1000)}`;
+      const order_number = `LNC-BLK-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
       totalAmount += row.price_breakdown.total_price_idr;
       const settlement = calculateServiceSettlement(
         bulkService,
@@ -544,7 +613,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
       `, [result.rows[0].id, customer_id]);
     }
 
-    const midtransOrderId = `LNC-BULK-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const midtransOrderId = `LNC-BULK-${crypto.randomUUID()}`;
     const snap = await createSnapTransaction({
       orderId: midtransOrderId,
       grossAmount: totalAmount,

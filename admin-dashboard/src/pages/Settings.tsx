@@ -112,13 +112,7 @@ export default function Settings() {
       if (Array.isArray(raw)) return raw
       if (raw.components && Array.isArray(raw.components)) return raw.components
       
-      // Convert object shape lama {api_gateway:'UP', database:'UP'} ke array
-      return [
-        { label: 'API Gateway', version: 'v2.x', status: raw.api_gateway === 'UP' ? 'Stable' : 'Degraded', metrics: 'OK' },
-        { label: 'PostgreSQL', version: '17.x', status: raw.database === 'UP' ? 'Healthy' : 'Degraded', metrics: 'OK' },
-        { label: 'Redis Cache', version: '7.x', status: raw.redis === 'UP' ? 'Live' : 'Degraded', metrics: 'OK' },
-        { label: 'WebSocket', version: 'Socket.io 4', status: raw.storage === 'UP' ? 'Optimal' : 'Unknown', metrics: 'OK' },
-      ]
+      return []
     }
   })
 

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"lancar/auth-service/internal/domain"
 	"time"
 
@@ -320,6 +321,19 @@ func (r *postgresRepo) MarkOTPAsUsed(ctx context.Context, id string) error {
 	query := `UPDATE otp_logs SET is_used = true WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
+}
+
+func (r *postgresRepo) IsFeatureFlagEnabled(ctx context.Context, key string, defaultValue bool) (bool, error) {
+	query := `SELECT is_enabled FROM feature_flags WHERE key = $1 LIMIT 1`
+	var enabled bool
+	err := r.readDB.QueryRowContext(ctx, query, key).Scan(&enabled)
+	if errors.Is(err, sql.ErrNoRows) {
+		return defaultValue, nil
+	}
+	if err != nil {
+		return defaultValue, err
+	}
+	return enabled, nil
 }
 
 // Audit Repository Implementation

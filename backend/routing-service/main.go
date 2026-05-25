@@ -9,8 +9,9 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
-	
+
 	"lancar-backend/internal/featureflags"
+	"lancar-backend/internal/routing"
 	"net/http"
 )
 
@@ -72,11 +73,14 @@ func main() {
 
 	log.Println("Successfully connected to Redis!")
 
-	// Initialize FeatureFlag reader with both connections
-	_ = featureflags.NewFlagReader(db, readDB, rdb)
+	// Initialize route selector dependencies with database-backed zone resolution.
+	flagReader := featureflags.NewFlagReader(db, readDB, rdb)
+	defer flagReader.Close()
+	routingEngine := routing.NewRoutingEngineWithZoneResolver(flagReader, routing.NewPostgresZoneResolver(readDB))
+	_ = routingEngine
 
 	log.Println("Routing service initialized. Feature flag reader is active (Dual-DB mode).")
-	
+
 	// Start minimal HTTP server for health checks
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

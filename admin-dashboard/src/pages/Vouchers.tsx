@@ -11,7 +11,9 @@ import {
   Clock,
   Loader2,
   X,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -19,13 +21,45 @@ import { api } from '../lib/api'
 import { format, differenceInDays } from 'date-fns'
 import { toast } from 'sonner'
 
+const queryErrorMessage = (error: any, fallback: string) =>
+  error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback
+
+function VoucherDataState({ title, message, onRetry, tone = 'muted' }: { title: string; message: string; onRetry?: () => void; tone?: 'muted' | 'error' }) {
+  const isError = tone === 'error'
+  return (
+    <div className={cn(
+      "col-span-full py-20 text-center space-y-4 rounded-[40px] border",
+      isError ? "bg-red-500/5 border-red-500/20" : "glass-card border-dashed border-white/10"
+    )}>
+      <AlertCircle className={cn("mx-auto", isError ? "text-red-400" : "text-zinc-800")} size={48} />
+      <div>
+        <p className="text-zinc-200 font-black italic uppercase tracking-widest">{title}</p>
+        <p className="text-xs text-zinc-600 mt-2">{message}</p>
+      </div>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className={cn(
+            "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all",
+            isError ? "bg-red-500/10 border-red-500/20 text-red-300 hover:bg-red-500/20" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white"
+          )}
+        >
+          <RefreshCw size={14} />
+          Retry
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function Vouchers() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedVoucher, setSelectedVoucher] = useState<any>(null)
 
-  const { data: stats, isLoading: isLoadingStats } = useQuery({
+  const { data: stats, isLoading: isLoadingStats, isError: isStatsError, error: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['voucher-stats'],
     queryFn: async () => {
       const res = await api.get('/admin/vouchers/stats');
@@ -33,7 +67,7 @@ export default function Vouchers() {
     }
   });
 
-  const { data: vouchers, isLoading: isLoadingVouchers } = useQuery({
+  const { data: vouchers, isLoading: isLoadingVouchers, isError: isVouchersError, error: vouchersError, refetch: refetchVouchers } = useQuery({
     queryKey: ['vouchers'],
     queryFn: async () => {
       const res = await api.get('/admin/vouchers');
@@ -81,14 +115,14 @@ export default function Vouchers() {
   }
 
   const statCards = [
-    { label: 'Active Vouchers', value: stats?.activeVouchers?.toLocaleString() || '0', icon: Ticket, color: 'text-emerald-400' },
-    { label: 'Total Claims', value: stats?.totalClaims?.toLocaleString() || '0', icon: Users, color: 'text-primary-light' },
-    { label: 'Revenue Impact', value: `Rp ${stats?.revenueImpact?.toLocaleString() || '0'}`, icon: TrendingUp, color: 'text-amber-400' },
+    { label: 'Active Vouchers', value: stats?.activeVouchers?.toLocaleString() ?? 'Tidak tersedia', icon: Ticket, color: 'text-emerald-400' },
+    { label: 'Total Claims', value: stats?.totalClaims?.toLocaleString() ?? 'Tidak tersedia', icon: Users, color: 'text-primary-light' },
+    { label: 'Revenue Impact', value: typeof stats?.revenueImpact === 'number' ? `Rp ${stats.revenueImpact.toLocaleString()}` : 'Tidak tersedia', icon: TrendingUp, color: 'text-amber-400' },
   ];
 
-  const filteredVouchers = vouchers?.filter((v: any) => 
-    v.code.toLowerCase().includes(search.toLowerCase()) ||
-    v.name?.toLowerCase().includes(search.toLowerCase())
+  const filteredVouchers = vouchers?.filter((v: any) =>
+    String(v.code || '').toLowerCase().includes(search.toLowerCase()) ||
+    String(v.name || '').toLowerCase().includes(search.toLowerCase())
   );
 
   const handleEdit = (voucher: any) => {
@@ -124,7 +158,14 @@ export default function Vouchers() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {statCards.map((stat, i) => (
+        {isStatsError ? (
+          <VoucherDataState
+            title="Voucher stats gagal dimuat"
+            message={queryErrorMessage(statsError, 'Statistik voucher belum bisa diambil dari API admin.')}
+            onRetry={() => refetchStats()}
+            tone="error"
+          />
+        ) : statCards.map((stat, i) => (
           <div key={i} className="glass-card p-8 rounded-[32px] border-white/5">
              <div className="flex items-center gap-4">
                 <div className={cn("p-4 rounded-2xl bg-white/5", stat.color)}>
@@ -158,7 +199,14 @@ export default function Vouchers() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredVouchers?.map((voucher: any, i: number) => {
+        {isVouchersError ? (
+          <VoucherDataState
+            title="Voucher gagal dimuat"
+            message={queryErrorMessage(vouchersError, 'Daftar voucher belum bisa diambil dari API admin.')}
+            onRetry={() => refetchVouchers()}
+            tone="error"
+          />
+        ) : filteredVouchers?.map((voucher: any, i: number) => {
           const daysLeft = differenceInDays(new Date(voucher.valid_until || voucher.expiry_date), new Date());
           const usagePercent = voucher.quota > 0 ? (voucher.used_count / voucher.quota) * 100 : 0;
           
@@ -188,9 +236,11 @@ export default function Vouchers() {
                     </span>
                   </div>
                   <div>
-                     <h4 className="font-bold text-zinc-100 text-lg">{voucher.name || 'Promotional Voucher'}</h4>
+                     <h4 className="font-bold text-zinc-100 text-lg">{voucher.name || 'Nama voucher belum tersedia'}</h4>
                      <p className="text-sm font-medium text-zinc-400 mt-1">Discount: <span className="text-emerald-400 font-bold">{voucher.type === 'percentage' ? `${voucher.value}%` : `Rp ${voucher.value?.toLocaleString()}`}</span></p>
-                     <p className="text-[10px] text-zinc-500 mt-2 italic font-medium">Min. Order Rp {voucher.min_order_idr?.toLocaleString() || 0} • Max. Rp {voucher.max_discount_idr?.toLocaleString() || 'N/A'}</p>
+                     <p className="text-[10px] text-zinc-500 mt-2 italic font-medium">
+                      Min. Order {typeof voucher.min_order_idr === 'number' ? `Rp ${voucher.min_order_idr.toLocaleString()}` : 'belum tersedia'} • Max. {typeof voucher.max_discount_idr === 'number' ? `Rp ${voucher.max_discount_idr.toLocaleString()}` : 'belum tersedia'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -245,7 +295,7 @@ export default function Vouchers() {
             </motion.div>
           )
         })}
-        {(!filteredVouchers || filteredVouchers.length === 0) && (
+        {!isVouchersError && (!filteredVouchers || filteredVouchers.length === 0) && (
           <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-white/10">
             <Ticket className="mx-auto text-zinc-800" size={48} />
             <p className="text-zinc-500 font-black italic uppercase tracking-widest italic">

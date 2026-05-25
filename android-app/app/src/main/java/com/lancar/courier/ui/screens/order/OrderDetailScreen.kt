@@ -43,6 +43,8 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.CourierRoutePreview
 import com.lancar.courier.data.model.MapsProviderConfig
+import com.lancar.courier.data.model.CancelPickupReason
+import com.lancar.courier.data.model.OrderStatusTransition
 import com.lancar.courier.data.model.cleanPayoutIdr
 import com.lancar.courier.data.model.displayServiceName
 import com.lancar.courier.data.model.normalizedWorkflowRole
@@ -122,6 +124,8 @@ fun OrderDetailScreen(
     onChatClick: () -> Unit,
     routePreview: CourierRoutePreview? = null,
     mapsProviderConfig: MapsProviderConfig = MapsProviderConfig(),
+    cancelPickupReasons: List<CancelPickupReason> = emptyList(),
+    statusTransitions: List<OrderStatusTransition> = emptyList(),
     pickupScanVerified: Boolean = false,
     pickupPhotoVerified: Boolean = false,
     onSosClick: () -> Unit = {},
@@ -142,21 +146,38 @@ fun OrderDetailScreen(
     var newStatus by remember { mutableStateOf(order.status) }
 
     if (showStatusDialog) {
+        val selectableStatuses = statusTransitions
+            .filter {
+                it.fromStatus.equals(order.status, ignoreCase = true) &&
+                    !it.requiresAdmin &&
+                    !it.requiresProof
+            }
+            .map { it.toStatus }
+            .toSet()
+        val canSubmitStatus = newStatus != order.status && selectableStatuses.contains(newStatus)
+
         AlertDialog(
             onDismissRequest = { showStatusDialog = false },
             title = { Text("Update Status") },
             text = {
                 Column {
-                    OrderStatusOptions(newStatus) { status ->
+                    OrderStatusOptions(
+                        currentStatus = order.status,
+                        selectedStatus = newStatus,
+                        transitions = statusTransitions
+                    ) { status ->
                         newStatus = status
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    onUpdateStatus(newStatus)
-                    showStatusDialog = false
-                }) {
+                TextButton(
+                    enabled = canSubmitStatus,
+                    onClick = {
+                        onUpdateStatus(newStatus)
+                        showStatusDialog = false
+                    }
+                ) {
                     Text("Update")
                 }
             },
@@ -203,6 +224,7 @@ fun OrderDetailScreen(
                 OnDemandTaskActions(
                     order = order,
                     routePreview = routePreview,
+                    cancelPickupReasons = cancelPickupReasons,
                     pickupScanVerified = pickupScanVerified,
                     pickupPhotoVerified = pickupPhotoVerified,
                     onVerifyPickup = onVerifyPickup,
@@ -350,6 +372,7 @@ private fun DeliveryMapCard(
 private fun OnDemandTaskActions(
     order: Order,
     routePreview: CourierRoutePreview?,
+    cancelPickupReasons: List<CancelPickupReason>,
     pickupScanVerified: Boolean,
     pickupPhotoVerified: Boolean,
     onVerifyPickup: () -> Unit,
@@ -456,6 +479,7 @@ private fun OnDemandTaskActions(
     if (showCancelPickupDialog) {
         CancelPickupDialog(
             order = order,
+            cancelPickupReasons = cancelPickupReasons,
             onDismiss = { showCancelPickupDialog = false },
             onSubmit = { reasonCode, reasonNote, photoFile ->
                 showCancelPickupDialog = false
@@ -762,31 +786,24 @@ private fun OnDemandSupportActions(
     }
 }
 
-private data class CancelPickupReason(
-    val code: String,
-    val title: String,
-    val description: String
-)
-
-private val cancelPickupReasons = listOf(
-    CancelPickupReason("item_mismatch", "Barang tidak sesuai", "Jenis, jumlah, dimensi, atau berat berbeda dari data order."),
-    CancelPickupReason("item_damaged", "Barang rusak", "Kondisi barang tidak layak untuk dijemput."),
-    CancelPickupReason("prohibited_item", "Barang dilarang", "Barang berisiko, berbahaya, atau tidak sesuai ketentuan layanan."),
-    CancelPickupReason("oversize_or_overweight", "Melebihi kapasitas", "Barang terlalu besar atau berat untuk kendaraan/layanan."),
-    CancelPickupReason("customer_unreachable", "Customer tidak merespons", "Customer tidak bisa dihubungi di titik pickup."),
-    CancelPickupReason("pickup_address_issue", "Alamat pickup bermasalah", "Titik/alamat pickup tidak valid atau tidak dapat diakses."),
-    CancelPickupReason("customer_cancelled_at_pickup", "Customer batal di lokasi", "Customer menyampaikan pembatalan saat kurir tiba."),
-    CancelPickupReason("other", "Alasan lainnya", "Gunakan catatan untuk menjelaskan kondisi lapangan.")
-)
-
 @Composable
 private fun CancelPickupDialog(
     order: Order,
+    cancelPickupReasons: List<CancelPickupReason>,
     onDismiss: () -> Unit,
     onSubmit: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit
 ) {
     val context = LocalContext.current
-    var selectedReason by remember { mutableStateOf(cancelPickupReasons.first()) }
+    val reasonSignature = cancelPickupReasons.joinToString("|") { it.code }
+    var selectedReasonCode by rememberSaveable(order.orderId, reasonSignature) {
+        mutableStateOf(cancelPickupReasons.firstOrNull()?.code)
+    }
+    LaunchedEffect(reasonSignature) {
+        if (cancelPickupReasons.none { it.code == selectedReasonCode }) {
+            selectedReasonCode = cancelPickupReasons.firstOrNull()?.code
+        }
+    }
+    val selectedReason = cancelPickupReasons.firstOrNull { it.code == selectedReasonCode }
     var note by rememberSaveable(order.orderId) { mutableStateOf("") }
     var proofBitmap by remember { mutableStateOf<Bitmap?>(null) }
     var submitAttempted by remember { mutableStateOf(false) }
@@ -794,7 +811,8 @@ private fun CancelPickupDialog(
         if (bitmap != null) proofBitmap = bitmap
     }
     val photoMissing = submitAttempted && proofBitmap == null
-    val noteMissing = submitAttempted && selectedReason.code == "other" && note.isBlank()
+    val reasonMissing = submitAttempted && selectedReason == null
+    val noteMissing = submitAttempted && selectedReason?.code == "other" && note.isBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -813,25 +831,36 @@ private fun CancelPickupDialog(
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Pilih alasan", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                    cancelPickupReasons.forEach { reason ->
-                        FilterChip(
-                            selected = selectedReason.code == reason.code,
-                            onClick = { selectedReason = reason },
-                            label = {
-                                Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                                    Text(reason.title, fontWeight = FontWeight.Bold)
-                                    Text(reason.description, style = MaterialTheme.typography.labelSmall)
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
+                    if (cancelPickupReasons.isEmpty()) {
+                        Text(
+                            "Alasan pembatalan belum tersedia dari server.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
                         )
+                    } else {
+                        cancelPickupReasons.forEach { reason ->
+                            FilterChip(
+                                selected = selectedReasonCode == reason.code,
+                                onClick = { selectedReasonCode = reason.code },
+                                label = {
+                                    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                        Text(reason.title, fontWeight = FontWeight.Bold)
+                                        Text(reason.description, style = MaterialTheme.typography.labelSmall)
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
+                }
+                if (reasonMissing) {
+                    Text("Pilih alasan pembatalan dari konfigurasi server.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
                 }
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it.take(300) },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text(if (selectedReason.code == "other") "Catatan wajib" else "Catatan tambahan") },
+                    label = { Text(if (selectedReason?.code == "other") "Catatan wajib" else "Catatan tambahan") },
                     minLines = 2,
                     supportingText = {
                         Text("${note.length}/300")
@@ -862,8 +891,9 @@ private fun CancelPickupDialog(
                 onClick = {
                     submitAttempted = true
                     val bitmap = proofBitmap
-                    if (bitmap != null && !(selectedReason.code == "other" && note.isBlank())) {
-                        onSubmit(selectedReason.code, note.takeIf { it.isNotBlank() }, saveCancellationPhoto(context, order.orderId, bitmap))
+                    val reason = selectedReason
+                    if (bitmap != null && reason != null && !(reason.code == "other" && note.isBlank())) {
+                        onSubmit(reason.code, note.takeIf { it.isNotBlank() }, saveCancellationPhoto(context, order.orderId, bitmap))
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
@@ -1234,11 +1264,13 @@ private fun OrderActions(
                 onClick = onCapturePod
             )
 
-            ActionButton(
-                icon = Icons.Default.Update,
-                label = "Update Status Order",
-                onClick = onStatusClick
-            )
+            if (order.normalizedWorkflowRole() == "on_demand" || order.status.isNotBlank()) {
+                ActionButton(
+                    icon = Icons.Default.Update,
+                    label = "Update Status Order",
+                    onClick = onStatusClick
+                )
+            }
         }
     }
 }
@@ -1285,11 +1317,28 @@ private fun ActionButton(
 }
 
 @Composable
-private fun OrderStatusOptions(currentStatus: String, onSelect: (String) -> Unit) {
-    val statuses = listOf("pending", "assigned", "picked_up", "in_transit", "delivered", "failed")
-    
+private fun OrderStatusOptions(
+    currentStatus: String,
+    selectedStatus: String,
+    transitions: List<OrderStatusTransition>,
+    onSelect: (String) -> Unit
+) {
+    val options = transitions
+        .filter { it.fromStatus.equals(currentStatus, ignoreCase = true) && !it.requiresAdmin }
+        .sortedWith(compareBy<OrderStatusTransition> { it.displayOrder }.thenBy { it.label })
+
     Column {
-        statuses.forEach { status ->
+        if (options.isEmpty()) {
+            Text(
+                text = "Policy transisi status belum tersedia dari backend.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            return@Column
+        }
+
+        options.forEach { option ->
+            val enabled = !option.requiresProof
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1297,10 +1346,28 @@ private fun OrderStatusOptions(currentStatus: String, onSelect: (String) -> Unit
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = status.replace("_", " ").uppercase())
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = option.label)
+                    Text(
+                        text = option.description
+                            ?: option.toStatus.replace("_", " ").uppercase(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (option.requiresProof) {
+                        Text(
+                            text = "Wajib lewat bukti pickup/POD",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
                 RadioButton(
-                    selected = currentStatus == status,
-                    onClick = { onSelect(status) }
+                    selected = selectedStatus == option.toStatus,
+                    enabled = enabled,
+                    onClick = { if (enabled) onSelect(option.toStatus) }
                 )
             }
         }

@@ -73,6 +73,29 @@ const normalizeService = (row: any): DeliveryServiceProduct => {
   return service;
 };
 
+const lookupVersion = (rows: any[]): string | null => {
+  const latest = rows.reduce((max, row) => {
+    const updatedAt = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+    return Math.max(max, updatedAt);
+  }, 0);
+  return latest > 0 ? new Date(latest).toISOString() : null;
+};
+
+const writeDeliveryServiceAudit = async (
+  actorId: string | undefined,
+  action: string,
+  payload: Record<string, unknown>
+) => {
+  if (!actorId) {
+    throw new Error('Authenticated admin actor is required for delivery service changes');
+  }
+  await db.query(
+    `INSERT INTO audit_logs (actor_id, action, target_id, payload)
+     VALUES ($1, $2, NULL, $3)`,
+    [actorId, action, JSON.stringify(payload)]
+  );
+};
+
 export const customerFacingService = (service: DeliveryServiceProduct) => ({
   code: service.code,
   name: service.name,
@@ -171,7 +194,12 @@ export const listEnabledDeliveryServicesForCustomer = async (): Promise<Delivery
 export const listCustomerDeliveryServices = async (_req: Request, res: Response): Promise<void> => {
   try {
     const services = await listEnabledDeliveryServicesForCustomer();
-    res.json({ success: true, services: services.map(customerFacingService) });
+    res.json({
+      success: true,
+      services: services.map(customerFacingService),
+      cache_ttl_seconds: 300,
+      version: lookupVersion(services)
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -185,7 +213,12 @@ export const listAdminDeliveryServices = async (_req: Request, res: Response): P
        ORDER BY display_order ASC, name ASC`
     );
 
-    res.json({ success: true, services: rows.map(normalizeService) });
+    res.json({
+      success: true,
+      services: rows.map(normalizeService),
+      cache_ttl_seconds: 300,
+      version: lookupVersion(rows)
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -269,6 +302,7 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
       ]
     );
 
+    await writeDeliveryServiceAudit(req.user?.id, 'lookup.delivery_service.created', { after: rows[0] });
     res.status(201).json({ success: true, service: normalizeService(rows[0]) });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -335,6 +369,7 @@ export const updateAdminDeliveryService = async (req: Request, res: Response): P
       return;
     }
 
+    await writeDeliveryServiceAudit(req.user?.id, 'lookup.delivery_service.updated', { after: rows[0] });
     res.json({ success: true, service: normalizeService(rows[0]) });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

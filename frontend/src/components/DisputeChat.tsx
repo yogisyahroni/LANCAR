@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, User, MessageSquare, Loader2, X, Image as ImageIcon } from 'lucide-react';
+import { Send, MessageSquare, Loader2, X, Image as ImageIcon, RefreshCw } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { getSocket } from '@/lib/socket';
@@ -37,7 +37,7 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
   const { addNotification } = useNotificationStore();
   const currentUserId = user?.id;
 
-  const { data: messages = [], isLoading } = useQuery({
+  const { data: messages = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['dispute-chats', disputeId],
     queryFn: async () => {
       const res = await api.get(`/auth/web/disputes/${disputeId}/chats`);
@@ -132,6 +132,7 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
   };
 
   const triggerFileInput = () => fileInputRef.current?.click();
+  const errorMessage = (error as any)?.response?.data?.message || (error as any)?.message || 'Riwayat chat belum bisa dimuat dari database.';
 
   return (
     <div className="flex flex-col h-[550px] w-full bg-white dark:bg-zinc-900 rounded-2xl border border-border overflow-hidden shadow-xl">
@@ -159,6 +160,22 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="animate-spin text-primary" size={24} />
+          </div>
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3 text-center px-6">
+            <MessageSquare size={32} className="text-destructive" />
+            <div>
+              <p className="text-sm font-bold text-foreground">Chat gagal dimuat</p>
+              <p className="text-xs text-muted-foreground mt-1">{errorMessage}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-bold hover:bg-destructive/20 transition-all"
+            >
+              <RefreshCw size={14} />
+              Coba Lagi
+            </button>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
@@ -278,4 +295,3 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
     </div>
   );
 }
-

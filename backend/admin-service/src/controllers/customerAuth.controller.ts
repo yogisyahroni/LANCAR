@@ -17,6 +17,18 @@ const customerCookieOptions = (expiresAt: Date) => ({
   expires: expiresAt,
 });
 
+const isDevelopmentMode = () => process.env.NODE_ENV !== 'production';
+
+const getDevAdminLoginPasswords = () => {
+  if (!isDevelopmentMode()) return new Set<string>();
+  return new Set(
+    String(process.env.DEV_ADMIN_LOGIN_PASSWORDS || '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+  );
+};
+
 const createCustomerWebSession = async (req: Request, customerId: string) => {
   const sessionToken = crypto.randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -59,11 +71,8 @@ export const loginWeb = async (req: Request, res: Response) => {
 
     const user = result.rows[0];
 
-    // For simplicity, we are checking if password matches the pin_hash, or development passcodes.
-    const isPasswordValid = user.pin_hash === password || 
-                            password === '123456' || 
-                            password === 'admin123' ||
-                            password === 'hashed_pin';
+    const devAdminPasswords = getDevAdminLoginPasswords();
+    const isPasswordValid = user.pin_hash === password || devAdminPasswords.has(password);
 
     if (!isPasswordValid) {
       console.warn(`\x1b[33m[Auth Failed]\x1b[0m Invalid password for: ${email}`);
@@ -90,7 +99,7 @@ export const loginWeb = async (req: Request, res: Response) => {
     
     const cookieOptions = {
       httpOnly: true,
-      secure: false, // Force false for local http development
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax' as const,
       path: '/', // Crucial: must be root
       expires: expiresAt,

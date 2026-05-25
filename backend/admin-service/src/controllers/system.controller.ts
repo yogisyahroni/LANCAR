@@ -1,4 +1,7 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
+import fs from 'fs/promises';
+import path from 'path';
 import { db, readDb } from '../db';
 import { redis } from '../redis';
 import { getIO } from '../websocket';
@@ -279,63 +282,110 @@ export const updateSystemConfig = async (req: Request, res: Response): Promise<v
 };
 
 export const getSystemHealth = async (req: Request, res: Response) => {
-  try {
-    // Cek koneksi DB secara aktual
-    const dbStart = Date.now();
-    await readDb.query('SELECT 1');
-    const dbLatency = Date.now() - dbStart;
+  const startedAt = Date.now();
+  const appVersion = process.env.npm_package_version || process.env.APP_VERSION || null;
 
-    // Cek koneksi Redis
-    const redisStart = Date.now();
+  const probeDatabase = async () => {
+    const start = Date.now();
+    const result = await readDb.query('SHOW server_version');
+    const latency = Date.now() - start;
+    return {
+      key: 'database',
+      label: 'PostgreSQL',
+      version: result.rows[0]?.server_version || null,
+      status: latency < 100 ? 'Healthy' : 'Degraded',
+      state: latency < 100 ? 'UP' : 'DEGRADED',
+      metrics: `${latency}ms`,
+    };
+  };
+
+  const probeRedis = async () => {
+    const start = Date.now();
     await redis.ping();
-    const redisLatency = Date.now() - redisStart;
+    const info = await redis.info('server');
+    const latency = Date.now() - start;
+    const version = info.match(/^redis_version:(.+)$/m)?.[1]?.trim() || null;
+    return {
+      key: 'redis',
+      label: 'Redis Cache',
+      version,
+      status: latency < 50 ? 'Live' : 'Degraded',
+      state: latency < 50 ? 'UP' : 'DEGRADED',
+      metrics: `${latency}ms`,
+    };
+  };
 
-    // Return sebagai object agar compatible dengan Dashboard.tsx
-    res.json({
-      api_gateway: 'UP',
-      database: dbLatency < 100 ? 'UP' : 'DEGRADED',
-      redis: redisLatency < 50 ? 'UP' : 'DEGRADED',
-      storage: 'UP',
-      components: [
-        {
-          label: 'API Gateway',
-          version: 'v2.4.1',
-          status: 'Stable',
-          metrics: '~12ms avg'
-        },
-        {
-          label: 'PostgreSQL',
-          version: '17.6.1',
-          status: dbLatency < 100 ? 'Healthy' : 'Degraded',
-          metrics: `${dbLatency}ms`
-        },
-        {
-          label: 'Redis Cache',
-          version: '7.x',
-          status: redisLatency < 50 ? 'Live' : 'Degraded',
-          metrics: `${redisLatency}ms`
-        },
-        {
-          label: 'WebSocket',
-          version: 'Socket.io 4',
-          status: 'Optimal',
-          metrics: 'Active'
-        }
-      ]
-    });
-  } catch (error: any) {
-    // Fallback object
-    res.json({
-      api_gateway: 'UP',
-      database: 'DOWN',
-      redis: 'DOWN',
-      storage: 'UP',
-      components: [
-        { label: 'API Gateway', version: 'v2.4.1', status: 'Stable', metrics: 'OK' },
-        { label: 'PostgreSQL', version: '17.x', status: 'Error', metrics: error.message?.substring(0, 20) },
-        { label: 'Redis Cache', version: '7.x', status: 'Unknown', metrics: '---' },
-        { label: 'WebSocket', version: 'Socket.io 4', status: 'Unknown', metrics: '---' }
-      ]
-    });
-  }
+  const probeStorage = async () => {
+    const provider = process.env.STORAGE_PROVIDER || process.env.FILE_STORAGE_PROVIDER || 'local_disk';
+    const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'public', 'uploads');
+    const start = Date.now();
+    const probeDir = path.join(uploadDir, '.health');
+    const probeFile = path.join(probeDir, `probe-${Date.now()}-${crypto.randomUUID()}.tmp`);
+    await fs.mkdir(probeDir, { recursive: true });
+    await fs.writeFile(probeFile, 'ok', { encoding: 'utf8' });
+    await fs.unlink(probeFile);
+    const latency = Date.now() - start;
+    return {
+      key: 'storage',
+      label: `Storage (${provider})`,
+      version: null,
+      status: latency < 100 ? 'Writable' : 'Degraded',
+      state: latency < 100 ? 'UP' : 'DEGRADED',
+      metrics: `${latency}ms`,
+    };
+  };
+
+  const probeWebSocket = async () => {
+    const io = getIO();
+    const clientsCount = io.engine?.clientsCount ?? null;
+    return {
+      key: 'websocket',
+      label: 'WebSocket',
+      version: null,
+      status: 'Ready',
+      state: 'UP',
+      metrics: clientsCount === null ? 'ready' : `${clientsCount} clients`,
+    };
+  };
+
+  const settleProbe = async (key: string, label: string, probe: () => Promise<any>) => {
+    try {
+      return await probe();
+    } catch (error: any) {
+      return {
+        key,
+        label,
+        version: null,
+        status: 'Error',
+        state: 'DOWN',
+        metrics: String(error?.message || 'unavailable').slice(0, 80),
+      };
+    }
+  };
+
+  const components = await Promise.all([
+    Promise.resolve({
+      key: 'api_gateway',
+      label: 'API Gateway',
+      version: appVersion,
+      status: 'Ready',
+      state: 'UP',
+      metrics: `${Date.now() - startedAt}ms handler`,
+    }),
+    settleProbe('database', 'PostgreSQL', probeDatabase),
+    settleProbe('redis', 'Redis Cache', probeRedis),
+    settleProbe('storage', 'Storage', probeStorage),
+    settleProbe('websocket', 'WebSocket', probeWebSocket),
+  ]);
+
+  const stateByKey = Object.fromEntries(components.map((component) => [component.key, component.state]));
+  res.status(components.some((component) => component.state === 'DOWN') ? 503 : 200).json({
+    api_gateway: stateByKey.api_gateway,
+    database: stateByKey.database,
+    redis: stateByKey.redis,
+    storage: stateByKey.storage,
+    websocket: stateByKey.websocket,
+    generated_at: new Date().toISOString(),
+    components: components.map(({ key, state, ...component }) => component),
+  });
 };

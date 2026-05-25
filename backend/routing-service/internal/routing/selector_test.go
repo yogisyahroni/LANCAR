@@ -11,6 +11,18 @@ type mockFlagReader struct {
 	flags map[string]*featureflags.FeatureFlag
 }
 
+type fakeZoneResolver struct {
+	zones map[Coordinate]string
+}
+
+func (r *fakeZoneResolver) ResolveZoneCode(ctx context.Context, coord Coordinate) (string, error) {
+	zone, ok := r.zones[coord]
+	if !ok {
+		return "", ErrZoneNotFound
+	}
+	return zone, nil
+}
+
 func (m *mockFlagReader) GetFlag(ctx context.Context, key string) (*featureflags.FeatureFlag, error) {
 	return m.flags[key], nil
 }
@@ -56,7 +68,15 @@ func TestSelectModel(t *testing.T) {
 	}
 
 	reader := &mockFlagReader{flags: flags}
-	engine := NewRoutingEngine(reader)
+	zoneResolver := &fakeZoneResolver{zones: map[Coordinate]string{
+		{Lat: -6.10, Lng: 106.80}: "JAK-SEL",
+		{Lat: -6.19, Lng: 106.80}: "JAK-SEL",
+		{Lat: -6.28, Lng: 106.80}: "JAK-SEL",
+		{Lat: -6.37, Lng: 106.80}: "JAK-SEL",
+		{Lat: -6.10, Lng: 106.90}: "BOG-UTR",
+		{Lat: -6.19, Lng: 106.90}: "BOG-UTR",
+	}}
+	engine := NewRoutingEngineWithZoneResolver(reader, zoneResolver)
 	ctx := context.Background()
 
 	tests := []struct {
@@ -68,31 +88,31 @@ func TestSelectModel(t *testing.T) {
 	}{
 		{
 			name:      "P2P Model (Distance 10)",
-			pickup:    Coordinate{Lat: 1.0, Lng: 101.0}, // JAK-TIM
-			dropoff:   Coordinate{Lat: 2.0, Lng: 101.0}, // JAK-TIM
+			pickup:    Coordinate{Lat: -6.10, Lng: 106.80},
+			dropoff:   Coordinate{Lat: -6.19, Lng: 106.80},
 			wantModel: ModelP2P,
 			wantErr:   false,
 		},
 		{
 			name:      "Two Legs Model (Distance 20)",
-			pickup:    Coordinate{Lat: 1.0, Lng: 101.0}, // JAK-TIM
-			dropoff:   Coordinate{Lat: 3.0, Lng: 101.0}, // JAK-TIM
+			pickup:    Coordinate{Lat: -6.10, Lng: 106.80},
+			dropoff:   Coordinate{Lat: -6.28, Lng: 106.80},
 			wantModel: ModelTwoLegs,
 			wantErr:   false,
 		},
 		{
 			name:      "Three Legs Model (Distance 30)",
-			pickup:    Coordinate{Lat: 1.0, Lng: 101.0}, // JAK-TIM
-			dropoff:   Coordinate{Lat: 4.0, Lng: 101.0}, // JAK-TIM
+			pickup:    Coordinate{Lat: -6.10, Lng: 106.80},
+			dropoff:   Coordinate{Lat: -6.37, Lng: 106.80},
 			wantModel: ModelThreeLegs,
 			wantErr:   false,
 		},
 		{
 			name:      "Zone Not Allowed (P2P)",
-			pickup:    Coordinate{Lat: 1.0, Lng: 99.0}, // Not JAK-SEL or JAK-TIM (detectZone returns JAK-SEL if Lng <= 100, which is in active_zones. Let's adjust)
-			dropoff:   Coordinate{Lat: 2.0, Lng: 99.0}, // Wait, JAK-SEL is in active_zones! We need a zone not in active_zones
-			wantModel: ModelP2P,
-			wantErr:   false,
+			pickup:    Coordinate{Lat: -6.10, Lng: 106.90},
+			dropoff:   Coordinate{Lat: -6.19, Lng: 106.90},
+			wantModel: "",
+			wantErr:   true,
 		},
 	}
 
@@ -138,12 +158,16 @@ func BenchmarkSelectModel(b *testing.B) {
 		},
 	}
 	reader := &mockFlagReader{flags: flags}
-	engine := NewRoutingEngine(reader)
+	zoneResolver := &fakeZoneResolver{zones: map[Coordinate]string{
+		{Lat: -6.10, Lng: 106.80}: "JAK-SEL",
+		{Lat: -6.37, Lng: 106.80}: "JAK-SEL",
+	}}
+	engine := NewRoutingEngineWithZoneResolver(reader, zoneResolver)
 	ctx := context.Background()
 
 	req := OrderRequest{
-		Pickup:  Coordinate{Lat: 1.0, Lng: 101.0},
-		Dropoff: Coordinate{Lat: 4.0, Lng: 101.0},
+		Pickup:  Coordinate{Lat: -6.10, Lng: 106.80},
+		Dropoff: Coordinate{Lat: -6.37, Lng: 106.80},
 		UserID:  "user123",
 	}
 

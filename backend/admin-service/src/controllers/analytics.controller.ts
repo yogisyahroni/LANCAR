@@ -2,46 +2,75 @@ import { Request, Response } from 'express';
 import { readDb } from '../db';
 import { db } from '../db';
 
+const parseCount = (value: unknown): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const percentageGrowth = (current: number, previous: number): number | null => {
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || previous <= 0) return null;
+  return Number(((current - previous) / previous * 100).toFixed(1));
+};
+
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
     const ordersResult = await readDb.query(`
-      SELECT 
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE status IN ('pending', 'processing', 'on_relay')) as active,
-        COUNT(*) FILTER (WHERE status = 'delivered') as delivered,
-        COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled
+      SELECT
+        COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE) as total_today,
+        COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE) as total_yesterday,
+        COUNT(*) FILTER (WHERE status IN ('pending', 'processing', 'on_relay', 'searching', 'accepted', 'picking_up', 'delivering')) as active,
+        COUNT(*) FILTER (WHERE status = 'delivered' AND created_at >= CURRENT_DATE) as delivered_today,
+        COUNT(*) FILTER (WHERE status = 'cancelled' AND created_at >= CURRENT_DATE) as cancelled_today
       FROM orders
     `);
 
     const revenueResult = await readDb.query(`
-      SELECT COALESCE(SUM(amount_idr), 0) as total
+      SELECT
+        COALESCE(SUM(amount_idr) FILTER (WHERE created_at >= CURRENT_DATE), 0) as total_today,
+        COALESCE(SUM(amount_idr) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE), 0) as total_yesterday
       FROM payments
-      WHERE status = 'paid' AND created_at >= CURRENT_DATE
+      WHERE status = 'paid'
     `);
 
     const couriersResult = await readDb.query(`
-      SELECT COUNT(*) as total FROM courier_profiles WHERE verification_status = 'approved'
+      SELECT
+        COUNT(*) FILTER (WHERE verification_status = 'approved') as total_approved,
+        COUNT(*) FILTER (WHERE verification_status = 'approved' AND is_online = TRUE) as active_online
+      FROM courier_profiles
     `);
 
     const slaResult = await readDb.query(`
-      SELECT 
-        (COUNT(*) FILTER (WHERE delivered_at IS NOT NULL)::float / NULLIF(COUNT(*), 0)) * 100 as compliance
-      FROM orders 
+      SELECT
+        (COUNT(*) FILTER (WHERE delivered_at IS NOT NULL AND created_at >= CURRENT_DATE)::float / NULLIF(COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE), 0)) * 100 as today,
+        (COUNT(*) FILTER (WHERE delivered_at IS NOT NULL AND created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE)::float / NULLIF(COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE), 0)) * 100 as yesterday
+      FROM orders
       WHERE status = 'delivered'
     `);
 
+    const ordersToday = parseCount(ordersResult.rows[0].total_today);
+    const ordersYesterday = parseCount(ordersResult.rows[0].total_yesterday);
+    const revenueToday = parseCount(revenueResult.rows[0].total_today);
+    const revenueYesterday = parseCount(revenueResult.rows[0].total_yesterday);
+    const slaToday = Number(slaResult.rows[0].today);
+    const slaYesterday = Number(slaResult.rows[0].yesterday);
+    const slaCompliance = Number.isFinite(slaToday) ? Math.round(slaToday) : null;
+    const slaGrowth = Number.isFinite(slaToday) && Number.isFinite(slaYesterday)
+      ? Number((slaToday - slaYesterday).toFixed(1))
+      : null;
+
     res.json({
-      total_orders_today: parseInt(ordersResult.rows[0].total),
-      active_orders: parseInt(ordersResult.rows[0].active),
-      delivered_orders: parseInt(ordersResult.rows[0].delivered),
-      cancelled_orders: parseInt(ordersResult.rows[0].cancelled),
-      revenue_today: parseInt(revenueResult.rows[0].total),
-      active_couriers: parseInt(couriersResult.rows[0].total),
-      sla_compliance: Math.round(slaResult.rows[0].compliance || 0),
-      orders_growth: 12,
-      revenue_growth: 8.5,
-      courier_growth: -2.1,
-      sla_growth: 0.5
+      total_orders_today: ordersToday,
+      active_orders: parseCount(ordersResult.rows[0].active),
+      delivered_orders: parseCount(ordersResult.rows[0].delivered_today),
+      cancelled_orders: parseCount(ordersResult.rows[0].cancelled_today),
+      revenue_today: revenueToday,
+      active_couriers: parseCount(couriersResult.rows[0].active_online),
+      total_approved_couriers: parseCount(couriersResult.rows[0].total_approved),
+      sla_compliance: slaCompliance,
+      orders_growth: percentageGrowth(ordersToday, ordersYesterday),
+      revenue_growth: percentageGrowth(revenueToday, revenueYesterday),
+      courier_growth: null,
+      sla_growth: slaGrowth
     });
   } catch (error: any) {
     console.error('Error fetching dashboard stats:', error);
@@ -274,29 +303,45 @@ export const getUnitEconomics = async (req: Request, res: Response) => {
   try {
     const result = await readDb.query(`
       WITH 
+      finance_config AS (
+        SELECT
+          MAX(
+            CASE
+              WHEN key = 'marketing_ad_spend_30d_idr'
+               AND (value #>> '{}') ~ '^[0-9]+(\\.[0-9]+)?$'
+              THEN (value #>> '{}')::numeric
+              ELSE NULL
+            END
+          ) AS total_ad_spend
+        FROM system_configs
+        WHERE key IN ('marketing_ad_spend_30d_idr')
+      ),
       marketing_costs AS (
-        -- Asumsi statis untuk CAC jika belum ada integrasi ads API
-        SELECT 5000000 as total_ad_spend, 
-               (SELECT COUNT(DISTINCT customer_id) FROM orders WHERE created_at >= NOW() - INTERVAL '30 days') as new_customers
+        SELECT
+          finance_config.total_ad_spend,
+          (SELECT COUNT(DISTINCT customer_id) FROM orders WHERE created_at >= NOW() - INTERVAL '30 days') as new_customers
+        FROM finance_config
       ),
       revenue_stats AS (
         SELECT 
           COUNT(id) as total_orders,
-          SUM(total_price_idr) as gross_revenue,
-          SUM(total_price_idr * 0.011) as total_ppn,
-          SUM(total_price_idr * 0.02) as total_reserve,
-          SUM(total_price_idr * 0.969) as net_operational -- asuransi etc. excluded for simplification
+          COALESCE(SUM(total_price_idr), 0) as gross_revenue,
+          COALESCE(SUM(ppn_idr), 0) as total_ppn,
+          COALESCE(SUM(insurance_premium_idr), 0) as total_reserve,
+          COALESCE(SUM(platform_commission_idr), 0) as total_platform_commission
         FROM orders 
         WHERE status = 'delivered' AND created_at >= NOW() - INTERVAL '30 days'
       )
       SELECT 
-        CASE WHEN m.new_customers > 0 THEN m.total_ad_spend / m.new_customers ELSE 0 END as cac_idr,
+        CASE WHEN m.total_ad_spend IS NOT NULL AND m.new_customers > 0 THEN m.total_ad_spend / m.new_customers ELSE NULL END as cac_idr,
         CASE WHEN m.new_customers > 0 THEN r.gross_revenue / m.new_customers ELSE 0 END as ltv_idr,
         CASE WHEN r.total_orders > 0 THEN r.gross_revenue / r.total_orders ELSE 0 END as aov_idr,
-        CASE WHEN r.total_orders > 0 THEN (r.net_operational * 0.2) / r.total_orders ELSE 0 END as avg_margin_idr, -- asumsi margin kotor 20%
+        CASE WHEN r.total_orders > 0 THEN r.total_platform_commission / r.total_orders ELSE NULL END as avg_margin_idr,
         r.total_ppn,
         r.total_reserve,
-        r.gross_revenue
+        r.gross_revenue,
+        m.total_ad_spend AS configured_ad_spend_idr,
+        CASE WHEN m.total_ad_spend IS NULL THEN 'marketing_ad_spend_30d_idr_missing' ELSE 'configured' END AS cac_config_status
       FROM marketing_costs m, revenue_stats r
     `);
     res.json(result.rows[0]);

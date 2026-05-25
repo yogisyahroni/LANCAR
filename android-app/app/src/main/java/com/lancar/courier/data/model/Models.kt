@@ -191,6 +191,38 @@ data class CourierHotspot(
 )
 
 @Serializable
+data class CancelPickupReason(
+    @SerialName("code")
+    val code: String,
+    @SerialName("title")
+    val title: String,
+    @SerialName("description")
+    val description: String
+)
+
+@Serializable
+data class OrderStatusTransition(
+    @SerialName("workflow_role")
+    val workflowRole: String,
+    @SerialName("from_status")
+    val fromStatus: String,
+    @SerialName("to_status")
+    val toStatus: String,
+    @SerialName("label")
+    val label: String,
+    @SerialName("description")
+    val description: String? = null,
+    @SerialName("requires_proof")
+    val requiresProof: Boolean = false,
+    @SerialName("requires_admin")
+    val requiresAdmin: Boolean = false,
+    @SerialName("display_order")
+    val displayOrder: Int = 100,
+    @SerialName("version")
+    val version: Int = 1
+)
+
+@Serializable
 data class CourierRoutePoint(
     @SerialName("latitude")
     val latitude: Double,
@@ -347,9 +379,9 @@ data class TripShareData(
 @Serializable
 data class CourierTier(
     @SerialName("tier_code")
-    val tierCode: String = "starter",
+    val tierCode: String = "",
     @SerialName("tier_name")
-    val tierName: String = "Starter",
+    val tierName: String = "",
     @SerialName("benefit_summary")
     val benefitSummary: String = ""
 )
@@ -387,11 +419,11 @@ data class CourierPerformanceSummary(
     @SerialName("deliveries_30d")
     val deliveries30d: Int = 0,
     @SerialName("completion_rate_pct")
-    val completionRatePct: Int = 100,
+    val completionRatePct: Int = 0,
     @SerialName("acceptance_rate_pct")
-    val acceptanceRatePct: Int = 100,
+    val acceptanceRatePct: Int = 0,
     @SerialName("avg_rating")
-    val avgRating: Double = 5.0,
+    val avgRating: Double = 0.0,
     @SerialName("rating_count")
     val ratingCount: Int = 0,
     @SerialName("tier")
@@ -445,13 +477,13 @@ data class CourierPayoutBalanceSummary(
 @Serializable
 data class CourierPayoutPolicy(
     @SerialName("min_amount_idr")
-    val minAmountIdr: Int = 25000,
+    val minAmountIdr: Int = 0,
     @SerialName("daily_limit_idr")
-    val dailyLimitIdr: Int = 1000000,
+    val dailyLimitIdr: Int = 0,
     @SerialName("account_cooldown_hours")
-    val accountCooldownHours: Int = 24,
+    val accountCooldownHours: Int = 0,
     @SerialName("max_pending_requests")
-    val maxPendingRequests: Int = 2
+    val maxPendingRequests: Int = 0
 )
 
 @Serializable
@@ -569,7 +601,7 @@ data class CourierVehicleProfile(
     @SerialName("plate_number")
     val plateNumber: String = "",
     @SerialName("vehicle_type")
-    val vehicleType: String = "motor",
+    val vehicleType: String = "",
     @SerialName("vehicle_category")
     val vehicleCategory: String? = null,
     @SerialName("brand")

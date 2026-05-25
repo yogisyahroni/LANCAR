@@ -13,7 +13,8 @@ import {
   Loader2,
   Users,
   BarChart3,
-  Truck
+  Truck,
+  RefreshCw
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -28,6 +29,97 @@ const uploadUrl = (path?: string | null) => {
   return `${apiBase}${path}`
 }
 
+const getErrorMessage = (error: any, fallback: string) =>
+  error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback
+
+const getInitials = (name?: string | null) => {
+  const safeName = (name || 'Unassigned').trim()
+  return safeName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'U'
+}
+
+function InitialsAvatar({ name }: { name?: string | null }) {
+  return (
+    <div className="h-8 w-8 rounded-full bg-primary/10 border border-primary/20 text-primary-light flex items-center justify-center shadow-inner">
+      <span className="text-[10px] font-black uppercase tracking-widest">{getInitials(name)}</span>
+    </div>
+  )
+}
+
+function ErrorState({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
+  return (
+    <div className="py-20 text-center space-y-4">
+      <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
+      <div>
+        <p className="text-zinc-200 font-black uppercase tracking-widest text-xs">{title}</p>
+        <p className="text-zinc-600 text-sm mt-2">{message}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+      >
+        <RefreshCw size={14} />
+        Retry
+      </button>
+    </div>
+  )
+}
+
+const readNumber = (...values: any[]) => {
+  for (const value of values) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
+
+function RouteTelemetryPanel({ orderDetail }: { orderDetail: any }) {
+  const pickupLat = readNumber(orderDetail.pickup_lat, orderDetail.pickup?.lat, orderDetail.pickup_location?.lat, orderDetail.route_snapshot?.pickup?.lat)
+  const pickupLng = readNumber(orderDetail.pickup_lng, orderDetail.pickup?.lng, orderDetail.pickup_location?.lng, orderDetail.route_snapshot?.pickup?.lng)
+  const dropoffLat = readNumber(orderDetail.dropoff_lat, orderDetail.dropoff?.lat, orderDetail.dropoff_location?.lat, orderDetail.route_snapshot?.dropoff?.lat)
+  const dropoffLng = readNumber(orderDetail.dropoff_lng, orderDetail.dropoff?.lng, orderDetail.dropoff_location?.lng, orderDetail.route_snapshot?.dropoff?.lng)
+  const courierLat = readNumber(orderDetail.courier_lat, orderDetail.courier_location?.lat, orderDetail.live_location?.lat)
+  const courierLng = readNumber(orderDetail.courier_lng, orderDetail.courier_location?.lng, orderDetail.live_location?.lng)
+  const hasRoute = pickupLat !== null && pickupLng !== null && dropoffLat !== null && dropoffLng !== null
+  const formatCoord = (lat: number | null, lng: number | null) => lat !== null && lng !== null ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : 'Belum tersedia'
+
+  return (
+    <div className="h-72 rounded-[40px] bg-zinc-900 border border-white/5 relative overflow-hidden shadow-2xl p-8 flex flex-col justify-between">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(0,100,55,0.16),transparent_35%),linear-gradient(135deg,rgba(255,255,255,0.04),transparent)]" />
+      <div className="relative space-y-5">
+        <div>
+          <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Route Telemetry</p>
+          <p className="text-sm font-black text-white leading-none">
+            {hasRoute ? 'Koordinat berasal dari database order' : 'Route snapshot belum tersedia dari database'}
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3">
+          <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Pickup</p>
+            <p className="text-xs font-mono text-zinc-300 mt-1">{formatCoord(pickupLat, pickupLng)}</p>
+          </div>
+          <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Dropoff</p>
+            <p className="text-xs font-mono text-zinc-300 mt-1">{formatCoord(dropoffLat, dropoffLng)}</p>
+          </div>
+          <div className="rounded-2xl bg-primary/10 border border-primary/20 p-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary-light">Courier Live</p>
+            <p className="text-xs font-mono text-zinc-200 mt-1">{formatCoord(courierLat, courierLng)}</p>
+          </div>
+        </div>
+      </div>
+      <div className="relative flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-600">
+        <MapPin size={14} className={hasRoute ? 'text-primary-light' : 'text-zinc-700'} />
+        Static placeholder map removed
+      </div>
+    </div>
+  )
+}
+
 export default function ActiveOrdersTable() {
   const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
@@ -36,7 +128,7 @@ export default function ActiveOrdersTable() {
   const limit = 10
 
   // Fetch Orders — auto-refetch every 10s for near-realtime updates
-  const { data: ordersData, isLoading: isLoadingOrders } = useQuery({
+  const { data: ordersData, isLoading: isLoadingOrders, isError: isOrdersError, error: ordersError, refetch: refetchOrders } = useQuery({
     queryKey: ['admin-orders', page, searchTerm],
     queryFn: async () => {
       const res = await api.get('/admin/orders', {
@@ -52,7 +144,7 @@ export default function ActiveOrdersTable() {
   })
 
   // Fetch Order Detail when selected
-  const { data: orderDetail, isLoading: isLoadingDetail } = useQuery({
+  const { data: orderDetail, isLoading: isLoadingDetail, isError: isDetailError, error: detailError, refetch: refetchDetail } = useQuery({
     queryKey: ['admin-order-detail', selectedOrderId],
     queryFn: async () => {
       if (!selectedOrderId) return null
@@ -122,7 +214,7 @@ export default function ActiveOrdersTable() {
             Filters
           </button>
           <button 
-            onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-orders'] })}
+            onClick={() => refetchOrders()}
             className="p-3 bg-primary/10 border border-primary/20 rounded-2xl text-primary-light hover:bg-primary/20 transition-all"
           >
             <Clock size={20} />
@@ -136,6 +228,12 @@ export default function ActiveOrdersTable() {
             <Loader2 className="w-10 h-10 text-primary animate-spin" />
             <p className="text-xs font-black text-zinc-500 uppercase tracking-widest">Scanning Grid...</p>
           </div>
+        ) : isOrdersError ? (
+          <ErrorState
+            title="Order grid gagal dimuat"
+            message={getErrorMessage(ordersError, 'Data order belum bisa diambil dari API admin.')}
+            onRetry={() => refetchOrders()}
+          />
         ) : orders.length === 0 ? (
           <div className="py-20 text-center">
             <Package className="w-12 h-12 text-zinc-800 mx-auto mb-4" />
@@ -179,15 +277,13 @@ export default function ActiveOrdersTable() {
                     </div>
                   </td>
                   <td className="px-6 py-5">
-                    <p className="text-sm font-bold text-zinc-300">{order.customer_name || 'Anonymous'}</p>
-                    <p className="text-[10px] text-zinc-600 font-medium">Verified Merchant</p>
+                    <p className="text-sm font-bold text-zinc-300">{order.customer_name || 'Customer belum tersedia dari API'}</p>
+                    <p className="text-[10px] text-zinc-600 font-medium">{order.customer_phone || order.customer_email || 'Profil customer belum tersinkron'}</p>
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-zinc-800 border border-white/10 overflow-hidden shadow-inner">
-                        <img src={`https://ui-avatars.com/api/?name=${order.courier_name || 'U'}&background=random`} alt="" />
-                      </div>
-                      <span className="text-zinc-300 text-sm font-black">{order.courier_name || 'Assigning...'}</span>
+                      <InitialsAvatar name={order.courier_name} />
+                      <span className="text-zinc-300 text-sm font-black">{order.courier_name || 'Kurir belum ditugaskan'}</span>
                     </div>
                   </td>
                   <td className="px-6 py-5">
@@ -272,6 +368,12 @@ export default function ActiveOrdersTable() {
                   <Loader2 className="w-16 h-16 text-primary animate-spin" />
                   <p className="text-sm font-black text-zinc-500 uppercase tracking-[0.3em]">Downloading Order Context...</p>
                 </div>
+              ) : isDetailError ? (
+                <ErrorState
+                  title="Detail order gagal dimuat"
+                  message={getErrorMessage(detailError, 'Detail order belum bisa diambil dari database.')}
+                  onRetry={() => refetchDetail()}
+                />
               ) : orderDetail ? (
                 <>
                   <div className="flex-1 overflow-y-auto p-12">
@@ -326,12 +428,10 @@ export default function ActiveOrdersTable() {
                                 <span className="text-sm text-zinc-500 font-bold italic group-hover:text-zinc-400 transition-colors">Current Courier</span>
                                 <div className="flex items-center gap-3">
                                   <div className="text-right">
-                                    <p className="text-sm font-black text-zinc-100">{orderDetail.courier_name || 'Assigning...'}</p>
-                                    <p className="text-[10px] text-zinc-600 font-medium">{orderDetail.courier_phone || '---'}</p>
-                                  </div>
-                                  <div className="h-10 w-10 rounded-2xl bg-zinc-800 overflow-hidden border border-white/10 shadow-lg shrink-0">
-                                    <img src={`https://ui-avatars.com/api/?name=${orderDetail.courier_name || 'U'}&background=random`} alt="" />
-                                  </div>
+                                  <p className="text-sm font-black text-zinc-100">{orderDetail.courier_name || 'Kurir belum ditugaskan'}</p>
+                                  <p className="text-[10px] text-zinc-600 font-medium">{orderDetail.courier_phone || '---'}</p>
+                                </div>
+                                  <InitialsAvatar name={orderDetail.courier_name} />
                                 </div>
                               </div>
                             </div>
@@ -398,18 +498,7 @@ export default function ActiveOrdersTable() {
                              <MapPin size={14} className="text-primary-light" />
                              Dynamic Map View
                            </p>
-                           <div className="h-72 rounded-[40px] bg-zinc-900 border border-white/5 relative overflow-hidden group shadow-2xl">
-                             <div className="absolute inset-0 bg-[url('https://api.mapbox.com/styles/v1/mapbox/dark-v10/static/106.8456,-6.2088,12/600x600?access_token=mock')] bg-cover bg-center grayscale opacity-40 group-hover:scale-110 transition-all duration-1000" />
-                             <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-transparent to-transparent" />
-                             <div className="absolute bottom-8 left-8 right-8">
-                               <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Live Telemetry</p>
-                               <p className="text-sm font-black text-white truncate leading-none">Last sync: Just now</p>
-                             </div>
-                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                                <div className="w-6 h-6 bg-primary rounded-full animate-ping opacity-75" />
-                                <div className="w-4 h-4 bg-primary rounded-full relative z-10 border-2 border-white shadow-2xl shadow-primary/50" />
-                             </div>
-                           </div>
+                           <RouteTelemetryPanel orderDetail={orderDetail} />
                         </div>
 
                         <div className="space-y-4">

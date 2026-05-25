@@ -21,16 +21,26 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 const CUSTOMER_WEB_DEVICE_ID_KEY = 'lancar_customer_web_device_id';
 
+const createBrowserUUID = () => {
+  if (typeof window.crypto?.randomUUID === 'function') {
+    return window.crypto.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+  window.crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0'));
+  return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10).join('')}`;
+};
+
 const getOrCreateCustomerWebDeviceId = () => {
   if (typeof window === 'undefined') return 'customer-web-server';
 
   const existing = window.localStorage.getItem(CUSTOMER_WEB_DEVICE_ID_KEY);
   if (existing) return existing;
 
-  const randomId =
-    typeof window.crypto?.randomUUID === 'function'
-      ? window.crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const randomId = createBrowserUUID();
   const deviceId = `customer-web-${randomId}`;
   window.localStorage.setItem(CUSTOMER_WEB_DEVICE_ID_KEY, deviceId);
   return deviceId;

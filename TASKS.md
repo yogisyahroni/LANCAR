@@ -2,6 +2,77 @@
 
 ## Active
 
+- [x] **P0 - Zero mock/hardcoded production data untuk admin, customer web, mobile customer, mobile kurir, dan backend** - semua data runtime harus berasal dari database, API backend, device sensor nyata, atau provider eksternal resmi; tidak boleh ada mock/demo/random/static business data di production path.
+  - [x] Admin dashboard wajib menghapus hardcoded courier map, chart fallback, KPI fallback, Mapbox mock token, dan health/storage stat statis; jika data API kosong/gagal tampilkan empty/error state, bukan angka atau entitas palsu.
+  - [x] Customer web hardcoded analytics IDs dan template/data contoh yang bisa masuk ke transaksi runtime dihapus; GA/GTM hanya aktif jika env tersedia dan kategori paket transaksi diisi user/API, bukan option contoh source code.
+  - [x] Customer web scanner dimensi random dihapus; kamera tidak lagi mengisi ukuran/berat acak dan meminta input manual saat belum ada provider dimensi nyata.
+  - [x] Customer web simulated push subscription dihapus; push subscribe sekarang wajib memakai `NEXT_PUBLIC_VAPID_PUBLIC_KEY` dan subscription browser asli.
+  - [x] Customer web reset PIN fallback sukses palsu dihapus; send OTP, verify OTP, dan reset PIN sekarang gagal jujur jika API belum tersedia.
+  - [x] Mobile customer wajib mengambil service category, package category, size tier, service eligibility, maps provider config, route, tracking, payment, dan address book dari database/API; kategori/tier hardcoded hanya boleh menjadi label UI statis jika backend mengirim kode yang sama.
+    - [x] Payment confirmation tidak lagi membuat `PAY-{orderId}`/status paid palsu saat backend tidak mengirim payload payment.
+    - [x] Booking package category tidak lagi memakai chip contoh hardcoded; isi paket/kategori berasal dari input user.
+    - [x] Booking size tier tidak lagi memakai tier/dimensi statis kecil/sedang/besar; tier dibaca dari service config backend dan berat/dimensi aktual wajib diinput user.
+    - [x] Delivery services mobile customer sekarang memakai kontrak DB/API `delivery_service_products` dengan metadata `cache_ttl_seconds` dan `version`; route, maps config, payment, tracking, dan address book tetap via endpoint backend.
+  - [x] Mobile kurir wajib mengambil cancel reasons, status transition policy, service capability, payout quick amounts, route, active offer, active job, dan profile data dari database/API; tidak boleh membuat kurir/order/ETA/zone/amount palsu di client.
+    - [x] Cancel pickup reasons dipindahkan ke tabel `courier_pickup_cancellation_reasons`, endpoint read-only mobile, dan validasi backend berbasis DB.
+    - [x] Status transition policy dipindahkan ke tabel `status_transition_policies`, endpoint read-only mobile, validasi backend, dan UI kurir tidak lagi memakai daftar status hardcoded.
+    - [x] Payout quick amounts tidak lagi memakai angka 50.000/100.000 hardcoded; pilihan cepat hanya memakai min/max dari policy backend.
+    - [x] Active job map kurir tidak lagi menggambar straight-line pickup/dropoff dari client; route preview memakai polyline/snapshot backend dan kosong jujur jika backend belum mengirim rute.
+    - [x] Fallback kendaraan `motor`, rating 5.0, completion/acceptance 100%, dan policy payout default nominal di model kurir dinetralkan supaya profile/capability/payout harus datang dari API.
+  - [x] Backend admin-service bulk order distance/pricing mock diganti route provider berbasis jalan dan konfigurasi `delivery_service_products`; koordinat pickup/dropoff wajib dari input nyata, bukan fallback Jakarta buatan.
+  - [x] Backend admin-service dan auth-service: semua OTP customer/kurir tidak menerima bypass code `123456`/`111111`, tidak memakai fallback kode tetap saat RNG gagal, tidak log kode OTP, dan bisa dinonaktifkan via feature flag admin `customer_auth_otp_required` / `courier_login_otp_required`.
+  - [x] Backend admin-service customer/admin web login hardcoded passcode dihapus; dev override hanya boleh dari env `DEV_ADMIN_LOGIN_PASSWORDS` dan otomatis mati di production.
+  - [x] Backend admin-service warehouse scan/event ID tidak lagi memakai `Math.random()` atau fallback admin UUID; memakai `crypto.randomUUID()` dan wajib auth user nyata.
+  - [x] Backend order-service mock maps repository dihapus; jika `GOOGLE_MAPS_API_KEY` tidak dikonfigurasi service gagal start, bukan mengembalikan jarak 5 km palsu.
+  - [x] Backend order-service QRIS Midtrans mock/dummy dihapus dan webhook signature bypass `MOCK_SIGNATURE` dihapus; gateway sekarang memakai Midtrans Core API atau gagal eksplisit.
+  - [x] Backend order-service stub payout/refund yang membuat reference ID palsu dihapus; sementara provider belum tersedia, flow mengembalikan provider unavailable secara eksplisit.
+  - [x] Backend order-service relay matching UUID palsu dihapus; flow relay yang belum punya candidate repository sekarang gagal eksplisit, bukan membuat courier UUID buatan.
+  - [x] Backend order-service simulated surge/weather ratio dihapus; surge worker membaca zona, weather logs, dynamic pricing logs, active orders, dan courier availability dari database lalu menulis multiplier Redis per-zone/global.
+  - [x] Backend order-service notification delivery mock dihapus; task worker tidak menandai `sent` tanpa provider delivery, melainkan `failed` dengan alasan eksplisit.
+  - [x] Backend order-service placeholder courier scoring diselesaikan; dispatch score membaca relay score, acceptance rate, dan jarak kurir dari database lalu sort berdasarkan skor nyata.
+    - [x] Pricing config fallback yang diam-diam mengembalikan angka default dihapus; config aktif wajib tersedia di DB dan surge multiplier error sekarang fail-closed.
+  - [x] Backend payment-service `mock_snap_token` diganti panggilan Midtrans Snap resmi atau status failure eksplisit.
+  - [x] Backend payment-service fee/default config wajib dibaca dari database/system config tanpa fallback diam-diam; topup fee, withdraw fee, dan auto-disbursement threshold gagal eksplisit jika config hilang/tidak valid.
+  - [x] Routing service helper `calculateDistance`/`detectZone` mock diganti: jarak memakai Haversine real dan zona wajib resolve dari tabel `zones` via PostGIS, fail-closed jika resolver/zone tidak tersedia.
+  - [x] Guard CI production mock ditambahkan di `scripts/ci/check-production-mocks.js` dan workflow development; guard memblokir OTP/payment mock runtime paling berbahaya.
+  - [x] Acceptance criteria penuh: seluruh flow admin, customer web, mobile customer, dan mobile kurir tetap build/test hijau; saat database/API kosong UI menampilkan empty state; tidak ada data bisnis palsu yang tampil atau tersimpan; grep guard production source lulus.
+    - [x] Verifikasi P0 terbaru: `backend/admin-service npm run build`, `admin-dashboard npm run build`, `android-app :app:compileDebugKotlin`, dan `node scripts/ci/check-production-mocks.js` hijau.
+    - [x] Verifikasi final sisa 4 item P0: `backend/admin-service npm run build`, `admin-dashboard npm run build`, `frontend npm run build`, `android-app :app:compileDebugKotlin`, `android-app-customer :app:compileDebugKotlin`, dan `node scripts/ci/check-production-mocks.js` hijau.
+
+- [x] **P0 - Backend database/API contract untuk semua lookup runtime** - data yang saat ini masih hardcoded harus punya sumber database dan endpoint kontrak jelas sebelum UI/mobile dipakai.
+  - Tambahkan atau verifikasi tabel/config untuk `package_categories`, `cancel_reasons`, `service_size_tiers`, `status_transition_policies`, `surge_inputs`, `notification_provider_status`, `payment_provider_config`, dan `maps/zone runtime config`.
+  - Endpoint admin wajib bisa CRUD konfigurasi operasional tersebut dengan audit log dan validasi schema.
+  - Endpoint customer/mobile/kurir wajib read-only untuk konfigurasi yang dibutuhkan app, dengan cache TTL dan versioning agar mobile bisa refresh tanpa rebuild.
+  - Migration harus idempotent dan reversible; seed hanya boleh berisi default production config yang jelas, bukan demo order/customer/courier.
+  - [x] Lookup alasan pembatalan pickup kurir punya tabel DB, seed production config, endpoint mobile read-only, dan validasi backend DB-driven.
+  - [x] Lookup transisi status kurir punya tabel DB reversible, seed production policy, endpoint mobile read-only, dan validasi backend DB-driven.
+  - [x] Lookup operasional kurir punya endpoint admin CRUD dengan audit log: pickup cancellation reasons dan status transition policies.
+  - [x] Endpoint read-only mobile/customer lookup mengirim `cache_ttl_seconds` dan `version` agar app bisa refresh konfigurasi runtime tanpa rebuild.
+  - Acceptance criteria: tidak ada komponen UI/mobile yang perlu list kategori/alasan/status/fee dari source code selain enum/type guard.
+
+- [x] **P1 - Runtime empty-state dan error-state parity** - semua aplikasi harus gagal secara jujur saat data database/API belum tersedia.
+  - Admin dashboard: chart, map, KPI, finance, customer, courier, voucher, dan analytics harus punya loading skeleton, empty state, dan retry state tanpa fallback angka palsu.
+  - Customer web: order form, address book, payment, tracking, dispute chat, push registration, dan laporan harus menampilkan gagal/empty/retry state tanpa menganggap request sukses.
+  - Mobile customer dan kurir: Room/local cache boleh menyimpan hasil sync terakhir, tetapi harus diberi label offline/stale; tidak boleh membuat data baru palsu ketika API gagal.
+    - [x] Customer mobile dashboard sekarang menampilkan error/retry saat riwayat order atau layanan gagal dimuat dari API, bukan kosong diam-diam.
+    - [x] Customer mobile tracking mempertahankan posisi backend terakhir saat polling gagal, tetapi memberi label stale dengan waktu sinkron terakhir.
+    - [x] Courier mobile order list menampilkan banner data lokal/offline/stale saat sinkron terakhir belum ada atau sudah lebih dari 2 menit.
+    - [x] Admin finance cost breakdown tidak lagi memakai angka statis; nilai courier payout, payment processing, weather reserve, dan insurance reserve dibaca dari database.
+    - [x] Admin active orders sekarang punya error/retry state untuk list/detail order, menghapus Mapbox token placeholder, dan mengganti map statis dengan telemetry route dari database.
+    - [x] Admin analytics tidak lagi memakai fallback KPI statis; KPI, SLA, surge, scan reliability, heatmap, retention, dan report schedule punya empty/error/retry state.
+    - [x] Admin customer, courier, dan voucher tidak lagi menyamarkan query gagal sebagai angka 0/default; surface utama punya error/retry dan label "belum tersedia" untuk field yang tidak dikirim API.
+    - [x] Customer web address book tidak lagi fallback ke koordinat Jakarta dari CSV, dan load error tampil sebagai state retry permanen.
+    - [x] Customer web dispute list dan dispute chat punya error/retry state, bukan empty state diam-diam saat API gagal.
+    - [x] Verifikasi P1 terbaru: `admin-dashboard npm run build`, `frontend npm run build`, dan `node scripts/ci/check-production-mocks.js` hijau.
+  - Acceptance criteria: matikan endpoint terkait di staging/dev, app tidak crash dan tidak menampilkan mock entity; semua error tercatat dengan reason yang bisa diaudit.
+
+- [x] **P1 - Production integration replacement untuk provider eksternal** - stub provider hanya boleh dipakai di test, bukan runtime production/staging.
+  - [x] Payout/refund/disbursement runtime tidak lagi membuat reference ID palsu; provider belum tersedia sekarang mengembalikan `provider_unavailable`/error eksplisit.
+  - [x] Notification worker memakai HTTP delivery provider per channel (`NOTIFICATION_PUSH_PROVIDER_URL`, `NOTIFICATION_EMAIL_PROVIDER_URL`, `NOTIFICATION_SMS_PROVIDER_URL`, `NOTIFICATION_WHATSAPP_PROVIDER_URL`); jika env/provider belum ada, status notification ditulis `failed` dengan reason eksplisit.
+  - [x] Insurance/BPJS enrollment tidak lagi membuat policy number random; BPJS dan order insurance disimpan sebagai `pending_provider_activation` sampai provider resmi dikonfigurasi.
+  - [x] Maps pricing path order-service fail closed jika provider maps tidak dikonfigurasi; admin bulk order juga menolak row jika route jalan tidak tersedia.
+  - [x] Acceptance criteria: environment production/staging gagal start atau menolak flow jika provider wajib belum dikonfigurasi, bukan menjalankan stub diam-diam.
+
 - [x] **P0 - Unified road-route contract untuk customer, courier, web, pricing, dan dispatch** - semua aplikasi harus memakai satu kontrak route berbasis jalan, bukan garis lurus client-side.
   - Backend wajib punya kontrak route tunggal: pickup/dropoff coordinate, service code, vehicle type, provider aktif, route profile, distance meter, duration second, encoded polyline/geometry, traffic state, confidence, dan fallback reason.
   - Database/order payload wajib menyimpan route snapshot yang dipakai saat hitung harga agar customer, kurir, admin, dan ledger membaca jarak/ETA yang sama.

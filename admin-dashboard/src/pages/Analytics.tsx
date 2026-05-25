@@ -16,7 +16,9 @@ import {
   Loader2,
   Trash2,
   Mail,
-  X
+  X,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react'
 import { 
   XAxis, 
@@ -225,6 +227,64 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
   )
 }
 
+const getQueryErrorMessage = (error: any, fallback: string) =>
+  error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback
+
+function DataState({
+  title,
+  message,
+  onRetry,
+  tone = 'muted',
+}: {
+  title: string
+  message: string
+  onRetry?: () => void
+  tone?: 'muted' | 'error'
+}) {
+  const isError = tone === 'error'
+  return (
+    <div className={cn(
+      "h-full min-h-[220px] rounded-[32px] border flex flex-col items-center justify-center text-center p-8 gap-4",
+      isError ? "bg-red-500/5 border-red-500/20" : "bg-white/[0.02] border-dashed border-white/10"
+    )}>
+      <AlertCircle className={cn("w-10 h-10", isError ? "text-red-400" : "text-zinc-700")} />
+      <div>
+        <p className="text-sm font-black uppercase tracking-widest text-zinc-200">{title}</p>
+        <p className="text-xs text-zinc-600 mt-2 max-w-sm">{message}</p>
+      </div>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className={cn(
+            "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all",
+            isError ? "bg-red-500/10 border-red-500/20 text-red-300 hover:bg-red-500/20" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white"
+          )}
+        >
+          <RefreshCw size={14} />
+          Retry
+        </button>
+      )}
+    </div>
+  )
+}
+
+function ChartSkeleton({ bars = 8 }: { bars?: number }) {
+  return (
+    <div className="h-full flex items-end gap-2">
+      {Array.from({ length: bars }).map((_, i) => (
+        <div
+          key={i}
+          className="flex-1 bg-white/5 animate-pulse rounded-t-lg"
+          style={{ height: `${35 + ((i * 17) % 55)}%` }}
+        />
+      ))}
+    </div>
+  )
+}
+
+const hasRows = (data: unknown) => Array.isArray(data) && data.length > 0
+
 // --- Main Component ---
 
 export default function Analytics() {
@@ -232,39 +292,39 @@ export default function Analytics() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const queryClient = useQueryClient()
 
-  const { data: kpis, isLoading: kpisLoading } = useQuery({
+  const { data: kpis, isLoading: kpisLoading, isError: kpisError, error: kpisQueryError, refetch: refetchKpis } = useQuery({
     queryKey: ['analytics', 'kpis', timeRange],
     queryFn: () => api.get(`/admin/analytics/kpis?range=${timeRange}`).then(res => res.data)
   })
 
-  const { data: slaData, isLoading: slaLoading } = useQuery({
+  const { data: slaData, isLoading: slaLoading, isError: slaError, error: slaQueryError, refetch: refetchSla } = useQuery({
     queryKey: ['analytics', 'sla', timeRange],
     queryFn: () => api.get(`/admin/analytics/sla?range=${timeRange}`).then(res => res.data)
   })
 
-  const { data: surgeData, isLoading: surgeLoading } = useQuery({
+  const { data: surgeData, isLoading: surgeLoading, isError: surgeError, error: surgeQueryError, refetch: refetchSurge } = useQuery({
     queryKey: ['analytics', 'surge', timeRange],
     queryFn: () => api.get(`/admin/analytics/surge?range=${timeRange}`).then(res => res.data)
   })
 
-  const { data: accuracyData, isLoading: accuracyLoading } = useQuery({
+  const { data: accuracyData, isLoading: accuracyLoading, isError: accuracyError, error: accuracyQueryError, refetch: refetchAccuracy } = useQuery({
     queryKey: ['analytics', 'accuracy', timeRange],
     queryFn: () => api.get(`/admin/analytics/scan-accuracy?range=${timeRange}`).then(res => res.data)
   })
 
-  const { data: retentionData, isLoading: retentionLoading } = useQuery({
+  const { data: retentionData, isLoading: retentionLoading, isError: retentionError, error: retentionQueryError, refetch: refetchRetention } = useQuery({
     queryKey: ['analytics', 'retention', timeRange],
     queryFn: () => api.get(`/admin/analytics/retention?range=${timeRange}`).then(res => res.data)
   })
 
-  const { data: heatData } = useQuery({
+  const { data: heatData, isError: heatError, error: heatQueryError, refetch: refetchHeat } = useQuery({
     queryKey: ['analytics', 'heat'],
     queryFn: () => api.get('/admin/analytics/heat-data').then(res => res.data),
     refetchInterval: 30000 // Refresh every 30s
   })
 
 
-  const { data: reports, isLoading: reportsLoading } = useQuery({
+  const { data: reports, isLoading: reportsLoading, isError: reportsError, error: reportsQueryError, refetch: refetchReports } = useQuery({
     queryKey: ['analytics', 'reports'],
     queryFn: () => api.get('/admin/analytics/reports').then(res => res.data)
   })
@@ -305,12 +365,7 @@ export default function Analytics() {
     );
   }
 
-  const kpiItems = kpis || [
-    { label: 'SLA Compliance', value: '92.4%', change: '+2.5%', up: true, icon: Target },
-    { label: 'Demand Gap', value: '4.2%', change: '-1.2%', up: true, icon: Zap },
-    { label: 'Active Couriers', value: '412', change: '-2.4%', up: false, icon: Users },
-    { label: 'Avg. Delivery', value: '24m', change: '-4m', up: true, icon: Clock },
-  ];
+  const kpiItems = Array.isArray(kpis) ? kpis : [];
 
   return (
     <div className="space-y-10 animate-in pb-20">
@@ -345,7 +400,24 @@ export default function Analytics() {
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        {kpiItems.map((stat: any, i: number) => {
+        {kpisError ? (
+          <div className="md:col-span-2 lg:col-span-4">
+            <DataState
+              title="KPI gagal dimuat"
+              message={getQueryErrorMessage(kpisQueryError, 'Metrik KPI belum bisa diambil dari API analytics.')}
+              onRetry={() => refetchKpis()}
+              tone="error"
+            />
+          </div>
+        ) : kpiItems.length === 0 ? (
+          <div className="md:col-span-2 lg:col-span-4">
+            <DataState
+              title="Belum ada KPI"
+              message="API analytics belum mengirim data KPI untuk rentang waktu ini."
+              onRetry={() => refetchKpis()}
+            />
+          </div>
+        ) : kpiItems.map((stat: any, i: number) => {
           const Icon = i === 0 ? Target : i === 1 ? Zap : i === 2 ? Users : Clock;
           return (
             <div key={i} className="glass-card p-8 rounded-[40px] border-white/5 group hover:border-white/10 transition-all">
@@ -395,11 +467,20 @@ export default function Analytics() {
            </div>
            <div className="h-[350px] w-full">
               {slaLoading ? (
-                <div className="h-full w-full flex flex-col justify-end gap-2 pb-4">
-                  {[40, 70, 55, 80, 65, 90, 75].map((h, i) => (
-                    <div key={i} className="w-full bg-white/5 animate-pulse rounded" style={{ height: `${h}%` }} />
-                  ))}
-                </div>
+                <ChartSkeleton bars={7} />
+              ) : slaError ? (
+                <DataState
+                  title="SLA gagal dimuat"
+                  message={getQueryErrorMessage(slaQueryError, 'Data SLA belum bisa diambil dari API analytics.')}
+                  onRetry={() => refetchSla()}
+                  tone="error"
+                />
+              ) : !hasRows(slaData) ? (
+                <DataState
+                  title="Belum ada data SLA"
+                  message="Database belum memiliki agregasi SLA untuk rentang waktu ini."
+                  onRetry={() => refetchSla()}
+                />
               ) : (
               <ResponsiveContainer width="100%" height="100%">
                  <LineChart data={slaData}>
@@ -446,11 +527,21 @@ export default function Analytics() {
                   url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
                   attribution='&copy; OpenStreetMap contributors &copy; CARTO'
                 />
-                {heatData && <HeatLayer points={heatData} />}
+                {hasRows(heatData) && <HeatLayer points={heatData} />}
               </MapContainer>
+              {(heatError || !hasRows(heatData)) && (
+                <div className="absolute inset-4 z-10 rounded-[28px] bg-black/70 backdrop-blur-md border border-white/10 flex items-center justify-center p-6">
+                  <DataState
+                    title={heatError ? 'Heatmap gagal dimuat' : 'Belum ada heatmap'}
+                    message={heatError ? getQueryErrorMessage(heatQueryError, 'Data demand density belum bisa diambil dari API analytics.') : 'Database belum memiliki titik demand density aktif.'}
+                    onRetry={() => refetchHeat()}
+                    tone={heatError ? 'error' : 'muted'}
+                  />
+                </div>
+              )}
               <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-2">
                 <div className="px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
-                  Live Courier Density
+                  {hasRows(heatData) ? 'Live Courier Density' : 'Waiting for Database Points'}
                 </div>
               </div>
            </div>
@@ -468,13 +559,22 @@ export default function Analytics() {
               </h3>
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Peak Frequency vs Impact</p>
            </div>
-           <div className="h-[350px] w-full">
+          <div className="h-[350px] w-full">
               {surgeLoading ? (
-                <div className="h-full flex items-end gap-2">
-                  {[60,80,45,90,70,55,85,40,75,65].map((h,i) => (
-                    <div key={i} className="flex-1 bg-white/5 animate-pulse rounded-t-lg" style={{height:`${h}%`}} />
-                  ))}
-                </div>
+                <ChartSkeleton bars={10} />
+              ) : surgeError ? (
+                <DataState
+                  title="Surge gagal dimuat"
+                  message={getQueryErrorMessage(surgeQueryError, 'Data surge belum bisa diambil dari API analytics.')}
+                  onRetry={() => refetchSurge()}
+                  tone="error"
+                />
+              ) : !hasRows(surgeData) ? (
+                <DataState
+                  title="Belum ada data surge"
+                  message="Database belum memiliki agregasi surge untuk rentang waktu ini."
+                  onRetry={() => refetchSurge()}
+                />
               ) : (
               <ResponsiveContainer width="100%" height="100%">
                  <BarChart data={surgeData}>
@@ -506,11 +606,20 @@ export default function Analytics() {
            </div>
            <div className="h-[350px] w-full">
               {accuracyLoading ? (
-                <div className="h-full flex items-end gap-2">
-                  {[30,50,70,90,80,60,40,20].map((h,i) => (
-                    <div key={i} className="flex-1 bg-white/5 animate-pulse rounded-t-lg" style={{height:`${h}%`}} />
-                  ))}
-                </div>
+                <ChartSkeleton bars={8} />
+              ) : accuracyError ? (
+                <DataState
+                  title="Akurasi scan gagal dimuat"
+                  message={getQueryErrorMessage(accuracyQueryError, 'Data scan reliability belum bisa diambil dari API analytics.')}
+                  onRetry={() => refetchAccuracy()}
+                  tone="error"
+                />
+              ) : !hasRows(accuracyData) ? (
+                <DataState
+                  title="Belum ada data scan"
+                  message="Database belum memiliki distribusi confidence scan untuk rentang waktu ini."
+                  onRetry={() => refetchAccuracy()}
+                />
               ) : (
               <ResponsiveContainer width="100%" height="100%">
                  <BarChart data={accuracyData}>
@@ -538,6 +647,19 @@ export default function Analytics() {
                <div key={i} className="h-12 w-full bg-white/5 animate-pulse rounded-xl" />
              ))}
            </div>
+         ) : retentionError ? (
+           <DataState
+             title="Retention gagal dimuat"
+             message={getQueryErrorMessage(retentionQueryError, 'Data retention cohort belum bisa diambil dari API analytics.')}
+             onRetry={() => refetchRetention()}
+             tone="error"
+           />
+         ) : !hasRows(retentionData) ? (
+           <DataState
+             title="Belum ada retention cohort"
+             message="Database belum memiliki cohort retention untuk rentang waktu ini."
+             onRetry={() => refetchRetention()}
+           />
          ) : (
          <div className="overflow-x-auto">
             <table className="w-full text-left border-separate border-spacing-y-2">
@@ -600,6 +722,13 @@ export default function Analytics() {
            <div className="flex items-center justify-center py-20">
              <Loader2 className="w-8 h-8 text-primary animate-spin" />
            </div>
+         ) : reportsError ? (
+           <DataState
+             title="Schedule report gagal dimuat"
+             message={getQueryErrorMessage(reportsQueryError, 'Jadwal automation belum bisa diambil dari API analytics.')}
+             onRetry={() => refetchReports()}
+             tone="error"
+           />
          ) : (
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {(reports || []).map((report: any) => (

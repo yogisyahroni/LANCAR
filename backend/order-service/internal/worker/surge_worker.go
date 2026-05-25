@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"log"
+	"math"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -10,10 +11,14 @@ import (
 
 type SurgeWorker struct {
 	redisClient *redis.Client
+	dataStore   SurgeDataStore
 }
 
-func NewSurgeWorker(client *redis.Client) *SurgeWorker {
-	return &SurgeWorker{redisClient: client}
+func NewSurgeWorker(client *redis.Client, dataStore SurgeDataStore) *SurgeWorker {
+	return &SurgeWorker{
+		redisClient: client,
+		dataStore:   dataStore,
+	}
 }
 
 func (w *SurgeWorker) Start(ctx context.Context) {
@@ -33,45 +38,80 @@ func (w *SurgeWorker) Start(ctx context.Context) {
 }
 
 func (w *SurgeWorker) calculateAndSetSurge(ctx context.Context) {
-	now := time.Now()
-	multiplier := 1.0
-
-	// 1. Time-based surge (Rush Hour: 08:00-10:00 and 16:00-19:00)
-	hour := now.Hour()
-	if (hour >= 8 && hour <= 10) || (hour >= 16 && hour <= 19) {
-		multiplier += 0.2
+	if w.redisClient == nil {
+		log.Println("[SurgeWorker] Redis client is not configured; skipping surge update")
+		return
+	}
+	if w.dataStore == nil {
+		log.Println("[SurgeWorker] Surge datastore is not configured; skipping surge update")
+		return
 	}
 
-	// 2. Weather-based (Simulated BMKG API call)
-	// In a real system, we'd fetch JSON from BMKG and parse the weather code.
-	isRaining := w.checkSimulatedWeather()
-	if isRaining {
-		multiplier += 0.3
-		log.Println("[SurgeWorker] High demand expected due to rain.")
-	}
-	
-	// 3. Demand-Supply Ratio (Calculated from Redis)
-	// active_orders / available_couriers
-	demandSupplyRatio := w.calculateDemandSupplyRatio(ctx)
-	if demandSupplyRatio > 1.5 {
-		multiplier += 0.25
-		log.Printf("[SurgeWorker] Supply crunch detected! Ratio: %.2f", demandSupplyRatio)
-	}
-	
-	log.Printf("Updating surge multiplier to: %.2f", multiplier)
-	err := w.redisClient.Set(ctx, "surge_multiplier", multiplier, 10*time.Minute).Err()
+	inputs, err := w.dataStore.ListZoneSurgeInputs(ctx)
 	if err != nil {
-		log.Printf("Failed to update surge multiplier: %v", err)
+		log.Printf("[SurgeWorker] Failed to load surge inputs from database: %v", err)
+		return
+	}
+	if len(inputs) == 0 {
+		log.Println("[SurgeWorker] No active zones found; clearing global surge multiplier")
+		if err := w.redisClient.Del(ctx, "surge_multiplier:global").Err(); err != nil {
+			log.Printf("[SurgeWorker] Failed to clear global surge multiplier: %v", err)
+		}
+		return
+	}
+
+	globalMultiplier := 1.0
+	for _, input := range inputs {
+		multiplier := calculateSurgeMultiplier(input)
+		if multiplier > globalMultiplier {
+			globalMultiplier = multiplier
+		}
+
+		ttl := 10 * time.Minute
+		zoneIDKey := "surge_multiplier:" + input.ZoneID
+		if err := w.redisClient.Set(ctx, zoneIDKey, multiplier, ttl).Err(); err != nil {
+			log.Printf("[SurgeWorker] Failed to update %s: %v", zoneIDKey, err)
+			continue
+		}
+		if input.ZoneCode != "" {
+			zoneCodeKey := "surge_multiplier:" + input.ZoneCode
+			if err := w.redisClient.Set(ctx, zoneCodeKey, multiplier, ttl).Err(); err != nil {
+				log.Printf("[SurgeWorker] Failed to update %s: %v", zoneCodeKey, err)
+			}
+		}
+
+		log.Printf(
+			"[SurgeWorker] Zone %s multiplier %.2f from weather %.2f, pricing %.2f, demand %d, couriers %d",
+			input.ZoneCode,
+			multiplier,
+			input.WeatherMultiplier,
+			input.PricingMultiplier,
+			input.ActiveOrders,
+			input.AvailableCouriers,
+		)
+	}
+
+	if err := w.redisClient.Set(ctx, "surge_multiplier:global", globalMultiplier, 10*time.Minute).Err(); err != nil {
+		log.Printf("[SurgeWorker] Failed to update global surge multiplier: %v", err)
 	}
 }
 
-func (w *SurgeWorker) checkSimulatedWeather() bool {
-	// Simulate rain every hour at the 15-minute mark for testing purposes
-	return time.Now().Minute() >= 15 && time.Now().Minute() <= 20
-}
+func calculateSurgeMultiplier(input ZoneSurgeInput) float64 {
+	multiplier := math.Max(input.WeatherMultiplier, input.PricingMultiplier)
+	if multiplier < 1 {
+		multiplier = 1
+	}
 
-func (w *SurgeWorker) calculateDemandSupplyRatio(ctx context.Context) float64 {
-	// In a real system, we'd use SCARD on Redis sets for active orders and online couriers
-	// For this simulation, we'll return a random ratio between 0.5 and 2.0
-	return 0.5 + (time.Now().Sub(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)).Hours() / 1000.0) // Just a mock stable-ish increase
+	if input.AvailableCouriers == 0 {
+		if input.ActiveOrders > 0 {
+			multiplier += 0.25
+		}
+	} else if float64(input.ActiveOrders)/float64(input.AvailableCouriers) > 1.5 {
+		multiplier += 0.25
+	}
+
+	if multiplier > 2.5 {
+		return 2.5
+	}
+	return multiplier
 }

@@ -11,7 +11,9 @@ import {
   Building2,
   ChevronLeft,
   Download,
-  Loader2
+  Loader2,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { useQuery } from '@tanstack/react-query'
@@ -52,6 +54,29 @@ function CustomerSkeleton() {
   )
 }
 
+const queryErrorMessage = (error: any, fallback: string) =>
+  error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback
+
+function CustomerErrorState({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
+  return (
+    <div className="col-span-full py-20 text-center space-y-4 rounded-[32px] border border-red-500/20 bg-red-500/5">
+      <AlertCircle className="w-10 h-10 text-red-400 mx-auto" />
+      <div>
+        <p className="text-sm font-black text-zinc-100 uppercase tracking-widest">{title}</p>
+        <p className="text-xs text-zinc-500 mt-2">{message}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+      >
+        <RefreshCw size={14} />
+        Retry
+      </button>
+    </div>
+  )
+}
+
 export default function Customers() {
   const [searchInput, setSearchInput] = useState('')
   const [page, setPage] = useState(1)
@@ -68,7 +93,7 @@ export default function Customers() {
     }, 300)
   }
 
-  const { data: stats, isLoading: isLoadingStats } = useQuery({
+  const { data: stats, isLoading: isLoadingStats, isError: isStatsError, error: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['customer-stats'],
     queryFn: async () => {
       const res = await api.get('/admin/customers/stats')
@@ -76,7 +101,7 @@ export default function Customers() {
     }
   })
 
-  const { data: customerRes, isLoading: isLoadingCustomers } = useQuery({
+  const { data: customerRes, isLoading: isLoadingCustomers, isError: isCustomersError, error: customersError, refetch: refetchCustomers } = useQuery({
     queryKey: ['customers', debouncedSearch, page],
     queryFn: async () => {
       const res = await api.get('/admin/customers', {
@@ -106,9 +131,9 @@ export default function Customers() {
   }
 
   const statCards = [
-    { label: 'Total Customers', value: isLoadingStats ? '—' : stats?.totalCustomers?.toLocaleString() || '0', icon: Users, color: 'text-zinc-400' },
-    { label: 'UMKM Partners', value: isLoadingStats ? '—' : stats?.umkmPartners?.toLocaleString() || '0', icon: Building2, color: 'text-primary-light' },
-    { label: 'Total Revenue', value: isLoadingStats ? '—' : `Rp ${(stats?.totalRevenue || 0).toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-400' },
+    { label: 'Total Customers', value: isLoadingStats ? '—' : stats?.totalCustomers?.toLocaleString() ?? 'Tidak tersedia', icon: Users, color: 'text-zinc-400' },
+    { label: 'UMKM Partners', value: isLoadingStats ? '—' : stats?.umkmPartners?.toLocaleString() ?? 'Tidak tersedia', icon: Building2, color: 'text-primary-light' },
+    { label: 'Total Revenue', value: isLoadingStats ? '—' : typeof stats?.totalRevenue === 'number' ? `Rp ${stats.totalRevenue.toLocaleString()}` : 'Tidak tersedia', icon: TrendingUp, color: 'text-emerald-400' },
   ]
 
   return (
@@ -139,7 +164,13 @@ export default function Customers() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {statCards.map((stat, i) => (
+        {isStatsError ? (
+          <CustomerErrorState
+            title="Customer stats gagal dimuat"
+            message={queryErrorMessage(statsError, 'Statistik customer belum bisa diambil dari API admin.')}
+            onRetry={() => refetchStats()}
+          />
+        ) : statCards.map((stat, i) => (
           <div key={i} className="glass-card p-8 rounded-[32px] border-white/5">
             <div className="flex items-center gap-4">
               <div className={cn("p-4 rounded-2xl bg-white/5", stat.color)}>
@@ -180,6 +211,12 @@ export default function Customers() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {isLoadingCustomers ? (
           Array.from({ length: 6 }).map((_, i) => <CustomerSkeleton key={i} />)
+        ) : isCustomersError ? (
+          <CustomerErrorState
+            title="Customer gagal dimuat"
+            message={queryErrorMessage(customersError, 'Daftar customer belum bisa diambil dari API admin.')}
+            onRetry={() => refetchCustomers()}
+          />
         ) : (
           <>
             {customers.map((customer: any, i: number) => (

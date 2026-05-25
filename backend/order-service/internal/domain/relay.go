@@ -24,14 +24,23 @@ type RelayScoreHistory struct {
 // CourierPerformanceStats holds real-time performance metrics fetched from courier_profiles.
 // These are updated by analytics workers and used in relay score calculation.
 type CourierPerformanceStats struct {
-	CourierID          uuid.UUID `db:"id"`
-	OntimeDeliveries   int       `db:"ontime_deliveries_count"`
-	TotalDeliveries    int       `db:"total_deliveries_count"`
-	DocsCompletePct    float64   `db:"docs_complete_pct"`
-	AvgPartnerRating   float64   `db:"avg_partner_rating"`
-	ComplaintRatioPct  float64   `db:"complaint_ratio_pct"`
-	RelayScore         float64   `db:"relay_score"`
-	Tier               string    `db:"tier"`
+	CourierID         uuid.UUID `db:"id"`
+	OntimeDeliveries  int       `db:"ontime_deliveries_count"`
+	TotalDeliveries   int       `db:"total_deliveries_count"`
+	DocsCompletePct   float64   `db:"docs_complete_pct"`
+	AvgPartnerRating  float64   `db:"avg_partner_rating"`
+	ComplaintRatioPct float64   `db:"complaint_ratio_pct"`
+	RelayScore        float64   `db:"relay_score"`
+	Tier              string    `db:"tier"`
+}
+
+// CourierDispatchScoreStats holds the runtime metrics required to rank a courier
+// for a specific pickup point. All values are read from operational DB state.
+type CourierDispatchScoreStats struct {
+	CourierID         uuid.UUID `db:"id"`
+	RelayScore        float64   `db:"relay_score"`
+	AcceptanceRatePct float64   `db:"acceptance_rate_pct"`
+	DistanceMeters    float64   `db:"distance_meters"`
 }
 
 // CourierBankInfo holds bank account info needed for payout disbursement.
@@ -56,6 +65,10 @@ type RelayRepository interface {
 	// GetCourierPerformanceStats fetches real performance metrics from courier_profiles
 	// for accurate relay score calculation.
 	GetCourierPerformanceStats(ctx context.Context, courierID uuid.UUID) (*CourierPerformanceStats, error)
+
+	// GetCourierDispatchScoreStats fetches DB-backed score, acceptance, and proximity
+	// metrics for matching. Missing profile/location data must fail closed.
+	GetCourierDispatchScoreStats(ctx context.Context, courierID uuid.UUID, pickupLat float64, pickupLng float64) (*CourierDispatchScoreStats, error)
 
 	// UpdateCourierRelayScore persists the newly calculated score and tier to courier_profiles.
 	UpdateCourierRelayScore(ctx context.Context, courierID uuid.UUID, newScore float64, newTier string) error

@@ -6,25 +6,26 @@ import (
 	"net/http"
 	"os"
 
+	"context"
 	"lancar/order-service/internal/domain"
+	"lancar/order-service/internal/featureflags"
 	"lancar/order-service/internal/handler"
 	"lancar/order-service/internal/infrastructure/eventbus"
+	notificationinfra "lancar/order-service/internal/infrastructure/notification"
+	"lancar/order-service/internal/infrastructure/payment_gateway"
 	"lancar/order-service/internal/infrastructure/queue"
 	"lancar/order-service/internal/middleware"
 	"lancar/order-service/internal/repository"
 	"lancar/order-service/internal/service"
-	"lancar/order-service/internal/featureflags"
 	"lancar/order-service/internal/worker"
-	"lancar/order-service/internal/infrastructure/payment_gateway"
-	"context"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
-	_ "lancar/order-service/internal/handler/docs"
 	httpSwagger "github.com/swaggo/http-swagger"
+	_ "lancar/order-service/internal/handler/docs"
 )
 
 // @title LANCAR Order Service API
@@ -46,7 +47,6 @@ import (
 // @name Authorization
 
 func main() {
-	// ... (imports remain the same but I need to add docs import)
 	// Load environment variables
 	godotenv.Load("../../.env", "../../../.env")
 
@@ -99,14 +99,13 @@ func main() {
 	relayRepo := repository.NewRelayRepository(sqlx.NewDb(db, "postgres"), rdb)
 	analyticsRepo := repository.NewAnalyticsRepository(sqlx.NewDb(readDB, "postgres")) // Analytics uses read replica
 
-	// Payment Gateway Mock
 	midtransConfig := payment_gateway.MidtransConfig{
-		ServerKey: "MOCK_SERVER_KEY",
-		IsProd:    false,
+		ServerKey: os.Getenv("MIDTRANS_SERVER_KEY"),
+		IsProd:    os.Getenv("MIDTRANS_ENV") == "production",
 	}
 	paymentGw := payment_gateway.NewMidtransGateway(midtransConfig)
-	payoutGw := payment_gateway.NewStubPayoutGateway()
-	refundGw := payment_gateway.NewStubRefundGateway()
+	payoutGw := payment_gateway.NewUnavailablePayoutGateway()
+	refundGw := payment_gateway.NewUnavailableRefundGateway()
 
 	// Feature Flags
 	flagReader := featureflags.NewFlagReader(db, readDB, rdb)
@@ -128,16 +127,14 @@ func main() {
 
 	notifRepo := repository.NewPostgresNotificationRepo(sqlx.NewDb(db, "postgres"))
 	trackingRepo := repository.NewPostgresTrackingRepo(sqlx.NewDb(db, "postgres"))
-	
+
 	notificationSvc := service.NewNotificationService(notifRepo, tq)
 	trackingSvc := service.NewTrackingService(trackingRepo, eb)
-
-
 
 	// Services
 	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo, flagReader)
 	meetingPointSvc := service.NewMeetingPointService(pgRepo, mapsRepo, redisRepo)
-	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, eb, tq, flagReader, notificationSvc)
+	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, relayRepo, eb, tq, flagReader, notificationSvc)
 	paymentSvc := service.NewPaymentService(paymentRepo, pgRepo, paymentGw)
 	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw, relayRepo)
 	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw)
@@ -162,7 +159,7 @@ func main() {
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsSvc)
 
 	// Background Workers
-	surgeWorker := worker.NewSurgeWorker(rdb)
+	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB))
 	go surgeWorker.Start(context.Background())
 
 	monitorWorker := worker.NewOrderMonitorWorker(pgRepo, 15*time.Minute)
@@ -173,6 +170,7 @@ func main() {
 
 	if tq != nil {
 		taskWorker := worker.NewTaskWorker(tq, pgRepo, notificationSvc, notifRepo, insuranceSvc, relayScoreSvc, analyticsSvc)
+		taskWorker.SetNotificationDeliveryProvider(notificationinfra.NewHTTPDeliveryProvider(notifRepo))
 		go func() {
 			if err := taskWorker.Start(context.Background()); err != nil {
 				log.Printf("Failed to start task worker: %v", err)
@@ -182,22 +180,22 @@ func main() {
 
 	// Routes
 	mux := http.NewServeMux()
-	
+
 	// Infrastructure Routes
 	mux.HandleFunc("/health", handler.HealthHandler)
 	mux.HandleFunc("/ready", handler.ReadinessHandlerFunc(db))
-	
+
 	// Swagger Documentation (Secure in Production)
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)
-	
+
 	// WebSocket Route
 	mux.HandleFunc("/ws", middleware.AuthMiddleware(wsHandler.ServeHTTP))
-	
+
 	// Public Routes
 	mux.HandleFunc("/api/v1/pricing/estimate", middleware.LimitByIP(rdb)(middleware.BaseChain(
 		middleware.ValidateBody(domain.PricingEstimateRequest{})(orderHandler.Estimate),
 	)))
-	
+
 	// Protected Routes (Wrapped in Auth + Base Middleware)
 	mux.HandleFunc("/api/v1/orders", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -224,7 +222,6 @@ func main() {
 
 	// Internal Orchestration Routes (Should be IP-whitelisted or internally routed)
 	mux.HandleFunc("/api/v1/internal/orders/matching", orderHandler.StartMatching)
-
 
 	// Tracking Routes
 	mux.HandleFunc("/api/v1/tracking/location", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.UpdateLocation)))
@@ -257,7 +254,7 @@ func main() {
 	// Payment Routes
 	mux.HandleFunc("/api/v1/payments/create", middleware.BaseChain(middleware.AuthMiddleware(paymentHandler.CreatePayment)))
 	mux.HandleFunc("/api/v1/payments/", middleware.BaseChain(middleware.AuthMiddleware(paymentHandler.GetPaymentStatus))) // for GET /payments/:id
-	
+
 	// Webhook Route (no auth, verify signature inside)
 	mux.HandleFunc("/api/v1/payments/webhook", middleware.BaseChain(paymentHandler.HandleWebhook))
 
@@ -304,7 +301,7 @@ func main() {
 		}
 	})))
 	mux.HandleFunc("/api/v1/admin/pricing/simulate", middleware.BaseChain(middleware.AuthMiddleware(adminHandler.SimulatePrice)))
-	
+
 	// Analytics Routes
 	mux.HandleFunc("/api/v1/admin/analytics/dashboard", middleware.BaseChain(middleware.AuthMiddleware(analyticsHandler.GetDashboardMetrics)))
 	mux.HandleFunc("/api/v1/admin/analytics/reports", middleware.BaseChain(middleware.AuthMiddleware(analyticsHandler.GetReport)))

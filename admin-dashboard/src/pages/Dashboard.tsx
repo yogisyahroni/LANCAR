@@ -50,6 +50,28 @@ const StatCard = ({ title, value, change, icon: Icon, trend, loading }: any) => 
   </motion.div>
 )
 
+const formatPercentChange = (value: unknown) => {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return undefined
+  return `${parsed > 0 ? '+' : ''}${parsed}%`
+}
+
+const healthItems = (health: any) => {
+  if (Array.isArray(health?.components)) {
+    return health.components.map((component: any) => {
+      const normalized = String(component.status || '').toLowerCase()
+      const isUp = ['ready', 'healthy', 'live', 'writable'].includes(normalized)
+      const isDown = normalized === 'error'
+      return {
+        label: component.label,
+        status: component.status || 'Unknown',
+        color: isUp ? 'bg-emerald-500' : isDown ? 'bg-red-500' : 'bg-amber-500'
+      }
+    })
+  }
+  return []
+}
+
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['dashboard-stats'],
@@ -113,36 +135,36 @@ export default function Dashboard() {
 
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard 
-          title="Daily Orders" 
-          value={stats?.total_orders_today?.toLocaleString()} 
-          change={`${stats?.orders_growth > 0 ? '+' : ''}${stats?.orders_growth}%`}
+        <StatCard
+          title="Daily Orders"
+          value={stats?.total_orders_today?.toLocaleString() ?? 'No data'}
+          change={formatPercentChange(stats?.orders_growth)}
           trend={stats?.orders_growth >= 0 ? 'up' : 'down'}
-          icon={Package} 
+          icon={Package}
           loading={statsLoading}
         />
-        <StatCard 
-          title="Revenue" 
-          value={`Rp ${(stats?.revenue_today / 1000000 || 0).toFixed(1)}M`} 
-          change={`${stats?.revenue_growth > 0 ? '+' : ''}${stats?.revenue_growth}%`}
+        <StatCard
+          title="Revenue"
+          value={`Rp ${(stats?.revenue_today / 1000000 || 0).toFixed(1)}M`}
+          change={formatPercentChange(stats?.revenue_growth)}
           trend={stats?.revenue_growth >= 0 ? 'up' : 'down'}
-          icon={TrendingUp} 
+          icon={TrendingUp}
           loading={statsLoading}
         />
-        <StatCard 
-          title="Active Couriers" 
-          value={stats?.active_couriers} 
-          change={`${stats?.courier_growth > 0 ? '+' : ''}${stats?.courier_growth}%`}
+        <StatCard
+          title="Active Couriers"
+          value={stats?.active_couriers ?? 'No data'}
+          change={formatPercentChange(stats?.courier_growth)}
           trend={stats?.courier_growth >= 0 ? 'up' : 'down'}
-          icon={Truck} 
+          icon={Truck}
           loading={statsLoading}
         />
-        <StatCard 
-          title="SLA Compliance" 
-          value={`${stats?.sla_compliance}%`} 
-          change={`${stats?.sla_growth > 0 ? '+' : ''}${stats?.sla_growth}%`}
+        <StatCard
+          title="SLA Compliance"
+          value={stats?.sla_compliance === null || stats?.sla_compliance === undefined ? 'No data' : `${stats.sla_compliance}%`}
+          change={formatPercentChange(stats?.sla_growth)}
           trend={stats?.sla_growth >= 0 ? 'up' : 'down'}
-          icon={Clock} 
+          icon={Clock}
           loading={statsLoading}
         />
       </div>
@@ -187,12 +209,7 @@ export default function Dashboard() {
                   </div>
                 ))
               ) : (
-                [
-                  { label: 'API Gateway', status: health?.api_gateway === 'UP' ? 'Optimal' : 'Issues', color: health?.api_gateway === 'UP' ? 'bg-emerald-500' : 'bg-red-500' },
-                  { label: 'Database', status: health?.database === 'UP' ? 'Healthy' : 'Latency', color: health?.database === 'UP' ? 'bg-emerald-500' : 'bg-amber-500' },
-                  { label: 'Redis Cache', status: health?.redis === 'UP' ? 'Connected' : 'Disconnected', color: health?.redis === 'UP' ? 'bg-emerald-500' : 'bg-red-500' },
-                  { label: 'Storage', status: '94% Cap', color: 'bg-amber-500' },
-                ].map((item, i) => (
+                healthItems(health).map((item: any, i: number) => (
                   <div key={i} className="flex items-center justify-between">
                     <span className="text-sm text-zinc-400">{item.label}</span>
                     <div className="flex items-center gap-2">
@@ -217,7 +234,7 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-2 text-primary-light text-sm font-bold bg-primary/10 px-3 py-1 rounded-lg">
               <TrendingUp size={16} />
-              +14% vs Yesterday
+              {formatPercentChange(stats?.revenue_growth) || 'No comparison'}
             </div>
           </div>
           <RevenueChart data={revenueData?.map((d: any) => ({ name: d.service_type, value: d.revenue / 1000 }))} />

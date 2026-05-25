@@ -18,8 +18,10 @@ import com.lancar.courier.data.model.CourierTrainingCompleteRequest
 import com.lancar.courier.data.model.DutyStatusRequest
 import com.lancar.courier.data.model.MapsProviderConfig
 import com.lancar.courier.data.model.Order
+import com.lancar.courier.data.model.OrderStatusTransition
 import com.lancar.courier.data.model.StatusUpdateRequest
 import com.lancar.courier.data.model.TripShareRequest
+import com.lancar.courier.data.model.CancelPickupReason
 import com.lancar.courier.data.repository.OrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,6 +102,12 @@ class OrderViewModel @Inject constructor(
     private val _mapsProviderConfig = MutableStateFlow(MapsProviderConfig())
     val mapsProviderConfig: StateFlow<MapsProviderConfig> = _mapsProviderConfig.asStateFlow()
 
+    private val _cancelPickupReasons = MutableStateFlow<List<CancelPickupReason>>(emptyList())
+    val cancelPickupReasons: StateFlow<List<CancelPickupReason>> = _cancelPickupReasons.asStateFlow()
+
+    private val _statusTransitions = MutableStateFlow<List<OrderStatusTransition>>(emptyList())
+    val statusTransitions: StateFlow<List<OrderStatusTransition>> = _statusTransitions.asStateFlow()
+
     private val _lastRemoteSyncAt = MutableStateFlow<Long?>(null)
     val lastRemoteSyncAt: StateFlow<Long?> = _lastRemoteSyncAt.asStateFlow()
 
@@ -121,6 +129,8 @@ class OrderViewModel @Inject constructor(
         // Fetch fresh data from backend as soon as ViewModel starts
         fetchMapsProviderConfig()
         fetchCourierProfile()
+        fetchPickupCancellationReasons()
+        fetchOrderStatusTransitions("on_demand")
         fetchOrdersFromBackend()
     }
 
@@ -152,6 +162,43 @@ class OrderViewModel @Inject constructor(
                     _mapsProviderConfig.update { body }
                 }
             } catch (_: Exception) {
+            }
+        }
+    }
+
+    fun fetchPickupCancellationReasons() {
+        viewModelScope.launch {
+            try {
+                val response = apiService.getPickupCancellationReasons()
+                val body = response.body()
+                if (response.isSuccessful && body?.success == true && body.data != null) {
+                    _cancelPickupReasons.update { body.data }
+                } else {
+                    _cancelPickupReasons.update { emptyList() }
+                    _error.update { body?.message ?: response.errorMessage() }
+                }
+            } catch (e: Exception) {
+                _cancelPickupReasons.update { emptyList() }
+                _error.update { e.message ?: "Gagal memuat alasan pembatalan pickup." }
+            }
+        }
+    }
+
+    fun fetchOrderStatusTransitions(workflowRole: String) {
+        val normalizedRole = workflowRole.ifBlank { "on_demand" }
+        viewModelScope.launch {
+            try {
+                val response = apiService.getOrderStatusTransitions(normalizedRole)
+                val body = response.body()
+                if (response.isSuccessful && body?.success == true && body.data != null) {
+                    _statusTransitions.update { body.data }
+                } else {
+                    _statusTransitions.update { emptyList() }
+                    _error.update { body?.message ?: response.errorMessage() }
+                }
+            } catch (e: Exception) {
+                _statusTransitions.update { emptyList() }
+                _error.update { e.message ?: "Gagal memuat policy transisi status." }
             }
         }
     }
@@ -235,6 +282,12 @@ class OrderViewModel @Inject constructor(
                 val currentRole = profileBody?.data?.applicationChannel
                     ?: _courierProfile.value?.applicationChannel
                     ?: "on_demand"
+
+                val transitionResponse = apiService.getOrderStatusTransitions(currentRole)
+                val transitionBody = transitionResponse.body()
+                if (transitionResponse.isSuccessful && transitionBody?.success == true) {
+                    _statusTransitions.update { transitionBody.data ?: emptyList() }
+                }
 
                 if (currentRole == "on_demand") {
                     val serviceResponse = apiService.getOnDemandServices()

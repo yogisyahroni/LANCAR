@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"math"
 
 	"lancar-backend/internal/featureflags"
 )
@@ -48,17 +49,33 @@ func ErrModelUnavailable(model string, msgID string) *ModelUnavailableError {
 
 // RoutingEngine handles model selection
 type RoutingEngine struct {
-	flagReader featureflags.FlagReader
+	flagReader   featureflags.FlagReader
+	zoneResolver ZoneResolver
 }
 
 func NewRoutingEngine(reader featureflags.FlagReader) *RoutingEngine {
+	return NewRoutingEngineWithZoneResolver(reader, nil)
+}
+
+func NewRoutingEngineWithZoneResolver(reader featureflags.FlagReader, resolver ZoneResolver) *RoutingEngine {
 	return &RoutingEngine{
-		flagReader: reader,
+		flagReader:   reader,
+		zoneResolver: resolver,
 	}
 }
 
 // SelectModel chooses the best delivery model based on distance and feature flags
 func (e *RoutingEngine) SelectModel(ctx context.Context, req OrderRequest) (ModelType, error) {
+	if err := validateCoordinate(req.Pickup); err != nil {
+		return "", fmt.Errorf("pickup coordinate invalid: %w", err)
+	}
+	if err := validateCoordinate(req.Dropoff); err != nil {
+		return "", fmt.Errorf("dropoff coordinate invalid: %w", err)
+	}
+	if e.zoneResolver == nil {
+		return "", fmt.Errorf("routing zone resolver is not configured")
+	}
+
 	// Read 3 model flags in parallel using the FlagReader
 	keys := []string{"model_p2p", "model_two_legs", "model_three_legs"}
 	flags, err := e.flagReader.GetFlags(ctx, keys)
@@ -71,8 +88,14 @@ func (e *RoutingEngine) SelectModel(ctx context.Context, req OrderRequest) (Mode
 	threeFlag := flags["model_three_legs"]
 
 	distKm := calculateDistance(req.Pickup, req.Dropoff)
-	pickupZone := detectZone(req.Pickup)
-	dropoffZone := detectZone(req.Dropoff)
+	pickupZone, err := e.zoneResolver.ResolveZoneCode(ctx, req.Pickup)
+	if err != nil {
+		return "", fmt.Errorf("pickup zone unavailable: %w", err)
+	}
+	dropoffZone, err := e.zoneResolver.ResolveZoneCode(ctx, req.Dropoff)
+	if err != nil {
+		return "", fmt.Errorf("dropoff zone unavailable: %w", err)
+	}
 
 	switch {
 	case distKm <= 15:
@@ -95,7 +118,7 @@ func (e *RoutingEngine) SelectModel(ctx context.Context, req OrderRequest) (Mode
 		if threeFlag != nil && threeFlag.IsEnabled && inRollout(threeFlag, req.UserID) && zonesActive(threeFlag, pickupZone, dropoffZone) {
 			return ModelThreeLegs, nil
 		}
-		
+
 		msgID := "MSG_THREE_LEGS_UNAVAILABLE"
 		if threeFlag != nil && threeFlag.Config != nil {
 			if v, ok := threeFlag.Config["rejection_message_id"].(string); ok {
@@ -106,23 +129,32 @@ func (e *RoutingEngine) SelectModel(ctx context.Context, req OrderRequest) (Mode
 	}
 }
 
-// Helper functions (Mocks for actual business logic)
-
 func calculateDistance(pickup, dropoff Coordinate) float64 {
-	// MOCK: dynamic distance based on Lat for testing
-	dist := (dropoff.Lat - pickup.Lat) * 10
-	if dist < 0 {
-		dist = -dist
-	}
-	return dist
+	const earthRadiusKM = 6371.0
+	lat1 := degreesToRadians(pickup.Lat)
+	lat2 := degreesToRadians(dropoff.Lat)
+	deltaLat := degreesToRadians(dropoff.Lat - pickup.Lat)
+	deltaLng := degreesToRadians(dropoff.Lng - pickup.Lng)
+
+	a := math.Sin(deltaLat/2)*math.Sin(deltaLat/2) +
+		math.Cos(lat1)*math.Cos(lat2)*math.Sin(deltaLng/2)*math.Sin(deltaLng/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	return earthRadiusKM * c
 }
 
-func detectZone(coord Coordinate) string {
-	// MOCK: return zone based on Lng
-	if coord.Lng > 100 {
-		return "JAK-TIM"
+func degreesToRadians(value float64) float64 {
+	return value * math.Pi / 180
+}
+
+func validateCoordinate(coord Coordinate) error {
+	if coord.Lat < -90 || coord.Lat > 90 {
+		return fmt.Errorf("latitude %.6f outside range -90..90", coord.Lat)
 	}
-	return "JAK-SEL"
+	if coord.Lng < -180 || coord.Lng > 180 {
+		return fmt.Errorf("longitude %.6f outside range -180..180", coord.Lng)
+	}
+	return nil
 }
 
 func zoneActive(flag *featureflags.FeatureFlag, zone string) bool {

@@ -1,7 +1,9 @@
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useState } from 'react'
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import L from 'leaflet'
+import { api } from '../lib/api'
 
 // Fix for default marker icons in Leaflet + React
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -25,7 +27,18 @@ const courierIcon = L.divIcon({
 });
 
 export default function LiveMap() {
-  const [center] = useState<[number, number]>([-6.2088, 106.8456]) // Jakarta Center
+  const { data: courierPoints = [], isLoading, isError } = useQuery({
+    queryKey: ['admin-live-courier-heat-data'],
+    queryFn: async () => {
+      const res = await api.get('/admin/analytics/heat-data')
+      return Array.isArray(res.data) ? res.data : []
+    },
+    refetchInterval: 15000
+  })
+  const center = useMemo<[number, number]>(() => {
+    const firstPoint = courierPoints.find((point: any) => Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lng)))
+    return firstPoint ? [Number(firstPoint.lat), Number(firstPoint.lng)] : [-2.5489, 118.0149]
+  }, [courierPoints])
 
   return (
     <div className="h-full w-full rounded-2xl overflow-hidden relative border border-white/5 shadow-2xl">
@@ -39,26 +52,34 @@ export default function LiveMap() {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
-        
-        {/* Sample Courier Markers */}
-        <Marker position={[-6.2146, 106.8451]} icon={courierIcon}>
-          <Popup>
-            <div className="text-zinc-900 font-sans">
-              <p className="font-bold">Kurir: Andi Wijaya</p>
-              <p className="text-xs">Status: On Delivery (LC-2024-1002)</p>
-            </div>
-          </Popup>
-        </Marker>
 
-        <Marker position={[-6.2000, 106.8500]} icon={courierIcon}>
-          <Popup>
-            <div className="text-zinc-900 font-sans">
-              <p className="font-bold">Kurir: Budi Santoso</p>
-              <p className="text-xs">Status: Idle</p>
-            </div>
-          </Popup>
-        </Marker>
+        {courierPoints.map((point: any, index: number) => {
+          const lat = Number(point.lat)
+          const lng = Number(point.lng)
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+          return (
+            <Marker key={`${lat}:${lng}:${index}`} position={[lat, lng]} icon={courierIcon}>
+              <Popup>
+                <div className="text-zinc-900 font-sans">
+                  <p className="font-bold">Courier location</p>
+                  <p className="text-xs">Weight: {Number(point.weight || 0).toFixed(1)}</p>
+                </div>
+              </Popup>
+            </Marker>
+          )
+        })}
       </MapContainer>
+
+      {!isLoading && !isError && courierPoints.length === 0 && (
+        <div className="absolute inset-x-4 top-20 z-[1000] glass-card rounded-2xl border-white/10 p-4 text-sm text-zinc-300">
+          Belum ada lokasi kurir aktif dari database.
+        </div>
+      )}
+      {isError && (
+        <div className="absolute inset-x-4 top-20 z-[1000] rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-100">
+          Lokasi kurir belum bisa dimuat.
+        </div>
+      )}
 
       {/* Map Legend Overlay */}
       <div className="absolute bottom-4 left-4 z-[1000] glass-card p-3 rounded-xl text-xs space-y-2 border-white/10">

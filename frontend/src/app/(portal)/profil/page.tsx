@@ -25,6 +25,15 @@ import {
   ToggleRight
 } from 'lucide-react';
 
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+const urlBase64ToUint8Array = (base64String: string) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
+};
+
 interface LoginRecord {
   id: string;
   device: string;
@@ -42,9 +51,9 @@ export default function ProfilPage() {
   const [activeTab, setActiveTab] = useState<'akun' | 'keamanan' | 'notifikasi' | 'referral'>('akun');
 
   // Tab Akun fields
-  const [name, setName] = useState(user?.name || 'Customer');
-  const [email, setEmail] = useState(user?.email || 'customer@lancar.id');
-  const [phone, setPhone] = useState('081234567891');
+  const [name, setName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [phone, setPhone] = useState('');
   const [profilePic, setProfilePic] = useState<string | null>(null);
 
   // Crop Photo Modal State
@@ -63,39 +72,13 @@ export default function ProfilPage() {
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [waDetailLevel, setWaDetailLevel] = useState<'ringkas' | 'lengkap'>('lengkap');
 
-  // Login session history table simulation
-  const [loginHistory, setLoginHistory] = useState<LoginRecord[]>([
-    {
-      id: 'session-1',
-      device: 'MacBook Pro • Chrome Browser',
-      ip: '182.1.204.33',
-      location: 'Jakarta, Indonesia',
-      timestamp: 'Just now',
-      is_current: true,
-    },
-    {
-      id: 'session-2',
-      device: 'iPhone 15 Pro • Safari',
-      ip: '112.215.111.4',
-      location: 'Jakarta, Indonesia',
-      timestamp: '2 hours ago',
-      is_current: false,
-    },
-    {
-      id: 'session-3',
-      device: 'PC Desktop • Firefox',
-      ip: '36.85.111.98',
-      location: 'Bandung, Indonesia',
-      timestamp: '1 day ago',
-      is_current: false,
-    },
-  ]);
+  const [loginHistory, setLoginHistory] = useState<LoginRecord[]>([]);
 
   // Tab Referral stats
-  const [referralCode] = useState('LCR-UMKM-2026');
-  const [totalReferred, setTotalReferred] = useState(14);
-  const [claimedRewards, setClaimedRewards] = useState(250000);
-  const [pendingRewards, setPendingRewards] = useState(75000);
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [totalReferred] = useState(0);
+  const [claimedRewards] = useState(0);
+  const [pendingRewards] = useState(0);
 
   // Load any customized preferences locally
   useEffect(() => {
@@ -103,6 +86,19 @@ export default function ProfilPage() {
     if (user?.email) setEmail(user.email);
     const savedPic = localStorage.getItem('lancar_profile_pic');
     if (savedPic) setProfilePic(savedPic);
+
+    api.get('/customer/profile')
+      .then((res) => {
+        const profile = res.data?.data;
+        if (!profile) return;
+        setName(profile.name || '');
+        setPhone(profile.phone_number || '');
+        setProfilePic(profile.profile_image_url || savedPic || null);
+        setReferralCode(profile.referral_code || null);
+      })
+      .catch(() => {
+        addNotification({ title: 'Info', message: 'Profil customer belum dapat dimuat dari server.', type: 'info' });
+      });
 
     if (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator) {
       if (Notification.permission === 'granted') {
@@ -115,7 +111,7 @@ export default function ProfilPage() {
         });
       }
     }
-  }, [user]);
+  }, [user, addNotification]);
 
   // Tab Akun Handlers
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,11 +144,16 @@ export default function ProfilPage() {
       return;
     }
 
-    // Persist name/email simulation inside Auth Store
-    if (user) {
-      setAuth(true, { ...user, name, email });
-    }
-    addNotification({ title: 'Sukses', message: 'Pengaturan akun berhasil disimpan.', type: 'success' });
+    api.put('/customer/profile', { name, phone_number: phone })
+      .then(() => {
+        if (user) {
+          setAuth(true, { ...user, name, email });
+        }
+        addNotification({ title: 'Sukses', message: 'Pengaturan akun berhasil disimpan.', type: 'success' });
+      })
+      .catch(() => {
+        addNotification({ title: 'Error', message: 'Gagal menyimpan profil ke server.', type: 'error' });
+      });
   };
 
   // Tab Keamanan Handlers
@@ -185,6 +186,10 @@ export default function ProfilPage() {
 
   // Tab Referral Handlers
   const handleCopyCode = () => {
+    if (!referralCode) {
+      addNotification({ title: 'Info', message: 'Kode referral belum tersedia.', type: 'info' });
+      return;
+    }
     navigator.clipboard.writeText(referralCode);
     addNotification({ title: 'Tersalin', message: 'Kode referral berhasil disalin ke clipboard.', type: 'success' });
   };
@@ -194,9 +199,7 @@ export default function ProfilPage() {
       addNotification({ title: 'Info', message: 'Tidak ada bonus reward yang bisa dicairkan saat ini.', type: 'info' });
       return;
     }
-    setClaimedRewards((prev) => prev + pendingRewards);
-    setPendingRewards(0);
-    addNotification({ title: 'Sukses Cairkan', message: `Berhasil mencairkan bonus Rp${pendingRewards.toLocaleString('id-ID')} ke dompet saldo.`, type: 'success' });
+    addNotification({ title: 'Info', message: 'Pencairan reward harus diproses dari data reward server.', type: 'info' });
   };
 
   const togglePushNotification = async () => {
@@ -219,22 +222,19 @@ export default function ProfilPage() {
           return;
         }
 
+        if (!VAPID_PUBLIC_KEY) {
+          throw new Error('NEXT_PUBLIC_VAPID_PUBLIC_KEY is not configured');
+        }
+
         const sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: 'BLuW4q8hD_R3r7y7K9V4tX0-E3Wq7P-Y7T6T9E4E3_V-Z0P-Y7T6T9E4E3_V8'
-        }).catch(async () => {
-          return {
-            endpoint: `https://fcm.googleapis.com/fcm/send/simulated_${Date.now()}`,
-            keys: {
-              p256dh: 'BAsK-1V7W8y9X0_A-Z0P-Y7T6T9E4E3_V8',
-              auth: 'X0_AZ0PY7T6T9E4E3_V8'
-            }
-          };
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         });
+        const serializedSubscription = sub.toJSON();
 
         await api.post('/auth/web/notifications/subscribe', {
           endpoint: sub.endpoint,
-          keys: (sub as any).keys || { p256dh: '', auth: '' }
+          keys: serializedSubscription.keys || { p256dh: '', auth: '' }
         });
 
         setPushEnabled(true);

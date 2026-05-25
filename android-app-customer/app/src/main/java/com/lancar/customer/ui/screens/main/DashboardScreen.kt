@@ -85,6 +85,7 @@ fun DashboardScreen(
     val customerName by viewModel.customerName.collectAsState()
     val activeOrder by viewModel.activeOrder.collectAsState()
     val services by viewModel.services.collectAsState()
+    val dataError by viewModel.dataError.collectAsState()
 
     Scaffold(
         containerColor = Color(0xFFF3F5F8),
@@ -136,6 +137,14 @@ fun DashboardScreen(
                     )
                 }
             }
+            dataError?.let { message ->
+                item {
+                    DashboardDataErrorCard(
+                        message = message,
+                        onRetry = viewModel::refreshData
+                    )
+                }
+            }
             item {
                 LocationRequestCard(onBookingClick = { onBookingClick("dropoff") })
             }
@@ -144,6 +153,36 @@ fun DashboardScreen(
             }
             item {
                 TrustCard()
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardDataErrorCard(
+    message: String,
+    onRetry: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
+        border = BorderStroke(1.dp, Color(0xFFF4D58D))
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Shield, contentDescription = null, tint = Color(0xFFB45309))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Data live belum tersedia", color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                Text(message, color = Color(0xFF8A5A0A), fontSize = 12.sp, lineHeight = 17.sp)
+            }
+            TextButton(onClick = onRetry) {
+                Text("Coba Lagi", fontWeight = FontWeight.ExtraBold)
             }
         }
     }

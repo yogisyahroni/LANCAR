@@ -11,7 +11,8 @@ import {
   Search,
   Loader2,
   ChevronRight,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -21,7 +22,7 @@ export default function DisputesPage() {
   const [selectedDispute, setSelectedDispute] = useState<any>(null);
   const [search, setSearch] = useState('');
 
-  const { data: disputesRes, isLoading } = useQuery({
+  const { data: disputesRes, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['my-disputes'],
     queryFn: async () => {
       const res = await api.get('/auth/web/disputes');
@@ -31,10 +32,11 @@ export default function DisputesPage() {
 
   const disputes = disputesRes?.data || [];
   
-  const filteredDisputes = disputes.filter((d: any) => 
-    d.order_number.toLowerCase().includes(search.toLowerCase()) ||
-    d.category.toLowerCase().includes(search.toLowerCase())
+  const filteredDisputes = disputes.filter((d: any) =>
+    String(d.order_number || '').toLowerCase().includes(search.toLowerCase()) ||
+    String(d.category || '').toLowerCase().includes(search.toLowerCase())
   );
+  const errorMessage = (error as any)?.response?.data?.message || (error as any)?.message || 'Data dispute belum bisa dimuat dari database.';
 
   const getStatusClass = (status: string) => {
     switch (status.toLowerCase()) {
@@ -69,6 +71,22 @@ export default function DisputesPage() {
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
           <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Memuat data...</p>
+        </div>
+      ) : isError ? (
+        <div className="p-16 text-center bg-destructive/5 border border-destructive/20 rounded-[32px] flex flex-col items-center gap-4">
+          <AlertTriangle size={48} className="text-destructive" />
+          <div>
+            <p className="text-lg font-bold text-foreground">Dispute gagal dimuat</p>
+            <p className="text-sm text-muted-foreground mt-1">{errorMessage}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-bold hover:bg-destructive/20 transition-all"
+          >
+            <RefreshCw size={14} />
+            Coba Lagi
+          </button>
         </div>
       ) : filteredDisputes.length === 0 ? (
         <div className="p-16 text-center bg-muted/20 border border-dashed border-border rounded-[32px] flex flex-col items-center gap-4">

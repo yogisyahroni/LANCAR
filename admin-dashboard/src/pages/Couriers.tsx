@@ -19,7 +19,9 @@ import {
   Package,
   History,
   Link2,
-  Copy
+  Copy,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
@@ -27,6 +29,53 @@ import { cn } from '../lib/utils'
 import { toast } from 'sonner'
 
 
+
+const queryErrorMessage = (error: any, fallback: string) =>
+  error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback
+
+function CourierErrorRow({ title, message, onRetry, colSpan = 5 }: { title: string; message: string; onRetry: () => void; colSpan?: number }) {
+  return (
+    <tr>
+      <td colSpan={colSpan} className="px-8 py-20 text-center">
+        <div className="flex flex-col items-center gap-4">
+          <AlertCircle className="w-10 h-10 text-red-400" />
+          <div>
+            <p className="text-zinc-100 font-black uppercase tracking-widest text-xs">{title}</p>
+            <p className="text-zinc-600 text-xs mt-2">{message}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+          >
+            <RefreshCw size={14} />
+            Retry
+          </button>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+function CourierPanelError({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
+  return (
+    <div className="rounded-[32px] border border-red-500/20 bg-red-500/5 p-8 text-center space-y-4 md:col-span-4">
+      <AlertCircle className="w-10 h-10 text-red-400 mx-auto" />
+      <div>
+        <p className="text-zinc-100 font-black uppercase tracking-widest text-xs">{title}</p>
+        <p className="text-zinc-600 text-xs mt-2">{message}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-300 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+      >
+        <RefreshCw size={14} />
+        Retry
+      </button>
+    </div>
+  )
+}
 
 export default function Couriers() {
   const [search, setSearch] = useState('')
@@ -43,7 +92,7 @@ export default function Couriers() {
   const queryClient = useQueryClient()
 
   // Fetch Stats
-  const { data: stats } = useQuery({
+  const { data: stats, isError: isStatsError, error: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['admin-couriers-stats'],
     queryFn: async () => {
       const res = await api.get('/admin/couriers/stats')
@@ -52,7 +101,7 @@ export default function Couriers() {
   })
 
   // Fetch Couriers List
-  const { data: couriersData, isLoading } = useQuery({
+  const { data: couriersData, isLoading, isError: isCouriersError, error: couriersError, refetch: refetchCouriers } = useQuery({
     queryKey: ['admin-couriers', search, filter, applicationChannel, page],
     queryFn: async () => {
       const res = await api.get('/admin/couriers', {
@@ -180,11 +229,17 @@ export default function Couriers() {
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {[
-          { label: 'Total Couriers', value: stats?.total || '0', icon: Users, color: 'text-zinc-400' },
-          { label: 'Active Now', value: stats?.active || '0', icon: Truck, color: 'text-emerald-400' },
-          { label: 'Pending Verification', value: stats?.pending || '0', icon: Clock, color: 'text-amber-400' },
-          { label: 'Suspended', value: stats?.suspended || '0', icon: Ban, color: 'text-red-400' },
+        {isStatsError ? (
+          <CourierPanelError
+            title="Courier stats gagal dimuat"
+            message={queryErrorMessage(statsError, 'Statistik kurir belum bisa diambil dari API admin.')}
+            onRetry={() => refetchStats()}
+          />
+        ) : [
+          { label: 'Total Couriers', value: stats?.total?.toLocaleString() ?? 'Tidak tersedia', icon: Users, color: 'text-zinc-400' },
+          { label: 'Active Now', value: stats?.active?.toLocaleString() ?? 'Tidak tersedia', icon: Truck, color: 'text-emerald-400' },
+          { label: 'Pending Verification', value: stats?.pending?.toLocaleString() ?? 'Tidak tersedia', icon: Clock, color: 'text-amber-400' },
+          { label: 'Suspended', value: stats?.suspended?.toLocaleString() ?? 'Tidak tersedia', icon: Ban, color: 'text-red-400' },
         ].map((stat, i) => (
           <div key={i} className="glass-card p-6 rounded-3xl border-white/5 shadow-xl shadow-black/20">
             <div className="flex items-center gap-4">
@@ -373,7 +428,13 @@ export default function Couriers() {
                     </div>
                   </td>
                 </tr>
-              ) : couriersData?.data?.map((courier: any, i: number) => (
+              ) : isCouriersError ? (
+                <CourierErrorRow
+                  title="Courier gagal dimuat"
+                  message={queryErrorMessage(couriersError, 'Daftar kurir belum bisa diambil dari API admin.')}
+                  onRetry={() => refetchCouriers()}
+                />
+              ) : couriersData?.data?.length ? couriersData.data.map((courier: any, i: number) => (
                 <motion.tr 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -390,10 +451,10 @@ export default function Couriers() {
                         <div className="flex items-center gap-2">
                           <p className="font-bold text-zinc-100">{courier.full_name}</p>
                           <span className="text-[10px] px-2 py-0.5 rounded-md bg-zinc-800 text-zinc-500 border border-white/5 uppercase font-bold">
-                            {courier.application_channel?.replace('_', ' ') || courier.vehicle_type || 'MOTOR'}
+                            {courier.application_channel?.replace('_', ' ') || courier.vehicle_type || 'Belum tersedia'}
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-500 mt-0.5">{courier.id.split('-')[0]} • {courier.plate_number || 'No Plate'}</p>
+                        <p className="text-xs text-zinc-500 mt-0.5">{courier.id.split('-')[0]} • {courier.plate_number || 'Plat belum tersedia'}</p>
                       </div>
                     </div>
                   </td>
@@ -414,12 +475,12 @@ export default function Couriers() {
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center text-sm font-black text-zinc-100">
-                        {parseFloat(courier.avg_rating || '0').toFixed(1)}
+                        {Number.isFinite(Number(courier.avg_rating)) ? Number(courier.avg_rating).toFixed(1) : '—'}
                       </div>
                       <div className="flex-1 max-w-[100px] h-1.5 bg-white/5 rounded-full overflow-hidden">
                         <div 
-                          className={cn("h-full rounded-full", parseFloat(courier.avg_rating) > 4.5 ? "bg-emerald-500" : parseFloat(courier.avg_rating) > 3.5 ? "bg-amber-500" : "bg-red-500")} 
-                          style={{ width: `${(parseFloat(courier.avg_rating || '0') / 5) * 100}%` }} 
+                          className={cn("h-full rounded-full", Number(courier.avg_rating) > 4.5 ? "bg-emerald-500" : Number(courier.avg_rating) > 3.5 ? "bg-amber-500" : "bg-red-500")}
+                          style={{ width: `${Number.isFinite(Number(courier.avg_rating)) ? (Number(courier.avg_rating) / 5) * 100 : 0}%` }}
                         />
                       </div>
                     </div>
@@ -427,7 +488,7 @@ export default function Couriers() {
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-2 text-zinc-400">
                       <MapPin size={14} className="text-zinc-600" />
-                      <span className="text-sm font-medium">{courier.current_location || 'Unknown'}</span>
+                      <span className="text-sm font-medium">{courier.current_location || 'Lokasi belum tersedia'}</span>
                     </div>
                   </td>
                   <td className="px-8 py-6">
@@ -456,7 +517,14 @@ export default function Couriers() {
                     </div>
                   </td>
                 </motion.tr>
-              ))}
+              )) : (
+                <tr>
+                  <td colSpan={5} className="px-8 py-20 text-center">
+                    <Package className="w-10 h-10 text-zinc-800 mx-auto mb-4" />
+                    <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Tidak ada kurir dari database untuk filter ini.</p>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

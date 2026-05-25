@@ -27,8 +27,8 @@ interface Address {
   recipient_name: string;
   phone: string;
   address: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   is_default: boolean;
   kind: 'pickup' | 'receiver' | 'both';
 }
@@ -51,11 +51,29 @@ const mapAddressFromApi = (item: CustomerAddressApi): Address => ({
   recipient_name: item.contact_name || '-',
   phone: item.contact_phone_masked || '-',
   address: item.address,
-  latitude: Number(item.lat ?? 0),
-  longitude: Number(item.lng ?? 0),
+  latitude: parseCoordinate(item.lat),
+  longitude: parseCoordinate(item.lng),
   is_default: Boolean(item.is_favorite),
   kind: item.kind || 'receiver',
 });
+
+const parseCoordinate = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const hasValidCoordinates = (latitude: number | null, longitude: number | null): latitude is number =>
+  typeof latitude === 'number' &&
+  typeof longitude === 'number' &&
+  Number.isFinite(latitude) &&
+  Number.isFinite(longitude);
+
+const formatCoordinates = (latitude: number | null, longitude: number | null) => {
+  if (latitude === null || longitude === null || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return 'Koordinat belum tersedia';
+  }
+  return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+};
 
 const buildAddressPayload = (params: {
   label: string;
@@ -83,6 +101,7 @@ export default function AddressBookPage() {
 
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Search & Filters
   const [search, setSearch] = useState('');
@@ -107,14 +126,17 @@ export default function AddressBookPage() {
 
   const loadAddresses = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const response = await api.get('/customer/addresses');
       const items = (response.data?.data || []) as CustomerAddressApi[];
       setAddresses(items.map(mapAddressFromApi));
     } catch (error: any) {
+      const message = error?.response?.data?.message || 'Buku alamat belum bisa dimuat dari database.';
+      setLoadError(message);
       addNotification({
         title: 'Gagal memuat alamat',
-        message: error?.response?.data?.message || 'Buku alamat belum bisa dimuat dari database.',
+        message,
         type: 'error',
       });
       setAddresses([]);
@@ -165,8 +187,8 @@ export default function AddressBookPage() {
     setRecipientName(addr.recipient_name);
     setPhone(addr.phone);
     setAddressText(addr.address);
-    setLatitude(addr.latitude);
-    setLongitude(addr.longitude);
+    setLatitude(addr.latitude ?? 0);
+    setLongitude(addr.longitude ?? 0);
     setIsDefault(addr.is_default);
     setCurrentAddressId(addr.id);
     setFormMode('edit');
@@ -240,6 +262,16 @@ export default function AddressBookPage() {
   const setDefaultPickup = async (id: string) => {
     const selectedAddress = addresses.find((item) => item.id === id);
     if (!selectedAddress) return;
+    const selectedLat = selectedAddress.latitude;
+    const selectedLng = selectedAddress.longitude;
+    if (selectedLat === null || selectedLng === null || !hasValidCoordinates(selectedLat, selectedLng)) {
+      addNotification({
+        title: 'Koordinat belum lengkap',
+        message: 'Alamat ini belum memiliki koordinat valid dari database.',
+        type: 'error',
+      });
+      return;
+    }
 
     try {
       await api.patch(`/customer/addresses/${id}`, {
@@ -247,8 +279,8 @@ export default function AddressBookPage() {
         contact_name: selectedAddress.recipient_name,
         address: selectedAddress.address,
         location: {
-          lat: selectedAddress.latitude,
-          lng: selectedAddress.longitude,
+          lat: selectedLat,
+          lng: selectedLng,
         },
         kind: 'both',
         is_favorite: true,
@@ -285,10 +317,10 @@ export default function AddressBookPage() {
             const recName = row['Nama Penerima'] || row.recipient_name || row.nama;
             const ph = row.Telepon || row.phone || row.hp;
             const addrStr = row.Alamat || row.address || row.alamat;
-            const lat = parseFloat(String(row.Latitude || row.latitude || row.lat || '-6.2'));
-            const lng = parseFloat(String(row.Longitude || row.longitude || row.lng || '106.81'));
+            const lat = parseCoordinate(row.Latitude || row.latitude || row.lat);
+            const lng = parseCoordinate(row.Longitude || row.longitude || row.lng);
 
-            if (!lbl || !recName || !ph || !addrStr) {
+            if (!lbl || !recName || !ph || !addrStr || lat === null || lng === null) {
               return null;
             }
 
@@ -297,8 +329,8 @@ export default function AddressBookPage() {
               recipientName: String(recName),
               phone: String(ph),
               addressText: String(addrStr),
-              latitude: Number.isNaN(lat) ? -6.2 : lat,
-              longitude: Number.isNaN(lng) ? 106.816 : lng,
+              latitude: lat,
+              longitude: lng,
               isDefault: false,
             });
           })
@@ -407,6 +439,25 @@ export default function AddressBookPage() {
         />
       </div>
 
+      {loadError && (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <HelpCircle className="h-5 w-5 text-destructive mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-foreground">Alamat gagal dimuat dari database</p>
+              <p className="text-xs text-muted-foreground mt-1">{loadError}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={loadAddresses}
+            className="px-4 py-2 rounded-xl bg-destructive/10 text-destructive border border-destructive/20 text-xs font-bold hover:bg-destructive/20 transition-all"
+          >
+            Coba Lagi
+          </button>
+        </div>
+      )}
+
       {/* Grid address cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 select-none">
         {filteredAddresses.map((addr) => (
@@ -470,7 +521,7 @@ export default function AddressBookPage() {
                   Set as Default Pickup
                 </button>
                 <span className="text-[10px] text-muted-foreground font-mono select-none">
-                  {addr.latitude.toFixed(4)}, {addr.longitude.toFixed(4)}
+                  {formatCoordinates(addr.latitude, addr.longitude)}
                 </span>
               </div>
             )}
@@ -478,14 +529,14 @@ export default function AddressBookPage() {
               <div className="border-t border-border/40 pt-3 flex items-center justify-between select-none">
                 <span className="text-xs text-emerald-500 font-bold select-none">Selected for pickup</span>
                 <span className="text-[10px] text-muted-foreground font-mono select-none">
-                  {addr.latitude.toFixed(4)}, {addr.longitude.toFixed(4)}
+                  {formatCoordinates(addr.latitude, addr.longitude)}
                 </span>
               </div>
             )}
           </motion.div>
         ))}
 
-        {filteredAddresses.length === 0 && (
+        {filteredAddresses.length === 0 && !loadError && (
           <div className="col-span-1 md:col-span-3 text-center py-12 select-none border border-dashed border-border/60 rounded-2xl text-muted-foreground text-sm">
             Tidak ada alamat ditemukan.
           </div>

@@ -98,6 +98,7 @@ import com.lancar.customer.data.model.DeliveryServiceProduct
 import com.lancar.customer.data.model.DimensionsPayload
 import com.lancar.customer.data.model.MapsGeocodeResult
 import com.lancar.customer.data.model.PriceBreakdown
+import com.lancar.customer.data.model.ServiceSizeTier
 import com.lancar.customer.ui.components.maps.RuntimeMapMarker
 import com.lancar.customer.ui.components.maps.RuntimeMapRenderer
 import com.lancar.customer.ui.theme.Primary
@@ -795,22 +796,6 @@ private fun RecipientCard(
             shape = RoundedCornerShape(18.dp)
         )
         Spacer(Modifier.height(10.dp))
-        Text("Paketnya berupa apa?", color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-        Spacer(Modifier.height(8.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(listOf("Dokumen", "Makanan", "Baju", "Obat-obatan", "Buku", "Lainnya")) { packageType ->
-                AssistChip(
-                    onClick = { onItemChange(packageType) },
-                    label = { Text(packageType) },
-                    leadingIcon = {
-                        if (state.itemDescription.equals(packageType, ignoreCase = true)) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                        }
-                    }
-                )
-            }
-        }
-        Spacer(Modifier.height(10.dp))
         OutlinedTextField(
             value = state.itemDescription,
             onValueChange = onItemChange,
@@ -829,39 +814,157 @@ private fun PackageCard(
 ) {
     val selectedService = state.selectedService()
     val serviceMaxWeight = selectedService?.maxWeightKg
-    val tiers = listOf(
-        PackageTier("small", "Kecil", "Maks. 5 kg", 5.0, 1.0, DimensionsPayload(40, 40, 17)),
-        PackageTier("medium", "Sedang", "Maks. 20 kg", 20.0, 8.0, DimensionsPayload(50, 50, 40)),
-        PackageTier("large", "Besar", "Maks. 100 kg", 100.0, 30.0, DimensionsPayload(120, 80, 80))
-    )
+    val tiers = remember(state.services) {
+        state.services
+            .flatMap { it.sizeTiers }
+            .filter { it.code.isNotBlank() && it.name.isNotBlank() && it.maxWeightKg > 0.0 }
+            .distinctBy { it.code }
+            .sortedBy { it.maxWeightKg }
+    }
+    var selectedTierCode by remember(state.sizeTier, tiers) {
+        mutableStateOf(state.sizeTier.ifBlank { tiers.firstOrNull()?.code ?: "" })
+    }
+    var weightText by remember(state.packageWeight) {
+        mutableStateOf(state.packageWeight.takeIf { it > 0.0 }?.toString()?.trimEnd('0')?.trimEnd('.') ?: "")
+    }
+    var lengthText by remember(state.packageLength) {
+        mutableStateOf(state.packageLength.takeIf { it > 0 }?.toString() ?: "")
+    }
+    var widthText by remember(state.packageWidth) {
+        mutableStateOf(state.packageWidth.takeIf { it > 0 }?.toString() ?: "")
+    }
+    var heightText by remember(state.packageHeight) {
+        mutableStateOf(state.packageHeight.takeIf { it > 0 }?.toString() ?: "")
+    }
+
+    fun commitPackageDetails(
+        tierCode: String = selectedTierCode,
+        weightValue: String = weightText,
+        lengthValue: String = lengthText,
+        widthValue: String = widthText,
+        heightValue: String = heightText
+    ) {
+        val weightKg = weightValue.toDoubleOrNull()
+        val lengthCm = lengthValue.toIntOrNull()
+        val widthCm = widthValue.toIntOrNull()
+        val heightCm = heightValue.toIntOrNull()
+        if (
+            tierCode.isNotBlank() &&
+            weightKg != null &&
+            weightKg > 0.0 &&
+            lengthCm != null &&
+            lengthCm > 0 &&
+            widthCm != null &&
+            widthCm > 0 &&
+            heightCm != null &&
+            heightCm > 0
+        ) {
+            onTierSelected(tierCode, weightKg, DimensionsPayload(lengthCm, widthCm, heightCm))
+        }
+    }
 
     LcCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Ukuran & berat paket", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         }
-        Text("Pastikan ukuran sesuai agar harga dan perlindungan paket akurat.", color = Muted, fontSize = 14.sp)
+        Text("Pilih tier dari konfigurasi layanan, lalu isi berat dan dimensi aktual paket.", color = Muted, fontSize = 14.sp)
         Spacer(Modifier.height(16.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(items = tiers, key = { it.code }) { tier: PackageTier ->
-                val selected = state.isPackageReady() && state.sizeTier == tier.code
-                val availableForService = serviceMaxWeight == null || tier.maxWeightKg <= serviceMaxWeight
-                Column(
-                    modifier = Modifier
-                        .width(132.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(if (selected) SoftGreen else if (availableForService) Color.White else Color(0xFFF2F4F7))
-                        .border(
-                            BorderStroke(1.dp, if (selected) LcGreen else Color(0xFFDDE3EC)),
-                            RoundedCornerShape(18.dp)
-                        )
-                        .clickable(enabled = availableForService) { onTierSelected(tier.code, tier.weightKg, tier.dimensions) }
-                        .padding(14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(tier.label, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = if (availableForService) Ink else Muted)
-                    Spacer(Modifier.height(6.dp))
-                    Text(if (availableForService) tier.caption else "Tidak cocok", color = Muted, fontSize = 13.sp)
+        if (tiers.isEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(FieldBg)
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Scale, null, tint = Muted)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Tier paket belum tersedia", fontWeight = FontWeight.Bold, color = Ink)
+                    Text("Admin perlu mengaktifkan size tier layanan sebelum order dihitung.", color = Muted, fontSize = 12.sp)
                 }
+            }
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(items = tiers, key = { it.code }) { tier: ServiceSizeTier ->
+                    val selected = selectedTierCode == tier.code
+                    val availableForService = serviceMaxWeight == null || tier.maxWeightKg <= serviceMaxWeight
+                    Column(
+                        modifier = Modifier
+                            .width(148.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(if (selected) SoftGreen else if (availableForService) Color.White else Color(0xFFF2F4F7))
+                            .border(
+                                BorderStroke(1.dp, if (selected) LcGreen else Color(0xFFDDE3EC)),
+                                RoundedCornerShape(18.dp)
+                            )
+                            .clickable(enabled = availableForService) {
+                                selectedTierCode = tier.code
+                                commitPackageDetails(tierCode = tier.code)
+                            }
+                            .padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(tier.name, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = if (availableForService) Ink else Muted)
+                        Spacer(Modifier.height(6.dp))
+                        Text(if (availableForService) "Maks. ${tier.maxWeightKg.toInt()} kg" else "Tidak cocok", color = Muted, fontSize = 13.sp)
+                    }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = weightText,
+                    onValueChange = { value ->
+                        weightText = value.filter { it.isDigit() || it == '.' }.take(6)
+                        commitPackageDetails(weightValue = weightText)
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Berat kg") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    shape = RoundedCornerShape(18.dp)
+                )
+                OutlinedTextField(
+                    value = lengthText,
+                    onValueChange = { value ->
+                        lengthText = value.filter { it.isDigit() }.take(4)
+                        commitPackageDetails(lengthValue = lengthText)
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("P cm") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(18.dp)
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = widthText,
+                    onValueChange = { value ->
+                        widthText = value.filter { it.isDigit() }.take(4)
+                        commitPackageDetails(widthValue = widthText)
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("L cm") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(18.dp)
+                )
+                OutlinedTextField(
+                    value = heightText,
+                    onValueChange = { value ->
+                        heightText = value.filter { it.isDigit() }.take(4)
+                        commitPackageDetails(heightValue = heightText)
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("T cm") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    shape = RoundedCornerShape(18.dp)
+                )
             }
         }
         Spacer(Modifier.height(14.dp))
@@ -897,7 +1000,7 @@ private fun PackageCard(
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text("Belum memilih ukuran paket", fontWeight = FontWeight.Bold, color = Ink)
-                    Text("Pilih kecil, sedang, atau besar untuk menghitung harga.", color = Muted, fontSize = 12.sp)
+                    Text("Pilih tier dari backend dan isi berat/dimensi aktual untuk menghitung harga.", color = Muted, fontSize = 12.sp)
                 }
             }
         }
@@ -2029,15 +2132,6 @@ private fun LcCard(content: @Composable ColumnScope.() -> Unit) {
         Column(Modifier.padding(18.dp), content = content)
     }
 }
-
-private data class PackageTier(
-    val code: String,
-    val label: String,
-    val caption: String,
-    val maxWeightKg: Double,
-    val weightKg: Double,
-    val dimensions: DimensionsPayload
-)
 
 private fun serviceIcon(service: DeliveryServiceProduct?): ImageVector {
     return if (service?.vehicleTypes?.contains("car") == true) Icons.Default.LocalShipping else Icons.Default.LocalShipping

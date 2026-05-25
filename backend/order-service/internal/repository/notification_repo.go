@@ -37,6 +37,15 @@ func (r *PostgresNotificationRepo) UpdatePushStatus(ctx context.Context, id uuid
 	return err
 }
 
+func (r *PostgresNotificationRepo) GetNotificationByID(ctx context.Context, id uuid.UUID) (*domain.Notification, error) {
+	var notif domain.Notification
+	query := `SELECT * FROM notifications WHERE id = $1 LIMIT 1`
+	if err := r.db.GetContext(ctx, &notif, query, id); err != nil {
+		return nil, err
+	}
+	return &notif, nil
+}
+
 func (r *PostgresNotificationRepo) GetNotificationsByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]domain.Notification, error) {
 	var notifs []domain.Notification
 	query := `SELECT * FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
@@ -88,10 +97,10 @@ func (r *PostgresNotificationRepo) GetPreferences(ctx context.Context, userID uu
 	if err != nil {
 		// If not found, return default preferences
 		return &domain.UserNotificationPreference{
-			UserID:         userID,
-			EmailEnabled:   true,
-			PushEnabled:    true,
-			SMSEnabled:     true,
+			UserID:          userID,
+			EmailEnabled:    true,
+			PushEnabled:     true,
+			SMSEnabled:      true,
 			WhatsAppEnabled: true,
 		}, nil
 	}

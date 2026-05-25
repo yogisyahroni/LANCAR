@@ -273,19 +273,8 @@ class OrderRepository @Inject constructor(
         return try {
             val response = apiService.confirmCustomerPayment(orderId)
             val body = response.body()
-            val payment = body?.payment ?: CustomerPaymentSetup(
-                id = "PAY-$orderId",
-                method = "MIDTRANS_SNAP",
-                status = body?.paymentStatus ?: "paid",
-                paymentStatus = body?.paymentStatus ?: "paid",
-                orderStatus = body?.orderStatus ?: "pending",
-                redirectUrl = body?.redirectUrl,
-                snapToken = body?.snapToken,
-                midtransOrderId = body?.midtransOrderId,
-                expiresIn = body?.expiresIn ?: 0,
-                expiresAt = body?.expiresAt
-            )
-            if (response.isSuccessful && body?.success == true) {
+            val payment = body?.payment
+            if (response.isSuccessful && body?.success == true && payment != null) {
                 Result.success(payment)
             } else {
                 Result.failure(Exception(body?.message ?: body?.error ?: "Gagal mengonfirmasi pembayaran"))

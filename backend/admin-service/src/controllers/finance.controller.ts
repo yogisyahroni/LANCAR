@@ -1324,12 +1324,30 @@ export const getRevenueBreakdown = async (req: Request, res: Response) => {
 
 export const getCostBreakdown = async (req: Request, res: Response) => {
   try {
-    res.json([
-      { name: 'Courier Payouts', value: 75000000 },
-      { name: 'Insurance', value: 5000000 },
-      { name: 'Infrastructure', value: 12000000 },
-      { name: 'Marketing', value: 8000000 }
-    ]);
+    const result = await readDb.query(`
+      WITH settled_orders AS (
+        SELECT
+          COALESCE(SUM(courier_payout_estimate_idr), 0)::bigint AS courier_payouts
+        FROM orders
+        WHERE status IN ('delivered', 'completed')
+      ),
+      paid_payments AS (
+        SELECT
+          COALESCE(SUM(mdr_amount_idr + ppn_amount_idr), 0)::bigint AS payment_processing,
+          COALESCE(SUM(weather_reserve_idr), 0)::bigint AS weather_reserve,
+          COALESCE(SUM(insurance_reserve_idr), 0)::bigint AS insurance_reserve
+        FROM payments
+        WHERE status IN ('paid', 'settled', 'success')
+      )
+      SELECT 'Courier Payouts' AS name, courier_payouts AS value FROM settled_orders
+      UNION ALL
+      SELECT 'Payment Processing' AS name, payment_processing AS value FROM paid_payments
+      UNION ALL
+      SELECT 'Weather Reserve' AS name, weather_reserve AS value FROM paid_payments
+      UNION ALL
+      SELECT 'Insurance Reserve' AS name, insurance_reserve AS value FROM paid_payments
+    `);
+    res.json(result.rows);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

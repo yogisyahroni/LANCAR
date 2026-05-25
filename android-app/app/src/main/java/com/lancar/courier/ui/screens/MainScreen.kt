@@ -58,11 +58,11 @@ import com.lancar.courier.data.model.CourierEarningsTransaction
 import com.lancar.courier.data.model.CourierPerformanceSummary
 import com.lancar.courier.data.model.CourierPayoutRequestItem
 import com.lancar.courier.data.model.CourierPayoutSummaryData
+import com.lancar.courier.data.model.CourierRoutePreview
 import com.lancar.courier.data.model.MapsProviderConfig
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.cleanPayoutIdr
 import com.lancar.courier.data.model.displayServiceName
-import com.lancar.courier.data.model.etaMinutesValue
 import com.lancar.courier.data.model.normalizedWorkflowRole
 import com.lancar.courier.data.model.toRupiahCompact
 import com.lancar.courier.data.security.LocalDeviceSecurityManager
@@ -84,6 +84,7 @@ import com.lancar.courier.ui.theme.PrimaryLight
 import com.lancar.courier.ui.theme.Secondary
 import com.lancar.courier.ui.theme.SecondaryLight
 import com.lancar.courier.ui.theme.Success
+import com.lancar.courier.ui.theme.Info
 import com.lancar.courier.ui.theme.Warning
 import com.lancar.courier.util.OrderSyncSignalBus
 import kotlinx.coroutines.delay
@@ -138,6 +139,8 @@ fun MainScreen(
     val isPayoutSubmitting by orderViewModel.isPayoutSubmitting.collectAsState()
     val routePreviews by orderViewModel.routePreviews.collectAsState()
     val mapsProviderConfig by orderViewModel.mapsProviderConfig.collectAsState()
+    val cancelPickupReasons by orderViewModel.cancelPickupReasons.collectAsState()
+    val statusTransitions by orderViewModel.statusTransitions.collectAsState()
     val courierProfile by orderViewModel.courierProfile.collectAsState()
     val isSyncing by orderViewModel.isSyncing.collectAsState()
     val error by orderViewModel.error.collectAsState()
@@ -151,13 +154,25 @@ fun MainScreen(
     val courierVehicleType = capabilityProfile?.vehicle?.vehicleType
         ?: capabilityProfile?.vehicles?.firstOrNull { it.verificationStatus.equals("approved", ignoreCase = true) }?.vehicleType
         ?: capabilityProfile?.vehicles?.firstOrNull()?.vehicleType
-        ?: "motor"
+        ?: ""
     val roleOrders = allOrders.filterByCourierRole(courierRole)
     val rolePendingOrders = pendingOrders.filterByCourierRole(courierRole)
     val roleDeliveredToday = deliveredToday.filterByCourierRole(courierRole)
     val roleEarningsToday = roleDeliveredToday.sumOf { it.cleanPayoutIdr() }.takeIf { it > 0 }
         ?: courierProfile?.todayEarningsIdr
         ?: 0
+
+    val activeOnDemandOrder = roleOrders.firstOrNull {
+        it.normalizedWorkflowRole() == "on_demand" &&
+            it.status.lowercase() in setOf("accepted", "picked_up", "in_transit")
+    }
+
+    LaunchedEffect(activeOnDemandOrder?.orderId) {
+        val activeOrderId = activeOnDemandOrder?.orderId?.takeIf { it.isNotBlank() } ?: return@LaunchedEffect
+        if (!routePreviews.containsKey(activeOrderId)) {
+            orderViewModel.loadRoutePreview(activeOrderId)
+        }
+    }
 
     var selectedTab by remember { mutableStateOf(0) }
     var showPodScreen by remember { mutableStateOf(false) }
@@ -386,11 +401,14 @@ fun MainScreen(
             if (order.normalizedWorkflowRole() == "on_demand") {
                 orderViewModel.loadRoutePreview(order.orderId)
             }
+            orderViewModel.fetchOrderStatusTransitions(order.normalizedWorkflowRole())
         }
         OrderDetailScreen(
             order = order,
             routePreview = routePreviews[order.orderId],
             mapsProviderConfig = mapsProviderConfig,
+            cancelPickupReasons = cancelPickupReasons,
+            statusTransitions = statusTransitions,
             pickupScanVerified = pickupScanVerifiedOrderIds.contains(order.orderId) ||
                 order.pickupScanVerified ||
                 order.scanType == "pickup" ||
@@ -649,6 +667,7 @@ fun MainScreen(
                     services = onDemandServices,
                     capabilityProfile = capabilityProfile,
                     courierVehicleType = courierVehicleType,
+                    routePreviews = routePreviews,
                     hotspots = onDemandHotspots,
                     mapsProviderConfig = mapsProviderConfig,
                     isOnline = isOnline,
@@ -743,6 +762,7 @@ private fun HomeContent(
     services: List<CourierServiceProduct>,
     capabilityProfile: CourierCapabilityProfile?,
     courierVehicleType: String,
+    routePreviews: Map<String, CourierRoutePreview>,
     hotspots: List<CourierHotspot>,
     mapsProviderConfig: MapsProviderConfig,
     isOnline: Boolean,
@@ -777,6 +797,7 @@ private fun HomeContent(
             services = services,
             capabilityProfile = capabilityProfile,
             courierVehicleType = courierVehicleType,
+            routePreviews = routePreviews,
             hotspots = hotspots,
             mapsProviderConfig = mapsProviderConfig,
             isOnline = isOnline,
@@ -1032,6 +1053,7 @@ private fun OnDemandHomeHubEnterprise(
     services: List<CourierServiceProduct>,
     capabilityProfile: CourierCapabilityProfile?,
     courierVehicleType: String,
+    routePreviews: Map<String, CourierRoutePreview>,
     hotspots: List<CourierHotspot>,
     mapsProviderConfig: MapsProviderConfig,
     isOnline: Boolean,
@@ -1073,6 +1095,13 @@ private fun OnDemandHomeHubEnterprise(
         val lng = order.dropLongitude
         if (lat != null && lng != null) LatLng(lat, lng) else null
     }
+    val activeRoutePreview = activeOrder?.let { routePreviews[it.orderId] }
+    val activeRoutePoints = activeRoutePreview?.let { preview ->
+        decodeRuntimeRoutePolyline(preview.routePolyline ?: preview.routeSnapshot?.routePolyline)
+            .ifEmpty {
+                preview.polyline.map { point -> LatLng(point.latitude, point.longitude) }
+            }
+    }.orEmpty()
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(pickupPoint ?: LatLng(0.0, 0.0), 13f)
     }
@@ -1223,10 +1252,7 @@ private fun OnDemandHomeHubEnterprise(
                                 add(RuntimeMapMarker("pickup", pickupPoint, activeOrder.pickupAddress.ifBlank { "Pickup" }))
                                 dropPoint?.let { add(RuntimeMapMarker("dropoff", it, "Tujuan", activeOrder.dropAddress)) }
                             },
-                            routePoints = buildList {
-                                add(pickupPoint)
-                                dropPoint?.let { add(it) }
-                            },
+                            routePoints = activeRoutePoints,
                             followLocation = pickupPoint,
                             googleUiSettings = MapUiSettings(
                                 zoomControlsEnabled = false,
@@ -1490,7 +1516,7 @@ private fun OnDemandHomeHub(
                             }
                         }
                     },
-                    routePoints = if (dropoff != null) listOf(pickup, dropoff) else emptyList(),
+                    routePoints = emptyList(),
                     followLocation = pickup,
                     googleUiSettings = MapUiSettings(
                         zoomControlsEnabled = false,
@@ -1776,6 +1802,7 @@ private fun ServiceCoverageToggleRow(
 }
 
 private fun CourierServiceProduct.supportsVehicleGroup(vehicleGroup: String): Boolean {
+    if (vehicleGroup.isBlank()) return false
     if (vehicleTypes.isEmpty()) return true
     return vehicleTypes.any { normalizedVehicleGroup(it) == vehicleGroup }
 }
@@ -1796,6 +1823,7 @@ private fun CourierServiceCapability.toServiceProduct(vehicleGroup: String): Cou
 private fun normalizedVehicleGroup(raw: String?): String {
     val value = raw?.trim()?.lowercase().orEmpty()
     return when {
+        value.isBlank() -> ""
         value in setOf("car", "mobil", "van", "box", "pickup", "truck") -> "car"
         else -> "motor"
     }
@@ -1803,7 +1831,41 @@ private fun normalizedVehicleGroup(raw: String?): String {
 
 private fun String.toVehicleLabel(): String = when (this) {
     "car" -> "mobil"
+    "" -> "belum tersinkron"
     else -> "motor"
+}
+
+private fun decodeRuntimeRoutePolyline(encoded: String?): List<LatLng> {
+    if (encoded.isNullOrBlank()) return emptyList()
+    val routePoints = mutableListOf<LatLng>()
+    var index = 0
+    var lat = 0
+    var lng = 0
+
+    while (index < encoded.length) {
+        var result = 0
+        var shift = 0
+        do {
+            if (index >= encoded.length) return routePoints
+            val byteValue = encoded[index++].code - 63
+            result = result or ((byteValue and 0x1f) shl shift)
+            shift += 5
+        } while (byteValue >= 0x20)
+        lat += if ((result and 1) != 0) (result shr 1).inv() else result shr 1
+
+        result = 0
+        shift = 0
+        do {
+            if (index >= encoded.length) return routePoints
+            val byteValue = encoded[index++].code - 63
+            result = result or ((byteValue and 0x1f) shl shift)
+            shift += 5
+        } while (byteValue >= 0x20)
+        lng += if ((result and 1) != 0) (result shr 1).inv() else result shr 1
+        routePoints.add(LatLng(lat / 1E5, lng / 1E5))
+    }
+
+    return routePoints
 }
 
 @Composable
@@ -2033,7 +2095,11 @@ private fun OnDemandOfferDialog(
                                 fontWeight = FontWeight.Black
                             )
                             Text(order.distance.ifBlank { "Jarak belum tersedia" }, color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text("ETA ${order.etaMinutesValue()} menit", color = Color.White.copy(alpha = 0.78f), style = MaterialTheme.typography.labelLarge)
+                            Text(
+                                if (order.serviceMaxEtaMinutes > 0) "ETA ${order.serviceMaxEtaMinutes} menit" else "ETA belum tersedia",
+                                color = Color.White.copy(alpha = 0.78f),
+                                style = MaterialTheme.typography.labelLarge
+                            )
                         }
                     }
 
@@ -2261,13 +2327,75 @@ private fun OrdersContent(
             }
         }
     } else {
-        OrderScreen(
-            orders = orders,
-            courierRole = courierRole,
-            onOrderClick = onOrderClick,
-            onSync = onSync
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            DataFreshnessBanner(
+                isOnline = isOnline,
+                lastRemoteSyncAt = lastRemoteSyncAt,
+                isSyncing = isSyncing,
+                onRefresh = onRefresh
+            )
+            OrderScreen(
+                orders = orders,
+                courierRole = courierRole,
+                onOrderClick = onOrderClick,
+                onSync = onSync,
+                isSyncing = isSyncing
+            )
+        }
     }
+}
+
+@Composable
+private fun DataFreshnessBanner(
+    isOnline: Boolean,
+    lastRemoteSyncAt: Long?,
+    isSyncing: Boolean,
+    onRefresh: () -> Unit
+) {
+    val stale = isCourierDataStale(lastRemoteSyncAt)
+    val shouldShow = !isOnline || stale || lastRemoteSyncAt == null
+    if (!shouldShow) return
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = if (!isOnline) Warning.copy(alpha = 0.12f) else Info.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = if (!isOnline || stale) Icons.Default.SyncProblem else Icons.Default.Sync,
+                contentDescription = null,
+                tint = if (!isOnline) Warning else Info
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (!isOnline) "Data lokal/offline" else "Menunggu data live terbaru",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = orderSyncHint(isOnline, lastRemoteSyncAt),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(
+                onClick = onRefresh,
+                enabled = !isSyncing
+            ) {
+                Text(if (isSyncing) "Sync..." else "Coba Lagi")
+            }
+        }
+    }
+}
+
+private fun isCourierDataStale(lastRemoteSyncAt: Long?): Boolean {
+    if (lastRemoteSyncAt == null) return true
+    return System.currentTimeMillis() - lastRemoteSyncAt > 2 * 60 * 1000
 }
 
 @Composable
@@ -3382,7 +3510,7 @@ private fun shortDateLabel(value: String?): String {
 private fun quickPayoutAmounts(summary: CourierPayoutSummaryData): List<Int> {
     val minAmount = summary.policy.minAmountIdr
     val maxAmount = summary.eligibility.maxRequestableIdr
-    return listOf(minAmount, 50000, 100000, maxAmount)
+    return listOf(minAmount, maxAmount)
         .filter { it > 0 }
         .distinct()
         .filter { it <= maxAmount }

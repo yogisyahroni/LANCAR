@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"lancar/order-service/internal/domain"
 	"time"
 )
@@ -22,25 +23,42 @@ func NewPostgresRepository(db, readDB *sql.DB) *postgresRepo {
 // Pricing Repository Implementation
 func (r *postgresRepo) GetActiveConfig(ctx context.Context, model string) (*domain.PricingConfig, error) {
 	if model == "" {
-		model = "p2p" // default fallback
-	}
-	
-	query := `SELECT base_fee, per_km_fee, COALESCE(volumetric_div, 5000) FROM pricing_configs WHERE model = $1 LIMIT 1`
-	
-	config := &domain.PricingConfig{
-		BaseFare:          10000,
-		PricePerKM:        2500,
-		PricePerMin:       500,
-		SurgeEnabled:      true,
-		WeatherMultiplier: 1.2,
-		TrafficMultiplier: 1.2,
-		VolumetricDiv:     5000,
+		return nil, fmt.Errorf("pricing model is required")
 	}
 
-	err := r.readDB.QueryRowContext(ctx, query, model).Scan(&config.BaseFare, &config.PricePerKM, &config.VolumetricDiv)
+	query := `
+		SELECT
+			base_fee,
+			per_km_fee,
+			price_per_min,
+			surge_enabled,
+			weather_multiplier,
+			traffic_multiplier,
+			volumetric_div
+		FROM pricing_configs
+		WHERE model = $1 AND COALESCE(is_active, TRUE) = TRUE
+		ORDER BY updated_at DESC
+		LIMIT 1
+	`
+
+	config := &domain.PricingConfig{}
+	err := r.readDB.QueryRowContext(ctx, query, model).Scan(
+		&config.BaseFare,
+		&config.PricePerKM,
+		&config.PricePerMin,
+		&config.SurgeEnabled,
+		&config.WeatherMultiplier,
+		&config.TrafficMultiplier,
+		&config.VolumetricDiv,
+	)
 	if err != nil {
-		// Log or handle error, returning fallback default config
-		return config, nil
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("active pricing config not found for model %s", model)
+		}
+		return nil, err
+	}
+	if config.BaseFare <= 0 || config.PricePerKM <= 0 || config.VolumetricDiv <= 0 {
+		return nil, fmt.Errorf("invalid pricing config for model %s", model)
 	}
 	return config, nil
 }
@@ -62,7 +80,7 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 				$12, $13, $14, $15, 
 				$16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
 			  )`
-	
+
 	// Default tax/fee for now
 	ppn := int64(float64(o.TotalPriceIDR) * 0.11)
 	mdr := int64(2500) // flat fee for example
@@ -88,7 +106,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, created_at, updated_at
 			  FROM orders WHERE id = $1`
-	
+
 	o := &domain.Order{}
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
 		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
@@ -116,7 +134,7 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, created_at, updated_at
 			  FROM orders WHERE customer_id = $1 ORDER BY created_at DESC`
-	
+
 	rows, err := r.readDB.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
@@ -158,7 +176,7 @@ func (r *postgresRepo) CancelExpiredOrders(ctx context.Context, timeout time.Dur
 	query := `UPDATE orders 
 			  SET status = 'cancelled', updated_at = NOW(), cancellation_reason = 'Payment timeout'
 			  WHERE status = 'pending_payment' AND created_at < $1`
-	
+
 	expiryTime := time.Now().Add(-timeout)
 	res, err := r.db.ExecContext(ctx, query, expiryTime)
 	if err != nil {
@@ -220,7 +238,7 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, created_at, updated_at
 			  FROM orders 
 			  WHERE status = 'searching' AND updated_at < $1`
-	
+
 	thresholdTime := time.Now().Add(-threshold)
 	rows, err := r.readDB.QueryContext(ctx, query, thresholdTime)
 	if err != nil {
@@ -250,7 +268,7 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 func (r *postgresRepo) SaveEvent(ctx context.Context, e domain.OrderEvent) error {
 	query := `INSERT INTO order_events (order_id, user_id, status, message, created_at) 
 			  VALUES ($1, $2, $3, $4, $5)`
-	
+
 	_, err := r.db.ExecContext(ctx, query,
 		e.OrderID, e.UserID, e.Status, e.Message, time.Now(),
 	)
@@ -260,7 +278,7 @@ func (r *postgresRepo) SaveEvent(ctx context.Context, e domain.OrderEvent) error
 func (r *postgresRepo) ListEventsByUserID(ctx context.Context, userID string, since time.Time) ([]domain.OrderEvent, error) {
 	query := `SELECT id, order_id, user_id, status, message, created_at 
 			  FROM order_events WHERE user_id = $1 AND created_at > $2 ORDER BY created_at ASC`
-	
+
 	rows, err := r.readDB.QueryContext(ctx, query, userID, since)
 	if err != nil {
 		return nil, err
@@ -282,7 +300,7 @@ func (r *postgresRepo) ListEventsByUserID(ctx context.Context, userID string, si
 func (r *postgresRepo) ListEventsByOrderID(ctx context.Context, orderID string) ([]domain.OrderEvent, error) {
 	query := `SELECT id, order_id, user_id, status, message, created_at 
 			  FROM order_events WHERE order_id = $1 ORDER BY created_at ASC`
-	
+
 	rows, err := r.readDB.QueryContext(ctx, query, orderID)
 	if err != nil {
 		return nil, err
@@ -348,7 +366,6 @@ func (r *postgresRepo) UpdateMeetingPoint(ctx context.Context, mp *domain.Meetin
 	return err
 }
 
-
 func (r *postgresRepo) DeleteMeetingPoint(ctx context.Context, id string) error {
 	query := `DELETE FROM meeting_points WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, id)
@@ -381,16 +398,50 @@ func (r *postgresRepo) GetMeetingPointAnalytics(ctx context.Context) ([]domain.M
 }
 
 func (r *postgresRepo) GetConfig(ctx context.Context) (*domain.PricingConfig, error) {
-	return &domain.PricingConfig{
-		BaseFare: 10000,
-		PricePerKM: 2500,
-		PricePerMin: 500,
-		SurgeEnabled: true,
-	}, nil
+	return r.GetActiveConfig(ctx, "p2p")
 }
 
 func (r *postgresRepo) UpdateConfig(ctx context.Context, config *domain.PricingConfig) error {
-	// Placeholder implementation
+	if config == nil {
+		return fmt.Errorf("pricing config is required")
+	}
+	if config.BaseFare <= 0 || config.PricePerKM <= 0 || config.VolumetricDiv <= 0 {
+		return fmt.Errorf("invalid pricing config")
+	}
+
+	query := `
+		UPDATE pricing_configs
+		SET base_fee = $1,
+			per_km_fee = $2,
+			price_per_min = $3,
+			surge_enabled = $4,
+			weather_multiplier = $5,
+			traffic_multiplier = $6,
+			volumetric_div = $7,
+			updated_at = NOW()
+		WHERE model = 'p2p' AND COALESCE(is_active, TRUE) = TRUE
+	`
+	result, err := r.db.ExecContext(
+		ctx,
+		query,
+		config.BaseFare,
+		config.PricePerKM,
+		config.PricePerMin,
+		config.SurgeEnabled,
+		config.WeatherMultiplier,
+		config.TrafficMultiplier,
+		config.VolumetricDiv,
+	)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("active p2p pricing config not found")
+	}
 	return nil
 }
 
@@ -409,7 +460,7 @@ func (r *postgresRepo) SaveScan(ctx context.Context, scan *domain.PackageScan) e
 				order_id, scan_type, scanned_by, latitude, longitude, warehouse_id, photo_url, bag_number
 			  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			  RETURNING id, recorded_at`
-	
+
 	err := r.db.QueryRowContext(ctx, query,
 		scan.OrderID, scan.ScanType, scan.ScannedBy, scan.Latitude, scan.Longitude, scan.WarehouseID, scan.PhotoURL, scan.BagNumber,
 	).Scan(&scan.ID, &scan.RecordedAt)
@@ -421,7 +472,7 @@ func (r *postgresRepo) GetScansForOrder(ctx context.Context, orderID string) ([]
 			  FROM package_scans
 			  WHERE order_id = $1
 			  ORDER BY recorded_at ASC`
-	
+
 	rows, err := r.readDB.QueryContext(ctx, query, orderID)
 	if err != nil {
 		return nil, err
@@ -448,7 +499,7 @@ func (r *postgresRepo) CreateConsolidationBag(ctx context.Context, bag *domain.C
 				bag_number, vehicle_plate, flight_number, origin_warehouse_id, destination_warehouse_id, status, created_by
 			  ) VALUES ($1, $2, $3, $4, $5, $6, $7)
 			  RETURNING id, created_at, updated_at`
-	
+
 	err := r.db.QueryRowContext(ctx, query,
 		bag.BagNumber, bag.VehiclePlate, bag.FlightNumber, bag.OriginWarehouseID, bag.DestinationWarehouseID, bag.Status, bag.CreatedBy,
 	).Scan(&bag.ID, &bag.CreatedAt, &bag.UpdatedAt)
@@ -459,7 +510,7 @@ func (r *postgresRepo) GetConsolidationBag(ctx context.Context, bagNumber string
 	query := `SELECT id, bag_number, vehicle_plate, flight_number, origin_warehouse_id, destination_warehouse_id, status, created_by, created_at, updated_at
 			  FROM consolidation_bags
 			  WHERE bag_number = $1`
-	
+
 	bag := &domain.ConsolidationBag{}
 	err := r.readDB.QueryRowContext(ctx, query, bagNumber).Scan(
 		&bag.ID, &bag.BagNumber, &bag.VehiclePlate, &bag.FlightNumber, &bag.OriginWarehouseID, &bag.DestinationWarehouseID, &bag.Status, &bag.CreatedBy, &bag.CreatedAt, &bag.UpdatedAt,
@@ -485,7 +536,7 @@ func (r *postgresRepo) GetLatestScanForOrder(ctx context.Context, orderID string
 			  WHERE order_id = $1
 			  ORDER BY recorded_at DESC
 			  LIMIT 1`
-	
+
 	scan := &domain.PackageScan{}
 	err := r.readDB.QueryRowContext(ctx, query, orderID).Scan(
 		&scan.ID, &scan.OrderID, &scan.ScanType, &scan.ScannedBy,
@@ -505,7 +556,7 @@ func (r *postgresRepo) GetScansByBagNumber(ctx context.Context, bagNumber string
 			  FROM package_scans
 			  WHERE bag_number = $1
 			  ORDER BY recorded_at ASC`
-	
+
 	rows, err := r.readDB.QueryContext(ctx, query, bagNumber)
 	if err != nil {
 		return nil, err
@@ -526,5 +577,3 @@ func (r *postgresRepo) GetScansByBagNumber(ctx context.Context, bagNumber string
 	}
 	return scans, nil
 }
-
-

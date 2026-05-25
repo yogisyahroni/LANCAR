@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { db, readDb } from '../db';
+import crypto from 'crypto';
 
 // Get list of all consolidation bags
 export const getConsolidationBags = async (req: Request, res: Response): Promise<void> => {
@@ -163,6 +164,7 @@ export const scanPackageInboundOutbound = async (req: Request, res: Response): P
     // 1. Fetch order details to validate
     const orderRes = await client.query('SELECT status, model FROM orders WHERE id = $1', [order_id]);
     if (orderRes.rows.length === 0) {
+      await client.query('ROLLBACK');
       res.status(404).json({ error: 'Order not found' });
       client.release();
       return;
@@ -180,6 +182,7 @@ export const scanPackageInboundOutbound = async (req: Request, res: Response): P
       `, [order_id]);
 
       if (activeBagRes.rows.length > 0 && activeBagRes.rows[0].status === 'sealed') {
+        await client.query('ROLLBACK');
         res.status(400).json({ 
           error: `Cannot inbound package. Consolidation bag ${activeBagRes.rows[0].bag_number} must be unbagged (Bag Out) at destination first.` 
         });
@@ -188,8 +191,16 @@ export const scanPackageInboundOutbound = async (req: Request, res: Response): P
       }
     }
 
+    const adminId = req.user?.id;
+    if (!adminId) {
+      await client.query('ROLLBACK');
+      res.status(401).json({ error: 'Unauthorized' });
+      client.release();
+      return;
+    }
+
     // 3. Save package scan entry
-    const scanId = 'scan-' + Math.random().toString(36).substring(2, 11);
+    const scanId = crypto.randomUUID();
     await client.query(`
       INSERT INTO package_scans (
         id, order_id, scan_type, bag_number, latitude, longitude, created_at
@@ -208,8 +219,7 @@ export const scanPackageInboundOutbound = async (req: Request, res: Response): P
     await client.query('UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2', [newStatus, order_id]);
 
     // 5. Create order event log
-    const eventId = 'evt-' + Math.random().toString(36).substring(2, 11);
-    const adminId = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const eventId = crypto.randomUUID();
     await client.query(`
       INSERT INTO order_events (id, order_id, user_id, event_type, description, created_at)
       VALUES ($1, $2, $3, $4, $5, NOW())

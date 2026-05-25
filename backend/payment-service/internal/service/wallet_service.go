@@ -1,17 +1,97 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"lancar/payment-service/internal/domain"
+	"math"
+	"net/http"
+	"os"
 	"strconv"
 	"time"
-	"lancar/payment-service/internal/domain"
-
 
 	"github.com/google/uuid"
 )
+
+type midtransSnapResponse struct {
+	Token       string `json:"token"`
+	RedirectURL string `json:"redirect_url"`
+	Message     string `json:"message"`
+}
+
+func midtransSnapAPIURL() string {
+	if os.Getenv("MIDTRANS_ENV") == "production" {
+		return "https://app.midtrans.com/snap/v1/transactions"
+	}
+	return "https://app.sandbox.midtrans.com/snap/v1/transactions"
+}
+
+func createMidtransSnapToken(ctx context.Context, orderID string, grossAmountIDR int64, userID uuid.UUID) (string, error) {
+	serverKey := os.Getenv("MIDTRANS_SERVER_KEY")
+	if serverKey == "" {
+		return "", errors.New("MIDTRANS_SERVER_KEY is not configured")
+	}
+
+	payload := map[string]any{
+		"transaction_details": map[string]any{
+			"order_id":     orderID,
+			"gross_amount": grossAmountIDR,
+		},
+		"customer_details": map[string]any{
+			"first_name": userID.String(),
+		},
+		"credit_card": map[string]any{
+			"secure": true,
+		},
+		"expiry": map[string]any{
+			"unit":     "minutes",
+			"duration": 30,
+		},
+		"custom_field1": userID.String(),
+		"custom_field2": "wallet_topup",
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, midtransSnapAPIURL(), bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(serverKey+":")))
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("midtrans snap request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var snap midtransSnapResponse
+	if err := json.NewDecoder(resp.Body).Decode(&snap); err != nil {
+		return "", fmt.Errorf("failed to parse midtrans snap response: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if snap.Message != "" {
+			return "", fmt.Errorf("midtrans snap rejected top up: %s", snap.Message)
+		}
+		return "", fmt.Errorf("midtrans snap rejected top up with status %d", resp.StatusCode)
+	}
+	if snap.Token == "" {
+		return "", errors.New("midtrans snap response did not include token")
+	}
+
+	return snap.Token, nil
+}
 
 type walletService struct {
 	repo         domain.WalletRepository
@@ -34,12 +114,12 @@ func (s *walletService) GetBalance(ctx context.Context, userID uuid.UUID) (*doma
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if wallet == nil {
 		// Auto-create wallet if it doesn't exist
 		return s.repo.Create(ctx, userID)
 	}
-	
+
 	return wallet, nil
 }
 
@@ -51,17 +131,43 @@ func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amoun
 	}
 
 	// 2. Calculate Fees
-	feeFixedStr, _ := s.settingsRepo.GetSetting(ctx, "topup_fee_fixed")
-	feePercentStr, _ := s.settingsRepo.GetSetting(ctx, "topup_fee_percent")
-	
-	feeFixed, _ := strconv.ParseFloat(feeFixedStr, 64)
-	feePercent, _ := strconv.ParseFloat(feePercentStr, 64)
-	
+	feeFixedStr, err := s.settingsRepo.GetSetting(ctx, "topup_fee_fixed")
+	if err != nil {
+		return "", fmt.Errorf("topup_fee_fixed is not configured: %w", err)
+	}
+	feePercentStr, err := s.settingsRepo.GetSetting(ctx, "topup_fee_percent")
+	if err != nil {
+		return "", fmt.Errorf("topup_fee_percent is not configured: %w", err)
+	}
+
+	feeFixed, err := strconv.ParseFloat(feeFixedStr, 64)
+	if err != nil {
+		return "", fmt.Errorf("topup_fee_fixed is invalid: %w", err)
+	}
+	feePercent, err := strconv.ParseFloat(feePercentStr, 64)
+	if err != nil {
+		return "", fmt.Errorf("topup_fee_percent is invalid: %w", err)
+	}
+
 	adminFee := feeFixed + (amount * feePercent / 100)
 	totalAmount := amount + adminFee
 
-	// 3. Create Transaction (Status: PENDING)
+	if amount <= 0 {
+		return "", errors.New("top up amount must be greater than zero")
+	}
+
+	// 3. Create Provider Transaction
 	orderID := fmt.Sprintf("TOPUP-%d-%d", time.Now().Unix(), uuid.New().ID())
+	totalAmountIDR := int64(math.Round(totalAmount))
+	if totalAmountIDR <= 0 {
+		return "", errors.New("top up amount is invalid")
+	}
+	snapToken, err := createMidtransSnapToken(ctx, orderID, totalAmountIDR, userID)
+	if err != nil {
+		return "", err
+	}
+
+	// 4. Create Transaction (Status: PENDING)
 	walletTx := &domain.WalletTransaction{
 		WalletID:    wallet.ID,
 		Type:        domain.TypeDeposit,
@@ -69,24 +175,20 @@ func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amoun
 		Fee:         adminFee,
 		Status:      domain.StatusPending,
 		ReferenceID: orderID,
-		Metadata:    map[string]any{"source": "web_portal", "total_paid": totalAmount},
+		Metadata:    map[string]any{"source": "web_portal", "total_paid_idr": totalAmountIDR, "provider": "midtrans_snap"},
 	}
 	err = s.repo.CreateTransaction(ctx, walletTx)
 	if err != nil {
 		return "", err
 	}
 
-	// 4. TODO: Call Midtrans Snap API with `totalAmount`
-	// The snap_token should be for the total amount including fees.
-	snapToken := fmt.Sprintf("mock_snap_token_%s", orderID)
-	
 	return snapToken, nil
 }
 
 func (s *walletService) Deposit(ctx context.Context, userID uuid.UUID, amount float64, referenceID string) error {
 	// Logic: amount received from gateway should match (TargetAmount + Fee)
 	// We should check the original transaction to get the net amount
-	
+
 	netAmount := amount // Default if no fee logic applied
 	adminFee := 0.0
 
@@ -130,9 +232,9 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 	// 1. Get Dynamic Fee from Admin Settings
 	withdrawalFee, err := s.settingsRepo.GetFee(ctx, userRole)
 	if err != nil {
-		withdrawalFee = 5000.0 // Default fallback
+		return err
 	}
-	
+
 	totalDeduction := amount + withdrawalFee
 
 	// 2. Start Transaction for Atomic Check-and-Deduct
@@ -181,10 +283,13 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 
 	// 7. AUTO DISBURSEMENT (Standard Enterprise Policy)
 	// If amount is small, we can trigger automatic payout
-	thresholdStr, _ := s.settingsRepo.GetSetting(ctx, "auto_disbursement_threshold")
-	threshold, _ := strconv.ParseFloat(thresholdStr, 64)
-	if threshold == 0 {
-		threshold = 1000000 // Default 1jt
+	thresholdStr, err := s.settingsRepo.GetSetting(ctx, "auto_disbursement_threshold")
+	if err != nil {
+		return fmt.Errorf("auto_disbursement_threshold is not configured: %w", err)
+	}
+	threshold, err := strconv.ParseFloat(thresholdStr, 64)
+	if err != nil || threshold <= 0 {
+		return fmt.Errorf("auto_disbursement_threshold is invalid: %w", err)
 	}
 
 	if amount <= threshold {

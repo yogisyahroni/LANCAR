@@ -22,6 +22,7 @@ import com.lancar.courier.data.model.CourierDocumentUploadData
 import com.lancar.courier.data.model.CourierOtpVerifyRequest
 import com.lancar.courier.data.model.CourierRegistrationData
 import com.lancar.courier.data.model.CourierRegistrationRequest
+import com.lancar.courier.data.model.CancelPickupReason
 import com.lancar.courier.data.model.DutyStatusRequest
 import com.lancar.courier.data.model.FCMTokenRequest
 import com.lancar.courier.data.model.LocationRequest
@@ -30,6 +31,7 @@ import com.lancar.courier.data.model.LoginData
 import com.lancar.courier.data.model.LoginRequest
 import com.lancar.courier.data.model.MapsProviderConfig
 import com.lancar.courier.data.model.Order
+import com.lancar.courier.data.model.OrderStatusTransition
 import com.lancar.courier.data.model.ScanRequest
 import com.lancar.courier.data.model.ScanResponse
 import com.lancar.courier.data.model.StatusUpdateRequest
@@ -107,6 +109,14 @@ interface LANCARApiService {
 
     @GET("api/v1/courier/on-demand/hotspots")
     suspend fun getOnDemandHotspots(): Response<ApiResponse<List<CourierHotspot>>>
+
+    @GET("api/v1/courier/on-demand/pickup-cancellation-reasons")
+    suspend fun getPickupCancellationReasons(): Response<ApiResponse<List<CancelPickupReason>>>
+
+    @GET("api/v1/courier/order-status-transitions")
+    suspend fun getOrderStatusTransitions(
+        @Query("workflow_role") workflowRole: String
+    ): Response<ApiResponse<List<OrderStatusTransition>>>
 
     @GET("api/v1/courier/performance")
     suspend fun getCourierPerformance(): Response<ApiResponse<CourierPerformanceSummary>>

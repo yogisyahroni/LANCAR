@@ -29,7 +29,9 @@ data class TrackingUiState(
     val orderId: String? = null,
     val detail: OrderTrackingDetail? = null,
     val mapsProviderConfig: MapsProviderConfig = MapsProviderConfig(),
-    val mapsProviderError: String? = null
+    val mapsProviderError: String? = null,
+    val lastLiveTrackingAt: Long? = null,
+    val staleTrackingReason: String? = null
 )
 
 @HiltViewModel
@@ -110,15 +112,22 @@ class TrackingViewModel @Inject constructor(
                     courierLocation = LatLng(data.location.latitude, data.location.longitude),
                     courierHeading = data.location.heading.toFloat(),
                     routePoints = resolvedRoutePoints,
-                    eta = data.eta ?: etaFromSnapshot ?: currentState.eta
+                    eta = data.eta ?: etaFromSnapshot ?: currentState.eta,
+                    lastLiveTrackingAt = System.currentTimeMillis(),
+                    staleTrackingReason = null
                 )
             }
         }.onFailure { exception ->
-            // We don't overwrite previous data with error if we already had a location
+            // Keep the last known backend position, but label it as stale.
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    error = if (it.courierLocation == null) exception.message else null
+                    error = if (it.courierLocation == null) exception.message else null,
+                    staleTrackingReason = if (it.courierLocation != null) {
+                        exception.message ?: "Koneksi tracking terputus. Menampilkan posisi terakhir."
+                    } else {
+                        null
+                    }
                 )
             }
         }

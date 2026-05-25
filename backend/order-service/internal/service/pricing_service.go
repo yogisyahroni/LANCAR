@@ -125,7 +125,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	// 6. Apply Dynamic Multiplier (Surge)
 	multiplier, err := s.redisRepo.GetMultiplier(ctx, "default")
 	if err != nil {
-		multiplier = 1.0 // Fallback
+		return nil, fmt.Errorf("surge multiplier error: %w", err)
 	}
 
 	dynamicPrice := int64(float64(subtotal) * (multiplier - 1.0))

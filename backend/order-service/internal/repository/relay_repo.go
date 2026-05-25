@@ -90,6 +90,36 @@ func (r *relayRepository) GetCourierPerformanceStats(ctx context.Context, courie
 	return &stats, nil
 }
 
+func (r *relayRepository) GetCourierDispatchScoreStats(ctx context.Context, courierID uuid.UUID, pickupLat float64, pickupLng float64) (*domain.CourierDispatchScoreStats, error) {
+	var stats domain.CourierDispatchScoreStats
+	query := `
+		SELECT
+			id,
+			relay_score::float8 AS relay_score,
+			acceptance_rate_pct::float8 AS acceptance_rate_pct,
+			ST_Distance(
+				current_location::geography,
+				ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography
+			)::float8 AS distance_meters
+		FROM courier_profiles
+		WHERE (id = $1 OR user_id = $1)
+		  AND is_online = TRUE
+		  AND current_location IS NOT NULL
+		  AND relay_score IS NOT NULL
+		  AND acceptance_rate_pct IS NOT NULL
+		LIMIT 1
+	`
+
+	if err := r.db.GetContext(ctx, &stats, query, courierID, pickupLat, pickupLng); err != nil {
+		return nil, fmt.Errorf("failed to fetch dispatch score stats for courier %s: %w", courierID, err)
+	}
+	if stats.DistanceMeters < 0 {
+		return nil, fmt.Errorf("invalid dispatch distance for courier %s", courierID)
+	}
+
+	return &stats, nil
+}
+
 // UpdateCourierRelayScore persists the newly calculated score and tier to courier_profiles.
 func (r *relayRepository) UpdateCourierRelayScore(ctx context.Context, courierID uuid.UUID, newScore float64, newTier string) error {
 	query := `

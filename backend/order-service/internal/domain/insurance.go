@@ -10,12 +10,13 @@ import (
 type InsuranceStatus string
 
 const (
-	InsuranceStatusActive    InsuranceStatus = "active"
-	InsuranceStatusExpired   InsuranceStatus = "expired"
-	InsuranceStatusPending   InsuranceStatus = "pending"
-	InsuranceStatusCancelled InsuranceStatus = "cancelled"
-	InsuranceStatusClaimed   InsuranceStatus = "claimed"
-	InsuranceStatusVoid      InsuranceStatus = "void"
+	InsuranceStatusActive                    InsuranceStatus = "active"
+	InsuranceStatusExpired                   InsuranceStatus = "expired"
+	InsuranceStatusPending                   InsuranceStatus = "pending"
+	InsuranceStatusCancelled                 InsuranceStatus = "cancelled"
+	InsuranceStatusClaimed                   InsuranceStatus = "claimed"
+	InsuranceStatusVoid                      InsuranceStatus = "void"
+	InsuranceStatusPendingProviderActivation InsuranceStatus = "pending_provider_activation"
 )
 
 type CourierInsurance struct {

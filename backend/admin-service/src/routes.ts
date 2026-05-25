@@ -30,6 +30,8 @@ routes.post('/api/v1/auth/courier/register/:token', (req, res) => controllers.su
 routes.get('/api/v1/courier/profile', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierProfile(req, res));
 routes.get('/api/v1/courier/on-demand/services', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOnDemandServices(req, res));
 routes.get('/api/v1/courier/on-demand/hotspots', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierHotspots(req, res));
+routes.get('/api/v1/courier/on-demand/pickup-cancellation-reasons', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPickupCancellationReasons(req, res));
+routes.get('/api/v1/courier/order-status-transitions', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierStatusTransitions(req, res));
 routes.get('/api/v1/courier/performance', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPerformance(req, res));
 routes.get('/api/v1/courier/earnings-ledger', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierEarningsLedger(req, res));
 routes.get('/api/v1/courier/payout/summary', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPayoutSummary(req, res));
@@ -48,6 +50,7 @@ routes.get('/api/v1/courier/orders/:orderId/route', requireMobileOrWebAuth, (req
 routes.post('/api/v1/courier/orders/:orderId/cancel-pickup', requireMobileOrWebAuth, upload.single('photo'), (req, res) => controllers.cancelMobileCourierOnDemandPickup(req, res));
 routes.post('/api/v1/tracking/sync', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.syncCourierTracking(req, res));
 routes.get('/api/v1/tracking', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderTracking(req, res));
+routes.post('/api/v1/orders/status', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierOrderStatus(req, res));
 routes.post('/api/v1/orders/scan', requireMobileOrWebAuth, requireIdempotencyKey('courier.proof.scan'), (req, res) => controllers.scanMobileCourierOrder(req, res));
 routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, requireIdempotencyKey('courier.pod.upload'), upload.single('photo'), (req, res) => controllers.uploadMobileCourierPod(req, res));
 
@@ -176,6 +179,16 @@ routes.delete('/admin/admins/:id', (req, res) => controllers.deleteAdmin(req, re
 routes.get('/admin/delivery-services', (req, res) => controllers.deliveryServices.listAdminDeliveryServices(req, res));
 routes.post('/admin/delivery-services', (req, res) => controllers.deliveryServices.createAdminDeliveryService(req, res));
 routes.put('/admin/delivery-services/:code', (req, res) => controllers.deliveryServices.updateAdminDeliveryService(req, res));
+
+// Operational Lookup Configuration
+routes.get('/admin/operational-lookups/pickup-cancellation-reasons', (req, res) => controllers.operationalLookups.listAdminPickupCancellationReasons(req, res));
+routes.post('/admin/operational-lookups/pickup-cancellation-reasons', requireTotp, (req, res) => controllers.operationalLookups.createAdminPickupCancellationReason(req, res));
+routes.put('/admin/operational-lookups/pickup-cancellation-reasons/:code', requireTotp, (req, res) => controllers.operationalLookups.updateAdminPickupCancellationReason(req, res));
+routes.delete('/admin/operational-lookups/pickup-cancellation-reasons/:code', requireTotp, (req, res) => controllers.operationalLookups.deactivateAdminPickupCancellationReason(req, res));
+routes.get('/admin/operational-lookups/status-transition-policies', (req, res) => controllers.operationalLookups.listAdminStatusTransitionPolicies(req, res));
+routes.post('/admin/operational-lookups/status-transition-policies', requireTotp, (req, res) => controllers.operationalLookups.createAdminStatusTransitionPolicy(req, res));
+routes.put('/admin/operational-lookups/status-transition-policies/:id', requireTotp, (req, res) => controllers.operationalLookups.updateAdminStatusTransitionPolicy(req, res));
+routes.delete('/admin/operational-lookups/status-transition-policies/:id', requireTotp, (req, res) => controllers.operationalLookups.deactivateAdminStatusTransitionPolicy(req, res));
 
 
 // Orders Management

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/google/uuid"
 
@@ -15,13 +16,18 @@ import (
 )
 
 type TaskWorker struct {
-	queue           queue.Queue
-	orderRepo       domain.OrderRepository
-	notificationSvc domain.NotificationService
-	notifRepo       domain.NotificationRepository
-	insuranceSvc    domain.InsuranceService
-	relayScoreSvc   domain.RelayScoreService
-	analyticsSvc    service.AnalyticsService
+	queue            queue.Queue
+	orderRepo        domain.OrderRepository
+	notificationSvc  domain.NotificationService
+	notifRepo        domain.NotificationRepository
+	deliveryProvider NotificationDeliveryProvider
+	insuranceSvc     domain.InsuranceService
+	relayScoreSvc    domain.RelayScoreService
+	analyticsSvc     service.AnalyticsService
+}
+
+type NotificationDeliveryProvider interface {
+	Deliver(ctx context.Context, notificationID uuid.UUID, channel domain.NotificationChannel) error
 }
 
 func NewTaskWorker(q queue.Queue, or domain.OrderRepository, ns domain.NotificationService, nr domain.NotificationRepository, is domain.InsuranceService, rs domain.RelayScoreService, as service.AnalyticsService) *TaskWorker {
@@ -34,6 +40,10 @@ func NewTaskWorker(q queue.Queue, or domain.OrderRepository, ns domain.Notificat
 		relayScoreSvc:   rs,
 		analyticsSvc:    as,
 	}
+}
+
+func (w *TaskWorker) SetNotificationDeliveryProvider(provider NotificationDeliveryProvider) {
+	w.deliveryProvider = provider
 }
 
 func (w *TaskWorker) Start(ctx context.Context) error {
@@ -61,7 +71,7 @@ func (w *TaskWorker) runDailySchedulers(ctx context.Context) {
 			return
 		case <-ticker.C:
 			log.Println("[TaskWorker] Running daily scheduled jobs...")
-			
+
 			// 1. Process Insurance Reminders
 			if w.insuranceSvc != nil {
 				if err := w.insuranceSvc.ProcessInsuranceReminders(ctx); err != nil {
@@ -69,9 +79,9 @@ func (w *TaskWorker) runDailySchedulers(ctx context.Context) {
 				}
 			}
 
-			// 2. Relay Score Calc (Mocking for all couriers)
-			// In reality, we'd query all active couriers and call CalculateScore
-			log.Println("[TaskWorker] Daily Relay Score calculation executed")
+			if w.relayScoreSvc != nil {
+				log.Println("[TaskWorker] Daily relay score job is awaiting courier batch repository wiring")
+			}
 
 			// 3. Monthly Financial Report (runs on 1st of every month)
 			now := time.Now()
@@ -87,17 +97,19 @@ func (w *TaskWorker) runDailySchedulers(ctx context.Context) {
 					if err != nil {
 						log.Printf("[TaskWorker] Error generating monthly report: %v", err)
 					} else {
-						// Send email to finance team
-						// In a real app, this email would be in config
-						financeEmail := "finance-reports@lancar.com"
-						
+						financeEmail := os.Getenv("FINANCE_REPORT_EMAIL")
+						if financeEmail == "" {
+							log.Println("[TaskWorker] FINANCE_REPORT_EMAIL is not configured; monthly report email skipped")
+							continue
+						}
+
 						err = w.notificationSvc.Send(ctx, domain.NotificationRequest{
-							Title:   fmt.Sprintf("Monthly Financial Report - %s %d", lastMonth.Month().String(), lastMonth.Year()),
-							Message: fmt.Sprintf("Please find the attached financial report for %s %d. Total records: %d", 
+							Title: fmt.Sprintf("Monthly Financial Report - %s %d", lastMonth.Month().String(), lastMonth.Year()),
+							Message: fmt.Sprintf("Please find the attached financial report for %s %d. Total records: %d",
 								lastMonth.Month().String(), lastMonth.Year(), len(csvData)),
 							Channel: domain.ChannelEmail,
 							Data: map[string]string{
-								"recipient": financeEmail,
+								"recipient":       financeEmail,
 								"attachment_type": "csv",
 								// In a real implementation, we would attach the actual CSV data
 							},
@@ -124,7 +136,7 @@ func (w *TaskWorker) runHourlySchedulers(ctx context.Context) {
 			return
 		case <-ticker.C:
 			log.Println("[TaskWorker] Running hourly scheduled jobs...")
-			
+
 			// 1. Refresh Materialized Views
 			if w.analyticsSvc != nil {
 				if err := w.analyticsSvc.RefreshData(ctx); err != nil {
@@ -218,9 +230,28 @@ func (w *TaskWorker) handleSendNotification(task queue.Task) error {
 		return fmt.Errorf("invalid notification id: %w", err)
 	}
 
-	// Mocking third-party SDK integration (FCM, APNs, Twilio, etc.)
-	// In a real application, we would call the respective provider here.
-	log.Printf("[NotificationProvider] Delivered notification %s to channel %s successfully.", notifID, channel)
+	if w.deliveryProvider == nil {
+		errMsg := "notification_delivery_provider_not_configured"
+		if w.notifRepo != nil {
+			if err := w.notifRepo.UpdatePushStatus(context.Background(), notifID, "failed", &errMsg); err != nil {
+				log.Printf("[TaskWorker] Failed to update push status for %s: %v", notifID, err)
+				return err
+			}
+		}
+		log.Printf("[TaskWorker] Notification %s via %s marked failed: %s", notifID, channel, errMsg)
+		return nil
+	}
+
+	if err := w.deliveryProvider.Deliver(context.Background(), notifID, domain.NotificationChannel(channel)); err != nil {
+		errMsg := err.Error()
+		if w.notifRepo != nil {
+			if updateErr := w.notifRepo.UpdatePushStatus(context.Background(), notifID, "failed", &errMsg); updateErr != nil {
+				log.Printf("[TaskWorker] Failed to update push status for %s: %v", notifID, updateErr)
+				return updateErr
+			}
+		}
+		return err
+	}
 
 	// Update the push status in the repository
 	if w.notifRepo != nil {

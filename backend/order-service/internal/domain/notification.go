@@ -19,11 +19,11 @@ const (
 )
 
 type NotificationRequest struct {
-	UserID   string              `json:"user_id"`
-	Title    string              `json:"title"`
-	Message  string              `json:"message"`
-	Channel  NotificationChannel `json:"channel"`
-	Data     map[string]string   `json:"data,omitempty"`
+	UserID  string              `json:"user_id"`
+	Title   string              `json:"title"`
+	Message string              `json:"message"`
+	Channel NotificationChannel `json:"channel"`
+	Data    map[string]string   `json:"data,omitempty"`
 }
 
 type Notification struct {
@@ -58,12 +58,12 @@ type NotificationTemplate struct {
 }
 
 type UserNotificationPreference struct {
-	UserID         uuid.UUID `json:"user_id" db:"user_id"`
-	EmailEnabled   bool      `json:"email_enabled" db:"email_enabled"`
-	PushEnabled    bool      `json:"push_enabled" db:"push_enabled"`
-	SMSEnabled     bool      `json:"sms_enabled" db:"sms_enabled"`
-	WhatsAppEnabled bool     `json:"whatsapp_enabled" db:"whatsapp_enabled"`
-	UpdatedAt      time.Time `json:"updated_at" db:"updated_at"`
+	UserID          uuid.UUID `json:"user_id" db:"user_id"`
+	EmailEnabled    bool      `json:"email_enabled" db:"email_enabled"`
+	PushEnabled     bool      `json:"push_enabled" db:"push_enabled"`
+	SMSEnabled      bool      `json:"sms_enabled" db:"sms_enabled"`
+	WhatsAppEnabled bool      `json:"whatsapp_enabled" db:"whatsapp_enabled"`
+	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 }
 
 func (p *UserNotificationPreference) IsChannelEnabled(channel NotificationChannel) bool {
@@ -94,6 +94,7 @@ type NotificationService interface {
 type NotificationRepository interface {
 	SaveNotification(ctx context.Context, notif *Notification) error
 	UpdatePushStatus(ctx context.Context, id uuid.UUID, status string, errStr *string) error
+	GetNotificationByID(ctx context.Context, id uuid.UUID) (*Notification, error)
 	GetNotificationsByUserID(ctx context.Context, userID uuid.UUID, limit, offset int) ([]Notification, error)
 	MarkAsRead(ctx context.Context, notificationID, userID uuid.UUID) error
 	GetTemplateByKey(ctx context.Context, key string, channel NotificationChannel) (*NotificationTemplate, error)

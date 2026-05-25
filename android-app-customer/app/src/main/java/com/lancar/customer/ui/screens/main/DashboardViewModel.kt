@@ -34,6 +34,9 @@ class DashboardViewModel @Inject constructor(
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
 
+    private val _dataError = MutableStateFlow<String?>(null)
+    val dataError = _dataError.asStateFlow()
+
     init {
         refreshData()
     }
@@ -41,11 +44,15 @@ class DashboardViewModel @Inject constructor(
     fun refreshData() {
         viewModelScope.launch {
             _isLoading.value = true
+            _dataError.value = null
             orderRepository.getOrderHistory().collectLatest { result ->
                 _isLoading.value = false
                 result.onSuccess { orders ->
                     // Find the most recent active order (pending/transit/etc)
                     _activeOrder.value = orders.firstOrNull { it.status != "delivered" && it.status != "failed" }
+                }.onFailure { error ->
+                    _activeOrder.value = null
+                    _dataError.value = error.localizedMessage ?: "Riwayat order belum bisa dimuat dari server."
                 }
             }
         }
@@ -55,6 +62,9 @@ class DashboardViewModel @Inject constructor(
                     _services.value = services
                         .filter { it.serviceCategory == "on_demand" && it.isEnabled }
                         .sortedBy { it.displayOrder }
+                }.onFailure { error ->
+                    _services.value = emptyList()
+                    _dataError.value = error.localizedMessage ?: "Layanan belum bisa dimuat dari server."
                 }
             }
         }

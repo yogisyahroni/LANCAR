@@ -10,6 +10,7 @@ import { evaluatePayoutAlerts, writePayoutAuditEvent } from '../utils/payoutObse
 import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../services/onDemandRealtime';
 import { evaluateOnDemandRealtimeAlerts } from '../services/realtimeObservability';
 import { buildMapsRouteEtaSnapshot } from '../services/mapsProviderConfig';
+import { isFeatureFlagEnabled } from '../services/featureFlags';
 
 type CourierLoginRow = {
   id: string;
@@ -22,13 +23,25 @@ type CourierLoginRow = {
   photo_url: string | null;
 };
 
+const COURIER_LOGIN_OTP_REQUIRED_FLAG = 'courier_login_otp_required';
+const PLACEHOLDER_SEEDED_PIN_HASH = 'hashed_pin';
+
+const getDevelopmentSeedCourierPin = () => {
+  if (process.env.NODE_ENV === 'production') return null;
+
+  const seedPin = process.env.DEV_SEEDED_COURIER_PIN?.trim();
+  if (!seedPin || seedPin.length < 6) return null;
+
+  return seedPin;
+};
+
 const isValidCourierPassword = (password: string, pinHash: string | null) => {
   if (!pinHash) return false;
 
   // Local seed data currently stores placeholder hashes. Keep this compatibility
   // narrow so seeded couriers can be tested without weakening real hashes.
-  if (pinHash === 'hashed_pin') {
-    return password === 'kurir123' || password === '123456' || password === pinHash;
+  if (pinHash === PLACEHOLDER_SEEDED_PIN_HASH) {
+    return password === getDevelopmentSeedCourierPin();
   }
 
   return password === pinHash;
@@ -161,19 +174,28 @@ const touchCourierTrustedDevice = async (courierId: string, deviceIdHash: string
   );
 };
 
+const hashOtpRecipient = (recipient: string) =>
+  crypto.createHash('sha256').update(recipient.trim().toLowerCase()).digest('hex');
+
+const isCourierLoginOtpRequired = async () => {
+  return isFeatureFlagEnabled(COURIER_LOGIN_OTP_REQUIRED_FLAG, true);
+};
+
 const sendCourierOtp = async (recipient: string) => {
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const code = String(crypto.randomInt(100000, 1000000));
   await db.query(
     `INSERT INTO otp_logs (phone_number, code, expires_at, is_used, created_at)
      VALUES ($1, $2, NOW() + INTERVAL '5 minutes', false, NOW())`,
     [recipient, code]
   );
-  console.info(`[MOCK COURIER OTP SEND] To: ${recipient}, Code: ${code}`);
+  console.info(JSON.stringify({
+    event: 'courier_otp_issued',
+    recipient_hash: hashOtpRecipient(recipient),
+    expires_in_seconds: 300,
+  }));
 };
 
 const verifyCourierOtpCode = async (recipient: string, code: string) => {
-  if (code === '123456' || code === '111111') return true;
-
   const result = await db.query<{ id: string; is_used: boolean; expires_at: Date }>(
     `SELECT id, is_used, expires_at
      FROM otp_logs
@@ -259,8 +281,12 @@ export const loginCourier = async (req: Request, res: Response) => {
 
     const deviceIdHash = hashDeviceId(deviceId);
     const deviceInfo = buildCourierDeviceContext(req);
-    const isTrusted = await isTrustedCourierDevice(courier.id, deviceIdHash);
-    if (!isTrusted) {
+    const [isTrusted, isOtpRequired] = await Promise.all([
+      isTrustedCourierDevice(courier.id, deviceIdHash),
+      isCourierLoginOtpRequired(),
+    ]);
+
+    if (!isTrusted && isOtpRequired) {
       const recipient = courier.email || courier.phone_number;
       await sendCourierOtp(recipient);
       res.json({
@@ -279,12 +305,19 @@ export const loginCourier = async (req: Request, res: Response) => {
       return;
     }
 
-    await touchCourierTrustedDevice(courier.id, deviceIdHash);
+    if (isTrusted) {
+      await touchCourierTrustedDevice(courier.id, deviceIdHash);
+    }
+
     const loginData = await issueCourierLoginSession(courier, deviceId, deviceInfo);
 
     res.json({
       success: true,
-      data: loginData,
+      data: {
+        ...loginData,
+        requires_otp: false,
+        otp_policy: isOtpRequired ? 'trusted_device' : 'disabled_by_feature_flag',
+      },
       message: 'Login successful',
     });
   } catch (error) {
@@ -3264,6 +3297,302 @@ export const uploadMobileCourierPod = async (req: Request, res: Response) => {
   });
 };
 
+export const getMobileCourierPickupCancellationReasons = async (_req: Request, res: Response) => {
+  const reasonsRes = await db.query(
+    `SELECT code, title, description, updated_at
+       FROM courier_pickup_cancellation_reasons
+      WHERE is_active = TRUE
+      ORDER BY display_order ASC, title ASC`
+  );
+
+  if (!reasonsRes.rows.length) {
+    res.status(503).json({
+      success: false,
+      data: null,
+      message: 'Konfigurasi alasan pembatalan pickup belum tersedia.',
+      code: 'ERR_PICKUP_CANCEL_REASONS_NOT_CONFIGURED',
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: reasonsRes.rows.map((row) => ({
+      code: row.code,
+      title: row.title,
+      description: row.description,
+    })),
+    cache_ttl_seconds: 300,
+    version: reasonsRes.rows
+      .map((row) => row.updated_at)
+      .filter(Boolean)
+      .sort()
+      .pop() || null,
+    message: 'Alasan pembatalan pickup tersedia.',
+  });
+};
+
+export const getMobileCourierStatusTransitions = async (req: Request, res: Response) => {
+  const workflowRole = String(req.query.workflow_role || req.query.workflowRole || 'on_demand').trim().toLowerCase();
+  const currentStatus = String(req.query.current_status || req.query.currentStatus || '').trim().toLowerCase();
+
+  if (!workflowRole) {
+    res.status(400).json({
+      success: false,
+      data: null,
+      message: 'Workflow role wajib dikirim.',
+      code: 'ERR_BAD_REQUEST',
+    });
+    return;
+  }
+
+  const params: string[] = [workflowRole];
+  const currentStatusClause = currentStatus ? 'AND from_status = $2' : '';
+  if (currentStatus) params.push(currentStatus);
+
+  const transitionsRes = await db.query(
+      `SELECT
+        workflow_role,
+        from_status,
+        to_status,
+        label,
+        description,
+        requires_proof,
+        requires_admin,
+        display_order,
+        version,
+        updated_at
+       FROM status_transition_policies
+      WHERE workflow_role = $1
+        AND is_active = TRUE
+        AND requires_admin = FALSE
+        ${currentStatusClause}
+      ORDER BY from_status ASC, display_order ASC, label ASC`,
+    params
+  );
+
+  if (!transitionsRes.rows.length) {
+    res.status(503).json({
+      success: false,
+      data: null,
+      message: 'Konfigurasi transisi status order belum tersedia.',
+      code: 'ERR_STATUS_TRANSITIONS_NOT_CONFIGURED',
+    });
+    return;
+  }
+
+  res.json({
+    success: true,
+    data: transitionsRes.rows.map((row) => ({
+      workflow_role: row.workflow_role,
+      from_status: row.from_status,
+      to_status: row.to_status,
+      label: row.label,
+      description: row.description,
+      requires_proof: row.requires_proof,
+      requires_admin: row.requires_admin,
+      display_order: Number(row.display_order || 0),
+      version: Number(row.version || 1),
+    })),
+    cache_ttl_seconds: 300,
+    version: transitionsRes.rows
+      .map((row) => row.updated_at)
+      .filter(Boolean)
+      .sort()
+      .pop() || null,
+    message: 'Transisi status order tersedia.',
+  });
+};
+
+export const updateMobileCourierOrderStatus = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  const orderId = String(req.body?.order_id || req.body?.orderId || '').trim();
+  const requestedStatus = String(req.body?.status || '').trim().toLowerCase();
+  const notes = req.body?.notes ? String(req.body.notes).trim() : null;
+
+  if (!orderId || !requestedStatus) {
+    res.status(400).json({
+      success: false,
+      data: null,
+      message: 'Order dan status tujuan wajib dikirim.',
+      code: 'ERR_BAD_REQUEST',
+    });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const orderRes = await client.query(
+      `SELECT
+          o.id AS order_id,
+          o.order_number,
+          o.customer_id,
+          o.model,
+          o.status AS order_status,
+          ol.id AS leg_id,
+          ol.status AS leg_status,
+          CASE
+            WHEN LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand') THEN 'on_demand'
+            WHEN ol.leg_number = 1 THEN 'pickup'
+            WHEN ol.leg_number > 1 THEN 'delivery'
+            ELSE 'network'
+          END AS workflow_role
+         FROM order_legs ol
+         JOIN orders o ON o.id = ol.order_id
+        WHERE o.id = $1
+          AND ol.courier_id = $2
+        ORDER BY ol.leg_number ASC
+        LIMIT 1
+        FOR UPDATE`,
+      [orderId, req.user.id]
+    );
+
+    if (!orderRes.rows.length) {
+      await client.query('ROLLBACK');
+      res.status(404).json({
+        success: false,
+        data: null,
+        message: 'Order tidak ditemukan untuk kurir ini.',
+        code: 'ERR_ORDER_NOT_FOUND',
+      });
+      return;
+    }
+
+    const order = orderRes.rows[0];
+    const workflowRole = String(order.workflow_role || 'network');
+    const currentStatus = String(order.leg_status || order.order_status || '').toLowerCase();
+
+    const configuredRes = await client.query(
+      `SELECT COUNT(*)::int AS total
+         FROM status_transition_policies
+        WHERE workflow_role = $1
+          AND from_status = $2
+          AND is_active = TRUE
+          AND requires_admin = FALSE`,
+      [workflowRole, currentStatus]
+    );
+
+    if (Number(configuredRes.rows[0]?.total || 0) === 0) {
+      await client.query('ROLLBACK');
+      res.status(503).json({
+        success: false,
+        data: null,
+        message: 'Policy transisi status untuk status order saat ini belum dikonfigurasi.',
+        code: 'ERR_STATUS_TRANSITION_POLICY_MISSING',
+      });
+      return;
+    }
+
+    const policyRes = await client.query(
+      `SELECT to_status, label, requires_proof
+         FROM status_transition_policies
+        WHERE workflow_role = $1
+          AND from_status = $2
+          AND to_status = $3
+          AND is_active = TRUE
+          AND requires_admin = FALSE
+        LIMIT 1`,
+      [workflowRole, currentStatus, requestedStatus]
+    );
+
+    if (!policyRes.rows.length) {
+      await client.query('ROLLBACK');
+      res.status(400).json({
+        success: false,
+        data: null,
+        message: 'Transisi status tidak diizinkan oleh policy operasional.',
+        code: 'ERR_STATUS_TRANSITION_NOT_ALLOWED',
+      });
+      return;
+    }
+
+    const policy = policyRes.rows[0];
+    if (policy.requires_proof) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        data: null,
+        message: 'Status ini wajib diperbarui lewat flow bukti pickup/POD, bukan update manual.',
+        code: 'ERR_STATUS_REQUIRES_PROOF',
+      });
+      return;
+    }
+
+    await client.query(
+      `UPDATE order_legs
+          SET status = $2,
+              started_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(started_at, NOW()) ELSE started_at END,
+              completed_at = CASE WHEN $2 IN ('delivered', 'failed') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [order.leg_id, requestedStatus]
+    );
+
+    await client.query(
+      `UPDATE orders
+          SET status = $2,
+              picked_up_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
+              delivered_at = CASE WHEN $2 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [orderId, requestedStatus]
+    );
+
+    await client.query(
+      `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+       VALUES ($1, $2, 'courier_status_updated', $3, $4)`,
+      [
+        orderId,
+        req.user.id,
+        `Courier updated status from ${currentStatus} to ${requestedStatus}`,
+        JSON.stringify({
+          from_status: currentStatus,
+          to_status: requestedStatus,
+          workflow_role: workflowRole,
+          policy_label: policy.label,
+          notes,
+          source: 'courier_mobile',
+        }),
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.TRACKING_UPDATED, {
+      order_id: orderId,
+      order_number: order.order_number || null,
+      customer_id: order.customer_id || null,
+      courier_user_id: req.user.id,
+      status: requestedStatus,
+      stage: 'status_updated',
+      metadata: {
+        from_status: currentStatus,
+        to_status: requestedStatus,
+        workflow_role: workflowRole,
+        policy_label: policy.label,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: true,
+      message: 'Status order diperbarui sesuai policy.',
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Update mobile courier order status error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  } finally {
+    client.release();
+  }
+};
+
 export const cancelMobileCourierOnDemandPickup = async (req: Request, res: Response) => {
   if (!req.user?.id) {
     res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
@@ -3277,16 +3606,18 @@ export const cancelMobileCourierOnDemandPickup = async (req: Request, res: Respo
   const longitude = parseCoordinate(req.body?.longitude);
   const accuracy = parseCoordinate(req.body?.accuracy);
 
-  const allowedReasons = new Set([
-    'item_mismatch',
-    'item_damaged',
-    'prohibited_item',
-    'oversize_or_overweight',
-    'customer_unreachable',
-    'pickup_address_issue',
-    'customer_cancelled_at_pickup',
-    'other',
-  ]);
+  let allowedReasons: Set<string>;
+  try {
+    const activeReasonRes = await db.query(
+      `SELECT code
+         FROM courier_pickup_cancellation_reasons
+        WHERE is_active = TRUE`
+    );
+    allowedReasons = new Set(activeReasonRes.rows.map((row) => String(row.code)));
+  } catch (_error) {
+    res.status(500).json({ success: false, data: null, message: 'Gagal membaca konfigurasi alasan pembatalan pickup.', code: 'ERR_REASON_CONFIG_UNAVAILABLE' });
+    return;
+  }
 
   if (!orderId || !reasonCode || !allowedReasons.has(reasonCode)) {
     res.status(400).json({ success: false, data: null, message: 'Alasan pembatalan pickup tidak valid.', code: 'ERR_INVALID_REASON' });
