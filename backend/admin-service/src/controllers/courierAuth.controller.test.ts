@@ -66,10 +66,10 @@ const makeResponse = () => {
   return res;
 };
 
-const mockCourierQueryFlow = (trusted: boolean) => {
+const mockCourierQueryFlow = (trusted: boolean, courierOverride: Partial<typeof courierRow> = {}) => {
   (db.query as jest.Mock).mockImplementation(async (query: string) => {
     if (query.includes('FROM users u')) {
-      return { rows: [courierRow] };
+      return { rows: [{ ...courierRow, ...courierOverride }] };
     }
 
     if (query.includes('SELECT EXISTS')) {
@@ -119,7 +119,7 @@ describe('courier login OTP feature flag', () => {
 
     await loginCourier(req, res);
 
-    expect(isFeatureFlagEnabled).toHaveBeenCalledWith('courier_login_otp_required', true);
+    expect(isFeatureFlagEnabled).toHaveBeenCalledWith('courier_login_otp_required', false);
     expect(db.query).not.toHaveBeenCalledWith(expect.stringContaining('INSERT INTO otp_logs'), expect.anything());
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
       success: true,
@@ -129,6 +129,53 @@ describe('courier login OTP feature flag', () => {
         otp_policy: 'disabled_by_feature_flag',
       }),
     }));
+  });
+
+  it('allows seeded local courier credentials only when the development seed PIN is configured', async () => {
+    const previousSeedPin = process.env.DEV_SEEDED_COURIER_PIN;
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.DEV_SEEDED_COURIER_PIN = 'kurir123';
+    process.env.NODE_ENV = 'test';
+
+    try {
+      (isFeatureFlagEnabled as jest.Mock).mockResolvedValue(false);
+      mockCourierQueryFlow(false, { pin_hash: 'hashed_pin' });
+
+      const req: any = {
+        body: {
+          username: 'courier@example.test',
+          password: 'kurir123',
+          device_id: 'dev-seed-device-1',
+          device_info: { model: 'Pixel Seed' },
+        },
+        headers: { 'user-agent': 'jest' },
+        ip: '127.0.0.1',
+      };
+      const res = makeResponse();
+
+      await loginCourier(req, res);
+
+      expect(res.status).not.toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        success: true,
+        data: expect.objectContaining({
+          courier_id: 'courier-1',
+          requires_otp: false,
+        }),
+      }));
+    } finally {
+      if (previousSeedPin === undefined) {
+        delete process.env.DEV_SEEDED_COURIER_PIN;
+      } else {
+        process.env.DEV_SEEDED_COURIER_PIN = previousSeedPin;
+      }
+
+      if (previousNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = previousNodeEnv;
+      }
+    }
   });
 
   it('keeps OTP required for new devices when the production-safe flag is enabled', async () => {

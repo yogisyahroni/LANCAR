@@ -23,6 +23,39 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+    private val certificatePinPattern = Regex("^sha256/[A-Za-z0-9+/]{43}=$")
+
+    private fun isValidCertificatePin(pin: String): Boolean {
+        return certificatePinPattern.matches(pin.trim())
+    }
+
+    private fun buildCertificatePinner(): CertificatePinner {
+        val hostName = runCatching {
+            java.net.URL(BuildConfig.BASE_URL).host.orEmpty()
+        }.getOrDefault("")
+
+        require(hostName.isNotBlank()) {
+            "BASE_URL host is required when API certificate pinning is enabled."
+        }
+
+        val primaryPin = BuildConfig.API_CERT_SHA256_PIN_PRIMARY.trim()
+        val backupPin = BuildConfig.API_CERT_SHA256_PIN_BACKUP.trim()
+
+        require(isValidCertificatePin(primaryPin)) {
+            "API_CERT_SHA256_PIN_PRIMARY must be a valid sha256/<base64> pin."
+        }
+        require(isValidCertificatePin(backupPin)) {
+            "API_CERT_SHA256_PIN_BACKUP must be a valid sha256/<base64> backup pin."
+        }
+        require(backupPin != primaryPin) {
+            "API_CERT_SHA256_PIN_BACKUP must be different from the primary pin."
+        }
+
+        return CertificatePinner.Builder()
+            .add(hostName, primaryPin)
+            .add(hostName, backupPin)
+            .build()
+    }
 
     @Provides
     @Singleton
@@ -59,32 +92,8 @@ object NetworkModule {
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
 
-        if (!BuildConfig.DEBUG) {
-            // =========================================================================
-            // 🛡️ ENTERPRISE SECURITY: DYNAMIC SSL PINNING WITH BACKUP STRATEGY
-            // =========================================================================
-            // Do NOT use hardcoded strings like "api.lancar.com". Use the actual host 
-            // from BuildConfig to support different environments (Staging vs Prod).
-            val hostName = try {
-                java.net.URL(BuildConfig.BASE_URL).host
-            } catch (e: Exception) {
-                "api.lancar.com" // Fallback only if URL parsing fails
-            }
-
-            val productionPinPrimary = BuildConfig.API_CERT_SHA256_PIN_PRIMARY.trim()
-            val productionPinBackup = BuildConfig.API_CERT_SHA256_PIN_BACKUP.trim()
-            require(productionPinPrimary.startsWith("sha256/")) {
-                "API_CERT_SHA256_PIN_PRIMARY wajib diisi untuk release build."
-            }
-
-            val certificatePinnerBuilder = CertificatePinner.Builder()
-                .add(hostName, productionPinPrimary)
-            if (productionPinBackup.startsWith("sha256/") && productionPinBackup != productionPinPrimary) {
-                certificatePinnerBuilder.add(hostName, productionPinBackup)
-            }
-            val certificatePinner = certificatePinnerBuilder.build()
-                
-            builder.certificatePinner(certificatePinner)
+        if (!BuildConfig.DEBUG && BuildConfig.API_CERT_PINNING_REQUIRED) {
+            builder.certificatePinner(buildCertificatePinner())
         }
 
         return builder.build()

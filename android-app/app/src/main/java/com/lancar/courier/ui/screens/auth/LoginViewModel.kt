@@ -14,6 +14,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import retrofit2.Response
 import javax.inject.Inject
 
 data class LoginUiState(
@@ -44,6 +49,11 @@ class LoginViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+
+    private val errorJson = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
+    }
 
     fun onUsernameChange(value: String) {
         _uiState.update { it.copy(username = value, usernameError = null, error = null) }
@@ -131,7 +141,8 @@ class LoginViewModel @Inject constructor(
 
                     persistLoginSession(loginData)
                 } else {
-                    val message = responseBody?.message
+                    val message = extractErrorMessage(response)
+                        ?: responseBody?.message
                         ?: when (response.code()) {
                             401 -> "Username atau password salah"
                             403 -> "Akun tidak memiliki akses kurir"
@@ -181,7 +192,9 @@ class LoginViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = responseBody?.message ?: "Kode OTP tidak valid"
+                            error = extractErrorMessage(response)
+                                ?: responseBody?.message
+                                ?: "Kode OTP tidak valid"
                         )
                     }
                 }
@@ -212,5 +225,17 @@ class LoginViewModel @Inject constructor(
             courierName = courierName
         )
         _uiState.update { it.copy(isLoading = false, isLoggedIn = true, requiresOtp = false) }
+    }
+
+    private fun extractErrorMessage(response: Response<*>): String? {
+        val rawErrorBody = response.errorBody()?.string()?.trim().orEmpty()
+        if (rawErrorBody.isBlank()) return null
+
+        return runCatching {
+            val errorObject = errorJson.parseToJsonElement(rawErrorBody).jsonObject
+            errorObject["message"]?.jsonPrimitive?.contentOrNull
+                ?: errorObject["error"]?.jsonPrimitive?.contentOrNull
+        }.getOrNull()
+            ?: rawErrorBody.takeIf { it.length <= 180 }
     }
 }

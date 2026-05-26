@@ -239,34 +239,48 @@ See `docs/MOBILE_FIREBASE_FCM_PRODUCTION_VALIDATION.md`.
 
 ## MOB-P1-01 Certificate Pinning Readiness
 
+Status: Completed
+
 ### Problem
 
 Certificate pinning protects against some MitM attacks, but incorrect pinning can lock out all production users. It must be prepared carefully.
 
 ### Tasks
 
-- Keep `API_CERT_SHA256_PIN_PRIMARY` and `API_CERT_SHA256_PIN_BACKUP` configurable.
-- Do not hardcode pins directly in Kotlin source.
-- Require pins only when production domain and TLS termination are final.
-- Document how to rotate primary and backup pins.
-- Ensure staging/dev can operate without strict pinning if the backend certificate is not stable yet.
+- [x] Keep `API_CERT_SHA256_PIN_PRIMARY` and `API_CERT_SHA256_PIN_BACKUP` configurable.
+- [x] Add `API_CERT_PINNING_REQUIRED` so strict pinning can be enabled only after production TLS is final.
+- [x] Do not hardcode pins directly in Kotlin source.
+- [x] Remove hardcoded fallback API hostnames from runtime pinning logic.
+- [x] Require primary and backup pins only when strict pinning is enabled.
+- [x] Validate pin format in Gradle before release build when strict pinning is enabled.
+- [x] Document how to rotate primary and backup pins.
+- [x] Ensure staging/dev can operate without strict pinning if the backend certificate is not stable yet.
 
 ### Acceptance Criteria
 
-- Production pin values can be supplied through environment or CI variables.
-- Backup pin exists before strict pinning is enabled.
-- App does not crash on missing pin in debug/staging mode.
-- Production strict mode behavior is documented.
+- [x] Production pin values can be supplied through environment or CI variables.
+- [x] Backup pin exists before strict pinning is enabled.
+- [x] App does not crash on missing pin in debug/staging mode.
+- [x] Production strict mode behavior is documented.
+- [x] Release build fails fast if strict pinning is enabled without valid primary and backup pins.
 
 ### Verification
 
-- Build release with pins supplied.
-- Build staging/debug without pins if allowed.
-- Test certificate rotation scenario in staging before enabling strict production pinning.
+- [x] Build staging/debug without pins.
+- [x] Validate Gradle and Kotlin compile path through courier debug build.
+- [x] Validate Gradle and Kotlin compile path through customer debug build.
+- [ ] Build release with production/staging pins supplied.
+- [ ] Test certificate rotation scenario in staging before enabling strict production pinning.
+
+### Operator Guide
+
+See `docs/MOBILE_CERTIFICATE_PINNING_READINESS.md`.
 
 ---
 
 ## MOB-P1-02 Release AAB Verification Gate
+
+Status: Completed
 
 ### Problem
 
@@ -274,31 +288,39 @@ Producing an AAB is not enough. CI should verify that the file exists, is signed
 
 ### Tasks
 
-- After `bundleRelease`, verify the AAB exists.
-- Verify file size is greater than a minimum threshold.
-- Verify signature with `jarsigner -verify`.
-- Upload AAB artifact separately for courier and customer.
-- Keep debug APK upload for development convenience.
-- Ensure artifact names include app name and run number.
+- [x] After `bundleRelease`, verify the AAB exists.
+- [x] Verify file size is greater than a minimum threshold.
+- [x] Verify AAB zip integrity and required bundle entries.
+- [x] Verify signature with `jarsigner -verify`.
+- [x] Upload AAB artifact separately for courier and customer.
+- [x] Keep debug APK upload for development convenience.
+- [x] Ensure artifact names include app name and run number.
+- [x] Run the verification gate before uploading release artifacts.
 
 ### Acceptance Criteria
 
-- CI fails if release AAB is missing.
-- CI fails if AAB signature verification fails.
-- CI artifacts clearly separate courier and customer outputs.
-- Release upload includes AAB, not only debug APK.
+- [x] CI fails if release AAB is missing.
+- [x] CI fails if AAB is too small or malformed.
+- [x] CI fails if AAB signature verification fails.
+- [x] CI artifacts clearly separate courier and customer outputs.
+- [x] Release upload includes AAB, not only debug APK.
 
 ### Verification
 
-- Run GitHub Actions mobile workflow.
-- Confirm artifacts:
+- [x] Add reusable verifier: `scripts/mobile/verify_release_aab.py`.
+- [x] Verify existing courier release AAB locally.
+- [x] Verify existing customer release AAB locally.
+- [ ] Run GitHub Actions mobile workflow after GitHub Actions incident clears.
+- [ ] Confirm artifacts:
   - `Courier-App-release-aab-<run_number>`
   - `Customer-App-release-aab-<run_number>`
-- Download artifact and inspect locally if needed.
+- [ ] Download artifact and inspect locally if needed.
 
 ---
 
 ## MOB-P1-03 Play Console Internal Testing Preparation
+
+Status: Preparation Completed - Play Console execution pending
 
 ### Problem
 
@@ -306,30 +328,57 @@ Local APK testing and CI AAB generation do not guarantee Play Console acceptance
 
 ### Tasks
 
-- Create Play Console app entries for courier and customer if not already created.
-- Enable Play App Signing.
-- Upload AAB to internal testing track.
-- Add internal tester Gmail accounts.
-- Install app from Play internal test link.
-- Validate login, OTP, location, order flow, notification, and logout.
-- Do not promote to production until internal testing is stable.
+- [x] Document app identity and package names:
+  - courier: `com.lancar.courier`
+  - customer: `com.lancar.customer`
+- [x] Document required CI artifacts:
+  - `Courier-App-release-aab-<run_number>`
+  - `Customer-App-release-aab-<run_number>`
+- [x] Document Play Console app entry setup for both apps.
+- [x] Document Play App Signing requirement.
+- [x] Document internal tester Gmail list setup.
+- [x] Document AAB upload steps for internal testing track.
+- [x] Document release note template.
+- [x] Document Play-installed smoke test matrix.
+- [x] Document Firebase fingerprint follow-up after Play upload.
+- [x] Document rollback procedure for broken internal builds.
+- [ ] Create Play Console app entries for courier and customer if not already created.
+- [ ] Enable Play App Signing.
+- [ ] Upload AAB to internal testing track.
+- [ ] Add internal tester Gmail accounts.
+- [ ] Install app from Play internal test link.
+- [ ] Validate login, OTP, location, order flow, notification, and logout.
+- [ ] Do not promote to production until internal testing is stable.
 
 ### Acceptance Criteria
 
-- AAB upload is accepted by Play Console.
-- Internal testers can install both apps.
-- App launches without Firebase startup crash.
-- Critical flows work from Play-installed build.
+- [x] Operator guide exists for internal testing execution.
+- [x] App/package/artifact mapping is explicit for courier and customer.
+- [x] Smoke test checklist exists for Play-installed builds.
+- [x] Release notes and rollback procedure are documented.
+- [ ] AAB upload is accepted by Play Console.
+- [ ] Internal testers can install both apps.
+- [ ] App launches without Firebase startup crash.
+- [ ] Critical flows work from Play-installed build.
 
 ### Verification
 
-- Play Console internal testing release status is active.
-- Test device installs through Google Play.
-- Smoke test checklist passes.
+- [x] Review Gradle application IDs.
+- [x] Review mobile CI artifact names.
+- [x] Review manifest-level app permissions that affect Play review.
+- [ ] Play Console internal testing release status is active.
+- [ ] Test device installs through Google Play.
+- [ ] Smoke test checklist passes.
+
+### Operator Guide
+
+See `docs/MOBILE_PLAY_CONSOLE_INTERNAL_TESTING.md`.
 
 ---
 
 ## MOB-P1-04 Privacy Policy And Data Safety Pack
+
+Status: Preparation Completed - public hosting and Play Console submission pending
 
 ### Problem
 
@@ -337,9 +386,10 @@ Apps collecting location, contact, account, order, payment, crash, or device dat
 
 ### Tasks
 
-- Create/update privacy policy page.
-- Prepare Play Console Data Safety answers for both apps.
-- Identify data collected:
+- [x] Create/update privacy policy page source:
+  - `frontend/public/privacy/lancar-mobile.html`
+- [x] Prepare Play Console Data Safety answer pack for both apps.
+- [x] Identify data collected:
   - name
   - phone
   - email
@@ -349,29 +399,52 @@ Apps collecting location, contact, account, order, payment, crash, or device dat
   - device identifiers
   - crash logs
   - notification tokens
-- Identify data sharing:
+- [x] Identify service providers and data sharing/processing surfaces:
   - Firebase/Google services
   - maps provider
   - payment provider
   - backend services
-- Document data deletion request path.
+- [x] Document data deletion request path.
+- [x] Document production retention guidance.
+- [x] Document Play Console submission checklist.
+- [x] Document privacy/data safety risk register.
+- [ ] Deploy privacy policy to a public HTTPS URL.
+- [ ] Submit Data Safety form in Play Console for courier.
+- [ ] Submit Data Safety form in Play Console for customer.
+- [ ] Confirm final Firebase/analytics/payment provider settings before Play submission.
 
 ### Acceptance Criteria
 
-- Public privacy policy URL exists.
-- Data Safety answers match actual app behavior.
-- Location collection is disclosed accurately.
-- Crash/analytics collection is disclosed accurately.
+- [x] Privacy policy source exists in the frontend public directory.
+- [x] Data Safety draft answers are mapped to actual mobile app behavior.
+- [x] Location collection is disclosed accurately in the draft.
+- [x] Crash/analytics collection is disclosed accurately in the draft when Firebase diagnostics are enabled.
+- [x] Data deletion request path is documented.
+- [ ] Public privacy policy URL exists after deployment.
+- [ ] Data Safety answers are submitted in Play Console.
 
 ### Verification
 
-- Review app permissions against Data Safety form.
-- Review Firebase/analytics usage.
-- Review backend data flows for account deletion/data deletion support.
+- [x] Review app permissions against Data Safety form.
+- [x] Review Firebase/analytics usage at code/config level.
+- [x] Review backend data deletion support enough to identify manual deletion path and self-service gap.
+- [ ] Open deployed privacy policy URL without login.
+- [ ] Review final Firebase/analytics dashboard settings before submission.
+- [ ] Review backend data flows for account deletion/data deletion support before public launch.
+
+### Operator Guide
+
+See `docs/MOBILE_PRIVACY_POLICY_AND_DATA_SAFETY_PACK.md`.
+
+### Public Policy Source
+
+See `frontend/public/privacy/lancar-mobile.html`.
 
 ---
 
 ## MOB-P2-01 Production Mobile Release Runbook
+
+Status: Completed - live release execution pending
 
 ### Problem
 
@@ -379,29 +452,45 @@ Production release should be repeatable. Without a runbook, signing keys, secret
 
 ### Tasks
 
-- Document how to generate keystore.
-- Document how to base64 encode keystore.
-- Document required GitHub Actions Secrets.
-- Document required GitHub Actions Variables.
-- Document how to rerun mobile CI.
-- Document how to download AAB artifact.
-- Document Play Console upload steps.
-- Document rollback approach.
+- [x] Document how to generate keystore.
+- [x] Document how to base64 encode keystore.
+- [x] Document how to verify keystore locally with `keytool`.
+- [x] Document required GitHub Actions Secrets.
+- [x] Document required GitHub Actions Variables.
+- [x] Document local release build commands.
+- [x] Document local AAB verification command.
+- [x] Document how to rerun mobile CI.
+- [x] Document how to download AAB artifact.
+- [x] Document Play Console upload steps.
+- [x] Document post-upload Firebase/Maps fingerprint actions.
+- [x] Document rollback approach.
+- [x] Document common release troubleshooting cases.
 
 ### Acceptance Criteria
 
-- A new operator can reproduce the release process without guessing.
-- Secret names and expected values are documented.
-- Keystore handling warns not to commit or lose the files.
+- [x] A new operator can reproduce the release process without guessing.
+- [x] Secret names and expected values are documented.
+- [x] Keystore handling warns not to commit or lose the files.
+- [x] Courier and customer release paths are clearly separated.
+- [x] Release acceptance gate is documented.
 
 ### Verification
 
-- Follow runbook once from clean terminal.
-- Confirm CI produces signed AAB.
+- [x] Confirm runbook references current app IDs and artifact names.
+- [x] Confirm existing local AAB paths are documented.
+- [ ] Follow runbook once from clean terminal.
+- [ ] Confirm CI produces signed AAB after GitHub Actions incident clears.
+- [ ] Confirm Play Console internal testing accepts both AABs.
+
+### Operator Guide
+
+See `docs/MOBILE_PRODUCTION_RELEASE_RUNBOOK.md`.
 
 ---
 
 ## MOB-P2-02 Mobile Smoke Test Checklist
+
+Status: Completed - physical device execution pending
 
 ### Problem
 
@@ -409,7 +498,7 @@ Before uploading to internal testing, both apps need a consistent smoke test che
 
 ### Tasks
 
-- Create courier smoke tests:
+- [x] Create courier smoke tests:
   - install app
   - login
   - OTP if enabled
@@ -419,7 +508,7 @@ Before uploading to internal testing, both apps need a consistent smoke test che
   - pickup/delivery proof flow
   - notification
   - logout
-- Create customer smoke tests:
+- [x] Create customer smoke tests:
   - install app
   - register/login
   - OTP if enabled
@@ -429,17 +518,32 @@ Before uploading to internal testing, both apps need a consistent smoke test che
   - notification
   - order tracking
   - logout
+- [x] Add test session header template.
+- [x] Add pass/fail/blocked rules.
+- [x] Add cross-app regression checks.
+- [x] Add failure report template.
+- [x] Add release decision table.
 
 ### Acceptance Criteria
 
-- Smoke checklist exists for courier.
-- Smoke checklist exists for customer.
-- Each item has pass/fail/result notes.
+- [x] Smoke checklist exists for courier.
+- [x] Smoke checklist exists for customer.
+- [x] Each item has pass/fail/result notes.
+- [x] Checklist records app version, device model, Android version, backend environment, and OTP flag state.
+- [x] Checklist includes release-only checks for screenshot protection, wrong backend guard, Firebase, notification, and Play install source.
 
 ### Verification
 
-- Run checklist on at least one physical Android device.
-- Record app version, device model, Android version, and test result.
+- [x] Confirm checklist document exists.
+- [x] Confirm courier checklist covers install, login, OTP, order, location, notification, proof, payout, logout.
+- [x] Confirm customer checklist covers install, login, OTP, order, address/map, payment, notification, tracking, logout.
+- [ ] Run checklist on at least one physical Android device.
+- [ ] Record app version, device model, Android version, and test result.
+- [ ] Attach failed-flow evidence for every FAIL result.
+
+### Operator Guide
+
+See `docs/MOBILE_SMOKE_TEST_CHECKLIST.md`.
 
 ---
 

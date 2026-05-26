@@ -61,6 +61,40 @@ fun validateReleaseBaseUrl(value: String) {
     }
 }
 
+fun isEnabledFlag(value: String): Boolean {
+    return value.trim().lowercase() in setOf("1", "true", "yes", "on", "required")
+}
+
+fun isValidSha256CertificatePin(value: String): Boolean {
+    return Regex("^sha256/[A-Za-z0-9+/]{43}=$").matches(value.trim())
+}
+
+fun validateReleaseCertificatePinConfig(
+    pinningRequired: Boolean,
+    primaryPin: String,
+    backupPin: String
+) {
+    if (!pinningRequired) return
+
+    if (!isValidSha256CertificatePin(primaryPin)) {
+        throw GradleException(
+            "API_CERT_SHA256_PIN_PRIMARY must be set to a valid sha256/<base64> pin " +
+                "when API_CERT_PINNING_REQUIRED=true."
+        )
+    }
+
+    if (!isValidSha256CertificatePin(backupPin)) {
+        throw GradleException(
+            "API_CERT_SHA256_PIN_BACKUP must be set to a valid sha256/<base64> backup pin " +
+                "when API_CERT_PINNING_REQUIRED=true."
+        )
+    }
+
+    if (primaryPin.trim() == backupPin.trim()) {
+        throw GradleException("API_CERT_SHA256_PIN_BACKUP must be different from the primary pin.")
+    }
+}
+
 val releaseKeystorePath = System.getenv("RELEASE_KEYSTORE_PATH").orEmpty()
 val releaseKeystorePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD").orEmpty()
 val releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS").orEmpty()
@@ -68,6 +102,9 @@ val releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD").orEmpty()
 val releaseBaseUrl = getConfigValue("BASE_URL")
 val releaseBuildConfigBaseUrl = normalizedBaseUrl(releaseBaseUrl.ifBlank { "https://missing-release-base-url.invalid/" })
 val debugBuildConfigBaseUrl = normalizedBaseUrl(getConfigValue("DEBUG_BASE_URL").ifBlank { "http://10.0.2.2:8080/" })
+val releaseCertificatePinPrimary = getConfigValue("API_CERT_SHA256_PIN_PRIMARY").trim()
+val releaseCertificatePinBackup = getConfigValue("API_CERT_SHA256_PIN_BACKUP").trim()
+val releaseCertificatePinningRequired = isEnabledFlag(getConfigValue("API_CERT_PINNING_REQUIRED"))
 val hasReleaseSigning = listOf(
     releaseKeystorePath,
     releaseKeystorePassword,
@@ -92,6 +129,11 @@ gradle.taskGraph.whenReady {
 
     if (requiresReleaseSigning) {
         validateReleaseBaseUrl(releaseBaseUrl)
+        validateReleaseCertificatePinConfig(
+            releaseCertificatePinningRequired,
+            releaseCertificatePinPrimary,
+            releaseCertificatePinBackup
+        )
     }
 }
 
@@ -110,8 +152,9 @@ android {
         vectorDrawables { useSupportLibrary = true }
 
         manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = getConfigValue("GOOGLE_MAPS_API_KEY")
-        buildConfigField("String", "API_CERT_SHA256_PIN_PRIMARY", "\"${getConfigValue("API_CERT_SHA256_PIN_PRIMARY")}\"")
-        buildConfigField("String", "API_CERT_SHA256_PIN_BACKUP", "\"${getConfigValue("API_CERT_SHA256_PIN_BACKUP")}\"")
+        buildConfigField("String", "API_CERT_SHA256_PIN_PRIMARY", quoteBuildConfigString(releaseCertificatePinPrimary))
+        buildConfigField("String", "API_CERT_SHA256_PIN_BACKUP", quoteBuildConfigString(releaseCertificatePinBackup))
+        buildConfigField("boolean", "API_CERT_PINNING_REQUIRED", releaseCertificatePinningRequired.toString())
     }
 
     signingConfigs {

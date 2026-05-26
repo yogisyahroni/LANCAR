@@ -22,6 +22,39 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
+    private val certificatePinPattern = Regex("^sha256/[A-Za-z0-9+/]{43}=$")
+
+    private fun isValidCertificatePin(pin: String): Boolean {
+        return certificatePinPattern.matches(pin.trim())
+    }
+
+    private fun buildCertificatePinner(): CertificatePinner {
+        val hostName = runCatching {
+            java.net.URL(BuildConfig.BASE_URL).host.orEmpty()
+        }.getOrDefault("")
+
+        require(hostName.isNotBlank()) {
+            "BASE_URL host is required when API certificate pinning is enabled."
+        }
+
+        val primaryPin = BuildConfig.API_CERT_SHA256_PIN_PRIMARY.trim()
+        val backupPin = BuildConfig.API_CERT_SHA256_PIN_BACKUP.trim()
+
+        require(isValidCertificatePin(primaryPin)) {
+            "API_CERT_SHA256_PIN_PRIMARY must be a valid sha256/<base64> pin."
+        }
+        require(isValidCertificatePin(backupPin)) {
+            "API_CERT_SHA256_PIN_BACKUP must be a valid sha256/<base64> backup pin."
+        }
+        require(backupPin != primaryPin) {
+            "API_CERT_SHA256_PIN_BACKUP must be different from the primary pin."
+        }
+
+        return CertificatePinner.Builder()
+            .add(hostName, primaryPin)
+            .add(hostName, backupPin)
+            .build()
+    }
 
     @Provides
     @Singleton
@@ -62,45 +95,8 @@ object NetworkModule {
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
 
-        if (!BuildConfig.DEBUG) {
-            // ══════════════════════════════════════════════════════════════════
-            // SSL CERTIFICATE PINNING — PRODUCTION HARDENING
-            // ══════════════════════════════════════════════════════════════════
-            // HOW TO GET THE REAL PIN (Run before every production release):
-            //
-            //   openssl s_client -connect <YOUR_BACKEND_DOMAIN>:443 -servername <YOUR_BACKEND_DOMAIN> \
-            //     | openssl x509 -pubkey -noout \
-            //     | openssl pkey -pubin -outform der \
-            //     | openssl dgst -sha256 -binary \
-            //     | openssl enc -base64
-            //
-            // Replace PRODUCTION_SHA256_PIN_PRIMARY below with the output.
-            // Add PRODUCTION_SHA256_PIN_BACKUP for certificate rotation resilience.
-            //
-            // ⚠️ IMPORTANT: If the pin is wrong, ALL production HTTPS requests will FAIL.
-            // Test the pin thoroughly in a staging environment before releasing.
-            // ══════════════════════════════════════════════════════════════════
-
-            // Extract hostname dynamically from BASE_URL to avoid hardcoding mismatches
-            val productionHostname = try {
-                java.net.URL(BuildConfig.BASE_URL).host.ifEmpty { "api.lancar.id" }
-            } catch (e: Exception) {
-                "api.lancar.id" // Fallback to production domain
-            }
-
-            val productionPinPrimary = BuildConfig.API_CERT_SHA256_PIN_PRIMARY.trim()
-            val productionPinBackup = BuildConfig.API_CERT_SHA256_PIN_BACKUP.trim()
-            require(productionPinPrimary.startsWith("sha256/")) {
-                "API_CERT_SHA256_PIN_PRIMARY wajib diisi untuk release build."
-            }
-
-            val certificatePinnerBuilder = CertificatePinner.Builder()
-                .add(productionHostname, productionPinPrimary)
-            if (productionPinBackup.startsWith("sha256/") && productionPinBackup != productionPinPrimary) {
-                certificatePinnerBuilder.add(productionHostname, productionPinBackup)
-            }
-            val certificatePinner = certificatePinnerBuilder.build()
-            builder.certificatePinner(certificatePinner)
+        if (!BuildConfig.DEBUG && BuildConfig.API_CERT_PINNING_REQUIRED) {
+            builder.certificatePinner(buildCertificatePinner())
         }
 
         return builder.build()

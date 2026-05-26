@@ -6,14 +6,14 @@ on:
     paths:
       - 'android-app/**'
       - 'android-app-customer/**'
-      - 'scripts/mobile/validate_google_services.py'
+      - 'scripts/mobile/**'
       - '.github/workflows/android-apps.yml'
     branches: [ staging, production ]
   pull_request:
     paths:
       - 'android-app/**'
       - 'android-app-customer/**'
-      - 'scripts/mobile/validate_google_services.py'
+      - 'scripts/mobile/**'
       - '.github/workflows/android-apps.yml'
     branches: [ staging ]
 
@@ -88,7 +88,7 @@ jobs:
           chmod 600 "${{ matrix.working_dir }}/app/google-services.json"
 
       - name: Prepare release signing
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           WORKING_DIR: ${{ matrix.working_dir }}
@@ -199,7 +199,7 @@ jobs:
           fi
 
       - name: Prepare release API environment
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           MOBILE_API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL }}
@@ -250,15 +250,23 @@ jobs:
         working-directory: ./${{ matrix.working_dir }}
 
       - name: Build Signed Release AAB
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         run: |
           ./gradlew bundleRelease \
             -PversionCode=${{ github.run_number }} \
             -PversionName="1.0.${{ github.run_number }}"
         working-directory: ./${{ matrix.working_dir }}
 
+      - name: Verify Release AAB
+        if: github.event_name != 'pull_request'
+        run: |
+          python scripts/mobile/verify_release_aab.py \
+            --working-dir "${{ matrix.working_dir }}" \
+            --app-name "${{ matrix.app_name }}" \
+            --min-size-mb 1
+
       - name: Upload Release AAB artifact
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.app_name }}-release-aab-${{ github.run_number }}

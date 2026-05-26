@@ -192,8 +192,13 @@ const touchCourierTrustedDevice = async (courierId: string, deviceIdHash: string
 const hashOtpRecipient = (recipient: string) =>
   crypto.createHash('sha256').update(recipient.trim().toLowerCase()).digest('hex');
 
+const defaultCourierLoginOtpRequired = () => {
+  const environment = (process.env.ENVIRONMENT || process.env.NODE_ENV || '').trim().toLowerCase();
+  return environment !== 'development' && environment !== 'test';
+};
+
 const isCourierLoginOtpRequired = async () => {
-  return isFeatureFlagEnabled(COURIER_LOGIN_OTP_REQUIRED_FLAG, true);
+  return isFeatureFlagEnabled(COURIER_LOGIN_OTP_REQUIRED_FLAG, defaultCourierLoginOtpRequired());
 };
 
 const sendCourierOtp = async (recipient: string) => {

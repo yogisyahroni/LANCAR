@@ -775,19 +775,11 @@ fun MainScreen(
                             totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
                             performanceSummary = performanceSummary,
                             capabilityProfile = capabilityProfile,
-                            earningsLedger = earningsLedger,
-                            payoutSummary = payoutSummary,
-                            payoutRequests = payoutRequests,
-                            isPayoutSubmitting = isPayoutSubmitting,
                             onCompleteTraining = {
                                 scope.launch {
                                     val result = orderViewModel.completeTraining()
                                     snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Training belum tersimpan." })
                                 }
-                            },
-                            onRefreshPayout = { orderViewModel.fetchPayoutState() },
-                            onRequestPayout = { amountIdr, pin ->
-                                orderViewModel.submitPayoutRequest(amountIdr, pin)
                             },
                             onLogout = { showLogoutDialog = true },
                             onSyncNow = { orderViewModel.syncPendingOrders() },
@@ -818,19 +810,11 @@ fun MainScreen(
                     totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
                     performanceSummary = performanceSummary,
                     capabilityProfile = capabilityProfile,
-                    earningsLedger = earningsLedger,
-                    payoutSummary = payoutSummary,
-                    payoutRequests = payoutRequests,
-                    isPayoutSubmitting = isPayoutSubmitting,
                     onCompleteTraining = {
                         scope.launch {
                             val result = orderViewModel.completeTraining()
                             snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Training belum tersimpan." })
                         }
-                    },
-                    onRefreshPayout = { orderViewModel.fetchPayoutState() },
-                    onRequestPayout = { amountIdr, pin ->
-                        orderViewModel.submitPayoutRequest(amountIdr, pin)
                     },
                     onLogout = { showLogoutDialog = true },
                     onSyncNow = { orderViewModel.syncPendingOrders() },
@@ -3085,13 +3069,7 @@ private fun ProfileContent(
     totalEarningsIdr: Int,
     performanceSummary: CourierPerformanceSummary?,
     capabilityProfile: CourierCapabilityProfile?,
-    earningsLedger: CourierEarningsLedger?,
-    payoutSummary: CourierPayoutSummaryData?,
-    payoutRequests: List<CourierPayoutRequestItem>,
-    isPayoutSubmitting: Boolean,
     onCompleteTraining: () -> Unit,
-    onRefreshPayout: () -> Unit,
-    onRequestPayout: suspend (Int, String) -> Result<CourierPayoutRequestItem>,
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
     onOptimizeBattery: () -> Unit,
@@ -3099,9 +3077,6 @@ private fun ProfileContent(
 ) {
     var showDiagnostics by remember { mutableStateOf(false) }
     var showResetLocalDataDialog by remember { mutableStateOf(false) }
-    var showPayoutDialog by remember { mutableStateOf(false) }
-    var showPayoutSecurityChallenge by remember { mutableStateOf(false) }
-    var selectedPayoutRequest by remember { mutableStateOf<CourierPayoutRequestItem?>(null) }
 
     if (showResetLocalDataDialog) {
         AlertDialog(
@@ -3133,40 +3108,6 @@ private fun ProfileContent(
                 }
             },
             shape = RoundedCornerShape(8.dp)
-        )
-    }
-
-    if (showPayoutDialog && payoutSummary != null) {
-        PayoutRequestDialog(
-            payoutSummary = payoutSummary,
-            isSubmitting = isPayoutSubmitting,
-            onDismiss = { showPayoutDialog = false },
-            onSubmit = onRequestPayout,
-            onSubmitted = { request ->
-                showPayoutDialog = false
-                selectedPayoutRequest = request
-                onRefreshPayout()
-            }
-        )
-    }
-
-    if (showPayoutSecurityChallenge) {
-        LocalSecurityChallengeDialog(
-            securityManager = localSecurityManager,
-            title = "Verifikasi pencairan saldo",
-            message = "Gunakan PIN atau biometrik lokal sebelum membuka pengajuan pencairan.",
-            onCancel = { showPayoutSecurityChallenge = false },
-            onVerified = {
-                showPayoutSecurityChallenge = false
-                showPayoutDialog = true
-            }
-        )
-    }
-
-    selectedPayoutRequest?.let { request ->
-        PayoutRequestDetailDialog(
-            request = request,
-            onDismiss = { selectedPayoutRequest = null }
         )
     }
 
@@ -3464,80 +3405,6 @@ private fun ProfileContent(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        }
-                    }
-                }
-            }
-        }
-
-        PayoutBalanceCard(
-            payoutSummary = payoutSummary,
-            payoutRequests = payoutRequests,
-            isSubmitting = isPayoutSubmitting,
-            onRefresh = onRefreshPayout,
-            onRequestClick = {
-                if (localSecurityManager.settings.value.active) {
-                    showPayoutSecurityChallenge = true
-                } else {
-                    showPayoutDialog = true
-                }
-            },
-            onRequestDetail = { selectedPayoutRequest = it }
-        )
-
-        earningsLedger?.let { ledger ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(color = Success.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
-                            Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = Success, modifier = Modifier.padding(10.dp).size(22.dp))
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Pencairan saldo", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text(
-                                "Saldo kurir dan riwayat settlement dari sistem",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        MiniProfileStat("Tersedia", ledger.summary.availableBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
-                        MiniProfileStat("Pending", ledger.summary.pendingBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
-                        MiniProfileStat("Total", ledger.summary.totalBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
-                    }
-
-                    PayoutAccountPanel(ledger)
-
-                    if (ledger.transactions.isNotEmpty()) {
-                        HorizontalDivider()
-                        ledger.transactions.take(4).forEach { transaction ->
-                            EarningsLedgerRow(transaction)
-                        }
-                    } else {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = PrimaryLight.copy(alpha = 0.55f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                "Belum ada transaksi pendapatan.",
-                                modifier = Modifier.padding(12.dp),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
                         }
                     }
                 }
