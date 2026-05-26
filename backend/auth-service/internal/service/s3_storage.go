@@ -34,7 +34,10 @@ func NewS3Storage(region, bucket string) (*S3Storage, error) {
 }
 
 func (s *S3Storage) Save(ctx context.Context, filename string, content io.Reader) (string, error) {
-	ext := filepath.Ext(filename)
+	ext := safeStorageExtension(filename)
+	if ext == "" {
+		return "", fmt.Errorf("unsupported storage file extension")
+	}
 	newFilename := uuid.New().String() + ext
 
 	uploader := manager.NewUploader(s.client)
@@ -42,15 +45,13 @@ func (s *S3Storage) Save(ctx context.Context, filename string, content io.Reader
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(newFilename),
 		Body:   content,
-		ACL:    "public-read", // Or use a pre-signed URL strategy
 	})
 
 	if err != nil {
 		return "", fmt.Errorf("failed to upload to S3: %w", err)
 	}
 
-	// Assuming the bucket is configured for public access or behind a CDN
-	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.bucket, s.region, newFilename), nil
+	return fmt.Sprintf("s3://%s/%s", s.bucket, newFilename), nil
 }
 
 func (s *S3Storage) Delete(ctx context.Context, fileID string) error {
@@ -64,5 +65,5 @@ func (s *S3Storage) Delete(ctx context.Context, fileID string) error {
 
 func (s *S3Storage) GetURL(ctx context.Context, fileID string) (string, error) {
 	key := filepath.Base(fileID)
-	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", s.bucket, s.region, key), nil
+	return fmt.Sprintf("s3://%s/%s", s.bucket, key), nil
 }

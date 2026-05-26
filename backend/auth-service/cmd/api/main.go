@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
-
 
 	"lancar/auth-service/internal/domain"
 	"lancar/auth-service/internal/handler"
@@ -17,12 +17,11 @@ import (
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-	"github.com/redis/go-redis/v9"
-	_ "lancar/auth-service/internal/handler/docs"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	httpSwagger "github.com/swaggo/http-swagger"
+	_ "lancar/auth-service/internal/handler/docs"
 )
-
 
 // @title LANCAR Identity Service API
 // @version 1.0
@@ -42,12 +41,87 @@ import (
 // @in header
 // @name Authorization
 
+func isProductionRuntime() bool {
+	return strings.EqualFold(os.Getenv("ENVIRONMENT"), "production") ||
+		strings.EqualFold(os.Getenv("NODE_ENV"), "production")
+}
+
+func containsWeakMarker(value string, markers []string) bool {
+	normalizedValue := strings.ToLower(value)
+	for _, marker := range markers {
+		if strings.Contains(normalizedValue, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func requireStrongSecret(name string, minLength int) {
+	value := strings.TrimSpace(os.Getenv(name))
+	weakMarkers := []string{
+		"changeme",
+		"change_me",
+		"placeholder",
+		"example",
+		"your-secret-key",
+		"your_secret",
+		"lancar_secret_key_change_me",
+	}
+
+	if value == "" {
+		log.Fatalf("%s is required in production", name)
+	}
+	if len(value) < minLength {
+		log.Fatalf("%s must be at least %d characters in production", name, minLength)
+	}
+	if containsWeakMarker(value, weakMarkers) {
+		log.Fatalf("%s contains a weak placeholder marker", name)
+	}
+}
+
+func requireProductionURL(name string) {
+	value := strings.TrimSpace(os.Getenv(name))
+	weakMarkers := []string{
+		"localhost",
+		"127.0.0.1",
+		"0.0.0.0",
+		"guest:guest",
+		"password_url_encoded",
+		"password_raw",
+		"redis_password_url_encoded",
+		"rabbitmq_password_url_encoded",
+		"changeme",
+		"change_me",
+		"placeholder",
+		"example",
+	}
+
+	if value == "" {
+		log.Fatalf("%s is required in production", name)
+	}
+	if containsWeakMarker(value, weakMarkers) {
+		log.Fatalf("%s must not point to localhost, guest credentials, or placeholder values in production", name)
+	}
+}
+
+func validateProductionSecrets() {
+	if !isProductionRuntime() {
+		return
+	}
+
+	requireProductionURL("DATABASE_URL")
+	requireProductionURL("READ_DATABASE_URL")
+	requireProductionURL("REDIS_URL")
+	requireStrongSecret("JWT_SECRET", 32)
+}
+
 func main() {
 	// Load environment variables
 	err := godotenv.Load("../../.env")
 	if err != nil {
 		log.Println("No .env file found, using system environment variables")
 	}
+	validateProductionSecrets()
 
 	// ─────────────────────────────────────────────
 	// Database Connection (Read/Write Split)
@@ -96,6 +170,9 @@ func main() {
 	// ─────────────────────────────────────────────
 	redisURL := os.Getenv("REDIS_URL")
 	if redisURL == "" {
+		if isProductionRuntime() {
+			log.Fatal("REDIS_URL is required in production")
+		}
 		redisURL = "redis://localhost:6379"
 		log.Println("[auth-service] REDIS_URL not set, defaulting to localhost:6379")
 	}
@@ -160,7 +237,8 @@ func main() {
 
 	repo := repository.NewPostgresRepository(db, readDB)
 	svc := service.NewAuthService(repo, repo, repo, repo, repo, livenessSvc, storageSvc)
-	h := handler.NewAuthHandler(svc)
+	authAbuseProtector := middleware.NewAuthAbuseProtector(rdb)
+	h := handler.NewAuthHandler(svc, authAbuseProtector)
 
 	mux := http.NewServeMux()
 
@@ -221,8 +299,6 @@ func main() {
 	mux.HandleFunc("/api/v1/couriers/me", middleware.MobileAuthIntegrityChain(repo, h.GetCourierProfile))
 	mux.HandleFunc("/api/v1/couriers/verify-liveness", middleware.MobileAuthIntegrityChain(repo, h.VerifyLiveness))
 
-
-
 	// ─────────────────────────────────────────────
 	// API v1 — Admin Endpoints (requires JWT + role + 2FA for sensitive)
 	// ─────────────────────────────────────────────
@@ -237,7 +313,12 @@ func main() {
 	// ─────────────────────────────────────────────
 	// Static Files (only if not using S3)
 	if storageDriver != "s3" {
-		mux.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadPath))))
+		uploadFileServer := http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadPath)))
+		mux.HandleFunc("/uploads/", middleware.AuthChain(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "private, no-store")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			uploadFileServer.ServeHTTP(w, r)
+		}))
 	}
 
 	// ─────────────────────────────────────────────
@@ -286,4 +367,3 @@ func main() {
 	fmt.Printf("[auth-service] Starting on :%s (API v1 + Redis rate limiting ready)\n", port)
 	log.Fatal(server.ListenAndServe())
 }
-

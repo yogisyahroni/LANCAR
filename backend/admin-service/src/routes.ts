@@ -3,16 +3,12 @@ import * as controllers from './controllers/index';
 import { requireAuth, requireRole, requireTotp, verifyWebSession, verifySession, requireMobileOrWebAuth } from './middlewares';
 import { toggleRateLimiter } from './rateLimit';
 import { requireIdempotencyKey } from './middleware/idempotencyRequirement';
-import multer from 'multer';
-
-// Multer setup for memory storage (max 10MB)
-const upload = multer({ 
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }
-});
+import { requireCookieCsrfProtection } from './middleware/csrfProtection';
+import { secureUploadSingle } from './security/uploadSecurity';
 
 export const routes = Router();
 
+routes.use(requireCookieCsrfProtection);
 
 // Web Portal Auth Routes
 routes.post('/auth/web/login', (req, res) => controllers.loginWeb(req, res));
@@ -23,7 +19,7 @@ routes.post('/auth/web/refresh-token', (req, res) => controllers.refreshToken(re
 // Courier Mobile Auth Routes
 routes.post('/api/v1/auth/courier/login', (req, res) => controllers.loginCourier(req, res));
 routes.post('/api/v1/auth/courier/otp/verify', (req, res) => controllers.verifyCourierLoginOtp(req, res));
-routes.post('/api/v1/auth/courier/documents/upload', upload.single('file'), (req, res) => controllers.uploadCourierOnDemandDocument(req, res));
+routes.post('/api/v1/auth/courier/documents/upload', ...secureUploadSingle('file', 'courierDocument'), (req, res) => controllers.uploadCourierOnDemandDocument(req, res));
 routes.post('/api/v1/auth/courier/register', (req, res) => controllers.submitOnDemandCourierApplication(req, res));
 routes.get('/api/v1/auth/courier/registration-links/:token', (req, res) => controllers.getPublicCourierRegistrationLink(req, res));
 routes.post('/api/v1/auth/courier/register/:token', (req, res) => controllers.submitCourierApplicationByRegistrationLink(req, res));
@@ -47,12 +43,12 @@ routes.patch('/api/v1/courier/duty', requireMobileOrWebAuth, (req, res) => contr
 routes.post('/api/v1/courier/safety-events', requireMobileOrWebAuth, (req, res) => controllers.createMobileCourierSafetyEvent(req, res));
 routes.post('/api/v1/courier/trip-share', requireMobileOrWebAuth, (req, res) => controllers.createMobileCourierTripShare(req, res));
 routes.get('/api/v1/courier/orders/:orderId/route', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierRoutePreview(req, res));
-routes.post('/api/v1/courier/orders/:orderId/cancel-pickup', requireMobileOrWebAuth, upload.single('photo'), (req, res) => controllers.cancelMobileCourierOnDemandPickup(req, res));
+routes.post('/api/v1/courier/orders/:orderId/cancel-pickup', requireMobileOrWebAuth, ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.cancelMobileCourierOnDemandPickup(req, res));
 routes.post('/api/v1/tracking/sync', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.syncCourierTracking(req, res));
 routes.get('/api/v1/tracking', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderTracking(req, res));
 routes.post('/api/v1/orders/status', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierOrderStatus(req, res));
 routes.post('/api/v1/orders/scan', requireMobileOrWebAuth, requireIdempotencyKey('courier.proof.scan'), (req, res) => controllers.scanMobileCourierOrder(req, res));
-routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, requireIdempotencyKey('courier.pod.upload'), upload.single('photo'), (req, res) => controllers.uploadMobileCourierPod(req, res));
+routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, requireIdempotencyKey('courier.pod.upload'), ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.uploadMobileCourierPod(req, res));
 
 routes.get('/auth/web/me', verifySession, (req, res) => controllers.me(req, res));
 routes.get('/auth/web/notifications', verifySession, (req, res) => controllers.getUserNotifications(req, res));
@@ -88,12 +84,12 @@ routes.get('/auth/web/orders/:id/chats', requireMobileOrWebAuth, (req, res) => c
 routes.post('/auth/web/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
 routes.get('/api/v1/mobile/chats/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));
 routes.post('/api/v1/mobile/chats/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
-routes.post('/auth/web/orders/:id/upload', verifyWebSession, upload.single('file'), (req, res) => controllers.customerOrder.uploadOrderFile(req, res));
+routes.post('/auth/web/orders/:id/upload', verifyWebSession, ...secureUploadSingle('file', 'customerAttachment'), (req, res) => controllers.customerOrder.uploadOrderFile(req, res));
 routes.get('/auth/web/disputes', verifyWebSession, (req, res) => controllers.getCustomerDisputes(req, res));
 routes.post('/auth/web/disputes', verifyWebSession, (req, res) => controllers.createDispute(req, res));
 routes.get('/auth/web/disputes/:id/chats', verifyWebSession, (req, res) => controllers.getDisputeChats(req, res));
 routes.post('/auth/web/disputes/:id/chats', verifyWebSession, (req, res) => controllers.sendDisputeChat(req, res));
-routes.post('/auth/web/disputes/:id/upload', verifyWebSession, upload.single('file'), (req, res) => controllers.uploadDisputeFile(req, res));
+routes.post('/auth/web/disputes/:id/upload', verifyWebSession, ...secureUploadSingle('file', 'customerAttachment'), (req, res) => controllers.uploadDisputeFile(req, res));
 
 // Customer Mobile Portal Routes
 routes.get('/api/v1/customer/profile', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerProfile(req, res));
@@ -118,7 +114,8 @@ routes.get('/api/v1/customer/location-requests/:id', requireMobileOrWebAuth, (re
 routes.post('/api/v1/customer/notifications/register-token', requireMobileOrWebAuth, (req, res) => controllers.registerDeviceToken(req, res));
 
 // Bulk Order Routes
-routes.post('/auth/web/orders/bulk/upload', verifyWebSession, upload.single('file'), (req, res) => controllers.bulkOrder.uploadBulkExcel(req, res));
+routes.post('/auth/web/orders/bulk/upload', verifyWebSession, ...secureUploadSingle('file', 'bulkCsv'), (req, res) => controllers.bulkOrder.uploadBulkExcel(req, res));
+routes.use('/uploads', requireMobileOrWebAuth, (req, res) => controllers.servePrivateUpload(req, res));
 routes.get('/auth/web/orders/bulk/status/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.getBulkJobStatus(req, res));
 routes.post('/auth/web/orders/bulk/validate/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.validateBulkRow(req, res));
 routes.put('/auth/web/orders/bulk/row/:job_id', verifyWebSession, (req, res) => controllers.bulkOrder.validateBulkRow(req, res));
@@ -222,7 +219,7 @@ routes.patch('/admin/disputes/:id/status', (req, res) => controllers.updateDispu
 routes.post('/admin/disputes/:id/assign', (req, res) => controllers.assignDispute(req, res));
 routes.get('/admin/disputes/:id/chats', (req, res) => controllers.getDisputeChats(req, res));
 routes.post('/admin/disputes/:id/chats', (req, res) => controllers.sendDisputeChat(req, res));
-routes.post('/admin/disputes/:id/upload', upload.single('file'), (req, res) => controllers.uploadDisputeFile(req, res));
+routes.post('/admin/disputes/:id/upload', ...secureUploadSingle('file', 'customerAttachment'), (req, res) => controllers.uploadDisputeFile(req, res));
 
 
 // Finance Management

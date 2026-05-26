@@ -1,0 +1,458 @@
+# ============================================================
+# LANCAR - Docker Compose Production (VPS)
+#
+# Usage:
+#   docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml config
+#   docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml up -d --build
+#
+# Security posture:
+# - No default production secrets.
+# - DB, Redis, RabbitMQ, and internal services are not published publicly.
+# - Public-facing containers bind to 127.0.0.1 by default for reverse proxy use.
+# ============================================================
+
+name: lancar-production
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-app-security: &app-security
+  init: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  logging: *default-logging
+
+x-app-env: &app-env
+  NODE_ENV: production
+  ENVIRONMENT: production
+
+services:
+  db:
+    image: postgis/postgis:15-3.4-alpine
+    container_name: lancar-prod-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+    volumes:
+      - lancar-prod-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - lancar-private
+    logging: *default-logging
+
+  redis:
+    image: redis:7-alpine
+    container_name: lancar-prod-redis
+    restart: unless-stopped
+    command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - lancar-prod-redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - lancar-private
+    logging: *default-logging
+
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: lancar-prod-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/}
+    volumes:
+      - lancar-prod-rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - lancar-private
+    logging: *default-logging
+
+  migrate:
+    image: ghcr.io/pressly/goose:latest
+    container_name: lancar-prod-migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./database/migrations:/migrations:ro
+    command:
+      - -dir
+      - /migrations
+      - postgres
+      - ${MIGRATION_DATABASE_DSN:?MIGRATION_DATABASE_DSN is required}
+      - up
+    networks:
+      - lancar-private
+    profiles:
+      - migrate
+    logging: *default-logging
+
+  auth-service:
+    <<: *app-security
+    image: ${AUTH_SERVICE_IMAGE:-lancar/auth-service:production}
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    container_name: lancar-prod-auth
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      READ_DATABASE_URL: ${READ_DATABASE_URL:?READ_DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      AUTH_PORT: 8081
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      OTP_TTL_SECONDS: ${OTP_TTL_SECONDS:-300}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      UPLOAD_PATH: /app/uploads
+      UPLOAD_URL: ${UPLOAD_URL:-}
+      AWS_REGION: ${AWS_REGION:-}
+      S3_BUCKET: ${S3_BUCKET:-}
+      VERIHUBS_APP_ID: ${VERIHUBS_APP_ID:-}
+      VERIHUBS_API_KEY: ${VERIHUBS_API_KEY:-}
+      VERIHUBS_API_URL: ${VERIHUBS_API_URL:-}
+    volumes:
+      - lancar-prod-auth-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - lancar-private
+
+  routing-service:
+    <<: *app-security
+    image: ${ROUTING_SERVICE_IMAGE:-lancar/routing-service:production}
+    build:
+      context: ./backend/routing-service
+      dockerfile: Dockerfile
+    container_name: lancar-prod-routing
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      READ_DATABASE_URL: ${READ_DATABASE_URL:?READ_DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      ROUTING_PORT: 8082
+      ROUTING_SERVICE_PORT: 8082
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8082/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - lancar-private
+
+  order-service:
+    <<: *app-security
+    image: ${ORDER_SERVICE_IMAGE:-lancar/order-service:production}
+    build:
+      context: ./backend/order-service
+      dockerfile: Dockerfile
+    container_name: lancar-prod-order
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      READ_DATABASE_URL: ${READ_DATABASE_URL:?READ_DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      RABBITMQ_URL: ${RABBITMQ_URL:?RABBITMQ_URL is required}
+      ORDER_PORT: 8083
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      GOOGLE_DIRECTIONS_API_KEY: ${GOOGLE_DIRECTIONS_API_KEY:-}
+      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
+      MIDTRANS_ENV: ${MIDTRANS_ENV:-production}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8083/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - lancar-private
+
+  payment-service:
+    <<: *app-security
+    image: ${PAYMENT_SERVICE_IMAGE:-lancar/payment-service:production}
+    build:
+      context: ./backend/payment-service
+      dockerfile: Dockerfile
+    container_name: lancar-prod-payment
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      PORT: 8084
+      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
+      MIDTRANS_IRIS_API_KEY: ${MIDTRANS_IRIS_API_KEY:-}
+      MIDTRANS_ENV: ${MIDTRANS_ENV:-production}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - lancar-private
+
+  admin-service:
+    <<: *app-security
+    image: ${ADMIN_SERVICE_IMAGE:-lancar/admin-service:production}
+    build:
+      context: ./backend/admin-service
+      dockerfile: Dockerfile
+    container_name: lancar-prod-admin
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      READ_DATABASE_URL: ${READ_DATABASE_URL:?READ_DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      RABBITMQ_URL: ${RABBITMQ_URL:?RABBITMQ_URL is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INTERNAL_GATEWAY_SECRET: ${INTERNAL_GATEWAY_SECRET:?INTERNAL_GATEWAY_SECRET is required}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
+      PORT: 3000
+      ADMIN_PORT: 3000
+      SEED_DB: "false"
+      SOCKET_REDIS_ADAPTER_ENABLED: "true"
+      PAYMENT_SERVICE_URL: http://payment-service:8084
+      ORDER_SERVICE_URL: http://order-service:8083
+      REQUIRE_IDEMPOTENCY_KEYS: ${REQUIRE_IDEMPOTENCY_KEYS:-true}
+      EVENT_OUTBOX_WORKER_ENABLED: ${EVENT_OUTBOX_WORKER_ENABLED:-true}
+      EVENT_OUTBOX_INTERVAL_MS: ${EVENT_OUTBOX_INTERVAL_MS:-1000}
+      EVENT_OUTBOX_BATCH_SIZE: ${EVENT_OUTBOX_BATCH_SIZE:-100}
+      OUTBOX_RABBITMQ_ENABLED: ${OUTBOX_RABBITMQ_ENABLED:-true}
+      OUTBOX_RABBITMQ_EXCHANGE: ${OUTBOX_RABBITMQ_EXCHANGE:-lancar.events}
+      OUTBOX_MAX_ATTEMPTS: ${OUTBOX_MAX_ATTEMPTS:-8}
+      MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
+      MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
+      MIDTRANS_ENV: ${MIDTRANS_ENV:-production}
+      MIDTRANS_FINISH_URL: ${MIDTRANS_FINISH_URL:?MIDTRANS_FINISH_URL is required}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:?PUBLIC_APP_URL is required}
+      RECEIVER_LOCATION_PUBLIC_URL: ${RECEIVER_LOCATION_PUBLIC_URL:-}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      GOOGLE_DIRECTIONS_API_KEY: ${GOOGLE_DIRECTIONS_API_KEY:-}
+      FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT:-}
+      FIREBASE_SERVICE_ACCOUNT_B64: ${FIREBASE_SERVICE_ACCOUNT_B64:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_CUSTOMER_SERVICE_ACCOUNT: ${FIREBASE_CUSTOMER_SERVICE_ACCOUNT:-}
+      FIREBASE_CUSTOMER_SERVICE_ACCOUNT_B64: ${FIREBASE_CUSTOMER_SERVICE_ACCOUNT_B64:-}
+      FIREBASE_CUSTOMER_PROJECT_ID: ${FIREBASE_CUSTOMER_PROJECT_ID:-}
+      FIREBASE_COURIER_SERVICE_ACCOUNT: ${FIREBASE_COURIER_SERVICE_ACCOUNT:-}
+      FIREBASE_COURIER_SERVICE_ACCOUNT_B64: ${FIREBASE_COURIER_SERVICE_ACCOUNT_B64:-}
+      FIREBASE_COURIER_PROJECT_ID: ${FIREBASE_COURIER_PROJECT_ID:-}
+      FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      PG_POOL_MAX: ${ADMIN_PG_POOL_MAX:-20}
+      PG_READ_POOL_MAX: ${ADMIN_PG_READ_POOL_MAX:-30}
+      PG_POOL_IDLE_TIMEOUT_MS: ${PG_POOL_IDLE_TIMEOUT_MS:-30000}
+      PG_POOL_CONNECTION_TIMEOUT_MS: ${PG_POOL_CONNECTION_TIMEOUT_MS:-5000}
+      PG_STATEMENT_TIMEOUT_MS: ${PG_STATEMENT_TIMEOUT_MS:-15000}
+      PG_QUERY_TIMEOUT_MS: ${PG_QUERY_TIMEOUT_MS:-15000}
+      PG_APPLICATION_NAME: ${PG_APPLICATION_NAME:-lancar-admin-production}
+      UPLOAD_PRIVATE_DIR: /app/storage/uploads
+      ROUTE_PRICING_CACHE_TTL_SECONDS: ${ROUTE_PRICING_CACHE_TTL_SECONDS:-300}
+      ROUTE_PRICING_STALE_CACHE_TTL_SECONDS: ${ROUTE_PRICING_STALE_CACHE_TTL_SECONDS:-86400}
+      MAPS_PROVIDER_CIRCUIT_FAILURE_THRESHOLD: ${MAPS_PROVIDER_CIRCUIT_FAILURE_THRESHOLD:-5}
+      MAPS_PROVIDER_CIRCUIT_OPEN_SECONDS: ${MAPS_PROVIDER_CIRCUIT_OPEN_SECONDS:-30}
+    volumes:
+      - lancar-prod-admin-uploads:/app/storage/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - lancar-private
+
+  api-gateway:
+    <<: *app-security
+    image: ${API_GATEWAY_IMAGE:-lancar/api-gateway:production}
+    build:
+      context: ./backend/api-gateway
+      dockerfile: Dockerfile
+    container_name: lancar-prod-gateway
+    restart: unless-stopped
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      admin-service:
+        condition: service_healthy
+      routing-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      AUTH_SERVICE_URL: http://auth-service:8081
+      ORDER_SERVICE_URL: http://order-service:8083
+      ADMIN_SERVICE_URL: http://admin-service:3000
+      ROUTING_SERVICE_URL: http://routing-service:8082
+      PAYMENT_SERVICE_URL: http://payment-service:8084
+      GATEWAY_PORT: 8080
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      INTERNAL_GATEWAY_SECRET: ${INTERNAL_GATEWAY_SECRET:?INTERNAL_GATEWAY_SECRET is required}
+      METRICS_BEARER_TOKEN: ${METRICS_BEARER_TOKEN:?METRICS_BEARER_TOKEN is required}
+      DOCS_BASIC_AUTH_USERNAME: ${DOCS_BASIC_AUTH_USERNAME:-}
+      DOCS_BASIC_AUTH_PASSWORD: ${DOCS_BASIC_AUTH_PASSWORD:-}
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
+    ports:
+      - "${PUBLIC_BIND:-127.0.0.1}:${GATEWAY_HOST_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - lancar-private
+
+  frontend:
+    <<: *app-security
+    image: ${FRONTEND_IMAGE:-lancar/frontend:production}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?NEXT_PUBLIC_WS_URL is required}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:?NEXT_PUBLIC_SOCKET_URL is required}
+        NEXT_PUBLIC_MIDTRANS_CLIENT_KEY: ${NEXT_PUBLIC_MIDTRANS_CLIENT_KEY:-}
+        NEXT_PUBLIC_MIDTRANS_SNAP_URL: ${NEXT_PUBLIC_MIDTRANS_SNAP_URL:-https://app.midtrans.com/snap/snap.js}
+    container_name: lancar-prod-frontend
+    restart: unless-stopped
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?NEXT_PUBLIC_API_URL is required}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:?NEXT_PUBLIC_WS_URL is required}
+      NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:?NEXT_PUBLIC_SOCKET_URL is required}
+      SERVER_API_URL: http://api-gateway:8080/api/v1
+      NEXT_PUBLIC_MIDTRANS_CLIENT_KEY: ${NEXT_PUBLIC_MIDTRANS_CLIENT_KEY:-}
+      NEXT_PUBLIC_MIDTRANS_SNAP_URL: ${NEXT_PUBLIC_MIDTRANS_SNAP_URL:-https://app.midtrans.com/snap/snap.js}
+    ports:
+      - "${PUBLIC_BIND:-127.0.0.1}:${FRONTEND_HOST_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - lancar-private
+
+  admin-dashboard:
+    <<: *app-security
+    image: ${ADMIN_DASHBOARD_IMAGE:-lancar/admin-dashboard:production}
+    build:
+      context: ./admin-dashboard
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:?VITE_API_URL is required}
+        VITE_WS_URL: ${VITE_WS_URL:?VITE_WS_URL is required}
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL:?VITE_SOCKET_URL is required}
+    container_name: lancar-prod-admin-dashboard
+    restart: unless-stopped
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+    ports:
+      - "${PUBLIC_BIND:-127.0.0.1}:${ADMIN_DASHBOARD_HOST_PORT:-3002}:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - lancar-private
+
+volumes:
+  lancar-prod-db-data:
+    name: lancar-prod-db-data
+  lancar-prod-redis-data:
+    name: lancar-prod-redis-data
+  lancar-prod-rabbitmq-data:
+    name: lancar-prod-rabbitmq-data
+  lancar-prod-auth-uploads:
+    name: lancar-prod-auth-uploads
+  lancar-prod-admin-uploads:
+    name: lancar-prod-admin-uploads
+
+networks:
+  lancar-private:
+    name: lancar-prod-private
+    driver: bridge

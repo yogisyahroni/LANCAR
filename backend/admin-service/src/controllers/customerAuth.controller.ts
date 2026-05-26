@@ -2,6 +2,14 @@ import { Request, Response } from 'express';
 import { db } from '../db';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import {
+  AuthProtectionError,
+  assertAuthAttemptAllowed,
+  getRequestIpAddress,
+  recordAuthFailure,
+  recordAuthSuccess,
+  sendAuthProtectionError,
+} from '../security/bruteForceProtection';
 
 type CustomerJwtPayload = {
   user_id?: string;
@@ -9,10 +17,13 @@ type CustomerJwtPayload = {
   role?: string;
 };
 
+const resolveCookieSameSite = (): 'strict' | 'lax' =>
+  process.env.NODE_ENV === 'production' ? 'strict' : 'lax';
+
 const customerCookieOptions = (expiresAt: Date) => ({
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  sameSite: resolveCookieSameSite(),
   path: '/',
   expires: expiresAt,
 });
@@ -44,6 +55,8 @@ const createCustomerWebSession = async (req: Request, customerId: string) => {
 
 export const loginWeb = async (req: Request, res: Response) => {
   const { email, password, portal } = req.body; // portal: 'admin' or 'customer'
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  const ipAddress = getRequestIpAddress(req);
 
   if (!email || !password) {
     res.status(400).json({ error: 'Email and password are required' });
@@ -59,12 +72,23 @@ export const loginWeb = async (req: Request, res: Response) => {
   }
 
   try {
+    await assertAuthAttemptAllowed({
+      scope: 'admin_web_login',
+      identifier: normalizedEmail,
+      ipAddress,
+    });
+
     const targetTable = portal === 'admin' ? 'staff' : 'customers';
     // Correcting the query to select full_name as name and pin_hash to verify
-    const result = await db.query(`SELECT id, full_name as name, email, role, pin_hash FROM ${targetTable} WHERE email = $1`, [email]);
+    const result = await db.query(`SELECT id, full_name as name, email, role, pin_hash FROM ${targetTable} WHERE email = $1`, [normalizedEmail]);
 
     if (result.rows.length === 0) {
-      console.warn(`\x1b[33m[Auth Failed]\x1b[0m User not found: ${email}`);
+      await recordAuthFailure({
+        scope: 'admin_web_login',
+        identifier: normalizedEmail,
+        ipAddress,
+        reason: 'user_not_found',
+      });
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
@@ -75,7 +99,12 @@ export const loginWeb = async (req: Request, res: Response) => {
     const isPasswordValid = user.pin_hash === password || devAdminPasswords.has(password);
 
     if (!isPasswordValid) {
-      console.warn(`\x1b[33m[Auth Failed]\x1b[0m Invalid password for: ${email}`);
+      await recordAuthFailure({
+        scope: 'admin_web_login',
+        identifier: normalizedEmail,
+        ipAddress,
+        reason: 'invalid_password',
+      });
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
@@ -95,12 +124,16 @@ export const loginWeb = async (req: Request, res: Response) => {
     const cookieName = isAdminRole ? 'admin_session' : 'customer_session';
 
     // Set HttpOnly cookie with explicit path for gateway cross-path support
-    console.log(`\x1b[32m[Auth Success]\x1b[0m User: ${user.email}, Role: ${user.role}, Portal: ${portal || 'default'}, Setting cookie: ${cookieName}`);
+    await recordAuthSuccess({
+      scope: 'admin_web_login',
+      identifier: normalizedEmail,
+      ipAddress,
+    });
     
     const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
+      sameSite: resolveCookieSameSite(),
       path: '/', // Crucial: must be root
       expires: expiresAt,
     };
@@ -112,6 +145,11 @@ export const loginWeb = async (req: Request, res: Response) => {
 
     res.json({ message: 'Login successful', user });
   } catch (error) {
+    if (error instanceof AuthProtectionError) {
+      sendAuthProtectionError(res, error);
+      return;
+    }
+
     console.error('Login error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }

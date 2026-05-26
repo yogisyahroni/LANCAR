@@ -29,12 +29,15 @@ func NewLocalStorage(basePath, baseURL string) (*LocalStorage, error) {
 
 func (s *LocalStorage) Save(ctx context.Context, filename string, content io.Reader) (string, error) {
 	// Generate unique filename to prevent collisions and directory traversal
-	ext := filepath.Ext(filename)
+	ext := safeStorageExtension(filename)
+	if ext == "" {
+		return "", fmt.Errorf("unsupported storage file extension")
+	}
 	newFilename := uuid.New().String() + ext
 	filePath := filepath.Join(s.basePath, newFilename)
 
 	// Create file
-	out, err := os.Create(filePath)
+	out, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0640)
 	if err != nil {
 		return "", fmt.Errorf("failed to create file: %w", err)
 	}

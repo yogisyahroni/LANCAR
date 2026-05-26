@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"context"
 	"lancar/order-service/internal/domain"
@@ -46,9 +47,89 @@ import (
 // @in header
 // @name Authorization
 
+func isProductionRuntime() bool {
+	return strings.EqualFold(os.Getenv("ENVIRONMENT"), "production") ||
+		strings.EqualFold(os.Getenv("NODE_ENV"), "production")
+}
+
+func containsWeakMarker(value string, markers []string) bool {
+	normalizedValue := strings.ToLower(value)
+	for _, marker := range markers {
+		if strings.Contains(normalizedValue, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func requireStrongSecret(name string, minLength int) {
+	value := strings.TrimSpace(os.Getenv(name))
+	weakMarkers := []string{
+		"changeme",
+		"change_me",
+		"placeholder",
+		"example",
+		"your-secret-key",
+		"your_secret",
+		"lancar_secret_key_change_me",
+	}
+
+	if value == "" {
+		log.Fatalf("%s is required in production", name)
+	}
+	if len(value) < minLength {
+		log.Fatalf("%s must be at least %d characters in production", name, minLength)
+	}
+	if containsWeakMarker(value, weakMarkers) {
+		log.Fatalf("%s contains a weak placeholder marker", name)
+	}
+}
+
+func requireProductionURL(name string) {
+	value := strings.TrimSpace(os.Getenv(name))
+	weakMarkers := []string{
+		"localhost",
+		"127.0.0.1",
+		"0.0.0.0",
+		"guest:guest",
+		"password_url_encoded",
+		"password_raw",
+		"redis_password_url_encoded",
+		"rabbitmq_password_url_encoded",
+		"changeme",
+		"change_me",
+		"placeholder",
+		"example",
+	}
+
+	if value == "" {
+		log.Fatalf("%s is required in production", name)
+	}
+	if containsWeakMarker(value, weakMarkers) {
+		log.Fatalf("%s must not point to localhost, guest credentials, or placeholder values in production", name)
+	}
+}
+
+func validateProductionSecrets() {
+	if !isProductionRuntime() {
+		return
+	}
+
+	requireProductionURL("DATABASE_URL")
+	requireProductionURL("READ_DATABASE_URL")
+	requireProductionURL("REDIS_URL")
+	requireProductionURL("RABBITMQ_URL")
+	requireStrongSecret("JWT_SECRET", 32)
+
+	if strings.EqualFold(os.Getenv("MIDTRANS_ENV"), "production") {
+		requireStrongSecret("MIDTRANS_SERVER_KEY", 16)
+	}
+}
+
 func main() {
 	// Load environment variables
 	godotenv.Load("../../.env", "../../../.env")
+	validateProductionSecrets()
 
 	// Database connections
 	dbConn := os.Getenv("DATABASE_URL")
@@ -72,6 +153,9 @@ func main() {
 	// Redis connection
 	redisURL := os.Getenv("REDIS_URL")
 	if redisURL == "" {
+		if isProductionRuntime() {
+			log.Fatal("REDIS_URL is required in production")
+		}
 		redisURL = "redis://localhost:6379"
 	}
 	redisOpts, err := redis.ParseURL(redisURL)
@@ -116,6 +200,9 @@ func main() {
 
 	rabbitmqURL := os.Getenv("RABBITMQ_URL")
 	if rabbitmqURL == "" {
+		if isProductionRuntime() {
+			log.Fatal("RABBITMQ_URL is required in production")
+		}
 		rabbitmqURL = "amqp://guest:guest@localhost:5672/"
 	}
 	tq, err := queue.NewRabbitMQQueue(rabbitmqURL)

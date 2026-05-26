@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { db } from './db';
+import { verifyInternalGatewayAuth } from './internalAuth';
 // Extend Express Request interface to include mock user
 declare module 'express-serve-static-core' {
   interface Request {
@@ -14,21 +15,22 @@ declare module 'express-serve-static-core' {
 
 // Admin Auth middleware - checks for admin_session cookie or explicit headers
 export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
-  const userId = req.headers['x-user-id'] as string;
-  const role = req.headers['x-user-role'] as string;
-  const fullName = req.headers['x-user-full-name'] as string || 'User';
-  const totpVerifiedHeader = req.headers['x-totp-verified'];
-  const totpVerified = totpVerifiedHeader === 'true';
+  const internalAuth = verifyInternalGatewayAuth(req.headers);
+  if (internalAuth.status === 'invalid') {
+    console.warn(`[requireAuth] Blocked forged internal headers: ${internalAuth.reason}`);
+    res.status(401).json({ error: 'Unauthorized: Invalid internal authentication context' });
+    return;
+  }
 
-  // 1. Check for explicit headers (usually injected by Gateway or Service-to-Service)
-  if (userId && role) {
+  // 1. Check for Gateway-signed identity headers.
+  if (internalAuth.status === 'valid' && internalAuth.identity.userId && internalAuth.identity.role) {
     req.user = {
-      id: userId,
-      role: role,
-      full_name: fullName,
-      totp_verified: totpVerifiedHeader !== undefined ? totpVerified : true,
+      id: internalAuth.identity.userId,
+      role: internalAuth.identity.role,
+      full_name: internalAuth.identity.fullName,
+      totp_verified: internalAuth.identity.totpVerified,
     };
-    console.log(`[requireAuth] Authenticated via Headers: UserID=${userId}, Role=${role}`);
+    console.log(`[requireAuth] Authenticated via Gateway: UserID=${internalAuth.identity.userId}, Role=${internalAuth.identity.role}`);
     return next();
   }
 
@@ -39,19 +41,22 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 // Flexible middleware that accepts injected Gateway Headers (Mobile Bearer JWT) 
 // OR Web Customer Cookies OR Web Admin Cookies to protect shared resources.
 export const requireMobileOrWebAuth = async (req: Request, res: Response, next: NextFunction) => {
-  const userId = req.headers['x-user-id'] as string;
-  const role = req.headers['x-user-role'] as string;
-  const fullName = req.headers['x-user-full-name'] as string || 'User';
+  const internalAuth = verifyInternalGatewayAuth(req.headers);
+  if (internalAuth.status === 'invalid') {
+    console.warn(`[requireMobileOrWebAuth] Blocked forged internal headers: ${internalAuth.reason}`);
+    res.status(401).json({ error: 'Unauthorized: Invalid internal authentication context' });
+    return;
+  }
 
-  // 1. Check for explicit Gateway Injected headers (Mobile Apps authenticated via JWT)
-  if (userId) {
+  // 1. Check for Gateway-signed identity headers (Mobile Apps authenticated via JWT)
+  if (internalAuth.status === 'valid' && internalAuth.identity.userId) {
     req.user = {
-      id: userId,
-      role: role || 'user',
-      full_name: fullName,
-      totp_verified: true,
+      id: internalAuth.identity.userId,
+      role: internalAuth.identity.role || 'user',
+      full_name: internalAuth.identity.fullName,
+      totp_verified: internalAuth.identity.totpVerified,
     };
-    console.log(`[requireMobileOrWebAuth] Authenticated Mobile via Headers: UserID=${userId}`);
+    console.log(`[requireMobileOrWebAuth] Authenticated Mobile via Gateway: UserID=${internalAuth.identity.userId}`);
     return next();
   }
 
@@ -270,5 +275,4 @@ export const verifySession = async (req: Request, res: Response, next: NextFunct
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
-
 

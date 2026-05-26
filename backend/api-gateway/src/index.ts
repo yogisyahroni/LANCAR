@@ -1,4 +1,5 @@
 import express, { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
 import cors from 'cors';
 import helmet from 'helmet';
 import pino from 'pino-http';
@@ -9,6 +10,20 @@ import { Registry, collectDefaultMetrics, Counter, Histogram } from 'prom-client
 import CircuitBreaker from 'opossum';
 import { validate } from './middleware/validator';
 import jwt from 'jsonwebtoken';
+import {
+  applyInternalGatewayAuth,
+  resolveInternalGatewaySecret,
+  stripInternalIdentityHeaders,
+} from './internalAuth';
+import { validateProductionEnv } from './envValidation';
+import { buildCorsOptions, rejectUnsafeCorsPreflight } from './corsPolicy';
+import { createGatewayAuthMatrixMiddleware } from './routeAuthMatrix';
+import { protectDocs, protectMetrics } from './opsSurfaceProtection';
+import {
+  createMapsAbuseGuard,
+  createPricingAbuseGuard,
+  createPublicEndpointRateLimiter,
+} from './publicEndpointAbuseProtection';
 
 
 
@@ -16,9 +31,21 @@ import { PricingEstimateSchema, CreateOrderSchema } from './schemas/order.schema
 import { OTPSendSchema, OTPVerifySchema, RegisterSchema } from './schemas/auth.schema';
 
 dotenv.config({ path: '../../.env' });
+validateProductionEnv();
 
 const app = express();
-const logger = pino();
+const logger = pino({
+  redact: [
+    'req.headers.authorization',
+    'req.headers.cookie',
+    'req.headers["x-api-key"]',
+    'res.headers["set-cookie"]',
+  ],
+  customProps: (req) => ({
+    correlation_id: req.headers['x-correlation-id'],
+    request_id: req.headers['x-request-id'],
+  }),
+});
 
 // --- ENTERPRISE OBSERVABILITY (Prometheus) ---
 const register = new Registry();
@@ -39,7 +66,28 @@ const httpLatencyHistogram = new Histogram({
   registers: [register],
 });
 
+const publicEndpointAbuseCounter = new Counter({
+  name: 'public_endpoint_abuse_events_total',
+  help: 'Public maps and pricing abuse-protection events',
+  labelNames: ['endpoint', 'reason', 'action'],
+  registers: [register],
+});
+
+const recordPublicAbuseEvent = (event: { endpoint: string; reason: string; action: string }) => {
+  publicEndpointAbuseCounter.labels(event.endpoint, event.reason, event.action).inc();
+};
+
 // Middleware to track metrics
+app.use((req, res, next) => {
+  const correlationId = String(req.headers['x-correlation-id'] || '').trim() || randomUUID();
+  const requestId = String(req.headers['x-request-id'] || '').trim() || randomUUID();
+  req.headers['x-correlation-id'] = correlationId;
+  req.headers['x-request-id'] = requestId;
+  res.setHeader('X-Correlation-ID', correlationId);
+  res.setHeader('X-Request-ID', requestId);
+  next();
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
@@ -103,8 +151,12 @@ app.use(helmet({
 // --- ENTERPRISE SECURITY VALIDATION ---
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
-  console.error('\x1b[31m[FATAL ERROR] JWT_SECRET environment variable is not defined!\x1b[0m');
-  console.error('API Gateway cannot start without a secure signing key. Exiting...');
+  logger.logger.fatal({ event: 'startup_secret_missing', secret: 'JWT_SECRET' }, 'API Gateway cannot start without required secret');
+  process.exit(1);
+}
+
+if (process.env.NODE_ENV === 'production' && !resolveInternalGatewaySecret()) {
+  logger.logger.fatal({ event: 'startup_secret_missing', secret: 'INTERNAL_GATEWAY_SECRET' }, 'API Gateway cannot start without required internal secret');
   process.exit(1);
 }
 
@@ -128,8 +180,14 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const publicMapsLimiter = createPublicEndpointRateLimiter('maps', { recordEvent: recordPublicAbuseEvent });
+const publicPricingLimiter = createPublicEndpointRateLimiter('pricing', { recordEvent: recordPublicAbuseEvent });
+const publicMapsAbuseGuard = createMapsAbuseGuard({ recordEvent: recordPublicAbuseEvent });
+const publicPricingAbuseGuard = createPricingAbuseGuard({ recordEvent: recordPublicAbuseEvent });
+
 // 🛡️ Global DDoS & Brute-Force Defense Layer
 app.use(generalLimiter);
+app.use(stripInternalIdentityHeaders);
 
 // JWT Authentication Middleware
 const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
@@ -149,6 +207,13 @@ const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
       if (user && (user.user_id || user.id)) {
         req.headers['x-user-id'] = user.user_id || user.id;
       }
+      if (user?.role) {
+        req.headers['x-user-role'] = user.role;
+      }
+      if (user?.full_name || user?.name) {
+        req.headers['x-user-full-name'] = user.full_name || user.name;
+      }
+      req.headers['x-totp-verified'] = String(Boolean(user?.totp_verified));
       next();
     });
   } else {
@@ -173,48 +238,14 @@ const authenticateCustomerApi = (req: Request, res: Response, next: NextFunction
 
 
 // --- ENTERPRISE CORS HARDENING ---
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',') 
-  : ['http://localhost:3000', 'http://localhost:5173']; // Defaults for dev
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    if (ALLOWED_ORIGINS.includes(origin) || (process.env.NODE_ENV !== 'production' && origin.includes('localhost'))) {
-      callback(null, true);
-    } else {
-      console.warn(`\x1b[31m[CORS Security Alert]\x1b[0m Unauthorized origin blocked: ${origin}`);
-      callback(new Error('Origin not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-role', 'x-portal', 'x-idempotency-key', 'x-device-id', 'Cookie'],
-}));
+app.use(rejectUnsafeCorsPreflight);
+app.use(cors(buildCorsOptions()));
 
 app.use(logger);
-app.use((req: Request, res: Response, next: NextFunction) => {
-  if (req.url.includes('/auth/web')) {
-    console.log(`\x1b[35m[Gateway Debug]\x1b[0m ${req.method} ${req.url} - Cookie: ${req.headers.cookie || 'none'}`);
-    
-    const originalEnd = res.end;
-    res.end = function(this: any, chunk?: any, encoding?: any, cb?: any) {
-      const setCookie = res.getHeader('set-cookie');
-      if (setCookie) {
-        console.log(`\x1b[35m[Gateway Debug]\x1b[0m ${req.method} ${req.url} - Set-Cookie:`, setCookie);
-      }
-      return originalEnd.call(this, chunk, encoding, cb);
-    } as any;
-  }
-  next();
-});
+app.use(createGatewayAuthMatrixMiddleware(authenticateJWT));
 
 // Middleware to parse JSON only for specific routes that need validation in the gateway
-const jsonParser = express.json();
+const jsonParser = express.json({ limit: '16kb' });
 
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:8081';
 const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://localhost:8083';
@@ -222,9 +253,19 @@ const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://localhost
 const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://localhost:3000';
 const ROUTING_SERVICE_URL = process.env.ROUTING_SERVICE_URL || 'http://localhost:8082';
 
-console.log(`\x1b[32m[Gateway Config]\x1b[0m Auth Service: ${AUTH_SERVICE_URL}`);
-console.log(`\x1b[32m[Gateway Config]\x1b[0m Admin Service: ${ADMIN_SERVICE_URL}`);
-console.log(`\x1b[32m[Gateway Config]\x1b[0m Order Service: ${ORDER_SERVICE_URL}`);
+logger.logger.info({
+  event: 'gateway_upstream_configured',
+  auth_service_configured: Boolean(AUTH_SERVICE_URL),
+  admin_service_configured: Boolean(ADMIN_SERVICE_URL),
+  order_service_configured: Boolean(ORDER_SERVICE_URL),
+}, 'Gateway upstream services configured');
+
+const prepareProxyRequest = (proxyReq: any, req: Request) => {
+  applyInternalGatewayAuth(proxyReq, req);
+  proxyReq.setHeader('X-Correlation-ID', req.headers['x-correlation-id'] || randomUUID());
+  proxyReq.setHeader('X-Request-ID', req.headers['x-request-id'] || randomUUID());
+  fixRequestBody(proxyReq, req);
+};
 
 // Helper for proxying with body fix and circuit breaker integration
 const proxyWithResilience = (target: string, breaker: any) => 
@@ -238,7 +279,7 @@ const proxyWithResilience = (target: string, breaker: any) =>
           if (req.body && req.body.phone && !req.body.phone_number) {
             req.body.phone_number = req.body.phone;
           }
-          fixRequestBody(proxyReq, req);
+          prepareProxyRequest(proxyReq, req);
         } else {
           res.status(503).json({
             status: 'error',
@@ -329,7 +370,9 @@ app.post(
 // Pricing Estimate (Validation in Gateway)
 app.post(
   '/api/v1/pricing/estimate',
+  publicPricingLimiter,
   jsonParser,
+  publicPricingAbuseGuard,
   validate(PricingEstimateSchema),
   proxyWithResilience(ORDER_SERVICE_URL, orderBreaker)
 );
@@ -355,7 +398,7 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       console.log(`\x1b[35m[Proxy Admin Auth]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
+      prepareProxyRequest(proxyReq, req);
     },
     proxyRes: (proxyRes: any, req: any, res: any) => {
       if (proxyRes.headers['set-cookie']) {
@@ -373,7 +416,7 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       console.log(`\x1b[35m[Proxy Courier Auth]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
+      prepareProxyRequest(proxyReq, req);
     }
   }
 }));
@@ -389,7 +432,7 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       console.log(`\x1b[36m[Proxy Orders]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
+      prepareProxyRequest(proxyReq, req);
     },
     proxyRes: (proxyRes: any) => {
       if (proxyRes.statusCode >= 500) {
@@ -418,7 +461,7 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       console.log(`\x1b[36m[Proxy Couriers]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
+      prepareProxyRequest(proxyReq, req);
     }
   }
 }));
@@ -431,7 +474,7 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       console.log(`\x1b[36m[Proxy Tracking]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
+      prepareProxyRequest(proxyReq, req);
     }
   }
 }));
@@ -439,6 +482,7 @@ app.use(createProxyMiddleware({
 // Public Maps Runtime Routes (provider config, geocode, reverse geocode, routes, and OSM tile proxy)
 // These endpoints must stay unauthenticated because customer/courier apps need map runtime config
 // before a booking flow can safely complete, while the admin-service owns provider policy.
+app.use('/api/v1/maps', publicMapsLimiter, publicMapsAbuseGuard);
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/maps',
   target: ADMIN_SERVICE_URL,
@@ -446,7 +490,7 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       console.log(`\x1b[35m[Proxy Maps]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
+      prepareProxyRequest(proxyReq, req);
     },
     proxyRes: (proxyRes: any) => {
       if (proxyRes.statusCode >= 500) {
@@ -477,7 +521,7 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       console.log(`\x1b[35m[Proxy Public]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
+      prepareProxyRequest(proxyReq, req);
     },
     proxyRes: (proxyRes: any) => {
       if (proxyRes.statusCode >= 500) {
@@ -507,7 +551,7 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       console.log(`\x1b[35m[Proxy Customer Mobile]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
+      prepareProxyRequest(proxyReq, req);
     }
   }
 }));
@@ -534,7 +578,7 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       console.log(`\x1b[35m[Proxy Mobile Admin]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
+      prepareProxyRequest(proxyReq, req);
     }
   }
 }));
@@ -550,7 +594,7 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       console.log(`\x1b[35m[Proxy Admin]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
+      prepareProxyRequest(proxyReq, req);
     }
   }
 }));
@@ -566,7 +610,7 @@ app.use(createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       console.log(`\x1b[35m[Proxy Payment Webhook]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
+      prepareProxyRequest(proxyReq, req);
     }
   }
 }));
@@ -578,7 +622,7 @@ app.use('/api/v1/routing', createProxyMiddleware({
   on: {
     proxyReq: (proxyReq: any, req: any) => {
       console.log(`\x1b[36m[Proxy Routing]\x1b[0m Forwarding ${req.method} ${req.url} to ${ROUTING_SERVICE_URL}`);
-      fixRequestBody(proxyReq, req);
+      prepareProxyRequest(proxyReq, req);
     }
   }
 }));
@@ -589,18 +633,18 @@ app.use('/api/v1/routing', createProxyMiddleware({
 // ─────────────────────────────────────────────
 
 // Automatic redirects for clean URLs
-app.get('/docs/auth', (req, res) => res.redirect('/docs/auth/swagger/index.html'));
-app.get('/docs/orders', (req, res) => res.redirect('/docs/orders/swagger/index.html'));
+app.get('/docs/auth', protectDocs, (req, res) => res.redirect('/docs/auth/swagger/index.html'));
+app.get('/docs/orders', protectDocs, (req, res) => res.redirect('/docs/orders/swagger/index.html'));
 
 // Auth Service Documentation
-app.use('/docs/auth', createProxyMiddleware({
+app.use('/docs/auth', protectDocs, createProxyMiddleware({
   target: AUTH_SERVICE_URL,
   pathRewrite: { '^/docs/auth': '/swagger' },
   changeOrigin: true
 }));
 
 // Order Service Documentation
-app.use('/docs/orders', createProxyMiddleware({
+app.use('/docs/orders', protectDocs, createProxyMiddleware({
   target: ORDER_SERVICE_URL,
   pathRewrite: { '^/docs/orders': '/swagger' },
   changeOrigin: true
@@ -620,7 +664,7 @@ app.use(
     },
     on: {
       proxyReq: (proxyReq: any, req: any) => {
-        fixRequestBody(proxyReq, req);
+        prepareProxyRequest(proxyReq, req);
       }
     }
   })
@@ -636,7 +680,7 @@ app.use('/api/v1/wallet', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_U
 // HEALTH & UTILS
 // ─────────────────────────────────────────────
 // Metrics endpoint (Internal use)
-app.get('/metrics', async (req, res) => {
+app.get('/metrics', protectMetrics, async (req, res) => {
   res.set('Content-Type', register.contentType);
   res.end(await register.metrics());
 });

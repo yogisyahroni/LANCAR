@@ -9,24 +9,62 @@ let io: SocketIOServer;
 let socketRedisPubClient: ReturnType<typeof redis.duplicate> | undefined;
 let socketRedisSubClient: ReturnType<typeof redis.duplicate> | undefined;
 
+const isProductionRuntime = () =>
+  process.env.NODE_ENV === 'production' || process.env.ENVIRONMENT === 'production';
+
+const DEFAULT_DEVELOPMENT_SOCKET_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://localhost:5176',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3002',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:5175',
+  'http://127.0.0.1:5176',
+];
+
+const getSocketAllowedOrigins = () => {
+  const configuredOrigins = process.env.ALLOWED_ORIGINS
+    ?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  if (configuredOrigins && configuredOrigins.length > 0) {
+    return configuredOrigins;
+  }
+
+  return isProductionRuntime() ? [] : DEFAULT_DEVELOPMENT_SOCKET_ORIGINS;
+};
+
+const getJwtSecrets = () => {
+  const secrets = [process.env.JWT_SECRET].filter(Boolean) as string[];
+
+  if (!isProductionRuntime()) {
+    secrets.push('lancar_secret_key_change_me', 'your-secret-key');
+  }
+
+  return Array.from(new Set(secrets));
+};
+
 export const initWebSocket = (server: HttpServer) => {
+  const socketAllowedOrigins = getSocketAllowedOrigins();
+
   io = new SocketIOServer(server, {
     cors: {
-      origin: [
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://localhost:3002',
-        'http://localhost:5173',
-        'http://localhost:5174',
-        'http://localhost:5175',
-        'http://localhost:5176',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3002',
-        'http://127.0.0.1:5173',
-        'http://127.0.0.1:5174',
-        'http://127.0.0.1:5175',
-        'http://127.0.0.1:5176',
-      ],
+      origin: (origin, callback) => {
+        if (!origin || socketAllowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+
+        console.warn(`[Socket.IO CORS] Blocked unauthorized origin: ${origin}`);
+        return callback(null, false);
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },
@@ -105,11 +143,7 @@ export const initWebSocket = (server: HttpServer) => {
       return;
     }
 
-    const jwtSecrets = Array.from(new Set([
-      process.env.JWT_SECRET,
-      'lancar_secret_key_change_me',
-      'your-secret-key',
-    ].filter(Boolean))) as string[];
+    const jwtSecrets = getJwtSecrets();
     import('jsonwebtoken').then(async jwt => {
       let decodedPayload: any = null;
       for (const secret of jwtSecrets) {

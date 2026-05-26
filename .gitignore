@@ -12,8 +12,13 @@ bin/
 .env
 .env.local
 .env.*.local
+.env.development
+.env.staging
+.env.production
 *.pem
 *.key
+**/google-services.json
+!**/google-services.example.json
 
 # Logs
 *.log
@@ -27,6 +32,14 @@ Thumbs.db
 *.out
 coverage.out
 coverage.html
+backend/*-service/*-api
+backend/*-service/*_test.exe
+backend/*-service/*.exe
+backend/*-service/main
+backend/*-service/main.exe
+backend/*-service/api
+backend/*-service/api.exe
+backend/*-service/gosec-report
 
 # Docker
 .docker/
@@ -40,7 +53,8 @@ coverage.html
 # Test artifacts
 __tests__/coverage/
 coverage/
-artifacts/
+artifacts/*
+!artifacts/.gitkeep
 
 # Local Scratch
 scratch/

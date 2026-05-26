@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,45 @@ import (
 	"github.com/google/uuid"
 	"lancar/order-service/internal/domain"
 )
+
+type webhookAuditRepository interface {
+	InsertWebhookAuditEvent(
+		ctx context.Context,
+		providerName string,
+		providerEventID string,
+		providerReference string,
+		eventType string,
+		payload []byte,
+		signature string,
+		verificationStatus string,
+		processingStatus string,
+		errorCode *string,
+	) (string, bool, error)
+	UpdateWebhookAuditEvent(ctx context.Context, id string, processingStatus string, errorCode *string) error
+}
+
+func paymentWebhookSha256Hex(value []byte) string {
+	sum := sha256.Sum256(value)
+	return hex.EncodeToString(sum[:])
+}
+
+func stringPtr(value string) *string {
+	return &value
+}
+
+func webhookEventID(data map[string]interface{}, payload []byte) string {
+	transactionID, _ := data["transaction_id"].(string)
+	orderID, _ := data["order_id"].(string)
+	status, _ := data["transaction_status"].(string)
+	statusCode, _ := data["status_code"].(string)
+	if transactionID != "" {
+		return "midtrans:" + transactionID + ":" + status + ":" + statusCode
+	}
+	if orderID != "" {
+		return "midtrans:" + orderID + ":" + status + ":" + statusCode
+	}
+	return "midtrans:payload:" + paymentWebhookSha256Hex(payload)
+}
 
 type DefaultPaymentService struct {
 	paymentRepo    domain.PaymentRepository
@@ -55,7 +95,7 @@ func (s *DefaultPaymentService) CreatePayment(ctx context.Context, orderID strin
 	mdr := int(float64(amount) * 0.007)
 	// PPN 11% of MDR (assuming tax is only on the service fee/MDR)
 	ppn := int(float64(mdr) * 0.11)
-	
+
 	// Weather and insurance reserve placeholders
 	weatherReserve := 0
 	insuranceReserve := 0
@@ -106,37 +146,95 @@ func (s *DefaultPaymentService) CreatePayment(ctx context.Context, orderID strin
 }
 
 func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byte, signature string) error {
-	// 1. Verify Signature
-	if err := s.paymentGateway.VerifyWebhookSignature(ctx, payload, signature); err != nil {
-		slog.WarnContext(ctx, "Invalid webhook signature", "error", err)
-		return fmt.Errorf("invalid signature: %w", err)
-	}
-
-	// 2. Parse Payload
 	var data map[string]interface{}
 	if err := json.Unmarshal(payload, &data); err != nil {
 		return fmt.Errorf("failed to parse payload: %w", err)
 	}
+	eventID := webhookEventID(data, payload)
+	orderID, _ := data["order_id"].(string)
+	transactionStatus, _ := data["transaction_status"].(string)
+	auditRepo, hasAuditRepo := s.paymentRepo.(webhookAuditRepository)
 
-	orderID, ok := data["order_id"].(string)
-	if !ok {
+	// 1. Verify Signature
+	if err := s.paymentGateway.VerifyWebhookSignature(ctx, payload, signature); err != nil {
+		if hasAuditRepo {
+			code := "invalid_signature"
+			if signature == "" {
+				code = "missing_signature"
+			}
+			_, _, auditErr := auditRepo.InsertWebhookAuditEvent(
+				ctx,
+				"midtrans",
+				eventID,
+				orderID,
+				transactionStatus,
+				payload,
+				signature,
+				map[bool]string{true: "missing_signature", false: "invalid"}[signature == ""],
+				"failed",
+				&code,
+			)
+			if auditErr != nil {
+				slog.WarnContext(ctx, "Failed to audit invalid webhook", "error", auditErr)
+			}
+		}
+		slog.WarnContext(ctx, "Invalid webhook signature", "error", err)
+		return fmt.Errorf("invalid signature: %w", err)
+	}
+
+	var auditEventID string
+	if hasAuditRepo {
+		insertedID, duplicate, err := auditRepo.InsertWebhookAuditEvent(
+			ctx,
+			"midtrans",
+			eventID,
+			orderID,
+			transactionStatus,
+			payload,
+			signature,
+			"valid",
+			"received",
+			nil,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to audit webhook: %w", err)
+		}
+		if duplicate {
+			slog.InfoContext(ctx, "Duplicate payment webhook ignored", "event_id", eventID)
+			return nil
+		}
+		auditEventID = insertedID
+	}
+
+	if orderID == "" {
+		if hasAuditRepo {
+			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "failed", stringPtr("missing_order_id"))
+		}
 		return fmt.Errorf("missing order_id in webhook")
 	}
 
-	transactionStatus, ok := data["transaction_status"].(string)
-	if !ok {
+	if transactionStatus == "" {
+		if hasAuditRepo {
+			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "failed", stringPtr("missing_transaction_status"))
+		}
 		return fmt.Errorf("missing transaction_status in webhook")
 	}
 
 	// 3. Get Payment
 	payment, err := s.paymentRepo.GetByOrderID(ctx, orderID)
 	if err != nil {
+		if hasAuditRepo {
+			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "failed", stringPtr("payment_lookup_failed"))
+		}
 		return fmt.Errorf("failed to get payment for order %s: %w", orderID, err)
 	}
 
 	// Idempotency check
 	if payment.Status == domain.PaymentStatusPaid {
 		slog.InfoContext(ctx, "Payment already paid, ignoring webhook", "payment_id", payment.ID)
+		if hasAuditRepo {
+			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "ignored", stringPtr("payment_already_paid"))
+		}
 		return nil // Already processed
 	}
 
@@ -155,15 +253,24 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 		}
 	case "pending":
 		// still pending
+		if hasAuditRepo {
+			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "ignored", stringPtr("payment_pending"))
+		}
 		return nil
 	default:
 		slog.WarnContext(ctx, "Unknown transaction status", "status", transactionStatus)
+		if hasAuditRepo {
+			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "ignored", stringPtr("unknown_transaction_status"))
+		}
 		return nil
 	}
 
 	// 5. Update DB
 	err = s.paymentRepo.UpdateStatus(ctx, payment.ID, newStatus, paidAt, nil, payload)
 	if err != nil {
+		if hasAuditRepo {
+			_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "failed", stringPtr("payment_update_failed"))
+		}
 		return fmt.Errorf("failed to update payment status: %w", err)
 	}
 
@@ -171,15 +278,21 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 	if newStatus == domain.PaymentStatusPaid {
 		if err := s.orderRepo.UpdateStatus(ctx, orderID, domain.StatusPendingAssignment); err != nil {
 			slog.ErrorContext(ctx, "Failed to update order status to pending_assignment", "order_id", orderID, "error", err)
+			if hasAuditRepo {
+				_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "failed", stringPtr("order_update_failed"))
+			}
 			return fmt.Errorf("failed to update order status: %w", err)
 		}
 		slog.InfoContext(ctx, "Payment successful, order status updated", "order_id", orderID)
-		
+
 		// Note: Here we would trigger fund splitting or dispatch workers.
 		// For Sprint 4, dispatching is done by a scheduler checking pending_assignment,
 		// and payout aggregation will be done by Payout system (PAY-002).
 	}
 
+	if hasAuditRepo {
+		_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "processed", nil)
+	}
 	return nil
 }
 

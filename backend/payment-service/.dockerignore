@@ -6,6 +6,17 @@ bin
 build
 coverage
 tmp
+*.exe
+*.test
+*.out
+*-api
+*-service
+*_test.exe
+main
+main.exe
+api
+api.exe
+gosec-report
 *.log
 *.pem
 *.key

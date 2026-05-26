@@ -52,6 +52,30 @@ jobs:
         run: chmod +x gradlew
         working-directory: ./${{ matrix.working_dir }}
 
+      - name: Prepare Firebase config
+        shell: bash
+        env:
+          COURIER_GOOGLE_SERVICES_JSON_B64: ${{ secrets.ANDROID_COURIER_GOOGLE_SERVICES_JSON_B64 }}
+          CUSTOMER_GOOGLE_SERVICES_JSON_B64: ${{ secrets.ANDROID_CUSTOMER_GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          set -euo pipefail
+
+          target="${{ matrix.working_dir }}/app/google-services.json"
+          example="${{ matrix.working_dir }}/app/google-services.example.json"
+
+          if [[ "${{ matrix.working_dir }}" == "android-app" && -n "${COURIER_GOOGLE_SERVICES_JSON_B64}" ]]; then
+            printf '%s' "${COURIER_GOOGLE_SERVICES_JSON_B64}" | base64 -d > "${target}"
+          elif [[ "${{ matrix.working_dir }}" == "android-app-customer" && -n "${CUSTOMER_GOOGLE_SERVICES_JSON_B64}" ]]; then
+            printf '%s' "${CUSTOMER_GOOGLE_SERVICES_JSON_B64}" | base64 -d > "${target}"
+          elif [[ -f "${example}" ]]; then
+            cp "${example}" "${target}"
+          else
+            echo "Missing Firebase config and example template for ${{ matrix.working_dir }}" >&2
+            exit 1
+          fi
+
+          chmod 600 "${target}"
+
       # 1. Quality Gate: Linting
       - name: Run Lint
         run: ./gradlew lintDebug

@@ -6,10 +6,12 @@ import (
 
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"lancar/payment-service/internal/domain"
 	"lancar/payment-service/internal/handler"
+	"lancar/payment-service/internal/middleware"
 	"lancar/payment-service/internal/repository"
 	"lancar/payment-service/internal/service"
 
@@ -17,9 +19,83 @@ import (
 	_ "github.com/lib/pq"
 )
 
+func isProductionRuntime() bool {
+	return strings.EqualFold(os.Getenv("ENVIRONMENT"), "production") ||
+		strings.EqualFold(os.Getenv("NODE_ENV"), "production")
+}
+
+func containsWeakMarker(value string, markers []string) bool {
+	normalizedValue := strings.ToLower(value)
+	for _, marker := range markers {
+		if strings.Contains(normalizedValue, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+func requireStrongSecret(name string, minLength int) {
+	value := strings.TrimSpace(os.Getenv(name))
+	weakMarkers := []string{
+		"changeme",
+		"change_me",
+		"placeholder",
+		"example",
+		"your-secret-key",
+		"your_secret",
+	}
+
+	if value == "" {
+		log.Fatalf("%s is required in production", name)
+	}
+	if len(value) < minLength {
+		log.Fatalf("%s must be at least %d characters in production", name, minLength)
+	}
+	if containsWeakMarker(value, weakMarkers) {
+		log.Fatalf("%s contains a weak placeholder marker", name)
+	}
+}
+
+func requireProductionURL(name string) {
+	value := strings.TrimSpace(os.Getenv(name))
+	weakMarkers := []string{
+		"localhost",
+		"127.0.0.1",
+		"0.0.0.0",
+		"guest:guest",
+		"password_url_encoded",
+		"password_raw",
+		"redis_password_url_encoded",
+		"rabbitmq_password_url_encoded",
+		"changeme",
+		"change_me",
+		"placeholder",
+		"example",
+	}
+
+	if value == "" {
+		log.Fatalf("%s is required in production", name)
+	}
+	if containsWeakMarker(value, weakMarkers) {
+		log.Fatalf("%s must not point to localhost, guest credentials, or placeholder values in production", name)
+	}
+}
+
+func validateProductionSecrets() {
+	if !isProductionRuntime() {
+		return
+	}
+
+	requireProductionURL("DATABASE_URL")
+	if strings.EqualFold(os.Getenv("MIDTRANS_ENV"), "production") {
+		requireStrongSecret("MIDTRANS_SERVER_KEY", 16)
+	}
+}
+
 func main() {
 	// Load environment variables
 	_ = godotenv.Load("../../.env")
+	validateProductionSecrets()
 
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -40,7 +116,7 @@ func main() {
 	if err := db.Ping(); err != nil {
 		log.Fatal("Database is unreachable:", err)
 	}
-	log.Println("[payment-service] Database connection established")
+	middleware.LogJSON("info", "database connection established", map[string]interface{}{})
 
 	// Wire Layers
 	repo := repository.NewPostgresWalletRepository(db, db) // Using same DB for R/W in this simple setup
@@ -49,12 +125,12 @@ func main() {
 
 	// Router
 	mux := http.NewServeMux()
-	
+
 	// API v1 — Wallet Endpoints
-	mux.HandleFunc("/api/v1/wallet/balance", h.GetBalance)
-	mux.HandleFunc("/api/v1/wallet/topup", h.TopUp)
-	mux.HandleFunc("/api/v1/wallet/deposit", h.Deposit)
-	mux.HandleFunc("/api/v1/wallet/withdraw", h.Withdraw)
+	mux.HandleFunc("/api/v1/wallet/balance", middleware.BaseChain(h.GetBalance))
+	mux.HandleFunc("/api/v1/wallet/topup", middleware.BaseChain(h.TopUp))
+	mux.HandleFunc("/api/v1/wallet/deposit", middleware.BaseChain(h.Deposit))
+	mux.HandleFunc("/api/v1/wallet/withdraw", middleware.BaseChain(h.Withdraw))
 
 	// Health Check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -74,7 +150,7 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 	}
 
-	log.Printf("[payment-service] Starting server on port %s", port)
+	middleware.LogJSON("info", "server starting", map[string]interface{}{"port": port})
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}

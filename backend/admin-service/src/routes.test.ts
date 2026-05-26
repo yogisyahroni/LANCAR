@@ -1,13 +1,31 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { routes } from './routes';
 import * as controllers from './controllers';
 import { db } from './db';
 import { redis } from './redis';
 import { closeWebSocket } from './websocket';
+import { buildInternalAuthHeaders, InternalIdentity } from './internalAuth';
+
+const INTERNAL_GATEWAY_SECRET = 'test-internal-gateway-secret-minimum-32-bytes';
+process.env.INTERNAL_GATEWAY_SECRET = INTERNAL_GATEWAY_SECRET;
+
+const gatewayHeaders = (overrides: Partial<InternalIdentity> = {}) =>
+  buildInternalAuthHeaders(
+    {
+      userId: 'test-user-id',
+      role: 'super_admin',
+      fullName: 'Test User',
+      totpVerified: true,
+      ...overrides,
+    },
+    INTERNAL_GATEWAY_SECRET
+  );
 
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 app.use(routes);
 
 // Mock the controllers
@@ -132,20 +150,25 @@ jest.mock('./db', () => ({
 describe('Admin Service Routes', () => {
   it('should return all flags', async () => {
     const res = await request(app).get('/admin/feature-flags')
-      .set('x-user-id', 'test-user-id')
-      .set('x-user-role', 'super_admin')
-      .set('x-user-full-name', 'Test User')
-      .set('x-totp-verified', 'true');
+      .set(gatewayHeaders());
     expect(res.status).toBe(200);
     expect(res.body).toEqual([{ key: 'test-flag' }]);
   });
 
+  it('rejects forged internal admin headers without gateway signature', async () => {
+    const res = await request(app).get('/admin/feature-flags')
+      .set('x-user-id', 'attacker-user-id')
+      .set('x-user-role', 'super_admin')
+      .set('x-user-full-name', 'Forged User')
+      .set('x-totp-verified', 'true');
+
+    expect(res.status).toBe(401);
+    expect(controllers.getAllFlags).not.toHaveBeenCalled();
+  });
+
   it('should toggle flag', async () => {
     const res = await request(app).patch('/admin/feature-flags/test-flag/toggle')
-      .set('x-user-id', 'test-user-id')
-      .set('x-user-role', 'super_admin')
-      .set('x-user-full-name', 'Test User')
-      .set('x-totp-verified', 'true')
+      .set(gatewayHeaders())
       .send({
         enabled: true,
         reason: '12345678901234567890123456789012345678901234567890',
@@ -155,32 +178,51 @@ describe('Admin Service Routes', () => {
     expect(res.body).toEqual({ status: 'toggled' });
   });
 
+  it('rejects cookie-authenticated mutations without trusted origin or referer', async () => {
+    const res = await request(app).post('/admin/feature-flags')
+      .set('Cookie', 'admin_session=test-admin-session')
+      .send({ key: 'csrf-test' });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual(expect.objectContaining({ code: 'ERR_CSRF_ORIGIN' }));
+    expect(controllers.createFlag).not.toHaveBeenCalled();
+  });
+
+  it('allows cookie-authenticated mutations from an allowed origin', async () => {
+    (db.query as jest.Mock).mockResolvedValueOnce({
+      rows: [{
+        user_id: 'admin-user-id',
+        role: 'super_admin',
+        full_name: 'Admin User',
+      }],
+    });
+
+    const res = await request(app).post('/admin/feature-flags')
+      .set('Cookie', 'admin_session=test-admin-session')
+      .set('Origin', 'http://localhost:3002')
+      .send({ key: 'csrf-test' });
+
+    expect(res.status).toBe(201);
+    expect(controllers.createFlag).toHaveBeenCalled();
+  });
+
   it('should get 3-legs readiness', async () => {
     const res = await request(app).get('/admin/feature-flags/readiness/three-legs')
-      .set('x-user-id', 'test-user-id')
-      .set('x-user-role', 'super_admin')
-      .set('x-user-full-name', 'Test User')
-      .set('x-totp-verified', 'true');
+      .set(gatewayHeaders());
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ readiness: true });
   });
   
   it('should get notification template by id', async () => {
     const res = await request(app).get('/admin/notifications/templates/1')
-      .set('x-user-id', 'test-user-id')
-      .set('x-user-role', 'super_admin')
-      .set('x-user-full-name', 'Test User')
-      .set('x-totp-verified', 'true');
+      .set(gatewayHeaders());
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ id: '1' });
   });
 
   it('should create notification template', async () => {
     const res = await request(app).post('/admin/notifications/templates')
-      .set('x-user-id', 'test-user-id')
-      .set('x-user-role', 'super_admin')
-      .set('x-user-full-name', 'Test User')
-      .set('x-totp-verified', 'true')
+      .set(gatewayHeaders())
       .send({ trigger: 'test', subject: 'test', content: 'test' });
     expect(res.status).toBe(201);
     expect(res.body).toEqual({ id: 'new-template' });
@@ -188,10 +230,7 @@ describe('Admin Service Routes', () => {
 
   it('should delete notification template', async () => {
     const res = await request(app).delete('/admin/notifications/templates/1')
-      .set('x-user-id', 'test-user-id')
-      .set('x-user-role', 'super_admin')
-      .set('x-user-full-name', 'Test User')
-      .set('x-totp-verified', 'true');
+      .set(gatewayHeaders());
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ status: 'deleted' });
   });
@@ -205,9 +244,12 @@ describe('Admin Service Routes', () => {
 
   it('allows authenticated courier payout summary access', async () => {
     const res = await request(app).get('/api/v1/courier/payout/summary')
-      .set('x-user-id', 'courier-user-id')
-      .set('x-user-role', 'courier')
-      .set('x-user-full-name', 'Courier Test');
+      .set(gatewayHeaders({
+        userId: 'courier-user-id',
+        role: 'courier',
+        fullName: 'Courier Test',
+        totpVerified: false,
+      }));
 
     expect(res.status).toBe(200);
     expect(controllers.getMobileCourierPayoutSummary).toHaveBeenCalled();
@@ -215,10 +257,12 @@ describe('Admin Service Routes', () => {
 
   it('requires TOTP for admin payout request status changes', async () => {
     const res = await request(app).patch('/admin/finance/payout-requests/11111111-1111-4111-8111-111111111111')
-      .set('x-user-id', 'admin-user-id')
-      .set('x-user-role', 'super_admin')
-      .set('x-user-full-name', 'Admin Test')
-      .set('x-totp-verified', 'false')
+      .set(gatewayHeaders({
+        userId: 'admin-user-id',
+        role: 'super_admin',
+        fullName: 'Admin Test',
+        totpVerified: false,
+      }))
       .send({ status: 'approved' });
 
     expect(res.status).toBe(403);
@@ -227,10 +271,12 @@ describe('Admin Service Routes', () => {
 
   it('allows TOTP-verified admin payout request status changes', async () => {
     const res = await request(app).patch('/admin/finance/payout-requests/11111111-1111-4111-8111-111111111111')
-      .set('x-user-id', 'admin-user-id')
-      .set('x-user-role', 'super_admin')
-      .set('x-user-full-name', 'Admin Test')
-      .set('x-totp-verified', 'true')
+      .set(gatewayHeaders({
+        userId: 'admin-user-id',
+        role: 'super_admin',
+        fullName: 'Admin Test',
+        totpVerified: true,
+      }))
       .send({ status: 'approved' });
 
     expect(res.status).toBe(200);

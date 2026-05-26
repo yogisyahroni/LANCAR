@@ -2,21 +2,35 @@ package middleware
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
 )
 
-
 type contextKey string
 
 const correlationIDKey contextKey = "correlation_id"
+const requestIDKey contextKey = "request_id"
 const correlationIDHeader = "X-Correlation-ID"
+const requestIDHeader = "X-Request-ID"
+
+var (
+	emailPattern         = regexp.MustCompile(`(?i)\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b`)
+	phonePattern         = regexp.MustCompile(`(?m)(^|[^\d])((?:\+?62|0)8[\d\s-]{7,15}\d)([^\d]|$)`)
+	jwtPattern           = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{3,}\.[A-Za-z0-9_-]{3,}\.[A-Za-z0-9_-]{3,}\b`)
+	bearerPattern        = regexp.MustCompile(`(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{16,}\b`)
+	apiKeyPattern        = regexp.MustCompile(`\b(?:sk|pk|rk|AIza|SG|xox[baprs])[-_A-Za-z0-9]{12,}\b`)
+	longHexPattern       = regexp.MustCompile(`(?i)\b[a-f0-9]{32,}\b`)
+	urlCredentialPattern = regexp.MustCompile(`(?i)\b([a-z][a-z0-9+.\-]*://)([^:@\s/]+):([^@\s/]+)@`)
+)
+
+type structuredLogEvent map[string]interface{}
 
 func CorrelationIDMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -24,8 +38,14 @@ func CorrelationIDMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		if correlationID == "" {
 			correlationID = generateCorrelationID()
 		}
+		requestID := r.Header.Get(requestIDHeader)
+		if requestID == "" {
+			requestID = generateCorrelationID()
+		}
 		ctx := context.WithValue(r.Context(), correlationIDKey, correlationID)
+		ctx = context.WithValue(ctx, requestIDKey, requestID)
 		w.Header().Set(correlationIDHeader, correlationID)
+		w.Header().Set(requestIDHeader, requestID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 }
@@ -37,14 +57,56 @@ func GetCorrelationID(ctx context.Context) string {
 	return ""
 }
 
+func GetRequestID(ctx context.Context) string {
+	if v, ok := ctx.Value(requestIDKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
 func generateCorrelationID() string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, 12)
+	if _, err := rand.Read(b); err != nil {
+		return fmt.Sprintf("lnc-fallback-%d", time.Now().UnixMilli())
+	}
 	for i := range b {
-		b[i] = charset[rng.Intn(len(charset))]
+		b[i] = charset[int(b[i])%len(charset)]
 	}
 	return fmt.Sprintf("lnc-%s-%d", string(b), time.Now().UnixMilli()%10000)
+}
+
+func RedactString(value string) string {
+	value = urlCredentialPattern.ReplaceAllString(value, "${1}[REDACTED]@")
+	value = bearerPattern.ReplaceAllString(value, "Bearer [REDACTED]")
+	value = jwtPattern.ReplaceAllString(value, "[REDACTED]")
+	value = apiKeyPattern.ReplaceAllString(value, "[REDACTED]")
+	value = emailPattern.ReplaceAllString(value, "[REDACTED_EMAIL]")
+	value = phonePattern.ReplaceAllString(value, "${1}[REDACTED_PHONE]${3}")
+	value = longHexPattern.ReplaceAllString(value, "[REDACTED]")
+	return value
+}
+
+func LogJSON(level string, message string, fields structuredLogEvent) {
+	event := structuredLogEvent{
+		"timestamp": time.Now().UTC().Format(time.RFC3339Nano),
+		"level":     level,
+		"service":   "order-service",
+		"message":   RedactString(message),
+	}
+	for key, value := range fields {
+		if text, ok := value.(string); ok {
+			event[key] = RedactString(text)
+			continue
+		}
+		event[key] = value
+	}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		log.Printf(`{"timestamp":"%s","level":"error","service":"order-service","message":"failed to serialize log event"}`, time.Now().UTC().Format(time.RFC3339Nano))
+		return
+	}
+	log.Print(string(payload))
 }
 
 type responseWriter struct {
@@ -71,15 +133,16 @@ func RequestLoggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		duration := time.Since(start)
 		correlationID := GetCorrelationID(r.Context())
 
-		log.Printf("[REQUEST] correlation_id=%s method=%s path=%s status=%d duration=%s ip=%s user_agent=%s",
-			correlationID,
-			r.Method,
-			r.URL.Path,
-			rw.statusCode,
-			duration.Round(time.Millisecond),
-			realIP(r),
-			r.UserAgent(),
-		)
+		LogJSON("info", "request completed", structuredLogEvent{
+			"correlation_id": correlationID,
+			"request_id":     GetRequestID(r.Context()),
+			"method":         r.Method,
+			"path":           r.URL.Path,
+			"status":         rw.statusCode,
+			"duration_ms":    duration.Milliseconds(),
+			"ip":             realIP(r),
+			"user_agent":     r.UserAgent(),
+		})
 	}
 }
 
@@ -98,8 +161,12 @@ func RecoveryMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		defer func() {
 			if err := recover(); err != nil {
 				correlationID := GetCorrelationID(r.Context())
-				log.Printf("[PANIC] correlation_id=%s error=%v\nstack:\n%s",
-					correlationID, err, debug.Stack())
+				LogJSON("error", "panic recovered", structuredLogEvent{
+					"correlation_id": correlationID,
+					"request_id":     GetRequestID(r.Context()),
+					"error":          fmt.Sprint(err),
+					"stack":          string(debug.Stack()),
+				})
 				WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "An unexpected error occurred", correlationID)
 			}
 		}()

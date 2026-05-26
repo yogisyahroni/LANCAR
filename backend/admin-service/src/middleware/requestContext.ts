@@ -1,5 +1,13 @@
 import { randomUUID } from 'crypto';
+import { AsyncLocalStorage } from 'async_hooks';
 import { NextFunction, Request, Response } from 'express';
+
+type RequestLogContext = {
+  correlationId: string;
+  requestId: string;
+};
+
+const requestContextStore = new AsyncLocalStorage<RequestLogContext>();
 
 const headerValue = (value: string | string[] | undefined): string | undefined => {
   if (Array.isArray(value)) return value[0];
@@ -16,5 +24,7 @@ export const requestContext = (req: Request, res: Response, next: NextFunction) 
   res.setHeader('X-Request-Id', requestId);
   res.locals.correlationId = correlationId;
   res.locals.requestId = requestId;
-  next();
+  requestContextStore.run({ correlationId, requestId }, next);
 };
+
+export const getCurrentRequestContext = () => requestContextStore.getStore();

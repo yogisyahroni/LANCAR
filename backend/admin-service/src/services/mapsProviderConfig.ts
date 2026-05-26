@@ -417,6 +417,26 @@ const parseCachedRoute = (value: string | null): RouteEtaSnapshot | null => {
   }
 };
 
+const parseCachedGeocodeResults = (value: string | null): MapsGeocodeResult[] | null => {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed as MapsGeocodeResult[] : null;
+  } catch {
+    return null;
+  }
+};
+
+const parseCachedReverseGeocodeResult = (value: string | null): MapsGeocodeResult | null => {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? parsed as MapsGeocodeResult : null;
+  } catch {
+    return null;
+  }
+};
+
 const redisClient = redis as any;
 
 const safeRedisGet = async (key: string): Promise<string | null> => {
@@ -447,6 +467,28 @@ const safeRedisExpire = async (key: string, ttlSeconds: number): Promise<void> =
 };
 
 const getCachedRoute = async (cacheKey: string) => parseCachedRoute(await safeRedisGet(cacheKey));
+
+const geocodeCacheTtlSeconds = () => {
+  const parsed = Number(process.env.MAPS_GEOCODE_CACHE_TTL_SECONDS || 3600);
+  return Number.isFinite(parsed) && parsed >= 60 && parsed <= 86400 ? parsed : 3600;
+};
+
+const geocodeCacheKey = (kind: 'geocode' | 'reverse_geocode', provider: string, scope: MapProviderScope, value: string) => {
+  const raw = [kind, provider, scope, value.toLowerCase().trim()].join(':');
+  return `maps:${kind}:${crypto.createHash('sha1').update(raw).digest('hex')}`;
+};
+
+const getCachedGeocodeResults = async (cacheKey: string) => parseCachedGeocodeResults(await safeRedisGet(cacheKey));
+
+const getCachedReverseGeocodeResult = async (cacheKey: string) => parseCachedReverseGeocodeResult(await safeRedisGet(cacheKey));
+
+const setCachedGeocodeResults = async (cacheKey: string, payload: MapsGeocodeResult[]) => {
+  await safeRedisSet(cacheKey, JSON.stringify(payload), geocodeCacheTtlSeconds());
+};
+
+const setCachedReverseGeocodeResult = async (cacheKey: string, payload: MapsGeocodeResult) => {
+  await safeRedisSet(cacheKey, JSON.stringify(payload), geocodeCacheTtlSeconds());
+};
 
 const getStaleCachedRoute = async (cacheKey: string, provider: string, reason: string) => {
   const stale = parseCachedRoute(await safeRedisGet(`${cacheKey}:stale`));
@@ -1629,6 +1671,23 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
     return [];
   }
 
+  const cacheKey = geocodeCacheKey('geocode', providerConfig.active_provider, scope, normalizedQuery);
+  const cachedResults = await getCachedGeocodeResults(cacheKey);
+  if (cachedResults) {
+    recordMapsProviderObservation({
+      operation: 'geocode',
+      scope,
+      requested_provider: providerConfig.requested_provider,
+      active_provider: providerConfig.active_provider,
+      provider: `${providerConfig.active_provider}_geocode_cache`,
+      status: 'cache_hit',
+      latency_ms: Date.now() - startedAt,
+      cache_hit: true,
+      result_count: cachedResults.length,
+    });
+    return cachedResults;
+  }
+
   try {
     let results: MapsGeocodeResult[] = [];
     if (providerConfig.active_provider === 'google_maps') {
@@ -1681,6 +1740,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
       cache_hit: false,
       result_count: results.length,
     });
+    await setCachedGeocodeResults(cacheKey, results);
     return results;
   } catch (error) {
     recordMapsProviderObservation({
@@ -1719,6 +1779,24 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       result_count: 0,
     });
     return null;
+  }
+
+  const normalizedPoint = `${point.latitude.toFixed(5)},${point.longitude.toFixed(5)}`;
+  const cacheKey = geocodeCacheKey('reverse_geocode', providerConfig.active_provider, scope, normalizedPoint);
+  const cachedResult = await getCachedReverseGeocodeResult(cacheKey);
+  if (cachedResult) {
+    recordMapsProviderObservation({
+      operation: 'reverse_geocode',
+      scope,
+      requested_provider: providerConfig.requested_provider,
+      active_provider: providerConfig.active_provider,
+      provider: `${providerConfig.active_provider}_reverse_geocode_cache`,
+      status: 'cache_hit',
+      latency_ms: Date.now() - startedAt,
+      cache_hit: true,
+      result_count: 1,
+    });
+    return cachedResult;
   }
 
   try {
@@ -1777,6 +1855,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       cache_hit: false,
       result_count: 1,
     });
+    await setCachedReverseGeocodeResult(cacheKey, result);
     return result;
   } catch (error) {
     recordMapsProviderObservation({

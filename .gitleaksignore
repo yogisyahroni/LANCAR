@@ -1,0 +1,13 @@
+# Historical findings that were removed from the current tree or are known example-only docs.
+# Before production, rotate/restrict any real provider keys that appeared in these commits.
+606b5576267e899af66ec7e4692c81af58bafdc2:backend/admin-service/src/controllers/analytics.controller.ts:generic-api-key:310
+6675f9ceecb33ebdb295eae8e31dc26d88dc3693:android-app-customer/app/google-services.json:gcp-api-key:18
+301e547302f94af7df0781dd181bca5ed390ee25:backend/admin-service/src/controllers/couriers.controller.ts:generic-api-key:1036
+28415cc32ec5d35807ce2909c708f800b90c9ba5:android-app/app/google-services.json:gcp-api-key:18
+58bbac03cb1bcec9b3383a3ccf8e0356326efb7f:database/migrations/20240505000027_add_security_configs.sql:generic-api-key:8
+da2ef4eb81a5fd1f7d038cf0a3f5f7720c5af88c:frontend/src/app/(portal)/profil/page.tsx:generic-api-key:224
+da2ef4eb81a5fd1f7d038cf0a3f5f7720c5af88c:frontend/src/app/(portal)/profil/page.tsx:generic-api-key:230
+da2ef4eb81a5fd1f7d038cf0a3f5f7720c5af88c:frontend/src/components/PushNotificationPrompt.tsx:generic-api-key:55
+da2ef4eb81a5fd1f7d038cf0a3f5f7720c5af88c:frontend/src/components/PushNotificationPrompt.tsx:generic-api-key:62
+98c4884611855e86947cd475b2162729d7803606:.agent/skills/code-documentation-doc-generate/SKILL.md:curl-auth-header:536
+98c4884611855e86947cd475b2162729d7803606:.agent/skills/documentation-generation-doc-generate/SKILL.md:curl-auth-header:536

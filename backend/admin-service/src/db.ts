@@ -7,8 +7,13 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 const connectionString = process.env.DATABASE_URL;
 const readConnectionString = process.env.READ_DATABASE_URL || connectionString;
+const isProductionRuntime =
+  process.env.NODE_ENV === 'production' || process.env.ENVIRONMENT === 'production';
 
 if (!connectionString) {
+  if (isProductionRuntime) {
+    throw new Error('DATABASE_URL is required in production');
+  }
   console.warn('WARNING: DATABASE_URL is not set in .env. Falling back to default local connection.');
 }
 

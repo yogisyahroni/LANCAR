@@ -44,6 +44,17 @@ const makeClient = () => ({
   release: jest.fn(),
 });
 
+const makeValidatedImageFile = (name: string) => ({
+  originalname: name,
+  mimetype: 'image/jpeg',
+  size: 12,
+  buffer: Buffer.from('validated-photo'),
+  detectedMimeType: 'image/jpeg',
+  safeExtension: '.jpg',
+  safeFileName: `test-${name}`,
+  checksumSha256: 'test-checksum',
+});
+
 describe('on-demand courier proof to ledger lifecycle', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -147,10 +158,7 @@ describe('on-demand courier proof to ledger lifecycle', () => {
         longitude: 106.827153,
         accuracy: 10,
       },
-      file: {
-        originalname: 'pickup.jpg',
-        buffer: Buffer.from('pickup-photo'),
-      },
+      file: makeValidatedImageFile('pickup.jpg'),
     } as any, pickupPhotoRes);
 
     expect(pickupPhotoRes.json).toHaveBeenCalledWith(expect.objectContaining({
@@ -205,10 +213,7 @@ describe('on-demand courier proof to ledger lifecycle', () => {
         longitude: 106.802433,
         accuracy: 9,
       },
-      file: {
-        originalname: 'pod.jpg',
-        buffer: Buffer.from('pod-photo'),
-      },
+      file: makeValidatedImageFile('pod.jpg'),
     } as any, podRes);
 
     expect(podRes.json).toHaveBeenCalledWith(expect.objectContaining({

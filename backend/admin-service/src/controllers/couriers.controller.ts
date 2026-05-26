@@ -1,12 +1,10 @@
 import { Request, Response } from 'express';
 import { db, readDb } from '../db';
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
+import { saveSecureUploadBuffer } from '../security/uploadSecurity';
 
 const requiredOnDemandDocuments = ['ktp', 'sim', 'stnk', 'skpd', 'vehicle_photo', 'skck', 'bank_account'];
 const forbiddenVehicleCategories = ['trail', 'sport', 'touring'];
-const uploadRoot = path.join(process.cwd(), 'public/uploads/courier-documents');
 const allowedApplicationChannels = ['on_demand', 'pickup_only', 'delivery_only'];
 const channelLabels: Record<string, string> = {
   on_demand: 'On-Demand',
@@ -180,41 +178,6 @@ const upsertCourierVehicleAndCapabilities = async (
   );
 };
 
-const sanitizeExtension = (filename: string, mimeType?: string) => {
-  const ext = path.extname(filename || '').toLowerCase();
-  if (['.jpg', '.jpeg', '.png', '.webp', '.pdf'].includes(ext)) return ext;
-  if (mimeType === 'application/pdf') return '.pdf';
-  if (mimeType === 'image/png') return '.png';
-  if (mimeType === 'image/webp') return '.webp';
-  return '.jpg';
-};
-
-const hasAllowedFileSignature = (buffer: Buffer, mimeType: string) => {
-  if (mimeType === 'application/pdf') {
-    return buffer.subarray(0, 4).toString('utf8') === '%PDF';
-  }
-  if (mimeType === 'image/jpeg') {
-    return buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-  }
-  if (mimeType === 'image/png') {
-    return buffer.length > 8 &&
-      buffer[0] === 0x89 &&
-      buffer[1] === 0x50 &&
-      buffer[2] === 0x4e &&
-      buffer[3] === 0x47 &&
-      buffer[4] === 0x0d &&
-      buffer[5] === 0x0a &&
-      buffer[6] === 0x1a &&
-      buffer[7] === 0x0a;
-  }
-  if (mimeType === 'image/webp') {
-    return buffer.length > 12 &&
-      buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
-      buffer.subarray(8, 12).toString('ascii') === 'WEBP';
-  }
-  return false;
-};
-
 const publicLinkBase = (req: Request) => {
   const origin = req.headers.origin || process.env.ADMIN_DASHBOARD_URL || 'http://localhost:3002';
   return `${origin}/courier-register`;
@@ -360,38 +323,19 @@ export const uploadCourierOnDemandDocument = async (req: Request, res: Response)
       return;
     }
 
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-    if (!allowedMimeTypes.includes(req.file.mimetype)) {
-      res.status(415).json({ error: 'Only JPG, PNG, WEBP, and PDF files are allowed' });
-      return;
-    }
-
-    if (!hasAllowedFileSignature(req.file.buffer, req.file.mimetype)) {
-      res.status(415).json({ error: 'File content does not match an allowed document format' });
-      return;
-    }
-
     const today = new Date().toISOString().slice(0, 10);
-    const targetDir = path.join(uploadRoot, today);
-    fs.mkdirSync(targetDir, { recursive: true });
-
-    const checksum = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
-    const extension = sanitizeExtension(req.file.originalname, req.file.mimetype);
-    const filename = `${docType}-${crypto.randomUUID()}${extension}`;
-    const storageKey = `courier-documents/${today}/${filename}`;
-    const uploadPath = path.join(targetDir, filename);
-
-    fs.writeFileSync(uploadPath, req.file.buffer, { flag: 'wx' });
+    const filename = `${docType}-${crypto.randomUUID()}${req.file.safeExtension || '.jpg'}`;
+    const savedUpload = saveSecureUploadBuffer(req.file, `courier-documents/${today}`, filename);
 
     res.status(201).json({
       success: true,
       data: {
         doc_type: docType,
-        file_url: `/uploads/${storageKey}`,
+        file_url: savedUpload.fileUrl,
         original_file_name: req.file.originalname,
-        mime_type: req.file.mimetype,
+        mime_type: req.file.detectedMimeType,
         file_size_bytes: req.file.size,
-        checksum_sha256: checksum
+        checksum_sha256: req.file.checksumSha256
       },
       message: 'Dokumen berhasil diupload'
     });

@@ -1,10 +1,12 @@
 import {
   buildMapsRouteEtaSnapshot,
+  geocodeAddress,
   getMapsProviderOpsSnapshot,
   normalizeMapsProviderConfig,
   recordMapsProviderObservation,
   resetMapsProviderOpsForTests,
   resolvePublicMapsProviderConfig,
+  reverseGeocodePoint,
   updateMapsProviderConfigValue,
 } from './mapsProviderConfig';
 
@@ -51,6 +53,7 @@ describe('mapsProviderConfig', () => {
     delete process.env.GOOGLE_MAPS_API_KEY;
     delete process.env.GOOGLE_DIRECTIONS_API_KEY;
     delete process.env.GOOGLE_MAPS_QUOTA_REMAINING_PERCENT;
+    delete process.env.MAPS_GEOCODE_CACHE_TTL_SECONDS;
     delete process.env.OSM_ROUTING_BASE_URL;
     delete process.env.OSM_ROUTING_ALLOWED_HOSTS;
     delete process.env.OSM_ROUTING_PROFILE;
@@ -97,6 +100,49 @@ describe('mapsProviderConfig', () => {
     expect(config.requested_provider).toBe('google_maps');
     expect(config.active_provider).toBe('openstreetmap');
     expect(config.reason).toBe('google_maps_server_key_missing');
+  });
+
+  it('serves geocode results from cache before calling an external provider', async () => {
+    redis.get.mockImplementation(async (key: string) => {
+      if (key.startsWith('maps:geocode:')) {
+        return JSON.stringify([
+          {
+            label: 'Cached Jakarta address',
+            latitude: -6.2,
+            longitude: 106.8,
+            provider: 'openstreetmap_nominatim',
+            confidence: 0.8,
+          },
+        ]);
+      }
+      return null;
+    });
+
+    const results = await geocodeAddress('Jl Sudirman Jakarta', 'web_customer');
+
+    expect(results).toHaveLength(1);
+    expect(results[0].label).toBe('Cached Jakarta address');
+    expect(axios.get).not.toHaveBeenCalled();
+    expect((await getMapsProviderOpsSnapshot()).cache.hits).toBeGreaterThan(0);
+  });
+
+  it('caches reverse geocode provider results for repeated public lookups', async () => {
+    axios.get.mockResolvedValue({
+      data: {
+        display_name: 'Fresh Jakarta address',
+        importance: 0.9,
+      },
+    });
+
+    const result = await reverseGeocodePoint({ latitude: -6.2088, longitude: 106.8456 }, 'web_customer');
+
+    expect(result?.label).toBe('Fresh Jakarta address');
+    expect(redis.set).toHaveBeenCalledWith(
+      expect.stringMatching(/^maps:reverse_geocode:/),
+      expect.stringContaining('Fresh Jakarta address'),
+      'EX',
+      3600
+    );
   });
 
   it('supports admin disabled mode without crashing route calculation', async () => {

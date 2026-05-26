@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -15,6 +17,43 @@ import (
 	"lancar/auth-service/internal/domain"
 )
 
+const redactedValue = "[REDACTED]"
+
+var (
+	emailPattern         = regexp.MustCompile(`(?i)\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b`)
+	phonePattern         = regexp.MustCompile(`(?m)(^|[^\d])((?:\+?62|0)8[\d\s-]{7,15}\d)([^\d]|$)`)
+	jwtPattern           = regexp.MustCompile(`\beyJ[A-Za-z0-9_-]{3,}\.[A-Za-z0-9_-]{3,}\.[A-Za-z0-9_-]{3,}\b`)
+	bearerPattern        = regexp.MustCompile(`(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{16,}\b`)
+	apiKeyPattern        = regexp.MustCompile(`\b(?:sk|pk|rk|AIza|SG|xox[baprs])[-_A-Za-z0-9]{12,}\b`)
+	longHexPattern       = regexp.MustCompile(`(?i)\b[a-f0-9]{32,}\b`)
+	cardPattern          = regexp.MustCompile(`\b(?:\d[ -]*?){13,19}\b`)
+	urlCredentialPattern = regexp.MustCompile(`(?i)\b([a-z][a-z0-9+.\-]*://)([^:@\s/]+):([^@\s/]+)@`)
+)
+
+// RedactString removes secrets and common PII from strings before they enter logs.
+func RedactString(value string) string {
+	value = urlCredentialPattern.ReplaceAllString(value, "${1}"+redactedValue+"@")
+	value = bearerPattern.ReplaceAllString(value, "Bearer "+redactedValue)
+	value = jwtPattern.ReplaceAllString(value, redactedValue)
+	value = apiKeyPattern.ReplaceAllString(value, redactedValue)
+	value = emailPattern.ReplaceAllStringFunc(value, func(email string) string {
+		parts := strings.Split(email, "@")
+		if len(parts) != 2 || len(parts[0]) < 2 {
+			return redactedValue
+		}
+		return parts[0][:2] + "***@" + parts[1]
+	})
+	value = phonePattern.ReplaceAllStringFunc(value, func(match string) string {
+		digits := regexp.MustCompile(`\D`).ReplaceAllString(match, "")
+		if len(digits) < 6 {
+			return redactedValue
+		}
+		return strings.Replace(match, digits, digits[:3]+"***"+digits[len(digits)-3:], 1)
+	})
+	value = cardPattern.ReplaceAllString(value, redactedValue)
+	value = longHexPattern.ReplaceAllString(value, redactedValue)
+	return value
+}
 
 // -------------------------------------------------------
 // Correlation ID Middleware
@@ -60,7 +99,6 @@ func generateCorrelationID() string {
 	return fmt.Sprintf("lnc-%s-%d", string(b), time.Now().UnixMilli()%10000)
 }
 
-
 // -------------------------------------------------------
 // Request Logger Middleware
 // Logs method, path, status, latency, and correlation ID.
@@ -95,15 +133,14 @@ func RequestLoggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		log.Printf(`{"level":"info","msg":"request completed","correlation_id":"%s","method":"%s","path":"%s","status":%d,"duration_ms":%d,"ip":"%s","user_agent":"%s"}`,
 			correlationID,
 			r.Method,
-			r.URL.Path,
+			RedactString(r.URL.Path),
 			rw.statusCode,
 			duration.Milliseconds(),
 			realIP(r),
-			r.UserAgent(),
+			RedactString(r.UserAgent()),
 		)
 	}
 }
-
 
 func realIP(r *http.Request) string {
 	if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
@@ -127,11 +164,72 @@ func RecoveryMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			if err := recover(); err != nil {
 				correlationID := GetCorrelationID(r.Context())
 				log.Printf("[PANIC] correlation_id=%s error=%v\nstack:\n%s",
-					correlationID, err, debug.Stack())
+					correlationID, RedactString(fmt.Sprint(err)), RedactString(string(debug.Stack())))
 				WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "An unexpected error occurred", correlationID)
 			}
 		}()
 		next.ServeHTTP(w, r)
+	}
+}
+
+type sanitizingResponseWriter struct {
+	http.ResponseWriter
+	statusCode    int
+	headerWritten bool
+	buffering     bool
+	body          bytes.Buffer
+}
+
+func newSanitizingResponseWriter(w http.ResponseWriter) *sanitizingResponseWriter {
+	return &sanitizingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+}
+
+func (rw *sanitizingResponseWriter) WriteHeader(code int) {
+	if rw.headerWritten {
+		return
+	}
+	rw.statusCode = code
+	rw.headerWritten = true
+	if code >= http.StatusInternalServerError {
+		rw.buffering = true
+		return
+	}
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (rw *sanitizingResponseWriter) Write(data []byte) (int, error) {
+	if !rw.headerWritten {
+		rw.WriteHeader(http.StatusOK)
+	}
+	if rw.buffering {
+		_, _ = rw.body.Write(data)
+		return len(data), nil
+	}
+	return rw.ResponseWriter.Write(data)
+}
+
+func (rw *sanitizingResponseWriter) FlushSanitized(r *http.Request) {
+	if !rw.buffering {
+		return
+	}
+
+	correlationID := GetCorrelationID(r.Context())
+	log.Printf(`{"level":"error","msg":"sanitized unsafe server error response","correlation_id":"%s","method":"%s","path":"%s","status":%d,"body":"%s"}`,
+		correlationID,
+		r.Method,
+		RedactString(r.URL.Path),
+		rw.statusCode,
+		RedactString(rw.body.String()),
+	)
+	WriteError(rw.ResponseWriter, rw.statusCode, "ERR_INTERNAL_SERVER", "Internal server error", correlationID)
+}
+
+// ErrorMapperMiddleware converts unsafe 5xx responses into the standard JSON error envelope.
+func ErrorMapperMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rw := newSanitizingResponseWriter(w)
+		next.ServeHTTP(rw, r)
+		rw.FlushSanitized(r)
 	}
 }
 
@@ -213,7 +311,6 @@ func WriteError(w http.ResponseWriter, status int, code, message, correlationID 
 	}
 }
 
-
 // SuccessResponse is the canonical success format for all LANCAR APIs.
 type SuccessResponse struct {
 	Success bool        `json:"success"`
@@ -231,7 +328,6 @@ func WriteSuccess(w http.ResponseWriter, status int, data interface{}) {
 		log.Printf("[ERROR] Failed to encode success response: %v", err)
 	}
 }
-
 
 // -------------------------------------------------------
 // Chain helper — compose multiple middlewares
@@ -253,6 +349,7 @@ func BaseChain(h http.HandlerFunc) http.HandlerFunc {
 		SecurityHeadersMiddleware,
 		CorrelationIDMiddleware,
 		RequestLoggerMiddleware,
+		ErrorMapperMiddleware,
 		RecoveryMiddleware,
 	)
 }
@@ -314,6 +411,7 @@ func baseChainWithRateLimit(h http.HandlerFunc, rateLimitMW func(http.HandlerFun
 		SecurityHeadersMiddleware,
 		CorrelationIDMiddleware,
 		RequestLoggerMiddleware,
+		ErrorMapperMiddleware,
 		RecoveryMiddleware,
 		rateLimitMW,
 	)
@@ -330,5 +428,3 @@ func MobileIntegrityChain(auditRepo domain.AuditRepository, h http.HandlerFunc) 
 func MobileAuthIntegrityChain(auditRepo domain.AuditRepository, h http.HandlerFunc) http.HandlerFunc {
 	return BaseChain(AuthMiddleware(DeviceIntegrityMiddleware(auditRepo, h)))
 }
-
-

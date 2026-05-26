@@ -6,6 +6,10 @@
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
+    "test:auth-matrix": "npm run build && node scripts/routeAuthMatrix.test.js",
+    "test:cors": "npm run build && node scripts/corsPolicy.test.js",
+    "test:ops-surface": "npm run build && node scripts/opsSurfaceProtection.test.js",
+    "test:public-abuse": "npm run build && node scripts/publicEndpointAbuseProtection.test.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

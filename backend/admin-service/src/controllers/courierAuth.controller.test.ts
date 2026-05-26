@@ -2,6 +2,8 @@ import { db } from '../db';
 import { isFeatureFlagEnabled } from '../services/featureFlags';
 import { loginCourier, verifyCourierLoginOtp } from './courierAuth.controller';
 
+process.env.JWT_SECRET = 'test-jwt-secret-for-courier-auth-32';
+
 jest.mock('../db', () => ({
   db: {
     query: jest.fn(),

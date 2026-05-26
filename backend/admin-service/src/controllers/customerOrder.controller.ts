@@ -11,9 +11,14 @@ import { buildOnDemandTrackingSnapshot, evaluateLocationQuality, writeLocationSa
 import { evaluateOnDemandRealtimeAlerts } from '../services/realtimeObservability';
 import { buildMapsRouteEtaSnapshot, RouteEtaSnapshot } from '../services/mapsProviderConfig';
 import { enqueueOutboxEvent } from '../services/eventOutbox';
-import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
+import { saveSecureUploadBuffer } from '../security/uploadSecurity';
+import {
+  insertWebhookAuditEvent,
+  resolveRawBody,
+  updateWebhookAuditEvent,
+  verifyMidtransSignature,
+} from '../security/webhookSecurity';
 
 type CoordinatePayload = {
   lat: number;
@@ -3155,17 +3160,8 @@ export const uploadOrderFile = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const file = req.file;
-    const ext = path.extname(file.originalname);
-    const filename = `${crypto.randomUUID()}${ext}`;
-
-    const uploadPath = path.join(process.cwd(), 'public/uploads', filename);
-
-    // Save file from memory to disk
-    fs.writeFileSync(uploadPath, file.buffer);
-
-    const fileUrl = `/uploads/${filename}`;
-    res.json({ success: true, url: fileUrl });
+    const savedUpload = saveSecureUploadBuffer(req.file, 'orders');
+    res.json({ success: true, url: savedUpload.fileUrl });
   } catch (error: any) {
     console.error('Error uploading order file:', error);
     res.status(500).json({ error: error.message });
@@ -3175,36 +3171,78 @@ export const uploadOrderFile = async (req: Request, res: Response) => {
 export const handleMidtransNotification = async (req: Request, res: Response): Promise<void> => {
   const client = await db.connect();
   let createdOffers: Awaited<ReturnType<typeof advanceOnDemandDispatchQueue>> = [];
+  let auditEventId: string | null = null;
   try {
     const payload = req.body || {};
     const {
       order_id,
+      transaction_id,
       transaction_status,
       fraud_status,
       status_code,
       gross_amount,
       signature_key
     } = payload;
+    const rawBody = resolveRawBody(req);
+    const providerEventId = String(transaction_id || order_id || '').trim()
+      ? `midtrans:${transaction_id || order_id}:${transaction_status || 'unknown'}:${status_code || 'unknown'}`
+      : null;
 
     if (!order_id || !transaction_status) {
-      res.status(400).json({ error: 'Invalid Midtrans notification payload' });
+      await insertWebhookAuditEvent(db, req, {
+        providerName: 'midtrans',
+        providerEventId,
+        providerReference: order_id || null,
+        eventType: transaction_status || null,
+        verificationStatus: 'invalid_payload',
+        processingStatus: 'failed',
+        payload,
+        rawBody,
+        signature: signature_key || null,
+        errorCode: 'invalid_payload',
+      });
+      res.status(400).json({ success: false, error: 'Invalid webhook request' });
       return;
     }
 
     const serverKey = process.env.MIDTRANS_SERVER_KEY || '';
-    if (serverKey && signature_key) {
-      const expectedSignature = crypto
-        .createHash('sha512')
-        .update(`${order_id}${status_code}${gross_amount}${serverKey}`)
-        .digest('hex');
-
-      if (expectedSignature !== signature_key) {
-        res.status(403).json({ error: 'Invalid Midtrans signature' });
-        return;
-      }
+    if (!verifyMidtransSignature(payload, serverKey)) {
+      await insertWebhookAuditEvent(db, req, {
+        providerName: 'midtrans',
+        providerEventId,
+        providerReference: order_id,
+        eventType: transaction_status,
+        verificationStatus: signature_key ? 'invalid' : 'missing_signature',
+        processingStatus: 'failed',
+        payload,
+        rawBody,
+        signature: signature_key || null,
+        errorCode: signature_key ? 'invalid_signature' : 'missing_signature',
+      });
+      res.status(401).json({ success: false, error: 'Invalid webhook request' });
+      return;
     }
 
     await client.query('BEGIN');
+
+    const auditInsert = await insertWebhookAuditEvent(client, req, {
+      providerName: 'midtrans',
+      providerEventId,
+      providerReference: order_id,
+      eventType: transaction_status,
+      verificationStatus: 'valid',
+      processingStatus: 'received',
+      payload,
+      rawBody,
+      signature: signature_key || null,
+    });
+
+    if (auditInsert.duplicate) {
+      await client.query('ROLLBACK');
+      res.json({ success: true, duplicate: true });
+      return;
+    }
+    auditEventId = auditInsert.id;
 
     const { rows } = await client.query(
       `SELECT p.order_id, o.customer_id, o.order_number
@@ -3216,7 +3254,8 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
     );
 
     if (rows.length === 0) {
-      await client.query('ROLLBACK');
+      await updateWebhookAuditEvent(client, auditEventId, 'ignored', 'payment_not_found');
+      await client.query('COMMIT');
       res.status(200).json({ success: true, ignored: true, reason: 'payment_not_found' });
       return;
     }
@@ -3261,6 +3300,7 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
       );
     }
 
+    await updateWebhookAuditEvent(client, auditEventId, 'processed');
     await client.query('COMMIT');
     await notifyOnDemandOffers(createdOffers);
 
@@ -3284,7 +3324,10 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
     res.json({ success: true });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: error.message });
+    if (auditEventId) {
+      await updateWebhookAuditEvent(db, auditEventId, 'failed', 'processing_failed').catch(() => undefined);
+    }
+    res.status(500).json({ success: false, error: 'Webhook processing failed' });
   } finally {
     client.release();
   }

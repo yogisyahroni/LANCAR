@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"lancar/auth-service/internal/domain"
 	"lancar/auth-service/internal/middleware"
@@ -11,7 +13,8 @@ import (
 )
 
 type AuthHandler struct {
-	svc interface {
+	abuse *middleware.AuthAbuseProtector
+	svc   interface {
 		RequestOTP(ctx context.Context, phoneNumber string) error
 		StartCustomerPasswordLogin(ctx context.Context, email, password, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
 		StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
@@ -39,6 +42,36 @@ type AuthHandler struct {
 	}
 }
 
+func (h *AuthHandler) rejectIfAuthAbuseBlocked(w http.ResponseWriter, r *http.Request, scope middleware.AuthAbuseScope, identifier string) bool {
+	if h.abuse == nil {
+		return false
+	}
+
+	if abuseErr := h.abuse.AssertAllowed(r.Context(), scope, identifier, middleware.ClientIP(r)); abuseErr != nil {
+		if abuseErr.RetryAfterSeconds > 0 {
+			w.Header().Set("Retry-After", fmt.Sprintf("%d", abuseErr.RetryAfterSeconds))
+		}
+		middleware.WriteError(w, abuseErr.StatusCode, abuseErr.Code, abuseErr.Message, middleware.GetCorrelationID(r.Context()))
+		return true
+	}
+
+	return false
+}
+
+func (h *AuthHandler) recordAuthFailure(r *http.Request, scope middleware.AuthAbuseScope, identifier string, reason string) {
+	if h.abuse == nil {
+		return
+	}
+	h.abuse.RecordFailure(r.Context(), scope, identifier, middleware.ClientIP(r), reason)
+}
+
+func (h *AuthHandler) recordAuthSuccess(r *http.Request, scope middleware.AuthAbuseScope, identifier string) {
+	if h.abuse == nil {
+		return
+	}
+	h.abuse.RecordSuccess(r.Context(), scope, identifier)
+}
+
 func (h *AuthHandler) StartCustomerPasswordLogin(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Email      string          `json:"email"`
@@ -50,11 +83,18 @@ func (h *AuthHandler) StartCustomerPasswordLogin(w http.ResponseWriter, r *http.
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	if h.rejectIfAuthAbuseBlocked(w, r, middleware.ScopeCustomerPasswordLogin, req.Email) {
+		return
+	}
+
 	res, err := h.svc.StartCustomerPasswordLogin(r.Context(), req.Email, req.Password, req.DeviceID, req.DeviceInfo)
 	if err != nil {
+		h.recordAuthFailure(r, middleware.ScopeCustomerPasswordLogin, req.Email, "invalid_customer_password_login")
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
+	h.recordAuthSuccess(r, middleware.ScopeCustomerPasswordLogin, req.Email)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(res)
@@ -83,8 +123,12 @@ func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r
 	json.NewEncoder(w).Encode(res)
 }
 
-func NewAuthHandler(svc *service.AuthService) *AuthHandler {
-	return &AuthHandler{svc: svc}
+func NewAuthHandler(svc *service.AuthService, abuse ...*middleware.AuthAbuseProtector) *AuthHandler {
+	var abuseProtector *middleware.AuthAbuseProtector
+	if len(abuse) > 0 {
+		abuseProtector = abuse[0]
+	}
+	return &AuthHandler{svc: svc, abuse: abuseProtector}
 }
 
 // RequestOTP godoc
@@ -107,6 +151,10 @@ func (h *AuthHandler) RequestOTP(w http.ResponseWriter, r *http.Request) {
 
 	if req.PhoneNumber == "" {
 		http.Error(w, "Phone number is required", http.StatusBadRequest)
+		return
+	}
+
+	if h.rejectIfAuthAbuseBlocked(w, r, middleware.ScopeCustomerOTPSend, req.PhoneNumber) {
 		return
 	}
 
@@ -141,11 +189,17 @@ func (h *AuthHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.rejectIfAuthAbuseBlocked(w, r, middleware.ScopeCustomerOTPVerify, req.PhoneNumber) {
+		return
+	}
+
 	res, err := h.svc.VerifyOTP(r.Context(), req.PhoneNumber, req.Code, req.DeviceID, req.DeviceInfo)
 	if err != nil {
+		h.recordAuthFailure(r, middleware.ScopeCustomerOTPVerify, req.PhoneNumber, "invalid_customer_otp")
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
+	h.recordAuthSuccess(r, middleware.ScopeCustomerOTPVerify, req.PhoneNumber)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -315,7 +369,13 @@ func (h *AuthHandler) UpdatePhoto(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	url, err := h.svc.UpdateProfilePhoto(r.Context(), userID, header.Filename, file)
+	secureUpload, err := service.ValidateSecureUpload(service.ProfilePhotoUpload, header.Filename, file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnsupportedMediaType)
+		return
+	}
+
+	url, err := h.svc.UpdateProfilePhoto(r.Context(), userID, secureUpload.Filename, bytes.NewReader(secureUpload.Content))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -423,7 +483,13 @@ func (h *AuthHandler) UploadCourierDocument(w http.ResponseWriter, r *http.Reque
 	}
 	defer file.Close()
 
-	url, err := h.svc.UploadCourierDocument(r.Context(), userID, docType, header.Filename, file)
+	secureUpload, err := service.ValidateSecureUpload(service.CourierDocumentUpload, header.Filename, file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnsupportedMediaType)
+		return
+	}
+
+	url, err := h.svc.UploadCourierDocument(r.Context(), userID, docType, secureUpload.Filename, bytes.NewReader(secureUpload.Content))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -591,11 +657,17 @@ func (h *AuthHandler) Complete2FALogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.rejectIfAuthAbuseBlocked(w, r, middleware.ScopeCustomer2FAComplete, req.UserID) {
+		return
+	}
+
 	res, err := h.svc.Complete2FALogin(r.Context(), req.UserID, req.Code, req.DeviceID, req.DeviceInfo)
 	if err != nil {
+		h.recordAuthFailure(r, middleware.ScopeCustomer2FAComplete, req.UserID, "invalid_customer_2fa")
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
+	h.recordAuthSuccess(r, middleware.ScopeCustomer2FAComplete, req.UserID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

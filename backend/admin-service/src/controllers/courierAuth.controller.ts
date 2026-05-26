@@ -2,8 +2,6 @@ import { Request, Response } from 'express';
 import { db } from '../db';
 import { createNotification } from '../notifications';
 import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
 import { evaluateCourierPayoutRisk } from '../services/payoutRiskEngine';
 import { decoratePayoutRequest, payoutMobileMessage } from '../services/payoutStatusPolicy';
 import { evaluatePayoutAlerts, writePayoutAuditEvent } from '../utils/payoutObservability';
@@ -11,6 +9,15 @@ import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../services/onD
 import { evaluateOnDemandRealtimeAlerts } from '../services/realtimeObservability';
 import { buildMapsRouteEtaSnapshot } from '../services/mapsProviderConfig';
 import { isFeatureFlagEnabled } from '../services/featureFlags';
+import { saveSecureUploadBuffer } from '../security/uploadSecurity';
+import {
+  AuthProtectionError,
+  assertAuthAttemptAllowed,
+  getRequestIpAddress,
+  recordAuthFailure,
+  recordAuthSuccess,
+  sendAuthProtectionError,
+} from '../security/bruteForceProtection';
 
 type CourierLoginRow = {
   id: string;
@@ -51,8 +58,16 @@ const base64Url = (value: string) =>
   Buffer.from(value)
     .toString('base64url');
 
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET is not configured');
+  }
+  return secret;
+};
+
 const signCourierJwt = (userId: string) => {
-  const secret = process.env.JWT_SECRET || 'lancar_secret_key_change_me';
+  const secret = getJwtSecret();
   const now = Math.floor(Date.now() / 1000);
   const expiresAt = now + (7 * 24 * 60 * 60);
 
@@ -246,7 +261,9 @@ const issueCourierLoginSession = async (
 
 export const loginCourier = async (req: Request, res: Response) => {
   const { username, password } = req.body;
+  const normalizedUsername = typeof username === 'string' ? username.trim().toLowerCase() : '';
   const deviceId = normalizeDeviceId(req.body?.device_id || req.headers['x-device-id']);
+  const ipAddress = getRequestIpAddress(req);
 
   if (!username || !password) {
     res.status(400).json({
@@ -268,8 +285,20 @@ export const loginCourier = async (req: Request, res: Response) => {
   }
 
   try {
-    const courier = await getCourierByIdentity(username);
+    await assertAuthAttemptAllowed({
+      scope: 'courier_login',
+      identifier: normalizedUsername,
+      ipAddress,
+    });
+
+    const courier = await getCourierByIdentity(normalizedUsername);
     if (!courier || courier.status !== 'active' || !isValidCourierPassword(password, courier.pin_hash)) {
+      await recordAuthFailure({
+        scope: 'courier_login',
+        identifier: normalizedUsername,
+        ipAddress,
+        reason: !courier || courier.status !== 'active' ? 'invalid_courier' : 'invalid_password',
+      });
       res.status(401).json({
         success: false,
         data: null,
@@ -278,6 +307,12 @@ export const loginCourier = async (req: Request, res: Response) => {
       });
       return;
     }
+
+    await recordAuthSuccess({
+      scope: 'courier_login',
+      identifier: normalizedUsername,
+      ipAddress,
+    });
 
     const deviceIdHash = hashDeviceId(deviceId);
     const deviceInfo = buildCourierDeviceContext(req);
@@ -321,6 +356,11 @@ export const loginCourier = async (req: Request, res: Response) => {
       message: 'Login successful',
     });
   } catch (error) {
+    if (error instanceof AuthProtectionError) {
+      sendAuthProtectionError(res, error);
+      return;
+    }
+
     console.error('Courier login error:', error);
     res.status(500).json({
       success: false,
@@ -333,8 +373,10 @@ export const loginCourier = async (req: Request, res: Response) => {
 
 export const verifyCourierLoginOtp = async (req: Request, res: Response) => {
   const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+  const normalizedUsername = username.toLowerCase();
   const code = typeof req.body?.code === 'string' ? req.body.code.trim() : '';
   const deviceId = normalizeDeviceId(req.body?.device_id || req.headers['x-device-id']);
+  const ipAddress = getRequestIpAddress(req);
 
   if (!username || !code || !deviceId) {
     res.status(400).json({
@@ -347,8 +389,20 @@ export const verifyCourierLoginOtp = async (req: Request, res: Response) => {
   }
 
   try {
-    const courier = await getCourierByIdentity(username);
+    await assertAuthAttemptAllowed({
+      scope: 'courier_otp_verify',
+      identifier: normalizedUsername,
+      ipAddress,
+    });
+
+    const courier = await getCourierByIdentity(normalizedUsername);
     if (!courier || courier.status !== 'active') {
+      await recordAuthFailure({
+        scope: 'courier_otp_verify',
+        identifier: normalizedUsername,
+        ipAddress,
+        reason: 'invalid_courier',
+      });
       res.status(401).json({
         success: false,
         data: null,
@@ -361,6 +415,12 @@ export const verifyCourierLoginOtp = async (req: Request, res: Response) => {
     const recipient = courier.email || courier.phone_number;
     const isValidOtp = await verifyCourierOtpCode(recipient, code);
     if (!isValidOtp) {
+      await recordAuthFailure({
+        scope: 'courier_otp_verify',
+        identifier: normalizedUsername,
+        ipAddress,
+        reason: 'invalid_otp',
+      });
       res.status(401).json({
         success: false,
         data: null,
@@ -370,6 +430,12 @@ export const verifyCourierLoginOtp = async (req: Request, res: Response) => {
       return;
     }
 
+    await recordAuthSuccess({
+      scope: 'courier_otp_verify',
+      identifier: normalizedUsername,
+      ipAddress,
+    });
+
     const loginData = await issueCourierLoginSession(courier, deviceId, buildCourierDeviceContext(req));
     res.json({
       success: true,
@@ -377,6 +443,11 @@ export const verifyCourierLoginOtp = async (req: Request, res: Response) => {
       message: 'Perangkat terverifikasi',
     });
   } catch (error) {
+    if (error instanceof AuthProtectionError) {
+      sendAuthProtectionError(res, error);
+      return;
+    }
+
     console.error('Courier OTP verification error:', error);
     res.status(500).json({
       success: false,
@@ -3275,11 +3346,7 @@ export const uploadMobileCourierPod = async (req: Request, res: Response) => {
     return;
   }
 
-  const ext = path.extname(req.file.originalname || '') || '.jpg';
-  const filename = `${crypto.randomUUID()}${ext}`;
-  const uploadDir = path.join(process.cwd(), 'public/uploads/pod');
-  fs.mkdirSync(uploadDir, { recursive: true });
-  fs.writeFileSync(path.join(uploadDir, filename), req.file.buffer);
+  const savedUpload = saveSecureUploadBuffer(req.file, 'pod');
 
   const proofType = String(req.body?.proof_type || req.body?.proofType || 'delivery').toLowerCase();
 
@@ -3292,7 +3359,7 @@ export const uploadMobileCourierPod = async (req: Request, res: Response) => {
     longitude,
     accuracy,
     barcodeValue: req.body?.barcode_value || req.body?.barcodeValue || null,
-    photoUrl: `/uploads/pod/${filename}`,
+    photoUrl: savedUpload.fileUrl,
     spoofRisk: req.body?.spoof_risk || req.body?.spoofRisk || null,
   });
 };
@@ -3629,12 +3696,8 @@ export const cancelMobileCourierOnDemandPickup = async (req: Request, res: Respo
     return;
   }
 
-  const ext = path.extname(req.file.originalname || '') || '.jpg';
-  const filename = `${crypto.randomUUID()}${ext}`;
-  const uploadDir = path.join(process.cwd(), 'public/uploads/cancellations');
-  fs.mkdirSync(uploadDir, { recursive: true });
-  fs.writeFileSync(path.join(uploadDir, filename), req.file.buffer);
-  const photoUrl = `/uploads/cancellations/${filename}`;
+  const savedUpload = saveSecureUploadBuffer(req.file, 'cancellations');
+  const photoUrl = savedUpload.fileUrl;
 
   const client = await db.connect();
   try {

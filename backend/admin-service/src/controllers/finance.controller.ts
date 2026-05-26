@@ -4,6 +4,7 @@ import { applyProviderCallback, dispatchApprovedPayouts, sha256Hex, verifyProvid
 import { getPayoutOpsDashboard, runPayoutReconciliation } from '../services/payoutReconciliation';
 import { activePayoutStatuses, decoratePayoutRequest } from '../services/payoutStatusPolicy';
 import { evaluatePayoutAlerts, writePayoutAuditEvent } from '../utils/payoutObservability';
+import { insertWebhookAuditEvent, updateWebhookAuditEvent } from '../security/webhookSecurity';
 
 const adminActorId = (req: Request) => req.user?.id || '9b6a89d7-ab83-4df9-86fa-dd714ea50be0';
 
@@ -1077,13 +1078,25 @@ export const handleCourierPayoutProviderWebhook = async (req: Request, res: Resp
   const rawBody = (req as any).rawBody as Buffer | undefined;
   const bodyBuffer = rawBody || Buffer.from(JSON.stringify(req.body || {}));
   const signature = String(req.headers['x-lancar-signature'] || req.headers['x-provider-signature'] || '');
-  const secret = process.env.PAYOUT_PROVIDER_WEBHOOK_SECRET || 'dev-payout-webhook-secret';
+  const secret = process.env.PAYOUT_PROVIDER_WEBHOOK_SECRET || '';
   const providerName = String(req.body?.provider || req.body?.provider_name || process.env.PAYOUT_PROVIDER_NAME || 'stub');
   const eventId = String(req.body?.event_id || req.body?.id || '');
   const providerReference = String(req.body?.provider_reference || req.body?.reference || '');
   const providerStatus = String(req.body?.status || '').toLowerCase();
 
   if (!verifyProviderWebhookSignature(bodyBuffer, signature, secret)) {
+    await insertWebhookAuditEvent(db, req, {
+      providerName,
+      providerEventId: eventId || null,
+      providerReference: providerReference || null,
+      eventType: providerStatus || null,
+      verificationStatus: signature ? 'invalid' : 'missing_signature',
+      processingStatus: 'failed',
+      payload: req.body || {},
+      rawBody: bodyBuffer,
+      signature: signature || null,
+      errorCode: signature ? 'invalid_signature' : 'missing_signature',
+    });
     await writePayoutAuditEvent(db, req, {
       eventType: 'payout_provider_signature_failed',
       severity: 'critical',
@@ -1095,20 +1108,52 @@ export const handleCourierPayoutProviderWebhook = async (req: Request, res: Resp
         payload_hash: sha256Hex(bodyBuffer),
       },
     });
-    res.status(401).json({ success: false, error: 'Invalid payout provider signature' });
+    res.status(401).json({ success: false, error: 'Invalid webhook request' });
     return;
   }
 
   if (!eventId || !providerReference || !['processing', 'paid', 'failed'].includes(providerStatus)) {
-    res.status(400).json({ success: false, error: 'Invalid payout provider webhook payload' });
+    await insertWebhookAuditEvent(db, req, {
+      providerName,
+      providerEventId: eventId || null,
+      providerReference: providerReference || null,
+      eventType: providerStatus || null,
+      verificationStatus: 'invalid_payload',
+      processingStatus: 'failed',
+      payload: req.body || {},
+      rawBody: bodyBuffer,
+      signature: signature || null,
+      errorCode: 'invalid_payload',
+    });
+    res.status(400).json({ success: false, error: 'Invalid webhook request' });
     return;
   }
 
   const client = await db.connect();
+  let auditEventId: string | null = null;
   try {
     await client.query('BEGIN');
     const payloadHash = sha256Hex(bodyBuffer);
     const signatureHash = sha256Hex(signature);
+
+    const auditInsert = await insertWebhookAuditEvent(client, req, {
+      providerName,
+      providerEventId: eventId,
+      providerReference,
+      eventType: providerStatus,
+      verificationStatus: 'valid',
+      processingStatus: 'received',
+      payload: req.body || {},
+      rawBody: bodyBuffer,
+      signature,
+    });
+
+    if (auditInsert.duplicate) {
+      await client.query('ROLLBACK');
+      res.json({ success: true, duplicate: true });
+      return;
+    }
+    auditEventId = auditInsert.id;
 
     const eventResult = await client.query(
       `INSERT INTO courier_payout_provider_webhook_events (
@@ -1125,7 +1170,8 @@ export const handleCourierPayoutProviderWebhook = async (req: Request, res: Resp
     );
 
     if (eventResult.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await updateWebhookAuditEvent(client, auditEventId, 'duplicate');
+      await client.query('COMMIT');
       res.json({ success: true, duplicate: true });
       return;
     }
@@ -1146,6 +1192,7 @@ export const handleCourierPayoutProviderWebhook = async (req: Request, res: Resp
          AND provider_event_id = $2`,
       [providerName, eventId],
     );
+    await updateWebhookAuditEvent(client, auditEventId, 'processed');
 
     await evaluatePayoutAlerts(client);
     await client.query('COMMIT');
@@ -1153,7 +1200,10 @@ export const handleCourierPayoutProviderWebhook = async (req: Request, res: Resp
   } catch (error: any) {
     await client.query('ROLLBACK');
     console.error('Error handling payout provider webhook:', error);
-    res.status(500).json({ success: false, error: error.message });
+    if (auditEventId) {
+      await updateWebhookAuditEvent(db, auditEventId, 'failed', 'processing_failed').catch(() => undefined);
+    }
+    res.status(500).json({ success: false, error: 'Webhook processing failed' });
   } finally {
     client.release();
   }

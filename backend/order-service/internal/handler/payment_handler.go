@@ -49,11 +49,11 @@ func (h *PaymentHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 
 func (h *PaymentHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	// Midtrans webhook sends JSON body and a signature in headers.
-	// Sometimes signature is in the body itself for Midtrans, but we'll assume standard 
+	// Sometimes signature is in the body itself for Midtrans, but we'll assume standard
 	// or we extract from payload (Midtrans sends signature_key in the payload).
 	// For our mock, we will check a custom header `X-Signature` or bypass if not needed.
 	// Actually, Midtrans sends `signature_key` inside the JSON payload.
-	
+
 	payload, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "failed to read payload", http.StatusBadRequest)
@@ -61,7 +61,7 @@ func (h *PaymentHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// For Midtrans, signature is usually in the JSON as "signature_key", 
+	// For Midtrans, signature is usually in the JSON as "signature_key",
 	// but standard webhook verifications often use headers.
 	// We'll extract "signature_key" manually from the payload for Midtrans.
 	var data map[string]interface{}
@@ -71,7 +71,7 @@ func (h *PaymentHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	signature, _ := data["signature_key"].(string)
-	
+
 	// If it's a test/mock call, we might supply it via header
 	headerSig := r.Header.Get("X-Mock-Signature")
 	if headerSig != "" {
@@ -79,8 +79,7 @@ func (h *PaymentHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.paymentService.HandleWebhook(r.Context(), payload, signature); err != nil {
-		// Log the error
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "invalid webhook request", http.StatusBadRequest)
 		return
 	}
 

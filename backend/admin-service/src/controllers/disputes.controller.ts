@@ -2,9 +2,7 @@ import { Request, Response } from 'express';
 import { db, readDb } from '../db';
 import { createNotification } from '../notifications';
 import { getIO } from '../websocket';
-import fs from 'fs';
-import path from 'path';
-import crypto from 'crypto';
+import { saveSecureUploadBuffer } from '../security/uploadSecurity';
 
 
 
@@ -246,17 +244,8 @@ export const uploadDisputeFile = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const file = req.file;
-    const ext = path.extname(file.originalname);
-    const filename = `${crypto.randomUUID()}${ext}`;
-
-    const uploadPath = path.join(process.cwd(), 'public/uploads', filename);
-
-    // Save file from memory to disk
-    fs.writeFileSync(uploadPath, file.buffer);
-
-    const fileUrl = `/uploads/${filename}`;
-    res.json({ success: true, url: fileUrl });
+    const savedUpload = saveSecureUploadBuffer(req.file, 'disputes');
+    res.json({ success: true, url: savedUpload.fileUrl });
   } catch (error: any) {
     console.error('Error uploading dispute file:', error);
     res.status(500).json({ error: error.message });
@@ -348,4 +337,3 @@ export const sendDisputeChat = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
-

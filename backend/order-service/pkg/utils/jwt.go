@@ -21,7 +21,7 @@ type Claims struct {
 func ValidateToken(tokenString string) (*Claims, error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		secret = "lancar_secret_key_change_me"
+		return nil, errors.New("JWT_SECRET environment variable is not set")
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
