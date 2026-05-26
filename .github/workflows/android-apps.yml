@@ -153,6 +153,7 @@ jobs:
           import base64
           import os
           import pathlib
+          import shlex
           import sys
 
           configs = {
@@ -191,40 +192,55 @@ jobs:
           target = pathlib.Path(working_dir) / "app" / "ci-release-keystore.jks"
           target.write_bytes(keystore_bytes)
           print(f"Wrote release keystore for {working_dir} to {target.as_posix()} ({len(keystore_bytes)} bytes)")
+
+          env_target = pathlib.Path(working_dir) / "app" / ".ci-release-signing.env"
+          env_target.write_text(
+              "\n".join(
+                  [
+                      f"STORE_PASSWORD={shlex.quote(os.environ[config['store_password']].strip())}",
+                      f"KEY_ALIAS={shlex.quote(os.environ[config['alias']].strip())}",
+                      f"KEY_PASSWORD={shlex.quote(os.environ[config['key_password']].strip())}",
+                  ]
+              )
+              + "\n",
+              encoding="utf-8",
+          )
           PY
 
           key_path="${GITHUB_WORKSPACE}/${{ matrix.working_dir }}/app/ci-release-keystore.jks"
+          signing_env="${GITHUB_WORKSPACE}/${{ matrix.working_dir }}/app/.ci-release-signing.env"
           chmod 600 "${key_path}"
+          source "${signing_env}"
 
           if [[ "${{ matrix.working_dir }}" == "android-app" ]]; then
             keytool -list \
               -keystore "${key_path}" \
-              -storepass "${COURIER_RELEASE_KEYSTORE_PASSWORD}" \
-              -alias "${COURIER_RELEASE_KEY_ALIAS}" >/dev/null || {
+              -storepass "${STORE_PASSWORD}" \
+              -alias "${KEY_ALIAS}" >/dev/null || {
                 echo "Invalid courier release signing secrets. Recheck COURIER_RELEASE_KEYSTORE_BASE64, COURIER_RELEASE_KEYSTORE_PASSWORD, and COURIER_RELEASE_KEY_ALIAS." >&2
                 exit 1
               }
 
             {
               echo "RELEASE_KEYSTORE_PATH=${key_path}"
-              echo "RELEASE_KEYSTORE_PASSWORD=${COURIER_RELEASE_KEYSTORE_PASSWORD}"
-              echo "RELEASE_KEY_ALIAS=${COURIER_RELEASE_KEY_ALIAS}"
-              echo "RELEASE_KEY_PASSWORD=${COURIER_RELEASE_KEY_PASSWORD}"
+              echo "RELEASE_KEYSTORE_PASSWORD=${STORE_PASSWORD}"
+              echo "RELEASE_KEY_ALIAS=${KEY_ALIAS}"
+              echo "RELEASE_KEY_PASSWORD=${KEY_PASSWORD}"
             } >> "$GITHUB_ENV"
           else
             keytool -list \
               -keystore "${key_path}" \
-              -storepass "${CUSTOMER_RELEASE_KEYSTORE_PASSWORD}" \
-              -alias "${CUSTOMER_RELEASE_KEY_ALIAS}" >/dev/null || {
+              -storepass "${STORE_PASSWORD}" \
+              -alias "${KEY_ALIAS}" >/dev/null || {
                 echo "Invalid customer release signing secrets. Recheck CUSTOMER_RELEASE_KEYSTORE_BASE64, CUSTOMER_RELEASE_KEYSTORE_PASSWORD, and CUSTOMER_RELEASE_KEY_ALIAS." >&2
                 exit 1
               }
 
             {
               echo "RELEASE_KEYSTORE_PATH=${key_path}"
-              echo "RELEASE_KEYSTORE_PASSWORD=${CUSTOMER_RELEASE_KEYSTORE_PASSWORD}"
-              echo "RELEASE_KEY_ALIAS=${CUSTOMER_RELEASE_KEY_ALIAS}"
-              echo "RELEASE_KEY_PASSWORD=${CUSTOMER_RELEASE_KEY_PASSWORD}"
+              echo "RELEASE_KEYSTORE_PASSWORD=${STORE_PASSWORD}"
+              echo "RELEASE_KEY_ALIAS=${KEY_ALIAS}"
+              echo "RELEASE_KEY_PASSWORD=${KEY_PASSWORD}"
             } >> "$GITHUB_ENV"
           fi
 
