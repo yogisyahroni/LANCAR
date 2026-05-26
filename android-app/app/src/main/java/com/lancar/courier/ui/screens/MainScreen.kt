@@ -187,7 +187,9 @@ fun MainScreen(
     var pickupPhotoVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var pendingDutySecurityTarget by remember { mutableStateOf<Boolean?>(null) }
+    val isOnDemandCourier = courierRole == "on_demand"
     val secureScreenRequired = selectedTab == 2 ||
+        (isOnDemandCourier && selectedTab == 3) ||
         showPodScreen ||
         showOrderDetail ||
         showScanScreen ||
@@ -579,91 +581,129 @@ fun MainScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("LANCAR Courier", fontWeight = FontWeight.Bold)
-                        Text(
-                            text = if (isOnline) "On duty" else "Off duty",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                actions = {
-                    // Sync indicator
-                    AnimatedVisibility(visible = isSyncing, enter = fadeIn(), exit = fadeOut()) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .padding(end = 8.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                    }
-                    IconButton(onClick = { orderViewModel.fetchOrdersFromBackend() }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh"
-                        )
-                    }
-                    IconButton(onClick = { /* notifications */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications"
-                        )
-                    }
-                }
-            )
-        },
-        bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                    label = { Text("Beranda") },
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 }
-                )
-                NavigationBarItem(
-                    icon = {
-                        BadgedBox(
-                            badge = {
-                                if (pendingOrders.isNotEmpty()) {
-                                    Badge { Text("${pendingOrders.size}") }
-                                }
-                            }
-                        ) {
-                            Icon(Icons.Default.LocalShipping, contentDescription = "Orders")
+            if (!isOnDemandCourier) {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text("LANCAR Courier", fontWeight = FontWeight.Bold)
+                            Text(
+                                text = if (isOnline) "On duty" else "Off duty",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.82f)
+                            )
                         }
                     },
-                    label = { Text("Order") },
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 }
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                        actionIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    actions = {
+                        // Sync indicator
+                        AnimatedVisibility(visible = isSyncing, enter = fadeIn(), exit = fadeOut()) {
+                            CircularProgressIndicator(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .padding(end = 8.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        }
+                        IconButton(onClick = { orderViewModel.fetchOrdersFromBackend() }) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh"
+                            )
+                        }
+                        IconButton(onClick = { /* notifications */ }) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = "Notifications"
+                            )
+                        }
+                    }
                 )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
-                    label = { Text("Profil") },
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 }
+            }
+        },
+        bottomBar = {
+            if (isOnDemandCourier) {
+                OnDemandBottomNavigation(
+                    selectedTab = selectedTab,
+                    offerCount = onDemandOffers.size,
+                    onSelectTab = { selectedTab = it }
                 )
+            } else {
+                NavigationBar {
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                        label = { Text("Beranda") },
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 }
+                    )
+                    NavigationBarItem(
+                        icon = {
+                            BadgedBox(
+                                badge = {
+                                    if (pendingOrders.isNotEmpty()) {
+                                        Badge { Text("${pendingOrders.size}") }
+                                    }
+                                }
+                            ) {
+                                Icon(Icons.Default.LocalShipping, contentDescription = "Orders")
+                            }
+                        },
+                        label = { Text("Order") },
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 }
+                    )
+                    NavigationBarItem(
+                        icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                        label = { Text("Profil") },
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 }
+                    )
+                }
             }
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            when (selectedTab) {
-                0 -> HomeContent(
+        if (isOnDemandCourier && selectedTab == 0) {
+            OnDemandMapHome(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                orders = roleOrders,
+                offers = onDemandOffers,
+                services = onDemandServices,
+                capabilityProfile = capabilityProfile,
+                courierVehicleType = courierVehicleType,
+                routePreviews = routePreviews,
+                hotspots = onDemandHotspots,
+                mapsProviderConfig = mapsProviderConfig,
+                isOnline = isOnline,
+                onOnlineToggle = { online ->
+                    if (online && localSecuritySettings.active) {
+                        pendingDutySecurityTarget = true
+                    } else {
+                        scope.launch { performDutyToggle(online) }
+                    }
+                },
+                onOpenDelivery = { order ->
+                    selectedOrder = order
+                    showOrderDetail = true
+                },
+                onViewOrders = { selectedTab = 1 }
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(paddingValues)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                when (selectedTab) {
+                    0 -> HomeContent(
                     courierName = displayCourierName,
                     courierRole = courierRole,
                     totalOrders = roleOrders.size,
@@ -697,7 +737,7 @@ fun MainScreen(
                     onViewOrders = { selectedTab = 1 },
                     onScanPackage = { showScanScreen = true }
                 )
-                1 -> OrdersContent(
+                    1 -> OrdersContent(
                     orders = roleOrders,
                     courierRole = courierRole,
                     isSyncing = isSyncing,
@@ -710,7 +750,66 @@ fun MainScreen(
                     onSync = { orderViewModel.syncPendingOrders() },
                     onRefresh = { orderViewModel.fetchOrdersFromBackend() }
                 )
-                2 -> ProfileContent(
+                    2 -> if (isOnDemandCourier) {
+                        WalletContent(
+                            courierName = displayCourierName,
+                            todayEarningsIdr = roleEarningsToday,
+                            totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
+                            localSecurityManager = localSecurityManager,
+                            earningsLedger = earningsLedger,
+                            payoutSummary = payoutSummary,
+                            payoutRequests = payoutRequests,
+                            isPayoutSubmitting = isPayoutSubmitting,
+                            onRefreshPayout = { orderViewModel.fetchPayoutState() },
+                            onRequestPayout = { amountIdr, pin ->
+                                orderViewModel.submitPayoutRequest(amountIdr, pin)
+                            }
+                        )
+                    } else {
+                        ProfileContent(
+                            courierName = displayCourierName,
+                            courierRole = courierRole,
+                            localSecurityManager = localSecurityManager,
+                            pendingSyncCount = rolePendingOrders.size,
+                            todayEarningsIdr = roleEarningsToday,
+                            totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
+                            performanceSummary = performanceSummary,
+                            capabilityProfile = capabilityProfile,
+                            earningsLedger = earningsLedger,
+                            payoutSummary = payoutSummary,
+                            payoutRequests = payoutRequests,
+                            isPayoutSubmitting = isPayoutSubmitting,
+                            onCompleteTraining = {
+                                scope.launch {
+                                    val result = orderViewModel.completeTraining()
+                                    snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Training belum tersimpan." })
+                                }
+                            },
+                            onRefreshPayout = { orderViewModel.fetchPayoutState() },
+                            onRequestPayout = { amountIdr, pin ->
+                                orderViewModel.submitPayoutRequest(amountIdr, pin)
+                            },
+                            onLogout = { showLogoutDialog = true },
+                            onSyncNow = { orderViewModel.syncPendingOrders() },
+                            onOptimizeBattery = {
+                                (context as? com.lancar.courier.ui.MainActivity)?.checkAndRequestBatteryWhitelist()
+                            },
+                            onClearCache = {
+                                try {
+                                    val deleted = context.cacheDir.deleteRecursively()
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            if (deleted) "Optimalisasi: Berhasil membersihkan berkas cache."
+                                            else "Beberapa cache sedang digunakan dan dilewati."
+                                        )
+                                    }
+                                } catch (e: Exception) {
+                                    scope.launch { snackbarHostState.showSnackbar("Gagal merestart cache.") }
+                                }
+                            }
+                        )
+                    }
+                    3 -> ProfileContent(
                     courierName = displayCourierName,
                     courierRole = courierRole,
                     localSecurityManager = localSecurityManager,
@@ -752,6 +851,435 @@ fun MainScreen(
                         }
                     }
                 )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnDemandBottomNavigation(
+    selectedTab: Int,
+    offerCount: Int,
+    onSelectTab: (Int) -> Unit
+) {
+    NavigationBar(containerColor = Color(0xFF111015), contentColor = Color.White) {
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Map, contentDescription = "Peta") },
+            label = { Text("Peta") },
+            selected = selectedTab == 0,
+            onClick = { onSelectTab(0) },
+            colors = onDemandNavigationItemColors()
+        )
+        NavigationBarItem(
+            icon = {
+                BadgedBox(
+                    badge = {
+                        if (offerCount > 0) {
+                            Badge(containerColor = LogisticsOrange, contentColor = Color.Black) {
+                                Text(offerCount.toString())
+                            }
+                        }
+                    }
+                ) {
+                    Icon(Icons.Default.History, contentDescription = "Riwayat")
+                }
+            },
+            label = { Text("Riwayat") },
+            selected = selectedTab == 1,
+            onClick = { onSelectTab(1) },
+            colors = onDemandNavigationItemColors()
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.AccountBalanceWallet, contentDescription = "Dompet") },
+            label = { Text("Dompet") },
+            selected = selectedTab == 2,
+            onClick = { onSelectTab(2) },
+            colors = onDemandNavigationItemColors()
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
+            label = { Text("Profil") },
+            selected = selectedTab == 3,
+            onClick = { onSelectTab(3) },
+            colors = onDemandNavigationItemColors()
+        )
+    }
+}
+
+@Composable
+private fun onDemandNavigationItemColors(): NavigationBarItemColors =
+    NavigationBarItemDefaults.colors(
+        selectedIconColor = Color.White,
+        selectedTextColor = Color.White,
+        indicatorColor = LogisticsOrange.copy(alpha = 0.78f),
+        unselectedIconColor = Color.White.copy(alpha = 0.66f),
+        unselectedTextColor = Color.White.copy(alpha = 0.66f)
+    )
+
+@Composable
+private fun OnDemandMapHome(
+    modifier: Modifier = Modifier,
+    orders: List<Order>,
+    offers: List<Order>,
+    services: List<CourierServiceProduct>,
+    capabilityProfile: CourierCapabilityProfile?,
+    courierVehicleType: String,
+    routePreviews: Map<String, CourierRoutePreview>,
+    hotspots: List<CourierHotspot>,
+    mapsProviderConfig: MapsProviderConfig,
+    isOnline: Boolean,
+    onOnlineToggle: (Boolean) -> Unit,
+    onOpenDelivery: (Order) -> Unit,
+    onViewOrders: () -> Unit
+) {
+    val activeOrder = orders.firstOrNull {
+        it.status.lowercase() in setOf("accepted", "picked_up", "in_transit")
+    }
+    val leadingOffer = offers.firstOrNull()
+    val focusOrder = activeOrder ?: leadingOffer
+    val pickupPoint = focusOrder?.let { order ->
+        val lat = order.pickupLatitude
+        val lng = order.pickupLongitude
+        if (lat != null && lng != null) LatLng(lat, lng) else null
+    }
+    val dropPoint = focusOrder?.let { order ->
+        val lat = order.dropLatitude
+        val lng = order.dropLongitude
+        if (lat != null && lng != null) LatLng(lat, lng) else null
+    }
+    val activeRoutePoints = activeOrder?.let { order ->
+        val preview = routePreviews[order.orderId]
+        preview?.let {
+            decodeRuntimeRoutePolyline(it.routePolyline ?: it.routeSnapshot?.routePolyline)
+                .ifEmpty { it.polyline.map { point -> LatLng(point.latitude, point.longitude) } }
+        }
+    }.orEmpty()
+    val mapMarkers = buildList {
+        pickupPoint?.let { add(RuntimeMapMarker("pickup", it, focusOrder?.pickupAddress ?: "Titik Jemput")) }
+        dropPoint?.let { add(RuntimeMapMarker("dropoff", it, focusOrder?.dropAddress ?: "Tujuan")) }
+        hotspots.take(8).forEach { hotspot ->
+            val lat = hotspot.latitude
+            val lng = hotspot.longitude
+            if (lat != null && lng != null) {
+                add(
+                    RuntimeMapMarker(
+                        id = "hotspot-${hotspot.code ?: hotspot.name}",
+                        position = LatLng(lat, lng),
+                        title = hotspot.name,
+                        snippet = "${hotspot.pendingOrders} order menunggu"
+                    )
+                )
+            }
+        }
+    }
+    val routePoints = activeRoutePoints.ifEmpty {
+        buildList {
+            pickupPoint?.let { add(it) }
+            dropPoint?.let { add(it) }
+        }
+    }
+    val vehicleGroup = normalizedVehicleGroup(courierVehicleType)
+    val capabilityItems = capabilityProfile?.serviceCapabilities
+        ?.filter { it.serviceCategory == "on_demand" }
+        .orEmpty()
+    val capabilityByCode = capabilityItems.associateBy { it.serviceCode }
+    val serviceByCode = services.associateBy { it.code }
+    val serviceItems = if (capabilityItems.isNotEmpty()) {
+        capabilityItems
+            .map { capability -> serviceByCode[capability.serviceCode] ?: capability.toServiceProduct(vehicleGroup) }
+            .filter { it.supportsVehicleGroup(vehicleGroup) }
+    } else {
+        services.filter { it.supportsVehicleGroup(vehicleGroup) }
+    }
+    var disabledServiceCodesText by rememberSaveable(vehicleGroup) { mutableStateOf("") }
+    var servicePanelExpanded by rememberSaveable(vehicleGroup) { mutableStateOf(false) }
+    val disabledServiceCodes = remember(disabledServiceCodesText) {
+        disabledServiceCodesText.split(",").filter { it.isNotBlank() }.toSet()
+    }
+    val activeServiceItems = serviceItems.filter { service ->
+        val capability = capabilityByCode[service.code]
+        val enabledByCapability = capability?.status?.equals("enabled", ignoreCase = true) ?: true
+        enabledByCapability && service.code !in disabledServiceCodes
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF111015))
+    ) {
+        RuntimeMapRenderer(
+            modifier = Modifier.fillMaxSize(),
+            providerConfig = mapsProviderConfig,
+            markers = mapMarkers,
+            routePoints = routePoints,
+            followLocation = pickupPoint ?: mapMarkers.firstOrNull()?.position,
+            googleUiSettings = MapUiSettings(
+                zoomControlsEnabled = false,
+                myLocationButtonEnabled = false,
+                mapToolbarEnabled = false
+            ),
+            routeColor = LogisticsOrange,
+            fallbackTitle = "Peta on-demand",
+            fallbackMessage = "Lokasi akan tampil setelah GPS, hotspot, atau offer dari backend tersedia."
+        )
+
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 18.dp, top = 18.dp),
+            color = Color(0xE60E1411),
+            shape = RoundedCornerShape(24.dp),
+            shadowElevation = 6.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(10.dp),
+                    color = if (isOnline) Color(0xFF00C853) else Color(0xFFFF3B30),
+                    shape = RoundedCornerShape(50)
+                ) {}
+                Text(
+                    text = if (isOnline) "Kamu Sedang Online" else "Kamu Sedang Offline",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Black
+                )
+            }
+        }
+
+        FilledIconButton(
+            onClick = { onOnlineToggle(!isOnline) },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(end = 18.dp, top = 18.dp)
+                .size(64.dp),
+            shape = RoundedCornerShape(18.dp),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = if (isOnline) Color(0xFF9B100D) else Primary,
+                contentColor = Color.White
+            )
+        ) {
+            Icon(Icons.Default.PowerSettingsNew, contentDescription = if (isOnline) "Nonaktifkan duty" else "Aktifkan duty")
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            OnDemandServiceActivationCard(
+                serviceItems = serviceItems,
+                activeServiceCount = activeServiceItems.size,
+                capabilityByCode = capabilityByCode,
+                disabledServiceCodes = disabledServiceCodes,
+                vehicleGroup = vehicleGroup,
+                expanded = servicePanelExpanded,
+                onToggleExpanded = { servicePanelExpanded = !servicePanelExpanded },
+                onServiceEnabledChange = { service, checked ->
+                    val nextCodes = if (checked) {
+                        disabledServiceCodes - service.code
+                    } else {
+                        disabledServiceCodes + service.code
+                    }
+                    disabledServiceCodesText = nextCodes.sorted().joinToString(",")
+                }
+            )
+
+            if (activeOrder != null) {
+                val order = activeOrder
+                OnDemandActiveOrderCard(order = order, onOpenDelivery = onOpenDelivery)
+            } else if (isOnline && offers.isEmpty()) {
+                OnDemandWaitingCard(onViewOrders = onViewOrders)
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnDemandServiceActivationCard(
+    serviceItems: List<CourierServiceProduct>,
+    activeServiceCount: Int,
+    capabilityByCode: Map<String, CourierServiceCapability>,
+    disabledServiceCodes: Set<String>,
+    vehicleGroup: String,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onServiceEnabledChange: (CourierServiceProduct, Boolean) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xF20B1F17),
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 8.dp
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(color = LogisticsOrange.copy(alpha = 0.18f), shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.Tune, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(9.dp).size(20.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Layanan aktif", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleSmall)
+                    Text(
+                        if (serviceItems.isEmpty()) {
+                            "Belum ada service cocok untuk ${vehicleGroup.toVehicleLabel()}"
+                        } else {
+                            "$activeServiceCount dari ${serviceItems.size} service ${vehicleGroup.toVehicleLabel()}"
+                        },
+                        color = Color.White.copy(alpha = 0.68f),
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                TextButton(onClick = onToggleExpanded) {
+                    Text(if (expanded) "Tutup" else "Atur", color = LogisticsOrange, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (serviceItems.isEmpty()) {
+                        Text(
+                            "Service diambil dari capability admin. Minta admin mengaktifkan layanan on-demand untuk kendaraan ini.",
+                            color = Color.White.copy(alpha = 0.72f),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    } else {
+                        serviceItems.forEach { service ->
+                            val capability = capabilityByCode[service.code]
+                            val enabledByCapability = capability?.status?.equals("enabled", ignoreCase = true) ?: true
+                            val enabled = enabledByCapability && service.code !in disabledServiceCodes
+                            OnDemandServiceToggleRow(
+                                service = service,
+                                enabled = enabled,
+                                lockedByAdmin = !enabledByCapability,
+                                onEnabledChange = { checked ->
+                                    if (enabledByCapability) onServiceEnabledChange(service, checked)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnDemandServiceToggleRow(
+    service: CourierServiceProduct,
+    enabled: Boolean,
+    lockedByAdmin: Boolean,
+    onEnabledChange: (Boolean) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White.copy(alpha = 0.08f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(
+                modifier = Modifier.size(10.dp),
+                color = if (enabled) Success else Color.White.copy(alpha = 0.28f),
+                shape = RoundedCornerShape(50)
+            ) {}
+            Column(modifier = Modifier.weight(1f)) {
+                Text(service.name, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    if (lockedByAdmin) "Dikunci admin" else "ETA maks ${service.maxEtaMinutes.takeIf { it > 0 } ?: 240} menit",
+                    color = Color.White.copy(alpha = 0.62f),
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Switch(
+                checked = enabled,
+                onCheckedChange = onEnabledChange,
+                enabled = !lockedByAdmin,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = LogisticsOrange,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = Color.White.copy(alpha = 0.22f)
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun OnDemandActiveOrderCard(
+    order: Order,
+    onOpenDelivery: (Order) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xF20B1F17),
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 10.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(color = Success.copy(alpha = 0.18f), shape = RoundedCornerShape(12.dp)) {
+                Icon(Icons.Default.Navigation, contentDescription = null, tint = Success, modifier = Modifier.padding(10.dp).size(22.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Order aktif", color = Color.White.copy(alpha = 0.72f), style = MaterialTheme.typography.labelMedium)
+                Text(order.pickupAddress.ifBlank { order.displayServiceName() }, color = Color.White, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(order.cleanPayoutIdr().toRupiahCompact(), color = LogisticsOrange, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+            }
+            Button(
+                onClick = { onOpenDelivery(order) },
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Color.White)
+            ) {
+                Text("Buka", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnDemandWaitingCard(onViewOrders: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xCC0B1F17),
+        shape = RoundedCornerShape(18.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Primary, strokeWidth = 3.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Menunggu pesanan terdekat", color = Color.White, fontWeight = FontWeight.Black)
+                Text("Offer akan muncul otomatis dari backend.", color = Color.White.copy(alpha = 0.68f), style = MaterialTheme.typography.labelMedium)
+            }
+            TextButton(onClick = onViewOrders) {
+                Text("Riwayat", color = LogisticsOrange, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -1931,9 +2459,6 @@ private fun OnDemandOfferDialog(
         val lng = order.dropLongitude
         if (lat != null && lng != null) LatLng(lat, lng) else null
     }
-    val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(pickupPoint ?: dropPoint ?: LatLng(0.0, 0.0), 12.5f)
-    }
 
     LaunchedEffect(order.dispatchId, order.orderId, expiresAt) {
         while (now < expiresAt) {
@@ -1952,12 +2477,6 @@ private fun OnDemandOfferDialog(
         }
     }
 
-    LaunchedEffect(pickupPoint, dropPoint) {
-        val pickup = pickupPoint ?: return@LaunchedEffect
-        val center = dropPoint?.let { LatLng((pickup.latitude + it.latitude) / 2, (pickup.longitude + it.longitude) / 2) } ?: pickup
-        cameraPositionState.position = CameraPosition.fromLatLngZoom(center, if (dropPoint != null) 12f else 12.5f)
-    }
-
     Dialog(
         onDismissRequest = {},
         properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)
@@ -1965,171 +2484,124 @@ private fun OnDemandOfferDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color(0xFF08281B), Color(0xFF0E4A30), Color(0xFFF2F5F0))
-                    )
-                )
-                .padding(18.dp)
+                .background(Color.Black.copy(alpha = 0.62f))
+                .padding(horizontal = 28.dp),
+            contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xF20A2218), RoundedCornerShape(24.dp))
+                    .padding(22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Surface(
-                            color = LogisticsOrange,
-                            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 18.dp, bottomStart = 18.dp, bottomEnd = 8.dp),
-                            border = BorderStroke(2.dp, Color.Black)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(Icons.Default.Bolt, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
-                                Text(order.displayServiceName().uppercase(), color = Color.Black, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            }
-                        }
-                        TextButton(onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onReject()
-                        }) {
-                            Icon(Icons.Default.Close, contentDescription = null, tint = Color.White)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Tolak", color = Color.White, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                Text(
+                    text = "Pesanan Baru!",
+                    color = Primary,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    text = "Waktu tersisa: $remainingSeconds detik",
+                    color = if (remainingSeconds <= 5) Color(0xFFFF5252) else Color(0xFFFF6F61),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp),
+                    color = Primary,
+                    trackColor = Color.White.copy(alpha = 0.18f)
+                )
 
-                    Surface(
-                        modifier = Modifier.fillMaxWidth().height(162.dp),
-                        color = Color.Black.copy(alpha = 0.25f),
-                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 28.dp, bottomStart = 28.dp, bottomEnd = 16.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f))
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            if (pickupPoint != null) {
-                                RuntimeMapRenderer(
-                                    modifier = Modifier.fillMaxSize(),
-                                    providerConfig = mapsProviderConfig,
-                                    markers = buildList {
-                                        add(RuntimeMapMarker("pickup", pickupPoint, "Pickup", order.pickupAddress))
-                                        dropPoint?.let { add(RuntimeMapMarker("dropoff", it, "Area tujuan", order.dropAddress)) }
-                                    },
-                                    routePoints = buildList {
-                                        add(pickupPoint)
-                                        dropPoint?.let { add(it) }
-                                    },
-                                    followLocation = pickupPoint,
-                                    googleUiSettings = MapUiSettings(
-                                        zoomControlsEnabled = false,
-                                        myLocationButtonEnabled = false,
-                                        mapToolbarEnabled = false,
-                                        scrollGesturesEnabled = false,
-                                        zoomGesturesEnabled = false,
-                                        tiltGesturesEnabled = false,
-                                        rotationGesturesEnabled = false
-                                    ),
-                                    routeColor = LogisticsOrange,
-                                    fallbackTitle = "Area pickup",
-                                    fallbackMessage = "Offer tetap bisa diterima. Provider peta mengikuti konfigurasi admin."
-                                )
-                            } else {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(18.dp),
-                                    verticalArrangement = Arrangement.Center,
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Icon(Icons.Default.LocationOff, contentDescription = null, tint = Color.White, modifier = Modifier.size(34.dp))
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        "Koordinat pickup belum tersedia dari order.",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                            Surface(
-                                modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
-                                color = Color.Black.copy(alpha = 0.72f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Text("Pickup", color = Color.White.copy(alpha = 0.72f), style = MaterialTheme.typography.labelMedium)
-                                    Text(
-                                        order.pickupAddress.ifBlank { "Alamat pickup belum tersedia" },
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Black,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-                        }
-                    }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Jarak", color = Color.White.copy(alpha = 0.82f), style = MaterialTheme.typography.titleSmall)
+                    Text(order.distance.ifBlank { "Belum tersedia" }, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Pendapatan", color = Color.White.copy(alpha = 0.82f), style = MaterialTheme.typography.titleSmall)
+                    Text(order.cleanPayoutIdr().toRupiahCompact(), color = Primary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(
-                                progress = { progress },
-                                modifier = Modifier.size(96.dp),
-                                color = if (remainingSeconds <= 5) MaterialTheme.colorScheme.error else LogisticsOrange,
-                                trackColor = Color.White.copy(alpha = 0.24f),
-                                strokeWidth = 8.dp
-                            )
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("$remainingSeconds", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
-                                Text("detik", color = Color.White.copy(alpha = 0.74f), style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("Payout bersih", color = Color.White.copy(alpha = 0.74f), style = MaterialTheme.typography.labelLarge)
-                            Text(
-                                order.cleanPayoutIdr().toRupiahCompact(),
-                                color = LogisticsOrange,
-                                style = MaterialTheme.typography.headlineLarge,
-                                fontWeight = FontWeight.Black
-                            )
-                            Text(order.distance.ifBlank { "Jarak belum tersedia" }, color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                            Text(
-                                if (order.serviceMaxEtaMinutes > 0) "ETA ${order.serviceMaxEtaMinutes} menit" else "ETA belum tersedia",
-                                color = Color.White.copy(alpha = 0.78f),
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
-                    }
-
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = Color.White.copy(alpha = 0.86f),
-                        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 28.dp, bottomStart = 28.dp, bottomEnd = 16.dp),
-                        border = BorderStroke(2.dp, Color.Black)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                            OfferRouteRow(Icons.Default.Storefront, "Pickup", order.pickupAddress)
-                            HorizontalDivider(color = Color.Black.copy(alpha = 0.12f))
-                            OfferRouteRow(Icons.Default.Lock, "Tujuan setelah diterima", "Alamat lengkap dibuka setelah kamu menerima pekerjaan.")
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            InfoPill(icon = Icons.Default.Person, text = order.customerName.ifBlank { "Nama pelanggan belum tersedia" })
-                                InfoPill(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
-                            }
-                        }
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color.White.copy(alpha = 0.04f),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OfferRouteRowDark(
+                            icon = Icons.Default.LocationOn,
+                            tint = Primary,
+                            label = "Titik Jemput",
+                            value = order.pickupAddress.ifBlank { "Alamat jemput belum tersedia" }
+                        )
+                        OfferRouteRowDark(
+                            icon = Icons.Default.Place,
+                            tint = Color(0xFFFF3B30),
+                            label = "Tujuan",
+                            value = order.dropAddress.ifBlank { "Alamat tujuan dibuka setelah diterima" }
+                        )
                     }
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (pickupPoint != null || dropPoint != null) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(96.dp),
+                        color = Color.Black.copy(alpha = 0.22f),
+                        shape = RoundedCornerShape(18.dp)
+                    ) {
+                        RuntimeMapRenderer(
+                            modifier = Modifier.fillMaxSize(),
+                            providerConfig = mapsProviderConfig,
+                            markers = buildList {
+                                pickupPoint?.let { add(RuntimeMapMarker("pickup", it, "Titik Jemput", order.pickupAddress)) }
+                                dropPoint?.let { add(RuntimeMapMarker("dropoff", it, "Tujuan", order.dropAddress)) }
+                            },
+                            routePoints = buildList {
+                                pickupPoint?.let { add(it) }
+                                dropPoint?.let { add(it) }
+                            },
+                            followLocation = pickupPoint ?: dropPoint,
+                            googleUiSettings = MapUiSettings(
+                                zoomControlsEnabled = false,
+                                myLocationButtonEnabled = false,
+                                mapToolbarEnabled = false,
+                                scrollGesturesEnabled = false,
+                                zoomGesturesEnabled = false,
+                                tiltGesturesEnabled = false,
+                                rotationGesturesEnabled = false
+                            ),
+                            routeColor = Primary,
+                            fallbackTitle = "Area pesanan",
+                            fallbackMessage = "Peta mengikuti provider yang diatur admin."
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onReject()
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252)),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.48f))
+                    ) {
+                        Text("Tolak", fontWeight = FontWeight.Black)
+                    }
                     Button(
                         onClick = {
                             if (remainingSeconds > 0) {
@@ -2138,29 +2610,38 @@ private fun OnDemandOfferDialog(
                             }
                         },
                         enabled = remainingSeconds > 0,
-                        modifier = Modifier.fillMaxWidth().height(64.dp),
-                        shape = RoundedCornerShape(topStart = 10.dp, topEnd = 22.dp, bottomStart = 22.dp, bottomEnd = 10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black),
-                        border = BorderStroke(2.dp, Color.Black)
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Color.White)
                     ) {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text("Terima Pekerjaan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onReject()
-                        },
-                        modifier = Modifier.fillMaxWidth().height(54.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.6f))
-                    ) {
-                        Text("Lewati pekerjaan ini", fontWeight = FontWeight.Bold)
+                        Text("Terima", fontWeight = FontWeight.Black)
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun OfferRouteRowDark(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tint: Color,
+    label: String,
+    value: String
+) {
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(23.dp))
+        Column {
+            Text(label, style = MaterialTheme.typography.labelLarge, color = Color.White, fontWeight = FontWeight.Black)
+            Text(
+                value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.82f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -2404,6 +2885,194 @@ private fun DataFreshnessBanner(
 private fun isCourierDataStale(lastRemoteSyncAt: Long?): Boolean {
     if (lastRemoteSyncAt == null) return true
     return System.currentTimeMillis() - lastRemoteSyncAt > 2 * 60 * 1000
+}
+
+@Composable
+private fun WalletContent(
+    courierName: String,
+    todayEarningsIdr: Int,
+    totalEarningsIdr: Int,
+    localSecurityManager: LocalDeviceSecurityManager,
+    earningsLedger: CourierEarningsLedger?,
+    payoutSummary: CourierPayoutSummaryData?,
+    payoutRequests: List<CourierPayoutRequestItem>,
+    isPayoutSubmitting: Boolean,
+    onRefreshPayout: () -> Unit,
+    onRequestPayout: suspend (Int, String) -> Result<CourierPayoutRequestItem>
+) {
+    var showPayoutDialog by remember { mutableStateOf(false) }
+    var showPayoutSecurityChallenge by remember { mutableStateOf(false) }
+    var selectedPayoutRequest by remember { mutableStateOf<CourierPayoutRequestItem?>(null) }
+
+    if (showPayoutDialog && payoutSummary != null) {
+        PayoutRequestDialog(
+            payoutSummary = payoutSummary,
+            isSubmitting = isPayoutSubmitting,
+            onDismiss = { showPayoutDialog = false },
+            onSubmit = onRequestPayout,
+            onSubmitted = { request ->
+                showPayoutDialog = false
+                selectedPayoutRequest = request
+                onRefreshPayout()
+            }
+        )
+    }
+
+    if (showPayoutSecurityChallenge) {
+        LocalSecurityChallengeDialog(
+            securityManager = localSecurityManager,
+            title = "Verifikasi pencairan saldo",
+            message = "Gunakan PIN atau biometrik lokal sebelum membuka pengajuan pencairan.",
+            onCancel = { showPayoutSecurityChallenge = false },
+            onVerified = {
+                showPayoutSecurityChallenge = false
+                showPayoutDialog = true
+            }
+        )
+    }
+
+    selectedPayoutRequest?.let { request ->
+        PayoutRequestDetailDialog(
+            request = request,
+            onDismiss = { selectedPayoutRequest = null }
+        )
+    }
+
+    Column(
+        modifier = Modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            text = "Dompet Kurir",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = CardDefaults.cardColors(containerColor = DeepForest)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(color = Color.White.copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp)) {
+                        Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(12.dp).size(28.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(courierName, color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
+                        Text("Saldo dan pencairan on-demand", color = Color.White.copy(alpha = 0.72f), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    MiniProfileStat("Hari ini", todayEarningsIdr.toRupiahCompact(), Modifier.weight(1f))
+                    MiniProfileStat("Total", totalEarningsIdr.toRupiahCompact(), Modifier.weight(1f))
+                }
+            }
+        }
+
+        PayoutBalanceCard(
+            payoutSummary = payoutSummary,
+            payoutRequests = payoutRequests,
+            isSubmitting = isPayoutSubmitting,
+            onRefresh = onRefreshPayout,
+            onRequestClick = {
+                if (localSecurityManager.settings.value.active) {
+                    showPayoutSecurityChallenge = true
+                } else {
+                    showPayoutDialog = true
+                }
+            },
+            onRequestDetail = { selectedPayoutRequest = it }
+        )
+
+        if (earningsLedger == null) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Primary, strokeWidth = 3.dp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Memuat riwayat dompet", fontWeight = FontWeight.Bold)
+                        Text(
+                            "Data ledger diambil dari backend payout.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        } else {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(color = Success.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
+                            Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = Success, modifier = Modifier.padding(10.dp).size(22.dp))
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Ledger pendapatan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                "Saldo kurir dan riwayat settlement dari sistem",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        MiniProfileStat("Tersedia", earningsLedger.summary.availableBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Pending", earningsLedger.summary.pendingBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                        MiniProfileStat("Total", earningsLedger.summary.totalBalanceIdr.toRupiahCompact(), Modifier.weight(1f))
+                    }
+
+                    PayoutAccountPanel(earningsLedger)
+
+                    if (earningsLedger.transactions.isNotEmpty()) {
+                        HorizontalDivider()
+                        earningsLedger.transactions.take(6).forEach { transaction ->
+                            EarningsLedgerRow(transaction)
+                        }
+                    } else {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = PrimaryLight.copy(alpha = 0.55f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                "Belum ada transaksi pendapatan.",
+                                modifier = Modifier.padding(12.dp),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
