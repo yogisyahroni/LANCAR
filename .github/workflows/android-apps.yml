@@ -181,10 +181,16 @@ jobs:
               print(f"Missing release signing secret(s): {', '.join(missing)}", file=sys.stderr)
               sys.exit(1)
 
-          keystore_bytes = base64.b64decode(os.environ[config["keystore"]].strip(), validate=True)
+          encoded_keystore = "".join(os.environ[config["keystore"]].split())
+          try:
+              keystore_bytes = base64.b64decode(encoded_keystore, validate=True)
+          except Exception as error:
+              print(f"Invalid base64 content in {config['keystore']}: {error}", file=sys.stderr)
+              sys.exit(1)
+
           target = pathlib.Path(working_dir) / "app" / "ci-release-keystore.jks"
           target.write_bytes(keystore_bytes)
-          print(target.as_posix())
+          print(f"Wrote release keystore for {working_dir} to {target.as_posix()} ({len(keystore_bytes)} bytes)")
           PY
 
           key_path="${GITHUB_WORKSPACE}/${{ matrix.working_dir }}/app/ci-release-keystore.jks"
@@ -194,7 +200,10 @@ jobs:
             keytool -list \
               -keystore "${key_path}" \
               -storepass "${COURIER_RELEASE_KEYSTORE_PASSWORD}" \
-              -alias "${COURIER_RELEASE_KEY_ALIAS}" >/dev/null
+              -alias "${COURIER_RELEASE_KEY_ALIAS}" >/dev/null || {
+                echo "Invalid courier release signing secrets. Recheck COURIER_RELEASE_KEYSTORE_BASE64, COURIER_RELEASE_KEYSTORE_PASSWORD, and COURIER_RELEASE_KEY_ALIAS." >&2
+                exit 1
+              }
 
             {
               echo "RELEASE_KEYSTORE_PATH=${key_path}"
@@ -206,7 +215,10 @@ jobs:
             keytool -list \
               -keystore "${key_path}" \
               -storepass "${CUSTOMER_RELEASE_KEYSTORE_PASSWORD}" \
-              -alias "${CUSTOMER_RELEASE_KEY_ALIAS}" >/dev/null
+              -alias "${CUSTOMER_RELEASE_KEY_ALIAS}" >/dev/null || {
+                echo "Invalid customer release signing secrets. Recheck CUSTOMER_RELEASE_KEYSTORE_BASE64, CUSTOMER_RELEASE_KEYSTORE_PASSWORD, and CUSTOMER_RELEASE_KEY_ALIAS." >&2
+                exit 1
+              }
 
             {
               echo "RELEASE_KEYSTORE_PATH=${key_path}"
