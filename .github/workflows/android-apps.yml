@@ -1,6 +1,7 @@
 name: Mobile Apps CI/CD
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'android-app/**'
