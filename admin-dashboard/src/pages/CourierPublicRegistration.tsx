@@ -16,8 +16,7 @@ const documentLabels: Record<string, string> = {
 }
 
 const channelLabels: Record<string, string> = {
-  pickup_only: 'Pickup Only',
-  delivery_only: 'Delivery Only',
+  regular: 'Regular',
   on_demand: 'On-Demand',
 }
 

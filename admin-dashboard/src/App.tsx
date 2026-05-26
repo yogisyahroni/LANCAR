@@ -4,7 +4,6 @@ import { Toaster } from 'sonner'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Orders from './pages/Orders'
-import ThreeLegReadiness from './pages/ThreeLegReadiness'
 import Couriers from './pages/Couriers'
 import CourierApplications from './pages/CourierApplications'
 import CourierSafetyEvents from './pages/CourierSafetyEvents'
@@ -74,14 +73,6 @@ function App() {
             } 
           />
 
-          <Route 
-            path="/three-legs-readiness" 
-            element={
-              <ProtectedRoute>
-                <ThreeLegReadiness />
-              </ProtectedRoute>
-            } 
-          />
           <Route 
             path="/couriers" 
             element={

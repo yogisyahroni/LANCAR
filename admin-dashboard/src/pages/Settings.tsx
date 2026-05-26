@@ -39,7 +39,7 @@ export default function Settings() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('General')
   const [showApiKey, setShowApiKey] = useState(false)
-  const [activeModel, setActiveModel] = useState('3-Leg')
+  const [activeModel, setActiveModel] = useState('P2P')
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [inviteForm, setInviteForm] = useState({
     email: '',
@@ -50,7 +50,6 @@ export default function Settings() {
   const [isFlagModalOpen, setIsFlagModalOpen] = useState(false)
   const [selectedFlag, setSelectedFlag] = useState<any>(null)
   const [flagReason, setFlagReason] = useState('')
-  const [isManualConfirm, setIsManualConfirm] = useState(false)
 
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false)
   const [registerFlagForm, setRegisterFlagForm] = useState({
@@ -284,23 +283,13 @@ export default function Settings() {
     }
     return item.value
   }
+  const visibleFlags = flags.filter((flag: any) => !['model_two_legs', 'model_three_legs', 'three_legs_relay'].includes(flag.key))
 
   // SLA mapping (Dynamic from backend)
   const slaData = getConfig('sla_config', {
     'P2P': [
       { stage: 'Pickup Window', target: '10m', critical: '15m' },
       { stage: 'Direct Delivery', target: '30m', critical: '45m' }
-    ],
-    '2-Leg': [
-      { stage: 'Pickup Window', target: '12m', critical: '20m' },
-      { stage: 'Leg 1 (Origin to Relay)', target: '35m', critical: '50m' },
-      { stage: 'Final Delivery', target: '25m', critical: '40m' }
-    ],
-    '3-Leg': [
-      { stage: 'Pickup Window', target: '15m', critical: '25m' },
-      { stage: 'Leg 1 (Origin to Relay)', target: '45m', critical: '60m' },
-      { stage: 'Relay Processing', target: '10m', critical: '20m' },
-      { stage: 'Final Leg Delivery', target: '30m', critical: '45m' }
     ]
   })
 
@@ -707,7 +696,7 @@ export default function Settings() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {flags.map((flag: any) => (
+                    {visibleFlags.map((flag: any) => (
                       <div key={flag.id} className="p-6 rounded-3xl bg-white/[0.02] border border-white/5 hover:border-primary/20 transition-all group relative overflow-hidden">
                         <div className="flex items-center justify-between mb-4">
                            <div className="flex items-center gap-3">
@@ -720,7 +709,6 @@ export default function Settings() {
                              onClick={() => {
                                setSelectedFlag(flag);
                                setFlagReason('');
-                               setIsManualConfirm(false);
                                setIsFlagModalOpen(true);
                              }}
                              className={cn(
@@ -765,7 +753,7 @@ export default function Settings() {
                       SLA Thresholds
                     </h3>
                     <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-fit">
-                      {['P2P', '2-Leg', '3-Leg'].map(model => (
+                      {['P2P'].map(model => (
                         <button 
                           key={model}
                           onClick={() => setActiveModel(model)}
@@ -899,7 +887,7 @@ export default function Settings() {
                       >
                         <option>Internal / Managed</option>
                         <option>PasarPolis Integration</option>
-                        <option>AXA Mandiri (Relay)</option>
+                        <option>AXA Mandiri</option>
                       </select>
                       <p className="text-[10px] text-zinc-600 font-bold italic">Active partner for claim settlements.</p>
                     </div>
@@ -1638,27 +1626,6 @@ export default function Settings() {
                   <p className="text-sm text-zinc-400 leading-relaxed italic">"{selectedFlag.description}"</p>
                 </div>
 
-                {selectedFlag.key === 'model_three_legs' && !selectedFlag.is_enabled && (
-                  <div className="p-6 rounded-3xl bg-amber-500/10 border border-amber-500/20 space-y-4">
-                    <div className="flex items-start gap-3">
-                      <ShieldAlert className="text-amber-500 shrink-0" size={20} />
-                      <div className="space-y-1">
-                        <p className="text-sm font-black text-amber-500 uppercase tracking-tight">Critical Activation</p>
-                        <p className="text-xs text-amber-200/60 leading-relaxed font-medium">Activating 3-Legs model requires manual confirmation that all relay points and courier equipment are ready.</p>
-                      </div>
-                    </div>
-                    <label className="flex items-center gap-3 p-3 rounded-xl bg-black/20 cursor-pointer hover:bg-black/30 transition-all border border-white/5">
-                      <input 
-                        type="checkbox"
-                        checked={isManualConfirm}
-                        onChange={(e) => setIsManualConfirm(e.target.checked)}
-                        className="w-4 h-4 rounded border-white/10 bg-white/5 text-primary focus:ring-offset-0 focus:ring-0"
-                      />
-                      <span className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">I confirm operational readiness</span>
-                    </label>
-                  </div>
-                )}
-
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex justify-between">
                     <span>Reason for Change</span>
@@ -1689,14 +1656,14 @@ export default function Settings() {
                       key: selectedFlag.key, 
                       is_enabled: !selectedFlag.is_enabled,
                       reason: flagReason,
-                      checklist_data: selectedFlag.key === 'model_three_legs' ? { admin_manual_confirm: isManualConfirm } : undefined
+                      checklist_data: undefined
                     } as any);
                     setIsFlagModalOpen(false);
                   }}
                   disabled={
                     updateFlagMutation.isPending || 
                     flagReason.length < 10 || 
-                    (selectedFlag.key === 'model_three_legs' && !selectedFlag.is_enabled && !isManualConfirm)
+                    false
                   }
                   className={cn(
                     "flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2",

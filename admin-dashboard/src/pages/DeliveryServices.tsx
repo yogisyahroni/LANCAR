@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
 
-type RouteModel = 'p2p' | 'two_legs' | 'three_legs' | 'hub_and_spoke'
+type RouteModel = 'p2p'
 type PriceMode = 'final' | 'estimated_then_adjusted'
 
 type DeliveryService = {
@@ -48,26 +48,14 @@ const serviceCategories = [
   {
     code: 'on_demand',
     label: 'On Demand',
-    description: 'Produk ala GoSend: LANCAR Prioritas, Instant, Hemat, Same Day, dan Mobil.',
+    description: 'Produk kurir langsung P2P untuk pengiriman cepat dari pickup ke tujuan.',
     defaultRoute: 'p2p' as RouteModel
   },
   {
-    code: 'network',
-    label: 'Network Parcel',
-    description: 'Alur seperti JNE: pickup, hub origin, hub destination, courier delivery, POD.',
-    defaultRoute: 'hub_and_spoke' as RouteModel
-  },
-  {
-    code: 'pickup_only',
-    label: 'Pickup Only',
-    description: 'Kurir hanya menjalankan pickup dari customer ke origin facility.',
-    defaultRoute: 'two_legs' as RouteModel
-  },
-  {
-    code: 'delivery_only',
-    label: 'Delivery Only',
-    description: 'Kurir hanya menjalankan last-mile dari destination facility ke penerima.',
-    defaultRoute: 'two_legs' as RouteModel
+    code: 'regular',
+    label: 'Regular',
+    description: 'Produk regular P2P untuk kurir regular yang bisa menjalankan pickup dan delivery.',
+    defaultRoute: 'p2p' as RouteModel
   }
 ]
 
@@ -148,27 +136,14 @@ const displayLabel = (code: string, source: Array<{ code: string; label: string 
     .join(' ')
 
 const serviceDefaultsForCategory = (categoryCode: string, familyCode = 'regular'): Partial<DeliveryService> => {
-  if (categoryCode === 'network') {
+  if (categoryCode === 'regular') {
     return {
-      route_model: 'hub_and_spoke',
-      exclusive_driver: false,
-      batching_allowed: true,
-      max_eta_minutes: 1440,
-      base_fare_idr: familyCode === 'express' ? 15000 : 9000,
-      per_km_idr: familyCode === 'express' ? 3500 : 2500,
-      service_multiplier: familyCode === 'express' ? 1.25 : familyCode === 'cargo' ? 1.4 : 1,
-      requires_pickup_verification: true
-    }
-  }
-
-  if (categoryCode === 'pickup_only' || categoryCode === 'delivery_only') {
-    return {
-      route_model: 'two_legs',
+      route_model: 'p2p',
       exclusive_driver: false,
       batching_allowed: true,
       max_eta_minutes: 480,
-      base_fare_idr: 8000,
-      per_km_idr: 2000,
+      base_fare_idr: familyCode === 'express' ? 15000 : 9000,
+      per_km_idr: familyCode === 'express' ? 3500 : 2500,
       service_multiplier: 1,
       requires_pickup_verification: true
     }
@@ -176,7 +151,7 @@ const serviceDefaultsForCategory = (categoryCode: string, familyCode = 'regular'
 
   if (familyCode === 'cargo') {
     return {
-      route_model: categoryCode === 'on_demand' ? 'p2p' : 'hub_and_spoke',
+      route_model: 'p2p',
       vehicle_types: ['car'],
       exclusive_driver: true,
       batching_allowed: false,
@@ -475,7 +450,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
               setSelectedCategory(v)
               setForm((current) => ({ ...current, ...serviceDefaultsForCategory(v, current.service_family), service_category: v }))
             }} options={categories.map((category) => category.code)} labels={categories} />
-            <SelectInput label="Route Model" value={form.route_model} onChange={(v) => updateField('route_model', v as RouteModel)} options={['p2p', 'two_legs', 'three_legs', 'hub_and_spoke']} />
+            <SelectInput label="Route Model" value={form.route_model} onChange={() => updateField('route_model', 'p2p')} options={['p2p']} />
             <SelectInput label="Price Mode" value={form.price_mode} onChange={(v) => updateField('price_mode', v as PriceMode)} options={['final', 'estimated_then_adjusted']} />
             <NumberInput label="Display Order" value={form.display_order} onChange={(v) => updateField('display_order', v)} />
             <NumberInput label="Max ETA (minutes)" value={form.max_eta_minutes} onChange={(v) => updateField('max_eta_minutes', v)} />
@@ -519,7 +494,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
               <p>
                 On Demand adalah operational category untuk offer terima/tolak ala GoSend. REG dan YES masuk Network
-                Parcel dengan route model hub_and_spoke untuk alur pickup, hub origin, hub destination, courier delivery, dan POD.
+                Semua layanan aktif memakai route model P2P. Mode kurir dipisah lewat kategori On Demand atau Regular.
               </p>
             </div>
           </div>

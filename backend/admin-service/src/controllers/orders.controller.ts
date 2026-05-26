@@ -247,13 +247,17 @@ export const flagOrderIssue = async (req: Request, res: Response): Promise<void>
 
 export const createOrder = async (req: Request, res: Response): Promise<void> => {
   const { customer_id, pickup_address, delivery_address, total_price_idr, model } = req.body;
+  if (model && String(model).toLowerCase() !== 'p2p') {
+    res.status(400).json({ error: 'Only p2p model is supported for new orders' });
+    return;
+  }
   const client = await db.connect();
   try {
     await client.query('BEGIN');
     const result = await client.query(`
       INSERT INTO orders (customer_id, pickup_address, delivery_address, total_price_idr, model, status, created_at)
       VALUES ($1, $2, $3, $4, $5, 'pending', NOW()) RETURNING *
-    `, [customer_id, pickup_address, delivery_address, total_price_idr, model || 'relay']);
+    `, [customer_id, pickup_address, delivery_address, total_price_idr, 'p2p']);
 
     const adminId = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(`

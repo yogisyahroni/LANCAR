@@ -154,8 +154,6 @@ routes.get('/admin/dashboard/events', (req, res) => controllers.getDashboardEven
 
 routes.get('/admin/feature-flags', (req, res) => controllers.getAllFlags(req, res));
 routes.post('/admin/feature-flags', (req, res) => controllers.createFlag(req, res));
-routes.get('/admin/feature-flags/readiness/three-legs', (req, res) => controllers.getThreeLegsReadiness(req, res));
-routes.get('/admin/readiness/three-legs', (req, res) => controllers.getThreeLegsReadiness(req, res));
 routes.get('/admin/feature-flags/:key', (req, res) => controllers.getFlagByKey(req, res));
 // Apply TOTP and Rate Limit for toggle
 routes.patch('/admin/feature-flags/:key/toggle', requireTotp, toggleRateLimiter, (req, res) => controllers.toggleFlag(req, res));

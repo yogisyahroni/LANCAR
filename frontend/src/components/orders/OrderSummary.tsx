@@ -33,7 +33,7 @@ interface OrderSummaryProps {
     volumetric_surcharge_idr: number;
     insurance_premium_idr: number;
     dynamic_price_idr?: number;
-    delivery_model?: "p2p" | "two_legs" | "three_legs";
+    delivery_model?: "p2p";
     eta_minutes?: number;
     route_snapshot?: RouteSnapshot | null;
     total_price_idr: number;
@@ -49,9 +49,7 @@ const routeCanvas = {
 };
 
 const modelLabel: Record<string, string> = {
-  p2p: "P2P",
-  two_legs: "2-Kaki",
-  three_legs: "3-Kaki"
+  p2p: "P2P"
 };
 
 const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1").replace(/\/$/, "");

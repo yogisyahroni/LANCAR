@@ -206,13 +206,6 @@ describe('Admin Service Routes', () => {
     expect(controllers.createFlag).toHaveBeenCalled();
   });
 
-  it('should get 3-legs readiness', async () => {
-    const res = await request(app).get('/admin/feature-flags/readiness/three-legs')
-      .set(gatewayHeaders());
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual({ readiness: true });
-  });
-  
   it('should get notification template by id', async () => {
     const res = await request(app).get('/admin/notifications/templates/1')
       .set(gatewayHeaders());

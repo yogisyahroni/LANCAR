@@ -35,7 +35,7 @@ export const seedDashboardData = async () => {
     for (let i = 0; i < 5; i++) {
       const orderId = uuidv4();
       const status = i < 3 ? 'delivered' : 'processing';
-      const model = i % 2 === 0 ? 'direct' : 'relay';
+      const model = 'p2p';
       
       await db.query(`
         INSERT INTO orders (id, order_number, customer_id, status, model, total_price_idr, created_at)

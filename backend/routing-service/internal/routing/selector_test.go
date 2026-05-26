@@ -52,19 +52,6 @@ func TestSelectModel(t *testing.T) {
 				"active_zones": []interface{}{"JAK-TIM", "JAK-SEL"},
 			},
 		},
-		"model_two_legs": {
-			IsEnabled: true,
-			Config: map[string]interface{}{
-				"active_zones": []interface{}{"JAK-TIM", "JAK-SEL"},
-			},
-		},
-		"model_three_legs": {
-			IsEnabled: true,
-			Config: map[string]interface{}{
-				"active_zones":         []interface{}{"JAK-TIM", "JAK-SEL"},
-				"rejection_message_id": "MSG_THREE_LEGS_UNAVAILABLE",
-			},
-		},
 	}
 
 	reader := &mockFlagReader{flags: flags}
@@ -94,17 +81,17 @@ func TestSelectModel(t *testing.T) {
 			wantErr:   false,
 		},
 		{
-			name:      "Two Legs Model (Distance 20)",
+			name:      "P2P Model (Distance 20)",
 			pickup:    Coordinate{Lat: -6.10, Lng: 106.80},
 			dropoff:   Coordinate{Lat: -6.28, Lng: 106.80},
-			wantModel: ModelTwoLegs,
+			wantModel: ModelP2P,
 			wantErr:   false,
 		},
 		{
-			name:      "Three Legs Model (Distance 30)",
+			name:      "P2P Model (Distance 30)",
 			pickup:    Coordinate{Lat: -6.10, Lng: 106.80},
 			dropoff:   Coordinate{Lat: -6.37, Lng: 106.80},
-			wantModel: ModelThreeLegs,
+			wantModel: ModelP2P,
 			wantErr:   false,
 		},
 		{
@@ -141,19 +128,6 @@ func BenchmarkSelectModel(b *testing.B) {
 			IsEnabled: true,
 			Config: map[string]interface{}{
 				"active_zones": []interface{}{"JAK-TIM", "JAK-SEL"},
-			},
-		},
-		"model_two_legs": {
-			IsEnabled: true,
-			Config: map[string]interface{}{
-				"active_zones": []interface{}{"JAK-TIM", "JAK-SEL"},
-			},
-		},
-		"model_three_legs": {
-			IsEnabled: true,
-			Config: map[string]interface{}{
-				"active_zones":         []interface{}{"JAK-TIM", "JAK-SEL"},
-				"rejection_message_id": "MSG_THREE_LEGS_UNAVAILABLE",
 			},
 		},
 	}

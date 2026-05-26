@@ -264,9 +264,7 @@ export default function ActiveOrdersTable() {
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "h-10 w-10 rounded-xl flex items-center justify-center transition-all shadow-lg",
-                        order.model === 'P2P' ? "bg-emerald-500/10 text-emerald-400" :
-                        order.model === '2-Leg' ? "bg-blue-500/10 text-blue-400" :
-                        "bg-purple-500/10 text-purple-400"
+                        "bg-emerald-500/10 text-emerald-400"
                       )}>
                         <Package size={18} />
                       </div>
@@ -382,9 +380,7 @@ export default function ActiveOrdersTable() {
                         <div className="flex items-start gap-8">
                           <div className={cn(
                             "h-20 w-20 rounded-[32px] flex items-center justify-center text-white shadow-2xl transition-all shrink-0",
-                            orderDetail.model === 'P2P' ? "bg-emerald-500 shadow-emerald-500/20" :
-                            orderDetail.model === '2-Leg' ? "bg-blue-500 shadow-blue-500/20" :
-                            "bg-purple-500 shadow-purple-500/20"
+                            "bg-emerald-500 shadow-emerald-500/20"
                           )}>
                             <Package size={40} />
                           </div>

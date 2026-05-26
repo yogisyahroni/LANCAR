@@ -103,7 +103,7 @@ export default function Dashboard() {
     queryFn: async () => {
       const res = await api.get('/admin/finance/stats')
       return res.data.model_breakdown?.map((item: any) => ({
-        service_type: item.model === 'relay' ? 'Relay' : item.model === 'direct' ? 'Direct' : item.model.toUpperCase(),
+        service_type: 'P2P',
         orders: parseInt(item.count),
         revenue: parseInt(item.revenue)
       })) || []

@@ -42,8 +42,7 @@ fun OrderScreen(
     var selectedRole by remember(lockedRole) { mutableStateOf(lockedRole) }
     val roleTabs = listOf(
         "on_demand" to "On Demand",
-        "pickup" to "Pickup",
-        "delivery" to "Delivery"
+        "regular" to "Regular"
     )
     val roleOrders = orders.filter { it.normalizedWorkflowRole() == selectedRole }
     val isRoleLocked = courierRole != "all"
@@ -213,8 +212,7 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
 @Composable
 private fun RoleChip(order: Order) {
     val (label, color) = when (order.normalizedWorkflowRole()) {
-        "pickup" -> "PICKUP" to Warning
-        "delivery" -> "DELIVERY" to Success
+        "regular" -> "REGULAR" to Success
         else -> "ON DEMAND" to Primary
     }
 
@@ -224,8 +222,7 @@ private fun RoleChip(order: Order) {
         leadingIcon = {
             Icon(
                 imageVector = when (order.normalizedWorkflowRole()) {
-                    "pickup" -> Icons.Default.Storefront
-                    "delivery" -> Icons.Default.Navigation
+                    "regular" -> Icons.Default.LocalShipping
                     else -> Icons.Default.Bolt
                 },
                 contentDescription = null,
@@ -241,21 +238,18 @@ private fun RoleChip(order: Order) {
 }
 
 private fun String.toCourierWorkRole(): String = when (this) {
-    "pickup_only", "pickup" -> "pickup"
-    "delivery_only", "delivery" -> "delivery"
+    "regular", "pickup_only", "pickup", "delivery_only", "delivery" -> "regular"
     "all" -> "on_demand"
     else -> "on_demand"
 }
 
 private fun roleTitle(role: String): String = when (role) {
-    "pickup" -> "Tugas Pickup"
-    "delivery" -> "Tugas Delivery"
+    "regular" -> "Order Regular"
     else -> "Pekerjaan On Demand"
 }
 
 private fun roleIcon(role: String) = when (role) {
-    "pickup" -> Icons.Default.Storefront
-    "delivery" -> Icons.Default.Navigation
+    "regular" -> Icons.Default.LocalShipping
     else -> Icons.Default.Bolt
 }
 
@@ -338,17 +332,11 @@ private fun courierOrderStatusLabel(status: String, role: String): String {
             "failed" -> "PERLU REVIEW"
             else -> status.replace("_", " ").uppercase()
         }
-        "pickup" -> when (status) {
-            "assigned" -> "TUGAS PICKUP"
+        "regular" -> when (status) {
+            "assigned" -> "SIAP PICKUP"
             "picked_up" -> "PICKUP SELESAI"
-            "delivered" -> "SELESAI"
-            "failed" -> "PERLU REVIEW"
-            else -> status.replace("_", " ").uppercase()
-        }
-        "delivery" -> when (status) {
-            "assigned" -> "TUGAS ANTAR"
             "in_transit" -> "MENGANTAR"
-            "delivered" -> "POD SELESAI"
+            "delivered" -> "SELESAI"
             "failed" -> "PERLU REVIEW"
             else -> status.replace("_", " ").uppercase()
         }

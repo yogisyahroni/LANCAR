@@ -17,29 +17,6 @@ import {
   updateMapsProviderConfigValue,
 } from '../services/mapsProviderConfig';
 
-export const getThreeLegsReadiness = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const cacheKey = 'readiness:three_legs';
-    const cached = await redis.get(cacheKey);
-    if (cached) {
-      res.json(JSON.parse(cached));
-      return;
-    }
-
-    const result = await readDb.query('SELECT readiness_data, overall_ready, estimated_ready_in_weeks, can_activate, last_updated FROM mv_readiness_three_legs LIMIT 1');
-    if (result.rows.length === 0) {
-      res.status(404).json({ error: 'Readiness data not found in materialized view' });
-      return;
-    }
-
-    const data = result.rows[0];
-    await redis.setex(cacheKey, 300, JSON.stringify(data));
-    res.json(data);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
 export const getSystemConfigs = async (req: Request, res: Response) => {
   try {
     const category = req.query.category as string;

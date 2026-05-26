@@ -32,7 +32,7 @@ import { useNavigate } from 'react-router-dom'
 export default function PricingConfig() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('Standard')
+  const [activeTab, setActiveTab] = useState('P2P')
   const [formData, setFormData] = useState<{
     baseFare: number | '';
     perKm: number | '';
@@ -97,7 +97,7 @@ export default function PricingConfig() {
 
   useEffect(() => {
     if (configs) {
-      const current = configs.find((c: any) => c.service_type === activeTab.toLowerCase());
+      const current = configs.find((c: any) => ['p2p', 'standard'].includes(c.service_type));
       if (current) {
         setFormData({
           baseFare: parseFloat(current.base_fare),
@@ -114,7 +114,7 @@ export default function PricingConfig() {
       return;
     }
     updateMutation.mutate({
-      service_type: activeTab.toLowerCase(),
+      service_type: 'p2p',
       base_fare: formData.baseFare,
       per_km_rate: formData.perKm,
       volumetric_div: formData.volumetricDiv
@@ -177,7 +177,7 @@ export default function PricingConfig() {
                 Global Fare Rules
               </h2>
               <div className="flex gap-2">
-                {['Standard', 'Relay', 'Express'].map(t => (
+                {['P2P'].map(t => (
                   <button 
                     key={t}
                     onClick={() => setActiveTab(t)}

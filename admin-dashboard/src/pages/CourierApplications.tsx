@@ -26,8 +26,7 @@ const ruleLabels: Record<string, string> = {
 
 const channelLabels: Record<string, string> = {
   on_demand: 'On-Demand',
-  pickup_only: 'Pickup Only',
-  delivery_only: 'Delivery Only',
+  regular: 'Regular',
 }
 
 const resolveUploadUrl = (fileUrl?: string) => {

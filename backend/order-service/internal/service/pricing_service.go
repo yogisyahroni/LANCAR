@@ -28,16 +28,15 @@ func NewPricingService(p domain.PricingRepository, m domain.MapsRepository, r do
 }
 
 func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
-	// 0. Check Feature Flags for Model Availability
-	if len(req.Models) == 0 {
+	if len(req.Models) > 0 && !p2pRequested(req.Models) {
 		return nil, &domain.ModelUnavailableError{
-			Model:     "unknown",
-			MessageID: "NO_MODELS",
-			UserMsg:   "No delivery models requested",
+			Model:     "p2p",
+			MessageID: "MODEL_P2P_ONLY",
+			UserMsg:   "Only P2P delivery model is available",
 		}
 	}
 
-	flags, err := s.flagReader.GetFlags(ctx, req.Models)
+	flags, err := s.flagReader.GetFlags(ctx, []string{"model_p2p"})
 	if err != nil {
 		return nil, fmt.Errorf("flag error: %w", err)
 	}
@@ -65,36 +64,17 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		return nil, fmt.Errorf("maps error: %w", err)
 	}
 
-	// 2. Select Best Available Model (Business Logic)
-	// Priority order based on user input, but verified against flags and distance constraints
-	var selectedModel string
-	for _, m := range req.Models {
-		flag, ok := flags[m]
-		if !ok || flag == nil || !flag.IsEnabled {
-			continue
-		}
-
-		// Check distance constraints if defined in config
-		if maxDist, ok := flag.Config["max_distance_km"].(float64); ok && maxDist > 0 {
-			if distKM > maxDist {
-				continue
-			}
-		}
-
-		selectedModel = m
-		break
-	}
-
-	if selectedModel == "" {
+	p2pFlag := flags["model_p2p"]
+	if p2pFlag == nil || !p2pFlag.IsEnabled {
 		return nil, &domain.ModelUnavailableError{
-			Model:     "unknown",
-			MessageID: "MODELS_UNAVAILABLE",
-			UserMsg:   "Requested delivery models are currently unavailable",
+			Model:     "p2p",
+			MessageID: "MSG_P2P_UNAVAILABLE",
+			UserMsg:   "P2P delivery model is currently unavailable",
 		}
 	}
 
 	// 3. Get Pricing Configuration
-	config, err := s.pricingRepo.GetActiveConfig(ctx, selectedModel)
+	config, err := s.pricingRepo.GetActiveConfig(ctx, "p2p")
 	if err != nil {
 		return nil, fmt.Errorf("config error: %w", err)
 	}
@@ -147,7 +127,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		PickupLng:              req.PickupLng,
 		DropoffLat:             req.DropoffLat,
 		DropoffLng:             req.DropoffLng,
-		Model:                  selectedModel,
+		Model:                  "p2p",
 		Length:                 req.Length,
 		Width:                  req.Width,
 		Height:                 req.Height,
@@ -160,6 +140,16 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	}
 
 	return resp, nil
+}
+
+func p2pRequested(models []string) bool {
+	for _, model := range models {
+		switch model {
+		case "p2p", "P2P", "model_p2p":
+			return true
+		}
+	}
+	return false
 }
 
 func (s *pricingServiceImpl) EstimatePrice(ctx context.Context, req *domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {

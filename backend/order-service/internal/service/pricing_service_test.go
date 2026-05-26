@@ -115,21 +115,11 @@ func TestPricingService_Estimate_FlagAware(t *testing.T) {
 			IsEnabled: true,
 			Config:    map[string]interface{}{"max_distance_km": float64(15)},
 		},
-		"model_two_legs": {
-			Key:       "model_two_legs",
-			IsEnabled: true,
-			Config:    map[string]interface{}{"max_distance_km": float64(25)},
-		},
-		"model_three_legs": {
-			Key:       "model_three_legs",
-			IsEnabled: false, // 3-Kaki is OFF
-			Config:    map[string]interface{}{},
-		},
 	}
 
 	mockFlags := &MockFlagReader{Flags: flagsConfig}
 
-	reqModels := []string{"model_p2p", "model_two_legs", "model_three_legs"}
+	reqModels := []string{"model_p2p"}
 
 	tests := []struct {
 		name          string
@@ -140,20 +130,20 @@ func TestPricingService_Estimate_FlagAware(t *testing.T) {
 		{
 			name:          "Jarak 10 km -> P2P",
 			distanceKM:    10.0,
-			expectedModel: "model_p2p",
+			expectedModel: "p2p",
 			expectErr:     false,
 		},
 		{
-			name:          "Jarak 20 km -> 2-Kaki (P2P exceeds max_distance)",
+			name:          "Jarak 20 km -> P2P",
 			distanceKM:    20.0,
-			expectedModel: "model_two_legs",
+			expectedModel: "p2p",
 			expectErr:     false,
 		},
 		{
-			name:          "Jarak 30 km -> Error (3-Kaki OFF)",
+			name:          "Jarak 30 km -> P2P",
 			distanceKM:    30.0,
-			expectedModel: "",
-			expectErr:     true,
+			expectedModel: "p2p",
+			expectErr:     false,
 		},
 	}
 
@@ -199,21 +189,11 @@ func TestPricingService_Estimate_TwoLegsOff(t *testing.T) {
 			IsEnabled: true,
 			Config:    map[string]interface{}{"max_distance_km": float64(15)},
 		},
-		"model_two_legs": {
-			Key:       "model_two_legs",
-			IsEnabled: false, // 2-Kaki OFF
-			Config:    map[string]interface{}{"max_distance_km": float64(25)},
-		},
-		"model_three_legs": {
-			Key:       "model_three_legs",
-			IsEnabled: false, // 3-Kaki OFF
-			Config:    map[string]interface{}{},
-		},
 	}
 
 	mockFlags := &MockFlagReader{Flags: flagsConfig}
 
-	reqModels := []string{"model_p2p", "model_two_legs", "model_three_legs"}
+	reqModels := []string{"model_p2p"}
 
 	tests := []struct {
 		name          string
@@ -224,14 +204,14 @@ func TestPricingService_Estimate_TwoLegsOff(t *testing.T) {
 		{
 			name:          "Jarak 10 km -> P2P",
 			distanceKM:    10.0,
-			expectedModel: "model_p2p",
+			expectedModel: "p2p",
 			expectErr:     false,
 		},
 		{
-			name:          "Jarak 20 km -> Error (2-Kaki OFF)",
+			name:          "Jarak 20 km -> P2P meski model lama nonaktif",
 			distanceKM:    20.0,
-			expectedModel: "",
-			expectErr:     true,
+			expectedModel: "p2p",
+			expectErr:     false,
 		},
 	}
 

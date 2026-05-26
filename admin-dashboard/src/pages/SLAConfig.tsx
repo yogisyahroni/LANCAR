@@ -17,7 +17,7 @@ import { toast } from 'sonner'
 
 export default function SLAConfig() {
   const queryClient = useQueryClient();
-  const [activeModel, setActiveModel] = useState('3-Leg')
+  const [activeModel, setActiveModel] = useState('p2p')
 
   const { data: configs, isLoading } = useQuery({
     queryKey: ['sla', activeModel],
@@ -68,7 +68,7 @@ export default function SLAConfig() {
       </div>
 
       <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-fit">
-        {['P2P', '2-Leg', '3-Leg'].map(model => (
+        {['p2p'].map(model => (
           <button 
             key={model}
             onClick={() => setActiveModel(model)}
@@ -77,7 +77,7 @@ export default function SLAConfig() {
               activeModel === model ? "bg-primary text-white shadow-lg" : "text-zinc-600 hover:text-zinc-300"
             )}
           >
-            {model} Model
+            P2P Model
           </button>
         ))}
       </div>

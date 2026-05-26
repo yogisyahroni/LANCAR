@@ -85,7 +85,7 @@ export default function Couriers() {
   const [isExporting, setIsExporting] = useState(false)
   const [detailTab, setDetailTab] = useState<'profile' | 'history'>('profile')
   const [applicationChannel, setApplicationChannel] = useState('all')
-  const [linkChannel, setLinkChannel] = useState<'pickup_only' | 'delivery_only'>('pickup_only')
+  const [linkChannel, setLinkChannel] = useState<'regular'>('regular')
   const [linkExpiryDays, setLinkExpiryDays] = useState('7')
   const [generatedLink, setGeneratedLink] = useState('')
   const [generatedLinkExpiresAt, setGeneratedLinkExpiresAt] = useState('')
@@ -168,7 +168,7 @@ export default function Couriers() {
       const expiresInDays = Number(linkExpiryDays)
       const res = await api.post('/admin/courier-registration-links', {
         application_channel: linkChannel,
-        title: `Daftar Kurir ${linkChannel === 'pickup_only' ? 'Pickup Only' : 'Delivery Only'}`,
+        title: 'Daftar Kurir Regular',
         expires_in_days: expiresInDays,
       })
       return res.data.data
@@ -294,8 +294,7 @@ export default function Couriers() {
               {[
                 ['all', 'All'],
                 ['on_demand', 'On-Demand'],
-                ['pickup_only', 'Pickup'],
-                ['delivery_only', 'Delivery'],
+                ['regular', 'Regular'],
               ].map(([key, label]) => (
                 <button
                   key={key}
@@ -323,16 +322,15 @@ export default function Couriers() {
             </div>
             <div className="flex-1">
               <p className="text-xs font-black uppercase tracking-[0.22em] text-zinc-600">Share Registration Link</p>
-              <h2 className="mt-2 text-xl font-black text-zinc-100">Link daftar non on-demand</h2>
+              <h2 className="mt-2 text-xl font-black text-zinc-100">Link daftar regular</h2>
               <div className="mt-4 flex gap-2">
                 {[
-                  ['pickup_only', 'Pickup Only'],
-                  ['delivery_only', 'Delivery Only'],
+                  ['regular', 'Regular'],
                 ].map(([key, label]) => (
                   <button
                     key={key}
                     type="button"
-                    onClick={() => setLinkChannel(key as 'pickup_only' | 'delivery_only')}
+                    onClick={() => setLinkChannel(key as 'regular')}
                     className={cn(
                       'rounded-xl px-3 py-2 text-xs font-black transition',
                       linkChannel === key ? 'bg-primary text-white' : 'bg-white/5 text-zinc-500 hover:text-white'

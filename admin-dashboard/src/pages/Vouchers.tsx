@@ -333,7 +333,7 @@ function VoucherModal({ isOpen, onClose, voucher, onSave, isSaving }: any) {
     quota: 100,
     valid_from: format(new Date(), 'yyyy-MM-dd'),
     valid_until: format(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'),
-    applicable_models: ['standard', 'relay', 'express'],
+    applicable_models: ['p2p'],
     is_active: true
   });
 

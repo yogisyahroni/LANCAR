@@ -150,14 +150,12 @@ export const getPricingConfig = async (req: Request, res: Response): Promise<voi
         per_km_fee as per_km_rate,
         volumetric_div,
         updated_at
-      FROM pricing_configs 
-      ORDER BY model ASC
+       FROM pricing_configs
+       WHERE model = 'p2p'
+       ORDER BY model ASC
     `);
     const mapped = result.rows.map(row => {
-      let service_type = row.model;
-      if (row.model === 'p2p') service_type = 'standard';
-      else if (row.model === 'two_legs') service_type = 'relay';
-      else if (row.model === 'three_legs') service_type = 'express';
+      const service_type = 'p2p';
       return {
         service_type,
         base_fare: row.base_fare,
@@ -180,10 +178,11 @@ export const updatePricingConfig = async (req: Request, res: Response): Promise<
     return;
   }
 
-  let dbModel = service_type;
-  if (service_type === 'standard' || service_type === 'Standard') dbModel = 'p2p';
-  else if (service_type === 'relay' || service_type === 'Relay') dbModel = 'two_legs';
-  else if (service_type === 'express' || service_type === 'Express') dbModel = 'three_legs';
+  const dbModel = 'p2p';
+  if (service_type && !['p2p', 'standard', 'Standard'].includes(String(service_type))) {
+    res.status(400).json({ error: 'Only P2P pricing config can be updated' });
+    return;
+  }
 
   const volDiv = (volumetric_div !== undefined && volumetric_div !== null && !isNaN(volumetric_div)) ? Number(volumetric_div) : 5000;
 
@@ -202,13 +201,8 @@ export const updatePricingConfig = async (req: Request, res: Response): Promise<
     }
 
     const row = result.rows[0];
-    let res_service_type = row.model;
-    if (row.model === 'p2p') res_service_type = 'standard';
-    else if (row.model === 'two_legs') res_service_type = 'relay';
-    else if (row.model === 'three_legs') res_service_type = 'express';
-
     res.json({
-      service_type: res_service_type,
+      service_type: 'p2p',
       base_fare: row.base_fare,
       per_km_rate: row.per_km_rate,
       volumetric_div: row.volumetric_div
@@ -230,16 +224,16 @@ export const getSLAConfigs = async (req: Request, res: Response): Promise<void> 
         max_minutes as target_minutes, 
         warning_minutes as critical_minutes,
         CASE 
-          WHEN leg_number = 1 THEN 'Pickup & Sorting'
-          WHEN leg_number = 2 THEN 'Transit & Relay'
-          WHEN leg_number = 3 THEN 'Final Delivery'
+          WHEN leg_number = 1 THEN 'P2P Delivery'
+          WHEN leg_number = 2 THEN 'Direct Delivery Follow-up'
+          WHEN leg_number = 3 THEN 'Direct Delivery Review'
           ELSE 'Stage ' || leg_number
         END as stage_name,
         'Auto-generated threshold for ' || model as description
        FROM sla_configs 
        WHERE model = $1 
        ORDER BY leg_number ASC`,
-      [model_type || 'three_legs']
+      ['p2p']
     );
     res.json(result.rows);
   } catch (error: any) {

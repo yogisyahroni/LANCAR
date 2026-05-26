@@ -108,7 +108,8 @@ export const getFlagByKey = async (req: Request, res: Response): Promise<void> =
 
 export const toggleFlag = async (req: Request, res: Response): Promise<void> => {
   const key = req.params.key as string;
-  const { new_enabled, reason, checklist_data } = req.body;
+  const { new_enabled, reason } = req.body;
+  const retiredDeliveryModelFlags = ['model_two_legs', 'model_three_legs', 'three_legs_relay'];
 
   if (!reason || reason.length < 10) {
     res.status(400).json({ error: 'Reason must be at least 10 characters' });
@@ -126,11 +127,9 @@ export const toggleFlag = async (req: Request, res: Response): Promise<void> => 
     }
     const flag = flagRes.rows[0];
 
-    if (key === 'model_three_legs' && new_enabled === true) {
-      if (!checklist_data || !checklist_data.admin_manual_confirm) {
-        res.status(422).json({ error: 'Checklist requirements not met for 3-Legs activation' });
-        return;
-      }
+    if (retiredDeliveryModelFlags.includes(key) && new_enabled === true) {
+      res.status(422).json({ error: '2-Kaki and 3-Kaki delivery models are retired. Only P2P can be enabled.' });
+      return;
     }
 
     const updateRes = await client.query(

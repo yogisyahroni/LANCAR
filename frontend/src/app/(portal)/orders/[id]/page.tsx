@@ -942,7 +942,7 @@ export default function OrderDetailPage() {
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Metode Pengiriman</p>
-                <p className="text-sm font-medium capitalize">{order.model || 'relay'}</p>
+                <p className="text-sm font-medium capitalize">{order.model || 'p2p'}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-xs font-bold text-muted-foreground tracking-wider uppercase">Jarak Tempuh</p>

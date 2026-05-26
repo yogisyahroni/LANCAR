@@ -252,12 +252,13 @@ fun Order.normalizedWorkflowRole(): String {
     val role = workflowRole.lowercase()
     val modelValue = model.lowercase()
     return when {
-        role == "pickup" || role == "pickup_only" -> "pickup"
-        role == "delivery" || role == "delivery_only" -> "delivery"
-        role == "on_demand" -> "on_demand"
-        modelValue == "p2p" || modelValue == "on_demand" || modelValue == "ondemand" -> "on_demand"
-        legNumber <= 1 -> "pickup"
-        else -> "delivery"
+        role == "on_demand" || role == "ondemand" -> "on_demand"
+        role == "regular" -> "regular"
+        role == "pickup" || role == "pickup_only" -> "regular"
+        role == "delivery" || role == "delivery_only" -> "regular"
+        modelValue == "on_demand" || modelValue == "ondemand" -> "on_demand"
+        modelValue == "p2p" -> "regular"
+        else -> "regular"
     }
 }
 

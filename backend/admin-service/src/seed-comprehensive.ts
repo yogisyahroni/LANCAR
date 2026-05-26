@@ -90,7 +90,7 @@ const runSeed = async () => {
       const orderId = uuidv4();
       const customerId = randomElement(customerIds);
       const status = randomElement(['delivered', 'delivered', 'delivered', 'delivered', 'cancelled', 'processing']);
-      const model = randomElement(['p2p', 'two_legs', 'two_legs']);
+      const model = 'p2p';
       const daysAgo = randomInt(0, 30);
       const createdAt = new Date();
       createdAt.setDate(createdAt.getDate() - daysAgo);
@@ -100,7 +100,7 @@ const runSeed = async () => {
       const ppn = Math.floor(basePrice * 0.11);
       const mdr = Math.floor(basePrice * 0.007);
       const totalPrice = basePrice + ppn;
-      const orderNum = `RLY-${createdAt.toISOString().slice(0, 10).replace(/-/g, '')}-${randomInt(10000, 99999)}`;
+      const orderNum = `P2P-${createdAt.toISOString().slice(0, 10).replace(/-/g, '')}-${randomInt(10000, 99999)}`;
 
       // Insert Order
       await client.query(`
@@ -119,7 +119,7 @@ const runSeed = async () => {
       ]);
 
       // Seed Order Legs
-      const legCount = model === 'p2p' ? 1 : 2;
+      const legCount = 1;
       const legIds: string[] = [];
       const assignedCouriers: string[] = [];
 

@@ -5,11 +5,10 @@ import { saveSecureUploadBuffer } from '../security/uploadSecurity';
 
 const requiredOnDemandDocuments = ['ktp', 'sim', 'stnk', 'skpd', 'vehicle_photo', 'skck', 'bank_account'];
 const forbiddenVehicleCategories = ['trail', 'sport', 'touring'];
-const allowedApplicationChannels = ['on_demand', 'pickup_only', 'delivery_only'];
+const allowedApplicationChannels = ['on_demand', 'regular'];
 const channelLabels: Record<string, string> = {
   on_demand: 'On-Demand',
-  pickup_only: 'Pickup Only',
-  delivery_only: 'Delivery Only'
+  regular: 'Regular'
 };
 
 const normalizePlate = (value: string) => value.trim().toUpperCase().replace(/\s+/g, ' ');
@@ -17,6 +16,9 @@ const normalizePhone = (value: string) => value.trim().replace(/[^\d+]/g, '');
 const tokenHash = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
 const normalizeApplicationChannel = (value: any, fallback = 'on_demand') => {
   const channel = String(value || fallback).trim().toLowerCase();
+  if (channel === 'pickup_only' || channel === 'delivery_only') {
+    return 'regular';
+  }
   return allowedApplicationChannels.includes(channel) ? channel : fallback;
 };
 
@@ -133,7 +135,7 @@ const upsertCourierVehicleAndCapabilities = async (
   const applicationChannel = normalizeApplicationChannel(profile.application_channel, 'on_demand');
   const serviceFilter = applicationChannel === 'on_demand'
     ? "dsp.service_category = 'on_demand'"
-    : "dsp.service_category <> 'on_demand'";
+    : "dsp.service_category = 'regular'";
 
   await client.query(
     `INSERT INTO courier_service_capabilities (
@@ -185,7 +187,7 @@ const publicLinkBase = (req: Request) => {
 
 export const createCourierRegistrationLink = async (req: Request, res: Response): Promise<void> => {
   try {
-    const applicationChannel = normalizeApplicationChannel(req.body?.application_channel, 'pickup_only');
+    const applicationChannel = normalizeApplicationChannel(req.body?.application_channel, 'regular');
     const token = crypto.randomBytes(24).toString('hex');
     const title = String(req.body?.title || `${channelLabels[applicationChannel]} Courier Registration`).trim();
     const notes = req.body?.notes ? String(req.body.notes).trim() : null;
@@ -395,7 +397,7 @@ const submitCourierApplication = async (
         res.status(validation.error === 'Registration link not found' ? 404 : 410).json({ error: validation.error });
         return;
       }
-      applicationChannel = normalizeApplicationChannel(validation.link.application_channel, 'pickup_only');
+      applicationChannel = normalizeApplicationChannel(validation.link.application_channel, 'regular');
       registrationLinkId = validation.link.id;
     }
 
@@ -701,8 +703,7 @@ export const getCourierStats = async (req: Request, res: Response) => {
         COUNT(*) FILTER (WHERE cp.verification_status = 'pending') as pending,
         COUNT(*) FILTER (WHERE u.status = 'suspended') as suspended,
         COUNT(*) FILTER (WHERE cp.application_channel = 'on_demand') as on_demand,
-        COUNT(*) FILTER (WHERE cp.application_channel = 'pickup_only') as pickup_only,
-        COUNT(*) FILTER (WHERE cp.application_channel = 'delivery_only') as delivery_only
+        COUNT(*) FILTER (WHERE cp.application_channel = 'regular') as regular
       FROM courier_profiles cp
       JOIN users u ON cp.user_id = u.id
       WHERE u.deleted_at IS NULL

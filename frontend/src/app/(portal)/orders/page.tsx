@@ -252,9 +252,7 @@ export default function OrderListPage() {
               className="w-full bg-background/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
             >
               <option value="all">Semua Model</option>
-              <option value="relay">Relay (Asli)</option>
               <option value="p2p">P2P Point-to-point</option>
-              <option value="2-kaki">2-Kaki</option>
             </select>
           </div>
         </div>
@@ -415,7 +413,7 @@ export default function OrderListPage() {
                           {order.status?.toUpperCase() || 'UNKNOWN'}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-sm capitalize">{order.model || 'relay'}</td>
+                      <td className="px-5 py-4 text-sm capitalize">{order.model || 'p2p'}</td>
                       <td className="px-5 py-4 text-sm font-medium">{formatPrice(order.total_price_idr)}</td>
                       <td className="px-5 py-4 text-sm text-muted-foreground">{formatDate(order.created_at)}</td>
                       <td className="px-5 py-4 text-sm text-center">

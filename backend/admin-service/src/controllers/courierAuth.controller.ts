@@ -718,7 +718,8 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          o.model,
          ol.leg_number,
          CASE
-           WHEN LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand') THEN 'on_demand'
+           WHEN COALESCE(dsp.service_category, '') = 'on_demand' THEN 'on_demand'
+           WHEN LOWER(o.model) = 'p2p' THEN 'regular'
            WHEN ol.leg_number = 1 THEN 'pickup'
            ELSE 'delivery'
          END AS workflow_role,
@@ -755,7 +756,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
           COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR Service') AS service_name,
          COALESCE(dsp.service_category, 'network') AS service_category,
          COALESCE(dsp.service_family, 'regular') AS service_family,
-         COALESCE(dsp.route_model, o.model, 'hub_and_spoke') AS service_route_model,
+         COALESCE(dsp.route_model, o.model, 'p2p') AS service_route_model,
          COALESCE(dsp.max_eta_minutes, 0)::int AS service_max_eta_minutes,
          NULLIF(COALESCE(o.package_details->>'description', o.customer_notes, o.pickup_notes, ''), '') AS item_description,
          NULLIF(o.package_details->>'length_cm', '')::float8 AS length,
@@ -810,7 +811,8 @@ const mobileOrderSelect = `
   o.model,
   ol.leg_number,
   CASE
-    WHEN LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand') THEN 'on_demand'
+    WHEN COALESCE(dsp.service_category, '') = 'on_demand' THEN 'on_demand'
+    WHEN LOWER(o.model) = 'p2p' THEN 'regular'
     WHEN ol.leg_number = 1 THEN 'pickup'
     ELSE 'delivery'
   END AS workflow_role,
@@ -3505,13 +3507,15 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
           ol.id AS leg_id,
           ol.status AS leg_status,
           CASE
-            WHEN LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand') THEN 'on_demand'
+            WHEN COALESCE(dsp.service_category, '') = 'on_demand' THEN 'on_demand'
+            WHEN LOWER(o.model) = 'p2p' THEN 'regular'
             WHEN ol.leg_number = 1 THEN 'pickup'
             WHEN ol.leg_number > 1 THEN 'delivery'
             ELSE 'network'
           END AS workflow_role
          FROM order_legs ol
          JOIN orders o ON o.id = ol.order_id
+         LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
         WHERE o.id = $1
           AND ol.courier_id = $2
         ORDER BY ol.leg_number ASC

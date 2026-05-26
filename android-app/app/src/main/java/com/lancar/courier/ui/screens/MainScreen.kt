@@ -149,7 +149,7 @@ fun MainScreen(
     val courierName by authSessionManager.courierName.collectAsState(initial = null)
     val isOnline by authSessionManager.isOnline.collectAsState(initial = false)
     val lifecycleOwner = LocalLifecycleOwner.current
-    val courierRole = courierProfile?.applicationChannel ?: inferCourierRole(allOrders)
+    val courierRole = normalizeCourierMode(courierProfile?.applicationChannel ?: inferCourierRole(allOrders))
     val displayCourierName = courierName?.takeIf { it.isNotBlank() } ?: "Profil belum tersinkron"
     val courierVehicleType = capabilityProfile?.vehicle?.vehicleType
         ?: capabilityProfile?.vehicles?.firstOrNull { it.verificationStatus.equals("approved", ignoreCase = true) }?.vehicleType
@@ -936,7 +936,7 @@ private fun HomeContent(
                 ) {
                     Surface(color = PrimaryLight, shape = RoundedCornerShape(8.dp)) {
                         Icon(
-                            if (courierRole == "pickup_only") Icons.Default.Storefront else Icons.Default.Navigation,
+                            if (courierRole == "regular") Icons.Default.LocalShipping else Icons.Default.Bolt,
                             contentDescription = null,
                             tint = Primary,
                             modifier = Modifier.padding(10.dp).size(22.dp)
@@ -3578,53 +3578,51 @@ private fun MaintenanceButton(
 private fun inferCourierRole(orders: List<Order>): String {
     val roles = orders.map { it.normalizedWorkflowRole() }.toSet()
     return when {
-        roles.size == 1 && roles.contains("pickup") -> "pickup_only"
-        roles.size == 1 && roles.contains("delivery") -> "delivery_only"
-        else -> "on_demand"
+        roles.isEmpty() -> "on_demand"
+        roles.all { it == "on_demand" } -> "on_demand"
+        else -> "regular"
     }
 }
 
 private fun List<Order>.filterByCourierRole(courierRole: String): List<Order> {
-    return when (courierRole) {
-        "pickup_only", "pickup" -> filter { it.normalizedWorkflowRole() == "pickup" }
-        "delivery_only", "delivery" -> filter { it.normalizedWorkflowRole() == "delivery" }
+    return when (normalizeCourierMode(courierRole)) {
+        "regular" -> filter { it.normalizedWorkflowRole() == "regular" }
         else -> filter { it.normalizedWorkflowRole() == "on_demand" }
     }
 }
 
-private fun courierRoleLabel(courierRole: String): String = when (courierRole) {
-    "pickup_only", "pickup" -> "Pickup Only"
-    "delivery_only", "delivery" -> "Delivery Only"
+private fun normalizeCourierMode(courierRole: String): String = when (courierRole.lowercase()) {
+    "regular", "pickup_only", "pickup", "delivery_only", "delivery" -> "regular"
+    else -> "on_demand"
+}
+
+private fun courierRoleLabel(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
+    "regular" -> "Regular"
     else -> "On Demand"
 }
 
-private fun courierRoleHint(courierRole: String): String = when (courierRole) {
-    "pickup_only", "pickup" -> "Siap menjalankan tugas pickup"
-    "delivery_only", "delivery" -> "Siap menjalankan tugas delivery"
+private fun courierRoleHint(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
+    "regular" -> "Siap menjalankan order regular P2P"
     else -> "Siap menerima tawaran on-demand"
 }
 
-private fun courierPendingLabel(courierRole: String): String = when (courierRole) {
-    "pickup_only", "pickup" -> "pickup"
-    "delivery_only", "delivery" -> "antar"
+private fun courierPendingLabel(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
+    "regular" -> "regular"
     else -> "menunggu"
 }
 
-private fun courierCompletedLabel(courierRole: String): String = when (courierRole) {
-    "pickup_only", "pickup" -> "Pickup selesai"
-    "delivery_only", "delivery" -> "POD selesai"
+private fun courierCompletedLabel(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
+    "regular" -> "Order regular selesai"
     else -> "Selesai"
 }
 
-private fun courierCurrentTaskTitle(courierRole: String): String = when (courierRole) {
-    "pickup_only", "pickup" -> "Pickup Saat Ini"
-    "delivery_only", "delivery" -> "Delivery Saat Ini"
+private fun courierCurrentTaskTitle(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
+    "regular" -> "Order Regular Saat Ini"
     else -> "Tugas Saat Ini"
 }
 
-private fun courierEmptyTaskTitle(courierRole: String): String = when (courierRole) {
-    "pickup_only", "pickup" -> "Belum ada pickup aktif"
-    "delivery_only", "delivery" -> "Belum ada delivery aktif"
+private fun courierEmptyTaskTitle(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
+    "regular" -> "Belum ada order regular aktif"
     else -> "Belum ada tugas aktif"
 }
 

@@ -2,11 +2,10 @@ import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Shield, AlertTriangle, Lock, Unlock, History,
-  Info, Plus, X, Loader2, CheckCircle2, Clock,
-  AlertCircle, ChevronRight
+  Plus, X, Loader2, CheckCircle2, Clock,
+  AlertCircle
 } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
@@ -115,6 +114,7 @@ export default function FeatureFlags() {
     },
     refetchInterval: 30000
   })
+  const visibleFlags = flags.filter((flag) => !['model_two_legs', 'model_three_legs', 'three_legs_relay'].includes(flag.key))
 
   // ── GET logs for a specific flag ──
   const { data: logs = [], isLoading: isLoadingLogs } = useQuery<FlagLog[]>({
@@ -223,7 +223,7 @@ export default function FeatureFlags() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading
           ? [...Array(6)].map((_, i) => <FlagSkeleton key={i} />)
-          : flags.map((flag, i) => (
+          : visibleFlags.map((flag, i) => (
             <motion.div
               key={flag.id}
               initial={{ opacity: 0, scale: 0.95 }}
@@ -284,15 +284,6 @@ export default function FeatureFlags() {
                 </button>
               </div>
 
-              {flag.require_checklist && (
-                <div className="absolute top-0 right-0 p-2">
-                  <Link to="/three-legs-readiness">
-                    <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition-all cursor-pointer">
-                      <Info size={14} />
-                    </div>
-                  </Link>
-                </div>
-              )}
             </motion.div>
           ))}
       </div>
@@ -475,7 +466,7 @@ export default function FeatureFlags() {
                   <input
                     value={newFlag.key}
                     onChange={e => setNewFlag({ ...newFlag, key: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
-                    placeholder="e.g. model_three_legs"
+                    placeholder="e.g. courier_otp_enabled"
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                   />
                 </div>
@@ -529,21 +520,6 @@ export default function FeatureFlags() {
         )}
       </AnimatePresence>
 
-      {/* View Readiness Link CTA */}
-      <div className="p-6 rounded-3xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <AlertTriangle size={24} className="text-amber-500 flex-shrink-0" />
-          <div>
-            <p className="text-sm font-bold text-amber-200">3-Leg Relay not ready for launch</p>
-            <p className="text-xs text-zinc-500 mt-0.5">Check strategic readiness checklist before enabling Model 3-Kaki.</p>
-          </div>
-        </div>
-        <Link to="/three-legs-readiness">
-          <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500/10 text-amber-300 text-sm font-bold hover:bg-amber-500/20 transition-all flex-shrink-0">
-            View Readiness <ChevronRight size={16} />
-          </button>
-        </Link>
-      </div>
     </div>
   )
 }

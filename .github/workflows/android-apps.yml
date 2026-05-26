@@ -55,22 +55,43 @@ jobs:
       - name: Prepare Firebase config
         shell: bash
         env:
-          COURIER_GOOGLE_SERVICES_JSON_B64: ${{ secrets.ANDROID_COURIER_GOOGLE_SERVICES_JSON_B64 }}
-          CUSTOMER_GOOGLE_SERVICES_JSON_B64: ${{ secrets.ANDROID_CUSTOMER_GOOGLE_SERVICES_JSON_B64 }}
+          COURIER_GOOGLE_SERVICES_JSON: ${{ secrets.COURIER_GOOGLE_SERVICES_JSON }}
+          CUSTOMER_GOOGLE_SERVICES_JSON: ${{ secrets.CUSTOMER_GOOGLE_SERVICES_JSON }}
         run: |
           set -euo pipefail
 
           target="${{ matrix.working_dir }}/app/google-services.json"
-          example="${{ matrix.working_dir }}/app/google-services.example.json"
+          expected_package=""
 
-          if [[ "${{ matrix.working_dir }}" == "android-app" && -n "${COURIER_GOOGLE_SERVICES_JSON_B64}" ]]; then
-            printf '%s' "${COURIER_GOOGLE_SERVICES_JSON_B64}" | base64 -d > "${target}"
-          elif [[ "${{ matrix.working_dir }}" == "android-app-customer" && -n "${CUSTOMER_GOOGLE_SERVICES_JSON_B64}" ]]; then
-            printf '%s' "${CUSTOMER_GOOGLE_SERVICES_JSON_B64}" | base64 -d > "${target}"
-          elif [[ -f "${example}" ]]; then
-            cp "${example}" "${target}"
+          if [[ "${{ matrix.working_dir }}" == "android-app" ]]; then
+            expected_package="com.lancar.courier"
+            if [[ -z "${COURIER_GOOGLE_SERVICES_JSON}" ]]; then
+              echo "Missing COURIER_GOOGLE_SERVICES_JSON repository secret" >&2
+              exit 1
+            fi
+            printf '%s' "${COURIER_GOOGLE_SERVICES_JSON}" > "${target}"
+          elif [[ "${{ matrix.working_dir }}" == "android-app-customer" ]]; then
+            expected_package="com.lancar.customer"
+            if [[ -z "${CUSTOMER_GOOGLE_SERVICES_JSON}" ]]; then
+              echo "Missing CUSTOMER_GOOGLE_SERVICES_JSON repository secret" >&2
+              exit 1
+            fi
+            printf '%s' "${CUSTOMER_GOOGLE_SERVICES_JSON}" > "${target}"
           else
-            echo "Missing Firebase config and example template for ${{ matrix.working_dir }}" >&2
+            echo "Unknown Android app directory: ${{ matrix.working_dir }}" >&2
+            exit 1
+          fi
+
+          actual_package="$(python - <<'PY'
+          import json
+          with open("${{ matrix.working_dir }}/app/google-services.json", "r", encoding="utf-8") as fh:
+              data = json.load(fh)
+          print(data["client"][0]["client_info"]["android_client_info"]["package_name"])
+          PY
+          )"
+
+          if [[ "${actual_package}" != "${expected_package}" ]]; then
+            echo "Firebase config package mismatch. Expected ${expected_package}, got ${actual_package}" >&2
             exit 1
           fi
 

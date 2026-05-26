@@ -19,7 +19,7 @@ export type DeliveryServiceProduct = {
   description: string;
   service_family: string;
   service_category: string;
-  route_model: 'p2p' | 'two_legs' | 'three_legs' | 'hub_and_spoke';
+  route_model: 'p2p';
   is_enabled: boolean;
   display_order: number;
   vehicle_types: string[];
@@ -94,6 +94,16 @@ const writeDeliveryServiceAudit = async (
      VALUES ($1, $2, NULL, $3)`,
     [actorId, action, JSON.stringify(payload)]
   );
+};
+
+const normalizeRouteModel = (value: unknown): 'p2p' => {
+  const routeModel = String(value || 'p2p').trim().toLowerCase();
+  if (routeModel !== 'p2p') {
+    const error = new Error('Only p2p route_model is supported for new delivery services');
+    (error as any).statusCode = 400;
+    throw error;
+  }
+  return 'p2p';
 };
 
 export const customerFacingService = (service: DeliveryServiceProduct) => ({
@@ -172,7 +182,9 @@ export const findDeliveryServiceByCode = async (
   const { rows } = await db.query(
     `SELECT *
      FROM delivery_service_products
-     WHERE code = $1 ${options.includeDisabled ? '' : 'AND is_enabled = TRUE'}
+     WHERE code = $1
+       AND route_model = 'p2p'
+       ${options.includeDisabled ? '' : 'AND is_enabled = TRUE'}
      LIMIT 1`,
     [serviceCode]
   );
@@ -185,6 +197,8 @@ export const listEnabledDeliveryServicesForCustomer = async (): Promise<Delivery
     `SELECT *
      FROM delivery_service_products
      WHERE is_enabled = TRUE
+       AND route_model = 'p2p'
+       AND service_category IN ('on_demand', 'regular')
      ORDER BY display_order ASC, name ASC`
   );
 
@@ -230,7 +244,7 @@ const servicePayload = (body: any) => ({
   description: String(body.description || '').trim(),
   service_family: body.service_family || 'regular',
   service_category: body.service_category || 'on_demand',
-  route_model: body.route_model || 'p2p',
+  route_model: normalizeRouteModel(body.route_model),
   is_enabled: Boolean(body.is_enabled),
   display_order: Number(body.display_order || 100),
   vehicle_types: Array.isArray(body.vehicle_types) ? body.vehicle_types : ['motor'],
@@ -305,7 +319,7 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
     await writeDeliveryServiceAudit(req.user?.id, 'lookup.delivery_service.created', { after: rows[0] });
     res.status(201).json({ success: true, service: normalizeService(rows[0]) });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
 
@@ -372,6 +386,6 @@ export const updateAdminDeliveryService = async (req: Request, res: Response): P
     await writeDeliveryServiceAudit(req.user?.id, 'lookup.delivery_service.updated', { after: rows[0] });
     res.json({ success: true, service: normalizeService(rows[0]) });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(error.statusCode || 500).json({ error: error.message });
   }
 };

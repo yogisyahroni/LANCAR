@@ -158,7 +158,7 @@ export interface DeliveryService {
   name: string;
   description: string;
   service_family: string;
-  route_model: "p2p" | "two_legs" | "three_legs";
+  route_model: "p2p";
   vehicle_types: string[];
   exclusive_driver: boolean;
   batching_allowed: boolean;
