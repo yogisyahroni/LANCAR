@@ -55,47 +55,83 @@ jobs:
       - name: Prepare Firebase config
         shell: bash
         env:
+          WORKING_DIR: ${{ matrix.working_dir }}
           COURIER_GOOGLE_SERVICES_JSON: ${{ secrets.COURIER_GOOGLE_SERVICES_JSON }}
           CUSTOMER_GOOGLE_SERVICES_JSON: ${{ secrets.CUSTOMER_GOOGLE_SERVICES_JSON }}
         run: |
           set -euo pipefail
 
-          target="${{ matrix.working_dir }}/app/google-services.json"
-          expected_package=""
-
-          if [[ "${{ matrix.working_dir }}" == "android-app" ]]; then
-            expected_package="com.lancar.courier"
-            if [[ -z "${COURIER_GOOGLE_SERVICES_JSON}" ]]; then
-              echo "Missing COURIER_GOOGLE_SERVICES_JSON repository secret" >&2
-              exit 1
-            fi
-            printf '%s' "${COURIER_GOOGLE_SERVICES_JSON}" > "${target}"
-          elif [[ "${{ matrix.working_dir }}" == "android-app-customer" ]]; then
-            expected_package="com.lancar.customer"
-            if [[ -z "${CUSTOMER_GOOGLE_SERVICES_JSON}" ]]; then
-              echo "Missing CUSTOMER_GOOGLE_SERVICES_JSON repository secret" >&2
-              exit 1
-            fi
-            printf '%s' "${CUSTOMER_GOOGLE_SERVICES_JSON}" > "${target}"
-          else
-            echo "Unknown Android app directory: ${{ matrix.working_dir }}" >&2
-            exit 1
-          fi
-
-          actual_package="$(python - <<'PY'
+          python - <<'PY'
+          import base64
           import json
-          with open("${{ matrix.working_dir }}/app/google-services.json", "r", encoding="utf-8") as fh:
-              data = json.load(fh)
-          print(data["client"][0]["client_info"]["android_client_info"]["package_name"])
+          import os
+          import pathlib
+          import sys
+
+          configs = {
+              "android-app": (
+                  "COURIER_GOOGLE_SERVICES_JSON",
+                  "com.lancar.courier",
+              ),
+              "android-app-customer": (
+                  "CUSTOMER_GOOGLE_SERVICES_JSON",
+                  "com.lancar.customer",
+              ),
+          }
+
+          working_dir = os.environ["WORKING_DIR"]
+          if working_dir not in configs:
+              print(f"Unknown Android app directory: {working_dir}", file=sys.stderr)
+              sys.exit(1)
+
+          secret_name, expected_package = configs[working_dir]
+          raw_secret = os.environ.get(secret_name, "").strip()
+          if not raw_secret:
+              print(f"Missing {secret_name} repository secret", file=sys.stderr)
+              sys.exit(1)
+
+          def load_google_services(value: str) -> dict:
+              try:
+                  return json.loads(value)
+              except json.JSONDecodeError as raw_error:
+                  try:
+                      decoded = base64.b64decode(value, validate=True).decode("utf-8-sig").strip()
+                      return json.loads(decoded)
+                  except Exception:
+                      print(
+                          f"Invalid {secret_name}. Paste the full google-services.json content "
+                          "as raw JSON, or store a base64-encoded JSON value.",
+                          file=sys.stderr,
+                      )
+                      raise raw_error
+
+          data = load_google_services(raw_secret)
+          clients = data.get("client") or []
+          actual_package = (
+              clients[0]
+              .get("client_info", {})
+              .get("android_client_info", {})
+              .get("package_name")
+              if clients
+              else None
+          )
+          if actual_package != expected_package:
+              print(
+                  f"Firebase config package mismatch. Expected {expected_package}, got {actual_package}",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          target = pathlib.Path(working_dir) / "app" / "google-services.json"
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_text(
+              json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          print(f"Wrote Firebase config for {actual_package} to {target}")
           PY
-          )"
 
-          if [[ "${actual_package}" != "${expected_package}" ]]; then
-            echo "Firebase config package mismatch. Expected ${expected_package}, got ${actual_package}" >&2
-            exit 1
-          fi
-
-          chmod 600 "${target}"
+          chmod 600 "${{ matrix.working_dir }}/app/google-services.json"
 
       # 1. Quality Gate: Linting
       - name: Run Lint
