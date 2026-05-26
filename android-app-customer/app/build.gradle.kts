@@ -9,7 +9,10 @@ plugins {
 }
 
 
-fun getEnvVariable(key: String): String {
+fun getConfigValue(key: String): String {
+    val envValue = System.getenv(key)
+    if (!envValue.isNullOrBlank()) return envValue
+
     val envFile = rootProject.file("../.env")
     if (!envFile.exists()) return ""
     
@@ -25,6 +28,41 @@ fun getEnvVariable(key: String): String {
     return ""
 }
 
+fun getVersionCode(): Int {
+    return (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+}
+
+fun getVersionName(): String {
+    return (project.findProperty("versionName") as String?)?.takeIf { it.isNotBlank() } ?: "1.0.0"
+}
+
+val releaseKeystorePath = System.getenv("RELEASE_KEYSTORE_PATH").orEmpty()
+val releaseKeystorePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD").orEmpty()
+val releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS").orEmpty()
+val releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD").orEmpty()
+val hasReleaseSigning = listOf(
+    releaseKeystorePath,
+    releaseKeystorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { it.isNotBlank() }
+
+gradle.taskGraph.whenReady {
+    val requiresReleaseSigning = listOf(
+        ":app:assembleRelease",
+        ":app:bundleRelease",
+        "assembleRelease",
+        "bundleRelease"
+    ).any { taskPath -> hasTask(taskPath) }
+
+    if (requiresReleaseSigning && !hasReleaseSigning) {
+        throw GradleException(
+            "Release signing requires RELEASE_KEYSTORE_PATH, RELEASE_KEYSTORE_PASSWORD, " +
+                "RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD."
+        )
+    }
+}
+
 android {
     namespace = "com.lancar.customer"
     compileSdk = 34
@@ -33,27 +71,41 @@ android {
         applicationId = "com.lancar.customer"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = getVersionCode()
+        versionName = getVersionName()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = getEnvVariable("GOOGLE_MAPS_API_KEY")
-        buildConfigField("String", "API_CERT_SHA256_PIN_PRIMARY", "\"${getEnvVariable("API_CERT_SHA256_PIN_PRIMARY")}\"")
-        buildConfigField("String", "API_CERT_SHA256_PIN_BACKUP", "\"${getEnvVariable("API_CERT_SHA256_PIN_BACKUP")}\"")
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = getConfigValue("GOOGLE_MAPS_API_KEY")
+        buildConfigField("String", "API_CERT_SHA256_PIN_PRIMARY", "\"${getConfigValue("API_CERT_SHA256_PIN_PRIMARY")}\"")
+        buildConfigField("String", "API_CERT_SHA256_PIN_BACKUP", "\"${getConfigValue("API_CERT_SHA256_PIN_BACKUP")}\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                storeFile = file(releaseKeystorePath)
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("String", "BASE_URL", "\"https://api.lancar.com/\"")
+            buildConfigField("String", "BASE_URL", "\"${getConfigValue("BASE_URL").ifBlank { "https://api.lancar.com/" }}\"")
         }
         debug { 
             isMinifyEnabled = false 
-            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/\"")
+            buildConfigField("String", "BASE_URL", "\"${getConfigValue("DEBUG_BASE_URL").ifBlank { "http://10.0.2.2:8080/" }}\"")
         }
     }
 

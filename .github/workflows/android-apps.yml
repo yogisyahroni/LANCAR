@@ -133,6 +133,89 @@ jobs:
 
           chmod 600 "${{ matrix.working_dir }}/app/google-services.json"
 
+      - name: Prepare release signing
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          WORKING_DIR: ${{ matrix.working_dir }}
+          COURIER_RELEASE_KEYSTORE_BASE64: ${{ secrets.COURIER_RELEASE_KEYSTORE_BASE64 }}
+          COURIER_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.COURIER_RELEASE_KEYSTORE_PASSWORD }}
+          COURIER_RELEASE_KEY_ALIAS: ${{ secrets.COURIER_RELEASE_KEY_ALIAS }}
+          COURIER_RELEASE_KEY_PASSWORD: ${{ secrets.COURIER_RELEASE_KEY_PASSWORD }}
+          CUSTOMER_RELEASE_KEYSTORE_BASE64: ${{ secrets.CUSTOMER_RELEASE_KEYSTORE_BASE64 }}
+          CUSTOMER_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.CUSTOMER_RELEASE_KEYSTORE_PASSWORD }}
+          CUSTOMER_RELEASE_KEY_ALIAS: ${{ secrets.CUSTOMER_RELEASE_KEY_ALIAS }}
+          CUSTOMER_RELEASE_KEY_PASSWORD: ${{ secrets.CUSTOMER_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import base64
+          import os
+          import pathlib
+          import sys
+
+          configs = {
+              "android-app": {
+                  "keystore": "COURIER_RELEASE_KEYSTORE_BASE64",
+                  "store_password": "COURIER_RELEASE_KEYSTORE_PASSWORD",
+                  "alias": "COURIER_RELEASE_KEY_ALIAS",
+                  "key_password": "COURIER_RELEASE_KEY_PASSWORD",
+              },
+              "android-app-customer": {
+                  "keystore": "CUSTOMER_RELEASE_KEYSTORE_BASE64",
+                  "store_password": "CUSTOMER_RELEASE_KEYSTORE_PASSWORD",
+                  "alias": "CUSTOMER_RELEASE_KEY_ALIAS",
+                  "key_password": "CUSTOMER_RELEASE_KEY_PASSWORD",
+              },
+          }
+
+          working_dir = os.environ["WORKING_DIR"]
+          if working_dir not in configs:
+              print(f"Unknown Android app directory: {working_dir}", file=sys.stderr)
+              sys.exit(1)
+
+          config = configs[working_dir]
+          missing = [name for name in config.values() if not os.environ.get(name, "").strip()]
+          if missing:
+              print(f"Missing release signing secret(s): {', '.join(missing)}", file=sys.stderr)
+              sys.exit(1)
+
+          keystore_bytes = base64.b64decode(os.environ[config["keystore"]].strip(), validate=True)
+          target = pathlib.Path(working_dir) / "app" / "ci-release-keystore.jks"
+          target.write_bytes(keystore_bytes)
+          print(target.as_posix())
+          PY
+
+          key_path="${GITHUB_WORKSPACE}/${{ matrix.working_dir }}/app/ci-release-keystore.jks"
+          chmod 600 "${key_path}"
+
+          if [[ "${{ matrix.working_dir }}" == "android-app" ]]; then
+            keytool -list \
+              -keystore "${key_path}" \
+              -storepass "${COURIER_RELEASE_KEYSTORE_PASSWORD}" \
+              -alias "${COURIER_RELEASE_KEY_ALIAS}" >/dev/null
+
+            {
+              echo "RELEASE_KEYSTORE_PATH=${key_path}"
+              echo "RELEASE_KEYSTORE_PASSWORD=${COURIER_RELEASE_KEYSTORE_PASSWORD}"
+              echo "RELEASE_KEY_ALIAS=${COURIER_RELEASE_KEY_ALIAS}"
+              echo "RELEASE_KEY_PASSWORD=${COURIER_RELEASE_KEY_PASSWORD}"
+            } >> "$GITHUB_ENV"
+          else
+            keytool -list \
+              -keystore "${key_path}" \
+              -storepass "${CUSTOMER_RELEASE_KEYSTORE_PASSWORD}" \
+              -alias "${CUSTOMER_RELEASE_KEY_ALIAS}" >/dev/null
+
+            {
+              echo "RELEASE_KEYSTORE_PATH=${key_path}"
+              echo "RELEASE_KEYSTORE_PASSWORD=${CUSTOMER_RELEASE_KEYSTORE_PASSWORD}"
+              echo "RELEASE_KEY_ALIAS=${CUSTOMER_RELEASE_KEY_ALIAS}"
+              echo "RELEASE_KEY_PASSWORD=${CUSTOMER_RELEASE_KEY_PASSWORD}"
+            } >> "$GITHUB_ENV"
+          fi
+
       # 1. Quality Gate: Linting
       - name: Run Lint
         run: ./gradlew lintDebug
@@ -152,6 +235,25 @@ jobs:
             -PversionName="1.0.${{ github.run_number }}-staging"
         working-directory: ./${{ matrix.working_dir }}
 
+      - name: Build Signed Release AAB
+        if: github.event_name == 'push'
+        run: |
+          ./gradlew bundleRelease \
+            -PversionCode=${{ github.run_number }} \
+            -PversionName="1.0.${{ github.run_number }}"
+        working-directory: ./${{ matrix.working_dir }}
+        env:
+          BASE_URL: ${{ vars.MOBILE_API_BASE_URL || vars.STAGING_API_BASE_URL || vars.STAGING_URL || 'https://api.lancar.id/' }}
+
+      - name: Upload Release AAB artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app_name }}-release-aab-${{ github.run_number }}
+          path: ./${{ matrix.working_dir }}/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 30
+
       # 4. Enterprise Security Scan (Placeholder)
       - name: Security Check
         run: echo "🚀 Running Security Scan for ${{ matrix.app_name }}..."
@@ -163,7 +265,9 @@ jobs:
         with:
           tag_name: "v1.0.${{ github.run_number }}"
           name: "Release v1.0.${{ github.run_number }} - ${{ matrix.app_name }}"
-          files: ./${{ matrix.working_dir }}/app/build/outputs/apk/debug/*.apk
+          files: |
+            ./${{ matrix.working_dir }}/app/build/outputs/apk/debug/*.apk
+            ./${{ matrix.working_dir }}/app/build/outputs/bundle/release/*.aab
           draft: false
           prerelease: true
           body: |
