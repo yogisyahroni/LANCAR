@@ -1,6 +1,7 @@
 name: CI/CD Staging
 
 on:
+  workflow_dispatch:
   push:
     branches: [staging, "chore/**", "feat/**", "fix/**"]
   pull_request:
