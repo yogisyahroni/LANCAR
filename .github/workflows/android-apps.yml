@@ -244,6 +244,38 @@ jobs:
             } >> "$GITHUB_ENV"
           fi
 
+      - name: Prepare release API environment
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          MOBILE_API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import os
+          import sys
+          from urllib.parse import urlparse
+
+          base_url = os.environ.get("MOBILE_API_BASE_URL", "").strip()
+          if not base_url:
+              print("Missing MOBILE_API_BASE_URL repository variable for mobile release builds.", file=sys.stderr)
+              sys.exit(1)
+
+          parsed = urlparse(base_url)
+          if parsed.scheme != "https" or not parsed.netloc:
+              print("MOBILE_API_BASE_URL must be an absolute HTTPS URL, for example https://api.example.com/.", file=sys.stderr)
+              sys.exit(1)
+
+          if not base_url.endswith("/"):
+              base_url = f"{base_url}/"
+
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as github_env:
+              github_env.write(f"BASE_URL={base_url}\n")
+
+          print("Validated MOBILE_API_BASE_URL for release build.")
+          PY
+
       # 1. Quality Gate: Linting
       - name: Run Lint
         run: ./gradlew lintDebug
@@ -270,8 +302,6 @@ jobs:
             -PversionCode=${{ github.run_number }} \
             -PversionName="1.0.${{ github.run_number }}"
         working-directory: ./${{ matrix.working_dir }}
-        env:
-          BASE_URL: ${{ vars.MOBILE_API_BASE_URL || vars.STAGING_API_BASE_URL || vars.STAGING_URL || 'https://api.lancar.id/' }}
 
       - name: Upload Release AAB artifact
         if: github.event_name == 'push'

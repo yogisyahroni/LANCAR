@@ -1,3 +1,5 @@
+import java.net.URI
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -36,10 +38,36 @@ fun getVersionName(): String {
     return (project.findProperty("versionName") as String?)?.takeIf { it.isNotBlank() } ?: "1.0.0"
 }
 
+fun normalizedBaseUrl(value: String): String {
+    val trimmed = value.trim()
+    return if (trimmed.endsWith("/")) trimmed else "$trimmed/"
+}
+
+fun quoteBuildConfigString(value: String): String {
+    return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+}
+
+fun validateReleaseBaseUrl(value: String) {
+    if (value.isBlank()) {
+        throw GradleException("BASE_URL is required for release builds. Set MOBILE_API_BASE_URL in GitHub Actions variables.")
+    }
+
+    val uri = runCatching { URI(value) }.getOrElse {
+        throw GradleException("BASE_URL must be a valid absolute HTTPS URL.")
+    }
+
+    if (uri.scheme != "https" || uri.host.isNullOrBlank()) {
+        throw GradleException("BASE_URL for release builds must use HTTPS and include a host.")
+    }
+}
+
 val releaseKeystorePath = System.getenv("RELEASE_KEYSTORE_PATH").orEmpty()
 val releaseKeystorePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD").orEmpty()
 val releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS").orEmpty()
 val releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD").orEmpty()
+val releaseBaseUrl = getConfigValue("BASE_URL")
+val releaseBuildConfigBaseUrl = normalizedBaseUrl(releaseBaseUrl.ifBlank { "https://missing-release-base-url.invalid/" })
+val debugBuildConfigBaseUrl = normalizedBaseUrl(getConfigValue("DEBUG_BASE_URL").ifBlank { "http://10.0.2.2:8080/" })
 val hasReleaseSigning = listOf(
     releaseKeystorePath,
     releaseKeystorePassword,
@@ -60,6 +88,10 @@ gradle.taskGraph.whenReady {
             "Release signing requires RELEASE_KEYSTORE_PATH, RELEASE_KEYSTORE_PASSWORD, " +
                 "RELEASE_KEY_ALIAS, and RELEASE_KEY_PASSWORD."
         )
+    }
+
+    if (requiresReleaseSigning) {
+        validateReleaseBaseUrl(releaseBaseUrl)
     }
 }
 
@@ -101,11 +133,11 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            buildConfigField("String", "BASE_URL", "\"${getConfigValue("BASE_URL").ifBlank { "https://api.lancar.com/" }}\"")
+            buildConfigField("String", "BASE_URL", quoteBuildConfigString(releaseBuildConfigBaseUrl))
         }
         debug { 
             isMinifyEnabled = false 
-            buildConfigField("String", "BASE_URL", "\"${getConfigValue("DEBUG_BASE_URL").ifBlank { "http://10.0.2.2:8080/" }}\"")
+            buildConfigField("String", "BASE_URL", quoteBuildConfigString(debugBuildConfigBaseUrl))
         }
     }
 

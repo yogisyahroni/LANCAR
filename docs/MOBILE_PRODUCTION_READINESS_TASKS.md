@@ -1,0 +1,434 @@
+# Mobile Production Readiness Tasks
+
+Status: Draft execution plan
+Scope: Courier Android app and Customer Android app
+Constraint: Do not upgrade `targetSdk` yet. Keep current SDK target until device testing is complete.
+
+## Goal
+
+Prepare both mobile apps for production-grade testing and Play Console readiness without changing the current target SDK. The focus is release safety, environment correctness, secret handling, network posture, Firebase reliability, and operational documentation.
+
+## Current Baseline
+
+- CI can inject Firebase config from GitHub Actions Secrets.
+- CI can build signed release AABs using keystore secrets.
+- Courier and Customer release signing are separated.
+- Debug builds remain available for development testing.
+- Release AAB generation is not yet the same as full Play Console production readiness.
+
+## Non-Goal For This Phase
+
+- Do not upgrade `compileSdk` or `targetSdk`.
+- Do not publish directly to Play Console production.
+- Do not rotate courier signing keys unless current courier CI fails.
+- Do not commit `google-services.json`, `.jks`, passwords, or any generated local secret files.
+
+## Priority Legend
+
+- P0: Must be handled before production or external tester rollout.
+- P1: Strongly recommended before Play Console internal testing.
+- P2: Operational hardening and review readiness.
+
+---
+
+## MOB-P0-01 Production API And Env Fail-Fast
+
+Status: Completed
+
+### Problem
+
+Release builds must not silently fall back to placeholder or staging URLs. A production mobile app pointed at the wrong API can create real user confusion, data split, bad notifications, and support noise.
+
+### Tasks
+
+- [x] Require explicit API base URL for release builds.
+- [x] Keep debug/local fallback for development only.
+- [x] Make CI fail early if release API URL is empty or invalid.
+- [x] Use a single GitHub Actions variable for mobile release API URL:
+  - `MOBILE_API_BASE_URL`
+- [x] Remove fallback to staging/default URLs for release AAB builds.
+- [x] Validate URL format in CI before Gradle build starts.
+- [x] Validate release `BASE_URL` again inside Gradle before release tasks execute.
+
+### Acceptance Criteria
+
+- [x] `bundleRelease` fails if `MOBILE_API_BASE_URL` is missing for release workflow.
+- [x] Debug app can still use emulator/local development URL.
+- [x] Release `BuildConfig.BASE_URL` is never empty.
+- [x] No hardcoded production API URL is required inside Kotlin source.
+
+### Verification
+
+- [x] Run courier `bundleRelease` with `BASE_URL` set.
+- [x] Run customer `bundleRelease` with `BASE_URL` set.
+- [x] Run negative test with release API URL unset and confirm Gradle fails with clear error.
+
+---
+
+## MOB-P0-02 Release Network Security Hardening
+
+Status: Completed
+
+### Problem
+
+Release builds must not allow plaintext HTTP or debug-only network behavior. Development can allow local emulator endpoints, but production should only use HTTPS.
+
+### Tasks
+
+- [x] Review both apps' `network_security_config.xml`.
+- [x] Ensure release does not allow cleartext traffic.
+- [x] Allow local HTTP only in debug if needed.
+- [x] Confirm release API host must use HTTPS through CI and Gradle validation.
+- [x] Ensure sensitive endpoints are not reachable over non-TLS URLs from release config.
+- [x] Remove placeholder certificate pinning from P0 release network config; strict pinning remains MOB-P1-01 after final production TLS is confirmed.
+
+### Acceptance Criteria
+
+- [x] Release app rejects plaintext HTTP.
+- [x] Debug app can still test local services if needed.
+- [x] Network security config is app-specific and does not rely on accidental defaults.
+- [x] No release resource accidentally permits broad cleartext traffic.
+
+### Verification
+
+- [x] Inspect source release/debug network resources.
+- [x] Build release AAB for both apps.
+- [ ] Optionally test on device by attempting an HTTP API base URL and confirming failure.
+
+---
+
+## MOB-P0-03 Token Storage Audit And Encryption
+
+### Problem
+
+Production mobile apps must not store access tokens, refresh tokens, OTP state, session identifiers, or user credentials in plain SharedPreferences, files, logs, or Room tables without encryption.
+
+### Tasks
+
+- Audit courier token/session storage.
+- Audit customer token/session storage.
+- Identify all reads/writes for:
+  - access token
+  - refresh token
+  - device token
+  - Firebase token
+  - user ID/session ID
+  - OTP/session verification state
+- Replace plain SharedPreferences with encrypted storage where applicable.
+- Use Android Keystore-backed encryption if available in the current dependency stack.
+- Ensure logout clears encrypted session material.
+- Ensure account lockout or auth failure clears invalid tokens.
+
+### Acceptance Criteria
+
+- No sensitive auth token is stored in plain text preferences.
+- Logout clears local sensitive session state.
+- Token refresh failure clears invalid credentials.
+- No token values are printed in logs.
+
+### Verification
+
+- Search source for token storage keys.
+- Run unit tests or focused auth flow tests if present.
+- Install app, login, logout, then verify sensitive local state is cleared where practical.
+
+---
+
+## MOB-P0-04 Sensitive Screen Screenshot Protection
+
+### Problem
+
+Screens containing OTP, payment, wallet, payout, personal identity, or sensitive courier/customer data should block screenshots and app switcher previews in production.
+
+### Tasks
+
+- Identify sensitive screens in both mobile apps:
+  - OTP
+  - login credential entry
+  - payment
+  - wallet/payout
+  - user profile with phone/email/address
+  - courier payout or bank/account data
+- Apply `WindowManager.LayoutParams.FLAG_SECURE` on those screens.
+- Remove or disable flag when leaving sensitive screens if the app has non-sensitive flows that should remain screenshot-friendly.
+- Avoid blocking screenshots globally unless UX impact is acceptable.
+
+### Acceptance Criteria
+
+- Android screenshots are blocked on sensitive screens.
+- Recent-apps preview does not expose sensitive data.
+- Non-sensitive screens remain unaffected unless explicitly decided otherwise.
+
+### Verification
+
+- Test on physical device or emulator.
+- Attempt screenshot on sensitive screen.
+- Switch app to background and inspect recent-app preview.
+
+---
+
+## MOB-P0-05 Firebase And FCM Production Validation
+
+### Problem
+
+Firebase config errors can cause notification failure, Crashlytics gaps, or startup issues. The CI config must guard package name correctness and production Firebase usage.
+
+### Tasks
+
+- Keep `google-services.json` out of Git.
+- Continue injecting Firebase configs through:
+  - `COURIER_GOOGLE_SERVICES_JSON`
+  - `CUSTOMER_GOOGLE_SERVICES_JSON`
+- Validate package name in CI:
+  - courier: `com.lancar.courier`
+  - customer: `com.lancar.customer`
+- Add or document required Firebase SHA fingerprints for release upload keys.
+- Verify FCM registration in release build.
+- Verify Crashlytics mapping upload for release build.
+- Confirm Firebase configs are not dummy or debug-only.
+
+### Acceptance Criteria
+
+- CI fails if Firebase package name is wrong.
+- Release app can obtain FCM token.
+- Release app receives test push notification.
+- Crashlytics can receive release crash reports.
+- No Firebase config file is tracked by Git.
+
+### Verification
+
+- Run CI mobile workflow.
+- Install release/internal build on test device.
+- Send Firebase test notification.
+- Trigger controlled non-production crash only in internal testing if needed.
+
+---
+
+## MOB-P1-01 Certificate Pinning Readiness
+
+### Problem
+
+Certificate pinning protects against some MitM attacks, but incorrect pinning can lock out all production users. It must be prepared carefully.
+
+### Tasks
+
+- Keep `API_CERT_SHA256_PIN_PRIMARY` and `API_CERT_SHA256_PIN_BACKUP` configurable.
+- Do not hardcode pins directly in Kotlin source.
+- Require pins only when production domain and TLS termination are final.
+- Document how to rotate primary and backup pins.
+- Ensure staging/dev can operate without strict pinning if the backend certificate is not stable yet.
+
+### Acceptance Criteria
+
+- Production pin values can be supplied through environment or CI variables.
+- Backup pin exists before strict pinning is enabled.
+- App does not crash on missing pin in debug/staging mode.
+- Production strict mode behavior is documented.
+
+### Verification
+
+- Build release with pins supplied.
+- Build staging/debug without pins if allowed.
+- Test certificate rotation scenario in staging before enabling strict production pinning.
+
+---
+
+## MOB-P1-02 Release AAB Verification Gate
+
+### Problem
+
+Producing an AAB is not enough. CI should verify that the file exists, is signed, and has sane metadata before attaching it to a release.
+
+### Tasks
+
+- After `bundleRelease`, verify the AAB exists.
+- Verify file size is greater than a minimum threshold.
+- Verify signature with `jarsigner -verify`.
+- Upload AAB artifact separately for courier and customer.
+- Keep debug APK upload for development convenience.
+- Ensure artifact names include app name and run number.
+
+### Acceptance Criteria
+
+- CI fails if release AAB is missing.
+- CI fails if AAB signature verification fails.
+- CI artifacts clearly separate courier and customer outputs.
+- Release upload includes AAB, not only debug APK.
+
+### Verification
+
+- Run GitHub Actions mobile workflow.
+- Confirm artifacts:
+  - `Courier-App-release-aab-<run_number>`
+  - `Customer-App-release-aab-<run_number>`
+- Download artifact and inspect locally if needed.
+
+---
+
+## MOB-P1-03 Play Console Internal Testing Preparation
+
+### Problem
+
+Local APK testing and CI AAB generation do not guarantee Play Console acceptance. Internal testing must validate Play signing, app metadata, data safety, and installation through Google Play.
+
+### Tasks
+
+- Create Play Console app entries for courier and customer if not already created.
+- Enable Play App Signing.
+- Upload AAB to internal testing track.
+- Add internal tester Gmail accounts.
+- Install app from Play internal test link.
+- Validate login, OTP, location, order flow, notification, and logout.
+- Do not promote to production until internal testing is stable.
+
+### Acceptance Criteria
+
+- AAB upload is accepted by Play Console.
+- Internal testers can install both apps.
+- App launches without Firebase startup crash.
+- Critical flows work from Play-installed build.
+
+### Verification
+
+- Play Console internal testing release status is active.
+- Test device installs through Google Play.
+- Smoke test checklist passes.
+
+---
+
+## MOB-P1-04 Privacy Policy And Data Safety Pack
+
+### Problem
+
+Apps collecting location, contact, account, order, payment, crash, or device data need accurate Play Console disclosure and a public privacy policy URL.
+
+### Tasks
+
+- Create/update privacy policy page.
+- Prepare Play Console Data Safety answers for both apps.
+- Identify data collected:
+  - name
+  - phone
+  - email
+  - address/location
+  - order details
+  - payment status
+  - device identifiers
+  - crash logs
+  - notification tokens
+- Identify data sharing:
+  - Firebase/Google services
+  - maps provider
+  - payment provider
+  - backend services
+- Document data deletion request path.
+
+### Acceptance Criteria
+
+- Public privacy policy URL exists.
+- Data Safety answers match actual app behavior.
+- Location collection is disclosed accurately.
+- Crash/analytics collection is disclosed accurately.
+
+### Verification
+
+- Review app permissions against Data Safety form.
+- Review Firebase/analytics usage.
+- Review backend data flows for account deletion/data deletion support.
+
+---
+
+## MOB-P2-01 Production Mobile Release Runbook
+
+### Problem
+
+Production release should be repeatable. Without a runbook, signing keys, secrets, and upload steps are easy to mix up.
+
+### Tasks
+
+- Document how to generate keystore.
+- Document how to base64 encode keystore.
+- Document required GitHub Actions Secrets.
+- Document required GitHub Actions Variables.
+- Document how to rerun mobile CI.
+- Document how to download AAB artifact.
+- Document Play Console upload steps.
+- Document rollback approach.
+
+### Acceptance Criteria
+
+- A new operator can reproduce the release process without guessing.
+- Secret names and expected values are documented.
+- Keystore handling warns not to commit or lose the files.
+
+### Verification
+
+- Follow runbook once from clean terminal.
+- Confirm CI produces signed AAB.
+
+---
+
+## MOB-P2-02 Mobile Smoke Test Checklist
+
+### Problem
+
+Before uploading to internal testing, both apps need a consistent smoke test checklist.
+
+### Tasks
+
+- Create courier smoke tests:
+  - install app
+  - login
+  - OTP if enabled
+  - receive/accept order
+  - location permission
+  - map display
+  - pickup/delivery proof flow
+  - notification
+  - logout
+- Create customer smoke tests:
+  - install app
+  - register/login
+  - OTP if enabled
+  - create order
+  - map/address selection
+  - payment or payment status flow
+  - notification
+  - order tracking
+  - logout
+
+### Acceptance Criteria
+
+- Smoke checklist exists for courier.
+- Smoke checklist exists for customer.
+- Each item has pass/fail/result notes.
+
+### Verification
+
+- Run checklist on at least one physical Android device.
+- Record app version, device model, Android version, and test result.
+
+---
+
+## Recommended Execution Order
+
+1. MOB-P0-01 Production API And Env Fail-Fast
+2. MOB-P0-02 Release Network Security Hardening
+3. MOB-P0-03 Token Storage Audit And Encryption
+4. MOB-P0-04 Sensitive Screen Screenshot Protection
+5. MOB-P0-05 Firebase And FCM Production Validation
+6. MOB-P1-02 Release AAB Verification Gate
+7. MOB-P1-01 Certificate Pinning Readiness
+8. MOB-P1-03 Play Console Internal Testing Preparation
+9. MOB-P1-04 Privacy Policy And Data Safety Pack
+10. MOB-P2-01 Production Mobile Release Runbook
+11. MOB-P2-02 Mobile Smoke Test Checklist
+
+## Production Blockers To Track
+
+- Target SDK upgrade is intentionally deferred.
+- Final production API domain must be confirmed.
+- Production TLS certificate and pin rotation strategy must be confirmed before strict certificate pinning.
+- Play Console app entries and Play App Signing must be configured manually.
+- Firebase SHA-1/SHA-256 fingerprints must match upload keys used by CI.
+- Privacy policy URL must be public before store review.
