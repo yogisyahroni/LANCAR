@@ -5,12 +5,14 @@ on:
     paths:
       - 'android-app/**'
       - 'android-app-customer/**'
+      - 'scripts/mobile/validate_google_services.py'
       - '.github/workflows/android-apps.yml'
     branches: [ staging, production ]
   pull_request:
     paths:
       - 'android-app/**'
       - 'android-app-customer/**'
+      - 'scripts/mobile/validate_google_services.py'
       - '.github/workflows/android-apps.yml'
     branches: [ staging ]
 
@@ -61,75 +63,26 @@ jobs:
         run: |
           set -euo pipefail
 
-          python - <<'PY'
-          import base64
-          import json
-          import os
-          import pathlib
-          import sys
+          case "${WORKING_DIR}" in
+            android-app)
+              secret_name="COURIER_GOOGLE_SERVICES_JSON"
+              expected_package="com.lancar.courier"
+              ;;
+            android-app-customer)
+              secret_name="CUSTOMER_GOOGLE_SERVICES_JSON"
+              expected_package="com.lancar.customer"
+              ;;
+            *)
+              echo "Unknown Android app directory: ${WORKING_DIR}" >&2
+              exit 1
+              ;;
+          esac
 
-          configs = {
-              "android-app": (
-                  "COURIER_GOOGLE_SERVICES_JSON",
-                  "com.lancar.courier",
-              ),
-              "android-app-customer": (
-                  "CUSTOMER_GOOGLE_SERVICES_JSON",
-                  "com.lancar.customer",
-              ),
-          }
-
-          working_dir = os.environ["WORKING_DIR"]
-          if working_dir not in configs:
-              print(f"Unknown Android app directory: {working_dir}", file=sys.stderr)
-              sys.exit(1)
-
-          secret_name, expected_package = configs[working_dir]
-          raw_secret = os.environ.get(secret_name, "").strip()
-          if not raw_secret:
-              print(f"Missing {secret_name} repository secret", file=sys.stderr)
-              sys.exit(1)
-
-          def load_google_services(value: str) -> dict:
-              try:
-                  return json.loads(value)
-              except json.JSONDecodeError as raw_error:
-                  try:
-                      decoded = base64.b64decode(value, validate=True).decode("utf-8-sig").strip()
-                      return json.loads(decoded)
-                  except Exception:
-                      print(
-                          f"Invalid {secret_name}. Paste the full google-services.json content "
-                          "as raw JSON, or store a base64-encoded JSON value.",
-                          file=sys.stderr,
-                      )
-                      raise raw_error
-
-          data = load_google_services(raw_secret)
-          clients = data.get("client") or []
-          actual_package = (
-              clients[0]
-              .get("client_info", {})
-              .get("android_client_info", {})
-              .get("package_name")
-              if clients
-              else None
-          )
-          if actual_package != expected_package:
-              print(
-                  f"Firebase config package mismatch. Expected {expected_package}, got {actual_package}",
-                  file=sys.stderr,
-              )
-              sys.exit(1)
-
-          target = pathlib.Path(working_dir) / "app" / "google-services.json"
-          target.parent.mkdir(parents=True, exist_ok=True)
-          target.write_text(
-              json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n",
-              encoding="utf-8",
-          )
-          print(f"Wrote Firebase config for {actual_package} to {target}")
-          PY
+          python scripts/mobile/validate_google_services.py \
+            --raw-env "${secret_name}" \
+            --expected-package "${expected_package}" \
+            --output "${WORKING_DIR}/app/google-services.json" \
+            --app-name "${{ matrix.app_name }}"
 
           chmod 600 "${{ matrix.working_dir }}/app/google-services.json"
 

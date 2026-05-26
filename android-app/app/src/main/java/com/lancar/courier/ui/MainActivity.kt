@@ -236,8 +236,7 @@ class MainActivity : FragmentActivity() {
 
         FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
             if (task.isSuccessful) {
-                val token = task.result
-                Log.d("FCM_TOKEN", "Token obtained: $token")
+                Log.d("FCM_TOKEN", "Token obtained")
                 activityScope.launch {
                     val result = fcmTokenRepository.registerTokenIfLoggedIn()
                     if (result.isSuccess) {

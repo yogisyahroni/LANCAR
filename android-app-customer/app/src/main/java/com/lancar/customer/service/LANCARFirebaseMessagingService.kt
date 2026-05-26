@@ -27,7 +27,7 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d(TAG, "Refreshed token: $token")
+        Log.d(TAG, "Refreshed device token")
         
         // Push token to server
         scope.launch {

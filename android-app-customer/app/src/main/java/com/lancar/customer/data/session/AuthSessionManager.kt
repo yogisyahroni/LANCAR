@@ -3,12 +3,14 @@ package com.lancar.customer.data.session
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Base64
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
+import java.io.File
 import java.nio.charset.StandardCharsets
 
 enum class SessionInvalidationReason {
@@ -21,17 +23,9 @@ enum class SessionInvalidationReason {
  */
 class AuthSessionManager(private val context: Context) {
 
-    private val masterKey = MasterKey.Builder(context)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
-
-    private val sharedPreferences: SharedPreferences = EncryptedSharedPreferences.create(
-        context,
-        "secure_auth_prefs",
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+    private val sharedPreferences: SharedPreferences by lazy {
+        createSecurePreferences()
+    }
 
     private val _isLoggedIn = MutableStateFlow(
         !sharedPreferences.getString(KEY_AUTH_TOKEN, null).isNullOrEmpty() &&
@@ -133,6 +127,8 @@ class AuthSessionManager(private val context: Context) {
     }
 
     companion object {
+        private const val TAG = "AuthSessionManager"
+        private const val SECURE_PREFS_NAME = "secure_auth_prefs"
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_CUSTOMER_ID = "customer_id"
         private const val KEY_CUSTOMER_NAME = "customer_name"
@@ -152,5 +148,31 @@ class AuthSessionManager(private val context: Context) {
                 JSONObject(payload).optLong("exp", -1L).takeIf { it > 0L }
             }.getOrNull()
         }
+    }
+
+    private fun createSecurePreferences(): SharedPreferences {
+        return runCatching {
+            encryptedPreferences()
+        }.getOrElse { error ->
+            Log.e(TAG, "Encrypted session storage initialization failed. Recreating local secure store.", error)
+            runCatching {
+                File("${context.filesDir.parent}/shared_prefs/$SECURE_PREFS_NAME.xml").delete()
+            }
+            encryptedPreferences()
+        }
+    }
+
+    private fun encryptedPreferences(): SharedPreferences {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+
+        return EncryptedSharedPreferences.create(
+            context,
+            SECURE_PREFS_NAME,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
     }
 }

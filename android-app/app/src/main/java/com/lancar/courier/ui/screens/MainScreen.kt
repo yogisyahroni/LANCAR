@@ -79,6 +79,7 @@ import com.lancar.courier.ui.screens.scan.ScanScreen
 import com.lancar.courier.ui.screens.chat.ChatScreen
 import com.lancar.courier.ui.security.LocalSecurityChallengeDialog
 import com.lancar.courier.ui.security.LocalSecuritySettingsPanel
+import com.lancar.courier.ui.security.SecureScreenEffect
 import com.lancar.courier.ui.theme.Primary
 import com.lancar.courier.ui.theme.PrimaryLight
 import com.lancar.courier.ui.theme.Secondary
@@ -186,6 +187,13 @@ fun MainScreen(
     var pickupPhotoVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var pendingDutySecurityTarget by remember { mutableStateOf<Boolean?>(null) }
+    val secureScreenRequired = selectedTab == 2 ||
+        showPodScreen ||
+        showOrderDetail ||
+        showScanScreen ||
+        showChatScreen
+
+    SecureScreenEffect(enabled = secureScreenRequired)
 
     suspend fun sendSafetyEvent(order: Order?, eventType: String, severity: String, message: String) {
         val location = getLastKnownDutyLocation(context)

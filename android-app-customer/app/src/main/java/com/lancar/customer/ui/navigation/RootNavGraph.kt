@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.lancar.customer.ui.MainViewModel
@@ -37,6 +38,7 @@ import com.lancar.customer.ui.screens.payment.PaymentScreen
 import com.lancar.customer.ui.screens.payment.PaymentViewModel
 import com.lancar.customer.ui.screens.chat.ChatScreen
 import com.lancar.customer.ui.screens.chat.ChatViewModel
+import com.lancar.customer.ui.security.SecureScreenEffect
 import com.lancar.customer.data.session.SessionInvalidationReason
 import android.widget.Toast
 
@@ -49,6 +51,19 @@ fun RootNavGraph(
     val startDestination by viewModel.startDestination.collectAsState()
     val sessionInvalidationReason by viewModel.sessionInvalidationReason.collectAsState()
     val context = LocalContext.current
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentBackStackEntry?.destination?.route
+    val secureScreenRequired = currentRoute in setOf(
+        Screen.AuthGraph.route,
+        Screen.Booking.route,
+        Screen.Profile.route,
+        Screen.OrderDetail.route,
+        Screen.Payment.route,
+        Screen.Tracking.route,
+        Screen.Chat.route
+    )
+
+    SecureScreenEffect(enabled = secureScreenRequired)
 
     if (isLoading) {
         // Preload logic here if needed

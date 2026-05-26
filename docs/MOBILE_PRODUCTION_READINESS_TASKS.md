@@ -99,42 +99,53 @@ Release builds must not allow plaintext HTTP or debug-only network behavior. Dev
 
 ## MOB-P0-03 Token Storage Audit And Encryption
 
+Status: Completed
+
 ### Problem
 
 Production mobile apps must not store access tokens, refresh tokens, OTP state, session identifiers, or user credentials in plain SharedPreferences, files, logs, or Room tables without encryption.
 
 ### Tasks
 
-- Audit courier token/session storage.
-- Audit customer token/session storage.
-- Identify all reads/writes for:
+- [x] Audit courier token/session storage.
+- [x] Audit customer token/session storage.
+- [x] Identify all reads/writes for:
   - access token
   - refresh token
   - device token
   - Firebase token
   - user ID/session ID
   - OTP/session verification state
-- Replace plain SharedPreferences with encrypted storage where applicable.
-- Use Android Keystore-backed encryption if available in the current dependency stack.
-- Ensure logout clears encrypted session material.
-- Ensure account lockout or auth failure clears invalid tokens.
+- [x] Replace plain SharedPreferences with encrypted storage where applicable.
+- [x] Use Android Keystore-backed encryption if available in the current dependency stack.
+- [x] Ensure logout clears encrypted session material.
+- [x] Ensure account lockout or auth failure clears invalid tokens.
+- [x] Remove raw FCM/device token values from app logs.
+- [x] Migrate legacy fallback device IDs into EncryptedSharedPreferences.
 
 ### Acceptance Criteria
 
-- No sensitive auth token is stored in plain text preferences.
-- Logout clears local sensitive session state.
-- Token refresh failure clears invalid credentials.
-- No token values are printed in logs.
+- [x] No sensitive auth token is stored in plain text preferences.
+- [x] Logout clears local sensitive session state.
+- [x] Token refresh failure clears invalid credentials.
+- [x] No token values are printed in logs.
+- [x] Courier and customer fallback device identifiers are stored in encrypted preferences.
 
 ### Verification
 
-- Search source for token storage keys.
-- Run unit tests or focused auth flow tests if present.
-- Install app, login, logout, then verify sensitive local state is cleared where practical.
+- [x] Search source for token storage keys.
+- [x] Search source for token-like values printed to logs.
+- [x] Run courier `assembleDebug`.
+- [x] Run customer `assembleDebug`.
+- [x] Run courier `bundleRelease`.
+- [x] Run customer `bundleRelease`.
+- [ ] Install app, login, logout, then verify sensitive local state is cleared where practical.
 
 ---
 
 ## MOB-P0-04 Sensitive Screen Screenshot Protection
+
+Status: Completed
 
 ### Problem
 
@@ -142,32 +153,40 @@ Screens containing OTP, payment, wallet, payout, personal identity, or sensitive
 
 ### Tasks
 
-- Identify sensitive screens in both mobile apps:
+- [x] Identify sensitive screens in both mobile apps:
   - OTP
   - login credential entry
   - payment
   - wallet/payout
   - user profile with phone/email/address
   - courier payout or bank/account data
-- Apply `WindowManager.LayoutParams.FLAG_SECURE` on those screens.
-- Remove or disable flag when leaving sensitive screens if the app has non-sensitive flows that should remain screenshot-friendly.
-- Avoid blocking screenshots globally unless UX impact is acceptable.
+- [x] Apply `WindowManager.LayoutParams.FLAG_SECURE` on those screens.
+- [x] Remove or disable flag when leaving sensitive screens if the app has non-sensitive flows that should remain screenshot-friendly.
+- [x] Avoid blocking screenshots globally unless UX impact is acceptable.
+- [x] Keep screenshot protection disabled in debug builds so local development and testing screenshots remain usable.
 
 ### Acceptance Criteria
 
-- Android screenshots are blocked on sensitive screens.
-- Recent-apps preview does not expose sensitive data.
-- Non-sensitive screens remain unaffected unless explicitly decided otherwise.
+- [x] Android screenshots are blocked on sensitive screens in release builds.
+- [x] Recent-apps preview does not expose sensitive data on protected release screens.
+- [x] Non-sensitive screens remain unaffected unless explicitly decided otherwise.
+- [x] Debug builds remain screenshot-friendly for development.
 
 ### Verification
 
-- Test on physical device or emulator.
-- Attempt screenshot on sensitive screen.
-- Switch app to background and inspect recent-app preview.
+- [x] Run courier `assembleDebug`.
+- [x] Run customer `assembleDebug`.
+- [x] Run courier `bundleRelease`.
+- [x] Run customer `bundleRelease`.
+- [ ] Test on physical device or emulator.
+- [ ] Attempt screenshot on sensitive screen.
+- [ ] Switch app to background and inspect recent-app preview.
 
 ---
 
 ## MOB-P0-05 Firebase And FCM Production Validation
+
+Status: Code Completed - external Firebase console and device validation pending
 
 ### Problem
 
@@ -175,32 +194,46 @@ Firebase config errors can cause notification failure, Crashlytics gaps, or star
 
 ### Tasks
 
-- Keep `google-services.json` out of Git.
-- Continue injecting Firebase configs through:
+- [x] Keep `google-services.json` out of Git.
+- [x] Continue injecting Firebase configs through:
   - `COURIER_GOOGLE_SERVICES_JSON`
   - `CUSTOMER_GOOGLE_SERVICES_JSON`
-- Validate package name in CI:
+- [x] Validate package name in CI:
   - courier: `com.lancar.courier`
   - customer: `com.lancar.customer`
-- Add or document required Firebase SHA fingerprints for release upload keys.
-- Verify FCM registration in release build.
-- Verify Crashlytics mapping upload for release build.
-- Confirm Firebase configs are not dummy or debug-only.
+- [x] Support both raw JSON and base64 Firebase secrets.
+- [x] Validate multi-client `google-services.json` files by matching expected package instead of trusting the first client.
+- [x] Validate `project_info.project_id`, `project_info.project_number`, `mobilesdk_app_id`, and Android API key presence.
+- [x] Reject obvious dummy or placeholder Firebase config values.
+- [x] Write generated `google-services.json` only inside the CI workspace.
+- [x] Document required Firebase SHA fingerprints for release upload keys.
+- [x] Document Play App Signing fingerprint follow-up.
+- [ ] Verify FCM registration in release build on a device/internal testing install.
+- [ ] Verify Crashlytics report ingestion from a controlled non-production release crash.
 
 ### Acceptance Criteria
 
-- CI fails if Firebase package name is wrong.
-- Release app can obtain FCM token.
-- Release app receives test push notification.
-- Crashlytics can receive release crash reports.
-- No Firebase config file is tracked by Git.
+- [x] CI fails if Firebase package name is wrong.
+- [x] CI fails if Firebase JSON is missing, malformed, dummy, or missing required Android client fields.
+- [ ] Release app can obtain FCM token.
+- [ ] Release app receives test push notification.
+- [ ] Crashlytics can receive release crash reports.
+- [x] No Firebase config file is tracked by Git.
 
 ### Verification
 
-- Run CI mobile workflow.
-- Install release/internal build on test device.
-- Send Firebase test notification.
-- Trigger controlled non-production crash only in internal testing if needed.
+- [x] Add reusable CI validator: `scripts/mobile/validate_google_services.py`.
+- [x] Run local Firebase validator for courier config.
+- [x] Run local Firebase validator for customer config.
+- [x] Run `git diff --check`.
+- [ ] Run CI mobile workflow.
+- [ ] Install release/internal build on test device.
+- [ ] Send Firebase test notification.
+- [ ] Trigger controlled non-production crash only in internal testing if needed.
+
+### Operator Guide
+
+See `docs/MOBILE_FIREBASE_FCM_PRODUCTION_VALIDATION.md`.
 
 ---
 

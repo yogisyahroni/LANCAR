@@ -77,8 +77,7 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d(TAG, "Refreshed FCM token: $token")
-        // Register new token with backend if courier is logged in
+        Log.d(TAG, "Refreshed FCM token")
         // Register new token with backend if courier is logged in
         serviceScope.launch {
             val result = fcmTokenRepository.registerTokenIfLoggedIn()

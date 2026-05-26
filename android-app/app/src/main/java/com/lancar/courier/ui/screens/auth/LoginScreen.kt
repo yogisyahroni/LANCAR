@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.lancar.courier.ui.security.SecureScreenEffect
 import com.lancar.courier.ui.theme.Primary
 
 /**
@@ -47,6 +48,8 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     viewModel: LoginViewModel = hiltViewModel()
 ) {
+    SecureScreenEffect()
+
     var showRegistration by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current

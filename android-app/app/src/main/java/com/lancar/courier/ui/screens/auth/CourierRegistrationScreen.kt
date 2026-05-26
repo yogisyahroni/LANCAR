@@ -23,6 +23,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.lancar.courier.ui.security.SecureScreenEffect
 import com.lancar.courier.ui.theme.Primary
 
 @Composable
@@ -30,6 +31,8 @@ fun CourierRegistrationScreen(
     onBack: () -> Unit,
     viewModel: CourierRegistrationViewModel = hiltViewModel()
 ) {
+    SecureScreenEffect()
+
     val state by viewModel.uiState.collectAsState()
     var pendingDocType by remember { mutableStateOf<String?>(null) }
     val requiredDocuments = listOf(
