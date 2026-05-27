@@ -1,5 +1,5 @@
 # ============================================================
-# LANCAR — Podman Compose (WSL Rootless - Host Network Mode)
+# TEMBUS — Podman Compose (WSL Rootless - Host Network Mode)
 #
 # DIGUNAKAN UNTUK: Podman Desktop di Windows (WSL2 rootless)
 # ALASAN: aardvark-dns + systemd tidak tersedia di WSL rootless
@@ -13,50 +13,50 @@ services:
   # ─────────────────────────────────────────────
   db:
     image: postgis/postgis:15-3.4-alpine
-    container_name: lancar-db
+    container_name: tembus-db
     restart: "no"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
-      POSTGRES_DB: ${POSTGRES_DB:-lancar}
+      POSTGRES_DB: ${POSTGRES_DB:-tembus}
     network_mode: host
     volumes:
-      - lancar-db-data:/var/lib/postgresql/data
+      - tembus-db-data:/var/lib/postgresql/data
 
   # ─────────────────────────────────────────────
   # READ REPLICA — PostgreSQL port 5433
   # ─────────────────────────────────────────────
   db-read:
     image: postgis/postgis:15-3.4-alpine
-    container_name: lancar-db-read
+    container_name: tembus-db-read
     restart: "no"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
-      POSTGRES_DB: ${POSTGRES_DB:-lancar}
+      POSTGRES_DB: ${POSTGRES_DB:-tembus}
       PGPORT: "5433"
     network_mode: host
     volumes:
-      - lancar-db-read-data:/var/lib/postgresql/data
+      - tembus-db-read-data:/var/lib/postgresql/data
 
   # ─────────────────────────────────────────────
   # CACHE — Redis 7
   # ─────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: lancar-redis
+    container_name: tembus-redis
     restart: "no"
     command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-}"
     network_mode: host
     volumes:
-      - lancar-redis-data:/data
+      - tembus-redis-data:/data
 
   # ─────────────────────────────────────────────
   # RABBITMQ — Message Broker
   # ─────────────────────────────────────────────
   rabbitmq:
     image: rabbitmq:3.12-management
-    container_name: lancar-rabbitmq
+    container_name: tembus-rabbitmq
     restart: "no"
     environment:
       RABBITMQ_DEFAULT_USER: guest
@@ -69,13 +69,13 @@ services:
   # AUTH SERVICE — Go 1.24
   # ─────────────────────────────────────────────
   auth-service:
-    image: localhost/lancar_auth-service:latest
+    image: localhost/tembus_auth-service:latest
     pull_policy: never
-    container_name: lancar-auth
+    container_name: tembus-auth
     restart: "no"
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5433/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5433/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://localhost:6379"
       AUTH_PORT: "${AUTH_PORT:-8081}"
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
@@ -88,13 +88,13 @@ services:
   # ADMIN SERVICE — Node.js / TypeScript
   # ─────────────────────────────────────────────
   admin-service:
-    image: localhost/lancar_admin-service:latest
+    image: localhost/tembus_admin-service:latest
     pull_policy: never
-    container_name: lancar-admin
+    container_name: tembus-admin
     restart: "no"
     environment:
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://localhost:6379"
       PORT: "${ADMIN_PORT:-3001}"
       ENVIRONMENT: ${ENVIRONMENT:-development}
@@ -105,12 +105,12 @@ services:
   # ROUTING SERVICE — Go
   # ─────────────────────────────────────────────
   routing-service:
-    image: localhost/lancar_routing-service:latest
+    image: localhost/tembus_routing-service:latest
     pull_policy: never
-    container_name: lancar-routing
+    container_name: tembus-routing
     restart: "no"
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://localhost:6379"
       ROUTING_PORT: "${ROUTING_PORT:-8082}"
       ENVIRONMENT: ${ENVIRONMENT:-development}
@@ -120,13 +120,13 @@ services:
   # ORDER SERVICE — Go
   # ─────────────────────────────────────────────
   order-service:
-    image: localhost/lancar_order-service:latest
+    image: localhost/tembus_order-service:latest
     pull_policy: never
-    container_name: lancar-order
+    container_name: tembus-order
     restart: "no"
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5433/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@localhost:5433/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://localhost:6379"
       ORDER_PORT: "${ORDER_PORT:-8083}"
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
@@ -138,9 +138,9 @@ services:
   # API GATEWAY — Node.js / Express
   # ─────────────────────────────────────────────
   api-gateway:
-    image: localhost/lancar_api-gateway:latest
+    image: localhost/tembus_api-gateway:latest
     pull_policy: never
-    container_name: lancar-gateway
+    container_name: tembus-gateway
     restart: "no"
     environment:
       AUTH_SERVICE_URL: "http://localhost:8081"
@@ -154,9 +154,9 @@ services:
   # FRONTEND — Next.js
   # ─────────────────────────────────────────────
   frontend:
-    image: localhost/lancar_frontend:latest
+    image: localhost/tembus_frontend:latest
     pull_policy: never
-    container_name: lancar-frontend
+    container_name: tembus-frontend
     restart: "no"
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:8080/api/v1"
@@ -167,9 +167,9 @@ services:
   # ADMIN DASHBOARD — Vite / React
   # ─────────────────────────────────────────────
   admin-dashboard:
-    image: localhost/lancar_admin-dashboard:latest
+    image: localhost/tembus_admin-dashboard:latest
     pull_policy: never
-    container_name: lancar-admin-ui
+    container_name: tembus-admin-ui
     restart: "no"
     environment:
       VITE_API_URL: "http://localhost:8080/api/v1"
@@ -177,11 +177,11 @@ services:
     network_mode: host
 
 volumes:
-  lancar-db-data:
-    name: lancar-db-data
-  lancar-db-read-data:
-    name: lancar-db-read-data
-  lancar-redis-data:
-    name: lancar-redis-data
+  tembus-db-data:
+    name: tembus-db-data
+  tembus-db-read-data:
+    name: tembus-db-read-data
+  tembus-redis-data:
+    name: tembus-redis-data
   rabbitmq_data:
     name: rabbitmq_data

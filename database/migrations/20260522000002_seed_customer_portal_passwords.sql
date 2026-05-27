@@ -27,14 +27,14 @@ BEGIN
           status = CASE WHEN status = 'pending_verification' THEN 'active' ELSE status END,
           is_verified = true,
           updated_at = NOW()
-      WHERE email IN ('customer@lancar.id', 'customer.mobile@lancar.id')
+      WHERE email IN ('customer@tembus.id', 'customer.mobile@tembus.id')
         AND (password_hash IS NULL OR password_hash = '');
     ELSE
       UPDATE customers
       SET password_hash = customer_password_hash,
           status = CASE WHEN status = 'pending_verification' THEN 'active' ELSE status END,
           updated_at = NOW()
-      WHERE email IN ('customer@lancar.id', 'customer.mobile@lancar.id')
+      WHERE email IN ('customer@tembus.id', 'customer.mobile@tembus.id')
         AND (password_hash IS NULL OR password_hash = '');
     END IF;
   END IF;
@@ -51,7 +51,7 @@ BEGIN
     SET password_hash = customer_password_hash,
         status = CASE WHEN status = 'pending_verification' THEN 'active' ELSE status END,
         updated_at = NOW()
-    WHERE email IN ('customer@lancar.id', 'customer.mobile@lancar.id')
+    WHERE email IN ('customer@tembus.id', 'customer.mobile@tembus.id')
       AND role = 'customer'
       AND (password_hash IS NULL OR password_hash = '');
   END IF;
@@ -75,7 +75,7 @@ BEGIN
     UPDATE customers
     SET password_hash = NULL,
         updated_at = NOW()
-    WHERE email IN ('customer@lancar.id', 'customer.mobile@lancar.id')
+    WHERE email IN ('customer@tembus.id', 'customer.mobile@tembus.id')
       AND password_hash = customer_password_hash;
   END IF;
 
@@ -90,7 +90,7 @@ BEGIN
     UPDATE users
     SET password_hash = NULL,
         updated_at = NOW()
-    WHERE email IN ('customer@lancar.id', 'customer.mobile@lancar.id')
+    WHERE email IN ('customer@tembus.id', 'customer.mobile@tembus.id')
       AND role = 'customer'
       AND password_hash = customer_password_hash;
   END IF;

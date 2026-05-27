@@ -2,7 +2,7 @@
 
 Status: Ready for device execution
 Last updated: 2026-05-26
-Scope: LANCAR Courier Android app and LANCAR Customer Android app
+Scope: TEMBUS Courier Android app and TEMBUS Customer Android app
 
 Use this checklist for every internal testing release before promoting to wider testing or production. Run tests from a Google Play internal testing install whenever possible, not from a side-loaded debug APK.
 
@@ -46,7 +46,7 @@ Every FAIL must include:
 
 | ID | Area | Steps | Expected result | Result | Notes |
 | --- | --- | --- | --- | --- | --- |
-| C-01 | Install | Install from Google Play internal test link. | App installs as `LANCAR Courier`; package is `com.lancar.courier`. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
+| C-01 | Install | Install from Google Play internal test link. | App installs as `TEMBUS Courier`; package is `com.lancar.courier`. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | C-02 | First launch | Open app from launcher. | App launches without crash, blank screen, or Firebase init error. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | C-03 | Login invalid | Login with invalid phone/password or invalid OTP state. | App rejects login with clear error and no crash. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | C-04 | Login valid | Login with courier test account. | Courier reaches authenticated home/order screen. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
@@ -73,7 +73,7 @@ Every FAIL must include:
 
 | ID | Area | Steps | Expected result | Result | Notes |
 | --- | --- | --- | --- | --- | --- |
-| U-01 | Install | Install from Google Play internal test link. | App installs as `LANCAR Customer`; package is `com.lancar.customer`. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
+| U-01 | Install | Install from Google Play internal test link. | App installs as `TEMBUS Customer`; package is `com.lancar.customer`. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | U-02 | First launch | Open app from launcher. | App launches without crash, blank screen, or Firebase init error. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | U-03 | Register/login invalid | Use invalid account or OTP state. | App rejects request with clear error and no crash. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | U-04 | Register/login valid | Login or register with customer test account. | Customer reaches authenticated home/order screen. | [ ] PASS [ ] FAIL [ ] BLOCKED | |

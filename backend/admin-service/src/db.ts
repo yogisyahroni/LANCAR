@@ -28,7 +28,7 @@ const buildPoolConfig = (
   connection: string | undefined,
   role: 'writer' | 'reader',
 ): PoolConfig => {
-  const defaultConnection = 'postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable';
+  const defaultConnection = 'postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable';
   const defaultMax = role === 'writer' ? 20 : 30;
   const max = parseIntegerEnv(
     role === 'writer' ? 'PG_POOL_MAX' : 'PG_READ_POOL_MAX',
@@ -42,7 +42,7 @@ const buildPoolConfig = (
     connectionTimeoutMillis: parseIntegerEnv('PG_POOL_CONNECTION_TIMEOUT_MS', 5_000),
     statement_timeout: parseIntegerEnv('PG_STATEMENT_TIMEOUT_MS', 15_000),
     query_timeout: parseIntegerEnv('PG_QUERY_TIMEOUT_MS', 15_000),
-    application_name: process.env.PG_APPLICATION_NAME || `lancar-admin-${role}`,
+    application_name: process.env.PG_APPLICATION_NAME || `tembus-admin-${role}`,
     keepAlive: true,
   };
 };

@@ -1,7 +1,7 @@
 groups:
-  - name: lancar-scale-guardrails
+  - name: tembus-scale-guardrails
     rules:
-      - alert: LancarHighOrderCreateLatency
+      - alert: TembusHighOrderCreateLatency
         expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{route=~".*orders.*",method="POST"}[5m])) by (le, route)) > 0.75
         for: 10m
         labels:
@@ -10,7 +10,7 @@ groups:
         annotations:
           summary: "P95 create-order latency melewati 750ms"
           description: "Audit DB lock, idempotency replay, route pricing cache, dan queue lag sebelum user merasakan delay."
-      - alert: LancarDbConnectionSaturation
+      - alert: TembusDbConnectionSaturation
         expr: pg_stat_activity_count / pg_settings_max_connections > 0.75
         for: 5m
         labels:
@@ -19,8 +19,8 @@ groups:
         annotations:
           summary: "Koneksi Postgres mendekati saturasi"
           description: "Naikkan PgBouncer pool, cek koneksi bocor, atau kurangi fanout query read/write."
-      - alert: LancarRouteProviderFailureSpike
-        expr: sum(rate(lancar_maps_provider_failures_total[5m])) > 10
+      - alert: TembusRouteProviderFailureSpike
+        expr: sum(rate(tembus_maps_provider_failures_total[5m])) > 10
         for: 5m
         labels:
           severity: critical
@@ -28,7 +28,7 @@ groups:
         annotations:
           summary: "Kegagalan provider route tinggi"
           description: "Circuit breaker mungkin aktif. Cek quota Google, OSRM/OSM latency, dan stale-cache hit rate."
-      - alert: LancarRabbitMqBacklogHigh
+      - alert: TembusRabbitMqBacklogHigh
         expr: rabbitmq_queue_messages_ready{queue=~"lancar\\..*"} > 50000
         for: 10m
         labels:
@@ -37,7 +37,7 @@ groups:
         annotations:
           summary: "RabbitMQ backlog tinggi"
           description: "Scale worker fleet, cek DLQ, dan audit provider downstream yang melambat."
-      - alert: LancarDuplicateIdempotencyConflictSpike
+      - alert: TembusDuplicateIdempotencyConflictSpike
         expr: sum(rate(http_requests_total{code="409",error_code="IDEMPOTENCY_KEY_CONFLICT"}[5m])) > 5
         for: 5m
         labels:
@@ -46,7 +46,7 @@ groups:
         annotations:
           summary: "Konflik idempotency meningkat"
           description: "Ada client memakai key yang sama untuk payload berbeda. Audit SDK mobile/web dan retry policy."
-      - alert: LancarWebsocketAuthFailureSpike
+      - alert: TembusWebsocketAuthFailureSpike
         expr: sum(rate(socketio_auth_failures_total[5m])) > 20
         for: 5m
         labels:

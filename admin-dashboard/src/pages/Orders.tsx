@@ -69,7 +69,7 @@ export default function Orders() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-zinc-100 tracking-tight">Orders Management</h1>
-          <p className="text-zinc-500 mt-1">Manage and monitor all Lancar logistics orders</p>
+          <p className="text-zinc-500 mt-1">Manage and monitor all TEMBUS logistics orders</p>
         </div>
         <div className="flex gap-3">
           <button 

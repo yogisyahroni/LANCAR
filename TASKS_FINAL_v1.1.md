@@ -883,13 +883,13 @@ Subtask:
 Subtask:
 - [x] React.js + TypeScript + Vite project setup
 - [x] State management: Zustand (Installed)
-- [x] UI library: Tailwind CSS V4 + custom premium theme (Lancar Emerald)
+- [x] UI library: Tailwind CSS V4 + custom premium theme (Tembus Emerald)
 - [x] Map: Leaflet integration for real-time tracking
 - [x] Charts: Recharts for analytics and distribution
 - [x] HTTP: Axios + React Query untuk data fetching + caching
 - [x] WebSocket: socket.io-client untuk real-time updates
 - [x] Auth: Fixed missing name attributes for FormData collection
-- [x] Auth: Implemented **Testing Bypass** (`admin@lancar.com` / `admin123`) for current OTP backend
+- [x] Auth: Implemented **Testing Bypass** (`admin@tembus.id` / `admin123`) for current OTP backend
 - [x] Build Hardening: Resolved all critical TS errors and icon collisions for production readiness
 - [x] Responsive: prioritas desktop, tablet OK
 

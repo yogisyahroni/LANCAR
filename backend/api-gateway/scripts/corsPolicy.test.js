@@ -10,15 +10,15 @@ const {
 const productionEnv = {
   NODE_ENV: 'production',
   ENVIRONMENT: 'production',
-  ALLOWED_ORIGINS: 'https://app.lancar.test,https://admin.lancar.test',
+  ALLOWED_ORIGINS: 'https://app.tembus.test,https://admin.tembus.test',
 };
 
 assert.deepStrictEqual(parseAllowedOrigins(productionEnv), [
-  'https://app.lancar.test',
-  'https://admin.lancar.test',
+  'https://app.tembus.test',
+  'https://admin.tembus.test',
 ]);
 
-assert.strictEqual(isOriginAllowed('https://app.lancar.test', productionEnv), true);
+assert.strictEqual(isOriginAllowed('https://app.tembus.test', productionEnv), true);
 assert.strictEqual(isOriginAllowed('https://evil.test', productionEnv), false);
 assert.strictEqual(isOriginAllowed('http://localhost:3000', productionEnv), false);
 assert.strictEqual(isOriginAllowed('http://localhost:3000', { NODE_ENV: 'development' }), true);
@@ -59,7 +59,7 @@ process.env.ENVIRONMENT = 'production';
 process.env.ALLOWED_ORIGINS = productionEnv.ALLOWED_ORIGINS;
 
 const forgedHeaderPreflight = invokePreflightGuard({
-  origin: 'https://app.lancar.test',
+  origin: 'https://app.tembus.test',
   'access-control-request-headers': 'content-type, x-user-role',
 });
 assert.strictEqual(forgedHeaderPreflight.nextCalled, false);
@@ -75,7 +75,7 @@ assert.strictEqual(unknownOriginPreflight.response.statusCode, 403);
 assert.strictEqual(unknownOriginPreflight.response.body.code, 'ERR_FORBIDDEN_ORIGIN');
 
 const allowedPreflight = invokePreflightGuard({
-  origin: 'https://admin.lancar.test',
+  origin: 'https://admin.tembus.test',
   'access-control-request-headers': 'content-type, authorization',
 });
 assert.strictEqual(allowedPreflight.nextCalled, true);

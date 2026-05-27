@@ -67,8 +67,8 @@ class DeviceIdentityProvider @Inject constructor(
     )
 
     private companion object {
-        const val SECURE_PREFS_NAME = "secure_lancar_customer_device_identity"
-        const val LEGACY_PREFS_NAME = "lancar_customer_device_identity"
+        const val SECURE_PREFS_NAME = "secure_tembus_customer_device_identity"
+        const val LEGACY_PREFS_NAME = "tembus_customer_device_identity"
         const val KEY_FALLBACK_DEVICE_ID = "fallback_device_id"
         const val LEGACY_BUGGED_ANDROID_ID = "9774d56d682e549c"
     }

@@ -98,7 +98,7 @@ fun LoginScreen(
             )
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "LANCAR",
+                text = "TEMBUS",
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
@@ -352,7 +352,7 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "v1.0.0 — LANCAR Courier",
+                text = "v1.0.0 — TEMBUS Courier",
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.5f)
             )

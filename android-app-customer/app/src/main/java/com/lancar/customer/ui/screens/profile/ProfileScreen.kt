@@ -217,7 +217,7 @@ private fun ProfileContent(
         AvatarBadge(name = profile.name)
         Spacer(Modifier.height(14.dp))
         Text(
-            text = profile.name.ifBlank { "Customer LANCAR" },
+            text = profile.name.ifBlank { "Customer TEMBUS" },
             fontWeight = FontWeight.ExtraBold,
             fontSize = 24.sp,
             color = Color(0xFF17202A),
@@ -473,7 +473,7 @@ private fun EditProfileDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
-                    text = "Perubahan disimpan ke database LANCAR dan tersinkron ke sesi aplikasi.",
+                    text = "Perubahan disimpan ke database TEMBUS dan tersinkron ke sesi aplikasi.",
                     color = Color(0xFF6B7280),
                     fontSize = 12.sp
                 )
@@ -584,16 +584,16 @@ private fun HelpDialog(onDismiss: () -> Unit) {
         title = { Text("Pusat Bantuan", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Tim operasional LANCAR siap membantu kendala akun, pembayaran, dan pengiriman.")
-                Text("Email: support@lancar.id", color = Color(0xFF6B7280))
+                Text("Tim operasional TEMBUS siap membantu kendala akun, pembayaran, dan pengiriman.")
+                Text("Email: support@tembus.id", color = Color(0xFF6B7280))
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     val intent = Intent(Intent.ACTION_SENDTO).apply {
-                        data = Uri.parse("mailto:support@lancar.id")
-                        putExtra(Intent.EXTRA_SUBJECT, "Bantuan aplikasi customer LANCAR")
+                        data = Uri.parse("mailto:support@tembus.id")
+                        putExtra(Intent.EXTRA_SUBJECT, "Bantuan aplikasi customer TEMBUS")
                     }
                     try {
                         context.startActivity(intent)

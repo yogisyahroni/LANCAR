@@ -178,7 +178,7 @@ export const findDeliveryServiceByCode = async (
   code?: string,
   options: { includeDisabled?: boolean } = {}
 ): Promise<DeliveryServiceProduct | null> => {
-  const serviceCode = code || 'lancar_instant';
+  const serviceCode = code || 'tembus_instant';
   const { rows } = await db.query(
     `SELECT *
      FROM delivery_service_products

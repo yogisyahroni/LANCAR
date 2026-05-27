@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────────────────────────────
-# LANCAR COURIER — PRODUCTION PROGUARD RULES
+# TEMBUS COURIER — PRODUCTION PROGUARD RULES
 # Grade S++ Hardened | Version 2.0.0
 # ──────────────────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 package com.lancar.customer.data.repository
 
-import com.lancar.customer.data.api.LANCARApiService
+import com.lancar.customer.data.api.TEMBUSApiService
 import com.lancar.customer.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -9,7 +9,7 @@ import javax.inject.Singleton
 
 @Singleton
 class ChatRepository @Inject constructor(
-    private val apiService: LANCARApiService
+    private val apiService: TEMBUSApiService
 ) {
     fun getOrderChats(orderId: String): Flow<Result<List<ChatMessage>>> = flow {
         try {

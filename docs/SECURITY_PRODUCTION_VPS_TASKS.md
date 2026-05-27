@@ -4,7 +4,7 @@ Tanggal: 2026-05-25
 Branch acuan: `staging`
 Sumber pembanding: `C:/Users/yogis/Downloads/securitylancar.md`
 
-Dokumen ini adalah backlog hardening keamanan LANCAR untuk target awal production di VPS. Fokusnya praktis: aman untuk startup tahap awal, tetap realistis untuk VPS, dan bisa naik kelas ke KMS/HSM/cloud secret manager nanti tanpa bongkar arsitektur besar.
+Dokumen ini adalah backlog hardening keamanan TEMBUS untuk target awal production di VPS. Fokusnya praktis: aman untuk startup tahap awal, tetap realistis untuk VPS, dan bisa naik kelas ke KMS/HSM/cloud secret manager nanti tanpa bongkar arsitektur besar.
 
 ## Ringkasan Status
 
@@ -18,7 +18,7 @@ Dokumen ini adalah backlog hardening keamanan LANCAR untuk target awal productio
 
 - Beberapa service masih percaya header internal seperti `x-user-id`, `x-user-role`, dan `x-totp-verified`.
 - Compose development masih memiliki default credential yang tidak layak production.
-- Beberapa runtime masih punya fallback secret seperti `lancar_secret_key_change_me` atau `guest:guest`.
+- Beberapa runtime masih punya fallback secret seperti `tembus_secret_key_change_me` atau `guest:guest`.
 - API gateway masih mengizinkan header internal dari browser melalui CORS.
 - Perlu matriks auth endpoint supaya tidak ada route sensitif yang public tanpa sengaja.
 - Docs, metrics, upload, CSRF, webhook, dan brute-force protection masih perlu hardening tambahan.
@@ -85,7 +85,7 @@ Evidence awal:
 
 Task:
 
-- [x] Hapus fallback `JWT_SECRET || 'lancar_secret_key_change_me'`.
+- [x] Hapus fallback `JWT_SECRET || 'tembus_secret_key_change_me'`.
 - [x] Hapus fallback RabbitMQ `amqp://guest:guest@localhost:5672/` pada mode production.
 - [x] Tambahkan validasi startup untuk semua secret penting: JWT, DB, Redis, RabbitMQ, Firebase, Midtrans, Maps, dan encryption key jika ada.
 - [x] Production harus fail-fast jika secret kosong, terlalu pendek, atau memakai nilai development.
@@ -337,7 +337,7 @@ Task:
 Implementation notes:
 
 - Runbook operasional tersedia di `docs/VPS_SECURITY_RUNBOOK.md`.
-- Lokasi secret production distandarkan ke `/opt/lancar/secrets/.env.production` dengan permission `600` atau `640`; secret tidak perlu dan tidak boleh ditaruh di repo.
+- Lokasi secret production distandarkan ke `/opt/tembus/secrets/.env.production` dengan permission `600` atau `640`; secret tidak perlu dan tidak boleh ditaruh di repo.
 - Runbook mencakup hardening VPS awal, setup Docker, firewall, fail2ban, reverse proxy/TLS, deploy Compose, migration, backup PostgreSQL, restore, secret rotation, rollback, troubleshooting, dan escalation.
 - Script verifikasi tersedia di `scripts/ops/verify-vps-security.sh` untuk menjalankan gate keamanan VPS tanpa mencetak isi secret.
 
@@ -351,7 +351,7 @@ Acceptance criteria:
 Untuk fase startup dengan VPS, pendekatan yang disarankan:
 
 - GitHub Actions Secrets untuk secret CI/CD dan deploy.
-- File environment production hanya berada di VPS, misalnya `/opt/lancar/secrets/.env.production`, permission ketat, tidak masuk Git, tidak masuk Docker image.
+- File environment production hanya berada di VPS, misalnya `/opt/tembus/secrets/.env.production`, permission ketat, tidak masuk Git, tidak masuk Docker image.
 - Docker Compose production membaca secret dari environment server, bukan hardcoded di YAML.
 - Database menyimpan data bisnis, bukan tempat utama menyimpan application secret seperti JWT secret, DB password, provider API key, atau encryption master key.
 - Jika nanti masuk cloud managed service, naikkan ke AWS KMS, Azure Key Vault, Google Cloud KMS, atau Vault.
@@ -361,8 +361,8 @@ Untuk fase startup dengan VPS, pendekatan yang disarankan:
 - [x] `git log --all --full-history -- .env` kosong.
 - [x] `gitleaks detect --source . --redact` tidak menemukan secret.
 - [ ] `trivy fs --severity HIGH,CRITICAL --exit-code 1 .` tidak menemukan high/critical yang wajib diblok. Local Docker scan timeout di workspace besar; tetap wajib lewat GitHub Actions container security matrix atau source checkout VPS tanpa `node_modules`.
-- [x] `docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml config` tidak menampilkan default secret. Diverifikasi lokal dengan temporary strong dummy env.
-- [ ] `ENV_FILE=/opt/lancar/secrets/.env.production API_BASE_URL=https://api.example.com ./scripts/ops/verify-vps-security.sh` berhasil di VPS.
+- [x] `docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml config` tidak menampilkan default secret. Diverifikasi lokal dengan temporary strong dummy env.
+- [ ] `ENV_FILE=/opt/tembus/secrets/.env.production API_BASE_URL=https://api.example.com ./scripts/ops/verify-vps-security.sh` berhasil di VPS.
 - [x] Direct-call ke service internal tidak bisa spoof admin role.
 - [x] Gateway route auth matrix punya test anonymous/authorized.
 - [ ] CI staging tetap hijau setelah hardening.

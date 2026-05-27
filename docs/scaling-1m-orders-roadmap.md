@@ -1,4 +1,4 @@
-# LANCAR Scaling Roadmap: 1 Juta Order/Hari
+# TEMBUS Scaling Roadmap: 1 Juta Order/Hari
 
 Status: implementation foundation active. P1-P7 now have executable code/config artifacts; final production readiness still depends on real managed infrastructure, secrets, and load-test evidence.
 
@@ -96,7 +96,7 @@ Transactional outbox adalah batas aman: API menulis state awal dan event di tran
 Implementasi saat ini:
 
 - `event_outbox` diproses oleh worker `event-outbox-worker`.
-- Publisher RabbitMQ memakai exchange topic `lancar.events` saat `OUTBOX_RABBITMQ_ENABLED=true`.
+- Publisher RabbitMQ memakai exchange topic `tembus.events` saat `OUTBOX_RABBITMQ_ENABLED=true`.
 - Saat RabbitMQ dimatikan di lokal, worker memakai publish noop terstruktur sehingga API tetap bisa dites.
 - Event `order.created` dan `payment.paid` sudah ditulis dari jalur order/payment customer utama.
 

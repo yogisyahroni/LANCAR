@@ -4,7 +4,7 @@ param(
   [string[]]$Roles = @("customer", "courier"),
   [string[]]$States = @("foreground", "background", "killed"),
   [string]$AdminServicePath = "backend/admin-service",
-  [string]$BackendContainer = "lancar-admin",
+  [string]$BackendContainer = "tembus-admin",
   [switch]$UseHostBackend,
   [string]$OutputDir = "artifacts/fcm-os-validation"
 )
@@ -25,13 +25,13 @@ $apps = @(
     role = "customer"
     package = "com.lancar.customer"
     serial = $CustomerSerial
-    logTags = @("LANCARFCMService")
+    logTags = @("TEMBUSFCMService")
   },
   @{
     role = "courier"
     package = "com.lancar.courier"
     serial = $CourierSerial
-    logTags = @("FCM_LANCAR")
+    logTags = @("FCM_TEMBUS")
   }
 )
 
@@ -193,8 +193,8 @@ function Test-Evidence {
 
   $probeHit = $logcat.Output -match [regex]::Escape($ProbeId)
   $notificationHit = $notifications.Output -match [regex]::Escape($App.package) -or
-    $notifications.Output -match "Tes tawaran LANCAR" -or
-    $notifications.Output -match "Tes tracking LANCAR"
+    $notifications.Output -match "Tes tawaran TEMBUS" -or
+    $notifications.Output -match "Tes tracking TEMBUS"
 
   return [pscustomobject]@{
     role = $App.role

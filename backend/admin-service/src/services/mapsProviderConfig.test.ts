@@ -206,7 +206,7 @@ describe('mapsProviderConfig', () => {
       { latitude: -6.2088, longitude: 106.8456 },
       { latitude: -6.1754, longitude: 106.8272 },
       'tracking',
-      { vehicleType: 'car', serviceCode: 'LANCAR_MOBIL' }
+      { vehicleType: 'car', serviceCode: 'TEMBUS_MOBIL' }
     );
 
     expect(axios.post).toHaveBeenCalledWith(
@@ -266,7 +266,7 @@ describe('mapsProviderConfig', () => {
       { latitude: -6.2088, longitude: 106.8456 },
       { latitude: -6.1754, longitude: 106.8272 },
       'customer_mobile',
-      { vehicleType: 'motorcycle', serviceCode: 'LANCAR_INSTANT' }
+      { vehicleType: 'motorcycle', serviceCode: 'TEMBUS_INSTANT' }
     );
 
     expect(axios.post).toHaveBeenCalledWith(
@@ -328,7 +328,7 @@ describe('mapsProviderConfig', () => {
       { latitude: -6.2088, longitude: 106.8456 },
       { latitude: -6.1754, longitude: 106.8272 },
       'tracking',
-      { routeProfile: 'motorcycle', serviceCode: 'LANCAR_PRIORITAS' }
+      { routeProfile: 'motorcycle', serviceCode: 'TEMBUS_PRIORITAS' }
     );
 
     expect(axios.post).toHaveBeenNthCalledWith(
@@ -400,7 +400,7 @@ describe('mapsProviderConfig', () => {
       { latitude: -6.2088, longitude: 106.8456 },
       { latitude: -6.1754, longitude: 106.8272 },
       'tracking',
-      { routeProfile: 'motorcycle', serviceCode: 'LANCAR_INSTANT' }
+      { routeProfile: 'motorcycle', serviceCode: 'TEMBUS_INSTANT' }
     );
 
     expect(axios.post).toHaveBeenCalledTimes(2);
@@ -459,7 +459,7 @@ describe('mapsProviderConfig', () => {
       { latitude: -6.2088, longitude: 106.8456 },
       { latitude: -6.1754, longitude: 106.8272 },
       'tracking',
-      { vehicleType: 'car', serviceCode: 'LANCAR_MOBIL' }
+      { vehicleType: 'car', serviceCode: 'TEMBUS_MOBIL' }
     );
 
     expect(axios.get).toHaveBeenCalledWith(
@@ -502,7 +502,7 @@ describe('mapsProviderConfig', () => {
       { latitude: -6.2088, longitude: 106.8456 },
       { latitude: -6.1754, longitude: 106.8272 },
       'tracking',
-      { vehicleType: 'car', serviceCode: 'LANCAR_MOBIL' }
+      { vehicleType: 'car', serviceCode: 'TEMBUS_MOBIL' }
     );
 
     expect(axios.post).not.toHaveBeenCalled();
@@ -557,7 +557,7 @@ describe('mapsProviderConfig', () => {
       { latitude: -6.2088, longitude: 106.8456 },
       { latitude: -6.1754, longitude: 106.8272 },
       'customer_mobile',
-      { vehicleType: 'motorcycle', serviceCode: 'LANCAR_INSTANT' }
+      { vehicleType: 'motorcycle', serviceCode: 'TEMBUS_INSTANT' }
     );
 
     expect(axios.get).toHaveBeenCalledWith(
@@ -567,7 +567,7 @@ describe('mapsProviderConfig', () => {
     expect(route.provider).toBe('openstreetmap_osrm_motorcycle_motorcycle');
     expect(route.route_profile).toBe('motorcycle');
     expect(route.vehicle_type).toBe('motorcycle');
-    expect(route.service_code).toBe('LANCAR_INSTANT');
+    expect(route.service_code).toBe('TEMBUS_INSTANT');
     expect(route.route_polyline).toBe('encoded-osm-motorcycle-road-polyline');
     expect(route.fallback_reason).toBeNull();
     expect(route.confidence).toBe('high');
@@ -590,7 +590,7 @@ describe('mapsProviderConfig', () => {
       { latitude: -6.2088, longitude: 106.8456 },
       { latitude: -6.1754, longitude: 106.8272 },
       'customer_mobile',
-      { routeProfile: 'motorcycle', serviceCode: 'LANCAR_HEMAT', requireRoadRoute: true }
+      { routeProfile: 'motorcycle', serviceCode: 'TEMBUS_HEMAT', requireRoadRoute: true }
     );
 
     expect(axios.get).toHaveBeenCalledWith(
@@ -610,7 +610,7 @@ describe('mapsProviderConfig', () => {
       { latitude: -6.2088, longitude: 106.8456 },
       { latitude: -6.1754, longitude: 106.8272 },
       'customer_mobile',
-      { vehicleType: 'motorcycle', serviceCode: 'LANCAR_SAME_DAY', requireRoadRoute: true }
+      { vehicleType: 'motorcycle', serviceCode: 'TEMBUS_SAME_DAY', requireRoadRoute: true }
     )).rejects.toMatchObject({
       message: 'Rute jalan belum tersedia dari provider peta. Harga tidak dihitung dari garis lurus agar tarif tetap akurat.',
       statusCode: 422,
@@ -618,7 +618,7 @@ describe('mapsProviderConfig', () => {
     });
   });
 
-  it('uses a car-specific OpenStreetMap routing engine for LANCAR Mobil', async () => {
+  it('uses a car-specific OpenStreetMap routing engine for TEMBUS Mobil', async () => {
     process.env.OSM_ROUTING_CAR_BASE_URL = 'http://osrm-car:5000';
     process.env.OSM_ROUTING_CAR_PROFILE = 'car';
     axios.get.mockResolvedValue({
@@ -637,7 +637,7 @@ describe('mapsProviderConfig', () => {
       { latitude: -6.2088, longitude: 106.8456 },
       { latitude: -6.1754, longitude: 106.8272 },
       'customer_mobile',
-      { vehicleType: 'car', serviceCode: 'LANCAR_MOBIL' }
+      { vehicleType: 'car', serviceCode: 'TEMBUS_MOBIL' }
     );
 
     expect(axios.get).toHaveBeenCalledWith(
@@ -668,13 +668,13 @@ describe('mapsProviderConfig', () => {
       { latitude: -6.2088, longitude: 106.8456 },
       { latitude: -6.1754, longitude: 106.8272 },
       'tracking',
-      { vehicleType: 'motorcycle', serviceCode: 'LANCAR_INSTANT' }
+      { vehicleType: 'motorcycle', serviceCode: 'TEMBUS_INSTANT' }
     );
     await buildMapsRouteEtaSnapshot(
       { latitude: -6.2088, longitude: 106.8456 },
       { latitude: -6.1754, longitude: 106.8272 },
       'tracking',
-      { vehicleType: 'car', serviceCode: 'LANCAR_MOBIL' }
+      { vehicleType: 'car', serviceCode: 'TEMBUS_MOBIL' }
     );
 
     const cacheKeys = redis.set.mock.calls.map((call: any[]) => call[0]);
@@ -787,7 +787,7 @@ describe('mapsProviderConfig', () => {
       'customer_mobile',
       {
         vehicleType: 'motorcycle',
-        serviceCode: 'LANCAR_INSTANT',
+        serviceCode: 'TEMBUS_INSTANT',
         requestId: 'route-audit-req-1',
       }
     );
@@ -797,10 +797,10 @@ describe('mapsProviderConfig', () => {
     expect(ops.route_quality.road_route_successes).toBe(1);
     expect(ops.route_quality.cache_hit_rate_percent).toBe(0);
     expect(ops.counters['request.with_id']).toBe(1);
-    expect(ops.counters['service.LANCAR_INSTANT']).toBe(1);
+    expect(ops.counters['service.TEMBUS_INSTANT']).toBe(1);
     expect(ops.recent_events[0]).toEqual(expect.objectContaining({
       request_id: 'route-audit-req-1',
-      service_code: 'LANCAR_INSTANT',
+      service_code: 'TEMBUS_INSTANT',
       route_profile: 'motorcycle',
       vehicle_type: 'motorcycle',
       distance_meters: 4100,
@@ -819,7 +819,7 @@ describe('mapsProviderConfig', () => {
       latency_ms: 120,
       cache_hit: false,
       request_id: 'distance-anomaly-1',
-      service_code: 'LANCAR_INSTANT',
+      service_code: 'TEMBUS_INSTANT',
       route_profile: 'motorcycle',
       vehicle_type: 'motorcycle',
       distance_meters: 400_000,

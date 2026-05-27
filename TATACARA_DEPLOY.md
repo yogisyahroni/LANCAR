@@ -1,6 +1,6 @@
-# Tata Cara Deploy LANCAR
+# Tata Cara Deploy TEMBUS
 
-Dokumen ini dipakai sebagai checklist deploy aplikasi LANCAR untuk environment staging atau production.
+Dokumen ini dipakai sebagai checklist deploy aplikasi TEMBUS untuk environment staging atau production.
 
 ## 1. Siapkan Environment
 
@@ -62,7 +62,7 @@ https://domain-api-kamu.com/api/v1/payments/midtrans/notification
 Contoh:
 
 ```text
-https://api.lancar.id/api/v1/payments/midtrans/notification
+https://api.tembus.id/api/v1/payments/midtrans/notification
 ```
 
 Catatan:

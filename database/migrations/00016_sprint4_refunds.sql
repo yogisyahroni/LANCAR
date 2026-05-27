@@ -1,7 +1,7 @@
 -- +goose Up
 -- ============================================================
 -- Migration 00016: Sprint 4 Missing Tables
--- LANCAR Hyperlocal Relay Platform
+-- TEMBUS Hyperlocal Delivery Platform
 -- ============================================================
 
 -- -------------------------------------------------------

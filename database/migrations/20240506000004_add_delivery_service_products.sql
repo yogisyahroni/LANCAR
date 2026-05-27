@@ -48,8 +48,8 @@ INSERT INTO delivery_service_products (
   size_tiers, dimension_rules, metadata
 ) VALUES
 (
-  'lancar_priority',
-  'LANCAR Prioritas',
+  'tembus_priority',
+  'TEMBUS Prioritas',
   'P2P paling cepat untuk paket kecil dan urgent.',
   'p2p',
   'p2p',
@@ -75,8 +75,8 @@ INSERT INTO delivery_service_products (
   '{"ui_badge":"Maks. 2 jam"}'
 ),
 (
-  'lancar_instant',
-  'LANCAR Instant',
+  'tembus_instant',
+  'TEMBUS Instant',
   'P2P langsung ke tujuan dengan satu kurir.',
   'p2p',
   'p2p',
@@ -102,8 +102,8 @@ INSERT INTO delivery_service_products (
   '{"ui_badge":"Maks. 4 jam"}'
 ),
 (
-  'lancar_hemat',
-  'LANCAR Hemat',
+  'tembus_hemat',
+  'TEMBUS Hemat',
   'P2P ekonomis untuk jarak pendek.',
   'p2p',
   'p2p',
@@ -129,8 +129,8 @@ INSERT INTO delivery_service_products (
   '{"ui_badge":"Ekonomis"}'
 ),
 (
-  'lancar_same_day',
-  'LANCAR Same Day',
+  'tembus_same_day',
+  'TEMBUS Same Day',
   'Pengiriman lebih ekonomis dengan batching operasional.',
   'same_day',
   'p2p',
@@ -156,8 +156,8 @@ INSERT INTO delivery_service_products (
   '{"ui_badge":"6-8 jam"}'
 ),
 (
-  'lancar_mobil',
-  'LANCAR Mobil',
+  'tembus_mobil',
+  'TEMBUS Mobil',
   'P2P untuk paket besar atau banyak memakai mobil.',
   'p2p',
   'p2p',

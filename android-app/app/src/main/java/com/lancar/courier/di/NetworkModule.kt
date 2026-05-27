@@ -3,7 +3,7 @@ package com.lancar.courier.di
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.lancar.courier.BuildConfig
 import com.lancar.courier.data.api.AuthInterceptor
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TEMBUSApiService
 import com.lancar.courier.data.api.TokenExpiryInterceptor
 import com.lancar.courier.data.session.AuthSessionManager
 import dagger.Module
@@ -118,7 +118,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideLANCARApiService(retrofit: Retrofit): LANCARApiService {
-        return retrofit.create(LANCARApiService::class.java)
+    fun provideTEMBUSApiService(retrofit: Retrofit): TEMBUSApiService {
+        return retrofit.create(TEMBUSApiService::class.java)
     }
 }

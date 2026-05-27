@@ -33,7 +33,7 @@ describe('uploadSecurity', () => {
   });
 
   it('writes validated uploads to private storage using server-side filenames', () => {
-    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'lancar-upload-'));
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'tembus-upload-'));
     process.env.UPLOAD_PRIVATE_DIR = tempRoot;
 
     const file = {

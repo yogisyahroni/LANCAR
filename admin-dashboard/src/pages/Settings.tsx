@@ -369,7 +369,7 @@ export default function Settings() {
                       <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Platform Name</label>
                       <input 
                         type="text" 
-                        defaultValue={getConfig('platform_name', 'LANCAR Logistics Hub')}
+                        defaultValue={getConfig('platform_name', 'TEMBUS Logistics Hub')}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'platform_name', value: e.target.value })}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       />
@@ -378,7 +378,7 @@ export default function Settings() {
                       <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Support Email</label>
                       <input 
                         type="email" 
-                        defaultValue={getConfig('support_email', 'ops@lancar.com')}
+                        defaultValue={getConfig('support_email', 'ops@tembus.id')}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'support_email', value: e.target.value })}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       />
@@ -1385,7 +1385,7 @@ export default function Settings() {
                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" size={18} />
                     <input 
                       type="email" 
-                      placeholder="john@lancar.id"
+                      placeholder="john@tembus.id"
                       value={inviteForm.email}
                       onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"

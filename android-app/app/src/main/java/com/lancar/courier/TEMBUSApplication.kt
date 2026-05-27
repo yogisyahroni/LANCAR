@@ -29,7 +29,7 @@ import com.lancar.courier.util.FirebaseInitializer
 import javax.inject.Inject
 
 /**
- * LANCAR Application
+ * TEMBUS Application
  *
  * Application class for initializing global components:
  * - API client with auth interceptor
@@ -37,12 +37,12 @@ import javax.inject.Inject
  * - Periodic WorkManager sync (every 15 minutes, network required)
  */
 @HiltAndroidApp
-class LANCARApplication : Application(), Configuration.Provider {
+class TEMBUSApplication : Application(), Configuration.Provider {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
-    private val TAG = "LANCARApplication"
+    private val TAG = "TEMBUSApplication"
 
     override fun onCreate() {
         super.onCreate()
@@ -193,8 +193,8 @@ class LANCARApplication : Application(), Configuration.Provider {
     }
 
     companion object {
-        const val CHANNEL_ORDERS = "lancar_orders"
-        const val CHANNEL_GENERAL = "lancar_general"
+        const val CHANNEL_ORDERS = "tembus_orders"
+        const val CHANNEL_GENERAL = "tembus_general"
         const val WORKER_ORDER_SYNC = "order_sync_periodic"
     }
 }

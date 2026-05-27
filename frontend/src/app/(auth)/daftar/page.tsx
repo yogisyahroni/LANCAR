@@ -136,7 +136,7 @@ export default function RegisterPage() {
               <Package className="h-7 w-7 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">Daftar Customer LANCAR</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground">Daftar Customer TEMBUS</h1>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
                 Satu akun untuk customer web dan mobile app. OTP dipakai sebagai verifikasi akhir sebelum sesi dibuat.
               </p>
@@ -185,7 +185,7 @@ export default function RegisterPage() {
                   onChange={(event) => setEmail(event.target.value)}
                   type="email"
                   className="w-full rounded-2xl border border-border bg-background px-4 py-3 text-foreground outline-none transition-all focus:border-primary focus:ring-4 focus:ring-primary/15"
-                  placeholder="customer@lancar.id"
+                  placeholder="customer@tembus.id"
                 />
               </label>
 

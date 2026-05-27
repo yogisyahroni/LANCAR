@@ -590,7 +590,7 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 		msg = "The courier is on their way to deliver your package today."
 	case "delivered":
 		title = "Delivered Successfully!"
-		msg = "Your package has been delivered. Thank you for using Lancar!"
+		msg = "Your package has been delivered. Thank you for using TEMBUS!"
 	}
 
 	s.notificationSvc.Send(ctx, domain.NotificationRequest{

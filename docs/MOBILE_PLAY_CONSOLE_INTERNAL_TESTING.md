@@ -2,7 +2,7 @@
 
 Status: Ready for Play Console execution
 Last updated: 2026-05-26
-Scope: LANCAR Courier Android app and LANCAR Customer Android app
+Scope: TEMBUS Courier Android app and TEMBUS Customer Android app
 
 This guide prepares both Android apps for Google Play internal testing. It assumes CI already produces signed release AAB artifacts and that Firebase config/signing secrets are injected through GitHub Actions.
 
@@ -16,8 +16,8 @@ Official references:
 
 | App | Play Console app name | Package name | CI working dir | Release artifact |
 | --- | --- | --- | --- | --- |
-| Courier | LANCAR Courier | `com.lancar.courier` | `android-app` | `Courier-App-release-aab-<run_number>` |
-| Customer | LANCAR Customer | `com.lancar.customer` | `android-app-customer` | `Customer-App-release-aab-<run_number>` |
+| Courier | TEMBUS Courier | `com.lancar.courier` | `android-app` | `Courier-App-release-aab-<run_number>` |
+| Customer | TEMBUS Customer | `com.lancar.customer` | `android-app-customer` | `Customer-App-release-aab-<run_number>` |
 
 Do not swap the two AABs. Play Console will reject package-name mismatches, but swapping files wastes review/debug time and can cause wrong tester notes.
 
@@ -31,7 +31,7 @@ Complete this once per app before creating the first internal test release.
 | Package name matches Gradle `applicationId` | [ ] | [ ] | Courier: `com.lancar.courier`; Customer: `com.lancar.customer`. |
 | Play App Signing enabled | [ ] | [ ] | Required for modern AAB publishing. |
 | App category selected | [ ] | [ ] | Suggested: Business/Productivity or Maps/Navigation depending final store positioning. |
-| Privacy policy URL configured | [ ] | [ ] | Use the hosted URL for `frontend/public/privacy/lancar-mobile.html`. |
+| Privacy policy URL configured | [ ] | [ ] | Use the hosted URL for `frontend/public/privacy/tembus-mobile.html`. |
 | Data Safety form completed | [ ] | [ ] | Use `docs/MOBILE_PRIVACY_POLICY_AND_DATA_SAFETY_PACK.md`. |
 | Release AAB downloaded from CI artifact | [ ] | [ ] | Use latest green Mobile Apps CI/CD run. |
 | Firebase release fingerprints updated | [ ] | [ ] | Add Play App Signing SHA-1/SHA-256 and upload-key SHA-1/SHA-256 if Firebase requires them. |
@@ -40,7 +40,7 @@ Complete this once per app before creating the first internal test release.
 
 Create one reusable tester email list in Play Console:
 
-Name: `LANCAR Internal QA`
+Name: `TEMBUS Internal QA`
 
 Recommended tester groups:
 
@@ -83,7 +83,7 @@ Run these steps separately for Courier and Customer.
 Use this as the release note body for both apps until production release notes are written.
 
 ```text
-LANCAR internal testing build.
+TEMBUS internal testing build.
 
 Validation scope:
 - Production API and Firebase configuration

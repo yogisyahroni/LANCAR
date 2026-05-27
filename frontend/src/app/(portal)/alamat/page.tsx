@@ -364,7 +364,7 @@ export default function AddressBookPage() {
       }
     ];
 
-    downloadCsv(`Template_Alamat_LANCAR.csv`, templateData);
+    downloadCsv(`Template_Alamat_TEMBUS.csv`, templateData);
   };
 
   if (loading) {

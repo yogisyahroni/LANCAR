@@ -80,7 +80,7 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
 
   const handleShareWA = () => {
     if (!order) return;
-    const text = `Halo, berikut rincian Resi Pengiriman Lancar: \n\nNo. Resi: ${order.order_number}\nPenerima: ${order.recipient_name}\nLayanan: ${order.model.toUpperCase()}\nStatus: ${order.status.replace('_', ' ')}\n\nLihat rincian lengkapnya di: ${window.location.origin}/resi/${order.id}`;
+    const text = `Halo, berikut rincian Resi Pengiriman TEMBUS: \n\nNo. Resi: ${order.order_number}\nPenerima: ${order.recipient_name}\nLayanan: ${order.model.toUpperCase()}\nStatus: ${order.status.replace('_', ' ')}\n\nLihat rincian lengkapnya di: ${window.location.origin}/resi/${order.id}`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -160,8 +160,8 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
         {/* Top visual header of resi */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 border-dashed border-slate-200 pb-6 gap-6">
           <div>
-            <h2 className="text-2xl font-black tracking-tighter text-primary">LANCAR DELIVERY</h2>
-            <p className="text-xs text-slate-500 font-medium select-none">PT Lancar Transportasi Indonesia</p>
+            <h2 className="text-2xl font-black tracking-tighter text-primary">TEMBUS DELIVERY</h2>
+            <p className="text-xs text-slate-500 font-medium select-none">PT Tembus Transportasi Indonesia</p>
           </div>
           <div className="text-left md:text-right flex flex-col items-start md:items-end select-none">
             <span className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary font-bold rounded-full uppercase shadow-sm select-none">
@@ -228,7 +228,7 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
         {/* Footer of the resi document */}
         <div className="border-t border-slate-200/60 pt-4 flex flex-col md:flex-row md:items-center justify-between text-slate-400 text-[10px] select-none gap-2">
           <p className="font-medium select-none">Thank you for shipping with us! Keep this receipt for any disputes or tracking.</p>
-          <p className="font-mono select-none font-bold">LANCAR v1.0 • System Generated Receipt</p>
+          <p className="font-mono select-none font-bold">TEMBUS v1.0 • System Generated Receipt</p>
         </div>
       </motion.div>
 

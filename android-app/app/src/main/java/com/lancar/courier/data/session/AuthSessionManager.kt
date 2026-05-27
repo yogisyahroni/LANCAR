@@ -22,7 +22,7 @@ import java.io.File
 private val Context.legacyDataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_session")
 
 /**
- * Encrypted Auth Session Manager for LANCAR Courier App
+ * Encrypted Auth Session Manager for TEMBUS Courier App
  *
  * Manages courier authentication session using AndroidX Security EncryptedSharedPreferences.
  * Encrypts auth token, courier ID, and courier name locally using AES-256-GCM.

@@ -1077,7 +1077,12 @@ export const getCourierPayoutOpsDashboard = async (req: Request, res: Response):
 export const handleCourierPayoutProviderWebhook = async (req: Request, res: Response): Promise<void> => {
   const rawBody = (req as any).rawBody as Buffer | undefined;
   const bodyBuffer = rawBody || Buffer.from(JSON.stringify(req.body || {}));
-  const signature = String(req.headers['x-lancar-signature'] || req.headers['x-provider-signature'] || '');
+  const signature = String(
+    req.headers['x-tembus-signature'] ||
+      req.headers['x-lancar-signature'] ||
+      req.headers['x-provider-signature'] ||
+      '',
+  );
   const secret = process.env.PAYOUT_PROVIDER_WEBHOOK_SECRET || '';
   const providerName = String(req.body?.provider || req.body?.provider_name || process.env.PAYOUT_PROVIDER_NAME || 'stub');
   const eventId = String(req.body?.event_id || req.body?.id || '');

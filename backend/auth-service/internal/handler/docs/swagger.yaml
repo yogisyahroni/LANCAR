@@ -77,15 +77,15 @@ definitions:
 host: localhost:8081
 info:
   contact:
-    email: support@lancar.id
+    email: support@tembus.id
     name: API Support
-    url: http://www.lancar.id/support
+    url: http://www.tembus.id/support
   description: API for Authentication, Courier Onboarding, and User Management.
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   termsOfService: http://swagger.io/terms/
-  title: LANCAR Identity Service API
+  title: TEMBUS Identity Service API
   version: "1.0"
 paths:
   /auth/logout:

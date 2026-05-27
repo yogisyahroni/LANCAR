@@ -7,7 +7,7 @@ import { Analytics } from "@/components/Analytics";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Lancar Customer Portal",
+  title: "TEMBUS Customer Portal",
   description: "Manage your deliveries and analytics with ease.",
 };
 

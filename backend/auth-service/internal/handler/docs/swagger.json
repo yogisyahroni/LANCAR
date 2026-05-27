@@ -2,12 +2,12 @@
     "swagger": "2.0",
     "info": {
         "description": "API for Authentication, Courier Onboarding, and User Management.",
-        "title": "LANCAR Identity Service API",
+        "title": "TEMBUS Identity Service API",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
             "name": "API Support",
-            "url": "http://www.lancar.id/support",
-            "email": "support@lancar.id"
+            "url": "http://www.tembus.id/support",
+            "email": "support@tembus.id"
         },
         "license": {
             "name": "Apache 2.0",
@@ -335,7 +335,7 @@
         }
     },
     "definitions": {
-        "lancar_auth-service_internal_domain.User": {
+        "tembus_auth-service_internal_domain.User": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -382,7 +382,7 @@
                 }
             }
         },
-        "lancar_auth-service_internal_domain.UserRole": {
+        "tembus_auth-service_internal_domain.UserRole": {
             "type": "string",
             "enum": [
                 "customer",
@@ -399,7 +399,7 @@
                 "RoleFinance"
             ]
         },
-        "lancar_auth-service_internal_domain.UserStatus": {
+        "tembus_auth-service_internal_domain.UserStatus": {
             "type": "string",
             "enum": [
                 "active",
@@ -414,7 +414,7 @@
                 "StatusPendingVerification"
             ]
         },
-        "lancar_auth-service_internal_service.AuthResponse": {
+        "tembus_auth-service_internal_service.AuthResponse": {
             "type": "object",
             "properties": {
                 "access_token": {

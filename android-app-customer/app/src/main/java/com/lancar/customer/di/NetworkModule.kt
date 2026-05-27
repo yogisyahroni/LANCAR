@@ -4,7 +4,7 @@ import android.content.Context
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.lancar.customer.BuildConfig
 import com.lancar.customer.data.api.AuthInterceptor
-import com.lancar.customer.data.api.LANCARApiService
+import com.lancar.customer.data.api.TEMBUSApiService
 import com.lancar.customer.data.api.TokenRefreshInterceptor
 import com.lancar.customer.data.session.AuthSessionManager
 import dagger.Module
@@ -115,7 +115,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideApiService(retrofit: Retrofit): LANCARApiService {
-        return retrofit.create(LANCARApiService::class.java)
+    fun provideApiService(retrofit: Retrofit): TEMBUSApiService {
+        return retrofit.create(TEMBUSApiService::class.java)
     }
 }

@@ -62,7 +62,7 @@ func NewRoutingEngineWithZoneResolver(reader featureflags.FlagReader, resolver Z
 }
 
 // SelectModel chooses the active delivery model for new orders.
-// LANCAR now accepts P2P as the only production delivery model; courier
+// TEMBUS now accepts P2P as the only production delivery model; courier
 // assignment mode is handled separately as on-demand or regular.
 func (e *RoutingEngine) SelectModel(ctx context.Context, req OrderRequest) (ModelType, error) {
 	if err := validateCoordinate(req.Pickup); err != nil {

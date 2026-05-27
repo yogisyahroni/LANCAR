@@ -96,7 +96,7 @@ func generateCorrelationID() string {
 			b[i] = charset[num.Int64()]
 		}
 	}
-	return fmt.Sprintf("lnc-%s-%d", string(b), time.Now().UnixMilli()%10000)
+	return fmt.Sprintf("tmb-%s-%d", string(b), time.Now().UnixMilli()%10000)
 }
 
 // -------------------------------------------------------
@@ -245,8 +245,8 @@ func CORSMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		allowedOrigins := map[string]bool{
 			"http://localhost:3000":    true,
 			"http://localhost:5173":    true,
-			"https://admin.lancar.app": true,
-			"https://app.lancar.app":   true,
+			"https://admin.tembus.app": true,
+			"https://app.tembus.app":   true,
 		}
 
 		if allowedOrigins[origin] {
@@ -289,7 +289,7 @@ func SecurityHeadersMiddleware(next http.HandlerFunc) http.HandlerFunc {
 // Consistent error format across all services.
 // -------------------------------------------------------
 
-// ErrorResponse is the canonical error format for all LANCAR APIs.
+// ErrorResponse is the canonical error format for all TEMBUS APIs.
 type ErrorResponse struct {
 	Success       bool   `json:"success"`
 	Code          string `json:"code"`
@@ -311,7 +311,7 @@ func WriteError(w http.ResponseWriter, status int, code, message, correlationID 
 	}
 }
 
-// SuccessResponse is the canonical success format for all LANCAR APIs.
+// SuccessResponse is the canonical success format for all TEMBUS APIs.
 type SuccessResponse struct {
 	Success bool        `json:"success"`
 	Data    interface{} `json:"data"`

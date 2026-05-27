@@ -68,12 +68,12 @@ func generateCorrelationID() string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	b := make([]byte, 12)
 	if _, err := rand.Read(b); err != nil {
-		return fmt.Sprintf("lnc-fallback-%d", time.Now().UnixMilli())
+		return fmt.Sprintf("tmb-fallback-%d", time.Now().UnixMilli())
 	}
 	for i := range b {
 		b[i] = charset[int(b[i])%len(charset)]
 	}
-	return fmt.Sprintf("lnc-%s-%d", string(b), time.Now().UnixMilli()%10000)
+	return fmt.Sprintf("tmb-%s-%d", string(b), time.Now().UnixMilli()%10000)
 }
 
 func RedactString(value string) string {
@@ -180,8 +180,8 @@ func CORSMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		allowedOrigins := map[string]bool{
 			"http://localhost:3000":    true,
 			"http://localhost:5173":    true,
-			"https://admin.lancar.app": true,
-			"https://app.lancar.app":   true,
+			"https://admin.tembus.app": true,
+			"https://app.tembus.app":   true,
 		}
 
 		if allowedOrigins[origin] {

@@ -222,7 +222,7 @@ private fun HomeHero(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text("LANCAR", color = Color.White, fontSize = 31.sp, fontWeight = FontWeight.ExtraBold)
+                Text("TEMBUS", color = Color.White, fontSize = 31.sp, fontWeight = FontWeight.ExtraBold)
                 Text("Kirim instan, pantau real-time.", color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp)
             }
             IconButton(
@@ -448,7 +448,7 @@ private fun ServiceOverview(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text("Layanan LANCAR", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Layanan TEMBUS", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
                 Text("Aktif dari pricing admin dan siap dihitung real-time.", color = Muted, fontSize = 13.sp)
             }
             TextButton(onClick = onBookingClick) {

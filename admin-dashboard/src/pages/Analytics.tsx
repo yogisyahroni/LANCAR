@@ -203,7 +203,7 @@ function NewScheduleModal({ isOpen, onClose, onSuccess }: NewScheduleModalProps)
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-1">Recipients (Comma Separated)</label>
                 <textarea 
                   required
-                  placeholder="admin@lancar.com, analyst@lancar.com"
+                  placeholder="admin@tembus.id, analyst@tembus.id"
                   className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 transition-all min-h-[100px]"
                   value={formData.recipient_emails}
                   onChange={e => setFormData({ ...formData, recipient_emails: e.target.value })}
@@ -347,7 +347,7 @@ export default function Analytics() {
       const url = window.URL.createObjectURL(new Blob([res.data]))
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', `lancar-analytics-${timeRange}-${new Date().toISOString().split('T')[0]}.csv`)
+      link.setAttribute('download', `tembus-analytics-${timeRange}-${new Date().toISOString().split('T')[0]}.csv`)
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)

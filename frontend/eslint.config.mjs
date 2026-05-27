@@ -15,7 +15,7 @@ const eslintConfig = defineConfig([
     "public/sw.js",
   ]),
   {
-    // Project-level rule overrides — tuned for LANCAR customer portal codebase.
+    // Project-level rule overrides — tuned for TEMBUS customer portal codebase.
     // Rationale: React Compiler plugin rules (set-state-in-effect, immutability,
     // purity) are experimental and generate false-positives on valid patterns
     // (e.g. fetch in useEffect).  Downgrade them to "warn" so CI can run

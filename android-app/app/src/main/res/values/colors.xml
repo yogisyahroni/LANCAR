@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Primary - LANCAR Blue -->
+    <!-- Primary - TEMBUS Blue -->
     <color name="primary">#1E88E5</color>
     <color name="primary_dark">#1565C0</color>
     <color name="primary_light">#64B5F6</color>
     
-    <!-- Secondary - LANCAR Orange -->
+    <!-- Secondary - TEMBUS Orange -->
     <color name="secondary">#FF6D00</color>
     <color name="secondary_dark">#E65100</color>
     <color name="secondary_light">#FFAB40</color>

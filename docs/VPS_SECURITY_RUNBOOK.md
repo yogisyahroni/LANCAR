@@ -5,14 +5,14 @@
 
 ## Purpose
 
-Use this runbook to prepare a new LANCAR VPS, deploy the production Docker Compose stack, keep production secrets outside Git, rotate secrets, back up and restore PostgreSQL, and verify the final security checklist. The target is a practical startup-grade VPS setup that can later move to managed KMS, object storage, and cloud private networking without changing application code.
+Use this runbook to prepare a new TEMBUS VPS, deploy the production Docker Compose stack, keep production secrets outside Git, rotate secrets, back up and restore PostgreSQL, and verify the final security checklist. The target is a practical startup-grade VPS setup that can later move to managed KMS, object storage, and cloud private networking without changing application code.
 
 This runbook assumes:
 
 - Ubuntu 22.04 or 24.04 LTS.
 - Public traffic terminates at a reverse proxy on the VPS.
 - Docker Compose production stack uses `docker-compose.prod.yml`.
-- Production secrets live only on the VPS at `/opt/lancar/secrets/.env.production`.
+- Production secrets live only on the VPS at `/opt/tembus/secrets/.env.production`.
 - GitHub Actions secrets are used for CI/CD credentials, registry access, and SSH deploy access.
 
 ## Severity
@@ -30,19 +30,19 @@ This runbook assumes:
 - [ ] GitHub repository admin access for Actions Secrets.
 - [ ] VPS provider console access for emergency recovery.
 - [ ] Domain TLS plan, for example Caddy automatic TLS or Nginx plus Certbot.
-- [ ] Local copy of this repo on the VPS under `/opt/lancar/app`.
+- [ ] Local copy of this repo on the VPS under `/opt/tembus/app`.
 
 ## Standard Paths
 
 | Purpose | Path |
 |---|---|
-| Application checkout | `/opt/lancar/app` |
-| Production secrets | `/opt/lancar/secrets/.env.production` |
-| PostgreSQL backups | `/opt/lancar/backups/postgres` |
-| Deployment releases | `/opt/lancar/releases` |
+| Application checkout | `/opt/tembus/app` |
+| Production secrets | `/opt/tembus/secrets/.env.production` |
+| PostgreSQL backups | `/opt/tembus/backups/postgres` |
+| Deployment releases | `/opt/tembus/releases` |
 | Runtime logs | `docker logs` and Docker json logs |
-| Compose file | `/opt/lancar/app/docker-compose.prod.yml` |
-| Security verification script | `/opt/lancar/app/scripts/ops/verify-vps-security.sh` |
+| Compose file | `/opt/tembus/app/docker-compose.prod.yml` |
+| Security verification script | `/opt/tembus/app/scripts/ops/verify-vps-security.sh` |
 
 ## Procedure
 
@@ -67,7 +67,7 @@ chown deploy:deploy /home/deploy/.ssh/authorized_keys
 Create a drop-in SSH config.
 
 ```bash
-cat >/etc/ssh/sshd_config.d/99-lancar-hardening.conf <<'EOF'
+cat >/etc/ssh/sshd_config.d/99-tembus-hardening.conf <<'EOF'
 PermitRootLogin no
 PasswordAuthentication no
 KbdInteractiveAuthentication no
@@ -153,27 +153,27 @@ Log out and back in as `deploy` so the Docker group membership applies.
 **Expected result:** `deploy` can run `docker ps` without `sudo`.
 **If it fails:** Check `groups deploy`, then restart the SSH session.
 
-### Step 6: Create LANCAR Directories
+### Step 6: Create TEMBUS Directories
 
 ```bash
-install -d -m 755 -o deploy -g deploy /opt/lancar/app
-install -d -m 700 -o deploy -g deploy /opt/lancar/secrets
-install -d -m 700 -o deploy -g deploy /opt/lancar/backups/postgres
-install -d -m 755 -o deploy -g deploy /opt/lancar/releases
+install -d -m 755 -o deploy -g deploy /opt/tembus/app
+install -d -m 700 -o deploy -g deploy /opt/tembus/secrets
+install -d -m 700 -o deploy -g deploy /opt/tembus/backups/postgres
+install -d -m 755 -o deploy -g deploy /opt/tembus/releases
 ```
 
-**Expected result:** Only `deploy` and root can read `/opt/lancar/secrets` and backups.
-**If it fails:** Fix ownership with `chown -R deploy:deploy /opt/lancar`.
+**Expected result:** Only `deploy` and root can read `/opt/tembus/secrets` and backups.
+**If it fails:** Fix ownership with `chown -R deploy:deploy /opt/tembus`.
 
 ### Step 7: Place Production Secrets on the VPS
 
 As `deploy`, copy the template and fill real values on the server only.
 
 ```bash
-cd /opt/lancar/app
-cp .env.production.example /opt/lancar/secrets/.env.production
-chmod 600 /opt/lancar/secrets/.env.production
-nano /opt/lancar/secrets/.env.production
+cd /opt/tembus/app
+cp .env.production.example /opt/tembus/secrets/.env.production
+chmod 600 /opt/tembus/secrets/.env.production
+nano /opt/tembus/secrets/.env.production
 ```
 
 Generate strong secrets:
@@ -204,7 +204,7 @@ Minimum values that must be real and non-default:
 - `VITE_API_URL`
 - Provider keys that are enabled in production: Midtrans, Firebase, Maps, Verihubs, S3.
 
-**Expected result:** Real secret file exists at `/opt/lancar/secrets/.env.production` and is never copied into the repo.
+**Expected result:** Real secret file exists at `/opt/tembus/secrets/.env.production` and is never copied into the repo.
 **If it fails:** Do not deploy. Missing required variables should make Compose or runtime startup fail-fast.
 
 ### Step 8: Configure GitHub Actions Secrets
@@ -243,20 +243,20 @@ Android Firebase config rule:
 ### Step 9: Validate Production Compose Before First Start
 
 ```bash
-cd /opt/lancar/app
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml config >/tmp/lancar-compose-rendered.yml
-grep -Ei 'changeme|guest:guest|lancar_secret_key_change_me|PASSWORD_RAW|PASSWORD_URL_ENCODED|REDIS_PASSWORD_URL_ENCODED|RABBITMQ_PASSWORD_URL_ENCODED' /tmp/lancar-compose-rendered.yml && exit 1
-rm -f /tmp/lancar-compose-rendered.yml
+cd /opt/tembus/app
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml config >/tmp/tembus-compose-rendered.yml
+grep -Ei 'changeme|guest:guest|tembus_secret_key_change_me|PASSWORD_RAW|PASSWORD_URL_ENCODED|REDIS_PASSWORD_URL_ENCODED|RABBITMQ_PASSWORD_URL_ENCODED' /tmp/tembus-compose-rendered.yml && exit 1
+rm -f /tmp/tembus-compose-rendered.yml
 ```
 
 **Expected result:** Config renders and grep finds nothing.
-**If it fails:** Fix `/opt/lancar/secrets/.env.production` before continuing.
+**If it fails:** Fix `/opt/tembus/secrets/.env.production` before continuing.
 
 ### Step 10: Run Database Migrations
 
 ```bash
-cd /opt/lancar/app
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml --profile migrate run --rm migrate
+cd /opt/tembus/app
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml --profile migrate run --rm migrate
 ```
 
 **Expected result:** Goose migration exits with status `0`.
@@ -267,17 +267,17 @@ docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.
 For first deploy:
 
 ```bash
-cd /opt/lancar/app
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml up -d --build
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml ps
+cd /opt/tembus/app
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml up -d --build
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml ps
 ```
 
 For image-based deploy from CI/GHCR:
 
 ```bash
-cd /opt/lancar/app
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml pull
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml up -d
+cd /opt/tembus/app
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml pull
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml up -d
 docker image prune -f
 ```
 
@@ -285,7 +285,7 @@ docker image prune -f
 **If it fails:** Check the failing container only:
 
 ```bash
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml logs --tail 200 SERVICE_NAME
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml logs --tail 200 SERVICE_NAME
 ```
 
 ### Step 12: Configure Reverse Proxy and TLS
@@ -313,20 +313,20 @@ admin.example.com {
 
 ### Step 13: Create PostgreSQL Backup Script
 
-Create `/opt/lancar/backups/postgres/backup-postgres.sh`:
+Create `/opt/tembus/backups/postgres/backup-postgres.sh`:
 
 ```bash
-cat >/opt/lancar/backups/postgres/backup-postgres.sh <<'EOF'
+cat >/opt/tembus/backups/postgres/backup-postgres.sh <<'EOF'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-BACKUP_DIR="/opt/lancar/backups/postgres"
-ENV_FILE="/opt/lancar/secrets/.env.production"
-COMPOSE_FILE="/opt/lancar/app/docker-compose.prod.yml"
+BACKUP_DIR="/opt/tembus/backups/postgres"
+ENV_FILE="/opt/tembus/secrets/.env.production"
+COMPOSE_FILE="/opt/tembus/app/docker-compose.prod.yml"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-OUTPUT="$BACKUP_DIR/lancar-postgres-$TIMESTAMP.dump"
+OUTPUT="$BACKUP_DIR/tembus-postgres-$TIMESTAMP.dump"
 
-cd /opt/lancar/app
+cd /opt/tembus/app
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 
@@ -334,30 +334,30 @@ docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" exec -T db \
   sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$OUTPUT"
 
 chmod 600 "$OUTPUT"
-find "$BACKUP_DIR" -type f -name 'lancar-postgres-*.dump' -mtime +14 -delete
+find "$BACKUP_DIR" -type f -name 'tembus-postgres-*.dump' -mtime +14 -delete
 printf 'backup created: %s\n' "$OUTPUT"
 EOF
 
-chmod 700 /opt/lancar/backups/postgres/backup-postgres.sh
+chmod 700 /opt/tembus/backups/postgres/backup-postgres.sh
 ```
 
 Create a systemd timer:
 
 ```bash
-cat >/etc/systemd/system/lancar-postgres-backup.service <<'EOF'
+cat >/etc/systemd/system/tembus-postgres-backup.service <<'EOF'
 [Unit]
-Description=LANCAR PostgreSQL backup
+Description=TEMBUS PostgreSQL backup
 
 [Service]
 Type=oneshot
 User=deploy
 Group=deploy
-ExecStart=/opt/lancar/backups/postgres/backup-postgres.sh
+ExecStart=/opt/tembus/backups/postgres/backup-postgres.sh
 EOF
 
-cat >/etc/systemd/system/lancar-postgres-backup.timer <<'EOF'
+cat >/etc/systemd/system/tembus-postgres-backup.timer <<'EOF'
 [Unit]
-Description=Run LANCAR PostgreSQL backup every night
+Description=Run TEMBUS PostgreSQL backup every night
 
 [Timer]
 OnCalendar=*-*-* 02:15:00
@@ -368,33 +368,33 @@ WantedBy=timers.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now lancar-postgres-backup.timer
-systemctl list-timers lancar-postgres-backup.timer
+systemctl enable --now tembus-postgres-backup.timer
+systemctl list-timers tembus-postgres-backup.timer
 ```
 
-**Expected result:** A compressed custom-format dump appears nightly in `/opt/lancar/backups/postgres`.
-**If it fails:** Run `systemctl status lancar-postgres-backup.service` and check Docker/DB health.
+**Expected result:** A compressed custom-format dump appears nightly in `/opt/tembus/backups/postgres`.
+**If it fails:** Run `systemctl status tembus-postgres-backup.service` and check Docker/DB health.
 
 ### Step 14: Restore PostgreSQL From Backup
 
 Only restore into a fresh or intentionally reset database.
 
 ```bash
-cd /opt/lancar/app
-BACKUP_FILE=/opt/lancar/backups/postgres/lancar-postgres-YYYYMMDDTHHMMSSZ.dump
+cd /opt/tembus/app
+BACKUP_FILE=/opt/tembus/backups/postgres/tembus-postgres-YYYYMMDDTHHMMSSZ.dump
 
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml stop api-gateway admin-service auth-service order-service routing-service payment-service frontend admin-dashboard
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml stop api-gateway admin-service auth-service order-service routing-service payment-service frontend admin-dashboard
 
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml exec -T db \
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml exec -T db \
   sh -c 'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB"'
 
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml exec -T db \
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml exec -T db \
   sh -c 'createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
 
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml exec -T db \
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml exec -T db \
   sh -c 'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' < "$BACKUP_FILE"
 
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml up -d
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml up -d
 ```
 
 **Expected result:** Services start and critical smoke tests pass.
@@ -410,13 +410,13 @@ Use this procedure for `JWT_SECRET`, `JWT_REFRESH_SECRET`, `INTERNAL_GATEWAY_SEC
 openssl rand -base64 48
 ```
 
-2. Edit `/opt/lancar/secrets/.env.production`.
+2. Edit `/opt/tembus/secrets/.env.production`.
 
 3. Restart only services that consume the rotated secret:
 
 ```bash
-cd /opt/lancar/app
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml up -d --force-recreate api-gateway admin-service auth-service order-service payment-service
+cd /opt/tembus/app
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml up -d --force-recreate api-gateway admin-service auth-service order-service payment-service
 ```
 
 4. For provider keys, revoke the old key in the provider dashboard after traffic is healthy.
@@ -431,11 +431,11 @@ docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.
 If the newest image release fails:
 
 ```bash
-cd /opt/lancar/app
-cp /opt/lancar/secrets/.env.production /opt/lancar/secrets/.env.production.rollback.$(date -u +%Y%m%dT%H%M%SZ)
-nano /opt/lancar/secrets/.env.production
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml pull
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml up -d
+cd /opt/tembus/app
+cp /opt/tembus/secrets/.env.production /opt/tembus/secrets/.env.production.rollback.$(date -u +%Y%m%dT%H%M%SZ)
+nano /opt/tembus/secrets/.env.production
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml pull
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml up -d
 ```
 
 Set image variables back to the previous known-good tag, for example:
@@ -459,9 +459,9 @@ ADMIN_DASHBOARD_IMAGE=ghcr.io/owner/repo/admin-dashboard:staging-PREVIOUS_SHA
 Run the automated VPS gate:
 
 ```bash
-cd /opt/lancar/app
+cd /opt/tembus/app
 chmod +x scripts/ops/verify-vps-security.sh
-ENV_FILE=/opt/lancar/secrets/.env.production API_BASE_URL=https://api.example.com ./scripts/ops/verify-vps-security.sh
+ENV_FILE=/opt/tembus/secrets/.env.production API_BASE_URL=https://api.example.com ./scripts/ops/verify-vps-security.sh
 ```
 
 Manual checklist:
@@ -469,12 +469,12 @@ Manual checklist:
 - [ ] `git log --all --full-history -- .env` returns no commits.
 - [ ] `gitleaks detect --source . --redact` passes.
 - [ ] `trivy fs --severity HIGH,CRITICAL --exit-code 1 .` passes or every finding has an accepted remediation ticket.
-- [ ] `docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml config` renders without weak/default secret markers.
-- [ ] `docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml ps` shows healthy services.
+- [ ] `docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml config` renders without weak/default secret markers.
+- [ ] `docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml ps` shows healthy services.
 - [ ] `ufw status verbose` only exposes SSH, HTTP, and HTTPS.
 - [ ] Provider firewall does not expose PostgreSQL, Redis, RabbitMQ, or internal service ports.
-- [ ] `/opt/lancar/secrets/.env.production` has permission `600` or `640`.
-- [ ] `/opt/lancar/backups/postgres` has permission `700`.
+- [ ] `/opt/tembus/secrets/.env.production` has permission `600` or `640`.
+- [ ] `/opt/tembus/backups/postgres` has permission `700`.
 - [ ] Latest backup restore has been tested in staging or a disposable VPS.
 - [ ] `https://api.example.com/health` returns success.
 - [ ] Browser preflight cannot send `x-user-id`, `x-user-role`, `x-totp-verified`, or `x-internal-auth`.
@@ -497,7 +497,7 @@ Manual checklist:
 
 Rollback order:
 
-1. Revert only image tags in `/opt/lancar/secrets/.env.production` to previous known-good tags.
+1. Revert only image tags in `/opt/tembus/secrets/.env.production` to previous known-good tags.
 2. Run `docker compose pull` and `docker compose up -d`.
 3. If schema migration caused the outage, restore database only after confirming the migration cannot be fixed forward.
 4. If secret rotation caused the outage, restore the previous env file copy and immediately schedule a safer rotation window.

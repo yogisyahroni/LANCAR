@@ -9,11 +9,11 @@ const customerToken = __ENV.CUSTOMER_TOKEN || '';
 const courierToken = __ENV.COURIER_TOKEN || '';
 const adminToken = __ENV.ADMIN_TOKEN || '';
 
-const quoteLatency = new Trend('lancar_quote_latency_ms');
-const createOrderLatency = new Trend('lancar_create_order_latency_ms');
-const trackingLatency = new Trend('lancar_tracking_latency_ms');
-const paymentCallbackLatency = new Trend('lancar_payment_callback_latency_ms');
-const websocketConnected = new Rate('lancar_websocket_connected');
+const quoteLatency = new Trend('tembus_quote_latency_ms');
+const createOrderLatency = new Trend('tembus_create_order_latency_ms');
+const trackingLatency = new Trend('tembus_tracking_latency_ms');
+const paymentCallbackLatency = new Trend('tembus_payment_callback_latency_ms');
+const websocketConnected = new Rate('tembus_websocket_connected');
 
 export const options = {
   scenarios: {
@@ -70,10 +70,10 @@ export const options = {
   },
   thresholds: {
     http_req_failed: ['rate<0.05'],
-    lancar_quote_latency_ms: ['p(95)<800', 'p(99)<1500'],
-    lancar_create_order_latency_ms: ['p(95)<1200', 'p(99)<2500'],
-    lancar_tracking_latency_ms: ['p(95)<300', 'p(99)<800'],
-    lancar_websocket_connected: ['rate>0.95'],
+    tembus_quote_latency_ms: ['p(95)<800', 'p(99)<1500'],
+    tembus_create_order_latency_ms: ['p(95)<1200', 'p(99)<2500'],
+    tembus_tracking_latency_ms: ['p(95)<300', 'p(99)<800'],
+    tembus_websocket_connected: ['rate>0.95'],
   },
 };
 
@@ -137,7 +137,7 @@ export function customerCreateOrder() {
     package_type: 'Dokumen',
     package_weight_kg: 1,
     package_size: 'small',
-    service_code: __ENV.SERVICE_CODE || 'LANCAR_SAME_DAY',
+    service_code: __ENV.SERVICE_CODE || 'TEMBUS_SAME_DAY',
     payment_method: 'lapay',
   });
 

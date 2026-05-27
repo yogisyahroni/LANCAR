@@ -27,7 +27,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.Executor
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TEMBUSApiService
 import com.lancar.courier.data.repository.OrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -66,7 +66,7 @@ data class PodUiState(
 @HiltViewModel
 class ProofOfDeliveryViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
-    private val apiService: LANCARApiService
+    private val apiService: TEMBUSApiService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PodUiState())

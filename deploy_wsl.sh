@@ -1,7 +1,7 @@
 #!/bin/bash
-# Script to deploy LANCAR backend via docker-compose in WSL
+# Script to deploy TEMBUS backend via docker-compose in WSL
 
-echo "Deploying LANCAR Backend Infrastructure..."
+echo "Deploying TEMBUS Backend Infrastructure..."
 
 # Ensure we are in the correct directory
 cd "$(dirname "$0")"

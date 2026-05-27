@@ -30,7 +30,7 @@ type GeocodeResult = {
   longitude?: number;
 };
 
-const RECEIVER_LOCATION_STORAGE_KEY = 'lancar_receiver_location_submitted_v1';
+const RECEIVER_LOCATION_STORAGE_KEY = 'tembus_receiver_location_submitted_v1';
 
 const apiRoot = () => {
   const configured = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';

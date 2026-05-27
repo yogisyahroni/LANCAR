@@ -1,5 +1,5 @@
 # ============================================================
-# LANCAR - Podman Compose Override untuk WSL Rootless
+# TEMBUS - Podman Compose Override untuk WSL Rootless
 # 
 # MASALAH: aardvark-dns gagal di WSL karena tidak ada dbus/systemd
 # SOLUSI: network_mode: host + ganti semua hostname service ke localhost
@@ -27,31 +27,31 @@ services:
     restart: "no"
     network_mode: host
     environment:
-      DATABASE_URL: "postgres://postgres:1234@localhost:5432/lancar?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://postgres:1234@localhost:5433/lancar?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://postgres:1234@localhost:5432/tembus?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://postgres:1234@localhost:5433/tembus?sslmode=disable&search_path=public"
       REDIS_URL: "redis://localhost:6379"
 
   admin-service:
     restart: "no"
     network_mode: host
     environment:
-      DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable&search_path=public"
       REDIS_URL: "redis://localhost:6379"
 
   routing-service:
     restart: "no"
     network_mode: host
     environment:
-      DATABASE_URL: "postgres://postgres:1234@localhost:5432/lancar?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://postgres:1234@localhost:5432/tembus?sslmode=disable&search_path=public"
       REDIS_URL: "redis://localhost:6379"
 
   order-service:
     restart: "no"
     network_mode: host
     environment:
-      DATABASE_URL: "postgres://postgres:1234@localhost:5432/lancar?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://postgres:1234@localhost:5433/lancar?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://postgres:1234@localhost:5432/tembus?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://postgres:1234@localhost:5433/tembus?sslmode=disable&search_path=public"
       REDIS_URL: "redis://localhost:6379"
       RABBITMQ_URL: "amqp://guest:guest@localhost:5672/"
 

@@ -6,12 +6,12 @@
 set -e  # Exit on first error
 
 DB_USER="postgres"
-DB_NAME="lancar"
-CONTAINER="lancar-db"
+DB_NAME="tembus"
+CONTAINER="tembus-db"
 MIGRATIONS_DIR="/mnt/e/antigraviti google/SUDAH DEPLOY/LANCAR/database/migrations"
 
 echo "============================================================"
-echo "  LANCAR — Running All Database Migrations"
+echo "  TEMBUS - Running All Database Migrations"
 echo "  Target: container=$CONTAINER, db=$DB_NAME"
 echo "============================================================"
 

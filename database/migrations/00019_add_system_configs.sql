@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS system_configs (
 
 -- Seed default values
 INSERT INTO system_configs (key, value, description, category) VALUES
-('platform_name', '"LANCAR Logistics Hub"', 'Visible name of the platform', 'general'),
-('support_email', '"ops@lancar.com"', 'Customer support email address', 'general'),
+('platform_name', '"TEMBUS Logistics Hub"', 'Visible name of the platform', 'general'),
+('support_email', '"ops@tembus.id"', 'Customer support email address', 'general'),
 ('insurance_premium_rate', '0.1', 'Percentage rate of declared value', 'insurance'),
 ('insurance_min_premium', '2000', 'Minimum premium in IDR', 'insurance'),
 ('insurance_max_coverage', '25000000', 'Maximum replacement value in IDR', 'insurance'),

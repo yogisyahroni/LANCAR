@@ -4,7 +4,7 @@ import com.lancar.customer.data.model.*
 import retrofit2.Response
 import retrofit2.http.*
 
-interface LANCARApiService {
+interface TEMBUSApiService {
     
     // System Endpoints
     @GET("api/v1/system/latest-version")

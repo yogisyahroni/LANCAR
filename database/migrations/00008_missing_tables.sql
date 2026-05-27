@@ -1,7 +1,7 @@
 -- +goose Up
 -- ============================================================
 -- Migration 00008: Missing Tables from ERD
--- LANCAR Hyperlocal Relay Platform
+-- TEMBUS Hyperlocal Delivery Platform
 -- ============================================================
 
 -- -------------------------------------------------------

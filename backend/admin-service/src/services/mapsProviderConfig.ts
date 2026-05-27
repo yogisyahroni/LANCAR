@@ -266,7 +266,7 @@ export const fetchOpenStreetMapTile = async (zParam: string, xParam: string, yPa
       responseType: 'arraybuffer',
       timeout: 3500,
       headers: {
-        'User-Agent': process.env.OSM_TILE_USER_AGENT || 'LANCAR-Logistics/1.0 ops@lancar.com',
+        'User-Agent': process.env.OSM_TILE_USER_AGENT || 'TEMBUS-Logistics/1.0 ops@tembus.id',
         Accept: 'image/png,image/*;q=0.8,*/*;q=0.5',
       },
       validateStatus: (status) => status >= 200 && status < 500,
@@ -1480,7 +1480,7 @@ const buildOpenStreetMapRoute = async (
         steps: false,
       },
       headers: {
-        'User-Agent': process.env.OSM_USER_AGENT || 'LANCAR-Logistics/1.0 maps-runtime',
+        'User-Agent': process.env.OSM_USER_AGENT || 'TEMBUS-Logistics/1.0 maps-runtime',
       },
       timeout: osmRoutingTimeoutMs(),
     });
@@ -1717,7 +1717,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
           addressdetails: 1,
         },
         headers: {
-          'User-Agent': process.env.OSM_USER_AGENT || 'LANCAR-Logistics/1.0 maps-runtime',
+          'User-Agent': process.env.OSM_USER_AGENT || 'TEMBUS-Logistics/1.0 maps-runtime',
         },
         timeout: 2500,
       });
@@ -1831,7 +1831,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
           addressdetails: 1,
         },
         headers: {
-          'User-Agent': process.env.OSM_USER_AGENT || 'LANCAR-Logistics/1.0 maps-runtime',
+          'User-Agent': process.env.OSM_USER_AGENT || 'TEMBUS-Logistics/1.0 maps-runtime',
         },
         timeout: 2500,
       });

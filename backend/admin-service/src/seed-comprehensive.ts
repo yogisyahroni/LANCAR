@@ -37,7 +37,7 @@ const runSeed = async () => {
       await client.query(`
         INSERT INTO users (id, full_name, email, phone_number, role, pin_hash, status)
         VALUES ($1, $2, $3, $4, 'customer', 'hashed_pin', 'active')
-      `, [id, `Customer ${i + 1}`, `customer${i + 1}@lancar.id`, `0812${randomInt(10000000, 99999999)}`]);
+      `, [id, `Customer ${i + 1}`, `customer${i + 1}@tembus.id`, `0812${randomInt(10000000, 99999999)}`]);
       customerIds.push(id);
     }
 
@@ -49,7 +49,7 @@ const runSeed = async () => {
       await client.query(`
         INSERT INTO users (id, full_name, email, phone_number, role, pin_hash, status)
         VALUES ($1, $2, $3, $4, 'courier', 'hashed_pin', 'active')
-      `, [id, `Courier ${i + 1}`, `courier${i + 1}@lancar.id`, `0877${randomInt(10000000, 99999999)}`]);
+      `, [id, `Courier ${i + 1}`, `courier${i + 1}@tembus.id`, `0877${randomInt(10000000, 99999999)}`]);
       
       await client.query(`
         INSERT INTO courier_profiles (

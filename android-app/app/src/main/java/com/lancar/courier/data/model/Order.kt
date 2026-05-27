@@ -8,7 +8,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Order Model for LANCAR Courier App
+ * Order Model for TEMBUS Courier App
  *
  * Represents an order assigned to a courier for delivery.
  * Used for both API communication and local database storage.
@@ -274,7 +274,7 @@ fun Order.displayServiceName(): String {
         ?: serviceCode?.replace("_", " ")?.split(" ")?.joinToString(" ") { word ->
             word.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
         }
-        ?: "LANCAR On Demand"
+        ?: "TEMBUS On Demand"
 }
 
 fun Order.distanceKmValue(): Double {

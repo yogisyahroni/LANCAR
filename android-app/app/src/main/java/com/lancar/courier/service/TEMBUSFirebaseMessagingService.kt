@@ -15,7 +15,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
-import com.lancar.courier.LANCARApplication
+import com.lancar.courier.TEMBUSApplication
 import com.lancar.courier.R
 import com.lancar.courier.data.repository.FCMTokenRepository
 import com.lancar.courier.receiver.NotificationReceiver
@@ -31,19 +31,19 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * LANCAR Firebase Messaging Service
+ * TEMBUS Firebase Messaging Service
  * 
  * Handles incoming FCM messages for both foreground and background states.
  * Creates notification channels and displays notifications for order assignments.
  */
 @AndroidEntryPoint
-class LANCARFirebaseMessagingService : FirebaseMessagingService() {
+class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject
     lateinit var fcmTokenRepository: FCMTokenRepository
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val TAG = "FCM_LANCAR"
+    private val TAG = "FCM_TEMBUS"
 
     override fun onCreate() {
         super.onCreate()
@@ -63,7 +63,7 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
         remoteMessage.notification?.let { notification ->
             Log.d(TAG, "Message Notification Body: ${notification.body}")
             showNotification(
-                notification.title ?: "Lancar Courier",
+                notification.title ?: "TEMBUS Courier",
                 notification.body ?: "",
                 remoteMessage.data
             )
@@ -119,7 +119,7 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
                 showNotification(title, body, data)
             }
             else -> {
-                val title = data["title"] ?: "Lancar Update"
+                val title = data["title"] ?: "TEMBUS Update"
                 val body = data["body"] ?: ""
                 showNotification(title, body, data)
             }
@@ -194,7 +194,7 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
 
         val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
         
-        val builder = NotificationCompat.Builder(applicationContext, LANCARApplication.CHANNEL_ORDERS)
+        val builder = NotificationCompat.Builder(applicationContext, TEMBUSApplication.CHANNEL_ORDERS)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(body)

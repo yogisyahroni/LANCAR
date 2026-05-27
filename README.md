@@ -1,6 +1,6 @@
-# LANCAR
+# TEMBUS
 
-LANCAR adalah platform logistik end-to-end yang mencakup customer portal, admin dashboard, backend services, dan aplikasi Android untuk kurir/customer. Fokus fase saat ini adalah layanan on-demand bergaya GoSend: customer membuat order, sistem menawarkan pekerjaan ke kurir terdekat/eligible, kurir mengambil barang, melakukan verifikasi pickup, mengantar, mengunggah POD, lalu earning masuk ke ledger kurir.
+TEMBUS adalah platform logistik end-to-end yang mencakup customer portal, admin dashboard, backend services, dan aplikasi Android untuk kurir/customer. Fokus fase saat ini adalah layanan on-demand bergaya GoSend: customer membuat order, sistem menawarkan pekerjaan ke kurir terdekat/eligible, kurir mengambil barang, melakukan verifikasi pickup, mengantar, mengunggah POD, lalu earning masuk ke ledger kurir.
 
 ## Product Scope
 
@@ -14,7 +14,7 @@ LANCAR adalah platform logistik end-to-end yang mencakup customer portal, admin 
 
 | Path | Description |
 | --- | --- |
-| `admin-dashboard/` | React + Vite admin dashboard untuk operasional LANCAR. |
+| `admin-dashboard/` | React + Vite admin dashboard untuk operasional TEMBUS. |
 | `frontend/` | Next.js customer web portal. |
 | `android-app/` | Android native courier app. |
 | `android-app-customer/` | Android native customer app. |
@@ -171,7 +171,7 @@ docker compose run --rm migrate
 If the registry blocks the goose image, run local Goose:
 
 ```bash
-goose -dir database/migrations postgres "host=localhost port=5432 user=postgres password=1234 dbname=lancar sslmode=disable" up
+goose -dir database/migrations postgres "host=localhost port=5432 user=postgres password=1234 dbname=tembus sslmode=disable" up
 ```
 
 Common local URLs:
@@ -241,9 +241,9 @@ Clean migration validation example:
 
 ```powershell
 $env:PGPASSWORD='1234'
-psql -h localhost -U postgres -d postgres -c "DROP DATABASE IF EXISTS lancar_migration_check;" -c "CREATE DATABASE lancar_migration_check;"
-goose -dir database/migrations postgres "host=localhost port=5432 user=postgres password=1234 dbname=lancar_migration_check sslmode=disable" up
-psql -h localhost -U postgres -d postgres -c "DROP DATABASE IF EXISTS lancar_migration_check;"
+psql -h localhost -U postgres -d postgres -c "DROP DATABASE IF EXISTS tembus_migration_check;" -c "CREATE DATABASE tembus_migration_check;"
+goose -dir database/migrations postgres "host=localhost port=5432 user=postgres password=1234 dbname=tembus_migration_check sslmode=disable" up
+psql -h localhost -U postgres -d postgres -c "DROP DATABASE IF EXISTS tembus_migration_check;"
 ```
 
 ## Testing Matrix

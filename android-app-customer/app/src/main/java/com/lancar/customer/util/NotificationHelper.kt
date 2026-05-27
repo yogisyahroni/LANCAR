@@ -20,9 +20,9 @@ class NotificationHelper @Inject constructor(
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     companion object {
-        private const val CHANNEL_ID = "lancar_customer_notifications"
-        private const val CHANNEL_NAME = "LANCAR Notifications"
-        private const val CHANNEL_DESC = "General notifications for LANCAR Customer app"
+        private const val CHANNEL_ID = "tembus_customer_notifications"
+        private const val CHANNEL_NAME = "TEMBUS Notifications"
+        private const val CHANNEL_DESC = "General notifications for TEMBUS Customer app"
     }
 
     init {

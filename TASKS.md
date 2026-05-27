@@ -83,7 +83,7 @@
 
 - [x] **P1 - OpenStreetMap road routing engine** - OSM aktif harus memakai routing jalan sungguhan, bukan jarak terdekat garis lurus.
   - Backend maps gateway wajib menghubungkan OSM provider ke route engine berbasis OpenStreetMap seperti OSRM/Valhalla/GraphHopper.
-  - Route profile minimal: `motorcycle` untuk layanan motor dan `car` untuk LANCAR Mobil.
+  - Route profile minimal: `motorcycle` untuk layanan motor dan `car` untuk TEMBUS Mobil.
   - Jika OSRM standar tidak mendukung motor secara presisi, gunakan Valhalla/GraphHopper atau custom profile; jangan menyamakan motor dengan mobil tanpa label policy.
   - Route response wajib mengembalikan polyline jalan, distance meter, duration second, dan provider metadata.
   - Cache route pendek wajib aktif berdasarkan pickup/dropoff/service/vehicle/provider supaya mobile tidak memukul provider terus-menerus.
@@ -270,7 +270,7 @@ No someday on-demand readiness tasks.
   - Command: `powershell -ExecutionPolicy Bypass -File .\scripts\e2e-fcm-os-validation.ps1 -CustomerSerial emulator-5556 -CourierSerial emulator-5554`.
   - Bukti tersimpan di `artifacts/fcm-os-validation/<timestamp>/summary.json`, logcat, dan dumpsys notification.
   - Courier sudah lolos foreground, background, dan killed via Android OS notification evidence.
-  - Customer sudah lolos foreground, background, dan killed via Android OS notification evidence setelah login `customer.mobile@lancar.id`.
+  - Customer sudah lolos foreground, background, dan killed via Android OS notification evidence setelah login `customer.mobile@tembus.id`.
 
 - [x] **P0 - Realtime contract hardening untuk on-demand** - semua event utama memakai payload `on_demand_event` stabil dan room `order:{order_id}` dengan legacy fallback event.
   - Event minimal selesai: offer_created, offer_accepted, courier_otw_pickup, pickup_verified, delivery_started, pod_completed, pickup_cancelled, chat_message, tracking_updated.

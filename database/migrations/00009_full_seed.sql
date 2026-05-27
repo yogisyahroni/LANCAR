@@ -1,7 +1,7 @@
 -- +goose Up
 -- ============================================================
 -- Migration 00009: Schema Extension + Full Seed Data
--- LANCAR Hyperlocal Relay Platform
+-- TEMBUS Hyperlocal Delivery Platform
 -- ============================================================
 
 -- -------------------------------------------------------
@@ -151,7 +151,7 @@ INSERT INTO notification_templates (key, channel, title, body, is_active) VALUES
 ('sla_warning_courier','push',      'SLA Hampir Habis!',     'Kamu punya {{remaining_minutes}} menit untuk menyelesaikan leg ini. Segera bergerak!',    TRUE),
 ('courier_approved',   'whatsapp',  NULL,                    'Selamat! Akun kurir kamu telah disetujui. Silakan login dan mulai terima order.',          TRUE),
 ('courier_rejected',   'whatsapp',  NULL,                    'Maaf, verifikasi kurir kamu belum berhasil. Alasan: {{rejection_reason}}.',               TRUE),
-('otp_login',          'whatsapp',  NULL,                    'Kode OTP LANCAR kamu adalah *{{otp_code}}*. Berlaku 5 menit. Jangan bagikan ke siapapun.',TRUE),
+('otp_login',          'whatsapp',  NULL,                    'Kode OTP TEMBUS kamu adalah *{{otp_code}}*. Berlaku 5 menit. Jangan bagikan ke siapapun.',TRUE),
 ('flag_changed',       'in_app',    'Feature Flag Diubah',   'Flag {{flag_key}} diubah menjadi {{new_state}} oleh {{admin_name}}.',                     TRUE),
 ('score_changed',      'in_app',    'Relay Score Berubah',   'Relay score kamu berubah dari {{score_before}} menjadi {{score_after}}. {{reason}}',      TRUE)
 ON CONFLICT (key) DO NOTHING;
@@ -168,13 +168,13 @@ ON CONFLICT (phone_number) DO NOTHING;
 -- -------------------------------------------------------
 INSERT INTO vouchers (code, name, type, value, min_order_idr, quota, is_active, valid_until)
 VALUES
-    ('LANCAR10',   'Diskon 10% Semua Model',  'percentage',    10,    15000, 500,  TRUE, NOW() + INTERVAL '6 months'),
+    ('TEMBUS10',   'Diskon 10% Semua Model',  'percentage',    10,    15000, 500,  TRUE, NOW() + INTERVAL '6 months'),
     ('NEWUSER20K', 'Voucher User Baru 20rb',  'fixed',         20000, 0,     1000, TRUE, NOW() + INTERVAL '3 months'),
     ('RELAY2KAKI', 'Gratis 2-Kaki Pertama',   'free_shipping', 18000, 10000, 200,  TRUE, NOW() + INTERVAL '2 months')
 ON CONFLICT (code) DO NOTHING;
 
 -- +goose Down
-DELETE FROM vouchers WHERE code IN ('LANCAR10','NEWUSER20K','RELAY2KAKI');
+DELETE FROM vouchers WHERE code IN ('TEMBUS10','NEWUSER20K','RELAY2KAKI');
 DELETE FROM users WHERE phone_number = '+628123456789' AND role = 'super_admin';
 DELETE FROM notification_templates;
 DELETE FROM feature_flags;

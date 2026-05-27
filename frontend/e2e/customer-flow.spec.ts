@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 // Use env vars injected by CI, with fallback for local dev
-const TEST_EMAIL = process.env.TEST_USER_EMAIL || 'customer_test@lancar.id';
+const TEST_EMAIL = process.env.TEST_USER_EMAIL || 'customer_test@tembus.id';
 const TEST_PASSWORD = process.env.TEST_USER_PASSWORD || '123456';
 
 test.describe('Customer Portal E2E Flow', () => {

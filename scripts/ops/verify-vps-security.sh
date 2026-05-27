@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-$REPO_ROOT/docker-compose.prod.yml}"
-ENV_FILE="${ENV_FILE:-/opt/lancar/secrets/.env.production}"
+ENV_FILE="${ENV_FILE:-/opt/tembus/secrets/.env.production}"
 API_BASE_URL="${API_BASE_URL:-}"
 
 failures=0
@@ -143,7 +143,7 @@ check_compose_config() {
 
   pass "docker compose production config renders successfully"
 
-  local weak_patterns='lancar_secret_key_change_me|changeme|guest:guest|POSTGRES_PASSWORD: 1234|postgres:1234|password=1234|PASSWORD_RAW|PASSWORD_URL_ENCODED|REDIS_PASSWORD_URL_ENCODED|RABBITMQ_PASSWORD_URL_ENCODED'
+  local weak_patterns='tembus_secret_key_change_me|changeme|guest:guest|POSTGRES_PASSWORD: 1234|postgres:1234|password=1234|PASSWORD_RAW|PASSWORD_URL_ENCODED|REDIS_PASSWORD_URL_ENCODED|RABBITMQ_PASSWORD_URL_ENCODED'
   if grep -Eiq "$weak_patterns" "$compose_config_file"; then
     fail "compose config still contains weak/default placeholder secret values"
   else
@@ -200,7 +200,7 @@ check_live_health() {
 }
 
 main() {
-  info "LANCAR VPS security verification"
+  info "TEMBUS VPS security verification"
   info "repo: $REPO_ROOT"
   info "compose: $COMPOSE_FILE"
   info "env: $ENV_FILE"

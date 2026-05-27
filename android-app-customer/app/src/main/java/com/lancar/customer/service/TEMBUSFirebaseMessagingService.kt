@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class LANCARFirebaseMessagingService : FirebaseMessagingService() {
+class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
     @Inject
     lateinit var notificationRepository: NotificationRepository
@@ -48,7 +48,7 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
         remoteMessage.notification?.let {
             Log.d(TAG, "Message Notification Body: ${it.body}")
             notificationHelper.showNotification(
-                title = it.title ?: "LANCAR",
+                title = it.title ?: "TEMBUS",
                 message = it.body ?: "",
                 data = remoteMessage.data
             )
@@ -61,8 +61,8 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
             
             // If there's no notification payload but there is data, we might still want to show a notification
             if (remoteMessage.notification == null) {
-                val title = remoteMessage.data["title"] ?: "LANCAR"
-                val body = remoteMessage.data["body"] ?: "New message from LANCAR"
+                val title = remoteMessage.data["title"] ?: "TEMBUS"
+                val body = remoteMessage.data["body"] ?: "New message from TEMBUS"
                 notificationHelper.showNotification(
                     title = title,
                     message = body,
@@ -78,6 +78,6 @@ class LANCARFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     companion object {
-        private const val TAG = "LANCARFCMService"
+        private const val TAG = "TEMBUSFCMService"
     }
 }

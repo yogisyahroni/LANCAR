@@ -23,14 +23,14 @@ import (
 	_ "lancar/auth-service/internal/handler/docs"
 )
 
-// @title LANCAR Identity Service API
+// @title TEMBUS Identity Service API
 // @version 1.0
 // @description API for Authentication, Courier Onboarding, and User Management.
 // @termsOfService http://swagger.io/terms/
 
 // @contact.name API Support
-// @contact.url http://www.lancar.id/support
-// @contact.email support@lancar.id
+// @contact.url http://www.tembus.id/support
+// @contact.email support@tembus.id
 
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
@@ -65,7 +65,7 @@ func requireStrongSecret(name string, minLength int) {
 		"example",
 		"your-secret-key",
 		"your_secret",
-		"lancar_secret_key_change_me",
+		"tembus_secret_key_change_me",
 	}
 
 	if value == "" {

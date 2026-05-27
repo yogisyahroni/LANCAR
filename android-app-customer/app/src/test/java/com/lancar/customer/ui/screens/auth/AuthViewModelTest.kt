@@ -1,14 +1,14 @@
-package com.lancar.customer.ui.screens.auth
+package com.tembus.customer.ui.screens.auth
 
 import app.cash.turbine.test
-import com.lancar.customer.data.model.AuthData
-import com.lancar.customer.data.model.AuthResponse
-import com.lancar.customer.data.model.ProfileResponse
-import com.lancar.customer.data.model.UpdateProfileRequest
-import com.lancar.customer.data.repository.AuthRepository
-import com.lancar.customer.data.repository.NotificationRepository
-import com.lancar.customer.data.repository.ProfileRepository
-import com.lancar.customer.data.session.AuthSessionManager
+import com.tembus.customer.data.model.AuthData
+import com.tembus.customer.data.model.AuthResponse
+import com.tembus.customer.data.model.ProfileResponse
+import com.tembus.customer.data.model.UpdateProfileRequest
+import com.tembus.customer.data.repository.AuthRepository
+import com.tembus.customer.data.repository.NotificationRepository
+import com.tembus.customer.data.repository.ProfileRepository
+import com.tembus.customer.data.session.AuthSessionManager
 import io.mockk.*
 import io.mockk.impl.annotations.RelaxedMockK
 import kotlinx.coroutines.Dispatchers
@@ -69,7 +69,7 @@ class AuthViewModelTest {
     @Test
     fun `requestOtp with valid email transitions to OtpSent on success`() = runTest {
         // Given
-        val email = "tester@lancar.com"
+        val email = "tester@tembus.id"
         viewModel.setPhoneNumber(email)
         
         val mockResponse = AuthResponse(success = true, message = "OTP Sent", data = null)
@@ -91,7 +91,7 @@ class AuthViewModelTest {
     @Test
     fun `requestOtp with server error transitions to Error state`() = runTest {
         // Given
-        val email = "fail@lancar.com"
+        val email = "fail@tembus.id"
         val errorMessage = "Server unreachable"
         viewModel.setPhoneNumber(email)
         coEvery { authRepository.requestOtp(email) } returns Result.failure(Exception(errorMessage))
@@ -111,7 +111,7 @@ class AuthViewModelTest {
 
     @Test
     fun `password login with legacy otp message transitions to OtpSent`() = runTest {
-        val email = "customer.mobile@lancar.id"
+        val email = "customer.mobile@tembus.id"
         val password = "Customer123!"
         viewModel.setPhoneNumber(email)
         viewModel.setPassword(password)
@@ -131,7 +131,7 @@ class AuthViewModelTest {
     @Test
     fun `verifyOtp success saves session and transitions to Success`() = runTest {
         // Given
-        val email = "success@lancar.com"
+        val email = "success@tembus.id"
         val otp = "123456"
         viewModel.setPhoneNumber(email)
         
@@ -158,7 +158,7 @@ class AuthViewModelTest {
 
     @Test
     fun `verifyOtp new customer routes to profile completion`() = runTest {
-        val email = "new@lancar.com"
+        val email = "new@tembus.id"
         val otp = "123456"
         viewModel.setPhoneNumber(email)
 
@@ -177,7 +177,7 @@ class AuthViewModelTest {
 
     @Test
     fun `completeProfile updates customer profile and transitions to ProfileCompleted`() = runTest {
-        val email = "new@lancar.com"
+        val email = "new@tembus.id"
         val phone = "6281234567890"
         viewModel.setPhoneNumber(email)
         viewModel.setPendingRegistrationProfile("Andi Customer", phone)

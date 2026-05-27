@@ -60,16 +60,16 @@ Courier:
 
 ```powershell
 keytool -list -v `
-  -keystore "$env:USERPROFILE\Downloads\lancar-courier-release-v3.jks" `
-  -alias lancar-courier-release
+  -keystore "$env:USERPROFILE\Downloads\tembus-courier-release-v3.jks" `
+  -alias tembus-courier-release
 ```
 
 Customer:
 
 ```powershell
 keytool -list -v `
-  -keystore "$env:USERPROFILE\Downloads\lancar-customer-release-v3.jks" `
-  -alias lancar-customer-release
+  -keystore "$env:USERPROFILE\Downloads\tembus-customer-release-v3.jks" `
+  -alias tembus-customer-release
 ```
 
 When prompted, enter the keystore password. Copy both `SHA1` and `SHA256` values into Firebase Console.

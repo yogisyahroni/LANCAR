@@ -9,12 +9,12 @@ import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
 @HiltAndroidApp
-class LANCARApplication : Application(), Configuration.Provider {
+class TEMBUSApplication : Application(), Configuration.Provider {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
-    private val TAG = "LANCARApplication"
+    private val TAG = "TEMBUSApplication"
 
     override fun onCreate() {
         super.onCreate()

@@ -5,7 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TEMBUSApiService
 import com.lancar.courier.data.model.CourierRegistrationRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -54,7 +54,7 @@ data class CourierRegistrationUiState(
 
 @HiltViewModel
 class CourierRegistrationViewModel @Inject constructor(
-    private val apiService: LANCARApiService,
+    private val apiService: TEMBUSApiService,
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(CourierRegistrationUiState())

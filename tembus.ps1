@@ -1,15 +1,15 @@
 # ================================================================
-# lancar.ps1 - Script helper Lancar untuk Docker Compose
+# tembus.ps1 - Script helper Tembus untuk Docker Compose
 #
-# CARA PAKAI (buka PowerShell di folder LANCAR):
-#   powershell -ExecutionPolicy Bypass -File lancar.ps1 up
-#   powershell -ExecutionPolicy Bypass -File lancar.ps1 down
-#   powershell -ExecutionPolicy Bypass -File lancar.ps1 status
-#   powershell -ExecutionPolicy Bypass -File lancar.ps1 frontend
-#   powershell -ExecutionPolicy Bypass -File lancar.ps1 logs
-#   powershell -ExecutionPolicy Bypass -File lancar.ps1 health
-#   powershell -ExecutionPolicy Bypass -File lancar.ps1 migrate
-#   powershell -ExecutionPolicy Bypass -File lancar.ps1 reset
+# CARA PAKAI (buka PowerShell di folder TEMBUS):
+#   powershell -ExecutionPolicy Bypass -File tembus.ps1 up
+#   powershell -ExecutionPolicy Bypass -File tembus.ps1 down
+#   powershell -ExecutionPolicy Bypass -File tembus.ps1 status
+#   powershell -ExecutionPolicy Bypass -File tembus.ps1 frontend
+#   powershell -ExecutionPolicy Bypass -File tembus.ps1 logs
+#   powershell -ExecutionPolicy Bypass -File tembus.ps1 health
+#   powershell -ExecutionPolicy Bypass -File tembus.ps1 migrate
+#   powershell -ExecutionPolicy Bypass -File tembus.ps1 reset
 # ================================================================
 
 $Command = if ($args.Count -gt 0) { $args[0] } else { "help" }
@@ -60,7 +60,7 @@ switch ($Command.ToLower()) {
 
     "up" {
         Write-Cyan ""
-        Write-Cyan "=== Menjalankan Lancar Backend Stack dengan Docker ==="
+        Write-Cyan "=== Menjalankan Tembus Backend Stack dengan Docker ==="
         Assert-DockerRunning
         Ensure-EnvFile
 
@@ -72,7 +72,7 @@ switch ($Command.ToLower()) {
         Write-Yellow "[2/3] Menjalankan migrasi database..."
         Write-Yellow "   Menunggu database siap..."
         Start-Sleep -Seconds 5
-        goose -dir "$MIGRATIONS_DIR" postgres "host=localhost port=5432 user=postgres password=1234 dbname=lancar sslmode=disable" up
+        goose -dir "$MIGRATIONS_DIR" postgres "host=localhost port=5432 user=postgres password=1234 dbname=tembus sslmode=disable" up
 
         Write-Yellow ""
         Write-Yellow "[3/3] Memulai semua backend service..."
@@ -92,9 +92,9 @@ switch ($Command.ToLower()) {
         Write-Host "  Redis         : localhost:6379"
         Write-Cyan ""
         Write-Cyan "Langkah berikutnya:"
-        Write-Host "  Jalankan frontend : powershell -ExecutionPolicy Bypass -File lancar.ps1 frontend"
-        Write-Host "  Lihat logs        : powershell -ExecutionPolicy Bypass -File lancar.ps1 logs"
-        Write-Host "  Health check      : powershell -ExecutionPolicy Bypass -File lancar.ps1 health"
+        Write-Host "  Jalankan frontend : powershell -ExecutionPolicy Bypass -File tembus.ps1 frontend"
+        Write-Host "  Lihat logs        : powershell -ExecutionPolicy Bypass -File tembus.ps1 logs"
+        Write-Host "  Health check      : powershell -ExecutionPolicy Bypass -File tembus.ps1 health"
     }
 
     "down" {
@@ -118,7 +118,7 @@ switch ($Command.ToLower()) {
 
     "migrate" {
         Write-Yellow "Menjalankan migrasi database..."
-        goose -dir "$MIGRATIONS_DIR" postgres "host=localhost port=5432 user=postgres password=1234 dbname=lancar sslmode=disable" up
+        goose -dir "$MIGRATIONS_DIR" postgres "host=localhost port=5432 user=postgres password=1234 dbname=tembus sslmode=disable" up
         Write-Green "Migrasi selesai."
     }
 
@@ -129,7 +129,7 @@ switch ($Command.ToLower()) {
     }
 
     "status" {
-        Write-Cyan "Status Container Lancar:"
+        Write-Cyan "Status Container Tembus:"
         Invoke-Compose "ps"
     }
 
@@ -170,9 +170,9 @@ switch ($Command.ToLower()) {
 
     default {
         Write-Cyan ""
-        Write-Cyan "LANCAR - Docker Helper Script"
+        Write-Cyan "TEMBUS - Docker Helper Script"
         Write-Host ""
-        Write-Host "Penggunaan: powershell -ExecutionPolicy Bypass -File lancar.ps1 [command]"
+        Write-Host "Penggunaan: powershell -ExecutionPolicy Bypass -File tembus.ps1 [command]"
         Write-Host ""
         Write-Host "  up         Jalankan semua backend service"
         Write-Host "  down       Stop semua service (data aman)"

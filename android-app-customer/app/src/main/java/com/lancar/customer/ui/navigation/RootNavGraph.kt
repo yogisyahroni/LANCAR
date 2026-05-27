@@ -183,7 +183,7 @@ fun RootNavGraph(
             route = Screen.OrderDetail.route,
             arguments = listOf(navArgument("orderId") { type = NavType.StringType }),
             deepLinks = listOf(
-                navDeepLink { uriPattern = "lancar://order/{orderId}" }
+                navDeepLink { uriPattern = "tembus://order/{orderId}" }
             )
         ) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getString("orderId") ?: ""

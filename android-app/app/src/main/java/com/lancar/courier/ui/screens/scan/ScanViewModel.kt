@@ -2,7 +2,7 @@ package com.lancar.courier.ui.screens.scan
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TEMBUSApiService
 import com.lancar.courier.data.model.ScanRequest
 import com.lancar.courier.data.model.ScanResponse
 import com.lancar.courier.data.repository.OrderRepository
@@ -24,7 +24,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ScanViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
-    private val apiService: LANCARApiService
+    private val apiService: TEMBUSApiService
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ScanUiState>(ScanUiState.Idle)

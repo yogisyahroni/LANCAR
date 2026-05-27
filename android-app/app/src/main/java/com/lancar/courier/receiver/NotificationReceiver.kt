@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.app.NotificationManagerCompat
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TEMBUSApiService
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.repository.OrderRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -30,7 +30,7 @@ class NotificationReceiver : BroadcastReceiver() {
     lateinit var orderRepository: OrderRepository
     
     @Inject
-    lateinit var apiService: LANCARApiService
+    lateinit var apiService: TEMBUSApiService
 
     override fun onReceive(context: Context, intent: Intent) {
         // Must NOT call super.onReceive as BroadcastReceiver.onReceive is abstract.

@@ -2,7 +2,7 @@
 
 Status: Ready for operator use
 Last updated: 2026-05-26
-Scope: LANCAR Courier Android app and LANCAR Customer Android app
+Scope: TEMBUS Courier Android app and TEMBUS Customer Android app
 
 This runbook explains how to produce, verify, download, and upload production-ready mobile AAB artifacts. It is intentionally explicit because the two apps have separate package names, Firebase configs, and signing keys.
 
@@ -31,11 +31,11 @@ Add these under `Settings > Secrets and variables > Actions > Secrets`.
 | `CUSTOMER_GOOGLE_SERVICES_JSON` | Customer | Full raw JSON or base64-encoded `google-services.json` for `com.lancar.customer`. |
 | `COURIER_RELEASE_KEYSTORE_BASE64` | Courier | Base64 of Courier release `.jks`. |
 | `COURIER_RELEASE_KEYSTORE_PASSWORD` | Courier | Courier keystore password. |
-| `COURIER_RELEASE_KEY_ALIAS` | Courier | Courier key alias, for example `lancar-courier-release`. |
+| `COURIER_RELEASE_KEY_ALIAS` | Courier | Courier key alias, for example `tembus-courier-release`. |
 | `COURIER_RELEASE_KEY_PASSWORD` | Courier | Courier key password. |
 | `CUSTOMER_RELEASE_KEYSTORE_BASE64` | Customer | Base64 of Customer release `.jks`. |
 | `CUSTOMER_RELEASE_KEYSTORE_PASSWORD` | Customer | Customer keystore password. |
-| `CUSTOMER_RELEASE_KEY_ALIAS` | Customer | Customer key alias, for example `lancar-customer-release`. |
+| `CUSTOMER_RELEASE_KEY_ALIAS` | Customer | Customer key alias, for example `tembus-customer-release`. |
 | `CUSTOMER_RELEASE_KEY_PASSWORD` | Customer | Customer key password. |
 
 ## Required GitHub Actions Variables
@@ -44,7 +44,7 @@ Add these under `Settings > Secrets and variables > Actions > Variables`.
 
 | Variable | Required for release | Value |
 | --- | --- | --- |
-| `MOBILE_API_BASE_URL` | Yes | Absolute HTTPS API base URL, for example `https://api.lancar.id/`. |
+| `MOBILE_API_BASE_URL` | Yes | Absolute HTTPS API base URL, for example `https://api.tembus.id/`. |
 | `API_CERT_PINNING_REQUIRED` | Optional until final TLS | `true` only after primary and backup pins are ready. |
 | `API_CERT_SHA256_PIN_PRIMARY` | Required only when pinning is enabled | OkHttp pin format: `sha256/<base64>`. |
 | `API_CERT_SHA256_PIN_BACKUP` | Required only when pinning is enabled | Different backup pin in OkHttp format. |
@@ -58,8 +58,8 @@ Courier:
 ```powershell
 keytool -genkeypair `
   -v `
-  -keystore "$env:USERPROFILE\Downloads\lancar-courier-release.jks" `
-  -alias lancar-courier-release `
+  -keystore "$env:USERPROFILE\Downloads\tembus-courier-release.jks" `
+  -alias tembus-courier-release `
   -keyalg RSA `
   -keysize 2048 `
   -validity 10000
@@ -70,8 +70,8 @@ Customer:
 ```powershell
 keytool -genkeypair `
   -v `
-  -keystore "$env:USERPROFILE\Downloads\lancar-customer-release.jks" `
-  -alias lancar-customer-release `
+  -keystore "$env:USERPROFILE\Downloads\tembus-customer-release.jks" `
+  -alias tembus-customer-release `
   -keyalg RSA `
   -keysize 2048 `
   -validity 10000
@@ -93,7 +93,7 @@ Record these values in a password manager:
 Courier:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\Downloads\lancar-courier-release.jks")) | Set-Clipboard
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\Downloads\tembus-courier-release.jks")) | Set-Clipboard
 ```
 
 Paste into:
@@ -105,7 +105,7 @@ COURIER_RELEASE_KEYSTORE_BASE64
 Customer:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\Downloads\lancar-customer-release.jks")) | Set-Clipboard
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\Downloads\tembus-customer-release.jks")) | Set-Clipboard
 ```
 
 Paste into:
@@ -123,8 +123,8 @@ Courier:
 ```powershell
 keytool -list `
   -v `
-  -keystore "$env:USERPROFILE\Downloads\lancar-courier-release.jks" `
-  -alias lancar-courier-release
+  -keystore "$env:USERPROFILE\Downloads\tembus-courier-release.jks" `
+  -alias tembus-courier-release
 ```
 
 Customer:
@@ -132,8 +132,8 @@ Customer:
 ```powershell
 keytool -list `
   -v `
-  -keystore "$env:USERPROFILE\Downloads\lancar-customer-release.jks" `
-  -alias lancar-customer-release
+  -keystore "$env:USERPROFILE\Downloads\tembus-customer-release.jks" `
+  -alias tembus-customer-release
 ```
 
 Copy SHA-1 and SHA-256 fingerprints into Firebase and any Google Maps API key restrictions when required.
@@ -150,11 +150,11 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 Courier:
 
 ```powershell
-cd "E:\antigraviti google\SUDAH DEPLOY\LANCAR\android-app"
-$env:BASE_URL = "https://api.lancar.id/"
-$env:RELEASE_KEYSTORE_PATH = "$env:USERPROFILE\Downloads\lancar-courier-release.jks"
+cd "E:\antigraviti google\SUDAH DEPLOY\TEMBUS\android-app"
+$env:BASE_URL = "https://api.tembus.id/"
+$env:RELEASE_KEYSTORE_PATH = "$env:USERPROFILE\Downloads\tembus-courier-release.jks"
 $env:RELEASE_KEYSTORE_PASSWORD = "<courier-keystore-password>"
-$env:RELEASE_KEY_ALIAS = "lancar-courier-release"
+$env:RELEASE_KEY_ALIAS = "tembus-courier-release"
 $env:RELEASE_KEY_PASSWORD = "<courier-key-password>"
 .\gradlew.bat bundleRelease -PversionCode=<version-code> -PversionName="<version-name>"
 ```
@@ -162,11 +162,11 @@ $env:RELEASE_KEY_PASSWORD = "<courier-key-password>"
 Customer:
 
 ```powershell
-cd "E:\antigraviti google\SUDAH DEPLOY\LANCAR\android-app-customer"
-$env:BASE_URL = "https://api.lancar.id/"
-$env:RELEASE_KEYSTORE_PATH = "$env:USERPROFILE\Downloads\lancar-customer-release.jks"
+cd "E:\antigraviti google\SUDAH DEPLOY\TEMBUS\android-app-customer"
+$env:BASE_URL = "https://api.tembus.id/"
+$env:RELEASE_KEYSTORE_PATH = "$env:USERPROFILE\Downloads\tembus-customer-release.jks"
 $env:RELEASE_KEYSTORE_PASSWORD = "<customer-keystore-password>"
-$env:RELEASE_KEY_ALIAS = "lancar-customer-release"
+$env:RELEASE_KEY_ALIAS = "tembus-customer-release"
 $env:RELEASE_KEY_PASSWORD = "<customer-key-password>"
 .\gradlew.bat bundleRelease -PversionCode=<version-code> -PversionName="<version-name>"
 ```
@@ -176,7 +176,7 @@ $env:RELEASE_KEY_PASSWORD = "<customer-key-password>"
 Run from repo root:
 
 ```powershell
-cd "E:\antigraviti google\SUDAH DEPLOY\LANCAR"
+cd "E:\antigraviti google\SUDAH DEPLOY\TEMBUS"
 python scripts\mobile\verify_release_aab.py --working-dir android-app --app-name Courier-App --min-size-mb 1
 python scripts\mobile\verify_release_aab.py --working-dir android-app-customer --app-name Customer-App --min-size-mb 1
 ```

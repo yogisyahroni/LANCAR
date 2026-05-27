@@ -13,7 +13,7 @@ SET is_enabled = FALSE,
     config = COALESCE(config, '{}'::jsonb) || jsonb_build_object(
       'rollout_pct', 0,
       'retired', TRUE,
-      'retired_reason', 'LANCAR now accepts only P2P as the active delivery model.'
+      'retired_reason', 'TEMBUS now accepts only P2P as the active delivery model.'
     ),
     updated_at = NOW()
 WHERE key IN ('model_two_legs', 'model_three_legs', 'three_legs_relay');

@@ -1,6 +1,6 @@
-# LANCAR Courier - Android Native App
+# TEMBUS Courier - Android Native App
 
-Native Android application for LANCAR logistics courier drivers, built with Kotlin and Jetpack Compose.
+Native Android application for TEMBUS logistics courier drivers, built with Kotlin and Jetpack Compose.
 
 ## Features
 
@@ -49,9 +49,9 @@ android-app/
 ├── app/
 │   └── src/main/
 │       ├── java/com/lancar/courier/
-│       │   ├── LANCARApplication.kt      # App initialization, notification channels
+│       │   ├── TEMBUSApplication.kt      # App initialization, notification channels
 │       │   ├── service/
-│       │   │   ├── LANCARFirebaseMessagingService.kt  # FCM message handling
+│       │   │   ├── TEMBUSFirebaseMessagingService.kt  # FCM message handling
 │       │   │   └── NotificationDismissReceiver.kt
 │       │   ├── receiver/
 │       │   │   ├── BootReceiver.kt        # Re-registers FCM after boot
@@ -79,8 +79,8 @@ android-app/
 1. **App Start**: MainActivity requests POST_NOTIFICATIONS permission (Android 13+)
 2. **FCM Token**: Obtained via FirebaseMessaging.getInstance().token
 3. **Backend Registration**: Token sent to `POST /api/v1/courier/fcm/register`
-4. **Notification Received**: LANCARFirebaseMessagingService.onMessageReceived()
-5. **Display**: High-priority notification shown with LANCAR branding
+4. **Notification Received**: TEMBUSFirebaseMessagingService.onMessageReceived()
+5. **Display**: High-priority notification shown with TEMBUS branding
 
 ## Backend Integration
 
@@ -103,8 +103,8 @@ FCM payload format (type: "order_assignment"):
 
 | Channel | ID | Priority |
 |---------|-----|----------|
-| Order Assignments | lancar_orders | HIGH |
-| General Updates | lancar_general | DEFAULT |
+| Order Assignments | tembus_orders | HIGH |
+| General Updates | tembus_general | DEFAULT |
 
 ## TODO
 
@@ -116,4 +116,4 @@ FCM payload format (type: "order_assignment"):
 
 ## License
 
-Proprietary - PT. Lancar Logistic Indonesia
+Proprietary - PT. Tembus Logistic Indonesia

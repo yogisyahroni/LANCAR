@@ -20,14 +20,14 @@ Jangan commit value asli ke Git. Simpan di GitHub Actions secrets, server env, a
 
 ## Google Maps Routes / Directions
 
-1. Buka Google Cloud Console untuk project LANCAR.
+1. Buka Google Cloud Console untuk project TEMBUS.
 2. Aktifkan Routes API.
 3. Aktifkan billing dan quota alert.
 4. Buat API key khusus backend staging/production.
 5. Restrict key untuk API yang diperlukan, minimal Routes API. Aktifkan Directions API hanya jika fallback legacy masih dipakai.
 6. Isi `GOOGLE_ROUTES_API_KEY` atau `GOOGLE_MAPS_API_KEY`.
 7. Untuk layanan motor, backend memakai travel mode `TWO_WHEELER` saat provider aktif Google. Jika mode ini tidak tersedia pada region/request tertentu, backend retry ke `DRIVE` dan mencatat `fallback_reason`.
-8. Untuk LANCAR Mobil, backend memakai travel mode `DRIVE`.
+8. Untuk TEMBUS Mobil, backend memakai travel mode `DRIVE`.
 9. Prioritas dan Instant memakai preference traffic-aware optimal; layanan lain memakai traffic-aware standar.
 
 Backend on-demand tracking akan mengirim:

@@ -186,8 +186,8 @@ const makeDraftService = (categoryCode: string, services: DeliveryService[]): De
   return {
     ...emptyService,
     ...serviceDefaultsForCategory(normalizedCategory, 'regular'),
-    code: `lancar_${normalizedCategory}_${categoryCount}`,
-    name: `LANCAR ${category?.label || displayLabel(normalizedCategory, serviceCategories)}`,
+    code: `tembus_${normalizedCategory}_${categoryCount}`,
+    name: `TEMBUS ${category?.label || displayLabel(normalizedCategory, serviceCategories)}`,
     description: category?.description || `Service ${displayLabel(normalizedCategory, serviceCategories)}.`,
     service_family: 'regular',
     service_category: normalizedCategory,

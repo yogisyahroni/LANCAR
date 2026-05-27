@@ -19,7 +19,7 @@ enum class SessionInvalidationReason {
 }
 
 /**
- * Auth Session Manager for LANCAR Customer App using EncryptedSharedPreferences
+ * Auth Session Manager for TEMBUS Customer App using EncryptedSharedPreferences
  */
 class AuthSessionManager(private val context: Context) {
 

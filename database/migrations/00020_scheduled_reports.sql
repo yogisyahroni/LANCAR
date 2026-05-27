@@ -1,7 +1,7 @@
 -- +goose Up
 -- ============================================================
 -- Migration 00020: Scheduled Reports for BI Automation
--- LANCAR Hyperlocal Relay Platform
+-- TEMBUS Hyperlocal Delivery Platform
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS scheduled_reports (

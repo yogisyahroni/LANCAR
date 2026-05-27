@@ -2,7 +2,7 @@
 
 Status: Ready for legal/product review and Play Console entry
 Last updated: 2026-05-26
-Scope: LANCAR Courier and LANCAR Customer Android apps
+Scope: TEMBUS Courier and TEMBUS Customer Android apps
 
 This pack maps current app behavior into a Play Console Data Safety checklist and a privacy policy draft. It is operational guidance, not legal advice. Final wording should be reviewed by the business owner before public production launch.
 
@@ -15,9 +15,9 @@ Official references:
 
 Prepared static policy page:
 
-- Source file: `frontend/public/privacy/lancar-mobile.html`
-- Expected hosted path after frontend deployment: `/privacy/lancar-mobile.html`
-- Suggested production URL: `https://lancar.id/privacy/lancar-mobile.html`
+- Source file: `frontend/public/privacy/tembus-mobile.html`
+- Expected hosted path after frontend deployment: `/privacy/tembus-mobile.html`
+- Suggested production URL: `https://tembus.id/privacy/tembus-mobile.html`
 
 Before Play Console submission, confirm the final URL:
 
@@ -47,14 +47,14 @@ Before Play Console submission, confirm the final URL:
 
 ## Data Sharing And Service Providers
 
-List these in the privacy policy as service providers/processors. In Play Console, answer "shared" according to Google's current Data Safety definitions and the actual contract/use case. If a provider processes data only on LANCAR's behalf, it may be disclosed in the privacy policy without necessarily being marked as third-party sharing in every Data Safety row.
+List these in the privacy policy as service providers/processors. In Play Console, answer "shared" according to Google's current Data Safety definitions and the actual contract/use case. If a provider processes data only on TEMBUS's behalf, it may be disclosed in the privacy policy without necessarily being marked as third-party sharing in every Data Safety row.
 
 | Provider | Data involved | Purpose |
 | --- | --- | --- |
-| LANCAR backend services | Account, order, location, payment/payout, notification token | Core app operation |
+| TEMBUS backend services | Account, order, location, payment/payout, notification token | Core app operation |
 | Firebase / Google services | FCM token, device/app info, crash/diagnostic events, analytics events if enabled | Push notifications, crash reporting, analytics |
 | Google Maps / map provider | Location, map/search/navigation context | Maps, routing, address selection |
-| Payment provider | Payment session/status/order amount; no raw card data should be stored by LANCAR apps | Checkout and payment status |
+| Payment provider | Payment session/status/order amount; no raw card data should be stored by TEMBUS apps | Checkout and payment status |
 | Notification infrastructure | Device token, message metadata | Operational push notifications |
 
 ## Play Console Data Safety Draft
@@ -135,7 +135,7 @@ Complete this separately for Courier and Customer.
 | Check | Courier | Customer |
 | --- | --- | --- |
 | Privacy policy URL is public and HTTPS | [ ] | [ ] |
-| Privacy policy names LANCAR and both apps | [ ] | [ ] |
+| Privacy policy names TEMBUS and both apps | [ ] | [ ] |
 | Privacy policy includes contact/deletion path | [ ] | [ ] |
 | Data Safety form includes location | [ ] | [ ] |
 | Data Safety form includes FCM/device IDs | [ ] | [ ] |

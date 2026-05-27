@@ -64,7 +64,7 @@ try {
   result = invokeMiddleware(protectDocs);
   assert.strictEqual(result.nextCalled, false);
   assert.strictEqual(result.response.statusCode, 401);
-  assert.ok(result.response.headers['www-authenticate'].includes('LANCAR API Docs'));
+  assert.ok(result.response.headers['www-authenticate'].includes('TEMBUS API Docs'));
 
   const validBasicAuth = Buffer.from('docs-admin:docs-password-very-strong').toString('base64');
   result = invokeMiddleware(protectDocs, { authorization: `Basic ${validBasicAuth}` });

@@ -2,7 +2,7 @@ package com.lancar.courier.util
 
 import android.content.Context
 import com.lancar.courier.BuildConfig
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TEMBUSApiService
 import com.lancar.courier.data.model.AppVersion
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -15,7 +15,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class UpdateManager @Inject constructor(
-    private val apiService: LANCARApiService,
+    private val apiService: TEMBUSApiService,
     @ApplicationContext private val context: Context
 ) {
     /**

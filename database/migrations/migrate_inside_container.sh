@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e
 DB_USER="postgres"
-DB_NAME="lancar"
-DIR="/tmp/lancar_migrations"
+DB_NAME="tembus"
+DIR="/tmp/tembus_migrations"
 
-echo "=== LANCAR Migration Runner ==="
+echo "=== TEMBUS Migration Runner ==="
 
 for f in $(ls $DIR/*.sql | grep -v "run_" | sort); do
   basename_f=$(basename "$f")

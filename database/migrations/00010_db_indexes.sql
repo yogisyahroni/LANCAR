@@ -1,7 +1,7 @@
 -- +goose Up
 -- ============================================================
 -- Migration 00010: Additional DB Indexes (Performance)
--- Based on expected query patterns for LANCAR platform
+-- Based on expected query patterns for TEMBUS platform
 -- ============================================================
 
 -- -------------------------------------------------------

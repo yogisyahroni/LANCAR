@@ -1,6 +1,6 @@
 package com.lancar.customer.data.repository
 
-import com.lancar.customer.data.api.LANCARApiService
+import com.lancar.customer.data.api.TEMBUSApiService
 import com.lancar.customer.data.device.DeviceIdentityProvider
 import com.lancar.customer.data.model.AuthResponse
 import com.lancar.customer.data.model.CustomerPasswordLoginStartRequest
@@ -13,7 +13,7 @@ import javax.inject.Singleton
 
 @Singleton
 class AuthRepository @Inject constructor(
-    private val apiService: LANCARApiService,
+    private val apiService: TEMBUSApiService,
     private val deviceIdentityProvider: DeviceIdentityProvider
 ) {
 

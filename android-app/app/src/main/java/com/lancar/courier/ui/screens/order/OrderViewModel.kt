@@ -2,7 +2,7 @@ package com.lancar.courier.ui.screens.order
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TEMBUSApiService
 import com.lancar.courier.data.model.CourierProfile
 import com.lancar.courier.data.model.CourierCapabilityProfile
 import com.lancar.courier.data.model.CourierEarningsLedger
@@ -55,7 +55,7 @@ import javax.inject.Inject
 @HiltViewModel
 class OrderViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
-    private val apiService: LANCARApiService
+    private val apiService: TEMBUSApiService
 ) : ViewModel() {
 
     // ── State ─────────────────────────────────────────────────────

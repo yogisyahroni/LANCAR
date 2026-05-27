@@ -498,7 +498,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 }}
               >
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold text-foreground group-hover:text-primary-light transition-colors">{user?.name || 'Customer Lancar'}</p>
+                  <p className="text-sm font-bold text-foreground group-hover:text-primary-light transition-colors">{user?.name || 'Customer Tembus'}</p>
                   <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Standard Tier</p>
                 </div>
                 <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 p-[1px] shadow-lg shadow-primary/10">
@@ -582,7 +582,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 <Search className="h-4 w-4 text-zinc-500 shrink-0" />
                 <input
                   type="text"
-                  placeholder="Cari fitur Lancar..."
+                  placeholder="Cari fitur TEMBUS..."
                   className="flex-1 text-sm bg-transparent border-none focus:outline-none text-foreground placeholder:text-zinc-500 select-text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

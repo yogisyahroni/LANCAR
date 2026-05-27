@@ -102,7 +102,7 @@ const sendProbePush = async ({
       role,
       dispatch_id: role === 'courier' ? probeId : '',
       offer_ttl_seconds: role === 'courier' ? '15' : '',
-      deep_link: role === 'courier' ? 'lancar://courier/offers' : 'lancar://order/tracking',
+      deep_link: role === 'courier' ? 'tembus://courier/offers' : 'tembus://order/tracking',
     },
     android: {
       priority: 'high',
@@ -139,7 +139,7 @@ const main = async () => {
   }
 
   const probeId = `fcm-probe-${args.role}-${args.state}-${Date.now()}`;
-  const title = args.role === 'courier' ? 'Tes tawaran LANCAR' : 'Tes tracking LANCAR';
+  const title = args.role === 'courier' ? 'Tes tawaran TEMBUS' : 'Tes tracking TEMBUS';
   const body =
     args.role === 'courier'
       ? `Validasi push kurir ${args.state}`

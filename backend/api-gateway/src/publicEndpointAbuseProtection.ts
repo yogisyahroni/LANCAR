@@ -113,7 +113,7 @@ const validateTilePath = (pathname: string) => {
 };
 
 export const validateMapsRequest = (originalUrl: string) => {
-  const url = new URL(originalUrl, 'http://lancar.local');
+  const url = new URL(originalUrl, 'http://tembus.local');
   const { pathname, searchParams } = url;
 
   if (!validateQueryLengths(searchParams)) return 'query_too_long';

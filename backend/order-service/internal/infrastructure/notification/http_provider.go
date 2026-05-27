@@ -100,7 +100,7 @@ func (p *HTTPDeliveryProvider) Deliver(ctx context.Context, notificationID uuid.
 		return fmt.Errorf("notification_provider_request_failed: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Lancar-Notification-Channel", string(channel))
+	req.Header.Set("X-Tembus-Notification-Channel", string(channel))
 	if token := p.tokens[channel]; token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}

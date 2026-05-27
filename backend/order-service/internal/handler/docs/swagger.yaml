@@ -165,15 +165,15 @@ definitions:
 host: localhost:8083
 info:
   contact:
-    email: support@lancar.id
+    email: support@tembus.id
     name: API Support
-    url: http://www.lancar.id/support
+    url: http://www.tembus.id/support
   description: API for Order Management, Courier Dispatch, and Tracking.
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   termsOfService: http://swagger.io/terms/
-  title: LANCAR Order Service API
+  title: TEMBUS Order Service API
   version: "1.0"
 paths:
   /couriers/orders/{id}/accept:

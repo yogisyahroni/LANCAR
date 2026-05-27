@@ -14,7 +14,7 @@ const structuredLog = (
 
 const isRabbitEnabled = () => process.env.OUTBOX_RABBITMQ_ENABLED === 'true';
 
-const getExchangeName = () => process.env.OUTBOX_RABBITMQ_EXCHANGE || 'lancar.events';
+const getExchangeName = () => process.env.OUTBOX_RABBITMQ_EXCHANGE || 'tembus.events';
 
 const ensureChannel = async () => {
   if (!isRabbitEnabled()) return null;

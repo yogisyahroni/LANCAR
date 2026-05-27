@@ -2,12 +2,12 @@
     "swagger": "2.0",
     "info": {
         "description": "API for Order Management, Courier Dispatch, and Tracking.",
-        "title": "LANCAR Order Service API",
+        "title": "TEMBUS Order Service API",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
             "name": "API Support",
-            "url": "http://www.lancar.id/support",
-            "email": "support@lancar.id"
+            "url": "http://www.tembus.id/support",
+            "email": "support@tembus.id"
         },
         "license": {
             "name": "Apache 2.0",
@@ -330,7 +330,7 @@
         }
     },
     "definitions": {
-        "lancar_order-service_internal_domain.CreateOrderRequest": {
+        "tembus_order-service_internal_domain.CreateOrderRequest": {
             "type": "object",
             "required": [
                 "estimate_id"
@@ -341,7 +341,7 @@
                 }
             }
         },
-        "lancar_order-service_internal_domain.Order": {
+        "tembus_order-service_internal_domain.Order": {
             "type": "object",
             "properties": {
                 "base_price_idr": {
@@ -412,7 +412,7 @@
                 }
             }
         },
-        "lancar_order-service_internal_domain.OrderEvent": {
+        "tembus_order-service_internal_domain.OrderEvent": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -435,7 +435,7 @@
                 }
             }
         },
-        "lancar_order-service_internal_domain.OrderStatus": {
+        "tembus_order-service_internal_domain.OrderStatus": {
             "type": "string",
             "enum": [
                 "pending_payment",
@@ -462,7 +462,7 @@
                 "StatusCancelled"
             ]
         },
-        "lancar_order-service_internal_domain.PricingEstimateRequest": {
+        "tembus_order-service_internal_domain.PricingEstimateRequest": {
             "type": "object",
             "required": [
                 "dropoff_lat",
@@ -509,7 +509,7 @@
                 }
             }
         },
-        "lancar_order-service_internal_domain.PricingEstimateResponse": {
+        "tembus_order-service_internal_domain.PricingEstimateResponse": {
             "type": "object",
             "properties": {
                 "base_price_idr": {

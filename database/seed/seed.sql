@@ -1,10 +1,10 @@
--- Seed Data for LANCAR Platform (Jakarta Area)
+-- Seed Data for TEMBUS Platform (Jakarta Area)
 
 -- 1. Zones (Jakarta Regions)
 INSERT INTO zones (name, code, polygon, center) VALUES
 ('Jakarta Pusat', 'JKT-PST', 
  ST_GeogFromText('POLYGON((106.80 <ctrl63>database/seed/seed.sql
-<ctrl60>-- Seed Data for LANCAR Platform (Jakarta Area)
+<ctrl60>-- Seed Data for TEMBUS Platform (Jakarta Area)
 
 -- 1. Zones (Jakarta Regions)
 INSERT INTO zones (name, code, polygon, center) VALUES

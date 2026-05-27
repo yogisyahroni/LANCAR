@@ -19,7 +19,7 @@ UPDATE delivery_service_products SET
   mdr_percent = 0.7,
   ppn_percent = 11,
   show_customer_price_to_courier = FALSE
-WHERE code IN ('lancar_priority', 'lancar_instant');
+WHERE code IN ('tembus_priority', 'tembus_instant');
 
 UPDATE delivery_service_products SET
   platform_commission_percent = 18,
@@ -28,7 +28,7 @@ UPDATE delivery_service_products SET
   mdr_percent = 0.7,
   ppn_percent = 11,
   show_customer_price_to_courier = FALSE
-WHERE code IN ('lancar_hemat', 'lancar_same_day');
+WHERE code IN ('tembus_hemat', 'tembus_same_day');
 
 UPDATE delivery_service_products SET
   platform_commission_percent = 18,
@@ -37,7 +37,7 @@ UPDATE delivery_service_products SET
   mdr_percent = 0.7,
   ppn_percent = 11,
   show_customer_price_to_courier = FALSE
-WHERE code = 'lancar_mobil';
+WHERE code = 'tembus_mobil';
 
 -- +goose Down
 ALTER TABLE delivery_service_products

@@ -122,7 +122,7 @@ func (s *payoutService) TriggerBatchPayout(ctx context.Context) error {
 		}
 
 		// 3d. Disburse to the courier's real bank account
-		description := fmt.Sprintf("LANCAR Delivery Payout - Batch %s", time.Now().Format("2006-01-02"))
+		description := fmt.Sprintf("TEMBUS Delivery Payout - Batch %s", time.Now().Format("2006-01-02"))
 		ref, gatewayErr := s.gateway.Disburse(ctx, totalNet, *bankInfo.BankCode, *bankInfo.BankAccountNumber, description)
 
 		status := domain.PayoutStatusCompleted

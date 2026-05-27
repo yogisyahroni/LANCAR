@@ -1,6 +1,6 @@
 package com.lancar.customer.data.repository
 
-import com.lancar.customer.data.api.LANCARApiService
+import com.lancar.customer.data.api.TEMBUSApiService
 import com.lancar.customer.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -11,7 +11,7 @@ import javax.inject.Singleton
 
 @Singleton
 class ProfileRepository @Inject constructor(
-    private val apiService: LANCARApiService
+    private val apiService: TEMBUSApiService
 ) {
     fun getProfile(): Flow<Result<ProfileResponse>> = flow {
         try {

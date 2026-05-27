@@ -4,7 +4,7 @@ import android.content.Context
 import android.provider.Settings
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TEMBUSApiService
 import com.lancar.courier.data.model.FCMTokenRequest
 import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.util.FirebaseInitializer
@@ -26,7 +26,7 @@ import javax.inject.Singleton
 class FCMTokenRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val authSessionManager: AuthSessionManager,
-    private val apiService: LANCARApiService
+    private val apiService: TEMBUSApiService
 ) {
 
     private val TAG = "FCMTokenRepository"

@@ -6,7 +6,7 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.content.ContextCompat
 import android.util.Log
-import com.lancar.courier.LANCARApplication
+import com.lancar.courier.TEMBUSApplication
 import com.lancar.courier.data.repository.FCMTokenRepository
 import com.lancar.courier.data.repository.LocationRepository
 import com.lancar.courier.data.session.AuthSessionManager

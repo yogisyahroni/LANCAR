@@ -47,12 +47,12 @@ import retrofit2.http.*
 import kotlinx.serialization.json.JsonElement
 
 /**
- * LANCAR API Service Interface
+ * TEMBUS API Service Interface
  *
  * Retrofit interface for backend API calls.
  * Handles auth, FCM token registration, order operations, and location sync.
  */
-interface LANCARApiService {
+interface TEMBUSApiService {
     
     // ── SYSTEM ──────────────────────────────────────────────────
     

@@ -21,9 +21,9 @@ describe('onDemandExternalReadiness', () => {
   });
 
   it('validates Firebase service account shape without exposing the secret', () => {
-    const raw = makeServiceAccount('lancar-staging');
+    const raw = makeServiceAccount('tembus-staging');
 
-    expect(parseFirebaseServiceAccount(raw)).toEqual({ valid: true, projectId: 'lancar-staging' });
+    expect(parseFirebaseServiceAccount(raw)).toEqual({ valid: true, projectId: 'tembus-staging' });
     expect(hasFirebaseAdminConfig({ FIREBASE_SERVICE_ACCOUNT: raw })).toBe(true);
     expect(hasFirebaseAdminConfig({ FIREBASE_SERVICE_ACCOUNT: '{bad-json' })).toBe(false);
   });
@@ -57,7 +57,7 @@ describe('onDemandExternalReadiness', () => {
   it('returns ready for staging validation after Google and Firebase config exist', () => {
     const readiness = getOnDemandExternalReadiness({
       GOOGLE_ROUTES_API_KEY: 'routes-real-key',
-      FIREBASE_SERVICE_ACCOUNT: makeServiceAccount('lancar-staging')
+      FIREBASE_SERVICE_ACCOUNT: makeServiceAccount('tembus-staging')
     });
 
     expect(readiness.overall_status).toBe('ready_for_staging_validation');

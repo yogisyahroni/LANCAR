@@ -29,14 +29,14 @@ import (
 	_ "lancar/order-service/internal/handler/docs"
 )
 
-// @title LANCAR Order Service API
+// @title TEMBUS Order Service API
 // @version 1.0
 // @description API for Order Management, Courier Dispatch, and Tracking.
 // @termsOfService http://swagger.io/terms/
 
 // @contact.name API Support
-// @contact.url http://www.lancar.id/support
-// @contact.email support@lancar.id
+// @contact.url http://www.tembus.id/support
+// @contact.email support@tembus.id
 
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
@@ -71,7 +71,7 @@ func requireStrongSecret(name string, minLength int) {
 		"example",
 		"your-secret-key",
 		"your_secret",
-		"lancar_secret_key_change_me",
+		"tembus_secret_key_change_me",
 	}
 
 	if value == "" {

@@ -1,7 +1,7 @@
 package com.lancar.courier.data.repository
 
 import android.content.Context
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TEMBUSApiService
 import com.lancar.courier.data.db.LocationDao
 import com.lancar.courier.data.model.Location
 import com.lancar.courier.data.model.LocationData
@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.Flow
 @Singleton
 class LocationRepository @Inject constructor(
     private val locationDao: LocationDao,
-    private val apiService: LANCARApiService
+    private val apiService: TEMBUSApiService
 ) {
 
     /**

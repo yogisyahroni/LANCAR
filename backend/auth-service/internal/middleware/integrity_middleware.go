@@ -15,15 +15,15 @@ func DeviceIntegrityMiddleware(auditRepo domain.AuditRepository, next http.Handl
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		userAgent := r.UserAgent()
-		
+
 		// Only enforce for mobile apps (Driver App)
 		// Standard: Check if User-Agent contains our app identifier
-		if strings.Contains(userAgent, "LANCAR-Driver") || strings.Contains(userAgent, "LANCAR-Mobile") {
+		if strings.Contains(userAgent, "TEMBUS-Driver") || strings.Contains(userAgent, "TEMBUS-Mobile") {
 			integrityToken := r.Header.Get("X-Device-Integrity-Token")
-			
+
 			if integrityToken == "" {
 				log.Printf("[SECURITY] Blocked request from %s: Missing X-Device-Integrity-Token", r.RemoteAddr)
-				
+
 				// Record Audit Log for Admin Notification
 				recordIntegrityViolation(auditRepo, r, "MISSING_TOKEN")
 
@@ -33,11 +33,11 @@ func DeviceIntegrityMiddleware(auditRepo domain.AuditRepository, next http.Handl
 				return
 			}
 
-			// TODO: In production, call VerifyDeviceIntegrity(integrityToken) 
+			// TODO: In production, call VerifyDeviceIntegrity(integrityToken)
 			// which validates the token against Google Play Integrity or Apple DeviceCheck APIs.
 			if !isValidIntegrityToken(integrityToken) {
 				log.Printf("[SECURITY] Blocked request from %s: Invalid/Expired Integrity Token", r.RemoteAddr)
-				
+
 				// Record Audit Log for Admin Notification
 				recordIntegrityViolation(auditRepo, r, "INVALID_TOKEN")
 
@@ -76,16 +76,15 @@ func recordIntegrityViolation(repo domain.AuditRepository, r *http.Request, viol
 	}
 }
 
-
 // isValidIntegrityToken is a placeholder for actual token verification logic.
 // In Grade S++ enterprise, this would involve verifying a signed JWS from Google/Apple.
 func isValidIntegrityToken(token string) bool {
-	// Simple mock check for now. 
+	// Simple mock check for now.
 	// In production, this would parse the token and check 'deviceIntegrity' fields.
 	if token == "DEVELOPMENT_BYPASS_TOKEN" {
 		return true
 	}
-	
+
 	// Real tokens would be long base64 strings
 	return len(token) > 20
 }

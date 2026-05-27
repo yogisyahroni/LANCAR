@@ -35,7 +35,7 @@ fun UpdateDialog(
         },
         text = { 
             Text(
-                text = "A new version of LANCAR Courier (${version.name}) is available. Please update to continue enjoying the best experience."
+                text = "A new version of TEMBUS Courier (${version.name}) is available. Please update to continue enjoying the best experience."
             ) 
         },
         confirmButton = {

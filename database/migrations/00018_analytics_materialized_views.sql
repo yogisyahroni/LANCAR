@@ -1,7 +1,7 @@
 -- +goose Up
 -- ============================================================
 -- Migration 00018: Analytics Materialized Views
--- LANCAR Hyperlocal Relay Platform
+-- TEMBUS Hyperlocal Delivery Platform
 -- ============================================================
 
 -- 1. Daily Revenue Metrics

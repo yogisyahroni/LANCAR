@@ -191,7 +191,7 @@ private fun BrandHeader() {
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = "LANCAR",
+                text = "TEMBUS",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Black,
                 color = Color(0xFF0B5CAD)
@@ -341,7 +341,7 @@ private fun LoginCard(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(
-                    text = if (entryMode == AuthEntryMode.Register) "Daftar customer" else "Masuk ke LANCAR",
+                    text = if (entryMode == AuthEntryMode.Register) "Daftar customer" else "Masuk ke TEMBUS",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Black,
                     color = Ink

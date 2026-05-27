@@ -15,7 +15,7 @@ enum class CustomerPaymentMethod(val apiValue: String, val title: String, val de
     LAPAY(
         apiValue = "lapay",
         title = "LAPAY",
-        description = "Bayar dari saldo LANCAR. Saldo didebit otomatis lewat ledger."
+        description = "Bayar dari saldo TEMBUS. Saldo didebit otomatis lewat ledger."
     ),
     QRIS(
         apiValue = "qris",

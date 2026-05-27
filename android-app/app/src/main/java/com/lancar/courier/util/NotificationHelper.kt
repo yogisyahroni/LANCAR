@@ -5,7 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
-import com.lancar.courier.LANCARApplication
+import com.lancar.courier.TEMBUSApplication
 
 /**
  * Notification Helper Utility
@@ -28,9 +28,9 @@ class NotificationHelper(private val context: Context) {
         priority: NotificationPriority = NotificationPriority.HIGH
     ) {
         val channelId = when (priority) {
-            NotificationPriority.HIGH -> LANCARApplication.CHANNEL_ORDERS
-            NotificationPriority.DEFAULT -> LANCARApplication.CHANNEL_GENERAL
-            NotificationPriority.LOW -> LANCARApplication.CHANNEL_GENERAL
+            NotificationPriority.HIGH -> TEMBUSApplication.CHANNEL_ORDERS
+            NotificationPriority.DEFAULT -> TEMBUSApplication.CHANNEL_GENERAL
+            NotificationPriority.LOW -> TEMBUSApplication.CHANNEL_GENERAL
         }
 
         val notification = NotificationCompat.Builder(context, channelId)

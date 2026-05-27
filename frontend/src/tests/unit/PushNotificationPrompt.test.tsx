@@ -74,6 +74,6 @@ describe('PushNotificationPrompt Component', () => {
       nantiButton.click();
     });
 
-    expect(localStorageMock.setItem).toHaveBeenCalledWith('lancar_push_prompted', 'true');
+    expect(localStorageMock.setItem).toHaveBeenCalledWith('tembus_push_prompted', 'true');
   });
 });

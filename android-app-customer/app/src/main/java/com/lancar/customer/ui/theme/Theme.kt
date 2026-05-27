@@ -40,7 +40,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun LANCARCustomerTheme(
+fun TEMBUSCustomerTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit

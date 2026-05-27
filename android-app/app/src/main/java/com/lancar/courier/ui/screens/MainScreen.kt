@@ -585,7 +585,7 @@ fun MainScreen(
                 TopAppBar(
                     title = {
                         Column {
-                            Text("LANCAR Courier", fontWeight = FontWeight.Bold)
+                            Text("TEMBUS Courier", fontWeight = FontWeight.Bold)
                             Text(
                                 text = if (isOnline) "On duty" else "Off duty",
                                 style = MaterialTheme.typography.labelMedium,

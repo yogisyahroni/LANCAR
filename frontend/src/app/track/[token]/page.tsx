@@ -79,7 +79,7 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
       <section className="mx-auto flex min-h-screen w-full max-w-3xl flex-col px-5 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-emerald-300">LANCAR Tracking</p>
+            <p className="text-xs font-bold uppercase tracking-[0.3em] text-emerald-300">TEMBUS Tracking</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight">Status Pengiriman</h1>
           </div>
           <div className="rounded-2xl bg-emerald-500/15 p-3 text-emerald-300">
@@ -109,7 +109,7 @@ export default async function PublicTrackingPage({ params }: { params: Promise<{
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl bg-slate-900 p-4">
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Kurir</p>
-                  <p className="mt-1 font-bold">{data.courier_name || 'Kurir LANCAR'}</p>
+                  <p className="mt-1 font-bold">{data.courier_name || 'Kurir TEMBUS'}</p>
                 </div>
                 <div className="rounded-2xl bg-slate-900 p-4">
                   <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Update lokasi</p>

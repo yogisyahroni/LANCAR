@@ -1,14 +1,14 @@
-# LANCAR Courier - Android Native App
+# TEMBUS Customer - Android Native App
 
-Native Android application for LANCAR logistics courier drivers, built with Kotlin and Jetpack Compose.
+Native Android application for TEMBUS customers, built with Kotlin and Jetpack Compose.
 
 ## Features
 
-- **Push Notifications (FCM)**: Real-time order assignment alerts with Accept/Dismiss actions
-- **Order Acceptance**: Accept orders directly from notification with full order data
-- **View Map**: Open delivery location in Google Maps
-- **Call Customer**: Initiate phone call to customer from order detail
-- **Proof of Delivery**: Camera capture with order info overlay
+- **Push Notifications (FCM)**: Real-time order, payment, and tracking alerts
+- **Order Booking**: Create delivery orders from the customer app
+- **Live Tracking**: Follow courier progress from pickup to drop-off
+- **Payment Flow**: Open payment status and wallet-related screens
+- **Profile Management**: Manage customer profile data and support contact
 - **Foreground & Background Handling**: Notification states handled for all app states
 - **Location Sync**: Real-time GPS tracking with backend synchronization
 - **Offline Queue**: Orders stored locally and synced when online
@@ -26,7 +26,7 @@ Native Android application for LANCAR logistics courier drivers, built with Kotl
 ### 2. Firebase Configuration
 
 1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com)
-2. Add an Android app with package name `com.lancar.courier`
+2. Add an Android app with package name `com.lancar.customer`
 3. Download `google-services.json` and place in `app/` directory
 4. Enable Cloud Messaging in Firebase Console
 
@@ -45,25 +45,24 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ## Project Structure
 
 ```
-android-app/
+android-app-customer/
 ├── app/
 │   └── src/main/
-│       ├── java/com/lancar/courier/
-│       │   ├── LANCARApplication.kt      # App initialization, notification channels
+│       ├── java/com/lancar/customer/
+│       │   ├── TEMBUSApplication.kt      # App initialization, notification channels
 │       │   ├── service/
-│       │   │   ├── LANCARFirebaseMessagingService.kt  # FCM message handling
-│       │   │   └── NotificationDismissReceiver.kt
+│       │   │   ├── TEMBUSFirebaseMessagingService.kt  # FCM message handling
 │       │   ├── receiver/
-│       │   │   ├── BootReceiver.kt        # Re-registers FCM after boot
-│       │   │   └── NotificationReceiver.kt
+│       │   │   ├── BootReceiver.kt        # Schedules resync after boot
+│       │   │   └── NetworkChangeReceiver.kt
 │       │   ├── ui/
 │       │   │   ├── MainActivity.kt        # Entry point
-│       │   │   ├── screens/MainScreen.kt  # Dashboard UI
+│       │   │   ├── screens/main/          # Dashboard UI
 │       │   │   └── theme/                 # Material 3 theming
 │       │   ├── data/
-│       │   │   ├── model/Models.kt        # Data classes
+│       │   │   ├── model/                 # Data classes
 │       │   │   ├── api/                   # Retrofit API
-│       │   │   └── repository/            # FCM token management
+│       │   │   └── repository/            # Customer data repositories
 │       │   └── util/
 │       │       └── NotificationHelper.kt   # Notification utilities
 │       └── res/
@@ -78,22 +77,20 @@ android-app/
 
 1. **App Start**: MainActivity requests POST_NOTIFICATIONS permission (Android 13+)
 2. **FCM Token**: Obtained via FirebaseMessaging.getInstance().token
-3. **Backend Registration**: Token sent to `POST /api/v1/courier/fcm/register`
-4. **Notification Received**: LANCARFirebaseMessagingService.onMessageReceived()
-5. **Display**: High-priority notification shown with LANCAR branding
+3. **Backend Registration**: Token sent to the customer notification registration API
+4. **Notification Received**: TEMBUSFirebaseMessagingService.onMessageReceived()
+5. **Display**: High-priority notification shown with TEMBUS branding
 
 ## Backend Integration
 
-The app expects these API endpoints:
-- `POST /api/v1/courier/fcm/register` - Register FCM token
-- `POST /api/v1/courier/fcm/unregister` - Unregister FCM token
+The app expects customer auth, order, profile, tracking, payment, and notification APIs exposed through the configured mobile API base URL.
 
-FCM payload format (type: "order_assignment"):
+FCM payload format example:
 ```json
 {
-  "type": "order_assignment",
-  "title": "New Order Assigned!",
-  "body": "Pickup: Jl. Sudirman. Tap to view.",
+  "type": "tracking_update",
+  "title": "Order Update",
+  "body": "Courier is heading to pickup.",
   "order_id": "ORD-12345",
   "priority": 1
 }
@@ -103,17 +100,14 @@ FCM payload format (type: "order_assignment"):
 
 | Channel | ID | Priority |
 |---------|-----|----------|
-| Order Assignments | lancar_orders | HIGH |
-| General Updates | lancar_general | DEFAULT |
+| Customer Notifications | tembus_customer_notifications | HIGH |
 
 ## TODO
 
-- [ ] Add unit tests for FCM handling
-- [ ] Implement order list screen
-- [ ] Add WebSocket for real-time updates
-- [ ] Integrate with auth service for courier login
-- [ ] Add offline queue for order sync
+- [ ] Add more unit tests for FCM handling
+- [ ] Add more end-to-end booking smoke tests
+- [ ] Expand offline queue coverage for customer order sync
 
 ## License
 
-Proprietary - PT. Lancar Logistic Indonesia
+Proprietary - PT. Tembus Logistic Indonesia

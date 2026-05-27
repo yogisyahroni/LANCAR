@@ -21,16 +21,16 @@ This runbook covers:
 
 - Admin dashboard access.
 - Read access to PostgreSQL.
-- Read access to Docker logs for `lancar-admin`, `lancar-redis`, and gateway.
+- Read access to Docker logs for `tembus-admin`, `tembus-redis`, and gateway.
 - If changing order or ledger state, TOTP/admin approval is required.
 - Known `order_id`, `order_number`, customer identifier, or courier identifier.
 
 Local Docker defaults:
 
 - API gateway: `http://localhost:8080`
-- Admin service container: `lancar-admin`
-- Database container: `lancar-db`
-- Redis container: `lancar-redis`
+- Admin service container: `tembus-admin`
+- Database container: `tembus-db`
+- Redis container: `tembus-redis`
 - Admin dashboard: `http://localhost:3002`
 - Customer web: `http://localhost:3000`
 
@@ -48,11 +48,11 @@ Local Docker defaults:
 
 ```powershell
 docker compose ps
-docker logs lancar-admin --tail 200
-docker logs lancar-redis --tail 100
+docker logs tembus-admin --tail 200
+docker logs tembus-redis --tail 100
 ```
 
-**Expected result:** `lancar-admin`, `lancar-redis`, `lancar-db`, and gateway are running with no repeated 500s.  
+**Expected result:** `tembus-admin`, `tembus-redis`, `tembus-db`, and gateway are running with no repeated 500s.
 **If it fails:** Restart only the failing service first:
 
 ```powershell
@@ -128,10 +128,10 @@ WHERE o.id = :order_id;
 
 ### Step 4: Check Socket Room and Realtime Logs
 
-Search structured logs from `lancar-admin`.
+Search structured logs from `tembus-admin`.
 
 ```powershell
-docker logs lancar-admin --since 30m | Select-String 'on_demand_realtime|order_room_join_denied|event_emitted|tracking_emit_latency_high|push_delivery_attention'
+docker logs tembus-admin --since 30m | Select-String 'on_demand_realtime|order_room_join_denied|event_emitted|tracking_emit_latency_high|push_delivery_attention'
 ```
 
 Important log fields:
@@ -233,7 +233,7 @@ LIMIT 20;
 Then verify logs:
 
 ```powershell
-docker logs lancar-admin --since 30m | Select-String 'chat_message|new_chat_message|event_emitted'
+docker logs tembus-admin --since 30m | Select-String 'chat_message|new_chat_message|event_emitted'
 ```
 
 **Expected result:** Message is inserted into `order_chats` and emitted as `chat_message` / `new_chat_message`.  
@@ -274,7 +274,7 @@ ORDER BY last_active_at DESC;
 Logs to inspect:
 
 ```powershell
-docker logs lancar-admin --since 30m | Select-String 'FCM|push_delivery_attention|firebase_not_initialized|no_registered_devices'
+docker logs tembus-admin --since 30m | Select-String 'FCM|push_delivery_attention|firebase_not_initialized|no_registered_devices'
 ```
 
 **Expected result:** Notification row exists and FCM has a registered token.  

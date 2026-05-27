@@ -7,7 +7,7 @@ const DEFAULT_INTERNAL_ERROR = {
   message: 'Internal server error',
 };
 
-const RESPONSE_ALREADY_SANITIZED_KEY = 'lancarErrorResponseSanitized';
+const RESPONSE_ALREADY_SANITIZED_KEY = 'tembusErrorResponseSanitized';
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);

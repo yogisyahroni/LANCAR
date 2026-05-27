@@ -1,6 +1,6 @@
 package com.lancar.courier.data.repository
 
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TEMBUSApiService
 import com.lancar.courier.data.db.OrderDao
 import com.lancar.courier.data.model.Order
 import com.lancar.courier.data.model.StatusUpdateRequest
@@ -24,7 +24,7 @@ import javax.inject.Singleton
 @Singleton
 class OrderRepository @Inject constructor(
     private val orderDao: OrderDao,
-    private val apiService: LANCARApiService
+    private val apiService: TEMBUSApiService
 ) {
 
     /**

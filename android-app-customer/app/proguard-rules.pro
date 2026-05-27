@@ -1,5 +1,5 @@
 # =========================================================
-# LANCAR CUSTOMER APP: ENTERPRISE PROGUARD & OBFUSCATION RULES
+# TEMBUS CUSTOMER APP: ENTERPRISE PROGUARD & OBFUSCATION RULES
 # =========================================================
 
 # ---------------------------------------------------------
@@ -43,7 +43,7 @@
 # ---------------------------------------------------------
 # 4. APP SPECIFIC DATA MODELS (MUST NOT BE OBFUSCATED)
 # ---------------------------------------------------------
-# Keep Data Models specifically for Lancar Customer
+# Keep Data Models specifically for Tembus Customer
 -keep class com.lancar.customer.data.model.** { *; }
 -keepclassmembers class com.lancar.customer.data.model.** { *; }
 

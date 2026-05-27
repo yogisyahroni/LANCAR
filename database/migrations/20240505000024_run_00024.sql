@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 -- Migration 00024 (UP only): Add bank account info and performance stats to courier_profiles
--- Run: psql -U postgres -d lancar -f run_00024.sql
+-- Run: psql -U postgres -d tembus -f run_00024.sql
 
 -- Bank account fields for payout disbursement
 ALTER TABLE courier_profiles

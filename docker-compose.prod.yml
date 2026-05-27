@@ -1,9 +1,9 @@
 # ============================================================
-# LANCAR - Docker Compose Production (VPS)
+# TEMBUS - Docker Compose Production (VPS)
 #
 # Usage:
-#   docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml config
-#   docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml up -d --build
+#   docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml config
+#   docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml up -d --build
 #
 # Security posture:
 # - No default production secrets.
@@ -11,7 +11,7 @@
 # - Public-facing containers bind to 127.0.0.1 by default for reverse proxy use.
 # ============================================================
 
-name: lancar-production
+name: tembus-production
 
 x-logging: &default-logging
   driver: json-file
@@ -34,14 +34,14 @@ x-app-env: &app-env
 services:
   db:
     image: postgis/postgis:15-3.4-alpine
-    container_name: lancar-prod-db
+    container_name: tembus-prod-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
     volumes:
-      - lancar-prod-db-data:/var/lib/postgresql/data
+      - tembus-prod-db-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 10s
@@ -49,18 +49,18 @@ services:
       retries: 10
       start_period: 20s
     networks:
-      - lancar-private
+      - tembus-private
     logging: *default-logging
 
   redis:
     image: redis:7-alpine
-    container_name: lancar-prod-redis
+    container_name: tembus-prod-redis
     restart: unless-stopped
     command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\""]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     volumes:
-      - lancar-prod-redis-data:/data
+      - tembus-prod-redis-data:/data
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
       interval: 10s
@@ -68,19 +68,19 @@ services:
       retries: 10
       start_period: 10s
     networks:
-      - lancar-private
+      - tembus-private
     logging: *default-logging
 
   rabbitmq:
     image: rabbitmq:3.12-management
-    container_name: lancar-prod-rabbitmq
+    container_name: tembus-prod-rabbitmq
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER is required}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS is required}
       RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-/}
     volumes:
-      - lancar-prod-rabbitmq-data:/var/lib/rabbitmq
+      - tembus-prod-rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -88,12 +88,12 @@ services:
       retries: 10
       start_period: 20s
     networks:
-      - lancar-private
+      - tembus-private
     logging: *default-logging
 
   migrate:
     image: ghcr.io/pressly/goose:latest
-    container_name: lancar-prod-migrate
+    container_name: tembus-prod-migrate
     depends_on:
       db:
         condition: service_healthy
@@ -106,18 +106,18 @@ services:
       - ${MIGRATION_DATABASE_DSN:?MIGRATION_DATABASE_DSN is required}
       - up
     networks:
-      - lancar-private
+      - tembus-private
     profiles:
       - migrate
     logging: *default-logging
 
   auth-service:
     <<: *app-security
-    image: ${AUTH_SERVICE_IMAGE:-lancar/auth-service:production}
+    image: ${AUTH_SERVICE_IMAGE:-tembus/auth-service:production}
     build:
       context: ./backend/auth-service
       dockerfile: Dockerfile
-    container_name: lancar-prod-auth
+    container_name: tembus-prod-auth
     restart: unless-stopped
     depends_on:
       db:
@@ -144,7 +144,7 @@ services:
       VERIHUBS_API_KEY: ${VERIHUBS_API_KEY:-}
       VERIHUBS_API_URL: ${VERIHUBS_API_URL:-}
     volumes:
-      - lancar-prod-auth-uploads:/app/uploads
+      - tembus-prod-auth-uploads:/app/uploads
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/health >/dev/null || exit 1"]
       interval: 10s
@@ -152,15 +152,15 @@ services:
       retries: 5
       start_period: 20s
     networks:
-      - lancar-private
+      - tembus-private
 
   routing-service:
     <<: *app-security
-    image: ${ROUTING_SERVICE_IMAGE:-lancar/routing-service:production}
+    image: ${ROUTING_SERVICE_IMAGE:-tembus/routing-service:production}
     build:
       context: ./backend/routing-service
       dockerfile: Dockerfile
-    container_name: lancar-prod-routing
+    container_name: tembus-prod-routing
     restart: unless-stopped
     depends_on:
       db:
@@ -181,15 +181,15 @@ services:
       retries: 5
       start_period: 20s
     networks:
-      - lancar-private
+      - tembus-private
 
   order-service:
     <<: *app-security
-    image: ${ORDER_SERVICE_IMAGE:-lancar/order-service:production}
+    image: ${ORDER_SERVICE_IMAGE:-tembus/order-service:production}
     build:
       context: ./backend/order-service
       dockerfile: Dockerfile
-    container_name: lancar-prod-order
+    container_name: tembus-prod-order
     restart: unless-stopped
     depends_on:
       db:
@@ -217,15 +217,15 @@ services:
       retries: 5
       start_period: 20s
     networks:
-      - lancar-private
+      - tembus-private
 
   payment-service:
     <<: *app-security
-    image: ${PAYMENT_SERVICE_IMAGE:-lancar/payment-service:production}
+    image: ${PAYMENT_SERVICE_IMAGE:-tembus/payment-service:production}
     build:
       context: ./backend/payment-service
       dockerfile: Dockerfile
-    container_name: lancar-prod-payment
+    container_name: tembus-prod-payment
     restart: unless-stopped
     depends_on:
       db:
@@ -247,15 +247,15 @@ services:
       retries: 5
       start_period: 20s
     networks:
-      - lancar-private
+      - tembus-private
 
   admin-service:
     <<: *app-security
-    image: ${ADMIN_SERVICE_IMAGE:-lancar/admin-service:production}
+    image: ${ADMIN_SERVICE_IMAGE:-tembus/admin-service:production}
     build:
       context: ./backend/admin-service
       dockerfile: Dockerfile
-    container_name: lancar-prod-admin
+    container_name: tembus-prod-admin
     restart: unless-stopped
     depends_on:
       db:
@@ -286,7 +286,7 @@ services:
       EVENT_OUTBOX_INTERVAL_MS: ${EVENT_OUTBOX_INTERVAL_MS:-1000}
       EVENT_OUTBOX_BATCH_SIZE: ${EVENT_OUTBOX_BATCH_SIZE:-100}
       OUTBOX_RABBITMQ_ENABLED: ${OUTBOX_RABBITMQ_ENABLED:-true}
-      OUTBOX_RABBITMQ_EXCHANGE: ${OUTBOX_RABBITMQ_EXCHANGE:-lancar.events}
+      OUTBOX_RABBITMQ_EXCHANGE: ${OUTBOX_RABBITMQ_EXCHANGE:-tembus.events}
       OUTBOX_MAX_ATTEMPTS: ${OUTBOX_MAX_ATTEMPTS:-8}
       MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
       MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
@@ -313,14 +313,14 @@ services:
       PG_POOL_CONNECTION_TIMEOUT_MS: ${PG_POOL_CONNECTION_TIMEOUT_MS:-5000}
       PG_STATEMENT_TIMEOUT_MS: ${PG_STATEMENT_TIMEOUT_MS:-15000}
       PG_QUERY_TIMEOUT_MS: ${PG_QUERY_TIMEOUT_MS:-15000}
-      PG_APPLICATION_NAME: ${PG_APPLICATION_NAME:-lancar-admin-production}
+      PG_APPLICATION_NAME: ${PG_APPLICATION_NAME:-tembus-admin-production}
       UPLOAD_PRIVATE_DIR: /app/storage/uploads
       ROUTE_PRICING_CACHE_TTL_SECONDS: ${ROUTE_PRICING_CACHE_TTL_SECONDS:-300}
       ROUTE_PRICING_STALE_CACHE_TTL_SECONDS: ${ROUTE_PRICING_STALE_CACHE_TTL_SECONDS:-86400}
       MAPS_PROVIDER_CIRCUIT_FAILURE_THRESHOLD: ${MAPS_PROVIDER_CIRCUIT_FAILURE_THRESHOLD:-5}
       MAPS_PROVIDER_CIRCUIT_OPEN_SECONDS: ${MAPS_PROVIDER_CIRCUIT_OPEN_SECONDS:-30}
     volumes:
-      - lancar-prod-admin-uploads:/app/storage/uploads
+      - tembus-prod-admin-uploads:/app/storage/uploads
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health >/dev/null || exit 1"]
       interval: 10s
@@ -328,15 +328,15 @@ services:
       retries: 5
       start_period: 20s
     networks:
-      - lancar-private
+      - tembus-private
 
   api-gateway:
     <<: *app-security
-    image: ${API_GATEWAY_IMAGE:-lancar/api-gateway:production}
+    image: ${API_GATEWAY_IMAGE:-tembus/api-gateway:production}
     build:
       context: ./backend/api-gateway
       dockerfile: Dockerfile
-    container_name: lancar-prod-gateway
+    container_name: tembus-prod-gateway
     restart: unless-stopped
     depends_on:
       auth-service:
@@ -373,11 +373,11 @@ services:
       retries: 5
       start_period: 20s
     networks:
-      - lancar-private
+      - tembus-private
 
   frontend:
     <<: *app-security
-    image: ${FRONTEND_IMAGE:-lancar/frontend:production}
+    image: ${FRONTEND_IMAGE:-tembus/frontend:production}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -387,7 +387,7 @@ services:
         NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:?NEXT_PUBLIC_SOCKET_URL is required}
         NEXT_PUBLIC_MIDTRANS_CLIENT_KEY: ${NEXT_PUBLIC_MIDTRANS_CLIENT_KEY:-}
         NEXT_PUBLIC_MIDTRANS_SNAP_URL: ${NEXT_PUBLIC_MIDTRANS_SNAP_URL:-https://app.midtrans.com/snap/snap.js}
-    container_name: lancar-prod-frontend
+    container_name: tembus-prod-frontend
     restart: unless-stopped
     depends_on:
       api-gateway:
@@ -410,11 +410,11 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - lancar-private
+      - tembus-private
 
   admin-dashboard:
     <<: *app-security
-    image: ${ADMIN_DASHBOARD_IMAGE:-lancar/admin-dashboard:production}
+    image: ${ADMIN_DASHBOARD_IMAGE:-tembus/admin-dashboard:production}
     build:
       context: ./admin-dashboard
       dockerfile: Dockerfile
@@ -422,7 +422,7 @@ services:
         VITE_API_URL: ${VITE_API_URL:?VITE_API_URL is required}
         VITE_WS_URL: ${VITE_WS_URL:?VITE_WS_URL is required}
         VITE_SOCKET_URL: ${VITE_SOCKET_URL:?VITE_SOCKET_URL is required}
-    container_name: lancar-prod-admin-dashboard
+    container_name: tembus-prod-admin-dashboard
     restart: unless-stopped
     depends_on:
       api-gateway:
@@ -438,21 +438,21 @@ services:
       retries: 5
       start_period: 20s
     networks:
-      - lancar-private
+      - tembus-private
 
 volumes:
-  lancar-prod-db-data:
-    name: lancar-prod-db-data
-  lancar-prod-redis-data:
-    name: lancar-prod-redis-data
-  lancar-prod-rabbitmq-data:
-    name: lancar-prod-rabbitmq-data
-  lancar-prod-auth-uploads:
-    name: lancar-prod-auth-uploads
-  lancar-prod-admin-uploads:
-    name: lancar-prod-admin-uploads
+  tembus-prod-db-data:
+    name: tembus-prod-db-data
+  tembus-prod-redis-data:
+    name: tembus-prod-redis-data
+  tembus-prod-rabbitmq-data:
+    name: tembus-prod-rabbitmq-data
+  tembus-prod-auth-uploads:
+    name: tembus-prod-auth-uploads
+  tembus-prod-admin-uploads:
+    name: tembus-prod-admin-uploads
 
 networks:
-  lancar-private:
-    name: lancar-prod-private
+  tembus-private:
+    name: tembus-prod-private
     driver: bridge

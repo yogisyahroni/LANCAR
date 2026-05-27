@@ -63,7 +63,7 @@ export const getLatestVersion = async (req: Request, res: Response): Promise<voi
 
     res.json({
       ...result.rows[0].value,
-      update_url: updateUrlResult.rows[0]?.value || 'https://github.com/yogisyahroni/LANCAR/releases'
+      update_url: updateUrlResult.rows[0]?.value || 'https://github.com/yogisyahroni/TEMBUS/releases'
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

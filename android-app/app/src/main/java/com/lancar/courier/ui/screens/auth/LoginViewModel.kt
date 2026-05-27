@@ -2,7 +2,7 @@ package com.lancar.courier.ui.screens.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TEMBUSApiService
 import com.lancar.courier.data.device.DeviceIdentityProvider
 import com.lancar.courier.data.model.CourierOtpVerifyRequest
 import com.lancar.courier.data.model.LoginData
@@ -43,7 +43,7 @@ data class LoginUiState(
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val authSessionManager: AuthSessionManager,
-    private val apiService: LANCARApiService,
+    private val apiService: TEMBUSApiService,
     private val deviceIdentityProvider: DeviceIdentityProvider
 ) : ViewModel() {
 

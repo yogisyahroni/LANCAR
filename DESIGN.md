@@ -1,10 +1,10 @@
 # DESIGN SYSTEM & ARCHITECTURE SPECIFICATION: MOBILE COURIER APPLICATION
-## LANCAR Hyperlocal Relay Platform (v1.1)
+## TEMBUS Hyperlocal Relay Platform (v1.1)
 
 ---
 
-> **CLASSIFICATION:** TOP SECRET / HIGH-FIDELITY ARCHITECTURE  
-> **OPERATIONAL SCHEMA:** OFFLINE-FIRST / SECURITY GRADE S++  
+> **CLASSIFICATION:** TOP SECRET / HIGH-FIDELITY ARCHITECTURE
+> **OPERATIONAL SCHEMA:** OFFLINE-FIRST / SECURITY GRADE S++
 > **TARGET COMPATIBILITY:** Native Android (Kotlin / SDK 26+ / Android 8.0+) - Jetpack Compose Priority
 
 ---
@@ -12,9 +12,9 @@
 ## 1. STRATEGIC CONTEXT & MOBILE CHECKPOINT
 
 ### 1.1 Intent Decoding & Core Objectives
-The **LANCAR Mobile Courier Application** is a specialized native Android mobile interface designed for hyperlocal relay courier partners. Since couriers operate in demanding environments—often while driving, under bright sunlight, with weak network signals, and using a single hand—the design and execution must prioritize **extreme readability, tactile feedback, low friction, and ironclad resilience**. 
+The **TEMBUS Mobile Courier Application** is a specialized native Android mobile interface designed for hyperlocal relay courier partners. Since couriers operate in demanding environments—often while driving, under bright sunlight, with weak network signals, and using a single hand—the design and execution must prioritize **extreme readability, tactile feedback, low friction, and ironclad resilience**.
 
-This system maps directly to the active **LANCAR API Gateway** microservices (`auth-service`, `order-service`, `routing-service`, `pricing-engine`, `tracking-service`, `payment-service`, `media-service`).
+This system maps directly to the active **TEMBUS API Gateway** microservices (`auth-service`, `order-service`, `routing-service`, `pricing-engine`, `tracking-service`, `payment-service`, `media-service`).
 
 ### 1.2 Mobile Feasibility & Risk Index (MFRI)
 Evaluating the feasibility of implementing the Mobile Courier App features on Android Native:
@@ -41,7 +41,7 @@ Files Read:   PRD_FINAL_v1.1.md, globals.css (Frontend Next.js App)
 3 Principles Applied:
 1. Touch-First Layouts: Key CTA buttons must sit within the lower thumb-zone (min 48dp).
 2. Battery- & Network-Conscious Polling: Throttle location streams using FusedLocationProviderClient + Kalman filters and buffer offline events.
-3. Perfect Visual Continuity: Carry over Green Lancar, glassmorphism, and smooth transitions from the web portal.
+3. Perfect Visual Continuity: Carry over Tembus Emerald, glassmorphism, and smooth transitions from the web portal.
 
 Anti-Patterns Avoided:
 1. Infinite Lists Memory Leaks: Banned Column with verticalScroll for large dynamic arrays. Use LazyColumn.
@@ -52,14 +52,14 @@ Anti-Patterns Avoided:
 
 ## 2. BRAND IDENTITY & DESIGN SYSTEM (WEB-ALIGNED)
 
-The mobile application carries over the core aesthetic tokens of the **LANCAR Web Portal** to establish absolute visual consistency. It uses a sleek dark mode by default for battery savings (OLED) and reduced glare under high sunlight.
+The mobile application carries over the core aesthetic tokens of the **TEMBUS Web Portal** to establish absolute visual consistency. It uses a sleek dark mode by default for battery savings (OLED) and reduced glare under high sunlight.
 
 ### 2.1 Color Palette & Token Sync
 
 ```
-  Primary Lancar Green          Primary Light (Accent)        Primary Dark
+  Primary Tembus Emerald          Primary Light (Accent)        Primary Dark
   [    #006437    ]             [    #22C55E    ]             [    #004D2A    ]
-  
+
   Dark Background               Light Background              Glass Border
   [    #09090b    ]             [    #fafafa    ]             [  white/10 (Dark) ]
 ```
@@ -105,7 +105,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun LancarGlassCard(
+fun TembusGlassCard(
     modifier: Modifier = Modifier,
     borderRadius: Dp = 16.dp,
     padding: PaddingValues = PaddingValues(16.dp),
@@ -140,7 +140,7 @@ fun LancarGlassCard(
 A static UI is considered a bug. Every interactive element must invoke immediate tactile feedback:
 
 1. **Active Press Scaling:** Interactive buttons scale down smoothly to `0.95f` on contact and bounce back.
-2. **Haptic Responses:** 
+2. **Haptic Responses:**
    - Light Tap (`HapticFeedbackType.TextHandleMove`) on normal button presses.
    - Heavy Tap (`HapticFeedbackType.LongPress`) on critical actions (e.g., confirming delivery or starting handover).
 3. **Motion Curves:** Use `FastOutSlowInEasing` for screen transitions and drawer movements to feel organic and fluid.
@@ -172,16 +172,16 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun LancarTactileButton(
+fun TembusTactileButton(
     onPressed: () -> Unit,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = Color(0xFF006437), // Primary Lancar Green
+    backgroundColor: Color = Color(0xFF006437), // Primary Tembus Emerald
     content: @Composable RowScope.() -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val haptic = LocalHapticFeedback.current
-    
+
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1.0f,
         animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing),
@@ -217,7 +217,7 @@ fun LancarTactileButton(
 ```
 
 ### 2.5 Loading Psychology (Shimmer Skeletons)
-Generic spinning loader widgets irritate users and increase perceived latency. The Lancar Courier app utilizes **Shimmer Skeletons** mimicking the exact layout of incoming cards.
+Generic spinning loader widgets irritate users and increase perceived latency. The Tembus Courier app utilizes **Shimmer Skeletons** mimicking the exact layout of incoming cards.
 
 ```kotlin
 // Concrete Shimmer Loader Component using Jetpack Compose Brush Shimmer
@@ -230,7 +230,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 
 @Composable
-fun LancarShimmerSkeleton(
+fun TembusShimmerSkeleton(
     width: Dp,
     height: Dp,
     borderRadius: Dp = 8.dp,
@@ -275,7 +275,7 @@ Couriers lose signal under tunnels, inside elevators, or in rural areas. High-pe
 
 ```
                   ┌─────────────────────────────────────┐
-                  │         LANCAR Android App          │
+                  │         TEMBUS Android App          │
                   │   ┌───────────────┐                 │
                   │   │  Compose VM   │                 │
                   │   └───────▲───────┘                 │
@@ -373,7 +373,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 
 @Composable
-fun LancarVolumetricScannerView(
+fun TembusVolumetricScannerView(
     onManualInputClick: () -> Unit,
     onCaptureClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -388,7 +388,7 @@ fun LancarVolumetricScannerView(
         Canvas(modifier = Modifier.fillMaxSize()) {
             val gridSpacing = 40.dp.toPx()
             val gridColor = Color.White.copy(alpha = 0.15f)
-            
+
             for (x in 0..size.width.toInt() step gridSpacing.toInt()) {
                 drawLine(
                     color = gridColor,
@@ -406,7 +406,7 @@ fun LancarVolumetricScannerView(
                 )
             }
         }
-        
+
         // Centered Measurement Target box
         Box(
             modifier = Modifier
@@ -422,7 +422,7 @@ fun LancarVolumetricScannerView(
                 fontWeight = FontWeight.Bold
             )
         }
-        
+
         // Back & Manual Input Trigger Button Fallback
         Row(
             modifier = Modifier
@@ -431,14 +431,14 @@ fun LancarVolumetricScannerView(
                 .padding(bottom = 40.dp, start = 20.dp, end = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            LancarTactileButton(
+            TembusTactileButton(
                 onPressed = onManualInputClick,
                 modifier = Modifier.weight(1f),
                 backgroundColor = Color(0xFF2D2D2D)
             ) {
                 Text(text = "Input Manual", color = Color.White)
             }
-            LancarTactileButton(
+            TembusTactileButton(
                 onPressed = onCaptureClick,
                 modifier = Modifier.weight(1f),
                 backgroundColor = Color(0xFF006437)
@@ -483,7 +483,7 @@ To operate within an enterprise-grade ecosystem, the Mobile Courier app implemen
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
-│                   LANCAR MOBILE HARDENING ARTIFACTS                      │
+│                   TEMBUS MOBILE HARDENING ARTIFACTS                      │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  [🛡️ RASP ENGINE] ──> RootBeer check ──> Terminate Active Session         │
@@ -517,11 +517,11 @@ $$\text{Velocity} = \frac{\Delta \text{Distance}}{\Delta \text{Time}}$$
 - Every API request is verified with short-lived JWTs (15 min expiration) stored within the native **Android Keystore** encrypted enclave (via `EncryptedSharedPreferences`), accessible only after successful biometric (Fingerprint / Face ID via `BiometricPrompt`) verification.
 
 ### 5.4 Secure SSL Pinning
-- Rejects any server communication that does not present the exact SHA-256 fingerprint matching the LANCAR API Gateway certificate. Implemented directly in the OkHttpClient configuration:
+- Rejects any server communication that does not present the exact SHA-256 fingerprint matching the TEMBUS API Gateway certificate. Implemented directly in the OkHttpClient configuration:
 
 ```kotlin
 val certificatePinner = CertificatePinner.Builder()
-    .add("api.lancar.com", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+    .add("api.tembus.id", "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
     .build()
 
 val okHttpClient = OkHttpClient.Builder()
@@ -544,10 +544,10 @@ This blocks screenshot capture, native screen recording, and blacks out the app 
 
 ## 6. ENDPOINT MAPPING & API SERVICE ARCHITECTURE
 
-The application interfaces with the **LANCAR API Gateway** routing to backend microservices.
+The application interfaces with the **TEMBUS API Gateway** routing to backend microservices.
 
 ### 6.1 Authentication API (`auth-service` via Port 8080)
-- **Send OTP Code:** 
+- **Send OTP Code:**
   - `POST /api/v1/auth/otp/send`
   - Body: `{"phone_number": "08123456789", "channel": "whatsapp"}`
 - **Verify OTP Code:**
@@ -566,7 +566,7 @@ The application interfaces with the **LANCAR API Gateway** routing to backend mi
   - `POST /api/v1/couriers/orders/{order_id}/accept`
 - **Confirm Arrival at Pickup:**
   - `POST /api/v1/couriers/orders/{order_id}/arrive`
-  - Body: `{"latitude": -6.214, "longitude": 106.845, "photo_url": "https://s3.lancar.com/pickups/img.jpg"}`
+  - Body: `{"latitude": -6.214, "longitude": 106.845, "photo_url": "https://s3.tembus.id/pickups/img.jpg"}`
 
 ### 6.3 Routing & Tracking API (`routing-service` & `tracking-service` via Port 8080)
 - **Send GPS Coordinates (10-second interval):**
@@ -588,7 +588,7 @@ The application interfaces with the **LANCAR API Gateway** routing to backend mi
 
 ## 7. JETPACK COMPOSE COMPONENT BLUEPRINTS
 
-To demonstrate the full execution capabilities and UI layouts, we define high-performance, beautiful Compose UI components utilizing the designated Lancar brand tokens.
+To demonstrate the full execution capabilities and UI layouts, we define high-performance, beautiful Compose UI components utilizing the designated Tembus brand tokens.
 
 ### 7.1 Courier Dashboard Screen Core Composable
 ```kotlin
@@ -631,7 +631,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun LancarCourierDashboard(
+fun TembusCourierDashboard(
     modifier: Modifier = Modifier
 ) {
     var isOnline by remember { mutableStateOf(false) }
@@ -643,7 +643,7 @@ fun LancarCourierDashboard(
             TopAppBar(
                 title = {
                     Text(
-                        text = "LANCAR Mitra",
+                        text = "TEMBUS Mitra",
                         fontFamily = FontFamily.SansSerif,
                         fontWeight = FontWeight.Bold,
                         fontSize = 20.sp,
@@ -673,7 +673,7 @@ fun LancarCourierDashboard(
         ) {
             // Status Toggle Glass Card
             item {
-                LancarGlassCard {
+                TembusGlassCard {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -719,7 +719,7 @@ fun LancarCourierDashboard(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        LancarGlassCard(modifier = Modifier.weight(1f)) {
+                        TembusGlassCard(modifier = Modifier.weight(1f)) {
                             Column(horizontalAlignment = Alignment.Start) {
                                 Text(text = "Pendapatan", color = Color.Gray, fontSize = 12.sp)
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -731,7 +731,7 @@ fun LancarCourierDashboard(
                                 )
                             }
                         }
-                        LancarGlassCard(modifier = Modifier.weight(1f)) {
+                        TembusGlassCard(modifier = Modifier.weight(1f)) {
                             Column(horizontalAlignment = Alignment.Start) {
                                 Text(text = "Relay Score", color = Color.Gray, fontSize = 12.sp)
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -758,7 +758,7 @@ fun LancarCourierDashboard(
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(12.dp))
-                        LancarGlassCard {
+                        TembusGlassCard {
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -798,7 +798,7 @@ fun LancarCourierDashboard(
                                     fontSize = 14.sp
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
-                                LancarTactileButton(
+                                TembusTactileButton(
                                     onPressed = { /* Handle accept order logic */ },
                                     modifier = Modifier.fillMaxWidth(),
                                     backgroundColor = Color(0xFF006437)
@@ -854,7 +854,7 @@ Before deploying the built native Android client artifact onto the production ch
 - [ ] SSL Pinning is integrated via `OkHttpClient` CertificatePinner pointing to Gateway SHA-256 hash.
 - [ ] Screen recording shielding (`FLAG_SECURE`) is active on sensitive pages.
 - [ ] Loading animations utilize high-fidelity Compose Shimmer Skeleton Brush rather than spinner loops.
-- [ ] Full visual compliance with Green Lancar (`#006437`) and glassmorphic designs is achieved.
+- [ ] Full visual compliance with Tembus Emerald (`#006437`) and glassmorphic designs is achieved.
 
 ---
 **END OF SPECIFICATION DOCUMENT**

@@ -19,7 +19,7 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
-const CUSTOMER_WEB_DEVICE_ID_KEY = 'lancar_customer_web_device_id';
+const CUSTOMER_WEB_DEVICE_ID_KEY = 'tembus_customer_web_device_id';
 
 const createBrowserUUID = () => {
   if (typeof window.crypto?.randomUUID === 'function') {
@@ -207,7 +207,7 @@ export default function LoginPage() {
             <div className="h-12 w-12 bg-primary/20 rounded-xl flex items-center justify-center mb-4">
               <Package className="h-6 w-6 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Welcome to Lancar</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Welcome to TEMBUS</h1>
             <p className="text-sm text-muted-foreground mt-2 text-center">
               Sign in to manage your logistics and deliveries
             </p>
@@ -318,7 +318,7 @@ export default function LoginPage() {
                         value={pendingOtpIdentifier || phoneValue || ''}
                         readOnly={!!pendingOtpIdentifier}
                         className="flex-1 px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground placeholder:text-muted-foreground"
-                        placeholder="customer@lancar.id or +62812345678"
+                        placeholder="customer@tembus.id or +62812345678"
                       />
                       <button
                         type="button"

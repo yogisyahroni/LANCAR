@@ -16,7 +16,7 @@ self.addEventListener('push', (event) => {
 
   try {
     const payload = event.data.json();
-    const title = payload.title || 'Lancar Update';
+    const title = payload.title || 'TEMBUS Update';
     const options = {
       body: payload.body || 'Ada pembaruan untuk kiriman Anda.',
       icon: payload.icon || '/favicon.ico',
@@ -39,7 +39,7 @@ self.addEventListener('push', (event) => {
       data: { url: '/orders' }
     };
     event.waitUntil(
-      self.registration.showNotification('Lancar Update', options)
+      self.registration.showNotification('TEMBUS Update', options)
     );
   }
 });

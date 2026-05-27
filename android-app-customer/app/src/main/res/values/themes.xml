@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.LANCARCourier" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.TEMBUSCourier" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@color/primary</item>
         <item name="android:navigationBarColor">@color/surface</item>
     </style>

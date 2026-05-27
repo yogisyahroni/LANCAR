@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LANCAR Customer</string>
+    <string name="app_name">TEMBUS Customer</string>
     
     <!-- Notification channels -->
     <string name="channel_orders_name">Order Assignments</string>
@@ -10,7 +10,7 @@
     
     <!-- Permissions -->
     <string name="permission_notification_title">Enable Notifications</string>
-    <string name="permission_notification_message">Allow LANCAR to send you notifications about new orders and updates?</string>
+    <string name="permission_notification_message">Allow TEMBUS to send you notifications about new orders and updates?</string>
     
     <!-- Actions -->
     <string name="action_accept">Accept</string>

@@ -24,7 +24,7 @@ export default function PushNotificationPrompt() {
     // Determine whether to display the notification banner
     if (typeof window === 'undefined') return;
     
-    const wasPrompted = localStorage.getItem('lancar_push_prompted');
+    const wasPrompted = localStorage.getItem('tembus_push_prompted');
     if (wasPrompted === 'true') return;
 
     if ('Notification' in window && 'serviceWorker' in navigator) {
@@ -41,7 +41,7 @@ export default function PushNotificationPrompt() {
   const handleDismiss = () => {
     setIsVisible(false);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('lancar_push_prompted', 'true');
+      localStorage.setItem('tembus_push_prompted', 'true');
     }
   };
 
@@ -52,7 +52,7 @@ export default function PushNotificationPrompt() {
     try {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
-        localStorage.setItem('lancar_push_prompted', 'true');
+        localStorage.setItem('tembus_push_prompted', 'true');
 
         // Check if there's an active Service Worker
         const registration = await navigator.serviceWorker.getRegistration();

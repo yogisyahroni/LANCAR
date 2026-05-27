@@ -5,7 +5,7 @@ const WEAK_SECRET_MARKERS = [
   'example',
   'your-secret-key',
   'your_secret',
-  'lancar_secret_key_change_me',
+  'tembus_secret_key_change_me',
 ];
 
 const WEAK_URL_MARKERS = [

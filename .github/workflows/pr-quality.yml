@@ -55,7 +55,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: lancar
+          POSTGRES_DB: tembus
         ports: [5432:5432]
       redis:
         image: redis:6-alpine
@@ -74,7 +74,7 @@ jobs:
           npx tsc --noEmit
           npm test -- --testTimeout=60000
         env:
-          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
   # ───────────────────────────────────────────────
@@ -90,7 +90,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: lancar
+          POSTGRES_DB: tembus
         ports: [5432:5432]
       redis:
         image: redis:6-alpine
@@ -108,7 +108,7 @@ jobs:
           go vet ./...
           go test -v -timeout 5m ./...
         env:
-          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
   # ───────────────────────────────────────────────
@@ -124,7 +124,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: lancar
+          POSTGRES_DB: tembus
         ports: [5432:5432]
       redis:
         image: redis:6-alpine
@@ -142,5 +142,5 @@ jobs:
           go vet ./...
           go test -v -timeout 5m ./...
         env:
-          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"

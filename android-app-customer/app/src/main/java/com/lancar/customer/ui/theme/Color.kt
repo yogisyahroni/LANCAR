@@ -2,12 +2,12 @@ package com.lancar.customer.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary brand colors - LANCAR Blue
+// Primary brand colors - TEMBUS Blue
 val Primary = Color(0xFF1E88E5)
 val PrimaryDark = Color(0xFF1565C0)
 val PrimaryLight = Color(0xFF64B5F6)
 
-// Secondary - LANCAR Orange
+// Secondary - TEMBUS Orange
 val Secondary = Color(0xFFFF6D00)
 val SecondaryDark = Color(0xFFE65100)
 val SecondaryLight = Color(0xFFFFAB40)

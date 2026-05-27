@@ -28,8 +28,8 @@ const coordinateSchema = z.object({
   lng: z.number()
 });
 
-const CUSTOMER_ORDER_DRAFT_KEY = "lancar_customer_order_draft_v1";
-const RECEIVER_LOCATION_STORAGE_KEY = "lancar_receiver_location_submitted_v1";
+const CUSTOMER_ORDER_DRAFT_KEY = "tembus_customer_order_draft_v1";
+const RECEIVER_LOCATION_STORAGE_KEY = "tembus_receiver_location_submitted_v1";
 const RECEIVER_LOCATION_POLL_MS = 4000;
 
 export const orderSchema = z.object({
@@ -956,7 +956,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
       const res = await api.get("/auth/web/delivery-services");
       const nextServices = res.data?.services || [];
       setServices(nextServices);
-      const defaultService = nextServices.find((service: DeliveryService) => service.code === "lancar_instant") || nextServices[0];
+      const defaultService = nextServices.find((service: DeliveryService) => service.code === "tembus_instant") || nextServices[0];
       if (defaultService && !getValues("service_code")) {
         setValue("service_code", defaultService.code, { shouldDirty: true, shouldValidate: true });
         if (defaultService.size_tiers?.[0]) {

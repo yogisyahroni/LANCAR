@@ -96,8 +96,8 @@ describe('waiting-on automation without Google Maps keys', () => {
     await notifications.initFirebase();
 
     expect(notifications.getConfiguredFirebaseTargets()).toEqual(['customer', 'courier']);
-    expect(initializeApp).toHaveBeenCalledWith(expect.any(Object), 'lancar-customer');
-    expect(initializeApp).toHaveBeenCalledWith(expect.any(Object), 'lancar-courier');
+    expect(initializeApp).toHaveBeenCalledWith(expect.any(Object), 'tembus-customer');
+    expect(initializeApp).toHaveBeenCalledWith(expect.any(Object), 'tembus-courier');
 
     await notifications.createNotification({
       user_id: 'customer-user-1',
@@ -119,8 +119,8 @@ describe('waiting-on automation without Google Maps keys', () => {
       },
     });
 
-    expect(messaging).toHaveBeenNthCalledWith(1, expect.objectContaining({ name: 'lancar-customer' }));
-    expect(messaging).toHaveBeenNthCalledWith(2, expect.objectContaining({ name: 'lancar-courier' }));
+    expect(messaging).toHaveBeenNthCalledWith(1, expect.objectContaining({ name: 'tembus-customer' }));
+    expect(messaging).toHaveBeenNthCalledWith(2, expect.objectContaining({ name: 'tembus-courier' }));
     expect(sendEachForMulticast).toHaveBeenNthCalledWith(1, expect.objectContaining({
       tokens: ['customer-fcm-token'],
       data: expect.objectContaining({

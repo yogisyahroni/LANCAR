@@ -70,7 +70,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
 
   const downloadTemplate = () => {
     downloadCsv(
-      'Template_Lancar_Kirim_Massal.csv',
+      'Template_Tembus_Kirim_Massal.csv',
       [
         {
           recipient_name: 'Budi Santoso',

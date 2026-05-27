@@ -196,7 +196,7 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
               >
                 <div className="flex items-center gap-2 mb-1 px-1">
                   <span className="text-[10px] font-bold text-muted-foreground">
-                    {isMe ? 'Anda' : msg.sender_role === 'customer' ? msg.sender_name : 'Admin Lancar'}
+                    {isMe ? 'Anda' : msg.sender_role === 'customer' ? msg.sender_name : 'Admin Tembus'}
                   </span>
                   <span className="text-[9px] text-zinc-400">
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

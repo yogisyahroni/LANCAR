@@ -146,7 +146,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
             <div className="p-1.5 rounded-lg bg-primary/10">
               <Wallet size={14} className="text-primary" />
             </div>
-            <span className="text-[10px] font-bold uppercase tracking-wider">LANCAR Wallet</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider">TEMBUS Wallet</span>
           </div>
           <button 
             onClick={() => fetchBalance()}

@@ -553,7 +553,7 @@ private fun BookingHeader(onBackClick: () -> Unit) {
         }
         Spacer(Modifier.width(8.dp))
         Column {
-            Text("LANCAR", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+            Text("TEMBUS", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
             Text("Pengiriman on-demand", fontSize = 14.sp, color = Color.White.copy(alpha = 0.82f))
         }
     }
@@ -1287,7 +1287,7 @@ private fun SelectedServiceBar(
         state.isCalculatingRoute -> "Menghitung harga..."
         price == null -> "Pilih layanan"
         !recipientReady -> "Tambah detail pengiriman"
-        else -> "Kirim ${selected?.name ?: "LANCAR"} • ${formatRupiah(price.totalPriceIdr)}"
+        else -> "Kirim ${selected?.name ?: "TEMBUS"} • ${formatRupiah(price.totalPriceIdr)}"
     }
     Column(
         modifier = Modifier
@@ -1377,7 +1377,7 @@ private fun ServicePickerSheet(
                 .clip(CircleShape)
                 .background(Color(0xFFD2D8E2))
         )
-        Text("Pilih layanan LANCAR", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+        Text("Pilih layanan TEMBUS", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         Text("Harga final dihitung dari pricing admin, jarak, berat, dan fitur tambahan.", color = Muted, lineHeight = 20.sp)
         if (state.isCalculatingRoute) {
             Card(
@@ -1553,7 +1553,7 @@ private fun BookingReviewSheet(
             colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
         ) {
             Text(
-                if (state.isLoading) "Mengirim order..." else "Kirim ${service?.name ?: "LANCAR"} • ${formatRupiah(price?.totalPriceIdr ?: 0)}",
+                if (state.isLoading) "Mengirim order..." else "Kirim ${service?.name ?: "TEMBUS"} • ${formatRupiah(price?.totalPriceIdr ?: 0)}",
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 16.sp
             )

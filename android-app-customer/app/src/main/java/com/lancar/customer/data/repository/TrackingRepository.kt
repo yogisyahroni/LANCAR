@@ -1,6 +1,6 @@
 package com.lancar.customer.data.repository
 
-import com.lancar.customer.data.api.LANCARApiService
+import com.lancar.customer.data.api.TEMBUSApiService
 import com.lancar.customer.data.model.ApiResponse
 import com.lancar.customer.data.model.MapsProviderConfig
 import com.lancar.customer.data.model.TrackingResponse
@@ -10,7 +10,7 @@ import javax.inject.Singleton
 
 @Singleton
 class TrackingRepository @Inject constructor(
-    private val apiService: LANCARApiService
+    private val apiService: TEMBUSApiService
 ) {
 
     /**

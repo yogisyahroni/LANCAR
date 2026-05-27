@@ -1,5 +1,5 @@
 # ============================================================
-# LANCAR — Makefile
+# TEMBUS — Makefile
 # Shortcuts untuk task development sehari-hari
 # ============================================================
 
@@ -10,7 +10,7 @@
 ## ─────────────────────────────────────────────
 help: ## Tampilkan semua command yang tersedia
 	@echo ""
-	@echo "  LANCAR — Available Commands"
+	@echo "  TEMBUS — Available Commands"
 	@echo "  ─────────────────────────────────────────"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -80,7 +80,7 @@ migrate-docker: ## Jalankan migration via Docker (tidak perlu goose di lokal)
 	docker compose --profile migrate run --rm migrate
 
 shell-db: ## Buka psql shell ke database
-	docker compose exec db psql -U postgres -d lancar
+	docker compose exec db psql -U postgres -d tembus
 
 ## ─────────────────────────────────────────────
 ## TESTING
@@ -158,4 +158,4 @@ setup: ## First-time setup: copy .env, start services, migrate
 	sleep 10
 	$(MAKE) migrate
 	@echo ""
-	@echo "🚀 LANCAR dev environment siap!"
+	@echo "🚀 TEMBUS dev environment siap!"

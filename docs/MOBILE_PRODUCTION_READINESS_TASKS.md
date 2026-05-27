@@ -387,7 +387,7 @@ Apps collecting location, contact, account, order, payment, crash, or device dat
 ### Tasks
 
 - [x] Create/update privacy policy page source:
-  - `frontend/public/privacy/lancar-mobile.html`
+  - `frontend/public/privacy/tembus-mobile.html`
 - [x] Prepare Play Console Data Safety answer pack for both apps.
 - [x] Identify data collected:
   - name
@@ -438,7 +438,7 @@ See `docs/MOBILE_PRIVACY_POLICY_AND_DATA_SAFETY_PACK.md`.
 
 ### Public Policy Source
 
-See `frontend/public/privacy/lancar-mobile.html`.
+See `frontend/public/privacy/tembus-mobile.html`.
 
 ---
 

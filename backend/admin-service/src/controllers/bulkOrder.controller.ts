@@ -171,7 +171,7 @@ const parseUploadedRows = (file: Express.Multer.File): any[] => {
   const isCsv = file.mimetype === 'text/csv' || originalName.endsWith('.csv');
 
   if (!isCsv) {
-    throw new Error('Format file tidak didukung. Gunakan template CSV resmi LANCAR.');
+    throw new Error('Format file tidak didukung. Gunakan template CSV resmi TEMBUS.');
   }
 
   return parseCsvText(file.buffer.toString('utf8'));
@@ -308,7 +308,7 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const bulkService = await findDeliveryServiceByCode('lancar_instant');
+    const bulkService = await findDeliveryServiceByCode('tembus_instant');
     if (!bulkService) {
       res.status(400).json({ error: 'Layanan bulk default tidak tersedia' });
       return;
@@ -411,7 +411,7 @@ export const validateBulkRow = async (req: Request, res: Response): Promise<void
           dropoff_lat: row.dropoff_location?.lat,
           dropoff_lng: row.dropoff_location?.lng
         };
-        const bulkService = await findDeliveryServiceByCode(row.price_breakdown?.service_code as string || 'lancar_instant');
+        const bulkService = await findDeliveryServiceByCode(row.price_breakdown?.service_code as string || 'tembus_instant');
         if (!bulkService) {
           res.status(400).json({ error: 'Layanan bulk tidak tersedia untuk validasi ulang' });
           return;
@@ -496,7 +496,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
 
     let totalAmount = 0;
     const createdOrders = [];
-    const bulkService = await findDeliveryServiceByCode('lancar_instant');
+    const bulkService = await findDeliveryServiceByCode('tembus_instant');
     if (!bulkService) {
       await client.query('ROLLBACK');
       res.status(400).json({ error: 'Layanan bulk default tidak tersedia' });
@@ -505,7 +505,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
 
     // Bulk insert (using a loop for simplicity, can be optimized with UNNEST in prod)
     for (const row of validRows) {
-      const order_number = `LNC-BLK-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+      const order_number = `TMB-BLK-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
       totalAmount += row.price_breakdown.total_price_idr;
       const settlement = calculateServiceSettlement(
         bulkService,
@@ -613,7 +613,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
       `, [result.rows[0].id, customer_id]);
     }
 
-    const midtransOrderId = `LNC-BULK-${crypto.randomUUID()}`;
+    const midtransOrderId = `TMB-BULK-${crypto.randomUUID()}`;
     const snap = await createSnapTransaction({
       orderId: midtransOrderId,
       grossAmount: totalAmount,
@@ -622,11 +622,11 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
           id: `BULK-${job_id.slice(-12)}`,
           price: totalAmount,
           quantity: 1,
-          name: `LANCAR Bulk Delivery (${validRows.length} paket)`
+          name: `TEMBUS Bulk Delivery (${validRows.length} paket)`
         }
       ],
       customerDetails: {
-        first_name: 'LANCAR Customer'
+        first_name: 'TEMBUS Customer'
       },
       customFields: {
         custom_field1: createdOrders.map((order: any) => order.id).join(',').slice(0, 255),

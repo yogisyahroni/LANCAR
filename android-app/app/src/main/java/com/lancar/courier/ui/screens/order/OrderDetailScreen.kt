@@ -1227,7 +1227,7 @@ private fun OrderActions(
                                 clean.startsWith("62") -> clean
                                 else -> "62$clean"
                             }
-                            val message = "Halo ${order.customerName}, saya Kurir LANCAR sedang menuju ke alamat pengantaran Anda (Pesanan: ${order.orderId})."
+                            val message = "Halo ${order.customerName}, saya Kurir TEMBUS sedang menuju ke alamat pengantaran Anda (Pesanan: ${order.orderId})."
                             val waUri = Uri.parse("https://api.whatsapp.com/send?phone=$formattedPhone&text=${Uri.encode(message)}")
                             val waIntent = Intent(Intent.ACTION_VIEW, waUri)
                             context.startActivity(waIntent)

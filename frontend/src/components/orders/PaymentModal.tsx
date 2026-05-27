@@ -51,7 +51,7 @@ export function PaymentModal({
       return;
     }
 
-    const existing = document.querySelector<HTMLScriptElement>('script[data-lancar-midtrans-snap="true"]');
+    const existing = document.querySelector<HTMLScriptElement>('script[data-tembus-midtrans-snap="true"]');
     if (existing) {
       existing.addEventListener('load', () => {
         setSnapReady(true);
@@ -64,7 +64,7 @@ export function PaymentModal({
     script.src = snapJsUrl || "https://app.sandbox.midtrans.com/snap/snap.js";
     script.async = true;
     script.setAttribute("data-client-key", clientKey || "");
-    script.setAttribute("data-lancar-midtrans-snap", "true");
+    script.setAttribute("data-tembus-midtrans-snap", "true");
     script.onload = () => {
       setSnapReady(true);
       setState("idle");

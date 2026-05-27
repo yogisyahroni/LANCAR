@@ -288,7 +288,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center">
                     <Package className="h-6 w-6 text-white" />
                   </div>
-                  <span className="font-bold text-2xl tracking-tight">LANCAR</span>
+                  <span className="font-bold text-2xl tracking-tight">TEMBUS</span>
                 </div>
                 <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-zinc-500">
                   <X size={24} />
@@ -437,7 +437,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="h-8 w-px bg-white/10 mx-2" />
             <div className="flex items-center gap-3 group p-1.5 hover:bg-white/5 rounded-xl transition-all">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-zinc-200 group-hover:text-primary-light transition-colors">{user?.name || 'Admin Lancar'}</p>
+                <p className="text-sm font-bold text-zinc-200 group-hover:text-primary-light transition-colors">{user?.name || 'Admin Tembus'}</p>
                 <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">{user?.role === 'superadmin' ? 'Super Admin' : 'Admin'}</p>
               </div>
               <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 p-[1px] shadow-lg shadow-primary/10">

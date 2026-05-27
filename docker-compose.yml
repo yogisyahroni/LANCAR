@@ -1,5 +1,5 @@
 # ============================================================
-# LANCAR — Docker Compose (Local Development)
+# TEMBUS — Docker Compose (Local Development)
 # Jalankan: docker compose up -d
 # Stop:     docker compose down
 # Reset DB: docker compose down -v && docker compose up -d
@@ -12,43 +12,43 @@ services:
   # ─────────────────────────────────────────────
   db:
     image: postgis/postgis:15-3.4-alpine
-    container_name: lancar-db
+    container_name: tembus-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
-      POSTGRES_DB: ${POSTGRES_DB:-lancar}
+      POSTGRES_DB: ${POSTGRES_DB:-tembus}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - lancar-db-data:/var/lib/postgresql/data
+      - tembus-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-lancar}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tembus}"]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 15s
     networks:
-      - lancar-net
+      - tembus-net
 
   # ─────────────────────────────────────────────
   # READ REPLICA (Simulated)
   # ─────────────────────────────────────────────
   db-read:
     image: postgis/postgis:15-3.4-alpine
-    container_name: lancar-db-read
+    container_name: tembus-db-read
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
-      POSTGRES_DB: ${POSTGRES_DB:-lancar}
+      POSTGRES_DB: ${POSTGRES_DB:-tembus}
     # In a real setup, we'd configure replication here. 
     # For dev, we just provide a second instance.
     depends_on:
       db:
         condition: service_healthy
     networks:
-      - lancar-net
+      - tembus-net
 
   # ─────────────────────────────────────────────
   # PGBOUNCER — Production-like connection pooler
@@ -56,7 +56,7 @@ services:
   # ─────────────────────────────────────────────
   pgbouncer:
     image: bitnami/pgbouncer:1.24.0
-    container_name: lancar-pgbouncer
+    container_name: tembus-pgbouncer
     restart: unless-stopped
     profiles:
       - scale
@@ -68,7 +68,7 @@ services:
       POSTGRESQL_PORT: 5432
       POSTGRESQL_USERNAME: ${POSTGRES_USER:-postgres}
       POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-1234}
-      POSTGRESQL_DATABASE: ${POSTGRES_DB:-lancar}
+      POSTGRESQL_DATABASE: ${POSTGRES_DB:-tembus}
       PGBOUNCER_POOL_MODE: transaction
       PGBOUNCER_MAX_CLIENT_CONN: ${PGBOUNCER_MAX_CLIENT_CONN:-2000}
       PGBOUNCER_DEFAULT_POOL_SIZE: ${PGBOUNCER_DEFAULT_POOL_SIZE:-80}
@@ -77,34 +77,34 @@ services:
     ports:
       - "${PGBOUNCER_PORT:-6432}:6432"
     networks:
-      - lancar-net
+      - tembus-net
 
   # ─────────────────────────────────────────────
   # CACHE — Redis 7
   # ─────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    container_name: lancar-redis
+    container_name: tembus-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-}"
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:
-      - lancar-redis-data:/data
+      - tembus-redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
     networks:
-      - lancar-net
+      - tembus-net
 
   # ─────────────────────────────────────────────
   # MIGRATION RUNNER — goose
   # ─────────────────────────────────────────────
   migrate:
     image: ghcr.io/pressly/goose:latest
-    container_name: lancar-migrate
+    container_name: tembus-migrate
     depends_on:
       db:
         condition: service_healthy
@@ -113,10 +113,10 @@ services:
     command: >
       -dir /migrations
       postgres
-      "host=db port=5432 user=${POSTGRES_USER:-postgres} password=${POSTGRES_PASSWORD:-1234} dbname=${POSTGRES_DB:-lancar} sslmode=disable"
+      "host=db port=5432 user=${POSTGRES_USER:-postgres} password=${POSTGRES_PASSWORD:-1234} dbname=${POSTGRES_DB:-tembus} sslmode=disable"
       up
     networks:
-      - lancar-net
+      - tembus-net
     profiles:
       - migrate
 
@@ -127,7 +127,7 @@ services:
     build:
       context: ./backend/auth-service
       dockerfile: Dockerfile
-    container_name: lancar-auth
+    container_name: tembus-auth
     restart: unless-stopped
     depends_on:
       db:
@@ -139,8 +139,8 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       AUTH_PORT: ${AUTH_PORT:-8081}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
@@ -156,7 +156,7 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - lancar-net
+      - tembus-net
 
   # ─────────────────────────────────────────────
   # ADMIN SERVICE — Node.js / TypeScript
@@ -165,7 +165,7 @@ services:
     build:
       context: ./backend/admin-service
       dockerfile: Dockerfile
-    container_name: lancar-admin
+    container_name: tembus-admin
     restart: unless-stopped
     depends_on:
       db:
@@ -175,8 +175,8 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "${ADMIN_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public}"
-      READ_DATABASE_URL: "${ADMIN_READ_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public}"
+      DATABASE_URL: "${ADMIN_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public}"
+      READ_DATABASE_URL: "${ADMIN_READ_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public}"
       REDIS_URL: "redis://redis:6379"
       SOCKET_REDIS_ADAPTER_ENABLED: ${SOCKET_REDIS_ADAPTER_ENABLED:-true}
       PG_POOL_MAX: ${ADMIN_PG_POOL_MAX:-20}
@@ -185,12 +185,12 @@ services:
       PG_POOL_CONNECTION_TIMEOUT_MS: ${PG_POOL_CONNECTION_TIMEOUT_MS:-5000}
       PG_STATEMENT_TIMEOUT_MS: ${PG_STATEMENT_TIMEOUT_MS:-15000}
       PG_QUERY_TIMEOUT_MS: ${PG_QUERY_TIMEOUT_MS:-15000}
-      PG_APPLICATION_NAME: ${PG_APPLICATION_NAME:-lancar-admin}
+      PG_APPLICATION_NAME: ${PG_APPLICATION_NAME:-tembus-admin}
       EVENT_OUTBOX_WORKER_ENABLED: ${EVENT_OUTBOX_WORKER_ENABLED:-true}
       EVENT_OUTBOX_INTERVAL_MS: ${EVENT_OUTBOX_INTERVAL_MS:-1000}
       EVENT_OUTBOX_BATCH_SIZE: ${EVENT_OUTBOX_BATCH_SIZE:-100}
       OUTBOX_RABBITMQ_ENABLED: ${OUTBOX_RABBITMQ_ENABLED:-false}
-      OUTBOX_RABBITMQ_EXCHANGE: ${OUTBOX_RABBITMQ_EXCHANGE:-lancar.events}
+      OUTBOX_RABBITMQ_EXCHANGE: ${OUTBOX_RABBITMQ_EXCHANGE:-tembus.events}
       OUTBOX_MAX_ATTEMPTS: ${OUTBOX_MAX_ATTEMPTS:-8}
       RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
       ROUTE_PRICING_CACHE_TTL_SECONDS: ${ROUTE_PRICING_CACHE_TTL_SECONDS:-300}
@@ -223,7 +223,7 @@ services:
     ports:
       - "${ADMIN_PORT:-3001}:3000"
     volumes:
-      - lancar-admin-uploads:/app/public/uploads
+      - tembus-admin-uploads:/app/public/uploads
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
       interval: 10s
@@ -231,7 +231,7 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - lancar-net
+      - tembus-net
 
   # ─────────────────────────────────────────────
   # ROUTING SERVICE — Go (Feature Flags, future HTTP)
@@ -240,7 +240,7 @@ services:
     build:
       context: ./backend/routing-service
       dockerfile: Dockerfile
-    container_name: lancar-routing
+    container_name: tembus-routing
     restart: unless-stopped
     depends_on:
       db:
@@ -248,8 +248,8 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       ROUTING_PORT: 8082
       ROUTING_SERVICE_PORT: 8082
@@ -262,7 +262,7 @@ services:
       timeout: 10s
       retries: 3
     networks:
-      - lancar-net
+      - tembus-net
 
   # ─────────────────────────────────────────────
   # ORDER SERVICE — Go (Pricing Engine + Order MGMT)
@@ -271,7 +271,7 @@ services:
     build:
       context: ./backend/order-service
       dockerfile: Dockerfile
-    container_name: lancar-order
+    container_name: tembus-order
     restart: unless-stopped
     depends_on:
       db:
@@ -281,8 +281,8 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       ORDER_PORT: ${ORDER_PORT:-8083}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
@@ -299,7 +299,7 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - lancar-net
+      - tembus-net
 
   # ─────────────────────────────────────────────
   # PAYMENT SERVICE — Go (Wallet & Fees)
@@ -308,7 +308,7 @@ services:
     build:
       context: ./backend/payment-service
       dockerfile: Dockerfile
-    container_name: lancar-payment
+    container_name: tembus-payment
     restart: unless-stopped
     depends_on:
       db:
@@ -316,7 +316,7 @@ services:
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-lancar}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       PAYMENT_PORT: ${PAYMENT_PORT:-8084}
       ENVIRONMENT: ${ENVIRONMENT:-development}
@@ -329,7 +329,7 @@ services:
       retries: 5
       start_period: 10s
     networks:
-      - lancar-net
+      - tembus-net
 
 
   # ─────────────────────────────────────────────
@@ -337,7 +337,7 @@ services:
   # ─────────────────────────────────────────────
   redis-commander:
     image: rediscommander/redis-commander:latest
-    container_name: lancar-redis-ui
+    container_name: tembus-redis-ui
     restart: unless-stopped
     environment:
       REDIS_HOSTS: "local:redis:6379"
@@ -348,7 +348,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - lancar-net
+      - tembus-net
     profiles:
       - tools
 
@@ -359,7 +359,7 @@ services:
     build:
       context: ./backend/api-gateway
       dockerfile: Dockerfile
-    container_name: lancar-gateway
+    container_name: tembus-gateway
     restart: unless-stopped
     depends_on:
       - auth-service
@@ -379,7 +379,7 @@ services:
     ports:
       - "8080:8080"
     networks:
-      - lancar-net
+      - tembus-net
 
   # ─────────────────────────────────────────────
   # FRONTEND — Next.js (Customer Portal)
@@ -389,7 +389,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: lancar-frontend
+    container_name: tembus-frontend
     restart: unless-stopped
     depends_on:
       - api-gateway
@@ -402,7 +402,7 @@ services:
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     networks:
-      - lancar-net
+      - tembus-net
 
   # ─────────────────────────────────────────────
   # ADMIN DASHBOARD — Vite / React
@@ -412,7 +412,7 @@ services:
     build:
       context: ./admin-dashboard
       dockerfile: Dockerfile
-    container_name: lancar-admin-ui
+    container_name: tembus-admin-ui
     restart: unless-stopped
     depends_on:
       - api-gateway
@@ -422,7 +422,7 @@ services:
     ports:
       - "${ADMIN_DASHBOARD_PORT:-3002}:3001"
     networks:
-      - lancar-net
+      - tembus-net
 
   rabbitmq:
     image: rabbitmq:3.12-management
@@ -437,7 +437,7 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
-      - lancar-net
+      - tembus-net
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_running"]
       interval: 10s
@@ -445,16 +445,16 @@ services:
       retries: 5
 
 volumes:
-  lancar-db-data:
-    name: lancar-db-data
-  lancar-redis-data:
-    name: lancar-redis-data
+  tembus-db-data:
+    name: tembus-db-data
+  tembus-redis-data:
+    name: tembus-redis-data
   rabbitmq_data:
     name: rabbitmq_data
-  lancar-admin-uploads:
-    name: lancar-admin-uploads
+  tembus-admin-uploads:
+    name: tembus-admin-uploads
 
 networks:
-  lancar-net:
-    name: lancar-net
+  tembus-net:
+    name: tembus-net
     driver: bridge

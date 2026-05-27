@@ -12,8 +12,8 @@ const docTemplate = `{
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
             "name": "API Support",
-            "url": "http://www.lancar.id/support",
-            "email": "support@lancar.id"
+            "url": "http://www.tembus.id/support",
+            "email": "support@tembus.id"
         },
         "license": {
             "name": "Apache 2.0",
@@ -583,7 +583,7 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:8083",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
-	Title:            "LANCAR Order Service API",
+	Title:            "TEMBUS Order Service API",
 	Description:      "API for Order Management, Courier Dispatch, and Tracking.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,

@@ -126,9 +126,9 @@ export const initFirebase = async () => {
     process.env.FIREBASE_COURIER_SERVICE_ACCOUNT_B64
   );
 
-  initializeNamedFirebaseApp('default', 'lancar-default', defaultServiceAccount);
-  initializeNamedFirebaseApp('customer', 'lancar-customer', customerServiceAccount || defaultServiceAccount);
-  initializeNamedFirebaseApp('courier', 'lancar-courier', courierServiceAccount || defaultServiceAccount);
+  initializeNamedFirebaseApp('default', 'tembus-default', defaultServiceAccount);
+  initializeNamedFirebaseApp('customer', 'tembus-customer', customerServiceAccount || defaultServiceAccount);
+  initializeNamedFirebaseApp('courier', 'tembus-courier', courierServiceAccount || defaultServiceAccount);
 
   firebaseApp = firebaseApps.default || firebaseApps.customer || firebaseApps.courier || null;
 
@@ -328,7 +328,7 @@ export const sendEmailAlert = async (flagKey: string, oldState: boolean, newStat
   const htmlTemplate = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
       <div style="background-color: ${statusColor}; color: white; padding: 16px;">
-        <h2 style="margin: 0;">Lancar Feature Flag Update</h2>
+        <h2 style="margin: 0;">TEMBUS Feature Flag Update</h2>
       </div>
       <div style="padding: 24px; color: #374151;">
         <p><strong>Flag Key:</strong> <code>${flagKey}</code></p>

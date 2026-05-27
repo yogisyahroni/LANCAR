@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "LANCAR-Courier"
+rootProject.name = "TEMBUS-Courier"
 include(":app")

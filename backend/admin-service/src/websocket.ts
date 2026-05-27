@@ -46,7 +46,7 @@ const getJwtSecrets = () => {
   const secrets = [process.env.JWT_SECRET].filter(Boolean) as string[];
 
   if (!isProductionRuntime()) {
-    secrets.push('lancar_secret_key_change_me', 'your-secret-key');
+    secrets.push('tembus_secret_key_change_me', 'your-secret-key');
   }
 
   return Array.from(new Set(secrets));

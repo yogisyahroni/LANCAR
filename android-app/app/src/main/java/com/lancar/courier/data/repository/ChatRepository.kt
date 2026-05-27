@@ -1,6 +1,6 @@
 package com.lancar.courier.data.repository
 
-import com.lancar.courier.data.api.LANCARApiService
+import com.lancar.courier.data.api.TEMBUSApiService
 import com.lancar.courier.data.model.ChatMessage
 import com.lancar.courier.data.model.SendMessageRequest
 import kotlinx.coroutines.flow.Flow
@@ -10,7 +10,7 @@ import javax.inject.Singleton
 
 @Singleton
 class ChatRepository @Inject constructor(
-    private val apiService: LANCARApiService
+    private val apiService: TEMBUSApiService
 ) {
     /**
      * Load past conversation blocks for specific delivery assignment.

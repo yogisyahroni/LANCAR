@@ -621,7 +621,7 @@ func (s *AuthService) Setup2FA(ctx context.Context, userID string) (string, stri
 	}
 
 	key, err := totp.Generate(totp.GenerateOpts{
-		Issuer:      "LANCAR",
+		Issuer:      "TEMBUS",
 		AccountName: user.PhoneNumber,
 	})
 	if err != nil {

@@ -1,8 +1,8 @@
-package com.lancar.customer.data.repository
+package com.tembus.customer.data.repository
 
-import com.lancar.customer.data.api.LANCARApiService
-import com.lancar.customer.data.device.DeviceIdentityProvider
-import com.lancar.customer.data.model.AuthResponse
+import com.tembus.customer.data.api.TEMBUSApiService
+import com.tembus.customer.data.device.DeviceIdentityProvider
+import com.tembus.customer.data.model.AuthResponse
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
@@ -21,7 +21,7 @@ class AuthRepositoryTest {
     val mockkRule = MockKRule(this)
 
     @RelaxedMockK
-    private lateinit var apiService: LANCARApiService
+    private lateinit var apiService: TEMBUSApiService
 
     @RelaxedMockK
     private lateinit var deviceIdentityProvider: DeviceIdentityProvider
@@ -38,7 +38,7 @@ class AuthRepositoryTest {
     @Test
     fun `requestOtp failure propagates exception as Result failure`() = runTest {
         // Given
-        val email = "error@lancar.com"
+        val email = "error@tembus.id"
         coEvery { apiService.requestOtpV1(any()) } throws RuntimeException("Network connection lost")
 
         // When
@@ -52,7 +52,7 @@ class AuthRepositoryTest {
     @Test
     fun `requestOtp uses v1 endpoint successfully`() = runTest {
         // Given
-        val email = "customer@lancar.com"
+        val email = "customer@tembus.id"
         coEvery { apiService.requestOtpV1(any()) } returns Response.success(AuthResponse(message = "OTP sent"))
 
         // When
@@ -65,7 +65,7 @@ class AuthRepositoryTest {
     @Test
     fun `requestOtp handles unsuccessful HTTP response codes`() = runTest {
         // Given
-        val email = "server-broken@lancar.com"
+        val email = "server-broken@tembus.id"
         val rawResponse = Response.error<AuthResponse>(500, "Internal Error".toResponseBody(null))
         coEvery { apiService.requestOtpV1(any()) } returns rawResponse
 

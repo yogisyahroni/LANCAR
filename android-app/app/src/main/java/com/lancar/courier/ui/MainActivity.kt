@@ -25,7 +25,7 @@ import com.lancar.courier.data.session.AuthSessionManager
 import com.lancar.courier.service.LocationTrackerService
 import com.lancar.courier.ui.screens.MainScreen
 import com.lancar.courier.ui.screens.auth.LoginScreen
-import com.lancar.courier.ui.theme.LANCARCourierTheme
+import com.lancar.courier.ui.theme.TEMBUSCourierTheme
 import com.lancar.courier.ui.components.UpdateDialog
 import com.lancar.courier.data.model.AppVersion
 import com.lancar.courier.util.FirebaseInitializer
@@ -47,7 +47,7 @@ import android.content.Context
 import javax.inject.Inject
 
 /**
- * Main Activity for LANCAR Courier App
+ * Main Activity for TEMBUS Courier App
  *
  * Entry point that:
  * 1. Checks if courier is logged in → shows LoginScreen or MainScreen
@@ -111,7 +111,7 @@ class MainActivity : FragmentActivity() {
         askLocationPermission()
 
         setContent {
-            LANCARCourierTheme {
+            TEMBUSCourierTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

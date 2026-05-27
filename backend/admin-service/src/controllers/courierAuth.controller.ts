@@ -616,7 +616,7 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
             zone_available: activeZoneCount > 0,
           },
           message: activeZoneCount > 0
-            ? 'Lokasi Anda berada di luar zona operasional aktif. Silakan masuk ke area layanan LANCAR untuk mulai On Duty.'
+            ? 'Lokasi Anda berada di luar zona operasional aktif. Silakan masuk ke area layanan TEMBUS untuk mulai On Duty.'
             : 'Area operasional belum tersedia. Status On Duty belum dapat diaktifkan saat ini.',
           code: activeZoneCount > 0 ? 'ERR_OUTSIDE_ACTIVE_ZONE' : 'ERR_NO_ACTIVE_ZONE',
         });
@@ -758,7 +758,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
           o.route_polyline,
           o.route_fallback_reason,
           NULLIF(o.route_snapshot->>'vehicle_type', '') AS route_vehicle_type,
-          COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR Service') AS service_name,
+          COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'TEMBUS Service') AS service_name,
          COALESCE(dsp.service_category, 'network') AS service_category,
          COALESCE(dsp.service_family, 'regular') AS service_family,
          COALESCE(dsp.route_model, o.model, 'p2p') AS service_route_model,
@@ -856,7 +856,7 @@ const mobileOrderSelect = `
   o.route_polyline,
   o.route_fallback_reason,
   NULLIF(o.route_snapshot->>'vehicle_type', '') AS route_vehicle_type,
-  COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR On Demand') AS service_name,
+  COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'TEMBUS On Demand') AS service_name,
   COALESCE(dsp.service_category, 'on_demand') AS service_category,
   COALESCE(dsp.service_family, 'regular') AS service_family,
   COALESCE(dsp.route_model, o.model, 'p2p') AS service_route_model,
@@ -2149,7 +2149,7 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
           NULLIF(o.route_snapshot->>'route_version', '') AS route_version,
           o.service_code,
           COALESCE(u.full_name, 'Customer') AS customer_name,
-          COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'LANCAR On Demand') AS service_name
+          COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'TEMBUS On Demand') AS service_name
        FROM orders o
        JOIN delivery_service_products dsp ON dsp.code = o.service_code
         AND dsp.is_enabled = TRUE
@@ -2362,7 +2362,7 @@ export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
           distance: offer.distance || '',
           fee: offer.fee || '',
           customer_name: offer.customer_name || '',
-          service_name: offer.service_name || 'LANCAR On Demand',
+          service_name: offer.service_name || 'TEMBUS On Demand',
           service_code: offer.service_code || '',
           vehicle_type: offer.vehicle_type || '',
           route_profile: offer.route_profile || '',
@@ -2385,7 +2385,7 @@ export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
         body: `${offer.service_name || 'On Demand'} tersedia. Terima dalam ${ON_DEMAND_OFFER_TTL_SECONDS} detik.`,
         type: 'on_demand_offer',
         order_id: offer.order_id,
-        deep_link: `lancar://orders/${offer.order_id}`,
+        deep_link: `tembus://orders/${offer.order_id}`,
         metadata: {
           dispatch_id: offer.dispatch_id,
           order_id: offer.order_id,
@@ -2394,7 +2394,7 @@ export const notifyOnDemandOffers = async (offers: CreatedDispatchOffer[]) => {
           distance: offer.distance || '',
           fee: offer.fee || '',
           customer_name: offer.customer_name || '',
-          service_name: offer.service_name || 'LANCAR On Demand',
+          service_name: offer.service_name || 'TEMBUS On Demand',
           service_code: offer.service_code || '',
           vehicle_type: offer.vehicle_type || '',
           route_profile: offer.route_profile || '',

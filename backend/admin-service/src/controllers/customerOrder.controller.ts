@@ -713,7 +713,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     await client.query('BEGIN');
 
     // Generate simple order number
-    const order_number = `LNC-${Date.now().toString().slice(-6)}`;
+    const order_number = `TMB-${Date.now().toString().slice(-6)}`;
 
     const insertQuery = `
       INSERT INTO orders (
@@ -1187,7 +1187,7 @@ export const createCustomerOrderPaymentSession = async (req: Request, res: Respo
 
     const midtransOrderId = `${existing.order_number}-${Date.now()}`;
     const totalPrice = Number(existing.total_price_idr || 0);
-    const serviceName = existing.service_snapshot?.service_name || existing.service_snapshot?.name || 'LANCAR Delivery';
+    const serviceName = existing.service_snapshot?.service_name || existing.service_snapshot?.name || 'TEMBUS Delivery';
     const snap = await createSnapTransaction({
       orderId: midtransOrderId,
       grossAmount: totalPrice,

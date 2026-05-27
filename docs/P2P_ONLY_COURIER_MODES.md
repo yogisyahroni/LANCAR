@@ -2,7 +2,7 @@
 
 ## Production Decision
 
-LANCAR now accepts only `p2p` as the active delivery route model.
+TEMBUS now accepts only `p2p` as the active delivery route model.
 
 Courier application modes are limited to:
 

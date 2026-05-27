@@ -12,7 +12,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import com.lancar.customer.ui.screens.auth.AuthNavGraph
-import com.lancar.customer.ui.theme.LANCARCustomerTheme
+import com.lancar.customer.ui.theme.TEMBUSCustomerTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 import androidx.compose.runtime.*
@@ -40,7 +40,7 @@ class MainActivity : FragmentActivity() {
         }
 
         setContent {
-            LANCARCustomerTheme {
+            TEMBUSCustomerTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

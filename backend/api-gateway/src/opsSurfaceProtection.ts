@@ -76,7 +76,7 @@ export const protectDocs = (req: Request, res: Response, next: NextFunction) => 
   }
 
   if (!hasValidBasicAuth(req, username, password)) {
-    res.setHeader('WWW-Authenticate', 'Basic realm="LANCAR API Docs", charset="UTF-8"');
+    res.setHeader('WWW-Authenticate', 'Basic realm="TEMBUS API Docs", charset="UTF-8"');
     return res.status(401).json({
       status: 'error',
       code: 'ERR_DOCS_AUTH_REQUIRED',

@@ -149,10 +149,10 @@ export default function CourierPublicRegistration() {
         <div className="rounded-[32px] border border-white/10 bg-white/[0.03] p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-primary-light">LANCAR Courier Registration</p>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-primary-light">TEMBUS Courier Registration</p>
               <h1 className="mt-3 text-3xl font-black tracking-tight md:text-4xl">{linkInfo?.title || `Daftar Kurir ${channelName}`}</h1>
               <p className="mt-2 max-w-2xl text-sm text-zinc-400">
-                Jalur pendaftaran ini untuk kurir {channelName}. Data dan dokumen akan masuk ke admin LANCAR untuk proses review.
+                Jalur pendaftaran ini untuk kurir {channelName}. Data dan dokumen akan masuk ke admin TEMBUS untuk proses review.
               </p>
             </div>
             <div className="rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm font-bold text-primary-light">

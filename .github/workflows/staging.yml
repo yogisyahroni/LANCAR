@@ -51,7 +51,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: lancar
+          POSTGRES_DB: tembus
         ports: [5432:5432]
         options: >-
           --health-cmd pg_isready
@@ -83,7 +83,7 @@ jobs:
         working-directory: ./backend/admin-service
         run: npm test -- --testTimeout=60000
         env:
-          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
           NODE_ENV: test
 
@@ -98,7 +98,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: lancar
+          POSTGRES_DB: tembus
         ports: [5432:5432]
         options: >-
           --health-cmd pg_isready
@@ -131,7 +131,7 @@ jobs:
         working-directory: ./backend/auth-service
         run: go test -v -race -timeout 5m ./...
         env:
-          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
   # ───────────────────────────────────────────────
@@ -145,7 +145,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: lancar
+          POSTGRES_DB: tembus
         ports: [5432:5432]
         options: >-
           --health-cmd pg_isready
@@ -178,7 +178,7 @@ jobs:
         working-directory: ./backend/routing-service
         run: go test -v -race -timeout 5m ./...
         env:
-          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/lancar?sslmode=disable"
+          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
   # ───────────────────────────────────────────────
@@ -192,7 +192,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: lancar
+          POSTGRES_DB: tembus
         ports: [5432:5432]
         options: >-
           --health-cmd pg_isready
@@ -210,19 +210,19 @@ jobs:
       - name: Run migrations UP
         run: |
           goose -dir database/migrations postgres \
-            "host=localhost port=5432 user=postgres password=1234 dbname=lancar sslmode=disable" \
+            "host=localhost port=5432 user=postgres password=1234 dbname=tembus sslmode=disable" \
             up
 
       - name: Verify migration version
         run: |
           goose -dir database/migrations postgres \
-            "host=localhost port=5432 user=postgres password=1234 dbname=lancar sslmode=disable" \
+            "host=localhost port=5432 user=postgres password=1234 dbname=tembus sslmode=disable" \
             version
 
       - name: Run migrations DOWN (rollback test)
         run: |
           goose -dir database/migrations postgres \
-            "host=localhost port=5432 user=postgres password=1234 dbname=lancar sslmode=disable" \
+            "host=localhost port=5432 user=postgres password=1234 dbname=tembus sslmode=disable" \
             down
 
   # ═══════════════════════════════════════════════════════════
@@ -329,7 +329,7 @@ jobs:
           context: ${{ matrix.context }}
           push: false
           load: true
-          tags: lancar-local/${{ matrix.image }}:${{ github.sha }}
+          tags: tembus-local/${{ matrix.image }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
@@ -337,7 +337,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
-          image-ref: lancar-local/${{ matrix.image }}:${{ github.sha }}
+          image-ref: tembus-local/${{ matrix.image }}:${{ github.sha }}
           format: cyclonedx
           output: sbom-${{ matrix.image }}.cdx.json
 
@@ -345,7 +345,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: image
-          image-ref: lancar-local/${{ matrix.image }}:${{ github.sha }}
+          image-ref: tembus-local/${{ matrix.image }}:${{ github.sha }}
           scanners: secret,vuln,misconfig
           severity: HIGH,CRITICAL
           ignore-unfixed: true

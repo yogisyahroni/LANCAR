@@ -1,15 +1,15 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: lancar-admin-service
+  name: tembus-admin-service
   labels:
-    app.kubernetes.io/name: lancar-admin-service
-    app.kubernetes.io/part-of: lancar-platform
+    app.kubernetes.io/name: tembus-admin-service
+    app.kubernetes.io/part-of: tembus-platform
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: lancar-admin-service
+    name: tembus-admin-service
   minReplicas: 3
   maxReplicas: 30
   metrics:

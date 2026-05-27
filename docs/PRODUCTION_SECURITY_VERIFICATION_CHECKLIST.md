@@ -29,7 +29,7 @@ Scope: source tree, production Compose config, gateway/admin security tests, and
 - [ ] Store real Android `google-services.json` files outside Git, then inject them via local secure file handling or GitHub Actions Secrets.
 - [ ] Set `ANDROID_COURIER_GOOGLE_SERVICES_JSON_B64` and `ANDROID_CUSTOMER_GOOGLE_SERVICES_JSON_B64` in GitHub Actions Secrets before mobile release builds.
 - [ ] Confirm GitHub Actions staging run is green after this final checklist commit.
-- [ ] Run `scripts/ops/verify-vps-security.sh` on the real VPS with `ENV_FILE=/opt/lancar/secrets/.env.production` and real `API_BASE_URL`.
+- [ ] Run `scripts/ops/verify-vps-security.sh` on the real VPS with `ENV_FILE=/opt/tembus/secrets/.env.production` and real `API_BASE_URL`.
 
 ## Tutorial: Required External Actions
 
@@ -111,13 +111,13 @@ After key restriction or rotation:
 5. Store it outside this repo, for example:
 
 ```text
-C:\Users\yogis\secrets\lancar\courier-google-services.json
+C:\Users\yogis\secrets\tembus\courier-google-services.json
 ```
 
 6. Repeat for customer app `com.lancar.customer`:
 
 ```text
-C:\Users\yogis\secrets\lancar\customer-google-services.json
+C:\Users\yogis\secrets\tembus\customer-google-services.json
 ```
 
 Do not copy the real files into:
@@ -146,13 +146,13 @@ GitHub Actions stores multi-line JSON more safely as base64 text.
 PowerShell command for courier:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\Users\yogis\secrets\lancar\courier-google-services.json")) | Set-Clipboard
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\Users\yogis\secrets\tembus\courier-google-services.json")) | Set-Clipboard
 ```
 
 PowerShell command for customer:
 
 ```powershell
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\Users\yogis\secrets\lancar\customer-google-services.json")) | Set-Clipboard
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("C:\Users\yogis\secrets\tembus\customer-google-services.json")) | Set-Clipboard
 ```
 
 Linux/macOS equivalent:
@@ -233,9 +233,9 @@ Done criteria:
 On the VPS:
 
 ```bash
-cd /opt/lancar/app
+cd /opt/tembus/app
 chmod +x scripts/ops/verify-vps-security.sh
-ENV_FILE=/opt/lancar/secrets/.env.production API_BASE_URL=https://api.your-domain.com ./scripts/ops/verify-vps-security.sh
+ENV_FILE=/opt/tembus/secrets/.env.production API_BASE_URL=https://api.your-domain.com ./scripts/ops/verify-vps-security.sh
 ```
 
 Replace:
@@ -293,16 +293,16 @@ npm test -- --runInBand src/middlewares.test.ts src/middleware/auditTrail.test.t
 Production Compose render test:
 
 ```bash
-docker compose --env-file /opt/lancar/secrets/.env.production -f docker-compose.prod.yml config >/tmp/lancar-compose-rendered.yml
-grep -Ei 'lancar_secret_key_change_me|changeme|guest:guest|postgres:1234|password=1234|PASSWORD_RAW|PASSWORD_URL_ENCODED|REDIS_PASSWORD_URL_ENCODED|RABBITMQ_PASSWORD_URL_ENCODED' /tmp/lancar-compose-rendered.yml && exit 1
-rm -f /tmp/lancar-compose-rendered.yml
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml config >/tmp/tembus-compose-rendered.yml
+grep -Ei 'tembus_secret_key_change_me|changeme|guest:guest|postgres:1234|password=1234|PASSWORD_RAW|PASSWORD_URL_ENCODED|REDIS_PASSWORD_URL_ENCODED|RABBITMQ_PASSWORD_URL_ENCODED' /tmp/tembus-compose-rendered.yml && exit 1
+rm -f /tmp/tembus-compose-rendered.yml
 ```
 
 VPS final gate:
 
 ```bash
-cd /opt/lancar/app
-ENV_FILE=/opt/lancar/secrets/.env.production API_BASE_URL=https://api.example.com ./scripts/ops/verify-vps-security.sh
+cd /opt/tembus/app
+ENV_FILE=/opt/tembus/secrets/.env.production API_BASE_URL=https://api.example.com ./scripts/ops/verify-vps-security.sh
 ```
 
 ## Current Tree Cleanup Notes

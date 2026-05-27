@@ -29,7 +29,7 @@ object DatabaseModule {
 
         val prefs = EncryptedSharedPreferences.create(
             context,
-            "lancar_secure_db_prefs",
+            "tembus_secure_db_prefs",
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM

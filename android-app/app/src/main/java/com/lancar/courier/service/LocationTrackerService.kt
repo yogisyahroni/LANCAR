@@ -434,7 +434,7 @@ class LocationTrackerService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_LOCATION_TRACKING)
-            .setContentTitle("LANCAR Courier")
+            .setContentTitle("TEMBUS Courier")
             .setContentText("Tracking your location for real-time shipment updates")
             .setSmallIcon(R.drawable.ic_notification)
             .setContentIntent(pendingIntent)

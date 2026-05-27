@@ -71,7 +71,7 @@ export default function Login() {
               { icon: Zap, title: "Cepat", desc: "Instant matching" },
               { icon: Shield, title: "Aman", desc: "Secured transit" },
               { icon: CheckCircle, title: "Terpercaya", desc: "SLA Guaranteed" },
-              { icon: Package, title: "Lancar", desc: "End-to-end logistics" },
+              { icon: Package, title: "Tembus", desc: "End-to-end logistics" },
             ].map((item, i) => (
               <motion.div 
                 key={i}
@@ -131,7 +131,7 @@ export default function Login() {
                     type="email" 
                     name="email"
                     required
-                    placeholder="admin@lancar.com"
+                    placeholder="admin@tembus.id"
                     className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
                   />
                 </div>
@@ -173,7 +173,7 @@ export default function Login() {
             </form>
 
             <div className="mt-8 pt-8 border-t border-white/5 flex flex-col items-center gap-4">
-              <p className="text-zinc-500 text-xs">Protected by Lancar Security Systems</p>
+              <p className="text-zinc-500 text-xs">Protected by TEMBUS Security Systems</p>
               <div className="flex gap-4 opacity-40">
                 <Shield className="h-5 w-5" />
                 <Zap className="h-5 w-5" />

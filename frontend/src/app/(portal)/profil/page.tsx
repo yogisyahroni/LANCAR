@@ -84,7 +84,7 @@ export default function ProfilPage() {
   useEffect(() => {
     if (user?.name) setName(user.name);
     if (user?.email) setEmail(user.email);
-    const savedPic = localStorage.getItem('lancar_profile_pic');
+    const savedPic = localStorage.getItem('tembus_profile_pic');
     if (savedPic) setProfilePic(savedPic);
 
     api.get('/customer/profile')
@@ -131,7 +131,7 @@ export default function ProfilPage() {
   const handleConfirmCrop = () => {
     if (tempImage) {
       setProfilePic(tempImage);
-      localStorage.setItem('lancar_profile_pic', tempImage);
+      localStorage.setItem('tembus_profile_pic', tempImage);
       addNotification({ title: 'Sukses', message: 'Foto profil berhasil diunggah.', type: 'success' });
     }
     setIsCropOpen(false);

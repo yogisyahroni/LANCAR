@@ -6,7 +6,7 @@ import android.os.Build
 import com.scottyab.rootbeer.RootBeer
 
 /**
- * Security Utilities for LANCAR Courier App
+ * Security Utilities for TEMBUS Courier App
  *
  * Contains checks for rooted devices, mock locations, and tampered environments.
  */

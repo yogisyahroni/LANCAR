@@ -1,13 +1,13 @@
 package com.lancar.customer.data.repository
 
-import com.lancar.customer.data.api.LANCARApiService
+import com.lancar.customer.data.api.TEMBUSApiService
 import com.lancar.customer.data.model.RegisterTokenRequest
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class NotificationRepository @Inject constructor(
-    private val apiService: LANCARApiService
+    private val apiService: TEMBUSApiService
 ) {
     suspend fun registerDeviceToken(token: String): Result<Unit> {
         return try {

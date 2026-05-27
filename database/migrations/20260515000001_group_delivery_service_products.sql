@@ -20,28 +20,28 @@ SET service_category = 'on_demand',
     service_family = 'express',
     route_model = 'p2p',
     updated_at = NOW()
-WHERE code IN ('lancar_priority', 'lancar_instant');
+WHERE code IN ('tembus_priority', 'tembus_instant');
 
 UPDATE delivery_service_products
 SET service_category = 'on_demand',
     service_family = 'regular',
     route_model = 'p2p',
     updated_at = NOW()
-WHERE code = 'lancar_hemat';
+WHERE code = 'tembus_hemat';
 
 UPDATE delivery_service_products
 SET service_category = 'on_demand',
     service_family = 'regular',
     route_model = 'three_legs',
     updated_at = NOW()
-WHERE code = 'lancar_same_day';
+WHERE code = 'tembus_same_day';
 
 UPDATE delivery_service_products
 SET service_category = 'on_demand',
     service_family = 'cargo',
     route_model = 'p2p',
     updated_at = NOW()
-WHERE code = 'lancar_mobil';
+WHERE code = 'tembus_mobil';
 
 INSERT INTO delivery_service_products (
   code, name, description, service_family, service_category, route_model, is_enabled, display_order,
@@ -53,8 +53,8 @@ INSERT INTO delivery_service_products (
   size_tiers, dimension_rules, availability_rules, metadata
 ) VALUES
 (
-  'lancar_reg',
-  'LANCAR REG',
+  'tembus_reg',
+  'TEMBUS REG',
   'Service regular network parcel dengan alur pickup, inbound/outbound origin, inbound/outbound destination, delivery, dan POD.',
   'regular',
   'network',
@@ -88,8 +88,8 @@ INSERT INTO delivery_service_products (
   '{"ui_badge":"REG"}'
 ),
 (
-  'lancar_yes',
-  'LANCAR YES',
+  'tembus_yes',
+  'TEMBUS YES',
   'Service express network parcel dengan prioritas SLA dan alur hub-and-spoke penuh.',
   'express',
   'network',
@@ -157,7 +157,7 @@ ON CONFLICT (code) DO UPDATE SET
   updated_at = NOW();
 
 -- +goose Down
-DELETE FROM delivery_service_products WHERE code IN ('lancar_reg', 'lancar_yes');
+DELETE FROM delivery_service_products WHERE code IN ('tembus_reg', 'tembus_yes');
 
 ALTER TABLE orders
   DROP CONSTRAINT IF EXISTS orders_model_check,
