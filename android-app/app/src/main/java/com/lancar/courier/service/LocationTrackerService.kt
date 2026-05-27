@@ -575,10 +575,10 @@ class LocationTrackerService : Service() {
         const val CHANNEL_LOCATION_TRACKING = "location_tracking"
         const val NOTIFICATION_ID = 1001
 
-        const val ACTION_START_TRACKING = "com.lancar.courier.ACTION_START_TRACKING"
-        const val ACTION_STOP_TRACKING = "com.lancar.courier.ACTION_STOP_TRACKING"
-        const val ACTION_FORCE_SYNC = "com.lancar.courier.ACTION_FORCE_SYNC"
-        const val ACTION_GO_OFFLINE = "com.lancar.courier.ACTION_GO_OFFLINE"
+        const val ACTION_START_TRACKING = "com.tembus.courier.ACTION_START_TRACKING"
+        const val ACTION_STOP_TRACKING = "com.tembus.courier.ACTION_STOP_TRACKING"
+        const val ACTION_FORCE_SYNC = "com.tembus.courier.ACTION_FORCE_SYNC"
+        const val ACTION_GO_OFFLINE = "com.tembus.courier.ACTION_GO_OFFLINE"
 
         fun startIntent(context: Context): Intent =
             Intent(context, LocationTrackerService::class.java).apply {

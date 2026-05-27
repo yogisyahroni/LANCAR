@@ -30,8 +30,8 @@ Paste the clipboard value into the matching GitHub secret.
 
 Firebase Android app package names must be exactly:
 
-- Courier: `com.lancar.courier`
-- Customer: `com.lancar.customer`
+- Courier: `com.tembus.courier`
+- Customer: `com.tembus.customer`
 
 The GitHub Actions mobile workflow validates those package names before Gradle starts. If the Firebase file contains multiple Android clients, CI selects the matching client instead of blindly trusting the first client entry.
 
@@ -44,8 +44,8 @@ For each Firebase project/app:
 3. Go to Project settings.
 4. Open the Android app entry.
 5. Confirm package name:
-   - Courier: `com.lancar.courier`
-   - Customer: `com.lancar.customer`
+   - Courier: `com.tembus.courier`
+   - Customer: `com.tembus.customer`
 6. Add the release upload key fingerprints:
    - SHA-1
    - SHA-256

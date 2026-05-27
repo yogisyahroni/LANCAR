@@ -128,8 +128,8 @@ class NotificationReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "NotificationReceiver"
-        const val ACTION_DISMISS = "com.lancar.courier.ACTION_DISMISS"
-        const val ACTION_ACCEPT = "com.lancar.courier.ACTION_ACCEPT"
+        const val ACTION_DISMISS = "com.tembus.courier.ACTION_DISMISS"
+        const val ACTION_ACCEPT = "com.tembus.courier.ACTION_ACCEPT"
         const val EXTRA_NOTIFICATION_ID = "notification_id"
         const val EXTRA_ORDER_ID = "order_id"
         const val EXTRA_DISPATCH_ID = "dispatch_id"

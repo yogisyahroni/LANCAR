@@ -27,7 +27,7 @@ Scope: source tree, production Compose config, gateway/admin security tests, and
 - [ ] Rotate or restrict the Firebase Android API keys that previously existed in Git history.
 - [ ] Confirm Android Firebase API keys are restricted by package name and SHA-1/SHA-256 certificate fingerprint.
 - [ ] Store real Android `google-services.json` files outside Git, then inject them via local secure file handling or GitHub Actions Secrets.
-- [ ] Set `ANDROID_COURIER_GOOGLE_SERVICES_JSON_B64` and `ANDROID_CUSTOMER_GOOGLE_SERVICES_JSON_B64` in GitHub Actions Secrets before mobile release builds.
+- [ ] Set `COURIER_GOOGLE_SERVICES_JSON` and `CUSTOMER_GOOGLE_SERVICES_JSON` in GitHub Actions Secrets before mobile release builds.
 - [ ] Confirm GitHub Actions staging run is green after this final checklist commit.
 - [ ] Run `scripts/ops/verify-vps-security.sh` on the real VPS with `ENV_FILE=/opt/tembus/secrets/.env.production` and real `API_BASE_URL`.
 
@@ -47,7 +47,7 @@ Steps:
 6. Add package name:
 
 ```text
-com.lancar.courier
+com.tembus.courier
 ```
 
 7. Add the release signing certificate SHA-1 fingerprint and SHA-256 fingerprint.
@@ -56,7 +56,7 @@ com.lancar.courier
 10. Repeat the same process for the customer app key with package name:
 
 ```text
-com.lancar.customer
+com.tembus.customer
 ```
 
 Done criteria:
@@ -107,14 +107,14 @@ After key restriction or rotation:
 1. Open Firebase Console.
 2. Select the courier Firebase project/app.
 3. Go to `Project settings` -> `General`.
-4. Under Android app `com.lancar.courier`, click `Download google-services.json`.
+4. Under Android app `com.tembus.courier`, click `Download google-services.json`.
 5. Store it outside this repo, for example:
 
 ```text
 C:\Users\yogis\secrets\tembus\courier-google-services.json
 ```
 
-6. Repeat for customer app `com.lancar.customer`:
+6. Repeat for customer app `com.tembus.customer`:
 
 ```text
 C:\Users\yogis\secrets\tembus\customer-google-services.json
@@ -178,14 +178,14 @@ Steps:
 4. Add courier secret:
 
 ```text
-Name: ANDROID_COURIER_GOOGLE_SERVICES_JSON_B64
+Name: COURIER_GOOGLE_SERVICES_JSON
 Value: paste courier base64 string
 ```
 
 5. Add customer secret:
 
 ```text
-Name: ANDROID_CUSTOMER_GOOGLE_SERVICES_JSON_B64
+Name: CUSTOMER_GOOGLE_SERVICES_JSON
 Value: paste customer base64 string
 ```
 

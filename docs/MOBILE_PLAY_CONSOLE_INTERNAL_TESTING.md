@@ -16,8 +16,8 @@ Official references:
 
 | App | Play Console app name | Package name | CI working dir | Release artifact |
 | --- | --- | --- | --- | --- |
-| Courier | TEMBUS Courier | `com.lancar.courier` | `android-app` | `Courier-App-release-aab-<run_number>` |
-| Customer | TEMBUS Customer | `com.lancar.customer` | `android-app-customer` | `Customer-App-release-aab-<run_number>` |
+| Courier | TEMBUS Courier | `com.tembus.courier` | `android-app` | `Courier-App-release-aab-<run_number>` |
+| Customer | TEMBUS Customer | `com.tembus.customer` | `android-app-customer` | `Customer-App-release-aab-<run_number>` |
 
 Do not swap the two AABs. Play Console will reject package-name mismatches, but swapping files wastes review/debug time and can cause wrong tester notes.
 
@@ -28,7 +28,7 @@ Complete this once per app before creating the first internal test release.
 | Item | Courier | Customer | Notes |
 | --- | --- | --- | --- |
 | App entry exists in Play Console | [ ] | [ ] | Create separate apps for courier and customer. |
-| Package name matches Gradle `applicationId` | [ ] | [ ] | Courier: `com.lancar.courier`; Customer: `com.lancar.customer`. |
+| Package name matches Gradle `applicationId` | [ ] | [ ] | Courier: `com.tembus.courier`; Customer: `com.tembus.customer`. |
 | Play App Signing enabled | [ ] | [ ] | Required for modern AAB publishing. |
 | App category selected | [ ] | [ ] | Suggested: Business/Productivity or Maps/Navigation depending final store positioning. |
 | Privacy policy URL configured | [ ] | [ ] | Use the hosted URL for `frontend/public/privacy/tembus-mobile.html`. |
@@ -149,8 +149,8 @@ After the first Play Console upload, copy these fingerprints into the matching F
 
 Do this separately for:
 
-- `com.lancar.courier`
-- `com.lancar.customer`
+- `com.tembus.courier`
+- `com.tembus.customer`
 
 If Google Maps API keys are restricted by package name and certificate fingerprint, update those restrictions too.
 

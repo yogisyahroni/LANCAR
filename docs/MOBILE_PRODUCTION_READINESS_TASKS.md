@@ -199,8 +199,8 @@ Firebase config errors can cause notification failure, Crashlytics gaps, or star
   - `COURIER_GOOGLE_SERVICES_JSON`
   - `CUSTOMER_GOOGLE_SERVICES_JSON`
 - [x] Validate package name in CI:
-  - courier: `com.lancar.courier`
-  - customer: `com.lancar.customer`
+  - courier: `com.tembus.courier`
+  - customer: `com.tembus.customer`
 - [x] Support both raw JSON and base64 Firebase secrets.
 - [x] Validate multi-client `google-services.json` files by matching expected package instead of trusting the first client.
 - [x] Validate `project_info.project_id`, `project_info.project_number`, `mobilesdk_app_id`, and Android API key presence.
@@ -329,8 +329,8 @@ Local APK testing and CI AAB generation do not guarantee Play Console acceptance
 ### Tasks
 
 - [x] Document app identity and package names:
-  - courier: `com.lancar.courier`
-  - customer: `com.lancar.customer`
+  - courier: `com.tembus.courier`
+  - customer: `com.tembus.customer`
 - [x] Document required CI artifacts:
   - `Courier-App-release-aab-<run_number>`
   - `Customer-App-release-aab-<run_number>`

@@ -217,8 +217,8 @@ Set these in GitHub repository settings, not in source files:
 | `VPS_USER` | Usually `deploy` |
 | `VPS_SSH_KEY` | Private key for deploy automation |
 | `GHCR_TOKEN` | Optional registry token if `GITHUB_TOKEN` is not enough |
-| `ANDROID_COURIER_GOOGLE_SERVICES_JSON_B64` | Optional base64 encoded courier `google-services.json` for Android release builds |
-| `ANDROID_CUSTOMER_GOOGLE_SERVICES_JSON_B64` | Optional base64 encoded customer `google-services.json` for Android release builds |
+| `COURIER_GOOGLE_SERVICES_JSON` | Optional base64 encoded courier `google-services.json` for Android release builds |
+| `CUSTOMER_GOOGLE_SERVICES_JSON` | Optional base64 encoded customer `google-services.json` for Android release builds |
 | `TEST_USER_EMAIL` | E2E staging test user |
 | `TEST_USER_PASSWORD` | E2E staging test password |
 
@@ -236,7 +236,7 @@ Android Firebase config rule:
 
 - Real `google-services.json` files must not be committed.
 - Use `android-app/app/google-services.example.json` and `android-app-customer/app/google-services.example.json` as templates only.
-- Mobile CI recreates real `google-services.json` from `ANDROID_COURIER_GOOGLE_SERVICES_JSON_B64` and `ANDROID_CUSTOMER_GOOGLE_SERVICES_JSON_B64` when those GitHub Secrets are present.
+- Mobile CI recreates real `google-services.json` from `COURIER_GOOGLE_SERVICES_JSON` and `CUSTOMER_GOOGLE_SERVICES_JSON` when those GitHub Secrets are present.
 - Before production, rotate or restrict any Firebase Android API key that ever appeared in Git history.
 - Restrict Firebase/Google API keys by Android package name and SHA-1/SHA-256 signing certificate fingerprint.
 

@@ -67,11 +67,11 @@ jobs:
           case "${WORKING_DIR}" in
             android-app)
               secret_name="COURIER_GOOGLE_SERVICES_JSON"
-              expected_package="com.lancar.courier"
+              expected_package="com.tembus.courier"
               ;;
             android-app-customer)
               secret_name="CUSTOMER_GOOGLE_SERVICES_JSON"
-              expected_package="com.lancar.customer"
+              expected_package="com.tembus.customer"
               ;;
             *)
               echo "Unknown Android app directory: ${WORKING_DIR}" >&2

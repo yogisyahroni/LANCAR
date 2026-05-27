@@ -128,8 +128,8 @@
             android:name=".receiver.NotificationReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.lancar.courier.ACTION_DISMISS" />
-                <action android:name="com.lancar.courier.ACTION_ACCEPT" />
+                <action android:name="com.tembus.courier.ACTION_DISMISS" />
+                <action android:name="com.tembus.courier.ACTION_ACCEPT" />
             </intent-filter>
         </receiver>
 

@@ -10,8 +10,8 @@ This runbook explains how to produce, verify, download, and upload production-re
 
 | App | Package name | Source dir | Local AAB path | CI artifact |
 | --- | --- | --- | --- | --- |
-| Courier | `com.lancar.courier` | `android-app` | `android-app/app/build/outputs/bundle/release/app-release.aab` | `Courier-App-release-aab-<run_number>` |
-| Customer | `com.lancar.customer` | `android-app-customer` | `android-app-customer/app/build/outputs/bundle/release/app-release.aab` | `Customer-App-release-aab-<run_number>` |
+| Courier | `com.tembus.courier` | `android-app` | `android-app/app/build/outputs/bundle/release/app-release.aab` | `Courier-App-release-aab-<run_number>` |
+| Customer | `com.tembus.customer` | `android-app-customer` | `android-app-customer/app/build/outputs/bundle/release/app-release.aab` | `Customer-App-release-aab-<run_number>` |
 
 ## Non-Negotiable Rules
 
@@ -27,8 +27,8 @@ Add these under `Settings > Secrets and variables > Actions > Secrets`.
 
 | Secret | App | Expected value |
 | --- | --- | --- |
-| `COURIER_GOOGLE_SERVICES_JSON` | Courier | Full raw JSON or base64-encoded `google-services.json` for `com.lancar.courier`. |
-| `CUSTOMER_GOOGLE_SERVICES_JSON` | Customer | Full raw JSON or base64-encoded `google-services.json` for `com.lancar.customer`. |
+| `COURIER_GOOGLE_SERVICES_JSON` | Courier | Full raw JSON or base64-encoded `google-services.json` for `com.tembus.courier`. |
+| `CUSTOMER_GOOGLE_SERVICES_JSON` | Customer | Full raw JSON or base64-encoded `google-services.json` for `com.tembus.customer`. |
 | `COURIER_RELEASE_KEYSTORE_BASE64` | Courier | Base64 of Courier release `.jks`. |
 | `COURIER_RELEASE_KEYSTORE_PASSWORD` | Courier | Courier keystore password. |
 | `COURIER_RELEASE_KEY_ALIAS` | Courier | Courier key alias, for example `tembus-courier-release`. |
@@ -37,6 +37,52 @@ Add these under `Settings > Secrets and variables > Actions > Secrets`.
 | `CUSTOMER_RELEASE_KEYSTORE_PASSWORD` | Customer | Customer keystore password. |
 | `CUSTOMER_RELEASE_KEY_ALIAS` | Customer | Customer key alias, for example `tembus-customer-release`. |
 | `CUSTOMER_RELEASE_KEY_PASSWORD` | Customer | Customer key password. |
+
+## TEMBUS Firebase Secret Rotation
+
+Use this when the Android package name changes, Firebase project changes, or a new `google-services.json` is downloaded. For the TEMBUS package migration, keep the secret names exactly the same and replace only their values.
+
+Current production package IDs:
+
+- Courier: `com.tembus.courier`
+- Customer: `com.tembus.customer`
+
+Files from Firebase:
+
+- Courier Firebase JSON: `C:\Users\yogis\Downloads\com.tembus.courier.json`
+- Customer Firebase JSON: `C:\Users\yogis\Downloads\com.tembus.customer.json`
+
+Do not commit those JSON files. Store them only in GitHub Actions Secrets.
+
+1. Copy Courier Firebase JSON to clipboard as base64:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\Downloads\com.tembus.courier.json")) | Set-Clipboard
+```
+
+2. Open GitHub repository settings:
+
+`Settings > Secrets and variables > Actions > Repository secrets`
+
+3. Edit `COURIER_GOOGLE_SERVICES_JSON`.
+
+4. Replace the whole value with the clipboard content, then save.
+
+5. Copy Customer Firebase JSON to clipboard as base64:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\Downloads\com.tembus.customer.json")) | Set-Clipboard
+```
+
+6. Edit `CUSTOMER_GOOGLE_SERVICES_JSON`.
+
+7. Replace the whole value with the clipboard content, then save.
+
+8. Re-run `Mobile Apps CI/CD`.
+
+The workflow validates the package name before build. If a Courier JSON contains `com.tembus.customer`, or an old `com.lancar.*` JSON is pasted, the CI fails before Gradle runs.
+
+Signing secrets do not need to change for the TEMBUS package rename unless you intentionally create new upload keys. Keep the release keystore secrets as they are when the keystore, alias, and passwords are still valid.
 
 ## Required GitHub Actions Variables
 
@@ -252,8 +298,8 @@ After Play App Signing is active, update integrations with Play fingerprints:
 
 Do this for both packages:
 
-- `com.lancar.courier`
-- `com.lancar.customer`
+- `com.tembus.courier`
+- `com.tembus.customer`
 
 ## Release Acceptance Gate
 
@@ -295,6 +341,6 @@ If a production release has already happened:
 | Release signing step fails | Wrong keystore password, alias, key password, or stale base64 | Verify with `keytool -list`, then update secrets. |
 | `BASE_URL` release validation fails | Missing or non-HTTPS API URL | Set `MOBILE_API_BASE_URL` Actions variable to an HTTPS URL. |
 | AAB verifier fails signature check | AAB is unsigned or wrong signing env | Rebuild with correct release signing secrets. |
-| Play Console rejects package name | Wrong AAB uploaded to wrong app | Use Courier AAB for `com.lancar.courier`, Customer AAB for `com.lancar.customer`. |
+| Play Console rejects package name | Wrong AAB uploaded to wrong app | Use Courier AAB for `com.tembus.courier`, Customer AAB for `com.tembus.customer`. |
 | Testers cannot install | Tester email missing or not opted in | Add Gmail/Workspace account to internal tester list and share opt-in link. |
 | GitHub Actions stays queued | GitHub Actions service degradation | Wait for GitHub Status recovery before retriggering. |

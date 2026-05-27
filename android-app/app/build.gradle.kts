@@ -142,7 +142,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.lancar.courier"
+        applicationId = "com.tembus.courier"
         minSdk = 26
         targetSdk = 34
         versionCode = getVersionCode()
