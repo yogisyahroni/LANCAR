@@ -8,17 +8,17 @@ import (
 	"strings"
 
 	"context"
-	"lancar/order-service/internal/domain"
-	"lancar/order-service/internal/featureflags"
-	"lancar/order-service/internal/handler"
-	"lancar/order-service/internal/infrastructure/eventbus"
-	notificationinfra "lancar/order-service/internal/infrastructure/notification"
-	"lancar/order-service/internal/infrastructure/payment_gateway"
-	"lancar/order-service/internal/infrastructure/queue"
-	"lancar/order-service/internal/middleware"
-	"lancar/order-service/internal/repository"
-	"lancar/order-service/internal/service"
-	"lancar/order-service/internal/worker"
+	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/featureflags"
+	"tembus/order-service/internal/handler"
+	"tembus/order-service/internal/infrastructure/eventbus"
+	notificationinfra "tembus/order-service/internal/infrastructure/notification"
+	"tembus/order-service/internal/infrastructure/payment_gateway"
+	"tembus/order-service/internal/infrastructure/queue"
+	"tembus/order-service/internal/middleware"
+	"tembus/order-service/internal/repository"
+	"tembus/order-service/internal/service"
+	"tembus/order-service/internal/worker"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -26,7 +26,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/redis/go-redis/v9"
 	httpSwagger "github.com/swaggo/http-swagger"
-	_ "lancar/order-service/internal/handler/docs"
+	_ "tembus/order-service/internal/handler/docs"
 )
 
 // @title TEMBUS Order Service API

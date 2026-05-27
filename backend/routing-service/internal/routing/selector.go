@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"hash/fnv"
 
-	"lancar-backend/internal/featureflags"
+	"tembus-backend/internal/featureflags"
 )
 
 type ModelType string

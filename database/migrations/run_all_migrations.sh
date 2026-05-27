@@ -8,17 +8,18 @@ set -e  # Exit on first error
 DB_USER="postgres"
 DB_NAME="tembus"
 CONTAINER="tembus-db"
-MIGRATIONS_DIR="/mnt/e/antigraviti google/SUDAH DEPLOY/LANCAR/database/migrations"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MIGRATIONS_DIR="$SCRIPT_DIR"
 
 echo "============================================================"
 echo "  TEMBUS - Running All Database Migrations"
 echo "  Target: container=$CONTAINER, db=$DB_NAME"
 echo "============================================================"
 
-# Get all migration files in sorted order, excluding helper scripts
-MIGRATION_FILES=$(ls "$MIGRATIONS_DIR"/*.sql | sort | grep -v 'run_00024.sql')
+# Get all migration files in sorted order, excluding helper scripts.
+mapfile -t MIGRATION_FILES < <(find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | sort | grep -v 'run_00024.sql')
 
-for FILE in $MIGRATION_FILES; do
+for FILE in "${MIGRATION_FILES[@]}"; do
   BASENAME=$(basename "$FILE")
   echo ""
   echo "▶ Running: $BASENAME"

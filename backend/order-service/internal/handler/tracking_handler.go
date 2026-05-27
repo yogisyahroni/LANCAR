@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"lancar/order-service/internal/domain"
-	"lancar/order-service/internal/middleware"
+	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/middleware"
 )
 
 type TrackingHandler struct {

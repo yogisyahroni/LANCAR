@@ -26,7 +26,7 @@ Native Android application for TEMBUS customers, built with Kotlin and Jetpack C
 ### 2. Firebase Configuration
 
 1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com)
-2. Add an Android app with package name `com.lancar.customer`
+2. Add an Android app with package name `com.tembus.customer`
 3. Download `google-services.json` and place in `app/` directory
 4. Enable Cloud Messaging in Firebase Console
 
@@ -48,7 +48,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 android-app-customer/
 ├── app/
 │   └── src/main/
-│       ├── java/com/lancar/customer/
+│       ├── java/com/tembus/customer/
 │       │   ├── TEMBUSApplication.kt      # App initialization, notification channels
 │       │   ├── service/
 │       │   │   ├── TEMBUSFirebaseMessagingService.kt  # FCM message handling

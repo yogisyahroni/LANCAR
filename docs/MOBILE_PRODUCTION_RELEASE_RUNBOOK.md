@@ -80,7 +80,7 @@ Do not commit those JSON files. Store them only in GitHub Actions Secrets.
 
 8. Re-run `Mobile Apps CI/CD`.
 
-The workflow validates the package name before build. If a Courier JSON contains `com.tembus.customer`, or an old `com.lancar.*` JSON is pasted, the CI fails before Gradle runs.
+The workflow validates the package name before build. If a Courier JSON contains `com.tembus.customer`, or an old `com.tembus.*` JSON is pasted, the CI fails before Gradle runs.
 
 Signing secrets do not need to change for the TEMBUS package rename unless you intentionally create new upload keys. Keep the release keystore secrets as they are when the keystore, alias, and passwords are still valid.
 

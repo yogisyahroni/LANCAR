@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"lancar/auth-service/internal/domain"
-	"lancar/auth-service/internal/middleware"
+	"tembus/auth-service/internal/domain"
+	"tembus/auth-service/internal/middleware"
 )
 
 // MockUserRepository implements domain.UserRepository for testing purposes.

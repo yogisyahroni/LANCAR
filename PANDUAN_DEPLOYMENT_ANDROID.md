@@ -8,12 +8,12 @@ Dokumen ini merangkum seluruh daftar hal-hal kritis yang **WAJIB DIUBAH** saat A
 Agar aplikasi mengarah ke database riil, bukan server testing.
 
 ### 📱 Aplikasi Customer (`android-app-customer`)
-**File Target:** `app/src/main/java/com/lancar/customer/data/api/TEMBUSApiService.kt`
+**File Target:** `app/src/main/java/com/tembus/customer/data/api/TEMBUSApiService.kt`
 *   **Ubah Variabel:** `BASE_URL`
 *   **Aksi:** Ganti `"http://10.0.2.2:8080/api/v1/"` atau server staging menjadi `"https://api.tembus.id/api/v1/"`.
 
 ### 🚚 Aplikasi Kurir (`android-app`)
-**File Target:** `app/src/main/java/com/lancar/courier/data/api/TEMBUSApiService.kt` *(atau setara)*
+**File Target:** `app/src/main/java/com/tembus/courier/data/api/TEMBUSApiService.kt` *(atau setara)*
 *   **Aksi:** Samakan dengan domain production resmi Anda.
 
 ---

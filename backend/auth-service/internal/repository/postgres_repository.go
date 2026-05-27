@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"lancar/auth-service/internal/domain"
+	"tembus/auth-service/internal/domain"
 	"time"
 
 	"github.com/lib/pq"

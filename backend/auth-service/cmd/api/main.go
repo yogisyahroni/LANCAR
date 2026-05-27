@@ -9,18 +9,18 @@ import (
 	"strings"
 	"time"
 
-	"lancar/auth-service/internal/domain"
-	"lancar/auth-service/internal/handler"
-	"lancar/auth-service/internal/middleware"
-	"lancar/auth-service/internal/repository"
-	"lancar/auth-service/internal/service"
+	"tembus/auth-service/internal/domain"
+	"tembus/auth-service/internal/handler"
+	"tembus/auth-service/internal/middleware"
+	"tembus/auth-service/internal/repository"
+	"tembus/auth-service/internal/service"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	httpSwagger "github.com/swaggo/http-swagger"
-	_ "lancar/auth-service/internal/handler/docs"
+	_ "tembus/auth-service/internal/handler/docs"
 )
 
 // @title TEMBUS Identity Service API

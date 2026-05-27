@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"lancar/order-service/internal/domain"
-	"lancar/order-service/internal/service"
+	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/service"
 )
 
 type mockPaymentRepo struct {

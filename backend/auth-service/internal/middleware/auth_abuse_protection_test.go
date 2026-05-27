@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"lancar/auth-service/internal/middleware"
+	"tembus/auth-service/internal/middleware"
 )
 
 func TestAuthAbuseProtector_LocksIdentifierAfterFailures(t *testing.T) {

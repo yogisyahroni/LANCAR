@@ -29,7 +29,7 @@ groups:
           summary: "Kegagalan provider route tinggi"
           description: "Circuit breaker mungkin aktif. Cek quota Google, OSRM/OSM latency, dan stale-cache hit rate."
       - alert: TembusRabbitMqBacklogHigh
-        expr: rabbitmq_queue_messages_ready{queue=~"lancar\\..*"} > 50000
+        expr: rabbitmq_queue_messages_ready{queue=~"tembus\\..*"} > 50000
         for: 10m
         labels:
           severity: critical

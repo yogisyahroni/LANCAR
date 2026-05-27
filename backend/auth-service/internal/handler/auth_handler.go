@@ -6,10 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"lancar/auth-service/internal/domain"
-	"lancar/auth-service/internal/middleware"
-	"lancar/auth-service/internal/service"
 	"net/http"
+	"tembus/auth-service/internal/domain"
+	"tembus/auth-service/internal/middleware"
+	"tembus/auth-service/internal/service"
 )
 
 type AuthHandler struct {

@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"lancar/order-service/internal/domain"
+	"tembus/order-service/internal/domain"
 )
 
 type SLAWorker struct {

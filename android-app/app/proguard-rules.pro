@@ -34,15 +34,15 @@
 # ── KOTLINX SERIALIZATION ─────────────────────────────────────────────────────
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
--keep,includedescriptorclasses class com.lancar.courier.data.model.** { *; }
--keepclassmembers class com.lancar.courier.data.model.** {
+-keep,includedescriptorclasses class com.tembus.courier.data.model.** { *; }
+-keepclassmembers class com.tembus.courier.data.model.** {
     *** Companion;
 }
--keepclasseswithmembers class com.lancar.courier.data.model.** {
+-keepclasseswithmembers class com.tembus.courier.data.model.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 # Keep all data models (required for Room + Retrofit deserialization)
--keep class com.lancar.courier.data.model.** { *; }
+-keep class com.tembus.courier.data.model.** { *; }
 
 # ── ROOM DATABASE ─────────────────────────────────────────────────────────────
 -keep class androidx.room.** { *; }

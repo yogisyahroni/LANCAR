@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
-	"lancar/order-service/internal/domain"
+	"tembus/order-service/internal/domain"
 
 	"googlemaps.github.io/maps"
 )

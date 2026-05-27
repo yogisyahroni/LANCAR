@@ -1079,7 +1079,6 @@ export const handleCourierPayoutProviderWebhook = async (req: Request, res: Resp
   const bodyBuffer = rawBody || Buffer.from(JSON.stringify(req.body || {}));
   const signature = String(
     req.headers['x-tembus-signature'] ||
-      req.headers['x-lancar-signature'] ||
       req.headers['x-provider-signature'] ||
       '',
   );

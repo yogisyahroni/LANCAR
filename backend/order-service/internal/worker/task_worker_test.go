@@ -1,8 +1,8 @@
 package worker
 
 import (
-	"lancar/order-service/internal/domain/queue"
-	"lancar/order-service/internal/infrastructure/notification"
+	"tembus/order-service/internal/domain/queue"
+	"tembus/order-service/internal/infrastructure/notification"
 	"testing"
 )
 

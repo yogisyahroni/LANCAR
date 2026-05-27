@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"lancar/order-service/internal/domain"
 	"github.com/google/uuid"
+	"tembus/order-service/internal/domain"
 )
 
 type slaService struct {
@@ -78,7 +78,7 @@ func (s *slaService) ProcessSLABreaches(ctx context.Context) error {
 	for _, leg := range legs {
 		if now.After(leg.SLADeadline) {
 			breachMinutes := int(now.Sub(leg.SLADeadline).Minutes())
-			
+
 			// If already breached, we might want to check if we already logged it today/for this leg
 			// For simplicity, we just log once at the time of completion or we could update the log.
 			// Let's assume we log it once when detected and then maybe later calculate exact penalty.
@@ -126,7 +126,7 @@ func (s *slaService) ProcessIdleCompensation(ctx context.Context) error {
 	for _, courier := range idleCouriers {
 		// Log or issue compensation. Here we could integrate with payout service.
 		// For example, add compensation to the leg payout.
-		log.Printf("Courier %s is idle for >10 mins at MP %s for order %s. Eligible for compensation.", 
+		log.Printf("Courier %s is idle for >10 mins at MP %s for order %s. Eligible for compensation.",
 			courier.CourierID, courier.MeetingPointID, courier.OrderID)
 		// We can add an entry or publish an event for idle compensation
 	}
@@ -141,8 +141,8 @@ func (s *slaService) GetComplianceDashboard(ctx context.Context, zoneID string, 
 	}
 
 	return map[string]interface{}{
-		"zone_id": zoneID,
-		"date":    date,
+		"zone_id":                    zoneID,
+		"date":                       date,
 		"compliance_rate_percentage": rate * 100,
 	}, nil
 }

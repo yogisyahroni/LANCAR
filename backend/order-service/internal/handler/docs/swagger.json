@@ -133,7 +133,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/lancar_order-service_internal_domain.Order"
+                                "$ref": "#/definitions/tembus_order-service_internal_domain.Order"
                             }
                         }
                     }
@@ -163,7 +163,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/lancar_order-service_internal_domain.CreateOrderRequest"
+                            "$ref": "#/definitions/tembus_order-service_internal_domain.CreateOrderRequest"
                         }
                     }
                 ],
@@ -171,7 +171,7 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/lancar_order-service_internal_domain.Order"
+                            "$ref": "#/definitions/tembus_order-service_internal_domain.Order"
                         }
                     }
                 }
@@ -205,7 +205,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/lancar_order-service_internal_domain.Order"
+                            "$ref": "#/definitions/tembus_order-service_internal_domain.Order"
                         }
                     }
                 }
@@ -240,7 +240,7 @@
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/lancar_order-service_internal_domain.OrderEvent"
+                                "$ref": "#/definitions/tembus_order-service_internal_domain.OrderEvent"
                             }
                         }
                     }
@@ -314,7 +314,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/lancar_order-service_internal_domain.PricingEstimateRequest"
+                            "$ref": "#/definitions/tembus_order-service_internal_domain.PricingEstimateRequest"
                         }
                     }
                 ],
@@ -322,7 +322,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/lancar_order-service_internal_domain.PricingEstimateResponse"
+                            "$ref": "#/definitions/tembus_order-service_internal_domain.PricingEstimateResponse"
                         }
                     }
                 }
@@ -399,7 +399,7 @@
                     "type": "string"
                 },
                 "status": {
-                    "$ref": "#/definitions/lancar_order-service_internal_domain.OrderStatus"
+                    "$ref": "#/definitions/tembus_order-service_internal_domain.OrderStatus"
                 },
                 "total_price_idr": {
                     "type": "integer"
@@ -428,7 +428,7 @@
                     "type": "string"
                 },
                 "status": {
-                    "$ref": "#/definitions/lancar_order-service_internal_domain.OrderStatus"
+                    "$ref": "#/definitions/tembus_order-service_internal_domain.OrderStatus"
                 },
                 "user_id": {
                     "type": "string"

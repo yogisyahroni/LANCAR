@@ -1,6 +1,6 @@
 basePath: /api/v1
 definitions:
-  lancar_auth-service_internal_domain.User:
+  tembus_auth-service_internal_domain.User:
     properties:
       created_at:
         type: string
@@ -25,13 +25,13 @@ definitions:
       referred_by:
         type: string
       role:
-        $ref: '#/definitions/lancar_auth-service_internal_domain.UserRole'
+        $ref: '#/definitions/tembus_auth-service_internal_domain.UserRole'
       status:
-        $ref: '#/definitions/lancar_auth-service_internal_domain.UserStatus'
+        $ref: '#/definitions/tembus_auth-service_internal_domain.UserStatus'
       updated_at:
         type: string
     type: object
-  lancar_auth-service_internal_domain.UserRole:
+  tembus_auth-service_internal_domain.UserRole:
     enum:
     - customer
     - courier
@@ -45,7 +45,7 @@ definitions:
     - RoleAdmin
     - RoleSuperAdmin
     - RoleFinance
-  lancar_auth-service_internal_domain.UserStatus:
+  tembus_auth-service_internal_domain.UserStatus:
     enum:
     - active
     - inactive
@@ -57,7 +57,7 @@ definitions:
     - StatusInactive
     - StatusSuspended
     - StatusPendingVerification
-  lancar_auth-service_internal_service.AuthResponse:
+  tembus_auth-service_internal_service.AuthResponse:
     properties:
       access_token:
         type: string
@@ -72,7 +72,7 @@ definitions:
       require_2fa:
         type: boolean
       user:
-        $ref: '#/definitions/lancar_auth-service_internal_domain.User'
+        $ref: '#/definitions/tembus_auth-service_internal_domain.User'
     type: object
 host: localhost:8081
 info:
@@ -130,7 +130,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/lancar_auth-service_internal_service.AuthResponse'
+            $ref: '#/definitions/tembus_auth-service_internal_service.AuthResponse'
       summary: Refresh Token (Mobile)
       tags:
       - auth
@@ -202,7 +202,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/lancar_auth-service_internal_service.AuthResponse'
+            $ref: '#/definitions/tembus_auth-service_internal_service.AuthResponse'
       summary: Verify OTP (Mobile)
       tags:
       - auth

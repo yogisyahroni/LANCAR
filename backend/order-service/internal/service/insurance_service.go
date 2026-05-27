@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"lancar/order-service/internal/domain"
+	"tembus/order-service/internal/domain"
 )
 
 type insuranceService struct {

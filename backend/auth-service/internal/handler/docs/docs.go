@@ -89,7 +89,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/lancar_auth-service_internal_service.AuthResponse"
+                            "$ref": "#/definitions/tembus_auth-service_internal_service.AuthResponse"
                         }
                     }
                 }
@@ -202,7 +202,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/lancar_auth-service_internal_service.AuthResponse"
+                            "$ref": "#/definitions/tembus_auth-service_internal_service.AuthResponse"
                         }
                     }
                 }
@@ -341,7 +341,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "lancar_auth-service_internal_domain.User": {
+        "tembus_auth-service_internal_domain.User": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -378,17 +378,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "$ref": "#/definitions/lancar_auth-service_internal_domain.UserRole"
+                    "$ref": "#/definitions/tembus_auth-service_internal_domain.UserRole"
                 },
                 "status": {
-                    "$ref": "#/definitions/lancar_auth-service_internal_domain.UserStatus"
+                    "$ref": "#/definitions/tembus_auth-service_internal_domain.UserStatus"
                 },
                 "updated_at": {
                     "type": "string"
                 }
             }
         },
-        "lancar_auth-service_internal_domain.UserRole": {
+        "tembus_auth-service_internal_domain.UserRole": {
             "type": "string",
             "enum": [
                 "customer",
@@ -405,7 +405,7 @@ const docTemplate = `{
                 "RoleFinance"
             ]
         },
-        "lancar_auth-service_internal_domain.UserStatus": {
+        "tembus_auth-service_internal_domain.UserStatus": {
             "type": "string",
             "enum": [
                 "active",
@@ -420,7 +420,7 @@ const docTemplate = `{
                 "StatusPendingVerification"
             ]
         },
-        "lancar_auth-service_internal_service.AuthResponse": {
+        "tembus_auth-service_internal_service.AuthResponse": {
             "type": "object",
             "properties": {
                 "access_token": {
@@ -442,7 +442,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "user": {
-                    "$ref": "#/definitions/lancar_auth-service_internal_domain.User"
+                    "$ref": "#/definitions/tembus_auth-service_internal_domain.User"
                 }
             }
         }

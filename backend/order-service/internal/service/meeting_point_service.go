@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
-	"lancar/order-service/internal/domain"
+	"github.com/google/uuid"
 	"log"
 	"sort"
-	"github.com/google/uuid"
+	"tembus/order-service/internal/domain"
 )
 
 type meetingPointServiceImpl struct {
@@ -57,7 +57,7 @@ func (s *meetingPointServiceImpl) SuggestMeetingPoint(ctx context.Context, picku
 		// Enhanced Scoring: prioritize low duration and high courier availability
 		// score = (1 / (dur + 1)) * (1 + density/10)
 		score := (1.0 / (dur + 1)) * (1.0 + (density / 10.0))
-		
+
 		trafficLevel := "low"
 		if dur > dist*3 { // threshold for "heavy" traffic
 			trafficLevel = "heavy"

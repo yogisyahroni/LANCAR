@@ -1,4 +1,4 @@
-module lancar/payment-service
+module tembus/payment-service
 
 go 1.24.3
 

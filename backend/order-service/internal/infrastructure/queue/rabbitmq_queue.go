@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"lancar/order-service/internal/domain/queue"
+	"tembus/order-service/internal/domain/queue"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )

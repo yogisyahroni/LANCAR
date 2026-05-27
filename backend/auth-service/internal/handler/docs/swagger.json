@@ -83,7 +83,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/lancar_auth-service_internal_service.AuthResponse"
+                            "$ref": "#/definitions/tembus_auth-service_internal_service.AuthResponse"
                         }
                     }
                 }
@@ -196,7 +196,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/lancar_auth-service_internal_service.AuthResponse"
+                            "$ref": "#/definitions/tembus_auth-service_internal_service.AuthResponse"
                         }
                     }
                 }
@@ -372,10 +372,10 @@
                     "type": "string"
                 },
                 "role": {
-                    "$ref": "#/definitions/lancar_auth-service_internal_domain.UserRole"
+                    "$ref": "#/definitions/tembus_auth-service_internal_domain.UserRole"
                 },
                 "status": {
-                    "$ref": "#/definitions/lancar_auth-service_internal_domain.UserStatus"
+                    "$ref": "#/definitions/tembus_auth-service_internal_domain.UserStatus"
                 },
                 "updated_at": {
                     "type": "string"
@@ -436,7 +436,7 @@
                     "type": "boolean"
                 },
                 "user": {
-                    "$ref": "#/definitions/lancar_auth-service_internal_domain.User"
+                    "$ref": "#/definitions/tembus_auth-service_internal_domain.User"
                 }
             }
         }

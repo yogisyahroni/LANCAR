@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "YOUR_FIREBASE_ANDROID_APP_ID",
         "android_client_info": {
-          "package_name": "com.lancar.courier"
+          "package_name": "com.tembus.courier"
         }
       },
       "oauth_client": [],

@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"lancar/payment-service/internal/domain"
-	"lancar/payment-service/internal/handler"
-	"lancar/payment-service/internal/middleware"
-	"lancar/payment-service/internal/repository"
-	"lancar/payment-service/internal/service"
+	"tembus/payment-service/internal/domain"
+	"tembus/payment-service/internal/handler"
+	"tembus/payment-service/internal/middleware"
+	"tembus/payment-service/internal/repository"
+	"tembus/payment-service/internal/service"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"

@@ -8,7 +8,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"lancar/auth-service/internal/middleware"
+	"tembus/auth-service/internal/middleware"
 )
 
 // -------------------------------------------------------

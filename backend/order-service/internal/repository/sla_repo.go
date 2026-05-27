@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"lancar/order-service/internal/domain"
+	"tembus/order-service/internal/domain"
 )
 
 type PostgresSLARepo struct {

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
-	"lancar/order-service/internal/domain"
+	"tembus/order-service/internal/domain"
 )
 
 type PostgresPaymentRepo struct {

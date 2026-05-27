@@ -23,13 +23,13 @@ $normalizedStates = @($States | ForEach-Object { $_ -split "," } | ForEach-Objec
 $apps = @(
   @{
     role = "customer"
-    package = "com.lancar.customer"
+    package = "com.tembus.customer"
     serial = $CustomerSerial
     logTags = @("TEMBUSFCMService")
   },
   @{
     role = "courier"
-    package = "com.lancar.courier"
+    package = "com.tembus.courier"
     serial = $CourierSerial
     logTags = @("FCM_TEMBUS")
   }

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"lancar/auth-service/internal/domain"
+	"tembus/auth-service/internal/domain"
 )
 
 const redactedValue = "[REDACTED]"

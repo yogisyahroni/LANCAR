@@ -8,9 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"lancar/auth-service/internal/domain"
-	"lancar/auth-service/pkg/utils"
 	"strings"
+	"tembus/auth-service/internal/domain"
+	"tembus/auth-service/pkg/utils"
 	"time"
 
 	"github.com/google/uuid"

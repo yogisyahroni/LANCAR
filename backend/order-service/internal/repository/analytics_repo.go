@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 	"github.com/jmoiron/sqlx"
-	"lancar/order-service/internal/domain"
+	"tembus/order-service/internal/domain"
 	"time"
 )
 
@@ -85,7 +85,7 @@ func (r *postgresAnalyticsRepository) GetCourierUtilization(ctx context.Context,
 	          FROM mv_courier_utilization 
 	          WHERE report_date >= $1 AND report_date <= $2 
 	          ORDER BY report_date DESC`
-	
+
 	rows, err := r.db.QueryContext(ctx, query, start, end)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (r *postgresAnalyticsRepository) GetOrderFunnel(ctx context.Context, start,
 	          FROM mv_order_funnel 
 	          WHERE report_date >= $1 AND report_date <= $2 
 	          ORDER BY report_date DESC, status ASC`
-	
+
 	rows, err := r.db.QueryContext(ctx, query, start, end)
 	if err != nil {
 		return nil, err
@@ -131,7 +131,7 @@ func (r *postgresAnalyticsRepository) GetScanAccuracy(ctx context.Context, start
 	          FROM mv_scan_accuracy 
 	          WHERE report_date >= $1 AND report_date <= $2 
 	          ORDER BY report_date DESC, confidence_bin ASC`
-	
+
 	rows, err := r.db.QueryContext(ctx, query, start, end)
 	if err != nil {
 		return nil, err

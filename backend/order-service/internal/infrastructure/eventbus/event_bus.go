@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"lancar/order-service/internal/domain"
+	"tembus/order-service/internal/domain"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -28,7 +28,7 @@ func (b *redisEventBus) Publish(ctx context.Context, topic string, payload inter
 
 func (b *redisEventBus) Subscribe(ctx context.Context, topic string) (<-chan string, error) {
 	pubsub := b.client.Subscribe(ctx, topic)
-	
+
 	// Check connection
 	_, err := pubsub.Receive(ctx)
 	if err != nil {

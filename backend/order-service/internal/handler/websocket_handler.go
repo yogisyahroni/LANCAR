@@ -3,11 +3,11 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"lancar/order-service/internal/domain"
-	"lancar/order-service/internal/middleware"
 	"log"
 	"net/http"
 	"sync"
+	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/middleware"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -27,12 +27,12 @@ type client struct {
 }
 
 type WSHandler struct {
-	eventBus domain.EventBus
-	clients  map[*client]bool
-	rooms    map[string]map[*client]bool
-	register chan *client
+	eventBus   domain.EventBus
+	clients    map[*client]bool
+	rooms      map[string]map[*client]bool
+	register   chan *client
 	unregister chan *client
-	mu       sync.RWMutex
+	mu         sync.RWMutex
 }
 
 func NewWSHandler(eb domain.EventBus) *WSHandler {
@@ -111,9 +111,9 @@ func (h *WSHandler) readPump(c *client) {
 
 	c.conn.SetReadLimit(512)
 	c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-	c.conn.SetPongHandler(func(string) error { 
+	c.conn.SetPongHandler(func(string) error {
 		c.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-		return nil 
+		return nil
 	})
 
 	for {
@@ -203,10 +203,10 @@ func (h *WSHandler) leaveRoom(c *client, room string) {
 
 func (h *WSHandler) listenToEvents() {
 	ctx := context.Background()
-	
+
 	// Topics to listen to
 	topics := []string{"order.updates", "courier.locations"}
-	
+
 	for _, topic := range topics {
 		ch, err := h.eventBus.Subscribe(ctx, topic)
 		if err != nil {

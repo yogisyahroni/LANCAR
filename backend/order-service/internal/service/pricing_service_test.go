@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"lancar/order-service/internal/domain"
-	"lancar/order-service/internal/featureflags"
-	"lancar/order-service/internal/service"
+	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/featureflags"
+	"tembus/order-service/internal/service"
 )
 
 type MockPricingRepo struct {

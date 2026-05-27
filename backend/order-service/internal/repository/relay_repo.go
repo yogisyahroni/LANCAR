@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
-	"lancar/order-service/internal/domain"
+	"tembus/order-service/internal/domain"
 )
 
 type relayRepository struct {

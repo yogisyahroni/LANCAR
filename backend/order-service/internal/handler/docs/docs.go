@@ -139,7 +139,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/lancar_order-service_internal_domain.Order"
+                                "$ref": "#/definitions/tembus_order-service_internal_domain.Order"
                             }
                         }
                     }
@@ -169,7 +169,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/lancar_order-service_internal_domain.CreateOrderRequest"
+                            "$ref": "#/definitions/tembus_order-service_internal_domain.CreateOrderRequest"
                         }
                     }
                 ],
@@ -177,7 +177,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/lancar_order-service_internal_domain.Order"
+                            "$ref": "#/definitions/tembus_order-service_internal_domain.Order"
                         }
                     }
                 }
@@ -211,7 +211,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/lancar_order-service_internal_domain.Order"
+                            "$ref": "#/definitions/tembus_order-service_internal_domain.Order"
                         }
                     }
                 }
@@ -246,7 +246,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/lancar_order-service_internal_domain.OrderEvent"
+                                "$ref": "#/definitions/tembus_order-service_internal_domain.OrderEvent"
                             }
                         }
                     }
@@ -320,7 +320,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/lancar_order-service_internal_domain.PricingEstimateRequest"
+                            "$ref": "#/definitions/tembus_order-service_internal_domain.PricingEstimateRequest"
                         }
                     }
                 ],
@@ -328,7 +328,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/lancar_order-service_internal_domain.PricingEstimateResponse"
+                            "$ref": "#/definitions/tembus_order-service_internal_domain.PricingEstimateResponse"
                         }
                     }
                 }
@@ -336,7 +336,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "lancar_order-service_internal_domain.CreateOrderRequest": {
+        "tembus_order-service_internal_domain.CreateOrderRequest": {
             "type": "object",
             "required": [
                 "estimate_id"
@@ -347,7 +347,7 @@ const docTemplate = `{
                 }
             }
         },
-        "lancar_order-service_internal_domain.Order": {
+        "tembus_order-service_internal_domain.Order": {
             "type": "object",
             "properties": {
                 "base_price_idr": {
@@ -405,7 +405,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
-                    "$ref": "#/definitions/lancar_order-service_internal_domain.OrderStatus"
+                    "$ref": "#/definitions/tembus_order-service_internal_domain.OrderStatus"
                 },
                 "total_price_idr": {
                     "type": "integer"
@@ -418,7 +418,7 @@ const docTemplate = `{
                 }
             }
         },
-        "lancar_order-service_internal_domain.OrderEvent": {
+        "tembus_order-service_internal_domain.OrderEvent": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -434,14 +434,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
-                    "$ref": "#/definitions/lancar_order-service_internal_domain.OrderStatus"
+                    "$ref": "#/definitions/tembus_order-service_internal_domain.OrderStatus"
                 },
                 "user_id": {
                     "type": "string"
                 }
             }
         },
-        "lancar_order-service_internal_domain.OrderStatus": {
+        "tembus_order-service_internal_domain.OrderStatus": {
             "type": "string",
             "enum": [
                 "pending_payment",
@@ -468,7 +468,7 @@ const docTemplate = `{
                 "StatusCancelled"
             ]
         },
-        "lancar_order-service_internal_domain.PricingEstimateRequest": {
+        "tembus_order-service_internal_domain.PricingEstimateRequest": {
             "type": "object",
             "required": [
                 "dropoff_lat",
@@ -515,7 +515,7 @@ const docTemplate = `{
                 }
             }
         },
-        "lancar_order-service_internal_domain.PricingEstimateResponse": {
+        "tembus_order-service_internal_domain.PricingEstimateResponse": {
             "type": "object",
             "properties": {
                 "base_price_idr": {

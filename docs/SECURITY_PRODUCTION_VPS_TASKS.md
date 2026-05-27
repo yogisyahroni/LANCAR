@@ -2,7 +2,7 @@
 
 Tanggal: 2026-05-25
 Branch acuan: `staging`
-Sumber pembanding: `C:/Users/yogis/Downloads/securitylancar.md`
+Sumber pembanding: `C:/Users/yogis/Downloads/securitytembus.md`
 
 Dokumen ini adalah backlog hardening keamanan TEMBUS untuk target awal production di VPS. Fokusnya praktis: aman untuk startup tahap awal, tetap realistis untuk VPS, dan bisa naik kelas ke KMS/HSM/cloud secret manager nanti tanpa bongkar arsitektur besar.
 

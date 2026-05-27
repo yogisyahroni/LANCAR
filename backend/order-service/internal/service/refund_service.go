@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"lancar/order-service/internal/domain"
+	"tembus/order-service/internal/domain"
 )
 
 type refundService struct {
@@ -44,7 +44,7 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 	// - pre-assignment (no courier): 100%
 	// - courier assigned but not picked up: 80%
 	// - picked up (in transit, etc): 0%
-	
+
 	refundRatio := 0.0
 	switch order.Status {
 	case domain.StatusPendingPayment, domain.StatusPending, domain.StatusPendingAssignment, domain.StatusSearching:
@@ -92,7 +92,7 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 		return nil, fmt.Errorf("failed to create refund record: %w", err)
 	}
 
-	// For MVP, we'll try to process synchronously or via batch. 
+	// For MVP, we'll try to process synchronously or via batch.
 	// We'll leave it pending and processing can happen by Trigger
 	return record, nil
 }
@@ -112,7 +112,7 @@ func (s *refundService) ProcessPendingRefunds(ctx context.Context) error {
 		}
 
 		ref, gatewayErr := s.gateway.ProcessRefund(ctx, *payment.ProviderReference, r.AmountIDR, r.Reason)
-		
+
 		status := domain.RefundStatusProcessed
 		var errReason *string
 		if gatewayErr != nil {

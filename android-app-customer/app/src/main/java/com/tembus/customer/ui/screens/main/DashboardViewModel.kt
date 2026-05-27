@@ -1,0 +1,72 @@
+package com.tembus.customer.ui.screens.main
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.tembus.customer.data.model.DeliveryServiceProduct
+import com.tembus.customer.data.model.Order
+import com.tembus.customer.data.repository.OrderRepository
+import com.tembus.customer.data.session.AuthSessionManager
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+@HiltViewModel
+class DashboardViewModel @Inject constructor(
+    private val orderRepository: OrderRepository,
+    private val sessionManager: AuthSessionManager
+) : ViewModel() {
+
+    val customerName: StateFlow<String?> = sessionManager.customerName
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Pelanggan")
+
+    private val _activeOrder = MutableStateFlow<Order?>(null)
+    val activeOrder = _activeOrder.asStateFlow()
+
+    private val _services = MutableStateFlow<List<DeliveryServiceProduct>>(emptyList())
+    val services = _services.asStateFlow()
+
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
+
+    private val _dataError = MutableStateFlow<String?>(null)
+    val dataError = _dataError.asStateFlow()
+
+    init {
+        refreshData()
+    }
+
+    fun refreshData() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _dataError.value = null
+            orderRepository.getOrderHistory().collectLatest { result ->
+                _isLoading.value = false
+                result.onSuccess { orders ->
+                    // Find the most recent active order (pending/transit/etc)
+                    _activeOrder.value = orders.firstOrNull { it.status != "delivered" && it.status != "failed" }
+                }.onFailure { error ->
+                    _activeOrder.value = null
+                    _dataError.value = error.localizedMessage ?: "Riwayat order belum bisa dimuat dari server."
+                }
+            }
+        }
+        viewModelScope.launch {
+            orderRepository.getCustomerDeliveryServices().collectLatest { result ->
+                result.onSuccess { services ->
+                    _services.value = services
+                        .filter { it.serviceCategory == "on_demand" && it.isEnabled }
+                        .sortedBy { it.displayOrder }
+                }.onFailure { error ->
+                    _services.value = emptyList()
+                    _dataError.value = error.localizedMessage ?: "Layanan belum bisa dimuat dari server."
+                }
+            }
+        }
+    }
+}

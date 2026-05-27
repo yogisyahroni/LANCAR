@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"lancar/order-service/internal/domain"
-	"lancar/order-service/internal/domain/queue"
+	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/domain/queue"
 )
 
 type NotificationServiceImpl struct {
@@ -79,7 +79,7 @@ func (s *NotificationServiceImpl) Send(ctx context.Context, req domain.Notificat
 				"channel":         string(notif.Channel),
 			},
 		}
-		
+
 		if s.queue != nil {
 			if err := s.queue.Push(ctx, task); err != nil {
 				log.Printf("Failed to queue notification task: %v", err)

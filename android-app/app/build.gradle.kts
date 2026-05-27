@@ -138,7 +138,7 @@ gradle.taskGraph.whenReady {
 }
 
 android {
-    namespace = "com.lancar.courier"
+    namespace = "com.tembus.courier"
     compileSdk = 34
 
     defaultConfig {

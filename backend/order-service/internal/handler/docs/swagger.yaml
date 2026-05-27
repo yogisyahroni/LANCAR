@@ -1,13 +1,13 @@
 basePath: /api/v1
 definitions:
-  lancar_order-service_internal_domain.CreateOrderRequest:
+  tembus_order-service_internal_domain.CreateOrderRequest:
     properties:
       estimate_id:
         type: string
     required:
     - estimate_id
     type: object
-  lancar_order-service_internal_domain.Order:
+  tembus_order-service_internal_domain.Order:
     properties:
       base_price_idr:
         type: integer
@@ -46,7 +46,7 @@ definitions:
       qr_code_url:
         type: string
       status:
-        $ref: '#/definitions/lancar_order-service_internal_domain.OrderStatus'
+        $ref: '#/definitions/tembus_order-service_internal_domain.OrderStatus'
       total_price_idr:
         type: integer
       updated_at:
@@ -54,7 +54,7 @@ definitions:
       volumetric_surcharge_idr:
         type: integer
     type: object
-  lancar_order-service_internal_domain.OrderEvent:
+  tembus_order-service_internal_domain.OrderEvent:
     properties:
       created_at:
         type: string
@@ -65,11 +65,11 @@ definitions:
       order_id:
         type: string
       status:
-        $ref: '#/definitions/lancar_order-service_internal_domain.OrderStatus'
+        $ref: '#/definitions/tembus_order-service_internal_domain.OrderStatus'
       user_id:
         type: string
     type: object
-  lancar_order-service_internal_domain.OrderStatus:
+  tembus_order-service_internal_domain.OrderStatus:
     enum:
     - pending_payment
     - pending
@@ -93,7 +93,7 @@ definitions:
     - StatusDelivering
     - StatusDelivered
     - StatusCancelled
-  lancar_order-service_internal_domain.PricingEstimateRequest:
+  tembus_order-service_internal_domain.PricingEstimateRequest:
     properties:
       dropoff_lat:
         type: number
@@ -127,7 +127,7 @@ definitions:
     - weight
     - width
     type: object
-  lancar_order-service_internal_domain.PricingEstimateResponse:
+  tembus_order-service_internal_domain.PricingEstimateResponse:
     properties:
       base_price_idr:
         type: integer
@@ -248,7 +248,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/lancar_order-service_internal_domain.Order'
+              $ref: '#/definitions/tembus_order-service_internal_domain.Order'
             type: array
       security:
       - Bearer: []
@@ -265,14 +265,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/lancar_order-service_internal_domain.CreateOrderRequest'
+          $ref: '#/definitions/tembus_order-service_internal_domain.CreateOrderRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/lancar_order-service_internal_domain.Order'
+            $ref: '#/definitions/tembus_order-service_internal_domain.Order'
       security:
       - Bearer: []
       summary: Create a new order
@@ -293,7 +293,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/lancar_order-service_internal_domain.Order'
+            $ref: '#/definitions/tembus_order-service_internal_domain.Order'
       security:
       - Bearer: []
       summary: Get order details
@@ -314,7 +314,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/lancar_order-service_internal_domain.OrderEvent'
+              $ref: '#/definitions/tembus_order-service_internal_domain.OrderEvent'
             type: array
       security:
       - Bearer: []
@@ -362,14 +362,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/lancar_order-service_internal_domain.PricingEstimateRequest'
+          $ref: '#/definitions/tembus_order-service_internal_domain.PricingEstimateRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/lancar_order-service_internal_domain.PricingEstimateResponse'
+            $ref: '#/definitions/tembus_order-service_internal_domain.PricingEstimateResponse'
       summary: Estimate pricing
       tags:
       - pricing

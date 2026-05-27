@@ -44,8 +44,8 @@
 # 4. APP SPECIFIC DATA MODELS (MUST NOT BE OBFUSCATED)
 # ---------------------------------------------------------
 # Keep Data Models specifically for Tembus Customer
--keep class com.lancar.customer.data.model.** { *; }
--keepclassmembers class com.lancar.customer.data.model.** { *; }
+-keep class com.tembus.customer.data.model.** { *; }
+-keepclassmembers class com.tembus.customer.data.model.** { *; }
 
 # ---------------------------------------------------------
 # 5. DEPENDENCY INJECTION: HILT / DAGGER

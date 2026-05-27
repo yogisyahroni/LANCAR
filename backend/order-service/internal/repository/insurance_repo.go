@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"lancar/order-service/internal/domain"
+	"tembus/order-service/internal/domain"
 )
 
 type insuranceRepository struct {
@@ -31,7 +31,7 @@ func (r *insuranceRepository) CreateCourierInsurance(ctx context.Context, ins *d
 			:status, :valid_from, :valid_until
 		) RETURNING id, created_at, updated_at
 	`
-	
+
 	stmt, err := r.db.PrepareNamedContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("failed to prepare named stmt for CreateCourierInsurance: %w", err)
@@ -54,7 +54,7 @@ func (r *insuranceRepository) GetCourierInsurance(ctx context.Context, courierID
 		ORDER BY valid_until DESC 
 		LIMIT 1
 	`
-	
+
 	err := r.db.GetContext(ctx, &ins, query, courierID, insuranceType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get courier insurance: %w", err)
@@ -69,12 +69,12 @@ func (r *insuranceRepository) UpdateCourierInsuranceStatus(ctx context.Context, 
 		SET status = $1, updated_at = NOW() 
 		WHERE id = $2
 	`
-	
+
 	res, err := r.db.ExecContext(ctx, query, status, id)
 	if err != nil {
 		return fmt.Errorf("failed to update courier insurance status: %w", err)
 	}
-	
+
 	rowsAffected, _ := res.RowsAffected()
 	if rowsAffected == 0 {
 		return fmt.Errorf("courier insurance not found")
@@ -89,7 +89,7 @@ func (r *insuranceRepository) GetExpiringCourierInsurances(ctx context.Context, 
 		SELECT * FROM courier_insurance 
 		WHERE status = 'active' AND valid_until = CURRENT_DATE + $1
 	`
-	
+
 	err := r.db.SelectContext(ctx, &insurances, query, daysBefore)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get expiring insurances: %w", err)
@@ -108,7 +108,7 @@ func (r *insuranceRepository) CreateOrderInsurance(ctx context.Context, ins *dom
 			:status, :provider, :claim_id
 		) RETURNING id, created_at, updated_at
 	`
-	
+
 	stmt, err := r.db.PrepareNamedContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("failed to prepare named stmt for CreateOrderInsurance: %w", err)
@@ -129,7 +129,7 @@ func (r *insuranceRepository) GetOrderInsurance(ctx context.Context, orderID uui
 		SELECT * FROM order_insurance 
 		WHERE order_id = $1
 	`
-	
+
 	err := r.db.GetContext(ctx, &ins, query, orderID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get order insurance: %w", err)

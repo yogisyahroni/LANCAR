@@ -2,10 +2,10 @@ package middleware
 
 import (
 	"context"
-	"lancar/auth-service/internal/domain"
-	"lancar/auth-service/pkg/utils"
 	"net/http"
 	"strings"
+	"tembus/auth-service/internal/domain"
+	"tembus/auth-service/pkg/utils"
 )
 
 type contextKey string

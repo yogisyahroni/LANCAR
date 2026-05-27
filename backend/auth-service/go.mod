@@ -1,4 +1,4 @@
-module lancar/auth-service
+module tembus/auth-service
 
 go 1.24.3
 

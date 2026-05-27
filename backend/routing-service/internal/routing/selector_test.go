@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"lancar-backend/internal/featureflags"
+	"tembus-backend/internal/featureflags"
 )
 
 type mockFlagReader struct {
