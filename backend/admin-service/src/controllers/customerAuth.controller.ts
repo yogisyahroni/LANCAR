@@ -45,7 +45,7 @@ const createCustomerWebSession = async (req: Request, customerId: string) => {
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
   await db.query(
-    `INSERT INTO customer_sessions (user_id, session_token, expires_at, ip_address, user_agent)
+    `INSERT INTO web_sessions (user_id, session_token, expires_at, ip_address, user_agent)
      VALUES ($1, $2, $3, $4, $5)`,
     [customerId, sessionToken, expiresAt, req.ip, req.headers['user-agent']]
   );
@@ -78,9 +78,15 @@ export const loginWeb = async (req: Request, res: Response) => {
       ipAddress,
     });
 
-    const targetTable = portal === 'admin' ? 'staff' : 'customers';
-    // Correcting the query to select full_name as name and pin_hash to verify
-    const result = await db.query(`SELECT id, full_name as name, email, role, pin_hash FROM ${targetTable} WHERE email = $1`, [normalizedEmail]);
+    const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
+    const result = await db.query(
+      `SELECT id, full_name as name, email, role, pin_hash
+       FROM users
+       WHERE email = $1
+         AND role = ANY($2::text[])
+         AND deleted_at IS NULL`,
+      [normalizedEmail, adminRoles]
+    );
 
     if (result.rows.length === 0) {
       await recordAuthFailure({
@@ -113,8 +119,8 @@ export const loginWeb = async (req: Request, res: Response) => {
     const sessionToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    const isAdminRole = ['super_admin', 'admin', 'manager', 'finance', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'].includes(user.role);
-    const sessionTable = isAdminRole ? 'admin_sessions' : 'customer_sessions';
+    const isAdminRole = adminRoles.includes(user.role);
+    const sessionTable = 'web_sessions';
 
     await db.query(
       `INSERT INTO ${sessionTable} (user_id, session_token, expires_at, ip_address, user_agent) VALUES ($1, $2, $3, $4, $5)`,
@@ -180,8 +186,10 @@ export const exchangeCustomerJwtForWebSession = async (req: Request, res: Respon
 
     const result = await db.query(
       `SELECT id, full_name as name, email, role, status
-       FROM customers
-       WHERE id = $1`,
+       FROM users
+       WHERE id = $1
+         AND role = 'customer'
+         AND deleted_at IS NULL`,
       [customerId]
     );
 
@@ -221,28 +229,35 @@ export const refreshToken = async (req: Request, res: Response) => {
   }
 
   try {
+    const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
     const adminResult = portal === 'customer'
       ? { rows: [] }
       : await db.query(
         `SELECT s.user_id, s.expires_at, u.email, u.role
-         FROM admin_sessions s
-         JOIN staff u ON s.user_id = u.id
-         WHERE s.session_token = $1 AND s.expires_at > NOW()`,
-        [sessionToken]
+         FROM web_sessions s
+         JOIN users u ON s.user_id = u.id
+         WHERE s.session_token = $1
+           AND s.expires_at > NOW()
+           AND u.role = ANY($2::text[])
+           AND u.deleted_at IS NULL`,
+        [sessionToken, adminRoles]
       );
 
     const customerResult = portal === 'admin'
       ? { rows: [] }
       : await db.query(
         `SELECT s.user_id, s.expires_at, u.email, u.role
-         FROM customer_sessions s
-         JOIN customers u ON s.user_id = u.id
-         WHERE s.session_token = $1 AND s.expires_at > NOW()`,
+         FROM web_sessions s
+         JOIN users u ON s.user_id = u.id
+         WHERE s.session_token = $1
+           AND s.expires_at > NOW()
+           AND u.role = 'customer'
+           AND u.deleted_at IS NULL`,
         [sessionToken]
       );
 
     const user = adminResult.rows[0] || customerResult.rows[0];
-    const sessionTable = adminResult.rows.length > 0 ? 'admin_sessions' : 'customer_sessions';
+    const sessionTable = 'web_sessions';
 
     if (!user) {
       res.status(401).json({ error: 'Unauthorized: Session expired' });
@@ -275,8 +290,7 @@ export const logoutWeb = async (req: Request, res: Response) => {
   if (sessionToken) {
     try {
       // Clean up from both tables to be safe
-      await db.query('DELETE FROM admin_sessions WHERE session_token = $1', [sessionToken]);
-      await db.query('DELETE FROM customer_sessions WHERE session_token = $1', [sessionToken]);
+      await db.query('DELETE FROM web_sessions WHERE session_token = $1', [sessionToken]);
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -291,14 +305,14 @@ export const me = async (req: Request, res: Response) => {
   // `req.user` is set by the `verifyWebSession` middleware
   try {
     const userRole = req.user?.role || '';
-    let targetTable = 'customers';
-    if (['super_admin', 'admin', 'manager', 'finance', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'].includes(userRole)) {
-      targetTable = 'staff';
-    } else if (userRole === 'courier') {
-      targetTable = 'couriers';
-    }
-
-    const result = await db.query(`SELECT id, full_name as name, email, role FROM ${targetTable} WHERE id = $1`, [req.user?.id]);
+    const result = await db.query(
+      `SELECT id, full_name as name, email, role
+       FROM users
+       WHERE id = $1
+         AND role = $2
+         AND deleted_at IS NULL`,
+      [req.user?.id, userRole]
+    );
     
     if (result.rows.length === 0) {
       res.status(404).json({ error: 'User not found' });

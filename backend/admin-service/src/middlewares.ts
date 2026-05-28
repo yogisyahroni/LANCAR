@@ -146,12 +146,15 @@ export const verifyWebSession = async (req: Request, res: Response, next: NextFu
   }
 
   try {
-    // STRICT: Only query customer_sessions joined with customers table
+    // STRICT: Only query web_sessions joined with customer users.
     const result = await db.query(
       `SELECT s.user_id, u.role, u.full_name 
-       FROM customer_sessions s
-       JOIN customers u ON s.user_id = u.id
-       WHERE s.session_token = $1 AND s.expires_at > NOW()`,
+       FROM web_sessions s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.session_token = $1
+         AND s.expires_at > NOW()
+         AND u.role = 'customer'
+         AND u.deleted_at IS NULL`,
       [sessionToken]
     );
 
@@ -187,13 +190,16 @@ export const verifyAdminSession = async (req: Request, res: Response, next: Next
   }
 
   try {
-    // STRICT: Only query admin_sessions joined with staff table
+    const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
     const result = await db.query(
       `SELECT s.user_id, u.role, u.full_name 
-       FROM admin_sessions s
-       JOIN staff u ON s.user_id = u.id
-       WHERE s.session_token = $1 AND s.expires_at > NOW()`,
-      [sessionToken]
+       FROM web_sessions s
+       JOIN users u ON s.user_id = u.id
+       WHERE s.session_token = $1
+         AND s.expires_at > NOW()
+         AND u.role = ANY($2::text[])
+         AND u.deleted_at IS NULL`,
+      [sessionToken, adminRoles]
     );
 
     if (result.rows.length === 0) {
@@ -231,9 +237,16 @@ export const verifySession = async (req: Request, res: Response, next: NextFunct
       if (!adminToken) {
         return res.status(401).json({ error: 'Unauthorized: No admin session' });
       }
+      const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
       const adminResult = await db.query(
-        `SELECT s.user_id, u.role, u.full_name FROM admin_sessions s JOIN staff u ON s.user_id = u.id WHERE s.session_token = $1 AND s.expires_at > NOW()`,
-        [adminToken]
+        `SELECT s.user_id, u.role, u.full_name
+         FROM web_sessions s
+         JOIN users u ON s.user_id = u.id
+         WHERE s.session_token = $1
+           AND s.expires_at > NOW()
+           AND u.role = ANY($2::text[])
+           AND u.deleted_at IS NULL`,
+        [adminToken, adminRoles]
       );
       if (adminResult.rows.length > 0) {
         const user = adminResult.rows[0];
@@ -249,7 +262,13 @@ export const verifySession = async (req: Request, res: Response, next: NextFunct
         return res.status(401).json({ error: 'Unauthorized: No customer session' });
       }
       const customerResult = await db.query(
-        `SELECT s.user_id, u.role, u.full_name FROM customer_sessions s JOIN customers u ON s.user_id = u.id WHERE s.session_token = $1 AND s.expires_at > NOW()`,
+        `SELECT s.user_id, u.role, u.full_name
+         FROM web_sessions s
+         JOIN users u ON s.user_id = u.id
+         WHERE s.session_token = $1
+           AND s.expires_at > NOW()
+           AND u.role = 'customer'
+           AND u.deleted_at IS NULL`,
         [customerToken]
       );
       if (customerResult.rows.length > 0) {
@@ -275,4 +294,3 @@ export const verifySession = async (req: Request, res: Response, next: NextFunct
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
-

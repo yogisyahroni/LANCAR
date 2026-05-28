@@ -1524,8 +1524,10 @@ export const getMobileCustomerProfile = async (req: Request, res: Response): Pro
              full_name,
              phone_number,
              photo_url
-      FROM customers
-      WHERE id = $1 AND deleted_at IS NULL
+      FROM users
+      WHERE id = $1
+        AND role = 'customer'
+        AND deleted_at IS NULL
       LIMIT 1
     `, [customerId]);
 
@@ -1581,11 +1583,13 @@ export const updateMobileCustomerProfile = async (req: Request, res: Response): 
     const normalizedPhone = normalizeCustomerProfilePhone(req.body?.phone_number);
 
     const { rows } = await db.query(`
-      UPDATE customers
+      UPDATE users
       SET full_name = $2,
           phone_number = COALESCE($3, phone_number),
           updated_at = NOW()
-      WHERE id = $1 AND deleted_at IS NULL
+      WHERE id = $1
+        AND role = 'customer'
+        AND deleted_at IS NULL
       RETURNING id,
                 full_name,
                 phone_number,
