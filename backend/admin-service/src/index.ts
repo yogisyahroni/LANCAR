@@ -17,6 +17,7 @@ import { initFirebase } from './notifications';
 import { requestContext } from './middleware/requestContext';
 import { genericErrorHandler, sanitizeErrorResponses } from './middleware/errorMapper';
 import { httpMutationAuditTrail } from './middleware/auditTrail';
+import { seedDevelopmentData } from './seed';
 
 installConsoleRedaction();
 validateProductionEnv();
@@ -83,8 +84,18 @@ initWebSocket(server);
 
 server.listen(port, async () => {
   console.info('Admin service listening', { port });
-  await initFirebase();
-  startWeatherWorker();
-  startPayoutDispatcherWorker();
-  startEventOutboxWorker();
+  try {
+    await seedDevelopmentData();
+    await initFirebase();
+    startWeatherWorker();
+    startPayoutDispatcherWorker();
+    startEventOutboxWorker();
+  } catch (error) {
+    console.error(JSON.stringify({
+      level: 'fatal',
+      event: 'admin_service_startup_failed',
+      message: error instanceof Error ? error.message : 'Unknown startup error',
+    }));
+    process.exit(1);
+  }
 });

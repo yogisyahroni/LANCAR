@@ -27,16 +27,7 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 	query := `
 		SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
 			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, created_at, updated_at 
-		FROM (
-			SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
-				   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, created_at, updated_at FROM customers
-			UNION ALL
-			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, NULL as password_hash, pin_hash, is_verified, 
-				   NULL as totp_secret, NULL as is_2fa_enabled, NULL as totp_backup_codes, last_login_at, created_at, updated_at FROM staff
-			UNION ALL
-			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, NULL as password_hash, pin_hash, is_verified, 
-				   NULL as totp_secret, NULL as is_2fa_enabled, NULL as totp_backup_codes, last_login_at, created_at, updated_at FROM couriers
-		) users_combined
+		FROM users
 		WHERE phone_number = $1 OR email = $1
 		ORDER BY
 			CASE
@@ -62,16 +53,8 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.User, er
 	query := `
 		SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
 			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, created_at, updated_at 
-		FROM (
-			SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
-				   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, created_at, updated_at FROM customers
-			UNION ALL
-			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, NULL as password_hash, pin_hash, is_verified, 
-				   NULL as totp_secret, NULL as is_2fa_enabled, NULL as totp_backup_codes, last_login_at, created_at, updated_at FROM staff
-			UNION ALL
-			SELECT id, phone_number, email, full_name, photo_url, role, status, NULL as referral_code, NULL as referred_by, NULL as password_hash, pin_hash, is_verified, 
-				   NULL as totp_secret, NULL as is_2fa_enabled, NULL as totp_backup_codes, last_login_at, created_at, updated_at FROM couriers
-		) users_combined WHERE id = $1`
+		FROM users
+		WHERE id = $1`
 	user := &domain.User{}
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status,
@@ -85,14 +68,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.User, er
 }
 
 func (r *postgresRepo) Create(ctx context.Context, user *domain.User) error {
-	table := "customers"
-	if user.Role == "courier" {
-		table = "couriers"
-	} else if user.Role != "customer" {
-		table = "staff"
-	}
-
-	query := `INSERT INTO ` + table + ` (phone_number, email, full_name, role, status, is_verified, referral_code, password_hash, created_at, updated_at) 
+	query := `INSERT INTO users (phone_number, email, full_name, role, status, is_verified, referral_code, password_hash, created_at, updated_at) 
 			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`
 	return r.db.QueryRowContext(ctx, query,
 		user.PhoneNumber, user.Email, user.FullName, user.Role, user.Status, user.IsVerified, user.ReferralCode, user.PasswordHash, time.Now(), time.Now(),
@@ -100,47 +76,37 @@ func (r *postgresRepo) Create(ctx context.Context, user *domain.User) error {
 }
 
 func (r *postgresRepo) Update(ctx context.Context, user *domain.User) error {
-	// Note: In a real-world scenario, we'd need the role/table info or check all tables.
-	// For these updates, we'll try to update across the tables where the ID might exist.
-	// This is a temporary measure for the hybrid period.
-
-	tables := []string{"customers", "couriers", "staff"}
-	for _, t := range tables {
-		query := `UPDATE ` + t + ` SET full_name = $1, email = $2, photo_url = $3, updated_at = $4 WHERE id = $5`
-		res, err := r.db.ExecContext(ctx, query, user.FullName, user.Email, user.PhotoURL, time.Now(), user.ID)
-		if err == nil {
-			if count, _ := res.RowsAffected(); count > 0 {
-				return nil
-			}
-		}
+	query := `UPDATE users SET full_name = $1, email = $2, photo_url = $3, updated_at = $4 WHERE id = $5`
+	res, err := r.db.ExecContext(ctx, query, user.FullName, user.Email, user.PhotoURL, time.Now(), user.ID)
+	if err != nil {
+		return err
+	}
+	if count, _ := res.RowsAffected(); count > 0 {
+		return nil
 	}
 	return sql.ErrNoRows
 }
 
 func (r *postgresRepo) MarkVerified(ctx context.Context, userID string) error {
-	tables := []string{"customers", "couriers", "staff"}
-	for _, t := range tables {
-		query := `UPDATE ` + t + ` SET is_verified = true, status = CASE WHEN status = 'pending_verification' THEN 'active' ELSE status END, updated_at = $1 WHERE id = $2`
-		res, err := r.db.ExecContext(ctx, query, time.Now(), userID)
-		if err == nil {
-			if count, _ := res.RowsAffected(); count > 0 {
-				return nil
-			}
-		}
+	query := `UPDATE users SET is_verified = true, status = CASE WHEN status = 'pending_verification' THEN 'active' ELSE status END, updated_at = $1 WHERE id = $2`
+	res, err := r.db.ExecContext(ctx, query, time.Now(), userID)
+	if err != nil {
+		return err
+	}
+	if count, _ := res.RowsAffected(); count > 0 {
+		return nil
 	}
 	return sql.ErrNoRows
 }
 
 func (r *postgresRepo) UpdateLastLogin(ctx context.Context, userID string) error {
-	tables := []string{"customers", "couriers", "staff", "users"}
-	for _, t := range tables {
-		query := `UPDATE ` + t + ` SET last_login_at = $1 WHERE id = $2`
-		res, err := r.db.ExecContext(ctx, query, time.Now(), userID)
-		if err == nil {
-			if count, _ := res.RowsAffected(); count > 0 {
-				return nil
-			}
-		}
+	query := `UPDATE users SET last_login_at = $1 WHERE id = $2`
+	res, err := r.db.ExecContext(ctx, query, time.Now(), userID)
+	if err != nil {
+		return err
+	}
+	if count, _ := res.RowsAffected(); count > 0 {
+		return nil
 	}
 	return sql.ErrNoRows
 }
