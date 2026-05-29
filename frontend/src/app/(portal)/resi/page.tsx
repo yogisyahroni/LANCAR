@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { api } from '@/lib/api';
+import { clientLog } from '@/lib/clientLogger';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { 
   Search, 
@@ -63,7 +64,7 @@ export default function ResiPage() {
         setOrders([]);
       }
     } catch (error: any) {
-      console.error('Failed to fetch orders:', error);
+      clientLog.error('Failed to fetch customer receipts', { error });
       // Surface the real error to the user so they know something is wrong
       addNotification({
         title: 'Gagal Memuat Data',

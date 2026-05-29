@@ -35,6 +35,7 @@ import {
 import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { clientLog } from '../lib/clientLogger'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { useState } from 'react'
@@ -317,7 +318,7 @@ export default function Finance() {
                 a.download = `payouts_export_${new Date().toISOString().split('T')[0]}.csv`
                 a.click()
                 URL.revokeObjectURL(url)
-              } catch { console.error('Export failed') }
+              } catch (error) { clientLog.error('Payout export failed', { error }) }
             }}
             className="px-6 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-sm uppercase tracking-widest hover:bg-emerald-500/20 transition-all flex items-center gap-2"
           >

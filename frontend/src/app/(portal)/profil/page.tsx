@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { api } from '@/lib/api';
+import { clientLog } from '@/lib/clientLogger';
 import { 
   User, 
   ShieldCheck, 
@@ -26,6 +27,29 @@ import {
 } from 'lucide-react';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+const LEGACY_PROFILE_PIC_KEY = 'tembus_profile_pic';
+const PROFILE_PHOTO_MAX_BYTES = 2 * 1024 * 1024;
+const PROFILE_PHOTO_MIN_DIMENSION = 96;
+const PROFILE_PHOTO_MAX_DIMENSION = 4096;
+const PROFILE_PHOTO_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+const readImageDimensions = (file: File) =>
+  new Promise<{ width: number; height: number }>((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve({ width: image.naturalWidth, height: image.naturalHeight });
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Invalid image file'));
+    };
+
+    image.src = objectUrl;
+  });
 
 const urlBase64ToUint8Array = (base64String: string) => {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -59,6 +83,8 @@ export default function ProfilPage() {
   // Crop Photo Modal State
   const [isCropOpen, setIsCropOpen] = useState(false);
   const [tempImage, setTempImage] = useState<string | null>(null);
+  const [tempImageFile, setTempImageFile] = useState<File | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Tab Keamanan fields
   const [currentPin, setCurrentPin] = useState('');
@@ -84,8 +110,7 @@ export default function ProfilPage() {
   useEffect(() => {
     if (user?.name) setName(user.name);
     if (user?.email) setEmail(user.email);
-    const savedPic = localStorage.getItem('tembus_profile_pic');
-    if (savedPic) setProfilePic(savedPic);
+    localStorage.removeItem(LEGACY_PROFILE_PIC_KEY);
 
     api.get('/customer/profile')
       .then((res) => {
@@ -93,7 +118,7 @@ export default function ProfilPage() {
         if (!profile) return;
         setName(profile.name || '');
         setPhone(profile.phone_number || '');
-        setProfilePic(profile.profile_image_url || savedPic || null);
+        setProfilePic(profile.profile_image_url || null);
         setReferralCode(profile.referral_code || null);
       })
       .catch(() => {
@@ -114,27 +139,87 @@ export default function ProfilPage() {
   }, [user, addNotification]);
 
   // Tab Akun Handlers
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
+
+    if (!PROFILE_PHOTO_MIME_TYPES.has(file.type)) {
+      addNotification({ title: 'Gagal', message: 'Gunakan foto JPG, PNG, atau WebP.', type: 'error' });
+      return;
+    }
+
+    if (file.size > PROFILE_PHOTO_MAX_BYTES) {
+      addNotification({ title: 'Gagal', message: 'Ukuran foto profil maksimal 2MB.', type: 'error' });
+      return;
+    }
+
+    try {
+      const dimensions = await readImageDimensions(file);
+      const smallestSide = Math.min(dimensions.width, dimensions.height);
+      const largestSide = Math.max(dimensions.width, dimensions.height);
+      if (smallestSide < PROFILE_PHOTO_MIN_DIMENSION || largestSide > PROFILE_PHOTO_MAX_DIMENSION) {
+        addNotification({
+          title: 'Gagal',
+          message: 'Dimensi foto harus minimal 96px dan maksimal 4096px.',
+          type: 'error'
+        });
+        return;
+      }
+    } catch {
+      addNotification({ title: 'Gagal', message: 'File gambar tidak valid.', type: 'error' });
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (evt) => {
       const bstr = evt.target?.result as string;
       setTempImage(bstr);
+      setTempImageFile(file);
       setIsCropOpen(true);
     };
+    reader.onerror = () => {
+      addNotification({ title: 'Gagal', message: 'Foto profil tidak dapat dibaca.', type: 'error' });
+    };
     reader.readAsDataURL(file);
-    e.target.value = '';
   };
 
-  const handleConfirmCrop = () => {
-    if (tempImage) {
-      setProfilePic(tempImage);
-      localStorage.setItem('tembus_profile_pic', tempImage);
-      addNotification({ title: 'Sukses', message: 'Foto profil berhasil diunggah.', type: 'success' });
-    }
+  const handleCloseCrop = () => {
+    if (isUploadingPhoto) return;
     setIsCropOpen(false);
+    setTempImage(null);
+    setTempImageFile(null);
+  };
+
+  const handleConfirmCrop = async () => {
+    if (!tempImageFile) {
+      addNotification({ title: 'Gagal', message: 'Pilih foto profil terlebih dahulu.', type: 'error' });
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', tempImageFile);
+
+      const response = await api.post('/customer/profile/photo', formData);
+
+      const uploadedUrl = response.data?.data?.profile_image_url;
+      if (!uploadedUrl) {
+        throw new Error('Profile image URL missing from upload response');
+      }
+
+      setProfilePic(uploadedUrl);
+      setTempImage(null);
+      setTempImageFile(null);
+      setIsCropOpen(false);
+      addNotification({ title: 'Sukses', message: 'Foto profil berhasil diunggah.', type: 'success' });
+    } catch (error) {
+      clientLog.error('Profile photo upload failed', { error });
+      addNotification({ title: 'Error', message: 'Gagal mengunggah foto profil ke server.', type: 'error' });
+    } finally {
+      setIsUploadingPhoto(false);
+    }
   };
 
   const handleSaveAccount = (e: React.FormEvent) => {
@@ -252,7 +337,7 @@ export default function ProfilPage() {
         addNotification({ title: 'Dinonaktifkan', message: 'Browser push notifications telah dimatikan.', type: 'info' });
       }
     } catch (err: any) {
-      console.error('Push notification toggle error:', err);
+      clientLog.error('Push notification toggle failed', { error: err });
       addNotification({ title: 'Error', message: 'Gagal mengubah preferensi notifikasi.', type: 'error' });
     } finally {
       setIsPushLoading(false);
@@ -314,7 +399,7 @@ export default function ProfilPage() {
               className="space-y-6 select-none flex flex-col justify-between h-full"
             >
               <div className="flex flex-col md:flex-row gap-8 items-start select-none">
-                {/* Photo profile container with crop/upload simulator */}
+                {/* Photo profile container with secure backend upload */}
                 <div className="relative group flex-shrink-0 select-none">
                   <div className="h-32 w-32 rounded-3xl bg-primary/10 border-2 border-primary/20 flex items-center justify-center text-3xl font-extrabold text-primary overflow-hidden shadow-sm relative">
                     {profilePic ? (
@@ -327,7 +412,7 @@ export default function ProfilPage() {
                   {/* Photo Edit upload button trigger overlay */}
                   <label className="absolute bottom-2 right-2 p-2 bg-card border border-border/40 hover:bg-muted text-foreground rounded-xl shadow-md transition-all cursor-pointer hover:scale-105 active:scale-95 select-none">
                     <Camera className="h-4 w-4" />
-                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handlePhotoChange} />
                   </label>
                 </div>
 
@@ -714,7 +799,8 @@ export default function ProfilPage() {
               <div className="flex items-center justify-between select-none">
                 <h3 className="text-sm font-bold text-foreground select-none">Sesuaikan Foto Profil</h3>
                 <button
-                  onClick={() => setIsCropOpen(false)}
+                  onClick={handleCloseCrop}
+                  disabled={isUploadingPhoto}
                   className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-all cursor-pointer select-none"
                 >
                   <X className="h-4 w-4" />
@@ -731,16 +817,24 @@ export default function ProfilPage() {
 
               <div className="flex justify-end gap-3 select-none">
                 <button
-                  onClick={() => setIsCropOpen(false)}
+                  onClick={handleCloseCrop}
+                  disabled={isUploadingPhoto}
                   className="px-4 py-2 bg-muted hover:bg-muted/80 text-foreground font-semibold text-xs rounded-xl transition-all cursor-pointer select-none"
                 >
                   Batal
                 </button>
                 <button
                   onClick={handleConfirmCrop}
+                  disabled={isUploadingPhoto}
                   className="px-4 py-2 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer select-none"
                 >
-                  Gunakan Foto
+                  {isUploadingPhoto ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Mengunggah
+                    </span>
+                  ) : (
+                    'Gunakan Foto'
+                  )}
                 </button>
               </div>
             </motion.div>

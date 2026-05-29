@@ -49,7 +49,6 @@ import com.tembus.customer.data.model.OrderTrackingDetail
 import com.tembus.customer.ui.components.maps.RuntimeMapMarker
 import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
 import com.tembus.customer.ui.theme.Primary
-import kotlinx.coroutines.launch
 
 @Composable
 fun TrackingScreen(
@@ -60,7 +59,6 @@ fun TrackingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
 
     // Initialize polling when screen opens
     LaunchedEffect(orderId) {
@@ -369,7 +367,7 @@ fun CourierStatusCard(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ChatBubbleOutline,
+            imageVector = Icons.Default.ChatBubbleOutline,
                             contentDescription = "Pesan",
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)

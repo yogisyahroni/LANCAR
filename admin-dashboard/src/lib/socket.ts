@@ -1,6 +1,8 @@
 import { io, Socket } from 'socket.io-client'
+import { clientLog } from './clientLogger'
+import { adminSocketUrl } from './runtimeConfig'
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_WS_URL || 'http://localhost:8080'
+const SOCKET_URL = adminSocketUrl
 
 
 class SocketService {
@@ -14,7 +16,7 @@ class SocketService {
         return;
       }
       // If identity changed, disconnect first
-      console.log('📡 [WebSocket] Identity changed, reconnecting...');
+      clientLog.debug('WebSocket identity changed, reconnecting', { role });
       this.disconnect();
     }
 
@@ -28,15 +30,15 @@ class SocketService {
     })
 
     this.socket.on('connect', () => {
-      console.log('📡 [WebSocket] Connected to server as:', role || 'unknown')
+      clientLog.debug('WebSocket connected', { role: role || 'unknown' })
     })
 
     this.socket.on('disconnect', (reason) => {
-      console.log('📡 [WebSocket] Disconnected:', reason)
+      clientLog.debug('WebSocket disconnected', { reason, role: role || 'unknown' })
     })
 
     this.socket.on('connect_error', (error) => {
-      console.error('📡 [WebSocket] Connection Error:', error)
+      clientLog.error('WebSocket connection error', { error, role: role || 'unknown' })
     })
   }
 

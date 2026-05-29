@@ -16,6 +16,7 @@ import android.provider.Settings
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import com.tembus.courier.BuildConfig
 import com.google.android.gms.location.*
 import com.tembus.courier.R
 import com.tembus.courier.data.model.Location as LocationModel
@@ -99,7 +100,7 @@ class LocationTrackerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "Service created")
+        debugLog("Service created")
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
@@ -111,7 +112,7 @@ class LocationTrackerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "Service started")
+        debugLog("Service started")
 
         if (intent != null) {
             when (intent.action) {
@@ -138,7 +139,7 @@ class LocationTrackerService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "Service destroyed")
+        debugLog("Service destroyed")
         stopTracking()
         MAIN_THREAD.cancel()
         IO_THREAD.cancel()
@@ -150,7 +151,7 @@ class LocationTrackerService : Service() {
     private fun goOffline() {
         MAIN_THREAD.launch {
             authSessionManager.setOnlineStatus(false)
-            Log.d(TAG, "Courier duty status set to OFFLINE via notification action")
+            debugLog("Courier duty status set to OFFLINE via notification action")
         }
     }
 
@@ -165,7 +166,7 @@ class LocationTrackerService : Service() {
             ) { loggedIn, online ->
                 loggedIn && online
             }.collect { shouldTrack ->
-                Log.d(TAG, "Penentuan tracking status: $shouldTrack")
+                debugLog("Tracking eligibility evaluated: $shouldTrack")
                 if (shouldTrack) {
                     val session = authSessionManager.getSession()
                     if (session != null) {
@@ -188,12 +189,12 @@ class LocationTrackerService : Service() {
      */
     private fun startTracking() {
         if (isTracking) {
-            Log.d(TAG, "Already tracking")
+            debugLog("Already tracking")
             return
         }
 
         if (courierId == null) {
-            Log.w(TAG, "Courier ID not available")
+            warnLog("Courier ID not available")
             return
         }
 
@@ -206,7 +207,7 @@ class LocationTrackerService : Service() {
         registerBatteryReceiver()
         
         isTracking = true
-        Log.d(TAG, "Location tracking started")
+        debugLog("Location tracking started")
     }
 
     /**
@@ -221,7 +222,7 @@ class LocationTrackerService : Service() {
             val isOnline = authSessionManager.isOnline.first()
 
             if (session == null || !isOnline) {
-                Log.w(TAG, "Start tracking ignored. session=${session != null}, online=$isOnline")
+                warnLog("Start tracking ignored because session or duty state is unavailable")
                 stopForegroundIfNeeded()
                 stopSelf(startId)
                 return@launch
@@ -268,7 +269,7 @@ class LocationTrackerService : Service() {
         // Stop foreground service
         stopForegroundIfNeeded()
         isTracking = false
-        Log.d(TAG, "Location tracking stopped")
+        debugLog("Location tracking stopped")
     }
 
     /**
@@ -301,7 +302,7 @@ class LocationTrackerService : Service() {
         // Save to local database
         IO_THREAD.launch {
             locationRepository.insertLocation(locationModel)
-            Log.d(TAG, "Location saved: ${location.latitude}, ${location.longitude}")
+            debugLog("Location sample saved locally")
         }
 
         // Try to sync if we have enough unsynced locations
@@ -321,15 +322,14 @@ class LocationTrackerService : Service() {
             authSessionManager.getSession()?.let { session ->
                 IO_THREAD.launch {
                     val result = locationRepository.syncLocations(
-                        session.authToken,
                         session.courierId,
                         deviceId ?: ""
                     )
 
                     result.onSuccess { syncedIds ->
-                        Log.d(TAG, "Synced ${syncedIds.size} locations")
+                        debugLog("Synced ${syncedIds.size} location samples")
                     }.onFailure { e ->
-                        Log.e(TAG, "Sync failed: ${e.message}")
+                        errorLog("Location sync failed", e)
                     }
                 }
             }
@@ -344,15 +344,14 @@ class LocationTrackerService : Service() {
             authSessionManager.getSession()?.let { session ->
                 IO_THREAD.launch {
                     val result = locationRepository.syncLocations(
-                        session.authToken,
                         session.courierId,
                         deviceId ?: ""
                     )
 
                     result.onSuccess { syncedIds ->
-                        Log.d(TAG, "Force synced ${syncedIds.size} locations")
+                        debugLog("Force synced ${syncedIds.size} location samples")
                     }.onFailure { e ->
-                        Log.e(TAG, "Force sync failed: ${e.message}")
+                        errorLog("Force location sync failed", e)
                     }
                 }
             }
@@ -487,7 +486,7 @@ class LocationTrackerService : Service() {
                     }
                     
                     if (isMock) {
-                        Log.w("LocationTracker", "[Security Warning] Spoofed/Mock GPS coordinates detected. Dropping update.")
+                        warnLog("Spoofed or mock GPS update dropped")
                         return@let
                     }
                     handleLocationUpdate(location)
@@ -514,7 +513,7 @@ class LocationTrackerService : Service() {
                     cb,
                     android.os.Looper.getMainLooper()
                 )
-                Log.d(TAG, "Fused location bound. Mode: $currentIntervalMode, Interval: ${interval/1000}s")
+                debugLog("Fused location bound. Mode: $currentIntervalMode, Interval: ${interval / 1000}s")
             }
         }
     }
@@ -530,7 +529,7 @@ class LocationTrackerService : Service() {
         }
         
         bindLocationUpdates()
-        Log.d(TAG, "GPS request dynamic rebuilt successfully.")
+        debugLog("GPS request dynamic rebuilt successfully")
     }
 
     private fun registerBatteryReceiver() {
@@ -538,9 +537,9 @@ class LocationTrackerService : Service() {
             try {
                 registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
                 isBatteryReceiverRegistered = true
-                Log.d(TAG, "Battery monitor registered.")
+                debugLog("Battery monitor registered")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed registering battery receiver: ${e.message}")
+                errorLog("Failed registering battery receiver", e)
             }
         }
     }
@@ -550,7 +549,7 @@ class LocationTrackerService : Service() {
             try {
                 unregisterReceiver(batteryReceiver)
                 isBatteryReceiverRegistered = false
-                Log.d(TAG, "Battery monitor unregistered.")
+                debugLog("Battery monitor unregistered")
             } catch (e: Exception) {
                 // Handle already unregistered gracefully
             }
@@ -566,8 +565,26 @@ class LocationTrackerService : Service() {
 
         if (targetMode != currentIntervalMode) {
             currentIntervalMode = targetMode
-            Log.d(TAG, "Battery state threshold crossed. Changing mode to: $currentIntervalMode (Bat: $pct%, Charge: $isCharging)")
+            debugLog("Battery threshold changed location interval mode to $currentIntervalMode")
             rebuildLocationRequest()
+        }
+    }
+
+    private fun debugLog(message: String) {
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, message)
+        }
+    }
+
+    private fun warnLog(message: String) {
+        Log.w(TAG, message)
+    }
+
+    private fun errorLog(message: String, throwable: Throwable? = null) {
+        if (BuildConfig.DEBUG && throwable != null) {
+            Log.e(TAG, message, throwable)
+        } else {
+            Log.e(TAG, message)
         }
     }
 

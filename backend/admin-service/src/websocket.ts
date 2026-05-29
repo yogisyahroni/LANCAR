@@ -62,7 +62,7 @@ export const initWebSocket = (server: HttpServer) => {
           return callback(null, true);
         }
 
-        console.warn(`[Socket.IO CORS] Blocked unauthorized origin: ${origin}`);
+        realtimeStructuredLog('warn', 'socket_cors_origin_blocked', { has_origin: Boolean(origin) });
         return callback(null, false);
       },
       methods: ['GET', 'POST'],
@@ -136,7 +136,11 @@ export const initWebSocket = (server: HttpServer) => {
           next();
         })
         .catch((err) => {
-          console.error('WebSocket session verification failed', err);
+          realtimeStructuredLog('error', 'socket_session_verification_failed', {
+            reason: isCustomerSession ? 'customer_session_lookup_error' : 'admin_session_lookup_error',
+            error_name: err instanceof Error ? err.name : 'Error',
+            error_message: err instanceof Error ? err.message : 'Unknown websocket session error',
+          });
           void recordRealtimeMetric('socket_auth_failed', { reason: isCustomerSession ? 'customer_session_lookup_error' : 'admin_session_lookup_error' });
           next(new Error('Internal server error'));
         });
@@ -181,7 +185,10 @@ export const initWebSocket = (server: HttpServer) => {
 
           decodedPayload = sessionResult.rows[0];
         } catch (sessionError) {
-          console.error('WebSocket session token verification failed', sessionError);
+          realtimeStructuredLog('error', 'socket_session_token_verification_failed', {
+            error_name: sessionError instanceof Error ? sessionError.name : 'Error',
+            error_message: sessionError instanceof Error ? sessionError.message : 'Unknown websocket token error',
+          });
           void recordRealtimeMetric('socket_auth_failed', { reason: 'session_lookup_error' });
           return next(new Error('Internal server error'));
         }
@@ -191,7 +198,10 @@ export const initWebSocket = (server: HttpServer) => {
       (socket as any).user = decodedPayload;
       next();
     }).catch(err => {
-      console.error('Failed to load jsonwebtoken for websocket auth', err);
+      realtimeStructuredLog('error', 'socket_jwt_module_load_failed', {
+        error_name: err instanceof Error ? err.name : 'Error',
+        error_message: err instanceof Error ? err.message : 'Unknown jsonwebtoken load error',
+      });
       next(new Error('Internal server error'));
     });
   });
@@ -206,9 +216,14 @@ export const initWebSocket = (server: HttpServer) => {
     if (userId) {
       socket.join(String(userId));
       void recordRealtimeMetric('socket_connected', { role: role || 'unknown' });
-      console.log(`[WebSocket] User ${userId} joined room. Socket: ${socket.id}`);
+      realtimeStructuredLog('info', 'socket_user_room_joined', {
+        role: role || 'unknown',
+        has_user: true,
+      });
     } else {
-      console.warn(`[WebSocket] Client connected without a valid User ID in token: ${socket.id}`);
+      realtimeStructuredLog('warn', 'socket_missing_verified_user', {
+        role: role || 'unknown',
+      });
       void recordRealtimeMetric('socket_disconnected_invalid_user', { role: role || 'unknown' });
       socket.disconnect();
       return;
@@ -216,18 +231,24 @@ export const initWebSocket = (server: HttpServer) => {
     
     if (role) {
       socket.join(String(role));
-      console.log(`[WebSocket] User joined role room: ${role}. Socket: ${socket.id}`);
+      realtimeStructuredLog('info', 'socket_role_room_joined', { role });
     }
 
     // Dispute Rooms
     socket.on('join_dispute_room', ({ dispute_id }) => {
       socket.join(dispute_id);
-      console.log(`[Socket] User ${userId} joined dispute room: ${dispute_id}`);
+      realtimeStructuredLog('info', 'socket_dispute_room_joined', {
+        role: role || 'unknown',
+        has_dispute: Boolean(dispute_id),
+      });
     });
 
     socket.on('leave_dispute_room', ({ dispute_id }) => {
       socket.leave(dispute_id);
-      console.log(`[Socket] User ${userId} left dispute room: ${dispute_id}`);
+      realtimeStructuredLog('info', 'socket_dispute_room_left', {
+        role: role || 'unknown',
+        has_dispute: Boolean(dispute_id),
+      });
     });
 
     socket.on('join_order_room', async ({ order_id, orderId }, ack) => {
@@ -256,9 +277,9 @@ export const initWebSocket = (server: HttpServer) => {
         if (access.rows.length === 0) {
           void recordRealtimeMetric('order_room_join_failed', { reason: 'access_denied', role: role || 'unknown' });
           realtimeStructuredLog('warn', 'order_room_join_denied', {
-            order_id: targetOrderId,
-            user_id: userId,
             role: role || null,
+            has_order: true,
+            has_user: true,
           });
           ack?.({ success: false, message: 'Order access denied' });
           return;
@@ -268,9 +289,17 @@ export const initWebSocket = (server: HttpServer) => {
         socket.join(room);
         void recordRealtimeMetric('order_room_joined', { role: role || 'unknown' });
         ack?.({ success: true, room });
-        console.log(`[Socket] User ${userId} joined order room: ${room}`);
+        realtimeStructuredLog('info', 'socket_order_room_joined', {
+          role: role || 'unknown',
+          has_order: true,
+          has_user: true,
+        });
       } catch (error) {
-        console.error('[Socket] Failed to join order room', error);
+        realtimeStructuredLog('error', 'socket_order_room_join_failed', {
+          role: role || 'unknown',
+          error_name: error instanceof Error ? error.name : 'Error',
+          error_message: error instanceof Error ? error.message : 'Unknown order room error',
+        });
         void recordRealtimeMetric('order_room_join_failed', { reason: 'internal_error', role: role || 'unknown' });
         ack?.({ success: false, message: 'Internal server error' });
       }
@@ -281,12 +310,16 @@ export const initWebSocket = (server: HttpServer) => {
       if (!targetOrderId) return;
       const room = `order:${targetOrderId}`;
       socket.leave(room);
-      console.log(`[Socket] User ${userId} left order room: ${room}`);
+      realtimeStructuredLog('info', 'socket_order_room_left', {
+        role: role || 'unknown',
+        has_order: true,
+        has_user: true,
+      });
     });
 
     socket.on('disconnect', () => {
       void recordRealtimeMetric('socket_disconnected', { role: role || 'unknown' });
-      console.log(`[WebSocket] Client disconnected: ${socket.id}`);
+      realtimeStructuredLog('info', 'socket_disconnected', { role: role || 'unknown' });
     });
   });
 
@@ -314,6 +347,6 @@ export const closeWebSocket = async () => {
       socketRedisSubClient.disconnect();
       socketRedisSubClient = undefined;
     }
-    console.log('[WebSocket] Server closed');
+    realtimeStructuredLog('info', 'socket_server_closed', {});
   }
 };

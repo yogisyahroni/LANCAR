@@ -1633,6 +1633,70 @@ export const updateMobileCustomerProfile = async (req: Request, res: Response): 
   }
 };
 
+export const uploadMobileCustomerProfilePhoto = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customerId = req.user?.id;
+    if (!customerId) {
+      res.status(401).json({
+        success: false,
+        data: null,
+        message: 'Sesi tidak valid. Silakan masuk kembali.',
+        code: 'UNAUTHORIZED'
+      });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        data: null,
+        message: 'Foto profil wajib diunggah.',
+        code: 'CUSTOMER_PROFILE_PHOTO_REQUIRED'
+      });
+      return;
+    }
+
+    const savedUpload = saveSecureUploadBuffer(req.file, `customers/${customerId}/profile`);
+    const { rows } = await db.query(`
+      UPDATE users
+      SET photo_url = $2,
+          updated_at = NOW()
+      WHERE id = $1
+        AND role = 'customer'
+        AND deleted_at IS NULL
+      RETURNING id,
+                full_name,
+                phone_number,
+                photo_url
+    `, [customerId, savedUpload.fileUrl]);
+
+    if (rows.length === 0) {
+      res.status(404).json({
+        success: false,
+        data: null,
+        message: 'Profil customer tidak ditemukan.',
+        code: 'CUSTOMER_PROFILE_NOT_FOUND'
+      });
+      return;
+    }
+
+    const walletBalance = await getCustomerWalletBalance(customerId);
+
+    res.json({
+      success: true,
+      data: toMobileCustomerProfileDto({ ...rows[0], wallet_balance: walletBalance }),
+      message: 'Foto profil berhasil diperbarui.'
+    });
+  } catch {
+    res.status(500).json({
+      success: false,
+      data: null,
+      message: 'Gagal mengunggah foto profil.',
+      code: 'CUSTOMER_PROFILE_PHOTO_UPLOAD_FAILED'
+    });
+  }
+};
+
 export const getMobileCustomerOrders = async (req: Request, res: Response): Promise<void> => {
   try {
     const customer_id = req.user?.id;

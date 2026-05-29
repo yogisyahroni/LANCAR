@@ -17,6 +17,7 @@ Scope: source tree, production Compose config, gateway/admin security tests, and
 | Admin direct-call/internal trust tests | Passed | `npm test -- --runInBand src/middlewares.test.ts src/middleware/auditTrail.test.ts src/middleware/errorMapper.test.ts src/controllers/courierAuth.controller.test.ts`. |
 | VPS runbook exists | Passed | `docs/VPS_SECURITY_RUNBOOK.md`. |
 | VPS verification script syntax | Passed | `bash -n scripts/ops/verify-vps-security.sh`. |
+| Local secret scan helper | Passed | `scripts/ops/verify-local-secret-scan.ps1` runs gitleaks locally and fails closed when the scanner is unavailable. |
 | Tracked Firebase config and binaries | Pending commit | Real `google-services.json` and known binaries are deleted in this working tree. `git ls-files` will stop reporting them after the deletion commit is created. VPS script now fails if they are tracked in a committed checkout. |
 | Trivy high/critical scan | CI/VPS gate | Local Docker scan timed out on this workspace because dependency caches are present. Keep the GitHub Actions container security matrix as blocking, and run the script on the VPS/source checkout without `node_modules`. |
 | CI staging green | External gate | Must be confirmed on GitHub Actions after pushing this change set. |
@@ -32,6 +33,55 @@ Scope: source tree, production Compose config, gateway/admin security tests, and
 - [ ] Run `scripts/ops/verify-vps-security.sh` on the real VPS with `ENV_FILE=/opt/tembus/secrets/.env.production` and real `API_BASE_URL`.
 
 ## Tutorial: Required External Actions
+
+### 0. Run Local Secret Scan Before Push
+
+GitHub Actions already runs Gitleaks and container secret scanning, but local scanning catches mistakes before they reach Git history.
+
+Install Gitleaks on Windows with one of these options:
+
+```powershell
+winget install gitleaks
+```
+
+or:
+
+```powershell
+scoop install gitleaks
+```
+
+Then run from the repository root:
+
+```powershell
+pwsh scripts/ops/verify-local-secret-scan.ps1
+```
+
+Expected result:
+
+```text
+Secret scan passed: no leaks detected.
+```
+
+If the script reports findings, do not commit. Remove the file or replace the value with a non-secret placeholder, then rotate the exposed credential if it was real.
+
+The repository also ignores common mobile/secret artifacts:
+
+```text
+*.aab
+*.apk
+*.apks
+*.jks
+*.keystore
+**/google-services.json
+cookies.txt
+*.har
+```
+
+Done criteria:
+
+- Local Gitleaks scan passes before push.
+- Real keystore, Firebase config, AAB/APK, browser cookies, HAR files, and `.env` files are not tracked.
+- GitHub Actions Gitleaks and container SBOM/secret audit remain green.
 
 ### 1. Rotate or Restrict Firebase Android API Keys
 

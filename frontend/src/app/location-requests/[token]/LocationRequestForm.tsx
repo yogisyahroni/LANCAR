@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from 'react';
 import { CheckCircle2, Loader2, LocateFixed, MapPin, Phone, UserRound } from 'lucide-react';
+import { customerApiRootUrl } from '@/lib/runtimeConfig';
 
 type LocationRequestPayload = {
   pickup_address: string;
@@ -31,11 +32,6 @@ type GeocodeResult = {
 };
 
 const RECEIVER_LOCATION_STORAGE_KEY = 'tembus_receiver_location_submitted_v1';
-
-const apiRoot = () => {
-  const configured = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
-  return configured.replace(/\/api\/v1\/?$/, '');
-};
 
 export function LocationRequestForm({ token, initialRequest }: Props) {
   const [address, setAddress] = useState('');
@@ -95,7 +91,7 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
     if (resolvedLocation) return resolvedLocation;
 
     const response = await fetch(
-      `${apiRoot()}/api/v1/maps/geocode?query=${encodeURIComponent(address.trim())}&scope=web_customer`,
+      `${customerApiRootUrl}/api/v1/maps/geocode?query=${encodeURIComponent(address.trim())}&scope=web_customer`,
       { method: 'GET' }
     );
     const contentType = response.headers.get('content-type') || '';
@@ -132,7 +128,7 @@ export function LocationRequestForm({ token, initialRequest }: Props) {
 
     try {
       const location = await resolveAddressLocation();
-      const response = await fetch(`${apiRoot()}/api/v1/public/location-requests/${token}`, {
+      const response = await fetch(`${customerApiRootUrl}/api/v1/public/location-requests/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

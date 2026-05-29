@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { DeliveryService, OrderForm, OrderFormValues } from "@/components/orders/OrderForm";
+import { clearCustomerOrderDraft, DeliveryService, OrderForm, OrderFormValues } from "@/components/orders/OrderForm";
 import { OrderSummary } from "@/components/orders/OrderSummary";
 import { PaymentModal } from "@/components/orders/PaymentModal";
 import { api } from "@/lib/api";
+import { clientLog } from "@/lib/clientLogger";
 import { useRouter } from "next/navigation";
 import { useNotificationStore } from "@/store/useNotificationStore";
 import { Info } from "lucide-react";
@@ -125,7 +126,10 @@ export default function NewOrderPage() {
         setRoutePreviewError(null);
       }
     } catch (error: any) {
-      console.error("Failed to calculate pricing", error);
+      clientLog.warn("Failed to calculate pricing", {
+        status: error?.response?.status,
+        code: error?.response?.data?.code
+      });
       setCoverageError(
         error.response?.data?.message ||
         error.response?.data?.error ||
@@ -213,6 +217,7 @@ export default function NewOrderPage() {
       setOrderData(res.data.order);
       setPaymentData(res.data.payment);
       setShowPayment(true);
+      clearCustomerOrderDraft();
       
     } catch (error: any) {
       addNotification({

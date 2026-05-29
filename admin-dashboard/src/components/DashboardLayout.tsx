@@ -29,6 +29,7 @@ import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useSocket } from '../hooks/useSocket'
 import { api } from '../lib/api'
+import { clientLog } from '../lib/clientLogger'
 import { toast } from 'sonner'
 
 import { useAuthStore } from '../store/useAuthStore'
@@ -94,7 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setNotifications(res.data.notifications)
       }
     } catch (e) {
-      console.error('Failed to fetch notifications:', e)
+      clientLog.error('Failed to fetch notifications', { error: e })
     }
   }
 
@@ -107,7 +108,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       fetchNotifications()
 
       const handleNewNotif = (notif: DBNotification) => {
-        console.log('📡 [WebSocket] Admin notification:', notif)
+        clientLog.debug('Admin notification received', {
+          type: notif.type,
+          hasOrder: Boolean(notif.order_id),
+          hasDeepLink: Boolean(notif.deep_link),
+        })
         
         // 1. Update list
         setNotifications(prev => {
@@ -368,7 +373,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                               try {
                                 await api.delete('/auth/web/notifications')
                                 setNotifications([])
-                              } catch (e) { console.error(e) }
+                              } catch (e) { clientLog.error('Failed to clear notifications', { error: e }) }
                             }}
                             className="text-[9px] font-bold text-primary-light hover:text-white uppercase tracking-wider transition-colors"
                           >
@@ -396,7 +401,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     setNotifications(prev => 
                                       prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n)
                                     )
-                                  } catch (e) { console.error(e) }
+                                  } catch (e) { clientLog.error('Failed to mark notification as read', { error: e }) }
                                 }
                                 if (notif.deep_link) {
                                   navigate(notif.deep_link)

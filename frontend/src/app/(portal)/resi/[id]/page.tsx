@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '@/lib/api';
+import { clientLog } from '@/lib/clientLogger';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { 
   Printer, 
@@ -53,7 +54,7 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
         addNotification({ title: 'Gagal', message: 'Resi tidak ditemukan pada database.', type: 'error' });
       }
     } catch (error) {
-      console.error('Failed to fetch order resi:', error);
+      clientLog.error('Failed to fetch customer order receipt', { error, orderId: resolvedParams.id });
       setOrder(null);
       addNotification({ title: 'Gagal', message: 'Gagal mengambil detail resi dari server.', type: 'error' });
     } finally {

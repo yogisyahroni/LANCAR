@@ -31,10 +31,10 @@ abstract class OrderDatabase : RoomDatabase() {
         private var INSTANCE: OrderDatabase? = null
 
         val MIGRATION_1_2 = object : Migration(1, 2) {
-            override fun migrate(database: SupportSQLiteDatabase) {
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_order_id` ON `orders` (`order_id`)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_status` ON `orders` (`status`)")
-                database.execSQL("CREATE INDEX IF NOT EXISTS `index_locations_order_id` ON `locations` (`order_id`)")
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_order_id` ON `orders` (`order_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_status` ON `orders` (`status`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_locations_order_id` ON `locations` (`order_id`)")
             }
         }
 

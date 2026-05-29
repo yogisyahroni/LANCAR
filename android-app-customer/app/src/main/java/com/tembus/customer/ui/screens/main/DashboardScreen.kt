@@ -23,13 +23,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Person
@@ -232,7 +232,7 @@ private fun HomeHero(
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.15f))
             ) {
-                Icon(Icons.Default.Logout, contentDescription = "Keluar", tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Keluar", tint = Color.White)
             }
         }
 
@@ -353,7 +353,7 @@ private fun RouteLine(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = Color(0xFFAAB2C0))
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color(0xFFAAB2C0))
     }
 }
 
@@ -430,7 +430,7 @@ private fun LocationRequestCard(onBookingClick: () -> Unit) {
                 Text("Bagikan link agar titik dropoff lebih akurat.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
             }
             Text("Mulai", color = LcGreen, fontWeight = FontWeight.ExtraBold)
-            Icon(Icons.Default.KeyboardArrowRight, contentDescription = null, tint = LcGreen)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = LcGreen)
         }
     }
 }
@@ -567,6 +567,6 @@ private fun TrustRow(icon: ImageVector, title: String, body: String) {
             Text(title, color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
             Text(body, color = Muted, fontSize = 13.sp, lineHeight = 18.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color(0xFFB2BAC6), modifier = Modifier.size(18.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color(0xFFB2BAC6), modifier = Modifier.size(18.dp))
     }
 }

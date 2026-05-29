@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, Package, Mail, KeyRound, Phone, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { clientLog } from '@/lib/clientLogger';
+import { customerGoogleAuthUrl } from '@/lib/runtimeConfig';
 import { useAuthStore } from '@/store/authStore';
 
 const loginSchema = z.object({
@@ -112,7 +114,7 @@ export default function LoginPage() {
       setOtpSent(true);
       setCountdown(60);
     } catch (error: any) {
-      console.error('OTP send error:', error);
+      clientLog.error('OTP send error', { error });
       setApiError(getApiErrorMessage(error, 'Unable to send OTP. Please try again.'));
     } finally {
       setIsSendingOtp(false);
@@ -179,13 +181,13 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (error: any) {
-      console.error('Login error:', error);
+      clientLog.error('Login error', { error });
       setApiError(getApiErrorMessage(error, 'An unexpected error occurred. Please try again.'));
     }
   };
 
   const handleGoogleSignIn = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/auth/google`;
+    window.location.href = customerGoogleAuthUrl;
   };
 
   return (

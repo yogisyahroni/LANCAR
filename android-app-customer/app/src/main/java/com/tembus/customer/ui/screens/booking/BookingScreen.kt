@@ -33,9 +33,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Map
@@ -549,7 +549,7 @@ private fun BookingHeader(onBackClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBackClick) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Kembali", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color.White)
         }
         Spacer(Modifier.width(8.dp))
         Column {
@@ -634,7 +634,7 @@ private fun DeliveryDetailCard(
                     .clip(RoundedCornerShape(50))
                     .background(Color(0xFFE8294D))
                     .padding(horizontal = 8.dp, vertical = 3.dp))
-                Icon(Icons.Default.KeyboardArrowRight, null, tint = LcGreen)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = LcGreen)
             }
         }
     }
@@ -678,7 +678,7 @@ private fun AddressRow(
             )
         }
         if (onClick != null) {
-            Icon(Icons.Default.KeyboardArrowRight, null, tint = Color(0xFFB2BAC6))
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color(0xFFB2BAC6))
         }
     }
 }
@@ -1923,7 +1923,7 @@ private fun GeocodeResultRow(
                 maxLines = 1
             )
         }
-        Icon(Icons.Default.KeyboardArrowRight, null, tint = Muted)
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Muted)
     }
 }
 

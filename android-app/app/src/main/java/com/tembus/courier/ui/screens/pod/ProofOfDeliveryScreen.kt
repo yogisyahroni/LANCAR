@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -78,8 +79,6 @@ fun ProofOfDeliveryScreen(
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
-    var previewView by remember { mutableStateOf<PreviewView?>(null) }
-
     LaunchedEffect(Unit) {
         if (!cameraPermissionState.status.isGranted) {
             cameraPermissionState.launchPermissionRequest()
@@ -116,7 +115,7 @@ fun ProofOfDeliveryScreen(
                 title = { Text(if (proofMode == "pickup") "Foto Barang Pickup" else "Proof of Delivery") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -178,8 +177,6 @@ fun ProofOfDeliveryScreen(
                     CameraPreviewContent(
                         order = order,
                         proofMode = proofMode,
-                        previewView = previewView,
-                        onPreviewViewReady = { previewView = it },
                         onImageCaptureReady = { imageCapture = it },
                         onCapture = {
                             imageCapture?.let { capture ->
@@ -236,8 +233,6 @@ private fun CameraPermissionContent(
 private fun CameraPreviewContent(
     order: Order,
     proofMode: String,
-    previewView: PreviewView?,
-    onPreviewViewReady: (PreviewView) -> Unit,
     onImageCaptureReady: (ImageCapture) -> Unit,
     onCapture: () -> Unit,
     isCapturing: Boolean,
@@ -256,7 +251,6 @@ private fun CameraPreviewContent(
         AndroidView(
             factory = { ctx ->
                 PreviewView(ctx).also { preview ->
-                    onPreviewViewReady(preview)
                     startCamera(
                         context = ctx,
                         lifecycleOwner = lifecycleOwner,

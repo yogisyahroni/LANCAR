@@ -15,6 +15,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.tembus.courier.BuildConfig
 import com.tembus.courier.TEMBUSApplication
 import com.tembus.courier.R
 import com.tembus.courier.data.repository.FCMTokenRepository
@@ -47,12 +48,11 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG, "FCM Service Created")
+        debugLog("FCM service created")
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
-        Log.d(TAG, "From: ${remoteMessage.from}")
-        Log.d(TAG, "Message Data: ${remoteMessage.data}")
+        debugLog("FCM message received: ${messageSummary(remoteMessage.data)}")
 
         // Handle data payload
         if (remoteMessage.data.isNotEmpty()) {
@@ -61,7 +61,7 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
         // Handle notification payload
         remoteMessage.notification?.let { notification ->
-            Log.d(TAG, "Message Notification Body: ${notification.body}")
+            debugLog("FCM notification payload received")
             showNotification(
                 notification.title ?: "TEMBUS Courier",
                 notification.body ?: "",
@@ -72,21 +72,21 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onDeletedMessages() {
         super.onDeletedMessages()
-        Log.d(TAG, "Messages deleted by server")
+        debugLog("FCM messages deleted by server")
     }
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d(TAG, "Refreshed FCM token")
+        debugLog("FCM token refreshed")
         // Register new token with backend if courier is logged in
         serviceScope.launch {
             val result = fcmTokenRepository.registerTokenIfLoggedIn()
             if (result.isSuccess) {
-                Log.d(TAG, "New FCM token registered with backend")
+                debugLog("FCM token registered with backend")
             } else {
                 val exc = result.exceptionOrNull()
                 if (exc != null) {
-                    Log.d(TAG, "New token registration skipped/failed: ${exc.message}")
+                    debugLog("FCM token registration skipped or failed: ${exc::class.java.simpleName}")
                 }
             }
         }
@@ -143,7 +143,7 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
                 Manifest.permission.POST_NOTIFICATIONS
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            Log.w(TAG, "Notification skipped because POST_NOTIFICATIONS permission is not granted")
+            warnLog("Notification skipped because POST_NOTIFICATIONS permission is not granted")
             return
         }
 
@@ -245,10 +245,42 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
                 notify(notificationId, notification)
             }
         } catch (e: SecurityException) {
-            Log.e(TAG, "Notification blocked by system permission policy", e)
+            errorLog("Notification blocked by system permission policy", e)
             return
         }
 
-        Log.d(TAG, "Notification shown: $title")
+        debugLog("Notification shown for type=$type")
+    }
+
+    private fun messageSummary(data: Map<String, String>): String {
+        val type = data["type"] ?: "unknown"
+        val safeKeys = data.keys
+            .filterNot { key ->
+                key.contains("token", ignoreCase = true) ||
+                    key.contains("body", ignoreCase = true) ||
+                    key.contains("address", ignoreCase = true) ||
+                    key.contains("phone", ignoreCase = true) ||
+                    key.contains("customer", ignoreCase = true)
+            }
+            .sorted()
+        return "type=$type keys=${safeKeys.joinToString(",")}"
+    }
+
+    private fun debugLog(message: String) {
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, message)
+        }
+    }
+
+    private fun warnLog(message: String) {
+        Log.w(TAG, message)
+    }
+
+    private fun errorLog(message: String, throwable: Throwable? = null) {
+        if (BuildConfig.DEBUG && throwable != null) {
+            Log.e(TAG, message, throwable)
+        } else {
+            Log.e(TAG, message)
+        }
     }
 }

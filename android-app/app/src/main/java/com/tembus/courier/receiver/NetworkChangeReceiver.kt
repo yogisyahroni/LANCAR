@@ -4,12 +4,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
-import android.net.Network
 import android.net.NetworkCapabilities
 import android.util.Log
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
-import com.tembus.courier.data.repository.OrderRepository
 import com.tembus.courier.worker.OrderSyncWorker
 
 /**
@@ -21,9 +19,10 @@ import com.tembus.courier.worker.OrderSyncWorker
 class NetworkChangeReceiver : BroadcastReceiver() {
 
     private val TAG = "NetworkChangeReceiver"
+    private val connectivityChangeAction = "android.net.conn.CONNECTIVITY_CHANGE"
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == ConnectivityManager.CONNECTIVITY_ACTION) {
+        if (intent.action == connectivityChangeAction) {
             if (isNetworkAvailable(context)) {
                 Log.d(TAG, "Network available - scheduling order sync")
                 scheduleOrderSync(context)

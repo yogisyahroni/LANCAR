@@ -17,6 +17,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -204,7 +207,7 @@ fun OrderDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -751,7 +754,7 @@ private fun OnDemandSupportActions(
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            CompactActionButton(icon = Icons.Default.Chat, label = "Chat", onClick = onChatClick, modifier = Modifier.weight(1f))
+                CompactActionButton(icon = Icons.AutoMirrored.Filled.Chat, label = "Chat", onClick = onChatClick, modifier = Modifier.weight(1f))
             CompactActionButton(icon = Icons.Default.Phone, label = "Telepon", onClick = {
                 val phone = order.phoneNumber.orEmpty()
                 if (phone.isNotBlank()) {
@@ -1209,13 +1212,13 @@ private fun OrderActions(
             )
 
             ActionButton(
-                icon = Icons.Default.Chat,
+                    icon = Icons.AutoMirrored.Filled.Chat,
                 label = "Chat Customer",
                 onClick = onChatClick
             )
 
             ActionButton(
-                icon = Icons.Default.Message,
+                    icon = Icons.AutoMirrored.Filled.Message,
                 label = "Chat WhatsApp",
                 onClick = {
                     val phone = order.phoneNumber ?: ""

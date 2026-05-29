@@ -3,6 +3,7 @@ package com.tembus.customer.service
 import android.util.Log
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.tembus.customer.BuildConfig
 import com.tembus.customer.data.repository.NotificationRepository
 import com.tembus.customer.util.NotificationHelper
 import com.tembus.customer.worker.CustomerResyncWorker
@@ -27,26 +28,26 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        Log.d(TAG, "Refreshed device token")
+        debugLog("Device token refreshed")
         
         // Push token to server
         scope.launch {
             val result = notificationRepository.registerDeviceToken(token)
             if (result.isSuccess) {
-                Log.d(TAG, "Device token registered successfully on server")
+                debugLog("Device token registered successfully on server")
             } else {
-                Log.e(TAG, "Failed to register device token on server: ${result.exceptionOrNull()?.message}")
+                errorLog("Failed to register device token on server", result.exceptionOrNull())
             }
         }
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
-        Log.d(TAG, "From: ${remoteMessage.from}")
+        debugLog("FCM message received: ${messageSummary(remoteMessage.data)}")
 
         // Check if message contains a notification payload.
         remoteMessage.notification?.let {
-            Log.d(TAG, "Message Notification Body: ${it.body}")
+            debugLog("FCM notification payload received")
             notificationHelper.showNotification(
                 title = it.title ?: "TEMBUS",
                 message = it.body ?: "",
@@ -56,7 +57,7 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
         // Also check if message contains data payload.
         if (remoteMessage.data.isNotEmpty()) {
-            Log.d(TAG, "Message data payload: ${remoteMessage.data}")
+            debugLog("FCM data payload received")
             CustomerResyncWorker.enqueue(this, "fcm_data_message")
             
             // If there's no notification payload but there is data, we might still want to show a notification
@@ -79,5 +80,32 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
     companion object {
         private const val TAG = "TEMBUSFCMService"
+    }
+
+    private fun messageSummary(data: Map<String, String>): String {
+        val type = data["type"] ?: "unknown"
+        val safeKeys = data.keys
+            .filterNot { key ->
+                key.contains("token", ignoreCase = true) ||
+                    key.contains("body", ignoreCase = true) ||
+                    key.contains("address", ignoreCase = true) ||
+                    key.contains("phone", ignoreCase = true)
+            }
+            .sorted()
+        return "type=$type keys=${safeKeys.joinToString(",")}"
+    }
+
+    private fun debugLog(message: String) {
+        if (BuildConfig.DEBUG) {
+            Log.d(TAG, message)
+        }
+    }
+
+    private fun errorLog(message: String, throwable: Throwable? = null) {
+        if (BuildConfig.DEBUG && throwable != null) {
+            Log.e(TAG, message, throwable)
+        } else {
+            Log.e(TAG, message)
+        }
     }
 }

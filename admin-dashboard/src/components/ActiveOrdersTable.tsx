@@ -19,14 +19,14 @@ import {
 import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { adminApiRootUrl } from '../lib/runtimeConfig'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 
 const uploadUrl = (path?: string | null) => {
   if (!path) return ''
   if (path.startsWith('http://') || path.startsWith('https://')) return path
-  const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1').replace(/\/api\/v1\/?$/, '').replace(/\/$/, '')
-  return `${apiBase}${path}`
+  return `${adminApiRootUrl}${path}`
 }
 
 const getErrorMessage = (error: any, fallback: string) =>

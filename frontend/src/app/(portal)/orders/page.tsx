@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
+import { clientLog } from '@/lib/clientLogger';
 import Link from 'next/link';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { downloadCsv, type CsvRow } from '@/lib/csv';
@@ -72,7 +73,7 @@ export default function OrderListPage() {
         setOrders(res.data.orders);
       }
     } catch (error: any) {
-      console.error('Failed to fetch orders:', error);
+      clientLog.error('Failed to fetch customer orders', { error });
       addNotification({ title: 'Gagal', message: 'Gagal mengambil data order.', type: 'error' });
     } finally {
       setLoading(false);

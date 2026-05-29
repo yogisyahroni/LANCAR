@@ -35,6 +35,7 @@ import {
 import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { clientLog } from '../lib/clientLogger'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MapContainer, TileLayer, useMap } from 'react-leaflet'
@@ -51,7 +52,7 @@ function HeatLayer({ points }: { points: any[] }) {
     
     // @ts-expect-error - leaflet.heat is not in types
     if (typeof L.heatLayer !== 'function') {
-      console.warn('L.heatLayer is not available');
+      clientLog.warn('Leaflet heat layer is not available');
       return;
     }
 
@@ -68,7 +69,7 @@ function HeatLayer({ points }: { points: any[] }) {
         { radius: 25, blur: 15, maxZoom: 17, gradient: { 0.4: 'blue', 0.65: 'lime', 1: 'red' } }
       ).addTo(map);
     } catch (e) {
-      console.error('Heatmap layer failed:', e);
+      clientLog.error('Heatmap layer failed', { error: e });
     }
 
     return () => {

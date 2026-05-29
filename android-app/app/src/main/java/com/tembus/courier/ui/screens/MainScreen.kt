@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,7 +38,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.navigation.NavHostController
 import com.google.android.gms.location.Priority
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.tasks.CancellationTokenSource
@@ -108,7 +108,6 @@ private val DeepForest = Color(0xFF0A2F20)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    navController: NavHostController? = null,
     initialOrderId: String? = null,
     initialChatOrderId: String? = null,
     authSessionManager: AuthSessionManager,
@@ -940,8 +939,8 @@ private fun OnDemandMapHome(
         }
     }.orEmpty()
     val mapMarkers = buildList {
-        pickupPoint?.let { add(RuntimeMapMarker("pickup", it, focusOrder?.pickupAddress ?: "Titik Jemput")) }
-        dropPoint?.let { add(RuntimeMapMarker("dropoff", it, focusOrder?.dropAddress ?: "Tujuan")) }
+        pickupPoint?.let { add(RuntimeMapMarker("pickup", it, focusOrder.pickupAddress)) }
+        dropPoint?.let { add(RuntimeMapMarker("dropoff", it, focusOrder.dropAddress)) }
         hotspots.take(8).forEach { hotspot ->
             val lat = hotspot.latitude
             val lng = hotspot.longitude
@@ -3014,7 +3013,7 @@ private fun WalletContent(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Surface(color = Success.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
-                            Icon(Icons.Default.ReceiptLong, contentDescription = null, tint = Success, modifier = Modifier.padding(10.dp).size(22.dp))
+                            Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = Success, modifier = Modifier.padding(10.dp).size(22.dp))
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Ledger pendapatan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -3495,7 +3494,7 @@ private fun ProfileContent(
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
         ) {
-            Icon(Icons.Default.Logout, contentDescription = null)
+            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Keluar Aplikasi")
         }
@@ -3967,7 +3966,7 @@ private fun EarningsLedgerRow(transaction: CourierEarningsTransaction) {
     ) {
         Surface(color = color.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
             Icon(
-                if (isCredit) Icons.Default.CallReceived else Icons.Default.CallMade,
+                if (isCredit) Icons.AutoMirrored.Filled.CallReceived else Icons.AutoMirrored.Filled.CallMade,
                 contentDescription = null,
                 tint = color,
                 modifier = Modifier.padding(8.dp).size(18.dp)

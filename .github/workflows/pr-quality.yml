@@ -4,6 +4,13 @@ on:
   pull_request:
     branches: [development, staging, main]
 
+# Ephemeral GitHub Actions service database only; these values are scoped to CI
+# test containers and are not production or staging runtime credentials.
+env:
+  CI_POSTGRES_USER: tembus_ci
+  CI_POSTGRES_PASSWORD: tembus_ci_ephemeral_db_auth
+  CI_POSTGRES_DB: tembus_ci
+
 jobs:
   security-quality:
     name: Repository Secret Scan
@@ -41,6 +48,10 @@ jobs:
           npm run build
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
+          NEXT_PUBLIC_API_URL: https://ci-api.tembus.invalid/api/v1
+          NEXT_PUBLIC_WS_URL: wss://ci-api.tembus.invalid
+          NEXT_PUBLIC_SOCKET_URL: https://ci-api.tembus.invalid
+          SERVER_API_URL: https://ci-api.tembus.invalid/api/v1
 
   # ───────────────────────────────────────────────
   # ADMIN SERVICE (NODE.JS)
@@ -53,9 +64,9 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: tembus
+          POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
         ports: [5432:5432]
       redis:
         image: redis:6-alpine
@@ -74,7 +85,7 @@ jobs:
           npx tsc --noEmit
           npm test -- --testTimeout=60000
         env:
-          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable"
+          DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
   # ───────────────────────────────────────────────
@@ -88,9 +99,9 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: tembus
+          POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
         ports: [5432:5432]
       redis:
         image: redis:6-alpine
@@ -108,7 +119,7 @@ jobs:
           go vet ./...
           go test -v -timeout 5m ./...
         env:
-          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable"
+          DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
   # ───────────────────────────────────────────────
@@ -122,9 +133,9 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: tembus
+          POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
         ports: [5432:5432]
       redis:
         image: redis:6-alpine
@@ -142,5 +153,5 @@ jobs:
           go vet ./...
           go test -v -timeout 5m ./...
         env:
-          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable"
+          DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"

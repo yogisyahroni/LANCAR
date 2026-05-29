@@ -21,6 +21,7 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { api } from '@/lib/api';
+import { clientLog } from '@/lib/clientLogger';
 import Link from 'next/link';
 
 interface Order {
@@ -64,7 +65,7 @@ export default function DashboardPage() {
         setOrders(res.data.orders || []);
       }
     } catch (error) {
-      console.error('Failed to fetch orders:', error);
+      clientLog.error('Failed to fetch customer dashboard orders', { error });
       setOrders([]);
     } finally {
       setLoading(false);
@@ -78,7 +79,7 @@ export default function DashboardPage() {
         setDashboardStats(res.data.data);
       }
     } catch (error) {
-      console.error('Failed to fetch customer dashboard stats:', error);
+      clientLog.error('Failed to fetch customer dashboard stats', { error });
       setDashboardStats(null);
     }
   };

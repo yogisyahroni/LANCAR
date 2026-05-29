@@ -1,4 +1,5 @@
 import { Clock3, MapPinned, ShieldCheck } from 'lucide-react';
+import { getCustomerServerApiRootUrl } from '@/lib/runtimeConfig';
 import { LocationRequestForm } from './LocationRequestForm';
 
 type LocationRequestResponse = {
@@ -12,15 +13,6 @@ type LocationRequestResponse = {
   message?: string;
 };
 
-const apiRoot = () => {
-  const configured =
-    process.env.SERVER_API_URL ||
-    process.env.INTERNAL_API_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    'http://localhost:8080/api/v1';
-  return configured.replace(/\/api\/v1\/?$/, '');
-};
-
 const formatExpiry = (value?: string) => {
   if (!value) return 'Belum tersedia';
   return new Intl.DateTimeFormat('id-ID', {
@@ -32,7 +24,7 @@ const formatExpiry = (value?: string) => {
 
 async function getLocationRequest(token: string): Promise<LocationRequestResponse> {
   try {
-    const response = await fetch(`${apiRoot()}/api/v1/public/location-requests/${token}`, {
+    const response = await fetch(`${getCustomerServerApiRootUrl()}/api/v1/public/location-requests/${token}`, {
       cache: 'no-store',
       next: { revalidate: 0 },
     });

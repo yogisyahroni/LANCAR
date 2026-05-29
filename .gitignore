@@ -67,4 +67,11 @@ scratch/
 # Android build artifacts
 **/.gradle/
 **/build/
+*.aab
+*.apk
+*.apks
+*.jks
+*.keystore
+cookies.txt
+*.har
 

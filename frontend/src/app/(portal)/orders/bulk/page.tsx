@@ -21,6 +21,12 @@ export default function BulkOrderPage() {
     setCurrentStep(3);
   };
 
+  const handlePaymentComplete = () => {
+    setCurrentStep(1);
+    setJobId(null);
+    setValidatedData(null);
+  };
+
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -86,7 +92,7 @@ export default function BulkOrderPage() {
           <PaymentStep 
             jobId={jobId}
             data={validatedData}
-            onComplete={() => console.log('All Done')} 
+            onComplete={handlePaymentComplete}
           />
         )}
       </div>

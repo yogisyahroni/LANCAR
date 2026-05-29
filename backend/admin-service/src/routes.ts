@@ -94,6 +94,7 @@ routes.post('/auth/web/disputes/:id/upload', verifyWebSession, ...secureUploadSi
 // Customer Mobile Portal Routes
 routes.get('/api/v1/customer/profile', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerProfile(req, res));
 routes.put('/api/v1/customer/profile', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.updateMobileCustomerProfile(req, res));
+routes.post('/api/v1/customer/profile/photo', requireMobileOrWebAuth, ...secureUploadSingle('photo', 'profileImage'), (req, res) => controllers.customerOrder.uploadMobileCustomerProfilePhoto(req, res));
 routes.get('/api/v1/customer/dashboard/stats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getCustomerDashboardStats(req, res));
 routes.get('/api/v1/customer/orders', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrders(req, res));
 routes.get('/api/v1/customer/orders/:id/tracking-detail', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrderTrackingDetail(req, res));

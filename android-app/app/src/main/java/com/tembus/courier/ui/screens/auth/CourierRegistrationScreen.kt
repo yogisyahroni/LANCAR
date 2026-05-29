@@ -8,10 +8,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -86,7 +86,7 @@ fun CourierRegistrationScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Kembali", tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color.White)
             }
 
             Text("Daftar Kurir On-Demand", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color.White)
@@ -318,7 +318,7 @@ private fun DocumentUploadRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(
-            imageVector = if (uploaded) Icons.Default.CheckCircle else Icons.Default.InsertDriveFile,
+            imageVector = if (uploaded) Icons.Default.CheckCircle else Icons.AutoMirrored.Filled.InsertDriveFile,
             contentDescription = null,
             tint = if (uploaded) Primary else MaterialTheme.colorScheme.onSurfaceVariant
         )

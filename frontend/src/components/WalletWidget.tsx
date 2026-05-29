@@ -5,6 +5,7 @@ import { useWalletStore } from '@/store/useWalletStore';
 import { Wallet, Plus, ArrowUpRight, RefreshCw, X, Loader2, Landmark, User, CreditCard } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { clientLog } from '@/lib/clientLogger';
 
 interface WalletWidgetProps {
   isCollapsed?: boolean;
@@ -57,28 +58,28 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
       const result = await topUp(numAmount);
       if (window.snap) {
         window.snap.pay(result.snap_token, {
-          onSuccess: function(result: any) {
+          onSuccess: function() {
             alert('Top up berhasil!');
             fetchBalance();
             setShowTopUp(false);
             setAmount('');
           },
-          onPending: function(result: any) {
+          onPending: function() {
             alert('Menunggu pembayaran...');
             setShowTopUp(false);
           },
-          onError: function(result: any) {
+          onError: function() {
             alert('Top up gagal!');
           },
           onClose: function() {
-            console.log('Snap popup closed');
+            clientLog.debug('Snap popup closed');
           }
         });
       } else {
         alert('Payment Gateway belum siap. Silakan coba lagi.');
       }
     } catch (err) {
-      console.error(err);
+      clientLog.error('Top up request failed', { error: err });
     } finally {
       setIsSubmitting(false);
     }
@@ -113,7 +114,7 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
       setShowWithdraw(false);
       setWithdrawForm({ amount: '', bank_name: '', account_number: '', account_holder: '' });
     } catch (err) {
-      console.error(err);
+      clientLog.error('Withdraw request failed', { error: err });
     } finally {
       setIsSubmitting(false);
     }

@@ -1,7 +1,7 @@
 # Production Mobile Release Runbook
 
 Status: Ready for operator use
-Last updated: 2026-05-26
+Last updated: 2026-05-29
 Scope: TEMBUS Courier Android app and TEMBUS Customer Android app
 
 This runbook explains how to produce, verify, download, and upload production-ready mobile AAB artifacts. It is intentionally explicit because the two apps have separate package names, Firebase configs, and signing keys.
@@ -186,7 +186,7 @@ Copy SHA-1 and SHA-256 fingerprints into Firebase and any Google Maps API key re
 
 ## Local Release Build
 
-Use JDK 17.
+Use JDK 17. Both Android app modules declare a Kotlin JVM toolchain of 17, and GitHub Actions uses Temurin 17. Do not add `org.gradle.java.home` with a personal machine path into committed `gradle.properties`; set `JAVA_HOME` in your shell or CI environment instead.
 
 ```powershell
 $env:JAVA_HOME = "C:\Program Files\Java\jdk-17.0.12"
@@ -215,6 +215,37 @@ $env:RELEASE_KEYSTORE_PASSWORD = "<customer-keystore-password>"
 $env:RELEASE_KEY_ALIAS = "tembus-customer-release"
 $env:RELEASE_KEY_PASSWORD = "<customer-key-password>"
 .\gradlew.bat bundleRelease -PversionCode=<version-code> -PversionName="<version-name>"
+```
+
+## JDK 17 Toolchain Troubleshooting
+
+If Gradle fails with `Dependency requires at least JVM runtime version 11`, `Unsupported class file major version`, or a Kotlin/Javac mismatch, the machine is almost always using an older Java runtime even when Android Studio is open.
+
+1. Check Java:
+
+```powershell
+java -version
+```
+
+2. Set JDK 17 for the current PowerShell session:
+
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Java\jdk-17.0.12"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+java -version
+```
+
+3. Re-run the build from the app folder:
+
+```powershell
+.\gradlew.bat assembleDebug
+```
+
+4. If the error persists, stop old Gradle daemons and retry:
+
+```powershell
+.\gradlew.bat --stop
+.\gradlew.bat assembleDebug
 ```
 
 ## Local AAB Verification

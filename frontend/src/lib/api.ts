@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
+import { customerApiUrl } from './runtimeConfig';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+const API_URL = customerApiUrl;
 
 const PUBLIC_AUTH_PATHS = [
   '/auth/customer/login/start',
@@ -39,6 +40,17 @@ const processQueue = (error: any, token: string | null = null) => {
   });
   failedQueue = [];
 };
+
+api.interceptors.request.use((config) => {
+  if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+    if (typeof config.headers?.delete === 'function') {
+      config.headers.delete('Content-Type');
+    } else if (config.headers) {
+      delete (config.headers as Record<string, unknown>)['Content-Type'];
+    }
+  }
+  return config;
+});
 
 // Response interceptor
 api.interceptors.response.use(

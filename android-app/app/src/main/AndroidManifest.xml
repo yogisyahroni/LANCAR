@@ -86,6 +86,7 @@
         <service
             android:name=".service.TEMBUSFirebaseMessagingService"
             android:exported="true"
+            android:permission="com.google.android.c2dm.permission.SEND"
             android:foregroundServiceType="dataSync">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

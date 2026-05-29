@@ -167,7 +167,7 @@ class OrderRepository @Inject constructor(
      * Sync pending orders with backend
      * Returns list of successfully synced order IDs
      */
-    suspend fun syncPendingOrders(authToken: String = ""): Result<List<String>> = withContext(Dispatchers.IO) {
+    suspend fun syncPendingOrders(): Result<List<String>> = withContext(Dispatchers.IO) {
         try {
             val pendingOrders = orderDao.getPendingOrders().first()
             val pendingScans = orderDao.getPendingScans().first()

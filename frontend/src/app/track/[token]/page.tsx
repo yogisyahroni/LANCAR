@@ -1,4 +1,5 @@
 import { MapPin, Navigation, PackageCheck, Timer, Truck } from 'lucide-react';
+import { getCustomerServerApiRootUrl } from '@/lib/runtimeConfig';
 
 type PublicTrackingResponse = {
   success: boolean;
@@ -21,15 +22,6 @@ type PublicTrackingResponse = {
   message?: string;
 };
 
-const apiRoot = () => {
-  const configured =
-    process.env.SERVER_API_URL ||
-    process.env.INTERNAL_API_URL ||
-    process.env.NEXT_PUBLIC_API_URL ||
-    'http://localhost:8080/api/v1';
-  return configured.replace(/\/api\/v1\/?$/, '');
-};
-
 const statusLabel = (status?: string) => {
   const normalized = (status || '').toLowerCase();
   if (['delivered', 'completed'].includes(normalized)) return 'Selesai';
@@ -50,7 +42,7 @@ const formatTime = (value?: string | null) => {
 
 async function getTracking(token: string): Promise<PublicTrackingResponse> {
   try {
-    const response = await fetch(`${apiRoot()}/track/${token}`, {
+    const response = await fetch(`${getCustomerServerApiRootUrl()}/track/${token}`, {
       cache: 'no-store',
       next: { revalidate: 0 },
     });

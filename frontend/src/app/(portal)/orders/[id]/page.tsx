@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { useAuthStore } from '@/store/authStore';
 import { getSocket, joinOrderRoom, leaveOrderRoom } from '@/lib/socket';
+import { clientLog } from '@/lib/clientLogger';
 import { ArrowLeft, MapPin, Truck, Calendar, Phone, CheckCircle2, MessageSquare, Download, AlertTriangle, Send, Loader2, Sparkles, Navigation, Image as ImageIcon, X, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -292,7 +293,7 @@ export default function OrderDetailPage() {
         setChatMessages(res.data.chats || []);
       }
     } catch (error) {
-      console.error('Failed to fetch chats:', error);
+      clientLog.error('Failed to fetch customer order chats', { error, orderId: id });
     } finally {
       setChatsLoading(false);
     }
@@ -314,7 +315,7 @@ export default function OrderDetailPage() {
         }
       }
     } catch (error: any) {
-      console.error('Failed to fetch order detail:', error);
+      clientLog.error('Failed to fetch customer order detail', { error, orderId: id });
       if (showLoader) {
         addNotification({ title: 'Gagal', message: 'Gagal mengambil detail order.', type: 'error' });
       }
@@ -482,7 +483,7 @@ export default function OrderDetailPage() {
         addNotification({ title: 'Terkirim', message: 'Pesan terkirim.', type: 'success' });
       }
     } catch (error) {
-      console.error('Failed to send message:', error);
+      clientLog.error('Failed to send customer order message', { error, orderId: id });
       addNotification({ title: 'Gagal', message: 'Gagal mengirim pesan.', type: 'error' });
     }
   };
@@ -542,7 +543,7 @@ export default function OrderDetailPage() {
         addNotification({ title: 'Terkirim', message: 'Laporan Anda telah kami terima dan akan segera diproses.', type: 'success' });
       }
     } catch (error) {
-      console.error('Failed to report issue:', error);
+      clientLog.error('Failed to report customer order issue', { error, orderId: id });
       addNotification({ title: 'Gagal', message: 'Terjadi kesalahan saat mengirim laporan.', type: 'error' });
     }
   };

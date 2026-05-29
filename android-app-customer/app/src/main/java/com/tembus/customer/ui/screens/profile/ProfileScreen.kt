@@ -22,13 +22,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
@@ -120,7 +120,7 @@ fun ProfileScreen(
                 title = { Text("Profil", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -248,7 +248,7 @@ private fun ProfileContent(
                 MenuRow(icon = Icons.Default.Edit, label = "Ubah Profil", onClick = onEditClick)
                 MenuRow(icon = Icons.Default.Settings, label = "Pengaturan Aplikasi", onClick = onSettingsClick)
                 MenuRow(icon = Icons.Default.Shield, label = "Keamanan", onClick = onSecurityClick)
-                MenuRow(icon = Icons.Default.Help, label = "Pusat Bantuan", onClick = onHelpClick, showDivider = false)
+                    MenuRow(icon = Icons.AutoMirrored.Filled.Help, label = "Pusat Bantuan", onClick = onHelpClick, showDivider = false)
             }
         }
 
@@ -276,7 +276,7 @@ private fun ProfileContent(
             colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
             border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.6f))
         ) {
-            Icon(Icons.Default.Logout, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
             Spacer(Modifier.width(8.dp))
             Text("Keluar Akun", fontWeight = FontWeight.Bold)
         }

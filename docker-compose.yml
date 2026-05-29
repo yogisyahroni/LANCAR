@@ -5,6 +5,8 @@
 # Reset DB: docker compose down -v && docker compose up -d
 # ============================================================
 
+name: tembus
+
 services:
 
   # ─────────────────────────────────────────────
@@ -389,6 +391,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: "http://localhost:8080/api/v1"
+        NEXT_PUBLIC_WS_URL: "ws://localhost:8080"
+        NEXT_PUBLIC_SOCKET_URL: "http://localhost:8080"
+        NEXT_PUBLIC_ALLOW_LOCALHOST_FALLBACK: "true"
     container_name: tembus-frontend
     restart: unless-stopped
     depends_on:
@@ -396,6 +403,8 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: "http://localhost:8080/api/v1"
       NEXT_PUBLIC_WS_URL: "ws://localhost:8080"
+      NEXT_PUBLIC_SOCKET_URL: "http://localhost:8080"
+      NEXT_PUBLIC_ALLOW_LOCALHOST_FALLBACK: "true"
       SERVER_API_URL: "http://api-gateway:8080/api/v1"
       NEXT_PUBLIC_MIDTRANS_CLIENT_KEY: ${NEXT_PUBLIC_MIDTRANS_CLIENT_KEY:-}
       NEXT_PUBLIC_MIDTRANS_SNAP_URL: ${NEXT_PUBLIC_MIDTRANS_SNAP_URL:-https://app.sandbox.midtrans.com/snap/snap.js}
@@ -412,6 +421,11 @@ services:
     build:
       context: ./admin-dashboard
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: "http://localhost:8080/api/v1"
+        VITE_WS_URL: "ws://localhost:8080"
+        VITE_SOCKET_URL: "http://localhost:8080"
+        VITE_ALLOW_LOCALHOST_FALLBACK: "true"
     container_name: tembus-admin-ui
     restart: unless-stopped
     depends_on:
@@ -419,6 +433,8 @@ services:
     environment:
       VITE_API_URL: "http://localhost:8080/api/v1"
       VITE_WS_URL: "ws://localhost:8080"
+      VITE_SOCKET_URL: "http://localhost:8080"
+      VITE_ALLOW_LOCALHOST_FALLBACK: "true"
     ports:
       - "${ADMIN_DASHBOARD_PORT:-3002}:3001"
     networks:

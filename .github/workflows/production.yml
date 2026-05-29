@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
 
+# Ephemeral GitHub Actions service database only; production runtime database
+# credentials must come from protected environment secrets on the server.
+env:
+  CI_POSTGRES_USER: tembus_ci
+  CI_POSTGRES_PASSWORD: tembus_ci_ephemeral_db_auth
+  CI_POSTGRES_DB: tembus_ci
+
 jobs:
   # ───────────────────────────────────────────────
   # FULL QUALITY & BUILD
@@ -17,9 +24,9 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 1234
-          POSTGRES_DB: tembus
+          POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
         ports: [5432:5432]
       redis:
         image: redis:6-alpine
@@ -36,11 +43,15 @@ jobs:
       - run: cd frontend && npm ci && npm run build
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_WS_URL: ${{ vars.NEXT_PUBLIC_WS_URL }}
+          NEXT_PUBLIC_SOCKET_URL: ${{ vars.NEXT_PUBLIC_SOCKET_URL }}
+          SERVER_API_URL: ${{ vars.SERVER_API_URL || vars.NEXT_PUBLIC_API_URL }}
       
       # Admin Service
       - run: cd backend/admin-service && npm ci && npm test -- --testTimeout=60000
         env:
-          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable"
+          DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
           
       # Go Services
@@ -51,8 +62,8 @@ jobs:
           cd backend/auth-service && go mod tidy && go test -v -timeout 5m ./...
           cd ../routing-service && go mod tidy && go test -v -timeout 5m ./...
         env:
-          DATABASE_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable"
-          DB_URL: "postgresql://postgres:1234@localhost:5432/tembus?sslmode=disable"
+          DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
+          DB_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
   security:
@@ -112,6 +123,13 @@ jobs:
           push: false
           load: true
           tags: tembus-local/${{ matrix.image }}:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_WS_URL=${{ vars.NEXT_PUBLIC_WS_URL }}
+            NEXT_PUBLIC_SOCKET_URL=${{ vars.NEXT_PUBLIC_SOCKET_URL }}
+            VITE_API_URL=${{ vars.VITE_API_URL }}
+            VITE_WS_URL=${{ vars.VITE_WS_URL }}
+            VITE_SOCKET_URL=${{ vars.VITE_SOCKET_URL }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 

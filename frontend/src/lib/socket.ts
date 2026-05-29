@@ -1,6 +1,8 @@
 import { io, Socket } from 'socket.io-client';
+import { clientLog } from './clientLogger';
+import { customerSocketUrl } from './runtimeConfig';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:8080';
+const SOCKET_URL = customerSocketUrl;
 
 let socket: Socket | null = null;
 
@@ -8,7 +10,7 @@ export const getSocket = (userId?: string, role: string = 'customer') => {
   if (socket && userId) {
     const currentQuery = socket.io.opts.query as any;
     if (currentQuery?.userId !== userId || currentQuery?.role !== role) {
-      console.log('📡 [WebSocket] Identity changed, reconnecting...');
+      clientLog.debug('WebSocket identity changed, reconnecting', { role });
       socket.disconnect();
       socket = null;
     }
@@ -22,15 +24,15 @@ export const getSocket = (userId?: string, role: string = 'customer') => {
     });
 
     socket.on('connect', () => {
-      console.log('📡 [WebSocket] Connected to server');
+      clientLog.debug('WebSocket connected', { role });
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('📡 [WebSocket] Disconnected:', reason);
+      clientLog.debug('WebSocket disconnected', { reason, role });
     });
 
     socket.on('connect_error', (error) => {
-      console.error('📡 [WebSocket] Connection error:', error);
+      clientLog.error('WebSocket connection error', { error, role });
     });
   }
   return socket;

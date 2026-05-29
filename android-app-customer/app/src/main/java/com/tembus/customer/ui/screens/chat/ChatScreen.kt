@@ -13,6 +13,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -45,6 +47,12 @@ fun ChatScreen(
     val context = LocalContext.current
     var textInput by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+
+    LaunchedEffect(orderId) {
+        if (orderId.isBlank()) {
+            Toast.makeText(context, "Order chat tidak valid.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     // Automatically scroll to bottom whenever a new message arrives
     LaunchedEffect(uiState.messages.size) {
@@ -89,7 +97,7 @@ fun ChatScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
                 },
                 actions = {
@@ -208,7 +216,7 @@ fun ChatScreen(
                         elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = "Kirim",
                             modifier = Modifier.size(20.dp)
                         )
@@ -235,13 +243,14 @@ fun ChatBubble(
     }
 
     val formattedTime = remember(message.createdAt) {
+        val createdAt = message.createdAt ?: return@remember ""
         try {
             // API Format usually "2023-10-26T08:30:00Z"
             val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()).apply {
                 timeZone = TimeZone.getTimeZone("UTC")
             }
             val outputFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-            val date = parser.parse(message.createdAt) ?: Date()
+            val date = parser.parse(createdAt) ?: Date()
             outputFormat.format(date)
         } catch (e: Exception) {
             // Fallback if regex matches simpler format
@@ -249,7 +258,7 @@ fun ChatBubble(
                 val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault()).apply {
                     timeZone = TimeZone.getTimeZone("UTC")
                 }
-                val date = parser.parse(message.createdAt) ?: Date()
+                val date = parser.parse(createdAt) ?: Date()
                 SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
             } catch (ex: Exception) {
                 ""

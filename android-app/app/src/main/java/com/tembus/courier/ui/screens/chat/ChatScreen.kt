@@ -184,7 +184,7 @@ fun ChatScreen(
                                 }
                             }
                         ),
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
+                        colors = OutlinedTextFieldDefaults.colors(
                             unfocusedBorderColor = Color.LightGray,
                             focusedBorderColor = MaterialTheme.colorScheme.primary
                         )

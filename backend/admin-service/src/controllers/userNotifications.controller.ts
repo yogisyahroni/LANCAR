@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { db, readDb } from '../db';
 import { ensureUserDevicesTable } from '../notifications';
+import { securityLog } from '../security/logRedaction';
 
 const ALLOWED_DEVICE_PLATFORMS = new Set(['android', 'ios', 'web']);
 const FCM_TOKEN_PATTERN = /^[A-Za-z0-9:_-]{80,4096}$/;
@@ -138,7 +139,10 @@ export const registerDeviceToken = async (req: Request, res: Response): Promise<
         last_active_at = NOW()
     `, [user_id, validation.token, validation.platform]);
 
-    console.log(`[Notification] Device token registered for user ${user_id} (${validation.platform})`);
+    securityLog.info('Device token registered', {
+      platform: validation.platform,
+      hasUser: Boolean(user_id)
+    });
     res.json({
       success: true,
       message: 'Device token registered successfully',
@@ -146,13 +150,13 @@ export const registerDeviceToken = async (req: Request, res: Response): Promise<
     });
   } catch (error: any) {
     if (error?.code === '42P01') {
-      console.warn('[Notification] user_devices table not found. Skipping device token registration.');
+      securityLog.warn('Device token registration skipped because user_devices is unavailable');
       res.json({ success: true, message: 'Device token registration skipped: table not available' });
       return;
     }
 
-    console.error('Error registering device token:', error);
-    res.status(500).json({ error: error.message });
+    securityLog.error('Error registering device token', { error });
+    res.status(500).json({ error: 'Failed to register device token' });
   }
 };
 
@@ -179,16 +183,16 @@ export const unregisterDeviceToken = async (req: Request, res: Response): Promis
       WHERE device_token = $1 AND user_id = $2
     `, [finalToken, user_id]);
 
-    console.log(`[Notification] Device token unregistered for user ${user_id}`);
+    securityLog.info('Device token unregistered', { hasUser: Boolean(user_id) });
     res.json({ success: true, message: 'Device token unregistered successfully' });
   } catch (error: any) {
     if (error?.code === '42P01') {
-      console.warn('[Notification] user_devices table not found. Skipping device token unregister.');
+      securityLog.warn('Device token unregister skipped because user_devices is unavailable');
       res.json({ success: true, message: 'Device token unregister skipped: table not available' });
       return;
     }
 
-    console.error('Error unregistering device token:', error);
-    res.status(500).json({ error: error.message });
+    securityLog.error('Error unregistering device token', { error });
+    res.status(500).json({ error: 'Failed to unregister device token' });
   }
 };

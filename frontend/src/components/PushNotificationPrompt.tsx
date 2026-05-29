@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BellRing, X, Check, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { clientLog } from '@/lib/clientLogger';
 import { useNotificationStore } from '@/store/useNotificationStore';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -87,7 +88,7 @@ export default function PushNotificationPrompt() {
         });
       }
     } catch (error) {
-      console.error('Error activating push notification:', error);
+      clientLog.error('Error activating push notification', { error });
       addNotification({
         title: 'Error',
         message: 'Gagal mengaktifkan push notifications.',

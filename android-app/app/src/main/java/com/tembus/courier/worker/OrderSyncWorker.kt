@@ -52,7 +52,7 @@ class OrderSyncWorker @AssistedInject constructor(
             ) ?: "unknown_worker"
             
             // Flush residual locations (<10 items) from DB to prevent courier freezing on dashboard
-            locationRepository.syncLocations(session.authToken, session.courierId, deviceId)
+            locationRepository.syncLocations(session.courierId, deviceId)
             
             // Purge location records older than 7 days to keep storage clean
             locationRepository.cleanupOldLocations()
@@ -62,7 +62,7 @@ class OrderSyncWorker @AssistedInject constructor(
         }
 
         // Sync pending orders
-        val result = orderRepository.syncPendingOrders(session.authToken)
+        val result = orderRepository.syncPendingOrders()
         
         return result.fold(
             onSuccess = { syncedIds ->

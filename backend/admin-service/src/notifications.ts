@@ -2,6 +2,7 @@ import { db } from './db';
 import { getIO } from './websocket';
 import * as admin from 'firebase-admin';
 import { recordPushDelivery, recordRealtimeMetric } from './services/realtimeObservability';
+import { securityLog } from './security/logRedaction';
 
 type FirebaseTarget = 'default' | 'customer' | 'courier';
 type DeviceRecipient = {
@@ -31,7 +32,7 @@ const decodeBase64ServiceAccount = (encoded?: string): string | undefined => {
   try {
     return Buffer.from(encoded.trim(), 'base64').toString('utf8');
   } catch (error) {
-    console.error('[Notification] Failed to decode Firebase service account base64:', error);
+    securityLog.error('Firebase service account base64 decode failed', { error });
     return undefined;
   }
 };
@@ -45,12 +46,12 @@ const parseServiceAccountJson = (raw: string | undefined, label: string): admin.
   try {
     const parsed = JSON.parse(raw);
     if (!parsed.project_id || !parsed.client_email || !parsed.private_key) {
-      console.warn(`[Notification] Firebase service account for ${label} is missing required fields`);
+      securityLog.warn('Firebase service account missing required fields', { label });
       return null;
     }
     return parsed;
   } catch (error) {
-    console.error(`[Notification] Failed to parse Firebase service account for ${label}:`, error);
+    securityLog.error('Firebase service account parse failed', { label, error });
     return null;
   }
 };
@@ -75,7 +76,7 @@ const initializeNamedFirebaseApp = (
     );
 
   firebaseApps[target] = app;
-  console.log(`[Notification] Firebase Admin initialized for ${target}`);
+  securityLog.info('Firebase Admin initialized', { target });
   return app;
 };
 
@@ -104,9 +105,9 @@ export const ensureUserDevicesTable = async () => {
       );
       CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices(user_id);
     `);
-    console.log('[Notification] user_devices table verified');
+    securityLog.info('User devices table verified');
   } catch (error) {
-    console.error('[Notification] Error ensuring user_devices table:', error);
+    securityLog.error('User devices table verification failed', { error });
   }
 };
 
@@ -134,11 +135,11 @@ export const initFirebase = async () => {
 
   if (firebaseApp) {
     await ensureUserDevicesTable();
-    console.log(`[Notification] Firebase targets ready: ${getConfiguredFirebaseTargets().join(', ')}`);
+    securityLog.info('Firebase targets ready', { targets: getConfiguredFirebaseTargets() });
     return firebaseApp;
   }
 
-  console.warn('[Notification] Firebase Admin credentials not found. Push notifications will be skipped.');
+  securityLog.warn('Firebase Admin credentials not found. Push notifications will be skipped.');
   return null;
 };
 
@@ -172,10 +173,10 @@ export const createNotification = async (payload: NotificationPayload) => {
       const io = getIO();
       io.to(user_id).emit('new_notification', notification);
       void recordRealtimeMetric('notification_socket_emitted', { type, has_order: Boolean(order_id) });
-      console.log(`[WebSocket] Notification emitted to user ${user_id}`);
+      securityLog.info('Notification emitted over WebSocket', { type, has_order: Boolean(order_id) });
     } catch (wsError) {
       void recordRealtimeMetric('notification_socket_failed', { type, has_order: Boolean(order_id) });
-      console.warn('[WebSocket] Could not emit notification via WebSocket');
+      securityLog.warn('Notification WebSocket emit failed', { type, has_order: Boolean(order_id), error: wsError });
     }
 
     // 3. Send via FCM (Push Notifications)
@@ -271,7 +272,13 @@ export const createNotification = async (payload: NotificationPayload) => {
             success_count: totalSuccessCount,
             failure_count: totalFailureCount,
           });
-          console.log(`[FCM] Sent to ${totalSuccessCount} devices for user ${user_id}. Failures: ${totalFailureCount}`);
+          securityLog.info('FCM notification dispatch completed', {
+            type,
+            has_order: Boolean(order_id),
+            device_count: devices.length,
+            success_count: totalSuccessCount,
+            failure_count: totalFailureCount,
+          });
           
           // Cleanup invalid tokens
           if (invalidTokens.length > 0) {
@@ -279,7 +286,7 @@ export const createNotification = async (payload: NotificationPayload) => {
               'DELETE FROM user_devices WHERE device_token = ANY($1)',
               [invalidTokens]
             );
-            console.log(`[FCM] Cleaned up ${invalidTokens.length} invalid tokens`);
+            securityLog.info('Invalid FCM tokens cleaned up', { invalid_token_count: invalidTokens.length });
           }
         } else {
           recordPushDelivery({
@@ -302,7 +309,7 @@ export const createNotification = async (payload: NotificationPayload) => {
           failure_count: 1,
           skipped_reason: 'fcm_exception',
         });
-        console.error('[FCM] Error sending push notification:', fcmError);
+        securityLog.error('FCM notification dispatch failed', { type, has_order: Boolean(order_id), error: fcmError });
       }
     } else {
       recordPushDelivery({
@@ -318,7 +325,7 @@ export const createNotification = async (payload: NotificationPayload) => {
 
     return notification;
   } catch (error) {
-    console.error('Error creating notification:', error);
+    securityLog.error('Notification creation failed', { error });
     throw error;
   }
 };
@@ -344,19 +351,24 @@ export const sendEmailAlert = async (flagKey: string, oldState: boolean, newStat
     </div>
   `;
 
-  // Mock email sending
-  console.log('----------------------------------------------------');
-  console.log(`[EMAIL ALERT] To be sent as HTML:`);
-  console.log(htmlTemplate);
-  console.log('----------------------------------------------------');
+  securityLog.info('Feature flag email alert prepared', {
+    flagKey,
+    oldState,
+    newState,
+    user,
+    reasonLength: reason.length,
+    htmlLength: htmlTemplate.length,
+  });
   return true;
 };
 
 export const sendSlackAlert = async (flagKey: string, oldState: boolean, newState: boolean, reason: string, user: string) => {
-  // Mock Slack sending
-  console.log('----------------------------------------------------');
-  console.log(`[SLACK ALERT] 🚀 Feature Flag ${flagKey} toggled to ${newState ? 'ON' : 'OFF'} by ${user}`);
-  console.log(`Reason: ${reason}`);
-  console.log('----------------------------------------------------');
+  securityLog.info('Feature flag Slack alert prepared', {
+    flagKey,
+    oldState,
+    newState,
+    user,
+    reasonLength: reason.length,
+  });
   return true;
 };

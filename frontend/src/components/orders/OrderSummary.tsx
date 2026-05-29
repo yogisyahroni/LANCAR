@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Clock, Package, MapPin, Route, ShieldCheck, Truck, Zap } from "lucide-react";
+import { customerApiUrl } from "@/lib/runtimeConfig";
 
 interface RouteSnapshot {
   active_provider?: string;
@@ -52,7 +53,7 @@ const modelLabel: Record<string, string> = {
   p2p: "P2P"
 };
 
-const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1").replace(/\/$/, "");
+const apiBaseUrl = customerApiUrl;
 
 function decodePolyline(encoded?: string): RoutePoint[] {
   if (!encoded) return [];

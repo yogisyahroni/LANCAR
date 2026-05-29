@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { api } from '@/lib/api';
+import { clientLog } from '@/lib/clientLogger';
 import {
   createColumnHelper,
   flexRender,
@@ -63,7 +64,7 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
       setEditingRowId(null);
       setEditForm({});
     } catch (err) {
-      console.error(err);
+      clientLog.error('Failed to save bulk order row edits', { error: err });
       alert('Gagal menyimpan perubahan');
     } finally {
       setIsSaving(false);

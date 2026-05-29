@@ -1,7 +1,7 @@
 # Mobile Smoke Test Checklist
 
 Status: Ready for device execution
-Last updated: 2026-05-26
+Last updated: 2026-05-29
 Scope: TEMBUS Courier Android app and TEMBUS Customer Android app
 
 Use this checklist for every internal testing release before promoting to wider testing or production. Run tests from a Google Play internal testing install whenever possible, not from a side-loaded debug APK.
@@ -42,6 +42,16 @@ Every FAIL must include:
 - Backend request ID or order ID if available.
 - Logcat snippet if the app crashes.
 
+## Local Build Toolchain Check
+
+Before testing a locally built debug or release artifact, confirm the build was produced with JDK 17:
+
+```powershell
+java -version
+```
+
+If the machine uses Java 8 or another older runtime, set `JAVA_HOME` to JDK 17 before running `assembleDebug` or `bundleRelease`. The repository intentionally avoids committing a machine-specific `org.gradle.java.home` path, so each developer or CI runner must provide a valid JDK 17 installation.
+
 ## Courier Smoke Checklist
 
 | ID | Area | Steps | Expected result | Result | Notes |
@@ -55,7 +65,7 @@ Every FAIL must include:
 | C-07 | Token cleanup | Logout. Reopen app. | User is logged out and cannot access protected screens. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | C-08 | Notification permission | Grant notification permission when prompted. | Permission request is clear and app continues after grant. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | C-09 | FCM registration | Login and wait for token registration. | Backend receives FCM token for courier device. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
-| C-10 | Push notification | Send a test order/notification. | Notification appears and opens the relevant app area. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
+| C-10 | Push notification | Send a test order/notification. Confirm the app service receives only Firebase-originated messages. | Notification appears and opens the relevant app area; no raw token, address, phone, or notification payload appears in release logs. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | C-11 | Location permission | Grant foreground location permission. | App records location permission without crash. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | C-12 | Background location | Enable tracking flow that requires background location. | App requests/uses background location only when operationally justified. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | C-13 | Map display | Open map/navigation screen. | Map renders, current/route location appears if permitted. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
@@ -82,7 +92,7 @@ Every FAIL must include:
 | U-07 | Token cleanup | Logout. Reopen app. | User is logged out and protected screens require auth. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | U-08 | Notification permission | Grant notification permission when prompted. | Permission request is clear and app continues after grant. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | U-09 | FCM registration | Login and wait for token registration. | Backend receives FCM token for customer device. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
-| U-10 | Push notification | Send order status/test notification. | Notification appears and opens relevant order/status screen. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
+| U-10 | Push notification | Send order status/test notification. Confirm the app service receives only Firebase-originated messages. | Notification appears and opens relevant order/status screen; no raw token, address, phone, or notification payload appears in release logs. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | U-11 | Location permission | Use address/map feature and grant permission. | Address/location flow works and denial is handled gracefully. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | U-12 | Background location review | Confirm whether background location is requested during normal customer flow. | Background location is not requested unless the product requirement justifies it. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | U-13 | Address selection | Select pickup and destination addresses. | Real map/address provider works; no hardcoded address fallback appears. | [ ] PASS [ ] FAIL [ ] BLOCKED | |

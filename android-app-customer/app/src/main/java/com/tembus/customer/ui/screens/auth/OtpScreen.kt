@@ -73,6 +73,19 @@ fun OtpScreen(
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            TextButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .align(Alignment.Start)
+                    .padding(top = 12.dp)
+            ) {
+                Text(
+                    text = "Kembali",
+                    color = Primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
             Spacer(modifier = Modifier.height(48.dp))
             
             Text(

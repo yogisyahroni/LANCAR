@@ -28,9 +28,17 @@ const coordinateSchema = z.object({
   lng: z.number()
 });
 
-const CUSTOMER_ORDER_DRAFT_KEY = "tembus_customer_order_draft_v1";
+const CUSTOMER_ORDER_DRAFT_KEY = "tembus_customer_order_draft_v2";
+const LEGACY_CUSTOMER_ORDER_DRAFT_KEY = "tembus_customer_order_draft_v1";
+const CUSTOMER_ORDER_DRAFT_TTL_MS = 60 * 60 * 1000;
 const RECEIVER_LOCATION_STORAGE_KEY = "tembus_receiver_location_submitted_v1";
 const RECEIVER_LOCATION_POLL_MS = 4000;
+
+export const clearCustomerOrderDraft = () => {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(CUSTOMER_ORDER_DRAFT_KEY);
+  window.sessionStorage.removeItem(LEGACY_CUSTOMER_ORDER_DRAFT_KEY);
+};
 
 export const orderSchema = z.object({
   service_code: z.string().min(1, "Pilih layanan pengiriman"),
@@ -148,6 +156,14 @@ interface ReceiverLocationLink {
   token?: string;
 }
 
+interface CustomerOrderDraftPayload {
+  version: 2;
+  saved_at: string;
+  expires_at: string;
+  form: Partial<OrderFormValues>;
+  receiver_location_link?: Partial<ReceiverLocationLink> | null;
+}
+
 interface OrderFormProps {
   onFormChange: (data: Partial<OrderFormValues>, isValid: boolean, context?: { selectedService?: DeliveryService; scanRequired: boolean }) => void;
   onSubmit: (data: OrderFormValues) => void;
@@ -175,6 +191,114 @@ export interface DeliveryService {
     max_weight_kg?: number;
   }>;
 }
+
+const isLocationValue = (value: unknown): value is LocationValue => {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.lat === "number" && Number.isFinite(record.lat) &&
+    typeof record.lng === "number" && Number.isFinite(record.lng);
+};
+
+const asTrimmedString = (value: unknown, maxLength: number) => {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, maxLength) : undefined;
+};
+
+const asFiniteNumber = (value: unknown) => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : undefined;
+};
+
+const buildSafeOrderDraftForm = (values: OrderFormValues): Partial<OrderFormValues> => {
+  const safePackageDetails: Partial<OrderFormValues["package_details"]> = {};
+  const category = asTrimmedString(values.package_details?.category, 80);
+  const weightKg = asFiniteNumber(values.package_details?.weight_kg);
+  const length = asFiniteNumber(values.package_details?.dimensions?.length);
+  const width = asFiniteNumber(values.package_details?.dimensions?.width);
+  const height = asFiniteNumber(values.package_details?.dimensions?.height);
+
+  if (category) safePackageDetails.category = category;
+  if (weightKg !== undefined) safePackageDetails.weight_kg = weightKg;
+  safePackageDetails.dimensions_scanned = Boolean(values.package_details?.dimensions_scanned);
+  if (length !== undefined || width !== undefined || height !== undefined) {
+    safePackageDetails.dimensions = {
+      length: length as any,
+      width: width as any,
+      height: height as any
+    };
+  }
+
+  const draft: Partial<OrderFormValues> = {
+    schedule_type: values.schedule_type === "scheduled" ? "scheduled" : "now",
+    has_insurance: Boolean(values.has_insurance),
+    package_details: safePackageDetails as OrderFormValues["package_details"]
+  };
+
+  const serviceCode = asTrimmedString(values.service_code, 80);
+  const sizeTier = asTrimmedString(values.size_tier, 80);
+  const pickupAddress = asTrimmedString(values.pickup_address, 500);
+  const dropoffAddress = asTrimmedString(values.dropoff_address, 500);
+  const recipientName = asTrimmedString(values.recipient_name, 120);
+  const recipientPhone = asTrimmedString(values.recipient_phone, 32);
+  const scheduledAt = asTrimmedString(values.scheduled_at, 40);
+  const customerNotes = asTrimmedString(values.customer_notes, 200);
+  const itemValue = asFiniteNumber(values.item_value);
+
+  if (serviceCode) draft.service_code = serviceCode;
+  if (sizeTier) draft.size_tier = sizeTier;
+  if (pickupAddress) draft.pickup_address = pickupAddress;
+  if (dropoffAddress) draft.dropoff_address = dropoffAddress;
+  if (recipientName) draft.recipient_name = recipientName;
+  if (recipientPhone) draft.recipient_phone = recipientPhone;
+  if (scheduledAt) draft.scheduled_at = scheduledAt;
+  if (customerNotes) draft.customer_notes = customerNotes;
+  if (itemValue !== undefined) draft.item_value = itemValue;
+  if (isLocationValue(values.pickup_location)) draft.pickup_location = values.pickup_location;
+  if (isLocationValue(values.dropoff_location)) draft.dropoff_location = values.dropoff_location;
+
+  return draft;
+};
+
+const buildSafeReceiverLocationDraft = (link: ReceiverLocationLink | null) => {
+  if (!link?.id) return null;
+  return {
+    id: link.id,
+    status: link.status,
+    expires_at: link.expires_at,
+    created_at: link.created_at,
+    url: link.url
+  };
+};
+
+const parseCustomerOrderDraft = (rawDraft: string | null): CustomerOrderDraftPayload | null => {
+  if (!rawDraft) return null;
+
+  const parsedDraft = JSON.parse(rawDraft) as Partial<CustomerOrderDraftPayload>;
+  if (parsedDraft?.version !== 2) return null;
+  if (!parsedDraft.form || typeof parsedDraft.form !== "object") return null;
+  if (!parsedDraft.expires_at || Date.parse(parsedDraft.expires_at) <= Date.now()) return null;
+
+  return parsedDraft as CustomerOrderDraftPayload;
+};
+
+const mergeDraftWithCurrentValues = (
+  currentValues: OrderFormValues,
+  draftValues: Partial<OrderFormValues>
+): OrderFormValues => ({
+  ...currentValues,
+  ...draftValues,
+  pickup_location: isLocationValue(draftValues.pickup_location) ? draftValues.pickup_location : currentValues.pickup_location,
+  dropoff_location: isLocationValue(draftValues.dropoff_location) ? draftValues.dropoff_location : currentValues.dropoff_location,
+  package_details: {
+    ...currentValues.package_details,
+    ...(draftValues.package_details || {}),
+    dimensions: {
+      ...currentValues.package_details.dimensions,
+      ...(draftValues.package_details?.dimensions || {})
+    }
+  }
+});
 
 const jakartaBounds = {
   north: -6.08,
@@ -862,18 +986,22 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
   const receiverLocationLinkRef = useRef<ReceiverLocationLink | null>(null);
   const receiverLocationPollInFlightRef = useRef(false);
   const draftHydratedRef = useRef(false);
+  const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null);
 
   const persistOrderDraft = useCallback((link: ReceiverLocationLink | null = receiverLocationLinkRef.current) => {
     if (typeof window === "undefined" || !draftHydratedRef.current) return;
+    const savedAt = new Date();
+    const expiresAt = new Date(savedAt.getTime() + CUSTOMER_ORDER_DRAFT_TTL_MS);
     try {
       window.sessionStorage.setItem(
         CUSTOMER_ORDER_DRAFT_KEY,
         JSON.stringify({
-          version: 1,
-          saved_at: new Date().toISOString(),
-          form: getValues(),
-          receiver_location_link: link
-        })
+          version: 2,
+          saved_at: savedAt.toISOString(),
+          expires_at: expiresAt.toISOString(),
+          form: buildSafeOrderDraftForm(getValues()),
+          receiver_location_link: buildSafeReceiverLocationDraft(link)
+        } satisfies CustomerOrderDraftPayload)
       );
     } catch {
       // Session draft is a convenience layer only. Form submission remains the source of truth.
@@ -884,19 +1012,23 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
     if (typeof window === "undefined" || draftHydratedRef.current) return;
     draftHydratedRef.current = true;
     try {
-      const rawDraft = window.sessionStorage.getItem(CUSTOMER_ORDER_DRAFT_KEY);
-      if (!rawDraft) return;
-      const parsedDraft = JSON.parse(rawDraft);
-      if (parsedDraft?.form && typeof parsedDraft.form === "object") {
-        reset({ ...getValues(), ...parsedDraft.form });
+      window.sessionStorage.removeItem(LEGACY_CUSTOMER_ORDER_DRAFT_KEY);
+      const parsedDraft = parseCustomerOrderDraft(window.sessionStorage.getItem(CUSTOMER_ORDER_DRAFT_KEY));
+      if (!parsedDraft) {
+        window.sessionStorage.removeItem(CUSTOMER_ORDER_DRAFT_KEY);
+        return;
       }
-      if (parsedDraft?.receiver_location_link && typeof parsedDraft.receiver_location_link === "object") {
+      reset(mergeDraftWithCurrentValues(getValues(), parsedDraft.form));
+      setDraftRestoredAt(parsedDraft.saved_at);
+      if (parsedDraft.receiver_location_link && typeof parsedDraft.receiver_location_link === "object") {
         const draftLink = parsedDraft.receiver_location_link as ReceiverLocationLink;
-        receiverLocationLinkRef.current = draftLink;
-        setReceiverLocationLink(draftLink);
+        if (draftLink.id && draftLink.expires_at && Date.parse(draftLink.expires_at) > Date.now()) {
+          receiverLocationLinkRef.current = draftLink;
+          setReceiverLocationLink(draftLink);
+        }
       }
     } catch {
-      window.sessionStorage.removeItem(CUSTOMER_ORDER_DRAFT_KEY);
+      clearCustomerOrderDraft();
     }
   }, [getValues, reset]);
 
@@ -1178,6 +1310,24 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
       <form id="order-form" onSubmit={submitWithServiceRules} className="space-y-8">
         <input type="hidden" {...register("service_code")} />
         <input type="hidden" {...register("size_tier")} />
+
+        {draftRestoredAt && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50">
+            <span>
+              Draft pengiriman dipulihkan dari sesi browser pukul {new Date(draftRestoredAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}.
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                clearCustomerOrderDraft();
+                setDraftRestoredAt(null);
+              }}
+              className="rounded-md border border-emerald-200/30 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-emerald-200/10"
+            >
+              Bersihkan Draft
+            </button>
+          </div>
+        )}
 
         <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
           <h3 className="flex items-center gap-2 text-lg font-semibold">

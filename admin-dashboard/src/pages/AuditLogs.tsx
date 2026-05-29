@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { clientLog } from '../lib/clientLogger'
 import { cn } from '../lib/utils'
 import { format } from 'date-fns'
 
@@ -62,7 +63,7 @@ export default function AuditLogs() {
               a.download = `system_audit_${new Date().toISOString().split('T')[0]}.csv`
               a.click()
               URL.revokeObjectURL(url)
-            } catch { console.error('Export failed') }
+            } catch (error) { clientLog.error('Audit log export failed', { error }) }
           }}
           className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-bold hover:bg-white/10 transition-all"
         >

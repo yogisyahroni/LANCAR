@@ -32,6 +32,18 @@ class NotificationHelper(private val context: Context) {
             NotificationPriority.DEFAULT -> TEMBUSApplication.CHANNEL_GENERAL
             NotificationPriority.LOW -> TEMBUSApplication.CHANNEL_GENERAL
         }
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+            putExtra("order_id", orderId)
+            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val contentIntent = launchIntent?.let { intent ->
+            PendingIntent.getActivity(
+                context,
+                orderId.hashCode(),
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
 
         val notification = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(com.tembus.courier.R.drawable.ic_notification)
@@ -46,6 +58,7 @@ class NotificationHelper(private val context: Context) {
             )
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setContentIntent(contentIntent)
             .build()
 
         notificationManager.notify(notificationId, notification)

@@ -173,6 +173,26 @@ const authLimiter = rateLimit({
   },
 });
 
+const logProxyForward = (proxy: string, req: Request, target: string) => {
+  logger.logger.debug({
+    event: 'proxy_forward',
+    proxy,
+    method: req.method,
+    path: req.path || req.url?.split('?')[0],
+    upstream_configured: Boolean(target),
+  }, 'Gateway proxy forwarding');
+};
+
+const logProxyError = (proxy: string, target: string, err: Error) => {
+  logger.logger.error({
+    event: 'proxy_error',
+    proxy,
+    upstream_configured: Boolean(target),
+    error_name: err.name,
+    error_message: err.message,
+  }, 'Gateway proxy error');
+};
+
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 100, // limit each IP to 100 requests per minute
@@ -296,7 +316,7 @@ const proxyWithResilience = (target: string, breaker: any) =>
       },
       error: (err: Error, req: any, res: any) => {
         breaker.fire(); // Notify breaker of failure
-        console.error(`Proxy Error (${target}):`, err);
+        logProxyError('resilient_proxy', target, err);
         if (res && typeof res.status === 'function') {
           res.status(502).json({
             status: 'error',
@@ -397,12 +417,16 @@ app.use(createProxyMiddleware({
   },
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[35m[Proxy Admin Auth]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      logProxyForward('admin_auth', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     },
     proxyRes: (proxyRes: any, req: any, res: any) => {
       if (proxyRes.headers['set-cookie']) {
-        console.log(`[Proxy Admin Auth] Set-Cookie detected:`, proxyRes.headers['set-cookie']);
+        logger.logger.debug({
+          event: 'proxy_set_cookie',
+          proxy: 'admin_auth',
+          set_cookie_count: Array.isArray(proxyRes.headers['set-cookie']) ? proxyRes.headers['set-cookie'].length : 1,
+        }, 'Proxy response set-cookie detected');
       }
     }
   }
@@ -415,7 +439,7 @@ app.use(createProxyMiddleware({
   changeOrigin: true,
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[35m[Proxy Courier Auth]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      logProxyForward('courier_auth', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     }
   }
@@ -431,7 +455,7 @@ app.use(createProxyMiddleware({
   changeOrigin: true,
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[36m[Proxy Orders]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
+      logProxyForward('orders', req, ORDER_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     },
     proxyRes: (proxyRes: any) => {
@@ -441,7 +465,7 @@ app.use(createProxyMiddleware({
     },
     error: (err: Error, req: any, res: any) => {
       orderBreaker.fire(null);
-      console.error(`Proxy Error (${ORDER_SERVICE_URL}):`, err);
+      logProxyError('orders', ORDER_SERVICE_URL, err);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
           status: 'error',
@@ -460,7 +484,7 @@ app.use(createProxyMiddleware({
   changeOrigin: true,
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[36m[Proxy Couriers]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
+      logProxyForward('couriers', req, ORDER_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     }
   }
@@ -473,7 +497,7 @@ app.use(createProxyMiddleware({
   changeOrigin: true,
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[36m[Proxy Tracking]\x1b[0m Forwarding ${req.method} ${req.url} to ${ORDER_SERVICE_URL}`);
+      logProxyForward('tracking', req, ORDER_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     }
   }
@@ -489,7 +513,7 @@ app.use(createProxyMiddleware({
   changeOrigin: true,
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[35m[Proxy Maps]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      logProxyForward('maps', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     },
     proxyRes: (proxyRes: any) => {
@@ -499,7 +523,7 @@ app.use(createProxyMiddleware({
     },
     error: (err: Error, req: any, res: any) => {
       adminBreaker.fire(null);
-      console.error(`Proxy Error (${ADMIN_SERVICE_URL}/maps):`, err);
+      logProxyError('maps', ADMIN_SERVICE_URL, err);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
           status: 'error',
@@ -520,7 +544,7 @@ app.use(createProxyMiddleware({
   changeOrigin: true,
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[35m[Proxy Public]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      logProxyForward('public', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     },
     proxyRes: (proxyRes: any) => {
@@ -530,7 +554,7 @@ app.use(createProxyMiddleware({
     },
     error: (err: Error, req: any, res: any) => {
       adminBreaker.fire(null);
-      console.error(`Proxy Error (${ADMIN_SERVICE_URL}/public):`, err);
+      logProxyError('public', ADMIN_SERVICE_URL, err);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
           status: 'error',
@@ -550,7 +574,7 @@ app.use(createProxyMiddleware({
   changeOrigin: true,
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[35m[Proxy Customer Mobile]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      logProxyForward('customer_mobile', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     }
   }
@@ -577,7 +601,7 @@ app.use(createProxyMiddleware({
   changeOrigin: true,
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[35m[Proxy Mobile Admin]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      logProxyForward('mobile_admin', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     }
   }
@@ -593,7 +617,7 @@ app.use(createProxyMiddleware({
   },
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[35m[Proxy Admin]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      logProxyForward('admin', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     }
   }
@@ -609,7 +633,7 @@ app.use(createProxyMiddleware({
   },
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[35m[Proxy Payment Webhook]\x1b[0m Forwarding ${req.method} ${req.url} to ${ADMIN_SERVICE_URL}`);
+      logProxyForward('payment_webhook', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     }
   }
@@ -621,7 +645,7 @@ app.use('/api/v1/routing', createProxyMiddleware({
   changeOrigin: true,
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      console.log(`\x1b[36m[Proxy Routing]\x1b[0m Forwarding ${req.method} ${req.url} to ${ROUTING_SERVICE_URL}`);
+      logProxyForward('routing', req, ROUTING_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     }
   }
@@ -692,7 +716,13 @@ app.get('/health', (req, res) => {
 
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error('Unhandled Error:', err);
+  logger.logger.error({
+    event: 'unhandled_error',
+    path: req.path,
+    method: req.method,
+    error_name: err?.name,
+    error_message: err?.message,
+  }, 'Unhandled gateway error');
   res.status(500).json({
     status: 'error',
     code: 'ERR_INTERNAL_SERVER_ERROR',
@@ -702,7 +732,7 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 
 const PORT = process.env.GATEWAY_PORT || 8080;
 const server = app.listen(PORT, () => {
-  console.log(`API Gateway is running on port ${PORT}`);
+  logger.logger.info({ event: 'gateway_started', port: PORT }, 'API Gateway is running');
 });
 
 

@@ -73,7 +73,7 @@ class LocationRepository @Inject constructor(
      * Sync pending locations to backend
      * Returns list of synced location IDs
      */
-    suspend fun syncLocations(authToken: String, courierId: String, deviceId: String): Result<List<Long>> {
+    suspend fun syncLocations(courierId: String, deviceId: String): Result<List<Long>> {
         return try {
             val unsynced = locationDao.getUnsyncedLocations(100)
 

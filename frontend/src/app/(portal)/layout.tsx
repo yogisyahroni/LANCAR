@@ -30,8 +30,10 @@ import Link from 'next/link';
 import PushNotificationPrompt from '@/components/PushNotificationPrompt';
 import WalletWidget from '@/components/WalletWidget';
 import { cn } from '@/lib/utils';
+import { clientLog } from '@/lib/clientLogger';
 
 import { getSocket, disconnectSocket } from '@/lib/socket';
+import { clearCustomerOrderDraft } from '@/components/orders/OrderForm';
 
 interface DBNotification {
   id: string;
@@ -61,7 +63,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       const socket = getSocket(user.id);
       if (socket) {
         socket.on('new_notification', (notif: DBNotification) => {
-          console.log('📡 [WebSocket] New notification received:', notif);
+          clientLog.debug('Customer notification received', {
+            type: notif.type,
+            hasOrder: Boolean(notif.order_id),
+            hasDeepLink: Boolean(notif.deep_link),
+          });
           // Add to toast
           addNotification({
             title: notif.title,
@@ -98,7 +104,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         const response = await api.get('/auth/web/me');
         setAuth(true, response.data.user);
       } catch (error) {
-        console.error('Auth check failed:', error);
+        clientLog.error('Auth check failed', { error });
         setAuth(false, null);
         router.push('/login');
       } finally {
@@ -121,7 +127,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           const res = await api.get('/auth/web/notifications');
           setBellNotifications(res.data.notifications || []);
         } catch (error) {
-          console.error('Failed to fetch notifications:', error);
+          clientLog.error('Failed to fetch notifications', { error });
         }
       }
     };
@@ -153,8 +159,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     try {
       await api.post('/auth/web/logout');
     } catch (error) {
-      console.error('Logout failed:', error);
+      clientLog.error('Logout failed', { error });
     } finally {
+      clearCustomerOrderDraft();
       setAuth(false, null);
       router.push('/login');
     }
@@ -432,7 +439,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                             try {
                               await api.delete('/auth/web/notifications');
                               setBellNotifications([]);
-                            } catch (e) { console.error(e); }
+                            } catch (e) { clientLog.error('Failed to clear notifications', { error: e }); }
                           }}
                           className="text-[10px] text-primary hover:underline"
                         >
@@ -455,7 +462,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                                     setBellNotifications(prev => 
                                       prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n)
                                     );
-                                  } catch (e) { console.error(e); }
+                                  } catch (e) { clientLog.error('Failed to mark notification as read', { error: e }); }
                                 }
                                 if (notif.deep_link) {
                                   router.push(notif.deep_link);

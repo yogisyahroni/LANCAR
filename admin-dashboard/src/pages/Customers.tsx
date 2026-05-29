@@ -18,6 +18,7 @@ import {
 import { cn } from '../lib/utils'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { clientLog } from '../lib/clientLogger'
 import { format } from 'date-fns'
 
 // Debounce hook
@@ -125,8 +126,8 @@ export default function Customers() {
       a.download = `customers_export_${new Date().toISOString().split('T')[0]}.csv`
       a.click()
       URL.revokeObjectURL(url)
-    } catch {
-      console.error('Export failed')
+    } catch (error) {
+      clientLog.error('Customer export failed', { error })
     }
   }
 
