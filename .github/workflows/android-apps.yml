@@ -202,7 +202,7 @@ jobs:
         if: github.event_name != 'pull_request'
         shell: bash
         env:
-          MOBILE_API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL }}
+          MOBILE_API_BASE_URL: ${{ vars.MOBILE_API_BASE_URL || 'https://api.tembus.id/' }}
         run: |
           set -euo pipefail
 

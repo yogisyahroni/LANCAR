@@ -18,6 +18,13 @@ env:
   CI_POSTGRES_USER: tembus_ci
   CI_POSTGRES_PASSWORD: tembus_ci_ephemeral_db_auth
   CI_POSTGRES_DB: tembus_ci
+  STAGING_FRONTEND_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || 'https://api.tembus.id/api/v1' }}
+  STAGING_FRONTEND_WS_URL: ${{ vars.NEXT_PUBLIC_WS_URL || 'wss://api.tembus.id' }}
+  STAGING_FRONTEND_SOCKET_URL: ${{ vars.NEXT_PUBLIC_SOCKET_URL || 'https://api.tembus.id' }}
+  STAGING_SERVER_API_URL: ${{ vars.SERVER_API_URL || vars.NEXT_PUBLIC_API_URL || 'https://api.tembus.id/api/v1' }}
+  STAGING_ADMIN_API_URL: ${{ vars.VITE_API_URL || 'https://api.tembus.id/api/v1' }}
+  STAGING_ADMIN_WS_URL: ${{ vars.VITE_WS_URL || 'wss://api.tembus.id' }}
+  STAGING_ADMIN_SOCKET_URL: ${{ vars.VITE_SOCKET_URL || 'https://api.tembus.id' }}
 
 jobs:
   # ═══════════════════════════════════════════════════════════
@@ -46,10 +53,10 @@ jobs:
         run: npm run build
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_WS_URL: ${{ vars.NEXT_PUBLIC_WS_URL }}
-          NEXT_PUBLIC_SOCKET_URL: ${{ vars.NEXT_PUBLIC_SOCKET_URL }}
-          SERVER_API_URL: ${{ vars.SERVER_API_URL || vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_API_URL: ${{ env.STAGING_FRONTEND_API_URL }}
+          NEXT_PUBLIC_WS_URL: ${{ env.STAGING_FRONTEND_WS_URL }}
+          NEXT_PUBLIC_SOCKET_URL: ${{ env.STAGING_FRONTEND_SOCKET_URL }}
+          SERVER_API_URL: ${{ env.STAGING_SERVER_API_URL }}
 
   # ───────────────────────────────────────────────
   admin-service:
@@ -342,12 +349,12 @@ jobs:
           load: true
           tags: tembus-local/${{ matrix.image }}:${{ github.sha }}
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
-            NEXT_PUBLIC_WS_URL=${{ vars.NEXT_PUBLIC_WS_URL }}
-            NEXT_PUBLIC_SOCKET_URL=${{ vars.NEXT_PUBLIC_SOCKET_URL }}
-            VITE_API_URL=${{ vars.VITE_API_URL }}
-            VITE_WS_URL=${{ vars.VITE_WS_URL }}
-            VITE_SOCKET_URL=${{ vars.VITE_SOCKET_URL }}
+            NEXT_PUBLIC_API_URL=${{ env.STAGING_FRONTEND_API_URL }}
+            NEXT_PUBLIC_WS_URL=${{ env.STAGING_FRONTEND_WS_URL }}
+            NEXT_PUBLIC_SOCKET_URL=${{ env.STAGING_FRONTEND_SOCKET_URL }}
+            VITE_API_URL=${{ env.STAGING_ADMIN_API_URL }}
+            VITE_WS_URL=${{ env.STAGING_ADMIN_WS_URL }}
+            VITE_SOCKET_URL=${{ env.STAGING_ADMIN_SOCKET_URL }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
@@ -447,9 +454,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
-            NEXT_PUBLIC_WS_URL=${{ vars.NEXT_PUBLIC_WS_URL }}
-            NEXT_PUBLIC_SOCKET_URL=${{ vars.NEXT_PUBLIC_SOCKET_URL }}
+            NEXT_PUBLIC_API_URL=${{ env.STAGING_FRONTEND_API_URL }}
+            NEXT_PUBLIC_WS_URL=${{ env.STAGING_FRONTEND_WS_URL }}
+            NEXT_PUBLIC_SOCKET_URL=${{ env.STAGING_FRONTEND_SOCKET_URL }}
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/frontend:staging
             ghcr.io/${{ env.REPO_LOWER }}/frontend:staging-${{ github.sha }}
@@ -462,9 +469,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VITE_API_URL=${{ vars.VITE_API_URL }}
-            VITE_WS_URL=${{ vars.VITE_WS_URL }}
-            VITE_SOCKET_URL=${{ vars.VITE_SOCKET_URL }}
+            VITE_API_URL=${{ env.STAGING_ADMIN_API_URL }}
+            VITE_WS_URL=${{ env.STAGING_ADMIN_WS_URL }}
+            VITE_SOCKET_URL=${{ env.STAGING_ADMIN_SOCKET_URL }}
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/admin-dashboard:staging
             ghcr.io/${{ env.REPO_LOWER }}/admin-dashboard:staging-${{ github.sha }}
