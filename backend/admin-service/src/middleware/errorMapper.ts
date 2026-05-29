@@ -41,6 +41,8 @@ const buildSafeErrorEnvelope = (res: Response, statusCode = DEFAULT_INTERNAL_ERR
   message: DEFAULT_INTERNAL_ERROR.message,
   code: DEFAULT_INTERNAL_ERROR.code,
   correlation_id: res.locals.correlationId,
+  request_id: res.locals.requestId,
+  trace_id: res.locals.traceId,
   status_code: statusCode,
 });
 

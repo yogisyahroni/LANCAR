@@ -51,7 +51,15 @@ func (h *AuthHandler) rejectIfAuthAbuseBlocked(w http.ResponseWriter, r *http.Re
 		if abuseErr.RetryAfterSeconds > 0 {
 			w.Header().Set("Retry-After", fmt.Sprintf("%d", abuseErr.RetryAfterSeconds))
 		}
-		middleware.WriteError(w, abuseErr.StatusCode, abuseErr.Code, abuseErr.Message, middleware.GetCorrelationID(r.Context()))
+		middleware.WriteError(
+			w,
+			abuseErr.StatusCode,
+			abuseErr.Code,
+			abuseErr.Message,
+			middleware.GetCorrelationID(r.Context()),
+			middleware.GetRequestID(r.Context()),
+			middleware.GetTraceID(r.Context()),
+		)
 		return true
 	}
 

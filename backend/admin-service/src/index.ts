@@ -1,3 +1,4 @@
+import { shutdownTracing } from './tracing';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -99,3 +100,25 @@ server.listen(port, async () => {
     process.exit(1);
   }
 });
+
+let shutdownInProgress = false;
+const shutdownServer = (signal: string) => {
+  if (shutdownInProgress) return;
+  shutdownInProgress = true;
+
+  console.info('Admin service shutdown started', { event: 'admin_service_shutdown_started', signal });
+  server.close(async () => {
+    await shutdownTracing(console);
+    console.info('Admin service shutdown complete', { event: 'admin_service_shutdown_complete', signal });
+    process.exit(0);
+  });
+
+  setTimeout(async () => {
+    await shutdownTracing(console);
+    console.error('Admin service shutdown timed out', { event: 'admin_service_shutdown_timeout', signal });
+    process.exit(1);
+  }, 10000).unref();
+};
+
+process.on('SIGTERM', () => shutdownServer('SIGTERM'));
+process.on('SIGINT', () => shutdownServer('SIGINT'));

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"tembus/auth-service/internal/domain"
+	"tembus/auth-service/internal/observability"
 )
 
 const redactedValue = "[REDACTED]"
@@ -28,6 +29,8 @@ var (
 	longHexPattern       = regexp.MustCompile(`(?i)\b[a-f0-9]{32,}\b`)
 	cardPattern          = regexp.MustCompile(`\b(?:\d[ -]*?){13,19}\b`)
 	urlCredentialPattern = regexp.MustCompile(`(?i)\b([a-z][a-z0-9+.\-]*://)([^:@\s/]+):([^@\s/]+)@`)
+	safeRequestIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+	traceparentPattern   = regexp.MustCompile(`^00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$`)
 )
 
 // RedactString removes secrets and common PII from strings before they enter logs.
@@ -62,17 +65,45 @@ func RedactString(value string) string {
 // -------------------------------------------------------
 
 const correlationIDKey contextKey = "correlation_id"
+const requestIDKey contextKey = "request_id"
+const traceparentKey contextKey = "traceparent"
+const traceIDKey contextKey = "trace_id"
+const spanIDKey contextKey = "span_id"
 const correlationIDHeader = "X-Correlation-ID"
+const requestIDHeader = "X-Request-ID"
+const traceparentHeader = "traceparent"
+const traceIDHeader = "X-Trace-ID"
 
 // CorrelationIDMiddleware injects a unique request ID into context and response headers.
 func CorrelationIDMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		correlationID := r.Header.Get(correlationIDHeader)
-		if correlationID == "" {
-			correlationID = generateCorrelationID()
+		requestID := safeHeaderID(r.Header.Get(requestIDHeader))
+		if requestID == "" {
+			requestID = generateCorrelationID()
 		}
+		correlationID := safeHeaderID(r.Header.Get(correlationIDHeader))
+		if correlationID == "" {
+			correlationID = requestID
+		}
+		traceparent, traceID, spanID := observability.CurrentTraceContext(r.Context())
+		if traceparent == "" {
+			traceparent = sanitizeTraceparent(r.Header.Get(traceparentHeader))
+			if traceparent == "" {
+				traceparent = generateTraceparent()
+			}
+			traceID = traceIDFromTraceparent(traceparent)
+			spanID = spanIDFromTraceparent(traceparent)
+		}
+		observability.AnnotateRequest(r.Context(), requestID)
+
 		ctx := context.WithValue(r.Context(), correlationIDKey, correlationID)
+		ctx = context.WithValue(ctx, requestIDKey, requestID)
+		ctx = context.WithValue(ctx, traceparentKey, traceparent)
+		ctx = context.WithValue(ctx, traceIDKey, traceID)
+		ctx = context.WithValue(ctx, spanIDKey, spanID)
 		w.Header().Set(correlationIDHeader, correlationID)
+		w.Header().Set(requestIDHeader, requestID)
+		w.Header().Set(traceIDHeader, traceID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}
 }
@@ -83,6 +114,95 @@ func GetCorrelationID(ctx context.Context) string {
 		return v
 	}
 	return ""
+}
+
+// GetRequestID retrieves the sanitized request ID from context.
+func GetRequestID(ctx context.Context) string {
+	if v, ok := ctx.Value(requestIDKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
+// GetTraceID retrieves the trace ID from the accepted traceparent context.
+func GetTraceID(ctx context.Context) string {
+	if v, ok := ctx.Value(traceIDKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
+// GetSpanID retrieves the span ID from the accepted traceparent context.
+func GetSpanID(ctx context.Context) string {
+	if v, ok := ctx.Value(spanIDKey).(string); ok {
+		return v
+	}
+	return ""
+}
+
+func safeHeaderID(value string) string {
+	candidate := strings.TrimSpace(value)
+	if candidate == "" || !safeRequestIDPattern.MatchString(candidate) {
+		return ""
+	}
+	return candidate
+}
+
+func sanitizeTraceparent(value string) string {
+	candidate := strings.TrimSpace(value)
+	matches := traceparentPattern.FindStringSubmatch(candidate)
+	if len(matches) != 4 {
+		return ""
+	}
+	if isAllZeroHex(matches[1]) || isAllZeroHex(matches[2]) {
+		return ""
+	}
+	return candidate
+}
+
+func isAllZeroHex(value string) bool {
+	for _, char := range value {
+		if char != '0' {
+			return false
+		}
+	}
+	return true
+}
+
+func randomHex(bytesLength int) string {
+	buffer := make([]byte, bytesLength)
+	if _, err := rand.Read(buffer); err != nil {
+		return strings.Repeat("0", bytesLength*2)
+	}
+	return fmt.Sprintf("%x", buffer)
+}
+
+func generateTraceparent() string {
+	traceID := randomHex(16)
+	spanID := randomHex(8)
+	if isAllZeroHex(traceID) {
+		traceID = strings.Repeat("1", 32)
+	}
+	if isAllZeroHex(spanID) {
+		spanID = strings.Repeat("1", 16)
+	}
+	return fmt.Sprintf("00-%s-%s-01", traceID, spanID)
+}
+
+func traceIDFromTraceparent(traceparent string) string {
+	parts := strings.Split(traceparent, "-")
+	if len(parts) != 4 {
+		return ""
+	}
+	return parts[1]
+}
+
+func spanIDFromTraceparent(traceparent string) string {
+	parts := strings.Split(traceparent, "-")
+	if len(parts) != 4 {
+		return ""
+	}
+	return parts[2]
 }
 
 func generateCorrelationID() string {
@@ -129,9 +249,15 @@ func RequestLoggerMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 		duration := time.Since(start)
 		correlationID := GetCorrelationID(r.Context())
+		requestID := GetRequestID(r.Context())
+		traceID := GetTraceID(r.Context())
+		spanID := GetSpanID(r.Context())
 
-		log.Printf(`{"level":"info","msg":"request completed","correlation_id":"%s","method":"%s","path":"%s","status":%d,"duration_ms":%d,"ip":"%s","user_agent":"%s"}`,
+		log.Printf(`{"level":"info","msg":"request completed","correlation_id":"%s","request_id":"%s","trace_id":"%s","span_id":"%s","method":"%s","path":"%s","status":%d,"duration_ms":%d,"ip":"%s","user_agent":"%s"}`,
 			correlationID,
+			requestID,
+			traceID,
+			spanID,
 			r.Method,
 			RedactString(r.URL.Path),
 			rw.statusCode,
@@ -163,9 +289,12 @@ func RecoveryMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		defer func() {
 			if err := recover(); err != nil {
 				correlationID := GetCorrelationID(r.Context())
-				log.Printf("[PANIC] correlation_id=%s error=%v\nstack:\n%s",
-					correlationID, RedactString(fmt.Sprint(err)), RedactString(string(debug.Stack())))
-				WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "An unexpected error occurred", correlationID)
+				requestID := GetRequestID(r.Context())
+				traceID := GetTraceID(r.Context())
+				spanID := GetSpanID(r.Context())
+				log.Printf("[PANIC] correlation_id=%s request_id=%s trace_id=%s span_id=%s error=%v\nstack:\n%s",
+					correlationID, requestID, traceID, spanID, RedactString(fmt.Sprint(err)), RedactString(string(debug.Stack())))
+				WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "An unexpected error occurred", correlationID, requestID, traceID)
 			}
 		}()
 		next.ServeHTTP(w, r)
@@ -214,14 +343,20 @@ func (rw *sanitizingResponseWriter) FlushSanitized(r *http.Request) {
 	}
 
 	correlationID := GetCorrelationID(r.Context())
-	log.Printf(`{"level":"error","msg":"sanitized unsafe server error response","correlation_id":"%s","method":"%s","path":"%s","status":%d,"body":"%s"}`,
+	requestID := GetRequestID(r.Context())
+	traceID := GetTraceID(r.Context())
+	spanID := GetSpanID(r.Context())
+	log.Printf(`{"level":"error","msg":"sanitized unsafe server error response","correlation_id":"%s","request_id":"%s","trace_id":"%s","span_id":"%s","method":"%s","path":"%s","status":%d,"body":"%s"}`,
 		correlationID,
+		requestID,
+		traceID,
+		spanID,
 		r.Method,
 		RedactString(r.URL.Path),
 		rw.statusCode,
 		RedactString(rw.body.String()),
 	)
-	WriteError(rw.ResponseWriter, rw.statusCode, "ERR_INTERNAL_SERVER", "Internal server error", correlationID)
+	WriteError(rw.ResponseWriter, rw.statusCode, "ERR_INTERNAL_SERVER", "Internal server error", correlationID, requestID, traceID)
 }
 
 // ErrorMapperMiddleware converts unsafe 5xx responses into the standard JSON error envelope.
@@ -253,7 +388,7 @@ func CORSMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Correlation-ID")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Correlation-ID, X-Request-ID, traceparent")
 		w.Header().Set("Access-Control-Max-Age", "86400")
 
 		// Handle preflight
@@ -295,10 +430,12 @@ type ErrorResponse struct {
 	Code          string `json:"code"`
 	Message       string `json:"message"`
 	CorrelationID string `json:"correlation_id,omitempty"`
+	RequestID     string `json:"request_id,omitempty"`
+	TraceID       string `json:"trace_id,omitempty"`
 }
 
 // WriteError writes a structured JSON error response.
-func WriteError(w http.ResponseWriter, status int, code, message, correlationID string) {
+func WriteError(w http.ResponseWriter, status int, code, message, correlationID string, requestID string, traceID string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(ErrorResponse{
@@ -306,6 +443,8 @@ func WriteError(w http.ResponseWriter, status int, code, message, correlationID 
 		Code:          code,
 		Message:       message,
 		CorrelationID: correlationID,
+		RequestID:     requestID,
+		TraceID:       traceID,
 	}); err != nil {
 		log.Printf("[ERROR] Failed to encode error response: %v", err)
 	}

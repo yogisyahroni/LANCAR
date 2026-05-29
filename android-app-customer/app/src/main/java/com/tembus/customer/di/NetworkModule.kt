@@ -4,6 +4,7 @@ import android.content.Context
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.tembus.customer.BuildConfig
 import com.tembus.customer.data.api.AuthInterceptor
+import com.tembus.customer.data.api.RequestCorrelationInterceptor
 import com.tembus.customer.data.api.TEMBUSApiService
 import com.tembus.customer.data.api.TokenRefreshInterceptor
 import com.tembus.customer.data.session.AuthSessionManager
@@ -81,10 +82,12 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         loggingInterceptor: HttpLoggingInterceptor,
+        requestCorrelationInterceptor: RequestCorrelationInterceptor,
         sessionManager: AuthSessionManager,
         tokenRefreshInterceptor: TokenRefreshInterceptor
     ): OkHttpClient {
         val builder = OkHttpClient.Builder()
+            .addInterceptor(requestCorrelationInterceptor)
             .addInterceptor(loggingInterceptor)
             .addInterceptor(AuthInterceptor(sessionManager))
             .addInterceptor(tokenRefreshInterceptor)

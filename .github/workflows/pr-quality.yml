@@ -155,3 +155,27 @@ jobs:
         env:
           DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
+
+  observability-quality:
+    name: Observability Quality
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Static observability leak guard
+        run: node scripts/ci/observability-guard.mjs
+
+      - name: Validate OpenTelemetry Collector config
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/observability/otel-collector-config.yml:/etc/otelcol/config.yml:ro" \
+            otel/opentelemetry-collector-contrib:0.128.0 \
+            validate --config=/etc/otelcol/config.yml
+
+      - name: Docker Compose observability config check
+        run: docker compose config --quiet

@@ -91,6 +91,52 @@ services:
       - tembus-private
     logging: *default-logging
 
+  jaeger:
+    image: ${JAEGER_IMAGE:-jaegertracing/all-in-one:1.68.0}
+    container_name: tembus-prod-jaeger
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      LOG_LEVEL: ${JAEGER_LOG_LEVEL:-info}
+    ports:
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:${JAEGER_UI_PORT:-16686}:16686"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:16686/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - tembus-private
+    logging: *default-logging
+
+  otel-collector:
+    image: ${OTEL_COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:0.128.0}
+    container_name: tembus-prod-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol/config.yml"]
+    volumes:
+      - ./observability/otel-collector-config.yml:/etc/otelcol/config.yml:ro
+    depends_on:
+      jaeger:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "--version"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
+        reservations:
+          memory: 128M
+    networks:
+      - tembus-private
+    logging: *default-logging
+
   migrate:
     image: ghcr.io/pressly/goose:latest
     container_name: tembus-prod-migrate
@@ -143,6 +189,13 @@ services:
       VERIHUBS_APP_ID: ${VERIHUBS_APP_ID:-}
       VERIHUBS_API_KEY: ${VERIHUBS_API_KEY:-}
       VERIHUBS_API_URL: ${VERIHUBS_API_URL:-}
+      OTEL_ENABLED: ${OTEL_ENABLED:-false}
+      OTEL_SERVICE_NAME: ${AUTH_OTEL_SERVICE_NAME:-auth-service}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}
+      OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-production}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.05}
     volumes:
       - tembus-prod-auth-uploads:/app/uploads
     healthcheck:
@@ -174,6 +227,13 @@ services:
       REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
       ROUTING_PORT: 8082
       ROUTING_SERVICE_PORT: 8082
+      OTEL_ENABLED: ${OTEL_ENABLED:-false}
+      OTEL_SERVICE_NAME: ${ROUTING_OTEL_SERVICE_NAME:-routing-service}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}
+      OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-production}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.05}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8082/health >/dev/null || exit 1"]
       interval: 10s
@@ -319,6 +379,13 @@ services:
       ROUTE_PRICING_STALE_CACHE_TTL_SECONDS: ${ROUTE_PRICING_STALE_CACHE_TTL_SECONDS:-86400}
       MAPS_PROVIDER_CIRCUIT_FAILURE_THRESHOLD: ${MAPS_PROVIDER_CIRCUIT_FAILURE_THRESHOLD:-5}
       MAPS_PROVIDER_CIRCUIT_OPEN_SECONDS: ${MAPS_PROVIDER_CIRCUIT_OPEN_SECONDS:-30}
+      OTEL_ENABLED: ${OTEL_ENABLED:-false}
+      OTEL_SERVICE_NAME: ${ADMIN_OTEL_SERVICE_NAME:-admin-service}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}
+      OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-production}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.05}
     volumes:
       - tembus-prod-admin-uploads:/app/storage/uploads
     healthcheck:
@@ -364,6 +431,13 @@ services:
       DOCS_BASIC_AUTH_PASSWORD: ${DOCS_BASIC_AUTH_PASSWORD:-}
       API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
+      OTEL_ENABLED: ${OTEL_ENABLED:-false}
+      OTEL_SERVICE_NAME: ${GATEWAY_OTEL_SERVICE_NAME:-api-gateway}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}
+      OTEL_DEPLOYMENT_ENVIRONMENT: ${OTEL_DEPLOYMENT_ENVIRONMENT:-production}
+      OTEL_TRACES_SAMPLER: ${OTEL_TRACES_SAMPLER:-traceidratio}
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-0.05}
     ports:
       - "${PUBLIC_BIND:-127.0.0.1}:${GATEWAY_HOST_PORT:-8080}:8080"
     healthcheck:

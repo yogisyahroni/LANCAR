@@ -1,5 +1,5 @@
+import { getActiveTraceContext, shutdownTracing } from './tracing';
 import express, { Request, Response, NextFunction } from 'express';
-import { randomUUID } from 'crypto';
 import cors from 'cors';
 import helmet from 'helmet';
 import pino from 'pino-http';
@@ -24,6 +24,12 @@ import {
   createPricingAbuseGuard,
   createPublicEndpointRateLimiter,
 } from './publicEndpointAbuseProtection';
+import {
+  applyProxyObservabilityHeaders,
+  requestObservabilityMiddleware,
+  spanIdFromTraceparent,
+  traceIdFromTraceparent,
+} from './requestObservability';
 
 
 
@@ -41,10 +47,15 @@ const logger = pino({
     'req.headers["x-api-key"]',
     'res.headers["set-cookie"]',
   ],
-  customProps: (req) => ({
-    correlation_id: req.headers['x-correlation-id'],
-    request_id: req.headers['x-request-id'],
-  }),
+  customProps: (req) => {
+    const activeTrace = getActiveTraceContext();
+    return {
+      correlation_id: req.headers['x-correlation-id'],
+      request_id: req.headers['x-request-id'],
+      trace_id: activeTrace?.traceId || traceIdFromTraceparent(req.headers.traceparent),
+      span_id: activeTrace?.spanId || spanIdFromTraceparent(req.headers.traceparent),
+    };
+  },
 });
 
 // --- ENTERPRISE OBSERVABILITY (Prometheus) ---
@@ -77,16 +88,9 @@ const recordPublicAbuseEvent = (event: { endpoint: string; reason: string; actio
   publicEndpointAbuseCounter.labels(event.endpoint, event.reason, event.action).inc();
 };
 
-// Middleware to track metrics
-app.use((req, res, next) => {
-  const correlationId = String(req.headers['x-correlation-id'] || '').trim() || randomUUID();
-  const requestId = String(req.headers['x-request-id'] || '').trim() || randomUUID();
-  req.headers['x-correlation-id'] = correlationId;
-  req.headers['x-request-id'] = requestId;
-  res.setHeader('X-Correlation-ID', correlationId);
-  res.setHeader('X-Request-ID', requestId);
-  next();
-});
+// Request correlation boundary. Public clients may send a request ID, but only
+// sanitized IDs and valid W3C trace context are propagated to downstream services.
+app.use(requestObservabilityMiddleware);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -125,6 +129,16 @@ const authBreaker = createServiceBreaker('auth-service');
 const orderBreaker = createServiceBreaker('order-service');
 const adminBreaker = createServiceBreaker('admin-service');
 const paymentBreaker = createServiceBreaker('payment-service');
+
+const requestLogContext = (req: Request) => {
+  const activeTrace = getActiveTraceContext();
+  return {
+    correlation_id: req.headers['x-correlation-id'],
+    request_id: req.headers['x-request-id'],
+    trace_id: activeTrace?.traceId || traceIdFromTraceparent(req.headers.traceparent),
+    span_id: activeTrace?.spanId || spanIdFromTraceparent(req.headers.traceparent),
+  };
+};
 
 
 
@@ -175,6 +189,7 @@ const authLimiter = rateLimit({
 
 const logProxyForward = (proxy: string, req: Request, target: string) => {
   logger.logger.debug({
+    ...requestLogContext(req),
     event: 'proxy_forward',
     proxy,
     method: req.method,
@@ -183,8 +198,9 @@ const logProxyForward = (proxy: string, req: Request, target: string) => {
   }, 'Gateway proxy forwarding');
 };
 
-const logProxyError = (proxy: string, target: string, err: Error) => {
+const logProxyError = (proxy: string, target: string, err: Error, req?: Request) => {
   logger.logger.error({
+    ...(req ? requestLogContext(req) : {}),
     event: 'proxy_error',
     proxy,
     upstream_configured: Boolean(target),
@@ -282,8 +298,7 @@ logger.logger.info({
 
 const prepareProxyRequest = (proxyReq: any, req: Request) => {
   applyInternalGatewayAuth(proxyReq, req);
-  proxyReq.setHeader('X-Correlation-ID', req.headers['x-correlation-id'] || randomUUID());
-  proxyReq.setHeader('X-Request-ID', req.headers['x-request-id'] || randomUUID());
+  applyProxyObservabilityHeaders(proxyReq, req);
   fixRequestBody(proxyReq, req);
 };
 
@@ -316,7 +331,7 @@ const proxyWithResilience = (target: string, breaker: any) =>
       },
       error: (err: Error, req: any, res: any) => {
         breaker.fire(); // Notify breaker of failure
-        logProxyError('resilient_proxy', target, err);
+        logProxyError('resilient_proxy', target, err, req as Request);
         if (res && typeof res.status === 'function') {
           res.status(502).json({
             status: 'error',
@@ -465,7 +480,7 @@ app.use(createProxyMiddleware({
     },
     error: (err: Error, req: any, res: any) => {
       orderBreaker.fire(null);
-      logProxyError('orders', ORDER_SERVICE_URL, err);
+      logProxyError('orders', ORDER_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
           status: 'error',
@@ -523,7 +538,7 @@ app.use(createProxyMiddleware({
     },
     error: (err: Error, req: any, res: any) => {
       adminBreaker.fire(null);
-      logProxyError('maps', ADMIN_SERVICE_URL, err);
+      logProxyError('maps', ADMIN_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
           status: 'error',
@@ -554,7 +569,7 @@ app.use(createProxyMiddleware({
     },
     error: (err: Error, req: any, res: any) => {
       adminBreaker.fire(null);
-      logProxyError('public', ADMIN_SERVICE_URL, err);
+      logProxyError('public', ADMIN_SERVICE_URL, err, req as Request);
       if (res && typeof res.status === 'function') {
         res.status(502).json({
           status: 'error',
@@ -717,6 +732,7 @@ app.get('/health', (req, res) => {
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   logger.logger.error({
+    ...requestLogContext(req),
     event: 'unhandled_error',
     path: req.path,
     method: req.method,
@@ -727,6 +743,9 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     status: 'error',
     code: 'ERR_INTERNAL_SERVER_ERROR',
     message: 'An unexpected error occurred',
+    correlation_id: req.headers['x-correlation-id'],
+    request_id: req.headers['x-request-id'],
+    trace_id: traceIdFromTraceparent(req.headers.traceparent),
   });
 });
 
@@ -734,7 +753,29 @@ const PORT = process.env.GATEWAY_PORT || 8080;
 const server = app.listen(PORT, () => {
   logger.logger.info({ event: 'gateway_started', port: PORT }, 'API Gateway is running');
 });
+server.setMaxListeners(Math.max(server.getMaxListeners(), 64));
 
+let shutdownInProgress = false;
+const shutdownServer = (signal: string) => {
+  if (shutdownInProgress) return;
+  shutdownInProgress = true;
+
+  logger.logger.info({ event: 'gateway_shutdown_started', signal }, 'API Gateway shutdown started');
+  server.close(async () => {
+    await shutdownTracing(logger.logger);
+    logger.logger.info({ event: 'gateway_shutdown_complete', signal }, 'API Gateway shutdown complete');
+    process.exit(0);
+  });
+
+  setTimeout(async () => {
+    await shutdownTracing(logger.logger);
+    logger.logger.error({ event: 'gateway_shutdown_timeout', signal }, 'API Gateway shutdown timed out');
+    process.exit(1);
+  }, 10000).unref();
+};
+
+process.on('SIGTERM', () => shutdownServer('SIGTERM'));
+process.on('SIGINT', () => shutdownServer('SIGINT'));
 
 // Handle WebSocket upgrades
 server.on('upgrade', (req: any, socket: any, head: any) => {

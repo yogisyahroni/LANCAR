@@ -3,6 +3,7 @@ package com.tembus.courier.ui.screens.scan
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.api.TEMBUSApiService
+import com.tembus.courier.data.api.withRequestReference
 import com.tembus.courier.data.model.ScanRequest
 import com.tembus.courier.data.model.ScanResponse
 import com.tembus.courier.data.repository.OrderRepository
@@ -75,11 +76,12 @@ class ScanViewModel @Inject constructor(
 
     private fun retrofit2.Response<*>.errorMessage(): String {
         val fallback = "Verifikasi ditolak. Pastikan Anda berada di titik yang benar."
-        val raw = errorBody()?.string() ?: return fallback
+        val raw = errorBody()?.string() ?: return fallback.withRequestReference(this)
         return try {
-            Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content ?: fallback
+            (Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content ?: fallback)
+                .withRequestReference(this)
         } catch (_: Exception) {
-            fallback
+            fallback.withRequestReference(this)
         }
     }
 

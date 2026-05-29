@@ -1,6 +1,7 @@
 package com.tembus.customer.data.repository
 
 import com.tembus.customer.data.api.TEMBUSApiService
+import com.tembus.customer.data.api.withRequestReference
 import com.tembus.customer.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -43,13 +44,13 @@ class ProfileRepository @Inject constructor(
 
     private fun <T> Response<T>.readErrorMessage(fallback: String): String {
         return try {
-            val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback
+            val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback.withRequestReference(this)
             val parsedMessage = runCatching {
                 JSONObject(raw).optString("message").takeIf { it.isNotBlank() }
             }.getOrNull()
-            parsedMessage ?: raw.take(240)
+            (parsedMessage ?: raw.take(240)).withRequestReference(this)
         } catch (_: Exception) {
-            fallback
+            fallback.withRequestReference(this)
         }
     }
 }

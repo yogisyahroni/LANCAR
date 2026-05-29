@@ -187,3 +187,39 @@ func TestInRollout(t *testing.T) {
 		t.Errorf("Expected user to be in 100%% rollout")
 	}
 }
+
+func TestDistanceBucketUsesCoarseLabels(t *testing.T) {
+	tests := []struct {
+		name    string
+		pickup  Coordinate
+		dropoff Coordinate
+		want    string
+	}{
+		{
+			name:    "under one kilometer",
+			pickup:  Coordinate{Lat: -6.2000, Lng: 106.8000},
+			dropoff: Coordinate{Lat: -6.2005, Lng: 106.8005},
+			want:    "lt_1km",
+		},
+		{
+			name:    "mid distance",
+			pickup:  Coordinate{Lat: -6.1000, Lng: 106.8000},
+			dropoff: Coordinate{Lat: -6.1900, Lng: 106.8000},
+			want:    "5_15km",
+		},
+		{
+			name:    "long distance",
+			pickup:  Coordinate{Lat: -6.1000, Lng: 106.8000},
+			dropoff: Coordinate{Lat: -6.5000, Lng: 106.8000},
+			want:    "gte_30km",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := distanceBucket(tt.pickup, tt.dropoff); got != tt.want {
+				t.Fatalf("distanceBucket() = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}

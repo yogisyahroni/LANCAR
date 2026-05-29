@@ -129,6 +129,8 @@ func LimitByIP(rdb *redis.Client) func(http.HandlerFunc) http.HandlerFunc {
 					"ERR_RATE_LIMIT",
 					fmt.Sprintf("Too many requests. Retry after %d seconds.", int(retryAfter.Seconds())),
 					correlationID,
+					GetRequestID(ctx),
+					GetTraceID(ctx),
 				)
 				return
 			}
@@ -159,6 +161,8 @@ func LimitOTPSend(rdb *redis.Client) func(http.HandlerFunc) http.HandlerFunc {
 					"ERR_OTP_RATE_LIMIT",
 					fmt.Sprintf("OTP requests are limited. Please wait %d seconds before requesting a new OTP.", int(retryAfter.Seconds())),
 					correlationID,
+					GetRequestID(ctx),
+					GetTraceID(ctx),
 				)
 				return
 			}
@@ -185,6 +189,8 @@ func LimitOTPVerify(rdb *redis.Client) func(http.HandlerFunc) http.HandlerFunc {
 					"ERR_OTP_VERIFY_RATE_LIMIT",
 					"Too many OTP verification attempts. Your IP has been temporarily blocked.",
 					correlationID,
+					GetRequestID(ctx),
+					GetTraceID(ctx),
 				)
 				return
 			}
@@ -214,6 +220,8 @@ func LimitAuthEndpoints(rdb *redis.Client) func(http.HandlerFunc) http.HandlerFu
 					"ERR_AUTH_RATE_LIMIT",
 					fmt.Sprintf("Too many authentication attempts from your IP. Retry after %d seconds.", int(retryAfter.Seconds())),
 					correlationID,
+					GetRequestID(ctx),
+					GetTraceID(ctx),
 				)
 				return
 			}

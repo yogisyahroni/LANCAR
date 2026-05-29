@@ -3,6 +3,7 @@ package com.tembus.courier.di
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.tembus.courier.BuildConfig
 import com.tembus.courier.data.api.AuthInterceptor
+import com.tembus.courier.data.api.RequestCorrelationInterceptor
 import com.tembus.courier.data.api.TEMBUSApiService
 import com.tembus.courier.data.api.TokenExpiryInterceptor
 import com.tembus.courier.data.session.AuthSessionManager
@@ -84,9 +85,11 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         loggingInterceptor: HttpLoggingInterceptor,
+        requestCorrelationInterceptor: RequestCorrelationInterceptor,
         sessionManager: AuthSessionManager
     ): OkHttpClient {
         val builder = OkHttpClient.Builder()
+            .addInterceptor(requestCorrelationInterceptor)
             .addInterceptor(loggingInterceptor)
             .addInterceptor(AuthInterceptor(sessionManager))
             // 🛡️ Auto-logout on Token Expiration (HTTP 401)

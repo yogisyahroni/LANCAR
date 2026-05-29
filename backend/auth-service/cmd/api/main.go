@@ -1,17 +1,21 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"tembus/auth-service/internal/domain"
 	"tembus/auth-service/internal/handler"
 	"tembus/auth-service/internal/middleware"
+	"tembus/auth-service/internal/observability"
 	"tembus/auth-service/internal/repository"
 	"tembus/auth-service/internal/service"
 
@@ -122,6 +126,12 @@ func main() {
 		log.Println("No .env file found, using system environment variables")
 	}
 	validateProductionSecrets()
+
+	shutdownTracing, err := observability.InitTracing(context.Background(), "auth-service")
+	if err != nil {
+		log.Fatalf("[auth-service] failed to initialize tracing: %v", err)
+	}
+	defer observability.ShutdownWithTimeout(shutdownTracing)
 
 	// ─────────────────────────────────────────────
 	// Database Connection (Read/Write Split)
@@ -358,12 +368,33 @@ func main() {
 
 	server := &http.Server{
 		Addr:         ":" + port,
-		Handler:      mux,
+		Handler:      observability.HTTPHandler(mux, "auth-service"),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
 	fmt.Printf("[auth-service] Starting on :%s (API v1 + Redis rate limiting ready)\n", port)
-	log.Fatal(server.ListenAndServe())
+	serverErrors := make(chan error, 1)
+	go func() {
+		serverErrors <- server.ListenAndServe()
+	}()
+
+	shutdownSignals := make(chan os.Signal, 1)
+	signal.Notify(shutdownSignals, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case err := <-serverErrors:
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatalf("[auth-service] server failed: %v", err)
+		}
+	case signalValue := <-shutdownSignals:
+		log.Printf("[auth-service] shutdown requested: %s", signalValue.String())
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("[auth-service] graceful shutdown failed: %v", err)
+			_ = server.Close()
+		}
+	}
 }

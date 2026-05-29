@@ -3,6 +3,7 @@ package com.tembus.courier.ui.screens.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.api.TEMBUSApiService
+import com.tembus.courier.data.api.withRequestReference
 import com.tembus.courier.data.device.DeviceIdentityProvider
 import com.tembus.courier.data.model.CourierOtpVerifyRequest
 import com.tembus.courier.data.model.LoginData
@@ -149,7 +150,7 @@ class LoginViewModel @Inject constructor(
                             429 -> "Terlalu banyak percobaan. Coba lagi nanti"
                             else -> "Login gagal (${response.code()})"
                         }
-                    _uiState.update { it.copy(isLoading = false, error = message) }
+                    _uiState.update { it.copy(isLoading = false, error = message.withRequestReference(response)) }
                 }
             } catch (e: java.net.UnknownHostException) {
                 _uiState.update {
@@ -189,12 +190,13 @@ class LoginViewModel @Inject constructor(
                 if (response.isSuccessful && responseBody?.success == true && responseBody.data != null) {
                     persistLoginSession(responseBody.data)
                 } else {
+                    val message = extractErrorMessage(response)
+                        ?: responseBody?.message
+                        ?: "Kode OTP tidak valid"
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = extractErrorMessage(response)
-                                ?: responseBody?.message
-                                ?: "Kode OTP tidak valid"
+                            error = message.withRequestReference(response)
                         )
                     }
                 }

@@ -43,4 +43,24 @@ describe('log redaction', () => {
     expect(redacted.message).not.toContain('eyJhbGciOiJIUzI1NiJ9');
     expect(redacted.stack).toContain('628***222');
   });
+
+  it('keeps safe observability IDs and redacts unsafe trace/log metadata', () => {
+    const redacted = redactForLog({
+      request_id: 'tmb-safe-request-123',
+      trace_id: '4bf92f3577b34da6a3ce929d0e0e4736',
+      span_id: '00f067aa0ba902b7',
+      authorization: 'Bearer abcdefghijklmnopqrstuvwxyz123456',
+      cookie: 'customer_session=secret-session-value',
+      request_body: { password: 'Namakamu766!!', otp: '123456' },
+      response_body: { token: 'secret-token-value' },
+    }) as Record<string, unknown>;
+
+    expect(redacted.request_id).toBe('tmb-safe-request-123');
+    expect(redacted.trace_id).toBe('4bf92f3577b34da6a3ce929d0e0e4736');
+    expect(redacted.span_id).toBe('00f067aa0ba902b7');
+    expect(redacted.authorization).toBe('[REDACTED]');
+    expect(redacted.cookie).toBe('[REDACTED]');
+    expect(redacted.request_body).toBe('[REDACTED]');
+    expect(redacted.response_body).toBe('[REDACTED]');
+  });
 });

@@ -1,6 +1,7 @@
 package com.tembus.customer.data.repository
 
 import com.tembus.customer.data.api.TEMBUSApiService
+import com.tembus.customer.data.api.withRequestReference
 import com.tembus.customer.data.device.DeviceIdentityProvider
 import com.tembus.customer.data.model.AuthResponse
 import com.tembus.customer.data.model.CustomerPasswordLoginStartRequest
@@ -89,10 +90,12 @@ class AuthRepository @Inject constructor(
             if (body != null && body.success) {
                 Result.success(body)
             } else {
-                Result.failure(Exception(body?.message ?: "Operasi Gagal"))
+                Result.failure(Exception((body?.message ?: "Operasi Gagal").withRequestReference(response)))
             }
         } else {
-            Result.failure(Exception("HTTP Error ${response.code()}: ${response.message()}"))
+            Result.failure(
+                Exception("HTTP Error ${response.code()}: ${response.message()}".withRequestReference(response))
+            )
         }
     }
 

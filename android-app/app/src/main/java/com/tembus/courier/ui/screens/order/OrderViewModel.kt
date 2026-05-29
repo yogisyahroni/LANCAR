@@ -3,6 +3,7 @@ package com.tembus.courier.ui.screens.order
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.api.TEMBUSApiService
+import com.tembus.courier.data.api.withRequestReference
 import com.tembus.courier.data.model.CourierProfile
 import com.tembus.courier.data.model.CourierCapabilityProfile
 import com.tembus.courier.data.model.CourierEarningsLedger
@@ -175,7 +176,7 @@ class OrderViewModel @Inject constructor(
                     _cancelPickupReasons.update { body.data }
                 } else {
                     _cancelPickupReasons.update { emptyList() }
-                    _error.update { body?.message ?: response.errorMessage() }
+                    _error.update { response.errorMessage(body?.message) }
                 }
             } catch (e: Exception) {
                 _cancelPickupReasons.update { emptyList() }
@@ -194,7 +195,7 @@ class OrderViewModel @Inject constructor(
                     _statusTransitions.update { body.data }
                 } else {
                     _statusTransitions.update { emptyList() }
-                    _error.update { body?.message ?: response.errorMessage() }
+                    _error.update { response.errorMessage(body?.message) }
                 }
             } catch (e: Exception) {
                 _statusTransitions.update { emptyList() }
@@ -223,20 +224,23 @@ class OrderViewModel @Inject constructor(
                 _courierProfile.update { body.data }
                 Result.success(body.data)
             } else {
-                Result.failure(Exception(body?.message ?: response.errorMessage()))
+                Result.failure(Exception(response.errorMessage(body?.message)))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    private fun retrofit2.Response<*>.errorMessage(): String {
+    private fun retrofit2.Response<*>.errorMessage(serverMessage: String? = null): String {
         val fallback = "Gagal memperbarui status duty. Coba lagi."
-        val raw = errorBody()?.string() ?: return fallback
+        if (!serverMessage.isNullOrBlank()) return serverMessage.withRequestReference(this)
+
+        val raw = errorBody()?.string() ?: return fallback.withRequestReference(this)
         return try {
-            Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content ?: fallback
+            (Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content ?: fallback)
+                .withRequestReference(this)
         } catch (_: Exception) {
-            fallback
+            fallback.withRequestReference(this)
         }
     }
 
@@ -335,7 +339,7 @@ class OrderViewModel @Inject constructor(
                     _lastRemoteSyncAt.update { System.currentTimeMillis() }
                     Result.success(Unit)
                 } else {
-                    val message = "Gagal memuat orders: ${responseBody?.message ?: "HTTP ${response.code()}"}"
+                    val message = response.errorMessage("Gagal memuat orders: ${responseBody?.message ?: "HTTP ${response.code()}"}")
                     if (showUserErrors) _error.update { message }
                     Result.failure(Exception(message))
                 }
@@ -392,7 +396,7 @@ class OrderViewModel @Inject constructor(
                 fetchPayoutState(showUserErrors = false)
                 Result.success(request)
             } else {
-                Result.failure(Exception(body?.message ?: response.errorMessage()))
+                Result.failure(Exception(response.errorMessage(body?.message)))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -462,7 +466,7 @@ class OrderViewModel @Inject constructor(
             if (response.isSuccessful && body?.success == true) {
                 Result.success(body.message ?: "Laporan terkirim.")
             } else {
-                Result.failure(Exception(body?.message ?: response.errorMessage()))
+                Result.failure(Exception(response.errorMessage(body?.message)))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -476,7 +480,7 @@ class OrderViewModel @Inject constructor(
             if (response.isSuccessful && body?.success == true && body.data != null) {
                 Result.success(body.data.url)
             } else {
-                Result.failure(Exception(body?.message ?: response.errorMessage()))
+                Result.failure(Exception(response.errorMessage(body?.message)))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -511,7 +515,7 @@ class OrderViewModel @Inject constructor(
                 fetchOrdersFromBackend()
                 Result.success(body.message ?: "Pickup dibatalkan.")
             } else {
-                Result.failure(Exception(body?.message ?: response.errorMessage()))
+                Result.failure(Exception(response.errorMessage(body?.message)))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -529,7 +533,7 @@ class OrderViewModel @Inject constructor(
                 }
                 Result.success(body.message ?: "Training selesai.")
             } else {
-                Result.failure(Exception(body?.message ?: response.errorMessage()))
+                Result.failure(Exception(response.errorMessage(body?.message)))
             }
         } catch (e: Exception) {
             Result.failure(e)

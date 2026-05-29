@@ -28,6 +28,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.Executor
 import com.tembus.courier.data.api.TEMBUSApiService
+import com.tembus.courier.data.api.withRequestReference
 import com.tembus.courier.data.repository.OrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -483,11 +484,12 @@ class ProofOfDeliveryViewModel @Inject constructor(
 
     private fun retrofit2.Response<*>.errorMessage(): String {
         val fallback = "Verifikasi ditolak. Pastikan Anda berada di titik yang benar."
-        val raw = errorBody()?.string() ?: return fallback
+        val raw = errorBody()?.string() ?: return fallback.withRequestReference(this)
         return try {
-            Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content ?: fallback
+            (Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content ?: fallback)
+                .withRequestReference(this)
         } catch (_: Exception) {
-            fallback
+            fallback.withRequestReference(this)
         }
     }
     

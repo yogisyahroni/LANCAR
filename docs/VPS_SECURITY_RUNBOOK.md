@@ -311,7 +311,162 @@ admin.example.com {
 **Expected result:** Only HTTPS is used by browsers and provider webhooks.
 **If it fails:** Confirm `PUBLIC_BIND=127.0.0.1`, local ports are listening, and DNS points to the VPS.
 
-### Step 13: Create PostgreSQL Backup Script
+### Step 13: Operate OpenTelemetry Collector and Jaeger Safely
+
+Use this only after the production stack and security gate are healthy. The collector and Jaeger are for engineering diagnostics, not a public product endpoint.
+
+Start or update the observability services:
+
+```bash
+cd /opt/tembus/app
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml up -d otel-collector jaeger
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml ps otel-collector jaeger
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml logs --tail 100 otel-collector
+```
+
+**Expected result:** `otel-collector` and `jaeger` are running, and collector logs show the service is ready. The collector accepts traces, metrics, and logs pipelines, but only traces are exported to Jaeger.
+**If it fails:** Keep `OTEL_ENABLED=false`, inspect collector config and Jaeger logs, then restart only observability services after the config is fixed.
+
+Validate the collector and compose files before changing production env:
+
+```bash
+cd /opt/tembus/app
+docker run --rm \
+  -v "$PWD/observability/otel-collector-config.yml:/etc/otelcol/config.yml:ro" \
+  otel/opentelemetry-collector-contrib:0.128.0 \
+  validate --config=/etc/otelcol/config.yml
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml config --quiet
+```
+
+**Expected result:** Both commands exit cleanly with no validation errors.
+**If it fails:** Do not enable telemetry. Fix the config in Git, redeploy the corrected commit, and validate again.
+
+Enable tracing for application services:
+
+```bash
+nano /opt/tembus/secrets/.env.production
+```
+
+Set:
+
+```env
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_DEPLOYMENT_ENVIRONMENT=production
+OTEL_TRACES_SAMPLER=traceidratio
+OTEL_TRACES_SAMPLER_ARG=0.05
+```
+
+Then recreate only the application containers that send traces:
+
+```bash
+cd /opt/tembus/app
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml up -d --force-recreate api-gateway admin-service auth-service routing-service
+```
+
+**Expected result:** Services stay healthy and traces appear in Jaeger after a real request.
+**If it fails:** Disable tracing with `OTEL_ENABLED=false`, recreate affected services, and treat tracing as non-blocking until the root cause is fixed.
+
+Open Jaeger UI safely from your laptop:
+
+```bash
+ssh -L 16686:127.0.0.1:16686 deploy@YOUR_VPS_HOST
+```
+
+Open this local URL:
+
+```text
+http://127.0.0.1:16686
+```
+
+**Expected result:** Jaeger UI opens locally and is not reachable from the public internet.
+**If it fails:** Confirm the `jaeger` container is running and `JAEGER_UI_PORT=16686`. Do not publish Jaeger on `0.0.0.0` without VPN or authenticated reverse proxy.
+
+Find an error by request ID:
+
+1. Copy the safe error reference/request ID from the app, API response header, or support report.
+2. Search gateway logs:
+
+```bash
+cd /opt/tembus/app
+REQUEST_ID=REQ_ID_FROM_USER
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml logs api-gateway | grep "$REQUEST_ID"
+```
+
+3. Copy the `trace_id` and `span_id` from the matching structured log line.
+4. Search the other traced services with the same IDs:
+
+```bash
+TRACE_ID=TRACE_ID_FROM_LOG
+SPAN_ID=SPAN_ID_FROM_LOG
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml logs auth-service routing-service admin-service | grep -E "$REQUEST_ID|$TRACE_ID|$SPAN_ID"
+```
+
+5. Open Jaeger and search the `api-gateway` service for the `request.id` tag or the matching trace time window.
+6. If the request reached a downstream service, check the downstream span and then search that service log with the same request ID or trace ID.
+
+**Expected result:** You can correlate the user-safe request ID to one structured log line and, when sampled, one Jaeger trace.
+**If it fails:** Use the request timestamp and endpoint path to narrow the log window. Sampling can legitimately mean no Jaeger trace exists; the structured log must still contain `request_id`, `trace_id`, and `span_id`.
+
+Recover when the collector is down:
+
+```bash
+cd /opt/tembus/app
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml ps otel-collector
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml logs --tail 200 otel-collector
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml up -d --force-recreate otel-collector
+```
+
+**Expected result:** Application containers remain healthy even while the collector is down; telemetry is non-blocking.
+**If it fails:** Disable telemetry with `OTEL_ENABLED=false`, recreate app services, and fix collector separately.
+
+Reduce sampling during high traffic:
+
+```bash
+nano /opt/tembus/secrets/.env.production
+```
+
+Set:
+
+```env
+OTEL_TRACES_SAMPLER_ARG=0.01
+```
+
+Then recreate tracing-enabled app services:
+
+```bash
+cd /opt/tembus/app
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml up -d --force-recreate api-gateway admin-service auth-service routing-service
+```
+
+Temporarily disable tracing:
+
+```bash
+nano /opt/tembus/secrets/.env.production
+```
+
+Set:
+
+```env
+OTEL_ENABLED=false
+```
+
+Then recreate affected app services:
+
+```bash
+cd /opt/tembus/app
+docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.prod.yml up -d --force-recreate api-gateway admin-service auth-service routing-service
+```
+
+Privacy rule before enabling browser or mobile tracing:
+
+- Do not enable full browser/mobile trace export until redaction is reviewed separately.
+- Do not export Authorization headers, cookies, OTP, password, token, raw request body, raw response body, full email, full phone, full address, or precise GPS coordinates.
+- Keep mobile/browser diagnostics limited to safe request IDs until a dedicated privacy review is complete.
+- Do not upload Jaeger exports, OTLP payloads, request logs, or trace dumps as GitHub Actions artifacts. Use short request IDs in support tickets instead.
+
+### Step 14: Create PostgreSQL Backup Script
 
 Create `/opt/tembus/backups/postgres/backup-postgres.sh`:
 
@@ -375,7 +530,7 @@ systemctl list-timers tembus-postgres-backup.timer
 **Expected result:** A compressed custom-format dump appears nightly in `/opt/tembus/backups/postgres`.
 **If it fails:** Run `systemctl status tembus-postgres-backup.service` and check Docker/DB health.
 
-### Step 14: Restore PostgreSQL From Backup
+### Step 15: Restore PostgreSQL From Backup
 
 Only restore into a fresh or intentionally reset database.
 
@@ -400,7 +555,7 @@ docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.
 **Expected result:** Services start and critical smoke tests pass.
 **If it fails:** Keep services stopped, preserve the failed restore logs, and restore the previous known-good dump.
 
-### Step 15: Rotate Secrets
+### Step 16: Rotate Secrets
 
 Use this procedure for `JWT_SECRET`, `JWT_REFRESH_SECRET`, `INTERNAL_GATEWAY_SECRET`, `METRICS_BEARER_TOKEN`, Redis/RabbitMQ passwords, provider keys, or any exposed key.
 
@@ -426,7 +581,7 @@ docker compose --env-file /opt/tembus/secrets/.env.production -f docker-compose.
 **Expected result:** New requests work with the new secret and old exposed credentials no longer work.
 **If it fails:** Roll back the env file from the root-only backup copy, restart affected services, then diagnose in staging.
 
-### Step 16: Deploy Rollback
+### Step 17: Deploy Rollback
 
 If the newest image release fails:
 
@@ -479,6 +634,11 @@ Manual checklist:
 - [ ] `https://api.example.com/health` returns success.
 - [ ] Browser preflight cannot send `x-user-id`, `x-user-role`, `x-totp-verified`, or `x-internal-auth`.
 - [ ] Direct public access to internal service ports is blocked.
+- [ ] Jaeger UI is only reachable through localhost, SSH tunnel, VPN, or authenticated internal access.
+- [ ] OTLP ports `4317` and `4318` are not publicly reachable.
+- [ ] `otel-collector` logs show ready state when `OTEL_ENABLED=true`.
+- [ ] Services remain healthy after setting `OTEL_ENABLED=false` and recreating app containers.
+- [ ] A known request ID can be found in gateway logs and, when sampled, in Jaeger trace tags.
 - [ ] CI staging is green after the deployed commit.
 
 ## Troubleshooting
@@ -492,6 +652,10 @@ Manual checklist:
 | DB backup file is empty | `pg_dump` failed or env not loaded | Run backup script manually and inspect systemd service logs |
 | Restore fails on ownership | Dump owner does not match current DB user | Restore with the configured `POSTGRES_USER`, or use `--no-owner` for compatible dumps |
 | CI can build but cannot deploy | Missing SSH deploy secrets | Recreate `VPS_SSH_KEY`, `VPS_HOST`, `VPS_USER`, and authorized key |
+| Jaeger UI is unreachable through SSH tunnel | Jaeger is stopped, wrong local tunnel, or port mismatch | Check `docker compose ps jaeger`, recreate the tunnel, and confirm `127.0.0.1:16686` |
+| No traces appear in Jaeger | `OTEL_ENABLED=false`, collector unhealthy, sampling too low, or request was not sampled | Check app env, collector logs, use a test service with higher sampling in staging, and keep production sampling low |
+| Collector down but app is healthy | Expected non-blocking telemetry behavior | Fix collector separately; do not roll back the app solely for collector downtime |
+| Trace contains query token or password | Redaction regression | Disable tracing with `OTEL_ENABLED=false`, preserve evidence, and fix trace attribute sanitization before re-enabling |
 
 ## Rollback
 

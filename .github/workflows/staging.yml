@@ -243,6 +243,31 @@ jobs:
             "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" \
             down
 
+  observability-guard:
+    name: Observability Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [frontend, admin-service, auth-service, routing-service, migration-test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Static observability leak guard
+        run: node scripts/ci/observability-guard.mjs
+
+      - name: Validate OpenTelemetry Collector config
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/observability/otel-collector-config.yml:/etc/otelcol/config.yml:ro" \
+            otel/opentelemetry-collector-contrib:0.128.0 \
+            validate --config=/etc/otelcol/config.yml
+
+      - name: Docker Compose observability config check
+        run: docker compose config --quiet
+
   # ═══════════════════════════════════════════════════════════
   # PHASE 2: SECURITY SCANS (needs all tests to pass)
   # ═══════════════════════════════════════════════════════════
@@ -251,7 +276,7 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: [frontend, admin-service, auth-service, routing-service, migration-test]
+    needs: [observability-guard]
     steps:
       - uses: actions/checkout@v4
         with:

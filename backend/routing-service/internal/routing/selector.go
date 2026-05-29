@@ -4,8 +4,14 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"math"
 
 	"tembus-backend/internal/featureflags"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type ModelType string
@@ -13,6 +19,8 @@ type ModelType string
 const (
 	ModelP2P ModelType = "P2P"
 )
+
+var routingTracer = otel.Tracer("tembus/routing-service")
 
 type Coordinate struct {
 	Lat float64
@@ -65,19 +73,31 @@ func NewRoutingEngineWithZoneResolver(reader featureflags.FlagReader, resolver Z
 // TEMBUS now accepts P2P as the only production delivery model; courier
 // assignment mode is handled separately as on-demand or regular.
 func (e *RoutingEngine) SelectModel(ctx context.Context, req OrderRequest) (ModelType, error) {
+	ctx, span := routingTracer.Start(ctx, "routing.route.calculate")
+	defer span.End()
+	span.SetAttributes(
+		attribute.String("route.provider", "internal_p2p"),
+		attribute.String("route.distance_bucket", distanceBucket(req.Pickup, req.Dropoff)),
+		attribute.Bool("route.cache_hit", false),
+	)
+
 	if err := validateCoordinate(req.Pickup); err != nil {
+		setRoutingSpanError(span, "routing coordinate validation failed")
 		return "", fmt.Errorf("pickup coordinate invalid: %w", err)
 	}
 	if err := validateCoordinate(req.Dropoff); err != nil {
+		setRoutingSpanError(span, "routing coordinate validation failed")
 		return "", fmt.Errorf("dropoff coordinate invalid: %w", err)
 	}
 	if e.zoneResolver == nil {
+		setRoutingSpanError(span, "routing dependency missing")
 		return "", fmt.Errorf("routing zone resolver is not configured")
 	}
 
 	keys := []string{"model_p2p"}
 	flags, err := e.flagReader.GetFlags(ctx, keys)
 	if err != nil {
+		setRoutingSpanError(span, "routing feature flag lookup failed")
 		return "", fmt.Errorf("gagal baca feature flags: %w", err)
 	}
 
@@ -85,17 +105,47 @@ func (e *RoutingEngine) SelectModel(ctx context.Context, req OrderRequest) (Mode
 
 	pickupZone, err := e.zoneResolver.ResolveZoneCode(ctx, req.Pickup)
 	if err != nil {
+		span.SetAttributes(attribute.Bool("zone.resolved", false))
+		setRoutingSpanError(span, "pickup zone unavailable")
 		return "", fmt.Errorf("pickup zone unavailable: %w", err)
 	}
 	dropoffZone, err := e.zoneResolver.ResolveZoneCode(ctx, req.Dropoff)
 	if err != nil {
+		span.SetAttributes(attribute.Bool("zone.resolved", false))
+		setRoutingSpanError(span, "dropoff zone unavailable")
 		return "", fmt.Errorf("dropoff zone unavailable: %w", err)
 	}
+	span.SetAttributes(attribute.Bool("zone.resolved", true))
 
 	if p2pFlag != nil && p2pFlag.IsEnabled && inRollout(p2pFlag, req.UserID) && zonesActive(p2pFlag, pickupZone, dropoffZone) {
+		span.SetAttributes(attribute.String("route.model", string(ModelP2P)))
+		span.SetStatus(codes.Ok, "")
 		return ModelP2P, nil
 	}
+	setRoutingSpanError(span, "p2p unavailable")
 	return "", ErrModelUnavailable("P2P", "MSG_P2P_UNAVAILABLE")
+}
+
+func setRoutingSpanError(span trace.Span, description string) {
+	span.SetStatus(codes.Error, description)
+}
+
+func distanceBucket(pickup Coordinate, dropoff Coordinate) string {
+	latKm := (dropoff.Lat - pickup.Lat) * 111
+	lngKm := (dropoff.Lng - pickup.Lng) * 111 * math.Cos((pickup.Lat+dropoff.Lat)*math.Pi/360)
+	distanceKm := math.Sqrt(latKm*latKm + lngKm*lngKm)
+	switch {
+	case distanceKm < 1:
+		return "lt_1km"
+	case distanceKm < 5:
+		return "1_5km"
+	case distanceKm < 15:
+		return "5_15km"
+	case distanceKm < 30:
+		return "15_30km"
+	default:
+		return "gte_30km"
+	}
 }
 
 func validateCoordinate(coord Coordinate) error {

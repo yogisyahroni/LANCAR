@@ -27,14 +27,16 @@ describe('generic error mapper and log redaction', () => {
     const res = await request(app).get('/leaky-json').set('x-correlation-id', 'corr-test');
 
     expect(res.status).toBe(500);
-    expect(res.body).toEqual({
+    expect(res.body).toEqual(expect.objectContaining({
       success: false,
       error: 'Internal server error',
       message: 'Internal server error',
       code: 'ERR_INTERNAL_SERVER',
       correlation_id: 'corr-test',
       status_code: 500,
-    });
+    }));
+    expect(res.body.request_id).toMatch(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
+    expect(res.body.trace_id).toMatch(/^[0-9a-f]{32}$/);
     expect(JSON.stringify(res.body)).not.toContain('yogi@example.com');
     expect(JSON.stringify(res.body)).not.toContain('SELECT');
   });
@@ -44,6 +46,8 @@ describe('generic error mapper and log redaction', () => {
 
     expect(res.status).toBe(500);
     expect(res.body.code).toBe('ERR_INTERNAL_SERVER');
+    expect(res.body.request_id).toMatch(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
+    expect(res.body.trace_id).toMatch(/^[0-9a-f]{32}$/);
     expect(JSON.stringify(res.body)).not.toContain('4111111111111111');
   });
 
@@ -53,6 +57,8 @@ describe('generic error mapper and log redaction', () => {
     expect(res.status).toBe(500);
     expect(res.body.code).toBe('ERR_INTERNAL_SERVER');
     expect(res.body.correlation_id).toBe('corr-throw');
+    expect(res.body.request_id).toMatch(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/);
+    expect(res.body.trace_id).toMatch(/^[0-9a-f]{32}$/);
   });
 
   it('redacts sensitive strings and object keys before logging', () => {

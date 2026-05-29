@@ -22,6 +22,8 @@ Scope: source tree, production Compose config, gateway/admin security tests, and
 | Trivy high/critical scan | CI/VPS gate | Local Docker scan timed out on this workspace because dependency caches are present. Keep the GitHub Actions container security matrix as blocking, and run the script on the VPS/source checkout without `node_modules`. |
 | CI staging green | External gate | Must be confirmed on GitHub Actions after pushing this change set. |
 | Android Firebase config injection | Passed | Real `google-services.json` files are ignored; mobile CI recreates them from GitHub Secrets or uses example templates. `:app:processDebugGoogleServices` passed for both courier and customer apps using the example templates with JDK 17. |
+| Auth/routing OpenTelemetry tracing | Passed at code/local verification level | Go OTel SDK and `otelhttp` are wired into auth-service and routing-service. Non-race and Linux-container race tests pass. Collector-down startup behavior is tested, production localhost collector endpoint is rejected, and span attributes were reviewed to avoid password, OTP value, token value, full email/phone, body, and raw lat/lng leakage. |
+| OpenTelemetry P3 guardrails | Passed at code/local verification level | Collector config accepts traces, metrics, and logs pipelines; `scripts/ci/observability-guard.mjs` blocks obvious observability leaks and trace artifacts; staging/PR workflows validate collector config and Docker Compose config. |
 
 ## Required External Actions Before Production
 
@@ -31,6 +33,10 @@ Scope: source tree, production Compose config, gateway/admin security tests, and
 - [ ] Set `COURIER_GOOGLE_SERVICES_JSON` and `CUSTOMER_GOOGLE_SERVICES_JSON` in GitHub Actions Secrets before mobile release builds.
 - [ ] Confirm GitHub Actions staging run is green after this final checklist commit.
 - [ ] Run `scripts/ops/verify-vps-security.sh` on the real VPS with `ENV_FILE=/opt/tembus/secrets/.env.production` and real `API_BASE_URL`.
+- [ ] Decide whether `OTEL_ENABLED` stays `false` for first VPS production cut or points to an internal OpenTelemetry Collector.
+- [ ] After deploying rebuilt auth/routing images, generate one login request and one route request, then confirm Jaeger shows `auth-service` and `routing-service` spans without sensitive attributes.
+- [ ] After deploying rebuilt gateway/admin/auth/routing images, confirm logs contain `request_id`, `trace_id`, and `span_id` for one sampled request.
+- [ ] Keep GitHub Actions artifact uploads limited to SBOM/build reports; do not upload trace, Jaeger, OTLP, request log, or user-data observability artifacts.
 
 ## Tutorial: Required External Actions
 
@@ -311,6 +317,63 @@ Done criteria:
 - Production env file permission is `600` or `640`.
 - Internal services are not exposed through public host ports.
 - Live gateway health and CORS checks pass when `API_BASE_URL` is provided.
+
+### 8. Configure OpenTelemetry Environment Contract
+
+P0 observability is request correlation first. The production Compose stack already includes an internal OpenTelemetry Collector and Jaeger, but keep `OTEL_ENABLED=false` for the first production cut until the collector is healthy and the team has confirmed trace privacy. Do not point applications directly to Jaeger UI, and do not use a public internet endpoint for OTLP unless it is a managed vendor endpoint with authentication.
+
+For first VPS deployment without collector, keep:
+
+```bash
+OTEL_ENABLED=false
+OTEL_SERVICE_NAME=
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_DEPLOYMENT_ENVIRONMENT=production
+OTEL_TRACES_SAMPLER=traceidratio
+OTEL_TRACES_SAMPLER_ARG=0.05
+```
+
+When the collector and Jaeger are ready, enable tracing through the internal Docker network endpoint:
+
+```bash
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_DEPLOYMENT_ENVIRONMENT=production
+OTEL_TRACES_SAMPLER=traceidratio
+OTEL_TRACES_SAMPLER_ARG=0.05
+```
+
+Set `OTEL_SERVICE_NAME` per service when the compose files get service-specific OpenTelemetry wiring, for example `api-gateway`, `admin-service`, `auth-service`, and `routing-service`.
+
+Production access rules:
+
+- Jaeger UI must stay bound to `127.0.0.1` on the VPS. Open it through an SSH tunnel, VPN, or a reverse proxy with authentication, never as a public unauthenticated port.
+- OTLP ports `4317` and `4318` must not be published publicly. Application containers send traces to `http://otel-collector:4318` inside the Docker network.
+- If trace volume is high, lower `OTEL_TRACES_SAMPLER_ARG` from `0.05` to `0.01` before increasing VPS resources.
+- If collector or Jaeger causes operational noise, set `OTEL_ENABLED=false` and recreate only the affected application containers. The service must continue without tracing.
+
+Safe Jaeger access from your laptop:
+
+```bash
+ssh -L 16686:127.0.0.1:16686 deploy@YOUR_VPS_HOST
+```
+
+Then open:
+
+```text
+http://127.0.0.1:16686
+```
+
+Done criteria:
+
+- `OTEL_ENABLED=false` keeps services running without collector.
+- If `OTEL_ENABLED=true`, `OTEL_EXPORTER_OTLP_ENDPOINT` points to an internal collector URL.
+- Production does not use `localhost`, `127.0.0.1`, or `::1` as the OTLP endpoint.
+- Jaeger UI is not publicly exposed.
+- OTLP receiver ports are internal-only.
+- Trace and log attributes do not include raw request body, response body, cookies, Authorization headers, OTP, password, token, full email, full phone, or precise GPS coordinates.
 
 ## Local Verification Commands
 

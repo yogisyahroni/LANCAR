@@ -1,6 +1,11 @@
+import { getCurrentRequestContext } from '../middleware/requestContext';
+
 const REDACTED = '[REDACTED]';
 
-const SENSITIVE_KEY_PATTERN = /password|passcode|pin|otp|token|secret|api[_-]?key|authorization|cookie|signature|credential|card|cvv|pan|qris/i;
+const SENSITIVE_KEY_PATTERN =
+  /password|passcode|pin|otp|token|secret|api[_-]?key|authorization|cookie|signature|credential|card|cvv|pan|qris|raw[_-]?body|request[_-]?body|response[_-]?body|request\.body|response\.body/i;
+const OBSERVABILITY_KEY_PATTERN = /^(correlation_id|request_id|trace_id|span_id)$/i;
+const SAFE_OBSERVABILITY_VALUE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const PHONE_PATTERN = /(?<!\d)(?:\+?62|0)8[\d\s-]{7,15}\d(?!\d)/g;
 const JWT_PATTERN = /\beyJ[A-Za-z0-9_-]{3,}\.[A-Za-z0-9_-]{3,}\.[A-Za-z0-9_-]{3,}\b/g;
@@ -25,6 +30,18 @@ const maskPhone = (value: string) => {
   return `${digits.slice(0, 3)}***${digits.slice(-3)}`;
 };
 
+const preserveObservabilityId = (key: string, value: unknown) => {
+  if (typeof value !== 'string') return REDACTED;
+  const candidate = value.trim();
+  if (/^trace_id$/i.test(key)) {
+    return /^[a-f0-9]{32}$/i.test(candidate) ? candidate : REDACTED;
+  }
+  if (/^span_id$/i.test(key)) {
+    return /^[a-f0-9]{16}$/i.test(candidate) ? candidate : REDACTED;
+  }
+  return SAFE_OBSERVABILITY_VALUE_PATTERN.test(candidate) ? candidate : REDACTED;
+};
+
 export const redactString = (value: string) =>
   value
     .replace(URL_CREDENTIAL_PATTERN, `$1${REDACTED}@`)
@@ -43,7 +60,11 @@ const redactObject = (value: Record<string, unknown>, seen: WeakSet<object>) => 
   return Object.fromEntries(
     Object.entries(value).map(([key, nestedValue]) => [
       key,
-      SENSITIVE_KEY_PATTERN.test(key) ? REDACTED : redactForLog(nestedValue, seen),
+      OBSERVABILITY_KEY_PATTERN.test(key)
+        ? preserveObservabilityId(key, nestedValue)
+        : SENSITIVE_KEY_PATTERN.test(key)
+          ? REDACTED
+          : redactForLog(nestedValue, seen),
     ])
   );
 };
@@ -74,10 +95,19 @@ const safeStringify = (value: unknown) => {
 };
 
 export const writeStructuredLog = (level: LogLevel, message: string, meta?: unknown) => {
+  const context = getCurrentRequestContext();
   const event = {
     timestamp: new Date().toISOString(),
     level,
     service: process.env.SERVICE_NAME || 'admin-service',
+    ...(context
+      ? {
+          correlation_id: context.correlationId,
+          request_id: context.requestId,
+          trace_id: context.traceId,
+          span_id: context.spanId,
+        }
+      : {}),
     message: redactString(message),
     ...(meta === undefined ? {} : { meta: redactForLog(meta) }),
   };

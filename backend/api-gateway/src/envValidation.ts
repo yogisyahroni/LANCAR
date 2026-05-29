@@ -62,6 +62,47 @@ const validateDocsProtection = (failures: string[]) => {
   }
 };
 
+const validateObservabilityEnv = (failures: string[]) => {
+  const enabled = process.env.OTEL_ENABLED === 'true';
+  const protocol = process.env.OTEL_EXPORTER_OTLP_PROTOCOL;
+  const sampler = process.env.OTEL_TRACES_SAMPLER;
+  const samplerArg = process.env.OTEL_TRACES_SAMPLER_ARG;
+  const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
+
+  if (!enabled) return;
+
+  if (isBlank(endpoint)) {
+    failures.push('OTEL_EXPORTER_OTLP_ENDPOINT is required when OTEL_ENABLED=true');
+  } else {
+    try {
+      const parsed = new URL(endpoint!);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        failures.push('OTEL_EXPORTER_OTLP_ENDPOINT must be an http(s) URL');
+      }
+      if (isProductionRuntime() && ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname)) {
+        failures.push('OTEL_EXPORTER_OTLP_ENDPOINT must use an internal collector host, not localhost, in production');
+      }
+    } catch {
+      failures.push('OTEL_EXPORTER_OTLP_ENDPOINT must be a valid URL when OTEL_ENABLED=true');
+    }
+  }
+
+  if (protocol && !['grpc', 'http/protobuf'].includes(protocol)) {
+    failures.push('OTEL_EXPORTER_OTLP_PROTOCOL must be grpc or http/protobuf');
+  }
+
+  if (sampler && !['always_on', 'always_off', 'traceidratio'].includes(sampler)) {
+    failures.push('OTEL_TRACES_SAMPLER must be always_on, always_off, or traceidratio');
+  }
+
+  if (sampler === 'traceidratio') {
+    const ratio = Number(samplerArg);
+    if (!Number.isFinite(ratio) || ratio < 0 || ratio > 1) {
+      failures.push('OTEL_TRACES_SAMPLER_ARG must be a number between 0 and 1 when OTEL_TRACES_SAMPLER=traceidratio');
+    }
+  }
+};
+
 export const validateProductionEnv = () => {
   if (!isProductionRuntime()) return;
 
@@ -71,6 +112,7 @@ export const validateProductionEnv = () => {
   requireStrongSecret('METRICS_BEARER_TOKEN', failures);
   validateAllowedOrigins(failures);
   validateDocsProtection(failures);
+  validateObservabilityEnv(failures);
 
   if (failures.length > 0) {
     console.error('[api-gateway] Production environment validation failed:');

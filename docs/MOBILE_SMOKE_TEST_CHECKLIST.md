@@ -40,6 +40,7 @@ Every FAIL must include:
 - Test account.
 - App version code.
 - Backend request ID or order ID if available.
+- Short error reference shown in the UI, if available.
 - Logcat snippet if the app crashes.
 
 ## Local Build Toolchain Check
@@ -78,6 +79,7 @@ If the machine uses Java 8 or another older runtime, set `JAVA_HOME` to JDK 17 b
 | C-20 | Screenshot protection | Attempt screenshot on login/OTP/payout/profile sensitive screen in release build. | Screenshot/recent-app preview is blocked on protected screens. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | C-21 | Wrong backend guard | Confirm app version/backend label or request target through logs/backend. | Release app talks to intended API base URL. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | C-22 | Crash diagnostics | Trigger controlled internal-only crash if enabled. | Crash appears in diagnostics without secrets/PII in logs. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
+| C-23 | Backend error reference | Force a safe backend 4xx/5xx, for example invalid login or disabled test endpoint. | UI shows a short `Ref ...` code when backend sends `X-Request-ID`; Crashlytics custom key `last_backend_request_id` is set without token, phone, email, address, or coordinates. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 
 ## Customer Smoke Checklist
 
@@ -105,6 +107,7 @@ If the machine uses Java 8 or another older runtime, set `JAVA_HOME` to JDK 17 b
 | U-20 | Screenshot protection | Attempt screenshot on login/OTP/payment/profile sensitive screen in release build. | Screenshot/recent-app preview is blocked on protected screens. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | U-21 | Wrong backend guard | Confirm app version/backend label or request target through backend. | Release app talks to intended API base URL. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 | U-22 | Crash diagnostics | Trigger controlled internal-only crash if enabled. | Crash appears in diagnostics without secrets/PII in logs. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
+| U-23 | Backend error reference | Force a safe backend 4xx/5xx, for example invalid login or disabled test endpoint. | UI shows a short `Ref ...` code when backend sends `X-Request-ID`; Crashlytics custom key `last_backend_request_id` is set without token, phone, email, address, or coordinates. | [ ] PASS [ ] FAIL [ ] BLOCKED | |
 
 ## Cross-App Regression Checks
 

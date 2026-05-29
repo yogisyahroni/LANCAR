@@ -34,6 +34,8 @@ export const PUBLIC_ALLOWED_HEADERS = [
   'x-idempotency-key',
   'x-device-id',
   'x-csrf-token',
+  'x-request-id',
+  'traceparent',
   'x-requested-with',
 ];
 
@@ -118,4 +120,5 @@ export const buildCorsOptions = (env: EnvLike = process.env): CorsOptions => ({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: PUBLIC_ALLOWED_HEADERS,
+  exposedHeaders: ['X-Request-ID', 'X-Correlation-ID', 'X-Trace-ID'],
 });

@@ -1,6 +1,7 @@
 package com.tembus.customer.data.repository
 
 import com.tembus.customer.data.api.TEMBUSApiService
+import com.tembus.customer.data.api.withRequestReference
 import com.tembus.customer.data.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -19,7 +20,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && response.body()?.success == true) {
                 emit(Result.success(response.body()?.data ?: emptyList()))
             } else {
-                emit(Result.failure(Exception(response.body()?.message ?: response.readErrorMessage("Gagal memuat riwayat pesanan"))))
+                emit(Result.failure(Exception(response.readErrorMessage(response.body()?.message ?: "Gagal memuat riwayat pesanan"))))
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -79,7 +80,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true && order != null) {
                 emit(Result.success(order))
             } else {
-                emit(Result.failure(Exception(body?.error ?: response.readErrorMessage("Gagal membuat order"))))
+                emit(Result.failure(Exception(response.readErrorMessage(body?.error ?: "Gagal membuat order"))))
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -93,7 +94,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true) {
                 Result.success(body.data)
             } else {
-                Result.failure(Exception(body?.message ?: "Gagal memuat alamat tersimpan"))
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal memuat alamat tersimpan")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -155,7 +156,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true && address != null) {
                 Result.success(address)
             } else {
-                Result.failure(Exception(body?.message ?: response.readErrorMessage("Gagal menyimpan alamat")))
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal menyimpan alamat")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -170,7 +171,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true && link != null) {
                 Result.success(link)
             } else {
-                Result.failure(Exception(body?.message ?: "Gagal membuat link lokasi penerima"))
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal membuat link lokasi penerima")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -185,7 +186,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true && link != null) {
                 Result.success(link)
             } else {
-                Result.failure(Exception(body?.message ?: "Lokasi penerima belum tersedia"))
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Lokasi penerima belum tersedia")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -229,7 +230,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true && detail != null) {
                 Result.success(detail)
             } else {
-                Result.failure(Exception(body?.message ?: "Detail tracking belum tersedia"))
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Detail tracking belum tersedia")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -247,7 +248,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true && payment != null) {
                 emit(Result.success(payment))
             } else {
-                emit(Result.failure(Exception(body?.message ?: body?.error ?: response.readErrorMessage("Gagal menyiapkan pembayaran"))))
+                emit(Result.failure(Exception(response.readErrorMessage(body?.message ?: body?.error ?: "Gagal menyiapkan pembayaran"))))
             }
         } catch (e: Exception) {
             emit(Result.failure(e))
@@ -262,7 +263,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true && payment != null) {
                 Result.success(payment)
             } else {
-                Result.failure(Exception(body?.message ?: body?.error ?: "Gagal mengecek status pembayaran"))
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: body?.error ?: "Gagal mengecek status pembayaran")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -277,7 +278,7 @@ class OrderRepository @Inject constructor(
             if (response.isSuccessful && body?.success == true && payment != null) {
                 Result.success(payment)
             } else {
-                Result.failure(Exception(body?.message ?: body?.error ?: "Gagal mengonfirmasi pembayaran"))
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: body?.error ?: "Gagal mengonfirmasi pembayaran")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -286,16 +287,16 @@ class OrderRepository @Inject constructor(
 
     private fun <T> Response<T>.readErrorMessage(fallback: String): String {
         return try {
-            val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback
+            val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback.withRequestReference(this)
             val parsedMessage = runCatching {
                 val json = JSONObject(raw)
                 json.optString("message").takeIf { it.isNotBlank() }
                     ?: json.optString("error").takeIf { it.isNotBlank() }
                     ?: json.optString("code").takeIf { it.isNotBlank() }
             }.getOrNull()
-            parsedMessage ?: raw.take(240)
+            (parsedMessage ?: raw.take(240)).withRequestReference(this)
         } catch (_: Exception) {
-            fallback
+            fallback.withRequestReference(this)
         }
     }
 }

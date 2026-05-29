@@ -15,6 +15,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pquerna/otp/totp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type AuthService struct {
@@ -28,6 +32,8 @@ type AuthService struct {
 }
 
 const customerAuthOTPRequiredFlag = "customer_auth_otp_required"
+
+var authTracer = otel.Tracer("tembus/auth-service")
 
 func NewAuthService(u domain.UserRepository, a domain.AuthRepository, s domain.SessionRepository, c domain.CourierRepository, au domain.AuditRepository, l LivenessService, st StorageService) *AuthService {
 	return &AuthService{
@@ -54,13 +60,44 @@ func hashSensitiveIdentifier(value string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+func identifierType(identifier string) string {
+	normalized := strings.TrimSpace(identifier)
+	if normalized == "" {
+		return "empty"
+	}
+	if strings.Contains(normalized, "@") {
+		return "email"
+	}
+	return "phone"
+}
+
+func completeAuthSpan(span trace.Span, result string, failed bool) {
+	span.SetAttributes(attribute.String("auth.result", result))
+	if failed {
+		span.SetStatus(codes.Error, "auth flow failed")
+		return
+	}
+	span.SetStatus(codes.Ok, "")
+}
+
 func (s *AuthService) RequestOTP(ctx context.Context, phoneNumber string) error {
-	if !s.isCustomerAuthOTPRequired(ctx) {
+	ctx, span := authTracer.Start(ctx, "auth.otp.request")
+	defer span.End()
+
+	otpRequired := s.isCustomerAuthOTPRequired(ctx)
+	span.SetAttributes(
+		attribute.Bool("auth.otp.required", otpRequired),
+		attribute.String("auth.identifier_type", identifierType(phoneNumber)),
+	)
+
+	if !otpRequired {
+		completeAuthSpan(span, "otp_disabled", false)
 		return nil
 	}
 
 	code, err := generateOTP(6)
 	if err != nil {
+		completeAuthSpan(span, "otp_generation_failed", true)
 		return err
 	}
 
@@ -73,6 +110,7 @@ func (s *AuthService) RequestOTP(ctx context.Context, phoneNumber string) error 
 	}
 
 	if err := s.authRepo.SaveOTP(ctx, otp); err != nil {
+		completeAuthSpan(span, "otp_store_failed", true)
 		return err
 	}
 
@@ -81,37 +119,80 @@ func (s *AuthService) RequestOTP(ctx context.Context, phoneNumber string) error 
 		hashSensitiveIdentifier(phoneNumber),
 	)
 
+	completeAuthSpan(span, "otp_issued", false)
 	return nil
 }
 
 func (s *AuthService) StartCustomerPasswordLogin(ctx context.Context, email, password, deviceID string, deviceInfo []byte) (*AuthResponse, error) {
+	ctx, span := authTracer.Start(ctx, "auth.customer_login.start")
+	result := "unknown"
+	failed := false
+	defer func() {
+		completeAuthSpan(span, result, failed)
+		span.End()
+	}()
+
 	email = strings.TrimSpace(strings.ToLower(email))
+	span.SetAttributes(
+		attribute.String("auth.flow", "customer_password_login"),
+		attribute.String("auth.identifier_type", identifierType(email)),
+		attribute.Bool("auth.device_id_present", strings.TrimSpace(deviceID) != ""),
+	)
+
 	if email == "" || password == "" {
+		result = "invalid_input"
+		failed = true
 		return nil, errors.New("email and password are required")
 	}
 	if strings.TrimSpace(deviceID) == "" {
+		result = "missing_device_id"
+		failed = true
 		return nil, errors.New("device_id is required")
 	}
 
-	user, err := s.userRepo.GetByPhoneNumber(ctx, email)
-	if err != nil || user.Role != domain.RoleCustomer {
+	lookupCtx, lookupSpan := authTracer.Start(ctx, "auth.customer_credential_lookup")
+	lookupSpan.SetAttributes(attribute.String("auth.identifier_type", identifierType(email)))
+	user, err := s.userRepo.GetByPhoneNumber(lookupCtx, email)
+	lookupSpan.SetAttributes(attribute.Bool("auth.record_found", err == nil && user != nil && user.ID != ""))
+	lookupSpan.End()
+	if err != nil || user == nil || user.Role != domain.RoleCustomer {
+		result = "invalid_credentials"
+		failed = true
 		return nil, errors.New("invalid email or password")
 	}
 	if user.PasswordHash == nil || !utils.CheckPasswordHash(password, *user.PasswordHash) {
+		result = "invalid_credentials"
+		failed = true
 		return nil, errors.New("invalid email or password")
 	}
 	otpRequired := s.isCustomerAuthOTPRequired(ctx)
+	span.SetAttributes(attribute.Bool("auth.otp.required", otpRequired))
+
+	issueCustomerSession := func(isNewUser bool, totpVerified bool, successResult string) (*AuthResponse, error) {
+		response, err := s.issueAuthSession(ctx, user, deviceID, deviceInfo, isNewUser, totpVerified)
+		if err != nil {
+			result = "session_issue_failed"
+			failed = true
+			return nil, err
+		}
+		result = successResult
+		return response, nil
+	}
+
 	if user.Status == domain.StatusPendingVerification && !user.IsVerified {
 		if !otpRequired {
 			_ = s.userRepo.MarkVerified(ctx, user.ID)
 			user.IsVerified = true
 			user.Status = domain.StatusActive
-			return s.issueAuthSession(ctx, user, deviceID, deviceInfo, true, false)
+			return issueCustomerSession(true, false, "session_issued_after_auto_verify")
 		}
 
 		if err := s.RequestOTP(ctx, email); err != nil {
+			result = "otp_request_failed"
+			failed = true
 			return nil, err
 		}
+		result = "otp_required_registration"
 		return &AuthResponse{
 			User:       user,
 			RequireOTP: true,
@@ -121,26 +202,34 @@ func (s *AuthService) StartCustomerPasswordLogin(ctx context.Context, email, pas
 	}
 
 	if user.Status != domain.StatusActive {
+		result = "account_inactive"
+		failed = true
 		return nil, errors.New("customer account is not active")
 	}
 
 	deviceIDHash := hashDeviceID(deviceID)
 	isTrusted, err := s.sessionRepo.IsTrustedDevice(ctx, user.ID, string(user.Role), deviceIDHash)
 	if err != nil {
+		result = "trusted_device_lookup_failed"
+		failed = true
 		return nil, err
 	}
+	span.SetAttributes(attribute.Bool("auth.trusted_device", isTrusted))
 	if isTrusted {
 		_ = s.sessionRepo.TouchTrustedDevice(ctx, user.ID, string(user.Role), deviceIDHash)
-		return s.issueAuthSession(ctx, user, deviceID, deviceInfo, false, false)
+		return issueCustomerSession(false, false, "session_issued_trusted_device")
 	}
 
 	if !otpRequired {
-		return s.issueAuthSession(ctx, user, deviceID, deviceInfo, false, false)
+		return issueCustomerSession(false, false, "session_issued_otp_disabled")
 	}
 
 	if err := s.RequestOTP(ctx, email); err != nil {
+		result = "otp_request_failed"
+		failed = true
 		return nil, err
 	}
+	result = "otp_required_new_device"
 	return &AuthResponse{
 		User:       user,
 		RequireOTP: true,
@@ -223,13 +312,32 @@ type AuthResponse struct {
 }
 
 func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID string, deviceInfo []byte) (*AuthResponse, error) {
-	if s.isCustomerAuthOTPRequired(ctx) {
+	ctx, span := authTracer.Start(ctx, "auth.otp.verify")
+	result := "unknown"
+	failed := false
+	defer func() {
+		completeAuthSpan(span, result, failed)
+		span.End()
+	}()
+
+	otpRequired := s.isCustomerAuthOTPRequired(ctx)
+	span.SetAttributes(
+		attribute.Bool("auth.otp.required", otpRequired),
+		attribute.String("auth.identifier_type", identifierType(phoneNumber)),
+		attribute.Bool("auth.device_id_present", strings.TrimSpace(deviceID) != ""),
+	)
+
+	if otpRequired {
 		otp, err := s.authRepo.VerifyOTP(ctx, phoneNumber, code)
 		if err != nil {
+			result = "invalid_or_expired_otp"
+			failed = true
 			return nil, errors.New("invalid or expired OTP")
 		}
 
 		if otp.IsUsed || otp.ExpiresAt.Before(time.Now()) {
+			result = "otp_no_longer_valid"
+			failed = true
 			return nil, errors.New("OTP is no longer valid")
 		}
 
@@ -258,6 +366,8 @@ func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID
 		}
 		err = s.userRepo.Create(ctx, user)
 		if err != nil {
+			result = "user_create_failed"
+			failed = true
 			return nil, err
 		}
 
@@ -267,6 +377,7 @@ func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID
 		_ = s.userRepo.SetReferralCode(ctx, user.ID, refCode)
 		user.ReferralCode = &refCode
 	}
+	span.SetAttributes(attribute.Bool("auth.is_new_user", isNewUser))
 
 	_ = s.userRepo.MarkVerified(ctx, user.ID)
 	user.IsVerified = true
@@ -276,6 +387,8 @@ func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID
 
 	// Check 2FA Policy
 	if user.Is2FAEnabled || user.Role == domain.RoleSuperAdmin || user.Role == domain.RoleFinance {
+		result = "2fa_required"
+		span.SetAttributes(attribute.Bool("auth.require_2fa", true))
 		// If 2FA is enabled or mandated for the role, return challenge
 		// Note: SuperAdmin and Finance MUST enable 2FA on first login if not already enabled
 		return &AuthResponse{
@@ -283,13 +396,37 @@ func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID
 			MFAUserID:  user.ID,
 		}, nil
 	}
+	span.SetAttributes(attribute.Bool("auth.require_2fa", false))
 
-	return s.issueAuthSession(ctx, user, deviceID, deviceInfo, isNewUser, false)
+	response, err := s.issueAuthSession(ctx, user, deviceID, deviceInfo, isNewUser, false)
+	if err != nil {
+		result = "session_issue_failed"
+		failed = true
+		return nil, err
+	}
+	result = "session_issued"
+	return response, nil
 }
 
 func (s *AuthService) issueAuthSession(ctx context.Context, user *domain.User, deviceID string, deviceInfo []byte, isNewUser bool, totpVerified bool) (*AuthResponse, error) {
+	ctx, span := authTracer.Start(ctx, "auth.session.issue")
+	result := "unknown"
+	failed := false
+	defer func() {
+		completeAuthSpan(span, result, failed)
+		span.End()
+	}()
+	span.SetAttributes(
+		attribute.String("auth.user_role", string(user.Role)),
+		attribute.Bool("auth.is_new_user", isNewUser),
+		attribute.Bool("auth.totp_verified", totpVerified),
+		attribute.Bool("auth.device_id_present", strings.TrimSpace(deviceID) != ""),
+	)
+
 	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), totpVerified, 15*time.Minute)
 	if err != nil {
+		result = "access_token_generation_failed"
+		failed = true
 		return nil, err
 	}
 
@@ -307,6 +444,8 @@ func (s *AuthService) issueAuthSession(ctx context.Context, user *domain.User, d
 	}
 
 	if err := s.sessionRepo.CreateSession(ctx, session); err != nil {
+		result = "session_create_failed"
+		failed = true
 		return nil, err
 	}
 
@@ -314,6 +453,7 @@ func (s *AuthService) issueAuthSession(ctx context.Context, user *domain.User, d
 	_ = s.sessionRepo.TrustDevice(ctx, user.ID, string(user.Role), deviceIDHash, deviceInfo)
 	_ = s.userRepo.UpdateLastLogin(ctx, user.ID)
 
+	result = "session_issued"
 	return &AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -333,12 +473,25 @@ func hashDeviceID(deviceID string) string {
 }
 
 func (s *AuthService) RefreshToken(ctx context.Context, oldRefreshToken, deviceID string) (*AuthResponse, error) {
+	ctx, span := authTracer.Start(ctx, "auth.refresh_token.rotate")
+	result := "unknown"
+	failed := false
+	defer func() {
+		completeAuthSpan(span, result, failed)
+		span.End()
+	}()
+	span.SetAttributes(attribute.Bool("auth.device_id_present", strings.TrimSpace(deviceID) != ""))
+
 	session, err := s.sessionRepo.GetSessionByToken(ctx, oldRefreshToken)
 	if err != nil {
+		result = "invalid_refresh_token"
+		failed = true
 		return nil, errors.New("invalid refresh token")
 	}
 
 	if session.IsRevoked || session.ExpiresAt.Before(time.Now()) {
+		result = "refresh_token_expired_or_revoked"
+		failed = true
 		return nil, errors.New("refresh token expired or revoked")
 	}
 
@@ -347,8 +500,11 @@ func (s *AuthService) RefreshToken(ctx context.Context, oldRefreshToken, deviceI
 
 	user, err := s.userRepo.GetByID(ctx, session.UserID)
 	if err != nil {
+		result = "user_lookup_failed"
+		failed = true
 		return nil, err
 	}
+	span.SetAttributes(attribute.String("auth.user_role", string(user.Role)))
 
 	// Generate New Pair
 	// Note: We'll assume the session was verified if it exists and 2FA was required.
@@ -356,6 +512,8 @@ func (s *AuthService) RefreshToken(ctx context.Context, oldRefreshToken, deviceI
 	// We'll pass true if the user's role doesn't require 2FA, or if the session is valid.
 	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), true, 15*time.Minute)
 	if err != nil {
+		result = "access_token_generation_failed"
+		failed = true
 		return nil, err
 	}
 
@@ -375,9 +533,12 @@ func (s *AuthService) RefreshToken(ctx context.Context, oldRefreshToken, deviceI
 
 	err = s.sessionRepo.CreateSession(ctx, newSession)
 	if err != nil {
+		result = "session_create_failed"
+		failed = true
 		return nil, err
 	}
 
+	result = "refresh_token_rotated"
 	return &AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: newRefreshToken,
