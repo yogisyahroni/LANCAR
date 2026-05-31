@@ -1,58 +1,84 @@
 package com.tembus.courier.ui.components
 
-import android.content.Intent
-import android.net.Uri
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.tembus.courier.data.model.AppVersion
 
 /**
- * UpdateDialog
- * 
- * Shows a dialog notifying the user that a newer version is available.
+ * Shows a dialog notifying the courier that a newer version is available.
  */
 @Composable
 fun UpdateDialog(
     version: AppVersion,
+    isUpdating: Boolean,
+    errorMessage: String?,
+    onUpdateNow: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val context = LocalContext.current
-
     AlertDialog(
-        onDismissRequest = { 
-            if (!version.force) onDismiss() 
+        onDismissRequest = {
+            if (!version.force && !isUpdating) onDismiss()
         },
-        title = { 
+        title = {
             Text(
-                text = "Update Available",
+                text = "Update tersedia",
                 style = MaterialTheme.typography.titleLarge
-            ) 
+            )
         },
-        text = { 
-            Text(
-                text = "A new version of TEMBUS Courier (${version.name}) is available. Please update to continue enjoying the best experience."
-            ) 
+        text = {
+            Column {
+                Text(
+                    text = "TEMBUS Courier ${version.name} sudah tersedia. App akan menyiapkan paket update dan membuka installer Android."
+                )
+
+                if (isUpdating) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Mengunduh update...",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+
+                if (!errorMessage.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
         },
         confirmButton = {
             Button(
-                onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(version.updateUrl))
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                    context.startActivity(intent)
-                }
+                enabled = !isUpdating,
+                onClick = onUpdateNow
             ) {
-                Text("Update Now")
+                Text(if (isUpdating) "Mengunduh..." else "Update sekarang")
             }
         },
         dismissButton = {
-            if (!version.force) {
+            if (!version.force && !isUpdating) {
                 TextButton(onClick = onDismiss) {
-                    Text("Later")
+                    Text("Nanti")
                 }
             }
         }

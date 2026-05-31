@@ -105,6 +105,8 @@ val debugBaseUrl = getConfigValue("DEBUG_BASE_URL")
     .ifBlank { getConfigValue("MOBILE_API_BASE_URL") }
     .ifBlank { "http://10.0.2.2:8080/" }
 val debugBuildConfigBaseUrl = normalizedBaseUrl(debugBaseUrl)
+val githubReleasesApiUrl = getConfigValue("GITHUB_RELEASES_API_URL")
+    .ifBlank { "https://api.github.com/repos/yogisyahroni/LANCAR/releases" }
 val releaseCertificatePinPrimary = getConfigValue("API_CERT_SHA256_PIN_PRIMARY").trim()
 val releaseCertificatePinBackup = getConfigValue("API_CERT_SHA256_PIN_BACKUP").trim()
 val releaseCertificatePinningRequired = isEnabledFlag(getConfigValue("API_CERT_PINNING_REQUIRED"))
@@ -182,10 +184,16 @@ android {
             }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "BASE_URL", quoteBuildConfigString(releaseBuildConfigBaseUrl))
+            buildConfigField("boolean", "GITHUB_RELEASE_UPDATES_ENABLED", "false")
+            buildConfigField("String", "GITHUB_RELEASES_API_URL", quoteBuildConfigString(githubReleasesApiUrl))
+            buildConfigField("String", "GITHUB_RELEASE_ASSET_NAME", quoteBuildConfigString("tembus-courier-debug.apk"))
         }
         debug {
             isMinifyEnabled = false
             buildConfigField("String", "BASE_URL", quoteBuildConfigString(debugBuildConfigBaseUrl))
+            buildConfigField("boolean", "GITHUB_RELEASE_UPDATES_ENABLED", "true")
+            buildConfigField("String", "GITHUB_RELEASES_API_URL", quoteBuildConfigString(githubReleasesApiUrl))
+            buildConfigField("String", "GITHUB_RELEASE_ASSET_NAME", quoteBuildConfigString("tembus-courier-debug.apk"))
         }
     }
 

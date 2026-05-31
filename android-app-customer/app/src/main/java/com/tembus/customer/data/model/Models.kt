@@ -150,6 +150,8 @@ data class AppVersion(
     val force: Boolean = false,
     
     @SerialName("update_url")
-    val updateUrl: String
-)
+    val updateUrl: String,
 
+    @SerialName("checksum_sha256")
+    val checksumSha256: String? = null
+)

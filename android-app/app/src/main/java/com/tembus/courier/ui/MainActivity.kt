@@ -125,6 +125,8 @@ class MainActivity : FragmentActivity() {
 
                     // 📱 SYSTEM: App Update Logic
                     var updateInfo by remember { mutableStateOf<AppVersion?>(null) }
+                    var isUpdating by remember { mutableStateOf(false) }
+                    var updateError by remember { mutableStateOf<String?>(null) }
                     LaunchedEffect(Unit) {
                         updateInfo = updateManager.checkUpdate()
                     }
@@ -132,7 +134,28 @@ class MainActivity : FragmentActivity() {
                     updateInfo?.let { info ->
                         UpdateDialog(
                             version = info,
-                            onDismiss = { updateInfo = null }
+                            isUpdating = isUpdating,
+                            errorMessage = updateError,
+                            onUpdateNow = {
+                                updateError = null
+                                isUpdating = true
+                                activityScope.launch {
+                                    val result = updateManager.downloadAndOpenInstaller(info)
+                                    isUpdating = false
+                                    result.onFailure { error ->
+                                        if (error is UpdateManager.InstallPermissionRequiredException) {
+                                            updateError = "Aktifkan izin install update untuk TEMBUS Courier, lalu tekan Update sekarang lagi."
+                                            updateManager.openInstallPermissionSettings(this@MainActivity)
+                                        } else {
+                                            updateError = error.message ?: "Gagal menyiapkan update."
+                                        }
+                                    }
+                                }
+                            },
+                            onDismiss = {
+                                updateError = null
+                                updateInfo = null
+                            }
                         )
                     }
 
