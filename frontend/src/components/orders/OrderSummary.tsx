@@ -445,6 +445,7 @@ export function OrderSummary({ isLoading, isRouteLoading, routePreview, routeErr
       <motion.button
         type="submit"
         form="order-form"
+        data-testid="order-submit-button"
         disabled={!isValid || isLoading || !pricing}
         className="mt-8 w-full rounded-xl bg-primary px-4 py-4 text-sm font-semibold text-primary-foreground shadow-lg transition-all hover:bg-primary/90 hover:shadow-primary/25 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
         whileTap={isValid && !isLoading && pricing ? { scale: 0.98 } : {}}

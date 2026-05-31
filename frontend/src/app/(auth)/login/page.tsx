@@ -244,6 +244,8 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {apiError && (
               <motion.div
+                data-testid="customer-login-error"
+                aria-live="polite"
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 className="bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg p-3"

@@ -641,6 +641,8 @@ function AddressPicker({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
+          name={addressField}
+          data-testid={`${mode}-address-input`}
           value={address || ""}
           onChange={(event) => {
             setValue(addressField, event.target.value, { shouldDirty: true, shouldValidate: true });
@@ -681,6 +683,7 @@ function AddressPicker({
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
+          data-testid={`${mode}-current-location-button`}
           onClick={useCurrentLocation}
           className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
         >
@@ -719,7 +722,7 @@ function AddressPicker({
       )}
 
       <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground">
-        <span>{formatCoordinate(location)}</span>
+        <span data-testid={`${mode}-coordinate-label`}>{formatCoordinate(location)}</span>
         {location ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Info className="h-3.5 w-3.5" />}
       </div>
 
@@ -1508,6 +1511,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Nama Penerima</label>
               <input
                 {...register("recipient_name")}
+                data-testid="recipient-name-input"
                 className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 placeholder="Mis: Budi Santoso"
               />
@@ -1517,6 +1521,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Nomor HP</label>
               <input
                 {...register("recipient_phone")}
+                data-testid="recipient-phone-input"
                 type="tel"
                 className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 placeholder="Mis: 08123456789"
@@ -1548,6 +1553,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Kategori Barang</label>
               <input
                 {...register("package_details.category")}
+                data-testid="package-category-input"
                 type="text"
                 className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 px-4 py-3 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
                 placeholder="Isi kategori sesuai barang sebenarnya"
@@ -1558,6 +1564,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Berat Aktual (kg)</label>
               <input
                 {...register("package_details.weight_kg", { setValueAs: (v) => v === "" ? "" : Number(v) })}
+                data-testid="package-weight-input"
                 type="number"
                 step="0.1"
                 className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"

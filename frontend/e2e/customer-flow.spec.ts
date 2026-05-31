@@ -1,104 +1,148 @@
 import { test, expect } from '@playwright/test';
 
 // Use env vars injected by CI, with fallback for local dev
-const TEST_EMAIL = process.env.TEST_USER_EMAIL || 'customer_test@tembus.id';
-const TEST_PASSWORD = process.env.TEST_USER_PASSWORD || '123456';
+const LEGACY_TEST_EMAILS = new Set([
+  'customer@lancar.id',
+  'customer_test@tembus.id',
+  'customer_test@lancar.id',
+]);
+
+const getConfiguredValue = (value: string | undefined) => {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : null;
+};
+
+const configuredEmail = getConfiguredValue(process.env.TEST_USER_EMAIL);
+const configuredPassword = getConfiguredValue(process.env.TEST_USER_PASSWORD);
+const TEST_EMAIL =
+  configuredEmail && !LEGACY_TEST_EMAILS.has(configuredEmail.toLowerCase())
+    ? configuredEmail
+    : 'customer@tembus.id';
+const TEST_PASSWORD =
+  configuredPassword && configuredPassword !== '123456'
+    ? configuredPassword
+    : 'Customer123!';
+
+test.use({
+  geolocation: { latitude: -6.2, longitude: 106.816666 },
+  permissions: ['geolocation'],
+});
+
+const loginCustomer = async (page: import('@playwright/test').Page) => {
+  await page.goto('/login');
+  await page.waitForLoadState('networkidle');
+
+  await page.fill('input[name="email"]', TEST_EMAIL);
+  await page.fill('input[name="password"]', TEST_PASSWORD);
+  await page.click('button[type="submit"]');
+
+  const loginError = page.getByTestId('customer-login-error');
+  const result = await Promise.race([
+    page.waitForURL('**/dashboard', { timeout: 20000 }).then(() => ({ ok: true as const })),
+    loginError.waitFor({ state: 'visible', timeout: 20000 }).then(async () => ({
+      ok: false as const,
+      message: (await loginError.innerText()).trim(),
+    })),
+  ]);
+
+  if (!result.ok) {
+    throw new Error(`Customer login failed for ${TEST_EMAIL}: ${result.message}`);
+  }
+
+  await page.waitForLoadState('networkidle');
+};
+
+const openOrderForm = async (page: import('@playwright/test').Page) => {
+  await page.goto('/dashboard');
+  await page.waitForLoadState('networkidle');
+
+  const createOrderLink = page.getByRole('link', { name: /Kirim Paket/i }).first();
+  await expect(createOrderLink).toBeVisible({ timeout: 15000 });
+  await createOrderLink.click();
+
+  await page.waitForURL('**/orders/new', { timeout: 20000 });
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByTestId('pickup-address-input')).toBeVisible({ timeout: 15000 });
+};
+
+const applyBrowserLocation = async (
+  page: import('@playwright/test').Page,
+  mode: 'pickup' | 'dropoff',
+  address: string,
+  geolocation: { latitude: number; longitude: number },
+) => {
+  await page.context().grantPermissions(['geolocation']);
+  await page.getByTestId(`${mode}-address-input`).fill(address);
+  await page.context().setGeolocation(geolocation);
+  await page.getByTestId(`${mode}-current-location-button`).click();
+  await expect(page.getByTestId(`${mode}-coordinate-label`)).not.toContainText('Titik belum dipilih', { timeout: 10000 });
+};
 
 test.describe('Customer Portal E2E Flow', () => {
 
   test('Complete Flow: Login -> Create Order -> Dashboard', async ({ page }) => {
-    // 1. Navigate to login page and wait for it to be ready
-    await page.goto('/login');
-    await page.waitForLoadState('networkidle');
-
-    // 2. Fill login form using name attributes (more stable than type selectors)
-    await page.fill('input[name="email"]', TEST_EMAIL);
-    await page.fill('input[name="password"]', TEST_PASSWORD);
-    await page.click('button[type="submit"]');
-
-    // 3. Wait for redirect to dashboard
-    await page.waitForURL('**/dashboard', { timeout: 15000 });
-    await page.waitForLoadState('networkidle');
+    // 1. Login with the rebranded staging customer seed account.
+    await loginCustomer(page);
     await expect(page.locator('h1, h2').first()).toBeVisible({ timeout: 10000 });
 
-    // 4. Navigate to "Kirim Paket" page
-    await page.click('text=Kirim Paket');
-    await page.waitForURL('**/orders/new', { timeout: 10000 });
-    await page.waitForLoadState('networkidle');
+    // 2. Navigate to "Kirim Paket" page
+    await openOrderForm(page);
 
-    // 5. Wait for the order form fields to appear
-    await expect(page.locator('input[name="pickup_address"]')).toBeVisible({ timeout: 10000 });
+    // 3. Fill order form with browser geolocation so staging can price the route.
+    await applyBrowserLocation(page, 'pickup', 'Monumen Nasional, Gambir, Jakarta Pusat', {
+      latitude: -6.175392,
+      longitude: 106.827153,
+    });
+    await applyBrowserLocation(page, 'dropoff', 'Jalan Merdeka No. 1, Gambir, Jakarta Pusat', {
+      latitude: -6.21462,
+      longitude: 106.84513,
+    });
 
-    // 6. Fill Order Form via "Gunakan Lokasi Saya"
-    await page.locator('text=Gunakan Lokasi Saya').first().click();
-    await page.waitForTimeout(500);
+    await page.getByTestId('recipient-name-input').fill('Budi Santoso');
+    await page.getByTestId('recipient-phone-input').fill('081234567890');
+    await page.getByTestId('package-category-input').fill('electronics');
+    await page.getByTestId('package-weight-input').fill('2.5');
 
-    await page.locator('text=Gunakan Lokasi Saya').last().click();
-    await page.waitForTimeout(500);
-
-    // 7. Fill dropoff details
-    await page.fill('input[name="dropoff_address"]', 'Jalan Merdeka No. 1, Gambir, Jakarta Pusat');
-    await page.fill('input[name="recipient_name"]', 'Budi Santoso');
-    await page.fill('input[name="recipient_phone"]', '081234567890');
-
-    // 8. Select category
-    await page.selectOption('select[name="package_details.category"]', 'electronics');
-
-    // 9. Fill weight
-    await page.fill('input[name="package_details.weight_kg"]', '2.5');
-
-    // 10. Wait for pricing calculation debounce
+    // 4. Wait for pricing calculation debounce
     await page.waitForTimeout(1500);
 
-    // 11. Submit order (button text may vary)
-    const submitBtn = page.locator('button:has-text("Bayar Sekarang"), button:has-text("Pesan Sekarang")').first();
-    await expect(submitBtn).toBeEnabled({ timeout: 5000 });
+    // 5. Submit order
+    const submitBtn = page.getByTestId('order-submit-button');
+    await expect(submitBtn).toBeEnabled({ timeout: 15000 });
     await submitBtn.click();
 
-    // 12. Verify Payment Modal appears
+    // 6. Verify Payment Modal appears
     await expect(page.locator('h2, h3').filter({ hasText: /Selesaikan Pembayaran|Pembayaran/ }).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('Validation: Check required fields and Zod errors', async ({ page }) => {
-    // 1. Login first
-    await page.goto('/login');
-    await page.waitForLoadState('networkidle');
+    // 1. Login first.
+    await loginCustomer(page);
 
-    await page.fill('input[name="email"]', TEST_EMAIL);
-    await page.fill('input[name="password"]', TEST_PASSWORD);
-    await page.click('button[type="submit"]');
+    // 2. Navigate to the order form
+    await openOrderForm(page);
 
-    await page.waitForURL('**/dashboard', { timeout: 15000 });
+    // 3. Trigger validation by typing and clearing required fields
+    await page.getByTestId('pickup-address-input').fill('a');
+    await page.getByTestId('pickup-address-input').fill('');
 
-    // 2. Navigate directly to the order form
-    await page.goto('/orders/new');
-    await page.waitForLoadState('networkidle');
+    await page.getByTestId('dropoff-address-input').fill('a');
+    await page.getByTestId('dropoff-address-input').fill('');
 
-    // 3. Wait for the form to be ready
-    await expect(page.locator('input[name="pickup_address"]')).toBeVisible({ timeout: 10000 });
+    await page.getByTestId('recipient-name-input').fill('a');
+    await page.getByTestId('recipient-name-input').fill('');
 
-    // 4. Trigger validation by typing and clearing required fields
-    await page.fill('input[name="pickup_address"]', 'a');
-    await page.press('input[name="pickup_address"]', 'Backspace');
+    await page.getByTestId('recipient-phone-input').fill('1');
+    await page.getByTestId('recipient-phone-input').fill('');
 
-    await page.fill('input[name="dropoff_address"]', 'a');
-    await page.press('input[name="dropoff_address"]', 'Backspace');
+    await page.getByTestId('package-category-input').fill('electronics');
+    await page.getByTestId('package-category-input').fill('');
 
-    await page.fill('input[name="recipient_name"]', 'a');
-    await page.press('input[name="recipient_name"]', 'Backspace');
-
-    await page.fill('input[name="recipient_phone"]', '1');
-    await page.press('input[name="recipient_phone"]', 'Backspace');
-
-    // 5. Trigger category validation
-    await page.selectOption('select[name="package_details.category"]', 'electronics');
-    await page.selectOption('select[name="package_details.category"]', '');
-
-    // 6. Click somewhere else to trigger blur validation
+    // 4. Click somewhere else to trigger blur validation
     await page.click('body');
     await page.waitForTimeout(300);
 
-    // 7. Check for validation messages
+    // 5. Check for validation messages
     await expect(page.locator('text=Alamat pickup minimal 5 karakter')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('text=Alamat tujuan minimal 5 karakter')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('text=Nama penerima wajib diisi')).toBeVisible({ timeout: 5000 });
