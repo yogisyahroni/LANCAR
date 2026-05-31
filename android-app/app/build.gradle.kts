@@ -101,7 +101,10 @@ val releaseKeyAlias = System.getenv("RELEASE_KEY_ALIAS").orEmpty()
 val releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD").orEmpty()
 val releaseBaseUrl = getConfigValue("BASE_URL")
 val releaseBuildConfigBaseUrl = normalizedBaseUrl(releaseBaseUrl.ifBlank { "https://missing-release-base-url.invalid/" })
-val debugBuildConfigBaseUrl = normalizedBaseUrl(getConfigValue("DEBUG_BASE_URL").ifBlank { "http://10.0.2.2:8080/" })
+val debugBaseUrl = getConfigValue("DEBUG_BASE_URL")
+    .ifBlank { getConfigValue("MOBILE_API_BASE_URL") }
+    .ifBlank { "http://10.0.2.2:8080/" }
+val debugBuildConfigBaseUrl = normalizedBaseUrl(debugBaseUrl)
 val releaseCertificatePinPrimary = getConfigValue("API_CERT_SHA256_PIN_PRIMARY").trim()
 val releaseCertificatePinBackup = getConfigValue("API_CERT_SHA256_PIN_BACKUP").trim()
 val releaseCertificatePinningRequired = isEnabledFlag(getConfigValue("API_CERT_PINNING_REQUIRED"))

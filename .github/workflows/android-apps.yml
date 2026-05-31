@@ -202,7 +202,7 @@ jobs:
             } >> "$GITHUB_ENV"
           fi
 
-      - name: Prepare release API environment
+      - name: Prepare mobile API environment
         if: github.event_name != 'pull_request'
         shell: bash
         env:
@@ -217,7 +217,7 @@ jobs:
 
           base_url = os.environ.get("MOBILE_API_BASE_URL", "").strip()
           if not base_url:
-              print("Missing MOBILE_API_BASE_URL repository variable for mobile release builds.", file=sys.stderr)
+              print("Missing MOBILE_API_BASE_URL repository variable for mobile builds.", file=sys.stderr)
               sys.exit(1)
 
           parsed = urlparse(base_url)
@@ -230,8 +230,10 @@ jobs:
 
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as github_env:
               github_env.write(f"BASE_URL={base_url}\n")
+              github_env.write(f"DEBUG_BASE_URL={base_url}\n")
+              github_env.write(f"MOBILE_API_BASE_URL={base_url}\n")
 
-          print("Validated MOBILE_API_BASE_URL for release build.")
+          print("Validated MOBILE_API_BASE_URL for mobile debug and release builds.")
           PY
 
       # 1. Quality Gate: Linting
