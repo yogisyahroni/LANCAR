@@ -40,7 +40,7 @@ export default function PricingConfig() {
   }>({
     baseFare: 0,
     perKm: 0,
-    volumetricDiv: 5000
+    volumetricDiv: 6000
   })
   const [calcDimensions, setCalcDimensions] = useState<{
     length: number | '';
@@ -102,7 +102,7 @@ export default function PricingConfig() {
         setFormData({
           baseFare: parseFloat(current.base_fare),
           perKm: parseFloat(current.per_km_rate),
-          volumetricDiv: parseInt(current.volumetric_div) || 5000
+          volumetricDiv: parseInt(current.volumetric_div) || 6000
         });
       }
     }
@@ -260,7 +260,7 @@ export default function PricingConfig() {
                 {formData.volumetricDiv === '' ? (
                   <p className="text-[10px] text-destructive font-black mt-1">⚠️ Pembagi volumetrik wajib diisi!</p>
                 ) : (
-                  <p className="text-[10px] text-zinc-600 font-bold italic">Divisor for dimension weight (e.g. 5000 or 6000).</p>
+                  <p className="text-[10px] text-zinc-600 font-bold italic">Divisor for dimension weight. Production default is 6000.</p>
                 )}
               </div>
             </div>
@@ -320,7 +320,7 @@ export default function PricingConfig() {
                 <div className="p-3 bg-primary/10 border border-primary/20 rounded-xl text-center">
                   <span className="block text-[9px] font-black text-primary-light uppercase tracking-wider">Hasil (Bobot Volume)</span>
                   <span className="text-lg font-black text-zinc-100">
-                    {((lVal * wVal * hVal) / (formData.volumetricDiv === '' ? 5000 : formData.volumetricDiv || 5000)).toFixed(2)} kg
+                    {((lVal * wVal * hVal) / (formData.volumetricDiv === '' ? 6000 : formData.volumetricDiv || 6000)).toFixed(2)} kg
                   </span>
                 </div>
               </div>
@@ -328,7 +328,7 @@ export default function PricingConfig() {
                 <p className="text-[10px] text-destructive font-black mt-1">⚠️ Dimensi simulator wajib diisi dan tidak boleh kosong!</p>
               ) : (
                 <p className="text-[10px] text-zinc-600 font-bold italic">
-                  Rumus: (Panjang × Lebar × Tinggi) ÷ Divisor = {calcDimensions.length} × {calcDimensions.width} × {calcDimensions.height} ÷ {formData.volumetricDiv === '' ? 5000 : formData.volumetricDiv || 5000} = {((lVal * wVal * hVal) / (formData.volumetricDiv === '' ? 5000 : formData.volumetricDiv || 5000)).toFixed(2)} kg
+                  Rumus: (Panjang × Lebar × Tinggi) ÷ Divisor = {calcDimensions.length} × {calcDimensions.width} × {calcDimensions.height} ÷ {formData.volumetricDiv === '' ? 6000 : formData.volumetricDiv || 6000} = {((lVal * wVal * hVal) / (formData.volumetricDiv === '' ? 6000 : formData.volumetricDiv || 6000)).toFixed(2)} kg
                 </p>
               )}
             </div>
@@ -394,8 +394,8 @@ export default function PricingConfig() {
               <TrendingUp size={14} />
               Pricing Simulation
             </p>
-            <div className="h-[240px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-[240px] w-full min-w-0">
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <AreaChart data={simulationData}>
                   <defs>
                     <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">

@@ -184,7 +184,11 @@ export const updatePricingConfig = async (req: Request, res: Response): Promise<
     return;
   }
 
-  const volDiv = (volumetric_div !== undefined && volumetric_div !== null && !isNaN(volumetric_div)) ? Number(volumetric_div) : 5000;
+  const volDiv = (volumetric_div !== undefined && volumetric_div !== null && !isNaN(volumetric_div)) ? Number(volumetric_div) : 6000;
+  if (volDiv <= 0) {
+    res.status(400).json({ error: 'Invalid volumetric divisor' });
+    return;
+  }
 
   try {
     const result = await db.query(
