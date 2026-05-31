@@ -243,7 +243,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
                 <Package className="h-6 w-6 text-white" />
               </div>
-              <span className="font-bold text-2xl tracking-tight">LAN<span className="text-primary-light">CAR</span></span>
+              <span className="font-bold text-2xl tracking-tight">TEM<span className="text-primary-light">BUS</span></span>
             </motion.div>
           ) : (
             <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center mx-auto shadow-lg shadow-primary/20">

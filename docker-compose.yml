@@ -261,12 +261,17 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       SEED_DB: "true"
+      DEV_ADMIN_LOGIN_PASSWORDS: ${DEV_ADMIN_LOGIN_PASSWORDS:-}
       DEV_SEEDED_COURIER_PIN: ${DEV_SEEDED_COURIER_PIN:-kurir123}
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
       MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
       MIDTRANS_CLIENT_KEY: ${MIDTRANS_CLIENT_KEY:-}
       MIDTRANS_ENV: ${MIDTRANS_ENV:-sandbox}
       MIDTRANS_FINISH_URL: ${MIDTRANS_FINISH_URL:-http://localhost:3000/orders}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
+      RECEIVER_LOCATION_PUBLIC_URL: ${RECEIVER_LOCATION_PUBLIC_URL:-http://localhost:3000/location-requests}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3002}}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       GOOGLE_DIRECTIONS_API_KEY: ${GOOGLE_DIRECTIONS_API_KEY:-}
@@ -448,6 +453,7 @@ services:
       ROUTING_SERVICE_URL: "http://routing-service:8082"
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
       GATEWAY_PORT: 8080
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3002}}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_SERVICE_NAME: ${GATEWAY_OTEL_SERVICE_NAME:-api-gateway}
@@ -471,20 +477,20 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: "http://localhost:8080/api/v1"
-        NEXT_PUBLIC_WS_URL: "ws://localhost:8080"
-        NEXT_PUBLIC_SOCKET_URL: "http://localhost:8080"
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8080}
+        NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:8080}
         NEXT_PUBLIC_ALLOW_LOCALHOST_FALLBACK: "true"
     container_name: tembus-frontend
     restart: unless-stopped
     depends_on:
       - api-gateway
     environment:
-      NEXT_PUBLIC_API_URL: "http://localhost:8080/api/v1"
-      NEXT_PUBLIC_WS_URL: "ws://localhost:8080"
-      NEXT_PUBLIC_SOCKET_URL: "http://localhost:8080"
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
+      NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:8080}
+      NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:8080}
       NEXT_PUBLIC_ALLOW_LOCALHOST_FALLBACK: "true"
-      SERVER_API_URL: "http://api-gateway:8080/api/v1"
+      SERVER_API_URL: ${SERVER_API_URL:-http://api-gateway:8080/api/v1}
       NEXT_PUBLIC_MIDTRANS_CLIENT_KEY: ${NEXT_PUBLIC_MIDTRANS_CLIENT_KEY:-}
       NEXT_PUBLIC_MIDTRANS_SNAP_URL: ${NEXT_PUBLIC_MIDTRANS_SNAP_URL:-https://app.sandbox.midtrans.com/snap/snap.js}
     ports:
@@ -501,18 +507,18 @@ services:
       context: ./admin-dashboard
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: "http://localhost:8080/api/v1"
-        VITE_WS_URL: "ws://localhost:8080"
-        VITE_SOCKET_URL: "http://localhost:8080"
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
+        VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8080}
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-http://localhost:8080}
         VITE_ALLOW_LOCALHOST_FALLBACK: "true"
     container_name: tembus-admin-ui
     restart: unless-stopped
     depends_on:
       - api-gateway
     environment:
-      VITE_API_URL: "http://localhost:8080/api/v1"
-      VITE_WS_URL: "ws://localhost:8080"
-      VITE_SOCKET_URL: "http://localhost:8080"
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
+      VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:8080}
+      VITE_SOCKET_URL: ${VITE_SOCKET_URL:-http://localhost:8080}
       VITE_ALLOW_LOCALHOST_FALLBACK: "true"
     ports:
       - "${ADMIN_DASHBOARD_PORT:-3002}:3001"

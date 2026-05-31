@@ -55,7 +55,7 @@ export default function Login() {
               <Package className="text-white h-7 w-7" />
             </div>
             <h1 className="text-4xl font-bold tracking-tight">
-              LAN<span className="text-primary-light">CAR</span>
+              TEM<span className="text-primary-light">BUS</span>
             </h1>
           </div>
 
@@ -63,7 +63,7 @@ export default function Login() {
             Admin <span className="text-gradient">Control Center</span>
           </h2>
           <p className="text-zinc-400 text-lg mb-10 max-w-md leading-relaxed">
-            Manage your logistics empire with real-time insights, automated matching, and advanced analytics.
+            Kelola operasi TEMBUS dengan insight real-time, matching otomatis, dan analitik operasional.
           </p>
 
           <div className="grid grid-cols-2 gap-6">
