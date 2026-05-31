@@ -40,6 +40,28 @@ dotenv.config({ path: '../../.env' });
 validateProductionEnv();
 
 const app = express();
+
+const resolveTrustProxy = (value?: string): boolean | number | string => {
+  const rawValue = value?.trim();
+  const normalized = rawValue?.toLowerCase();
+  if (!rawValue || !normalized) {
+    return 1;
+  }
+  if (normalized === 'true') {
+    return true;
+  }
+  if (normalized === 'false' || normalized === '0') {
+    return false;
+  }
+  const hopCount = Number.parseInt(normalized, 10);
+  if (Number.isFinite(hopCount) && hopCount > 0) {
+    return hopCount;
+  }
+  return rawValue;
+};
+
+app.set('trust proxy', resolveTrustProxy(process.env.TRUST_PROXY));
+
 const logger = pino({
   redact: [
     'req.headers.authorization',
@@ -162,6 +184,11 @@ app.use(helmet({
   },
 }));
 
+// CORS has to run before rate limiting and auth middleware. Browser preflights
+// and throttled responses must still carry Access-Control-Allow-Origin.
+app.use(rejectUnsafeCorsPreflight);
+app.use(cors(buildCorsOptions()));
+
 // --- ENTERPRISE SECURITY VALIDATION ---
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -214,6 +241,12 @@ const generalLimiter = rateLimit({
   max: 100, // limit each IP to 100 requests per minute
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
+  message: {
+    status: 'error',
+    code: 'ERR_TOO_MANY_REQUESTS',
+    message: 'Too many requests, please try again later',
+  },
 });
 
 const publicMapsLimiter = createPublicEndpointRateLimiter('maps', { recordEvent: recordPublicAbuseEvent });
@@ -270,12 +303,6 @@ const authenticateCustomerApi = (req: Request, res: Response, next: NextFunction
 
   return authenticateJWT(req, res, next);
 };
-
-
-
-// --- ENTERPRISE CORS HARDENING ---
-app.use(rejectUnsafeCorsPreflight);
-app.use(cors(buildCorsOptions()));
 
 app.use(logger);
 app.use(createGatewayAuthMatrixMiddleware(authenticateJWT));

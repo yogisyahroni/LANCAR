@@ -286,6 +286,12 @@ function ChartSkeleton({ bars = 8 }: { bars?: number }) {
 
 const hasRows = (data: unknown) => Array.isArray(data) && data.length > 0
 
+const analyticsQueryOptions = {
+  retry: 1,
+  staleTime: 30_000,
+  refetchOnWindowFocus: false,
+} as const
+
 // --- Main Component ---
 
 export default function Analytics() {
@@ -295,39 +301,46 @@ export default function Analytics() {
 
   const { data: kpis, isLoading: kpisLoading, isError: kpisError, error: kpisQueryError, refetch: refetchKpis } = useQuery({
     queryKey: ['analytics', 'kpis', timeRange],
-    queryFn: () => api.get(`/admin/analytics/kpis?range=${timeRange}`).then(res => res.data)
+    queryFn: () => api.get(`/admin/analytics/kpis?range=${timeRange}`).then(res => res.data),
+    ...analyticsQueryOptions,
   })
 
   const { data: slaData, isLoading: slaLoading, isError: slaError, error: slaQueryError, refetch: refetchSla } = useQuery({
     queryKey: ['analytics', 'sla', timeRange],
-    queryFn: () => api.get(`/admin/analytics/sla?range=${timeRange}`).then(res => res.data)
+    queryFn: () => api.get(`/admin/analytics/sla?range=${timeRange}`).then(res => res.data),
+    ...analyticsQueryOptions,
   })
 
   const { data: surgeData, isLoading: surgeLoading, isError: surgeError, error: surgeQueryError, refetch: refetchSurge } = useQuery({
     queryKey: ['analytics', 'surge', timeRange],
-    queryFn: () => api.get(`/admin/analytics/surge?range=${timeRange}`).then(res => res.data)
+    queryFn: () => api.get(`/admin/analytics/surge?range=${timeRange}`).then(res => res.data),
+    ...analyticsQueryOptions,
   })
 
   const { data: accuracyData, isLoading: accuracyLoading, isError: accuracyError, error: accuracyQueryError, refetch: refetchAccuracy } = useQuery({
     queryKey: ['analytics', 'accuracy', timeRange],
-    queryFn: () => api.get(`/admin/analytics/scan-accuracy?range=${timeRange}`).then(res => res.data)
+    queryFn: () => api.get(`/admin/analytics/scan-accuracy?range=${timeRange}`).then(res => res.data),
+    ...analyticsQueryOptions,
   })
 
   const { data: retentionData, isLoading: retentionLoading, isError: retentionError, error: retentionQueryError, refetch: refetchRetention } = useQuery({
     queryKey: ['analytics', 'retention', timeRange],
-    queryFn: () => api.get(`/admin/analytics/retention?range=${timeRange}`).then(res => res.data)
+    queryFn: () => api.get(`/admin/analytics/retention?range=${timeRange}`).then(res => res.data),
+    ...analyticsQueryOptions,
   })
 
   const { data: heatData, isError: heatError, error: heatQueryError, refetch: refetchHeat } = useQuery({
     queryKey: ['analytics', 'heat'],
     queryFn: () => api.get('/admin/analytics/heat-data').then(res => res.data),
+    ...analyticsQueryOptions,
     refetchInterval: 30000 // Refresh every 30s
   })
 
 
   const { data: reports, isLoading: reportsLoading, isError: reportsError, error: reportsQueryError, refetch: refetchReports } = useQuery({
     queryKey: ['analytics', 'reports'],
-    queryFn: () => api.get('/admin/analytics/reports').then(res => res.data)
+    queryFn: () => api.get('/admin/analytics/reports').then(res => res.data),
+    ...analyticsQueryOptions,
   })
 
   const deleteReport = useMutation({
@@ -483,7 +496,7 @@ export default function Analytics() {
                   onRetry={() => refetchSla()}
                 />
               ) : (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
                  <LineChart data={slaData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                     <XAxis 
@@ -577,7 +590,7 @@ export default function Analytics() {
                   onRetry={() => refetchSurge()}
                 />
               ) : (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
                  <BarChart data={surgeData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                     <XAxis dataKey="time" stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} />
@@ -622,7 +635,7 @@ export default function Analytics() {
                   onRetry={() => refetchAccuracy()}
                 />
               ) : (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
                  <BarChart data={accuracyData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                     <XAxis dataKey="confidence" stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} />
