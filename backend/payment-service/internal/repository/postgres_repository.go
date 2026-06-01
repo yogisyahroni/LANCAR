@@ -59,19 +59,30 @@ func (r *postgresWalletRepository) GetByUserID(ctx context.Context, userID uuid.
 }
 
 func (r *postgresWalletRepository) Create(ctx context.Context, userID uuid.UUID) (*domain.Wallet, error) {
-	// We need to know if it's a customer or courier.
-	// For now, we'll try to check the role in customers table first.
 	var role string
-	err := r.readDB.QueryRowContext(ctx, "SELECT 'customer' FROM customers WHERE id = $1", userID).Scan(&role)
+	err := r.readDB.QueryRowContext(
+		ctx,
+		`SELECT role
+		 FROM users
+		 WHERE id = $1
+		   AND deleted_at IS NULL`,
+		userID,
+	).Scan(&role)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("wallet owner %s was not found", userID)
+	}
+	if err != nil {
+		return nil, err
+	}
 
 	table := "customer_wallets"
 	col := "customer_id"
 
-	if err == sql.ErrNoRows {
+	if role == "courier" {
 		table = "courier_wallets"
 		col = "courier_id"
-	} else if err != nil {
-		return nil, err
+	} else if role != "customer" {
+		return nil, fmt.Errorf("wallet owner role %q is not supported", role)
 	}
 
 	query := `INSERT INTO ` + table + ` (` + col + `) VALUES ($1) RETURNING id, ` + col + ` as user_id, balance, currency, version, created_at, updated_at`

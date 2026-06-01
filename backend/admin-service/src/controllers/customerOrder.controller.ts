@@ -2546,7 +2546,14 @@ export const getCustomerUmkmReport = async (req: Request, res: Response): Promis
           COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) IN ('delivered', 'completed', 'pod_completed'))::int AS completed_orders,
           COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) IN ('cancelled', 'canceled', 'failed', 'rejected'))::int AS failed_orders,
           COALESCE(SUM(COALESCE(total_price_idr, 0)), 0)::bigint AS total_spend,
-          COALESCE(AVG(NULLIF(COALESCE(package_weight_kg, 0), 0)), 0)::numeric AS avg_weight,
+          COALESCE(AVG(NULLIF(
+            CASE
+              WHEN COALESCE(package_details->>'weight_kg', '') ~ '^[0-9]+([.][0-9]+)?$'
+                THEN (package_details->>'weight_kg')::numeric
+              ELSE 0
+            END,
+            0
+          )), 0)::numeric AS avg_weight,
           COALESCE(AVG(NULLIF(COALESCE(total_price_idr, 0), 0)), 0)::numeric AS avg_cost
         FROM orders
         WHERE customer_id = $1
@@ -2612,7 +2619,11 @@ export const getCustomerUmkmReport = async (req: Request, res: Response): Promis
           created_at::date::text AS order_date,
           COALESCE(recipient_name, '') AS recipient_name,
           COALESCE(dropoff_address, '') AS dropoff_address,
-          COALESCE(package_weight_kg, 0)::numeric AS package_weight_kg,
+          CASE
+            WHEN COALESCE(package_details->>'weight_kg', '') ~ '^[0-9]+([.][0-9]+)?$'
+              THEN (package_details->>'weight_kg')::numeric
+            ELSE 0
+          END AS package_weight_kg,
           COALESCE(model::text, '') AS model,
           COALESCE(total_price_idr, 0)::bigint AS total_price_idr,
           COALESCE(status::text, '') AS status

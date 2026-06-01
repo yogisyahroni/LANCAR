@@ -84,6 +84,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const location = useLocation()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isDesktopViewport, setIsDesktopViewport] = useState(false)
   const [isNotifOpen, setIsNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState<DBNotification[]>([])
   const [activeToasts, setActiveToasts] = useState<DBNotification[]>([])
@@ -143,7 +144,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     setIsNotifOpen(false)
+    setIsMobileMenuOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const mediaQuery = window.matchMedia('(min-width: 1024px)')
+    const syncViewportState = () => {
+      setIsDesktopViewport(mediaQuery.matches)
+      if (mediaQuery.matches) {
+        setIsMobileMenuOpen(false)
+      }
+    }
+
+    syncViewportState()
+    mediaQuery.addEventListener('change', syncViewportState)
+
+    return () => {
+      mediaQuery.removeEventListener('change', syncViewportState)
+    }
+  }, [])
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
@@ -272,7 +293,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </motion.aside>
 
       <AnimatePresence>
-        {isMobileMenuOpen && (
+        {isMobileMenuOpen && !isDesktopViewport && (
           <>
             <motion.div
               initial={{ opacity: 0 }}

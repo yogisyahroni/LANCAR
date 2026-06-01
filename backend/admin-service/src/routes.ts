@@ -142,7 +142,7 @@ routes.post('/payments/midtrans/notification', (req, res) => controllers.custome
 routes.post('/webhooks/courier-payout-provider', (req, res) => controllers.handleCourierPayoutProviderWebhook(req, res));
 
 // Admin routes - Protected by Admin Auth and Role requirement
-routes.use('/admin', requireAuth, requireRole(['admin', 'super_admin']));
+routes.use('/admin', requireAuth, requireRole(['super_admin', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager']));
 routes.get('/admin/courier-safety-events', (req, res) => controllers.listAdminCourierSafetyEvents(req, res));
 routes.get('/admin/courier-growth-configs', (req, res) => controllers.listAdminCourierGrowthConfigs(req, res));
 routes.patch('/admin/courier-tier-configs/:id', (req, res) => controllers.updateAdminCourierTierConfig(req, res));

@@ -180,6 +180,21 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     { name: 'Profil & Settings', href: '/profil', icon: Settings },
   ];
 
+  const orderCreationRoutes = ['/orders/new', '/orders/bulk'];
+  const isNavigationItemActive = (href: string) => {
+    if (href === '/orders') {
+      return (
+        pathname === href ||
+        (
+          pathname.startsWith('/orders/') &&
+          !orderCreationRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+        )
+      );
+    }
+
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
   // Theme support
   const [isDark, setIsDark] = useState(false);
   useEffect(() => {
@@ -267,7 +282,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
                 <Package className="h-6 w-6 text-white" />
               </div>
-              <span className="font-bold text-2xl tracking-tight">LAN<span className="text-primary-light">CAR</span></span>
+              <span className="font-bold text-2xl tracking-tight">TEM<span className="text-primary-light">BUS</span></span>
             </motion.div>
           ) : (
             <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center mx-auto shadow-lg shadow-primary/20">
@@ -280,7 +295,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         
         <nav className="flex-1 px-4 space-y-1 mt-2 overflow-y-auto">
           {navItems.map((item) => {
-            const active = pathname.startsWith(item.href);
+            const active = isNavigationItemActive(item.href);
             return (
               <Link key={item.href} href={item.href}>
                 <motion.div
@@ -334,7 +349,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                   <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center">
                     <Package className="h-6 w-6 text-white" />
                   </div>
-                  <span className="font-bold text-2xl tracking-tight">LAN<span className="text-primary-light">CAR</span></span>
+                  <span className="font-bold text-2xl tracking-tight">TEM<span className="text-primary-light">BUS</span></span>
                 </div>
                 <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-muted-foreground hover:bg-muted rounded-xl transition-all">
                   <X size={24} />
@@ -345,7 +360,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               
               <nav className="space-y-1 overflow-y-auto flex-1 mt-4">
                 {navItems.map((item) => {
-                  const active = pathname.startsWith(item.href);
+                  const active = isNavigationItemActive(item.href);
                   return (
                     <Link key={item.href} href={item.href} onClick={() => setIsMobileMenuOpen(false)}>
                       <div className={cn(
@@ -557,7 +572,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         {/* Mobile Bottom Navigation Bar (≤ 767px) */}
         <nav className="fixed bottom-0 left-0 right-0 h-16 border-t border-black/10 dark:border-white/10 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl flex justify-around items-center px-2 z-50 md:hidden select-none pb-safe">
           {navItems.slice(0, 5).map((item) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = isNavigationItemActive(item.href);
             return (
               <Link
                 key={item.name}

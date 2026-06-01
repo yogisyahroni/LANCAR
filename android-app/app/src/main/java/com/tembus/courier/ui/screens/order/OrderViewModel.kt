@@ -130,8 +130,8 @@ class OrderViewModel @Inject constructor(
         // Fetch fresh data from backend as soon as ViewModel starts
         fetchMapsProviderConfig()
         fetchCourierProfile()
-        fetchPickupCancellationReasons()
-        fetchOrderStatusTransitions("on_demand")
+        fetchPickupCancellationReasons(showUserErrors = false)
+        fetchOrderStatusTransitions("on_demand", showUserErrors = false)
         fetchOrdersFromBackend()
     }
 
@@ -167,7 +167,7 @@ class OrderViewModel @Inject constructor(
         }
     }
 
-    fun fetchPickupCancellationReasons() {
+    fun fetchPickupCancellationReasons(showUserErrors: Boolean = true) {
         viewModelScope.launch {
             try {
                 val response = apiService.getPickupCancellationReasons()
@@ -176,16 +176,25 @@ class OrderViewModel @Inject constructor(
                     _cancelPickupReasons.update { body.data }
                 } else {
                     _cancelPickupReasons.update { emptyList() }
-                    _error.update { response.errorMessage(body?.message) }
+                    if (showUserErrors) {
+                        _error.update {
+                            response.errorMessage(
+                                serverMessage = body?.message,
+                                fallback = "Gagal memuat alasan pembatalan pickup."
+                            )
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 _cancelPickupReasons.update { emptyList() }
-                _error.update { e.message ?: "Gagal memuat alasan pembatalan pickup." }
+                if (showUserErrors) {
+                    _error.update { e.message ?: "Gagal memuat alasan pembatalan pickup." }
+                }
             }
         }
     }
 
-    fun fetchOrderStatusTransitions(workflowRole: String) {
+    fun fetchOrderStatusTransitions(workflowRole: String, showUserErrors: Boolean = true) {
         val normalizedRole = workflowRole.ifBlank { "on_demand" }
         viewModelScope.launch {
             try {
@@ -195,11 +204,20 @@ class OrderViewModel @Inject constructor(
                     _statusTransitions.update { body.data }
                 } else {
                     _statusTransitions.update { emptyList() }
-                    _error.update { response.errorMessage(body?.message) }
+                    if (showUserErrors) {
+                        _error.update {
+                            response.errorMessage(
+                                serverMessage = body?.message,
+                                fallback = "Gagal memuat policy transisi status."
+                            )
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 _statusTransitions.update { emptyList() }
-                _error.update { e.message ?: "Gagal memuat policy transisi status." }
+                if (showUserErrors) {
+                    _error.update { e.message ?: "Gagal memuat policy transisi status." }
+                }
             }
         }
     }
@@ -224,15 +242,24 @@ class OrderViewModel @Inject constructor(
                 _courierProfile.update { body.data }
                 Result.success(body.data)
             } else {
-                Result.failure(Exception(response.errorMessage(body?.message)))
+                Result.failure(
+                    Exception(
+                        response.errorMessage(
+                            serverMessage = body?.message,
+                            fallback = "Gagal memperbarui status duty. Coba lagi."
+                        )
+                    )
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    private fun retrofit2.Response<*>.errorMessage(serverMessage: String? = null): String {
-        val fallback = "Gagal memperbarui status duty. Coba lagi."
+    private fun retrofit2.Response<*>.errorMessage(
+        serverMessage: String? = null,
+        fallback: String
+    ): String {
         if (!serverMessage.isNullOrBlank()) return serverMessage.withRequestReference(this)
 
         val raw = errorBody()?.string() ?: return fallback.withRequestReference(this)
@@ -291,6 +318,8 @@ class OrderViewModel @Inject constructor(
                 val transitionBody = transitionResponse.body()
                 if (transitionResponse.isSuccessful && transitionBody?.success == true) {
                     _statusTransitions.update { transitionBody.data ?: emptyList() }
+                } else {
+                    _statusTransitions.update { emptyList() }
                 }
 
                 if (currentRole == "on_demand") {
@@ -339,7 +368,10 @@ class OrderViewModel @Inject constructor(
                     _lastRemoteSyncAt.update { System.currentTimeMillis() }
                     Result.success(Unit)
                 } else {
-                    val message = response.errorMessage("Gagal memuat orders: ${responseBody?.message ?: "HTTP ${response.code()}"}")
+                    val message = response.errorMessage(
+                        serverMessage = "Gagal memuat orders: ${responseBody?.message ?: "HTTP ${response.code()}"}",
+                        fallback = "Gagal memuat orders."
+                    )
                     if (showUserErrors) _error.update { message }
                     Result.failure(Exception(message))
                 }
@@ -396,7 +428,14 @@ class OrderViewModel @Inject constructor(
                 fetchPayoutState(showUserErrors = false)
                 Result.success(request)
             } else {
-                Result.failure(Exception(response.errorMessage(body?.message)))
+                Result.failure(
+                    Exception(
+                        response.errorMessage(
+                            serverMessage = body?.message,
+                            fallback = "Gagal mengirim permintaan pencairan."
+                        )
+                    )
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -466,7 +505,14 @@ class OrderViewModel @Inject constructor(
             if (response.isSuccessful && body?.success == true) {
                 Result.success(body.message ?: "Laporan terkirim.")
             } else {
-                Result.failure(Exception(response.errorMessage(body?.message)))
+                Result.failure(
+                    Exception(
+                        response.errorMessage(
+                            serverMessage = body?.message,
+                            fallback = "Gagal mengirim laporan keselamatan."
+                        )
+                    )
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -480,7 +526,14 @@ class OrderViewModel @Inject constructor(
             if (response.isSuccessful && body?.success == true && body.data != null) {
                 Result.success(body.data.url)
             } else {
-                Result.failure(Exception(response.errorMessage(body?.message)))
+                Result.failure(
+                    Exception(
+                        response.errorMessage(
+                            serverMessage = body?.message,
+                            fallback = "Gagal membuat link berbagi perjalanan."
+                        )
+                    )
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -515,7 +568,14 @@ class OrderViewModel @Inject constructor(
                 fetchOrdersFromBackend()
                 Result.success(body.message ?: "Pickup dibatalkan.")
             } else {
-                Result.failure(Exception(response.errorMessage(body?.message)))
+                Result.failure(
+                    Exception(
+                        response.errorMessage(
+                            serverMessage = body?.message,
+                            fallback = "Gagal membatalkan pickup."
+                        )
+                    )
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -533,7 +593,14 @@ class OrderViewModel @Inject constructor(
                 }
                 Result.success(body.message ?: "Training selesai.")
             } else {
-                Result.failure(Exception(response.errorMessage(body?.message)))
+                Result.failure(
+                    Exception(
+                        response.errorMessage(
+                            serverMessage = body?.message,
+                            fallback = "Gagal menyelesaikan training."
+                        )
+                    )
+                )
             }
         } catch (e: Exception) {
             Result.failure(e)

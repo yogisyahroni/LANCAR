@@ -2,9 +2,7 @@ import { test, expect } from '@playwright/test';
 
 // Use env vars injected by CI, with fallback for local dev
 const LEGACY_TEST_EMAILS = new Set([
-  'customer@lancar.id',
   'customer_test@tembus.id',
-  'customer_test@lancar.id',
 ]);
 
 const getConfiguredValue = (value: string | undefined) => {

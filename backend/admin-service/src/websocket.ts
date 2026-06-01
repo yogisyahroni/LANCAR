@@ -9,6 +9,17 @@ let io: SocketIOServer;
 let socketRedisPubClient: ReturnType<typeof redis.duplicate> | undefined;
 let socketRedisSubClient: ReturnType<typeof redis.duplicate> | undefined;
 
+const ADMIN_SOCKET_ROLES = [
+  'super_admin',
+  'admin',
+  'manager',
+  'finance',
+  'ops_admin',
+  'finance_admin',
+  'cs_agent',
+  'zone_manager',
+];
+
 const isProductionRuntime = () =>
   process.env.NODE_ENV === 'production' || process.env.ENVIRONMENT === 'production';
 
@@ -113,19 +124,19 @@ export const initWebSocket = (server: HttpServer) => {
     if ((adminSessionToken || customerSessionToken) && !token) {
       const sessionToken = adminSessionToken || customerSessionToken;
       const isCustomerSession = Boolean(customerSessionToken && !adminSessionToken);
-      const sessionQuery = isCustomerSession
-        ? `SELECT s.user_id AS id, u.role, u.full_name
-           FROM customer_sessions s
-           JOIN customers u ON s.user_id = u.id
-           WHERE s.session_token = $1 AND s.expires_at > NOW()`
-        : `SELECT s.user_id AS id, u.role, u.full_name
-           FROM admin_sessions s
-           JOIN staff u ON s.user_id = u.id
-           WHERE s.session_token = $1 AND s.expires_at > NOW()`;
-
       db.query(
-        sessionQuery,
-        [sessionToken]
+        `SELECT s.user_id AS id, u.role, u.full_name
+         FROM web_sessions s
+         JOIN users u ON s.user_id = u.id
+         WHERE s.session_token = $1
+           AND s.expires_at > NOW()
+           AND u.deleted_at IS NULL
+           AND (
+             ($2::boolean = true AND u.role = 'customer')
+             OR ($2::boolean = false AND u.role = ANY($3::text[]))
+           )
+         LIMIT 1`,
+        [sessionToken, isCustomerSession, ADMIN_SOCKET_ROLES]
       )
         .then((result) => {
           if (result.rows.length === 0) {
@@ -168,12 +179,14 @@ export const initWebSocket = (server: HttpServer) => {
              WHERE s.refresh_token = $1
                AND s.expires_at > NOW()
                AND s.is_revoked = false
+               AND u.deleted_at IS NULL
              UNION ALL
-             SELECT s.user_id AS id, c.role, c.full_name
-             FROM customer_sessions s
-             JOIN customers c ON s.user_id = c.id
+             SELECT s.user_id AS id, u.role, u.full_name
+             FROM web_sessions s
+             JOIN users u ON s.user_id = u.id
              WHERE s.session_token = $1
                AND s.expires_at > NOW()
+               AND u.deleted_at IS NULL
              LIMIT 1`,
             [token]
           );

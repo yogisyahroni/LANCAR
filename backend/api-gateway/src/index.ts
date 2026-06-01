@@ -629,6 +629,7 @@ app.use(createProxyMiddleware({
     pathname.startsWith('/api/v1/courier/fcm') ||
     pathname.startsWith('/api/v1/courier/profile') ||
     pathname.startsWith('/api/v1/courier/duty') ||
+    pathname.startsWith('/api/v1/courier/order-status-transitions') ||
     pathname.startsWith('/api/v1/courier/orders') ||
     pathname.startsWith('/api/v1/courier/offers') ||
     pathname.startsWith('/api/v1/courier/on-demand') ||

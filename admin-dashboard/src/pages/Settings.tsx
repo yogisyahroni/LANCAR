@@ -44,7 +44,7 @@ export default function Settings() {
   const [inviteForm, setInviteForm] = useState({
     email: '',
     name: '',
-    role: 'admin',
+    role: 'ops_admin',
     phoneNumber: ''
   })
   const [isFlagModalOpen, setIsFlagModalOpen] = useState(false)
@@ -260,7 +260,7 @@ export default function Settings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-team'] })
       setIsInviteModalOpen(false)
-      setInviteForm({ email: '', name: '', role: 'admin', phoneNumber: '' })
+      setInviteForm({ email: '', name: '', role: 'ops_admin', phoneNumber: '' })
       toast.success('Invitation sent to new admin')
     },
     onError: (error: any) => {
@@ -1214,7 +1214,7 @@ export default function Settings() {
                         </div>
                         <div>
                           <p className="text-sm font-black text-zinc-200">{member.full_name}</p>
-                          <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest">{member.role.replace('_', ' ')}</p>
+                          <p className="text-xs text-zinc-500 font-medium uppercase tracking-widest">{member.role.replaceAll('_', ' ')}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
@@ -1401,9 +1401,11 @@ export default function Settings() {
                       onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all appearance-none"
                     >
-                      <option value="admin">Admin</option>
+                      <option value="ops_admin">Ops Admin</option>
+                      <option value="finance_admin">Finance Admin</option>
+                      <option value="cs_agent">CS Agent</option>
+                      <option value="zone_manager">Zone Manager</option>
                       <option value="super_admin">Super Admin</option>
-                      <option value="manager">Operations Manager</option>
                     </select>
                   </div>
                   <div className="space-y-2">

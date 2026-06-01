@@ -968,6 +968,7 @@ private fun OnDemandMapHome(
         .orEmpty()
     val capabilityByCode = capabilityItems.associateBy { it.serviceCode }
     val serviceByCode = services.associateBy { it.code }
+    val serviceCatalogReady = capabilityProfile != null || services.isNotEmpty()
     val serviceItems = if (capabilityItems.isNotEmpty()) {
         capabilityItems
             .map { capability -> serviceByCode[capability.serviceCode] ?: capability.toServiceProduct(vehicleGroup) }
@@ -1061,6 +1062,7 @@ private fun OnDemandMapHome(
                 capabilityByCode = capabilityByCode,
                 disabledServiceCodes = disabledServiceCodes,
                 vehicleGroup = vehicleGroup,
+                isServiceCatalogLoading = !serviceCatalogReady,
                 expanded = servicePanelExpanded,
                 onToggleExpanded = { servicePanelExpanded = !servicePanelExpanded },
                 onServiceEnabledChange = { service, checked ->
@@ -1090,6 +1092,7 @@ private fun OnDemandServiceActivationCard(
     capabilityByCode: Map<String, CourierServiceCapability>,
     disabledServiceCodes: Set<String>,
     vehicleGroup: String,
+    isServiceCatalogLoading: Boolean,
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
     onServiceEnabledChange: (CourierServiceProduct, Boolean) -> Unit
@@ -1112,7 +1115,9 @@ private fun OnDemandServiceActivationCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Layanan aktif", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleSmall)
                     Text(
-                        if (serviceItems.isEmpty()) {
+                        if (isServiceCatalogLoading) {
+                            "Memuat layanan aktif..."
+                        } else if (serviceItems.isEmpty()) {
                             "Belum ada service cocok untuk ${vehicleGroup.toVehicleLabel()}"
                         } else {
                             "$activeServiceCount dari ${serviceItems.size} service ${vehicleGroup.toVehicleLabel()}"

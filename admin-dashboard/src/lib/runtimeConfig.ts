@@ -5,6 +5,12 @@ const allowLocalhostFallback =
   import.meta.env.DEV || import.meta.env.VITE_ALLOW_LOCALHOST_FALLBACK === 'true'
 
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '')
+const localHostnames = new Set(['localhost', '127.0.0.1', '::1'])
+
+const isLocalBrowserHost = () => {
+  if (typeof window === 'undefined') return false
+  return localHostnames.has(window.location.hostname.toLowerCase())
+}
 
 const assertUsableUrl = (name: string, value: string) => {
   try {
@@ -23,6 +29,10 @@ const assertUsableUrl = (name: string, value: string) => {
 }
 
 const resolveRequiredUrl = (name: string, value: string | undefined, localFallback: string) => {
+  if (allowLocalhostFallback && isLocalBrowserHost()) {
+    return localFallback
+  }
+
   const configured = value?.trim()
   if (configured) {
     const normalized = trimTrailingSlash(configured)
