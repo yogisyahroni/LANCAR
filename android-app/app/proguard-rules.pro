@@ -15,12 +15,24 @@
 -dontwarn com.google.android.gms.**
 
 # ── RETROFIT 2 ────────────────────────────────────────────────────────────────
--keepattributes Signature
+# Retrofit reflects suspend function signatures in release builds. Preserve the
+# generic metadata, otherwise R8 can turn Response<T> into a raw Class and cause
+# ClassCastException: java.lang.Class -> java.lang.reflect.ParameterizedType.
+-keepattributes Signature, InnerClasses, EnclosingMethod
+-keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,AnnotationDefault
 -keepattributes *Annotation*
 -keep class retrofit2.** { *; }
+-keep class com.tembus.courier.data.api.** { *; }
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+-keepclassmembers,allowshrinking,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}
 -keepclasseswithmembers class * {
     @retrofit2.http.* <methods>;
 }
+-if interface * { @retrofit2.http.* <methods>; }
+-keep,allowobfuscation interface <1>
 -dontwarn retrofit2.**
 
 # ── OKHTTP3 ───────────────────────────────────────────────────────────────────
@@ -34,6 +46,7 @@
 # ── KOTLINX SERIALIZATION ─────────────────────────────────────────────────────
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
+-keep class kotlinx.serialization.** { *; }
 -keep,includedescriptorclasses class com.tembus.courier.data.model.** { *; }
 -keepclassmembers class com.tembus.courier.data.model.** {
     *** Companion;

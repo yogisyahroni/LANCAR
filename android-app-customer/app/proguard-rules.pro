@@ -11,13 +11,25 @@
 # ---------------------------------------------------------
 # 2. NETWORKING: RETROFIT & OKHTTP & SOCKET.IO
 # ---------------------------------------------------------
+# Retrofit reflects suspend function signatures in release builds. Preserve the
+# generic metadata, otherwise R8 can turn Response<T> into a raw Class and cause
+# ClassCastException: java.lang.Class -> java.lang.reflect.ParameterizedType.
 -keepattributes Signature, InnerClasses, EnclosingMethod
+-keepattributes RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,AnnotationDefault
 -keepattributes *Annotation*
 -keep class retrofit2.** { *; }
+-keep class com.tembus.customer.data.api.** { *; }
+-keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
 -dontwarn retrofit2.**
+-keepclassmembers,allowshrinking,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}
 -keepclasseswithmembers class * {
     @retrofit2.http.* <methods>;
 }
+-if interface * { @retrofit2.http.* <methods>; }
+-keep,allowobfuscation interface <1>
 
 -dontwarn okhttp3.**
 -dontwarn okio.**
