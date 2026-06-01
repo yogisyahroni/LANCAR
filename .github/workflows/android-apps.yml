@@ -255,6 +255,14 @@ jobs:
             -PversionName="1.0.${{ github.run_number }}-staging"
         working-directory: ./${{ matrix.working_dir }}
 
+      - name: Build Signed Release APK
+        if: github.event_name != 'pull_request'
+        run: |
+          ./gradlew assembleRelease \
+            -PversionCode=${{ github.run_number }} \
+            -PversionName="1.0.${{ github.run_number }}-staging"
+        working-directory: ./${{ matrix.working_dir }}
+
       - name: Build Signed Release AAB
         if: github.event_name != 'pull_request'
         run: |
@@ -279,16 +287,23 @@ jobs:
 
           asset_dir="${{ matrix.working_dir }}/app/build/release-assets"
           debug_dir="${{ matrix.working_dir }}/app/build/outputs/apk/debug"
+          release_apk_dir="${{ matrix.working_dir }}/app/build/outputs/apk/release"
           release_dir="${{ matrix.working_dir }}/app/build/outputs/bundle/release"
 
           rm -rf "${asset_dir}"
           mkdir -p "${asset_dir}"
 
           debug_apk="$(find "${debug_dir}" -maxdepth 1 -type f -name '*.apk' -print -quit)"
+          release_apk="$(find "${release_apk_dir}" -maxdepth 1 -type f -name '*.apk' -print -quit)"
           release_aab="$(find "${release_dir}" -maxdepth 1 -type f -name '*.aab' -print -quit)"
 
           if [[ -z "${debug_apk}" ]]; then
             echo "Missing debug APK for ${{ matrix.app_name }} in ${debug_dir}" >&2
+            exit 1
+          fi
+
+          if [[ -z "${release_apk}" ]]; then
+            echo "Missing release APK for ${{ matrix.app_name }} in ${release_apk_dir}" >&2
             exit 1
           fi
 
@@ -298,6 +313,7 @@ jobs:
           fi
 
           cp "${debug_apk}" "${asset_dir}/${{ matrix.asset_prefix }}-debug.apk"
+          cp "${release_apk}" "${asset_dir}/${{ matrix.asset_prefix }}-release.apk"
           cp "${release_aab}" "${asset_dir}/${{ matrix.asset_prefix }}-release.aab"
 
           ls -lh "${asset_dir}"
@@ -324,6 +340,7 @@ jobs:
           name: "Release v1.0.${{ github.run_number }} - ${{ matrix.app_name }}"
           files: |
             ./${{ matrix.working_dir }}/app/build/release-assets/${{ matrix.asset_prefix }}-debug.apk
+            ./${{ matrix.working_dir }}/app/build/release-assets/${{ matrix.asset_prefix }}-release.apk
             ./${{ matrix.working_dir }}/app/build/release-assets/${{ matrix.asset_prefix }}-release.aab
           draft: false
           prerelease: true

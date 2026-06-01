@@ -38,9 +38,18 @@ Native Android application for TEMBUS customers, built with Kotlin and Jetpack C
 
 ### 4. Install on Device
 
+For local development and emulator testing:
 ```bash
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
+
+For staging or hardware testing with GitHub Release self-update, install the signed release APK from the release assets:
+
+```bash
+tembus-customer-release.apk
+```
+
+Do not use the debug APK as the baseline for self-update testing. Debug APKs are signed with a local or CI debug key that can change, and Android will reject an update package when the signature does not match the app already installed on the device.
 
 ## Project Structure
 

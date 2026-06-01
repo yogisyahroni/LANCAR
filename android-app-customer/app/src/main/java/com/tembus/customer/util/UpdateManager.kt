@@ -107,6 +107,7 @@ class UpdateManager @Inject constructor(
                 }
 
                 verifyChecksumIfPresent(tempFile, version.checksumSha256)
+                validateDownloadedApk(tempFile, version.code)
 
                 if (targetFile.exists() && !targetFile.delete()) {
                     throw IOException("Gagal mengganti file update lama.")
@@ -255,6 +256,30 @@ class UpdateManager @Inject constructor(
         val actualSha256 = sha256(file)
         if (!actualSha256.equals(normalizedExpected, ignoreCase = true)) {
             throw SecurityException("Checksum update tidak sesuai.")
+        }
+    }
+
+    private fun validateDownloadedApk(file: File, expectedVersionCode: Int) {
+        val packageInfo = context.packageManager.getPackageArchiveInfo(file.absolutePath, 0)
+            ?: throw IOException("File update tidak bisa dibaca sebagai APK.")
+
+        if (packageInfo.packageName != context.packageName) {
+            throw SecurityException("Paket update bukan untuk aplikasi ini.")
+        }
+
+        val downloadedVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            packageInfo.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            packageInfo.versionCode.toLong()
+        }
+
+        if (downloadedVersionCode <= BuildConfig.VERSION_CODE) {
+            throw IOException("Versi update tidak lebih baru dari aplikasi saat ini.")
+        }
+
+        if (downloadedVersionCode != expectedVersionCode.toLong()) {
+            throw IOException("Versi APK tidak sesuai dengan metadata update.")
         }
     }
 

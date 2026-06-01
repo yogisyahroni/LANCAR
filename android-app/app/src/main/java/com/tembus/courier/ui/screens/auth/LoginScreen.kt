@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tembus.courier.BuildConfig
 import com.tembus.courier.ui.security.SecureScreenEffect
 import com.tembus.courier.ui.theme.Primary
 
@@ -352,7 +353,7 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "v1.0.0 — TEMBUS Courier",
+                text = "v${BuildConfig.VERSION_NAME} — TEMBUS Courier",
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.5f)
             )
