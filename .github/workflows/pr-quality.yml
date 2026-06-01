@@ -62,14 +62,14 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        image: postgres:15
+        image: mirror.gcr.io/postgres:15
         env:
           POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
         ports: [5432:5432]
       redis:
-        image: redis:6-alpine
+        image: mirror.gcr.io/redis:6-alpine
         ports: [6379:6379]
     steps:
       - uses: actions/checkout@v4
@@ -97,14 +97,14 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        image: postgres:15
+        image: mirror.gcr.io/postgres:15
         env:
           POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
         ports: [5432:5432]
       redis:
-        image: redis:6-alpine
+        image: mirror.gcr.io/redis:6-alpine
         ports: [6379:6379]
     steps:
       - uses: actions/checkout@v4
@@ -131,14 +131,14 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        image: postgres:15
+        image: mirror.gcr.io/postgres:15
         env:
           POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
         ports: [5432:5432]
       redis:
-        image: redis:6-alpine
+        image: mirror.gcr.io/redis:6-alpine
         ports: [6379:6379]
     steps:
       - uses: actions/checkout@v4

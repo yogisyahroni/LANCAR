@@ -65,7 +65,7 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        image: postgres:15
+        image: mirror.gcr.io/postgres:15
         env:
           POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
@@ -77,7 +77,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: redis:7-alpine
+        image: mirror.gcr.io/redis:7-alpine
         ports: [6379:6379]
         options: >-
           --health-cmd "redis-cli ping"
@@ -112,7 +112,7 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        image: postgres:15
+        image: mirror.gcr.io/postgres:15
         env:
           POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
@@ -124,7 +124,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: redis:7-alpine
+        image: mirror.gcr.io/redis:7-alpine
         ports: [6379:6379]
         options: >-
           --health-cmd "redis-cli ping"
@@ -159,7 +159,7 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        image: postgres:15
+        image: mirror.gcr.io/postgres:15
         env:
           POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
@@ -171,7 +171,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: redis:7-alpine
+        image: mirror.gcr.io/redis:7-alpine
         ports: [6379:6379]
         options: >-
           --health-cmd "redis-cli ping"
@@ -206,7 +206,7 @@ jobs:
     timeout-minutes: 10
     services:
       postgres:
-        image: postgis/postgis:15-3.4
+        image: mirror.gcr.io/postgis/postgis:15-3.4
         env:
           POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
