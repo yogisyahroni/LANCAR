@@ -58,6 +58,10 @@
 -keep class net.zetetic.database.** { *; }
 -keep class net.zetetic.** { *; }
 -dontwarn net.zetetic.**
+-keep class net.sqlcipher.** { *; }
+-keep class net.sqlcipher.database.** { *; }
+-keepclassmembers class net.sqlcipher.database.** { *; }
+-dontwarn net.sqlcipher.**
 
 # ── WORKMANAGER ───────────────────────────────────────────────────────────────
 # CRITICAL: WorkManager uses reflection to instantiate Workers — obfuscating breaks all background sync

@@ -61,6 +61,9 @@
 -dontwarn androidx.room.**
 
 # SQLCIPHER MUST BE KEPT TO AVOID RUNTIME NATIVE CRASHES
+-keep class net.zetetic.database.** { *; }
+-keep class net.zetetic.** { *; }
+-dontwarn net.zetetic.**
 -keep class net.sqlcipher.** { *; }
 -keep class net.sqlcipher.database.** { *; }
 -keepclassmembers class net.sqlcipher.database.** { *; }
