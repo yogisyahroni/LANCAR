@@ -49,25 +49,36 @@ class MainActivity : FragmentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     var showLaunchSplash by remember { mutableStateOf(true) }
+                    var launchSplashPresented by remember { mutableStateOf(false) }
 
-                    LaunchedEffect(Unit) {
-                        delay(1_500L)
-                        showLaunchSplash = false
+                    LaunchedEffect(launchSplashPresented) {
+                        if (launchSplashPresented) {
+                            delay(3_000L)
+                            showLaunchSplash = false
+                        }
                     }
 
-                    // 📱 SYSTEM: App Update Logic
+                    // App update logic runs after the launch splash finishes so
+                    // the first Compose frame is always the branded splash image.
                     var updateInfo by remember { mutableStateOf<AppVersion?>(null) }
                     var isUpdating by remember { mutableStateOf(false) }
                     var updateError by remember { mutableStateOf<String?>(null) }
                     val updateScope = rememberCoroutineScope()
-                    LaunchedEffect(Unit) {
-                        updateInfo = updateManager.checkUpdate()
+                    LaunchedEffect(showLaunchSplash) {
+                        if (!showLaunchSplash) {
+                            updateInfo = updateManager.checkUpdate()
+                        }
                     }
 
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        com.tembus.customer.ui.navigation.RootNavGraph()
-
-                        if (!showLaunchSplash) {
+                    if (showLaunchSplash) {
+                        CustomerLaunchSplash(
+                            onPresented = {
+                                launchSplashPresented = true
+                            }
+                        )
+                    } else {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            com.tembus.customer.ui.navigation.RootNavGraph()
                             updateInfo?.let { info ->
                                 UpdateDialog(
                                     version = info,
@@ -95,10 +106,6 @@ class MainActivity : FragmentActivity() {
                                     }
                                 )
                             }
-                        }
-
-                        if (showLaunchSplash) {
-                            CustomerLaunchSplash()
                         }
                     }
                 }

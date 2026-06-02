@@ -4,6 +4,7 @@
     <color name="primary">#0D5C2F</color>
     <color name="primary_dark">#063D22</color>
     <color name="primary_light">#E7F7EE</color>
+    <color name="splash_background">#004A2A</color>
     
     <!-- Secondary and CTA -->
     <color name="secondary">#138C3B</color>
