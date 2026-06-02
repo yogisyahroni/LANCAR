@@ -1,0 +1,43 @@
+package com.tembus.customer.ui.screens.splash
+
+import android.app.Activity
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
+import androidx.core.view.WindowCompat
+import com.tembus.customer.R
+
+private val SplashBackground = Color(0xFF004A2A)
+
+@Composable
+fun CustomerLaunchSplash(
+    modifier: Modifier = Modifier
+) {
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = SplashBackground.toArgb()
+            window.navigationBarColor = SplashBackground.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
+        }
+    }
+
+    Image(
+        painter = painterResource(id = R.drawable.img_customer_splash_screen),
+        contentDescription = null,
+        contentScale = ContentScale.FillBounds,
+        modifier = modifier
+            .fillMaxSize()
+            .background(SplashBackground)
+    )
+}

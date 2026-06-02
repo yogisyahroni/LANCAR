@@ -6,12 +6,13 @@ package com.tembus.customer.ui
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
-import com.tembus.customer.ui.screens.auth.AuthNavGraph
+import com.tembus.customer.ui.screens.splash.CustomerLaunchSplash
 import com.tembus.customer.ui.theme.TEMBUSCustomerTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -20,6 +21,7 @@ import com.tembus.customer.util.UpdateManager
 import com.tembus.customer.ui.components.UpdateDialog
 import com.tembus.customer.data.model.AppVersion
 import javax.inject.Inject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
@@ -46,6 +48,13 @@ class MainActivity : FragmentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
+                    var showLaunchSplash by remember { mutableStateOf(true) }
+
+                    LaunchedEffect(Unit) {
+                        delay(1_500L)
+                        showLaunchSplash = false
+                    }
+
                     // 📱 SYSTEM: App Update Logic
                     var updateInfo by remember { mutableStateOf<AppVersion?>(null) }
                     var isUpdating by remember { mutableStateOf(false) }
@@ -55,35 +64,43 @@ class MainActivity : FragmentActivity() {
                         updateInfo = updateManager.checkUpdate()
                     }
 
-                    updateInfo?.let { info ->
-                        UpdateDialog(
-                            version = info,
-                            isUpdating = isUpdating,
-                            errorMessage = updateError,
-                            onUpdateNow = {
-                                updateError = null
-                                isUpdating = true
-                                updateScope.launch {
-                                    val result = updateManager.downloadAndOpenInstaller(info)
-                                    isUpdating = false
-                                    result.onFailure { error ->
-                                        if (error is UpdateManager.InstallPermissionRequiredException) {
-                                            updateError = "Aktifkan izin instalasi update untuk TEMBUS, lalu tekan Update sekarang lagi."
-                                            updateManager.openInstallPermissionSettings(this@MainActivity)
-                                        } else {
-                                            updateError = error.message ?: "Gagal menyiapkan update."
-                                        }
-                                    }
-                                }
-                            },
-                            onDismiss = {
-                                updateError = null
-                                updateInfo = null
-                            }
-                        )
-                    }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        com.tembus.customer.ui.navigation.RootNavGraph()
 
-                    com.tembus.customer.ui.navigation.RootNavGraph()
+                        if (!showLaunchSplash) {
+                            updateInfo?.let { info ->
+                                UpdateDialog(
+                                    version = info,
+                                    isUpdating = isUpdating,
+                                    errorMessage = updateError,
+                                    onUpdateNow = {
+                                        updateError = null
+                                        isUpdating = true
+                                        updateScope.launch {
+                                            val result = updateManager.downloadAndOpenInstaller(info)
+                                            isUpdating = false
+                                            result.onFailure { error ->
+                                                if (error is UpdateManager.InstallPermissionRequiredException) {
+                                                    updateError = "Aktifkan izin instalasi update untuk TEMBUS, lalu tekan Update sekarang lagi."
+                                                    updateManager.openInstallPermissionSettings(this@MainActivity)
+                                                } else {
+                                                    updateError = error.message ?: "Gagal menyiapkan update."
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onDismiss = {
+                                        updateError = null
+                                        updateInfo = null
+                                    }
+                                )
+                            }
+                        }
+
+                        if (showLaunchSplash) {
+                            CustomerLaunchSplash()
+                        }
+                    }
                 }
 
             }
