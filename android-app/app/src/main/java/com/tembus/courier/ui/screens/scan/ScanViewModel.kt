@@ -7,6 +7,7 @@ import com.tembus.courier.data.api.withRequestReference
 import com.tembus.courier.data.model.ScanRequest
 import com.tembus.courier.data.model.ScanResponse
 import com.tembus.courier.data.repository.OrderRepository
+import com.tembus.courier.domain.CourierProofTypes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -39,7 +41,7 @@ class ScanViewModel @Inject constructor(
         latitude: Double,
         longitude: Double,
         accuracy: Float?,
-        scanType: String = "pickup",
+        scanType: String = CourierProofTypes.PICKUP_SCAN,
         barcodeValue: String? = null
     ) {
         viewModelScope.launch {
@@ -52,15 +54,19 @@ class ScanViewModel @Inject constructor(
                     longitude = longitude,
                     accuracy = accuracy,
                     barcodeValue = barcodeValue,
+                    packageCode = barcodeValue,
                     spoofRisk = accuracy?.let { if (it > 50f) "low_accuracy" else "normal" } ?: "unknown_accuracy"
                 )
                 
-                val response = apiService.scanPackage(request)
+                val response = apiService.scanPackage(
+                    idempotencyKey = "courier-scan-$orderId-$scanType-${UUID.randomUUID()}",
+                    request = request
+                )
                 
                 if (response.isSuccessful && response.body()?.success == true) {
                     val scanData = response.body()?.data
                     if (scanData != null) {
-                        orderRepository.saveScanLocally(orderId, latitude, longitude, scanType)
+                        orderRepository.saveScanLocally(orderId, latitude, longitude, scanType, synced = true)
                         _uiState.value = ScanUiState.Success(scanData)
                     } else {
                         _uiState.value = ScanUiState.Error("Respons verifikasi tidak valid. Coba lagi.")

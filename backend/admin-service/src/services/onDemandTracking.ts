@@ -180,6 +180,7 @@ export const buildOnDemandTrackingSnapshot = async (
              o.route_distance_meters,
              o.route_duration_seconds,
              o.route_polyline,
+             o.package_details,
              ol.courier_id,
              cp.id AS courier_profile_id
      FROM orders o
@@ -250,11 +251,44 @@ export const buildOnDemandTrackingSnapshot = async (
     : null;
   const target = ['menuju_tujuan', 'selesai'].includes(stage) ? dropoffTarget : pickupTarget;
   const route = await buildRouteEtaSnapshot(location, target ? { latitude: target.latitude, longitude: target.longitude } : null);
+  const packageResult = await client.query(
+    `SELECT id AS package_id,
+            package_index,
+            package_code,
+            description,
+            size_tier,
+            weight_kg,
+            status,
+            pickup_scan_verified_at,
+            pickup_photo_verified_at,
+            delivery_pod_verified_at
+     FROM order_packages
+     WHERE order_id = $1
+     ORDER BY package_index ASC`,
+    [input.orderId]
+  );
+  const packageRows = Array.isArray(packageResult?.rows) ? packageResult.rows : [];
   const orderRouteSnapshot = parseJsonObject(order.route_snapshot);
+  const packageDetails = parseJsonObject(order.package_details);
+  const fallbackPackageCount = Math.max(1, toNumber(packageDetails?.package_count, toNumber(packageDetails?.count, 1)));
+  const customerPackages = packageRows.map((row) => ({
+    package_id: row.package_id,
+    package_index: Number(row.package_index),
+    package_code: row.package_code,
+    description: row.description,
+    size_tier: row.size_tier,
+    weight_kg: toNumber(row.weight_kg),
+    status: row.status,
+    pickup_scan_verified_at: row.pickup_scan_verified_at,
+    pickup_photo_verified_at: row.pickup_photo_verified_at,
+    delivery_pod_verified_at: row.delivery_pod_verified_at,
+  }));
 
   return {
     order_id: order.id,
     order_number: order.order_number,
+    package_count: customerPackages.length > 0 ? customerPackages.length : fallbackPackageCount,
+    packages: customerPackages,
     courier_id: latest?.courier_id || order.courier_profile_id,
     courier_user_id: order.courier_id,
     stage,
@@ -275,6 +309,12 @@ export const buildOnDemandTrackingSnapshot = async (
     order_route_duration_seconds: toNumber(order.route_duration_seconds, toNumber(orderRouteSnapshot?.duration_seconds, 0)),
     order_route_snapshot_hash: orderRouteSnapshot?.snapshot_hash || null,
     order_route_version: orderRouteSnapshot?.route_version || null,
+    privacy_scope: {
+      route_scope: 'single_order',
+      excludes_other_customer_stops: true,
+      package_scope: 'same_order_only',
+      customer_visible: Boolean(input.userId),
+    },
     quality: {
       source: location ? 'last_valid_location' : 'unavailable',
       customer_visible: Boolean(location),

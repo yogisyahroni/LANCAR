@@ -7,6 +7,39 @@ import androidx.room.PrimaryKey
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+@Serializable
+data class CourierOrderPackage(
+    @SerialName("package_id")
+    val packageId: String? = null,
+    @SerialName("id")
+    val id: String? = null,
+    @SerialName("package_code")
+    val packageCode: String? = null,
+    @SerialName("description")
+    val description: String? = null,
+    @SerialName("size_tier")
+    val sizeTier: String? = null,
+    @SerialName("weight_kg")
+    val weightKg: Double? = null,
+    @SerialName("status")
+    val status: String = "pending",
+    @SerialName("pickup_scan_verified_at")
+    val pickupScanVerifiedAt: String? = null,
+    @SerialName("pickup_photo_verified_at")
+    val pickupPhotoVerifiedAt: String? = null,
+    @SerialName("delivery_pod_verified_at")
+    val deliveryPodVerifiedAt: String? = null
+) {
+    fun stableId(): String = packageId?.takeIf { it.isNotBlank() } ?: id?.takeIf { it.isNotBlank() } ?: displayCode()
+    fun displayCode(): String = packageCode?.takeIf { it.isNotBlank() }
+        ?: packageId?.take(8)?.ifBlank { null }
+        ?: id?.take(8)?.ifBlank { null }
+        ?: "Paket"
+    fun pickupScanDone(): Boolean = !pickupScanVerifiedAt.isNullOrBlank() || status in setOf("pickup_scanned", "pickup_verified", "in_transit", "pod_verified", "delivered")
+    fun pickupPhotoDone(): Boolean = !pickupPhotoVerifiedAt.isNullOrBlank() || status in setOf("pickup_verified", "in_transit", "pod_verified", "delivered")
+    fun podDone(): Boolean = !deliveryPodVerifiedAt.isNullOrBlank() || status in setOf("pod_verified", "delivered")
+}
+
 /**
  * Order Model for TEMBUS Courier App
  *
@@ -106,6 +139,38 @@ data class Order(
     @SerialName("service_max_eta_minutes")
     val serviceMaxEtaMinutes: Int = 0,
 
+    @ColumnInfo(name = "package_count")
+    @SerialName("package_count")
+    val packageCount: Int = 1,
+
+    @ColumnInfo(name = "packages")
+    @SerialName("packages")
+    val packages: List<CourierOrderPackage> = emptyList(),
+
+    @ColumnInfo(name = "service_max_packages_per_order")
+    @SerialName("service_max_packages_per_order")
+    val serviceMaxPackagesPerOrder: Int = 1,
+
+    @ColumnInfo(name = "service_max_active_orders_on_demand")
+    @SerialName("service_max_active_orders_on_demand")
+    val serviceMaxActiveOrdersOnDemand: Int = 1,
+
+    @ColumnInfo(name = "service_face_verification_required")
+    @SerialName("service_face_verification_required")
+    val serviceFaceVerificationRequired: Boolean = true,
+
+    @ColumnInfo(name = "service_proof_geofence_radius_m")
+    @SerialName("service_proof_geofence_radius_m")
+    val serviceProofGeofenceRadiusM: Int = 10,
+
+    @ColumnInfo(name = "service_proof_min_accuracy_m")
+    @SerialName("service_proof_min_accuracy_m")
+    val serviceProofMinAccuracyM: Int = 50,
+
+    @ColumnInfo(name = "service_failed_delivery_policy")
+    @SerialName("service_failed_delivery_policy")
+    val serviceFailedDeliveryPolicy: String = "must_deliver",
+
     @ColumnInfo(name = "item_description")
     @SerialName("item_description")
     val itemDescription: String? = null,
@@ -201,6 +266,27 @@ data class Order(
     @ColumnInfo(name = "pod_image_uri")
     @SerialName("pod_image_uri")
     var podImageUri: String? = null,
+
+    /**
+     * Explicit proof type for the local image queued for sync.
+     */
+    @ColumnInfo(name = "pod_proof_type")
+    @SerialName("pod_proof_type")
+    var podProofType: String? = null,
+
+    /**
+     * Timestamp when the latest proof was confirmed by backend sync.
+     */
+    @ColumnInfo(name = "proof_synced_at")
+    @SerialName("proof_synced_at")
+    var proofSyncedAt: Long? = null,
+
+    /**
+     * Timestamp when pickup scan/photo evidence last changed locally.
+     */
+    @ColumnInfo(name = "pickup_evidence_updated_at")
+    @SerialName("pickup_evidence_updated_at")
+    var pickupEvidenceUpdatedAt: Long? = null,
 
     /**
      * Signature data (base64 encoded or file path)

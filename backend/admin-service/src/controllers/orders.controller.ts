@@ -174,12 +174,107 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       ORDER BY created_at DESC
     `, [id]);
 
+    const packagesRes = await readDb.query(`
+      SELECT id AS package_id,
+             package_index,
+             package_code,
+             description,
+             size_tier,
+             weight_kg,
+             status,
+             pickup_scan_verified_at,
+             pickup_photo_verified_at,
+             delivery_pod_verified_at,
+             metadata,
+             created_at,
+             updated_at
+      FROM order_packages
+      WHERE order_id = $1
+      ORDER BY package_index ASC
+    `, [id]);
+
+    const dispatchesRes = await readDb.query(`
+      SELECT d.id,
+             d.order_id,
+             d.order_leg_id,
+             d.courier_id,
+             cu.full_name AS courier_name,
+             cu.phone_number AS courier_phone,
+             d.wave_number,
+             d.rank_number,
+             d.score,
+             d.distance_m,
+             d.rating_snapshot,
+             d.acceptance_rate_snapshot,
+             d.completion_rate_snapshot,
+             d.status,
+             d.offered_at,
+             d.expires_at,
+             d.responded_at,
+             d.response_reason,
+             d.metadata,
+             d.created_at,
+             d.updated_at
+      FROM courier_offer_dispatches d
+      LEFT JOIN users cu ON cu.id = d.courier_id
+      WHERE d.order_id = $1
+      ORDER BY d.wave_number ASC, d.rank_number ASC, d.created_at ASC
+    `, [id]);
+
+    const proofAttemptsRes = await readDb.query(`
+      SELECT id,
+             order_id,
+             courier_id,
+             proof_step,
+             proof_status,
+             rejection_reason,
+             distance_m,
+             radius_m,
+             latitude,
+             longitude,
+             accuracy_m,
+             spoof_risk,
+             barcode_value,
+             photo_url,
+             service_code,
+             face_verification_id,
+             override_reason,
+             manual_review_required,
+             policy_snapshot,
+             created_at
+      FROM courier_proof_attempts
+      WHERE order_id = $1
+      ORDER BY created_at DESC
+    `, [id]);
+
+    const faceVerificationsRes = await readDb.query(`
+      SELECT id,
+             courier_id,
+             order_id,
+             verification_type,
+             status,
+             provider,
+             provider_reference,
+             liveness_score,
+             image_url,
+             failure_reason,
+             metadata,
+             created_at
+      FROM courier_face_verifications
+      WHERE order_id = $1
+      ORDER BY created_at DESC
+    `, [id]);
+
     res.json({
       ...orderRes.rows[0],
       events: eventsRes.rows,
       legs: legsRes.rows,
       proofs: proofsRes.rows,
-      safety_events: safetyEventsRes.rows
+      safety_events: safetyEventsRes.rows,
+      packages: packagesRes.rows,
+      dispatches: dispatchesRes.rows,
+      proof_attempts: proofAttemptsRes.rows,
+      face_verifications: faceVerificationsRes.rows
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

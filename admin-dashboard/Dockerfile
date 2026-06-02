@@ -22,10 +22,15 @@ RUN npm run build
 FROM node:22-alpine
 WORKDIR /app
 RUN npm install -g serve && \
+    addgroup -S appgroup && \
+    adduser -S appuser -G appgroup && \
+    mkdir -p /app/dist && \
     npm cache clean --force && \
     rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 COPY --from=build /app/dist ./dist
+RUN chown -R appuser:appgroup /app
+USER appuser
 
 EXPOSE 3001
 CMD ["serve", "-s", "dist", "-l", "3001"]

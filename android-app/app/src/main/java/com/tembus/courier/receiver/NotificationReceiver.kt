@@ -12,6 +12,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -49,7 +50,11 @@ class NotificationReceiver : BroadcastReceiver() {
                     val pendingResult = goAsync()
                     CoroutineScope(Dispatchers.IO).launch {
                         try {
-                            apiService.rejectOnDemandOffer(dispatchId ?: orderId)
+                            val targetId = dispatchId ?: orderId
+                            apiService.rejectOnDemandOffer(
+                                orderId = targetId,
+                                idempotencyKey = "courier-offer-reject-$targetId-${UUID.randomUUID()}"
+                            )
                             orderRepository.deleteOrderById(orderId)
                         } catch (e: Exception) {
                             Log.w(TAG, "Reject offer failed: ${e.message}")
@@ -96,7 +101,11 @@ class NotificationReceiver : BroadcastReceiver() {
 
                         // 2. Confirm acceptance to backend immediately
                         try {
-                            val response = apiService.acceptOnDemandOffer(order.dispatchId ?: orderId)
+                            val targetId = order.dispatchId ?: orderId
+                            val response = apiService.acceptOnDemandOffer(
+                                orderId = targetId,
+                                idempotencyKey = "courier-offer-accept-$targetId-${UUID.randomUUID()}"
+                            )
                             if (response.isSuccessful && response.body()?.success == true) {
                                 // Mark as synced — no need for WorkManager retry
                                 val accepted = response.body()?.data ?: order.copy(status = "accepted")

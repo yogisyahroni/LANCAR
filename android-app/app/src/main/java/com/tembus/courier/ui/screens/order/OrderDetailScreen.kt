@@ -52,6 +52,9 @@ import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.displayServiceName
 import com.tembus.courier.data.model.normalizedWorkflowRole
 import com.tembus.courier.data.model.toRupiahCompact
+import com.tembus.courier.domain.CourierFlowResolver
+import com.tembus.courier.domain.CourierFlowState
+import com.tembus.courier.domain.CourierNextActionType
 import com.tembus.courier.ui.components.maps.RuntimeMapMarker
 import com.tembus.courier.ui.components.maps.RuntimeMapRenderer
 import com.tembus.courier.ui.theme.Primary
@@ -132,6 +135,7 @@ fun OrderDetailScreen(
     pickupScanVerified: Boolean = false,
     pickupPhotoVerified: Boolean = false,
     onSosClick: () -> Unit = {},
+    onReportIssue: (eventType: String, severity: String, message: String, photoFile: File?) -> Unit = { _, _, _, _ -> },
     onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit = { _, _, _ -> }
 ) {
     val context = LocalContext.current
@@ -147,6 +151,17 @@ fun OrderDetailScreen(
 
     var showStatusDialog by remember { mutableStateOf(false) }
     var newStatus by remember { mutableStateOf(order.status) }
+    val pickupPhotoRequired = remember(order.orderId, order.status, order.workflowRole, statusTransitions) {
+        isPickupPhotoRequired(order, statusTransitions)
+    }
+    val courierFlow = remember(order, pickupScanVerified, pickupPhotoVerified, pickupPhotoRequired) {
+        CourierFlowResolver.resolve(
+            order = order,
+            pickupScanVerified = pickupScanVerified,
+            pickupPhotoVerified = pickupPhotoVerified,
+            pickupPhotoRequired = pickupPhotoRequired
+        )
+    }
 
     if (showStatusDialog) {
         val selectableStatuses = statusTransitions
@@ -161,7 +176,7 @@ fun OrderDetailScreen(
 
         AlertDialog(
             onDismissRequest = { showStatusDialog = false },
-            title = { Text("Update Status") },
+            title = { Text("Koreksi Tahap Pengiriman") },
             text = {
                 Column {
                     OrderStatusOptions(
@@ -181,12 +196,12 @@ fun OrderDetailScreen(
                         showStatusDialog = false
                     }
                 ) {
-                    Text("Update")
+                    Text("Simpan")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showStatusDialog = false }) {
-                    Text("Cancel")
+                    Text("Batal")
                 }
             }
         )
@@ -207,7 +222,7 @@ fun OrderDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
                 }
             )
@@ -227,22 +242,30 @@ fun OrderDetailScreen(
                 OnDemandTaskActions(
                     order = order,
                     routePreview = routePreview,
+                    flowState = courierFlow,
                     cancelPickupReasons = cancelPickupReasons,
                     pickupScanVerified = pickupScanVerified,
                     pickupPhotoVerified = pickupPhotoVerified,
                     onVerifyPickup = onVerifyPickup,
                     onCapturePickupProof = onCapturePickupProof,
                     onCapturePod = onCapturePod,
+                    onUpdateStatus = onUpdateStatus,
                     onChatClick = onChatClick,
                     onSosClick = onSosClick,
+                    onReportIssue = onReportIssue,
                     onCancelPickup = onCancelPickup
                 )
             } else {
                 OrderActions(
                     order = order,
+                    flowState = courierFlow,
                     onStatusClick = { showStatusDialog = true },
+                    onUpdateStatus = onUpdateStatus,
+                    onVerifyPickup = onVerifyPickup,
+                    onCapturePickupProof = onCapturePickupProof,
                     onCapturePod = onCapturePod,
-                    onChatClick = onChatClick
+                    onChatClick = onChatClick,
+                    onSosClick = onSosClick
                 )
             }
         }
@@ -304,7 +327,7 @@ private fun DeliveryMapCard(
                 if (firstPoint != null) {
                     val markers = buildList {
                         pickupLatLng?.let { add(RuntimeMapMarker("pickup", it, "Pickup", order.pickupAddress)) }
-                        dropLatLng?.let { add(RuntimeMapMarker("dropoff", it, "Dropoff", order.dropAddress)) }
+                        dropLatLng?.let { add(RuntimeMapMarker("dropoff", it, "Tujuan", order.dropAddress)) }
                     }
                     val encodedRoutePoints = decodeRoutePolyline(
                         routePreview?.routePolyline ?: routePreview?.routeSnapshot?.routePolyline
@@ -365,7 +388,7 @@ private fun DeliveryMapCard(
             ) {
                 Text(if (order.normalizedWorkflowRole() == "on_demand") "Rute On Demand" else "Rute Pengantaran", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 DeliveryStop(icon = Icons.Default.Storefront, label = "Pickup", value = order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }, color = Primary)
-                DeliveryStop(icon = Icons.Default.LocationOn, label = "Dropoff", value = order.dropAddress.ifBlank { "Alamat tujuan sedang disinkronkan" }, color = Secondary)
+                DeliveryStop(icon = Icons.Default.LocationOn, label = "Tujuan", value = order.dropAddress.ifBlank { "Alamat tujuan sedang disinkronkan" }, color = Secondary)
             }
         }
     }
@@ -375,33 +398,22 @@ private fun DeliveryMapCard(
 private fun OnDemandTaskActions(
     order: Order,
     routePreview: CourierRoutePreview?,
+    flowState: CourierFlowState,
     cancelPickupReasons: List<CancelPickupReason>,
     pickupScanVerified: Boolean,
     pickupPhotoVerified: Boolean,
     onVerifyPickup: () -> Unit,
     onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
+    onUpdateStatus: (String) -> Unit,
     onChatClick: () -> Unit,
     onSosClick: () -> Unit,
+    onReportIssue: (eventType: String, severity: String, message: String, photoFile: File?) -> Unit,
     onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit
 ) {
     val context = LocalContext.current
     var showCancelPickupDialog by remember { mutableStateOf(false) }
-    val status = order.status.lowercase()
-    val pickupEvidenceComplete = pickupScanVerified && pickupPhotoVerified
-    val pickupDone = status in setOf("picked_up", "in_transit", "delivered", "completed") || pickupEvidenceComplete
-    val deliveryDone = status in setOf("delivered", "completed")
-    val activeAddress = if (pickupDone) order.dropAddress else order.pickupAddress
-    val phaseTitle = when {
-        deliveryDone -> "Pekerjaan selesai"
-        pickupDone -> "Menuju penerima"
-        else -> "Menuju pickup"
-    }
-    val phaseInstruction = when {
-        deliveryDone -> "Bukti selesai sudah tercatat."
-        pickupDone -> "Antarkan paket ke penerima, lalu ambil bukti selesai di titik tujuan."
-        else -> "Datang ke titik pickup, verifikasi barang dengan scan atau foto."
-    }
+    var showIssueDialog by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -413,40 +425,49 @@ private fun OnDemandTaskActions(
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             OnDemandJobHeader(
                 order = order,
-                phaseTitle = phaseTitle,
-                phaseInstruction = phaseInstruction
+                phaseTitle = flowState.title,
+                phaseInstruction = flowState.instruction
             )
-            routePreview?.let { RoutePreviewStrip(it) }
-            OnDemandProgressTimeline(pickupDone = pickupDone, deliveryDone = deliveryDone)
-            LocationGateStatus(order = order, targetPickup = !pickupDone)
 
             OnDemandCurrentStopCard(
-                title = if (pickupDone) "Lokasi penerima" else "Lokasi pickup",
-                address = activeAddress.ifBlank { "Alamat sedang disinkronkan" },
-                icon = if (pickupDone) Icons.Default.LocationOn else Icons.Default.Storefront,
-                gateLabel = if (pickupDone) "Validasi di titik penerima" else "Validasi di titik pickup"
+                title = flowState.activeAddressLabel,
+                address = flowState.activeAddress,
+                icon = if (flowState.targetIsPickup) Icons.Default.Storefront else Icons.Default.LocationOn,
+                gateLabel = if (flowState.targetIsPickup) "Validasi di titik pickup" else "Validasi di titik penerima"
             )
 
-            ActionButton(
-                icon = Icons.Default.Navigation,
-                label = if (pickupDone) "Navigasi ke penerima" else "Navigasi ke pickup",
-                prominent = true,
-                containerColor = DeepForest,
-                contentColor = Color.White,
-                onClick = { openNavigation(context, activeAddress) }
+            CourierNextActionPanel(
+                flowState = flowState,
+                onClick = {
+                    runCourierNextAction(
+                        context = context,
+                        flowState = flowState,
+                        onVerifyPickup = onVerifyPickup,
+                        onCapturePickupProof = onCapturePickupProof,
+                        onCapturePod = onCapturePod,
+                        onUpdateStatus = onUpdateStatus,
+                        onChatClick = onChatClick
+                    )
+                }
             )
 
-            if (!pickupDone) {
-                OnDemandProofPanel(
-                    title = "Verifikasi barang",
-                    subtitle = "Scan/kode paket dan foto barang wajib lengkap sebelum mulai pengantaran.",
-                    primaryIcon = Icons.Default.QrCodeScanner,
-                    primaryLabel = if (pickupScanVerified) "Scan selesai" else "Scan barcode",
-                    onPrimary = onVerifyPickup,
-                    secondaryIcon = Icons.Default.CameraAlt,
-                    secondaryLabel = if (pickupPhotoVerified) "Foto selesai" else "Foto barang",
-                    onSecondary = onCapturePickupProof
+            RouteStateStrip(routePreview)
+            LocationGateStatus(order = order, targetPickup = flowState.targetIsPickup)
+
+            if (!flowState.deliveryDone) {
+                ActionButton(
+                    icon = Icons.Default.Navigation,
+                    label = if (flowState.targetIsPickup) "Navigasi ke pickup" else "Navigasi ke penerima",
+                    prominent = false,
+                    onClick = { openNavigation(context, flowState.activeAddress) }
                 )
+            }
+
+            SyncStateNotice(order = order)
+            OnDemandProgressTimeline(pickupDone = flowState.pickupDone, deliveryDone = flowState.deliveryDone)
+
+            if (!flowState.pickupDone) {
+                PackageChecklistCard(order = order, deliveryDone = flowState.deliveryDone)
                 MandatoryPickupChecklist(
                     scanDone = pickupScanVerified,
                     photoDone = pickupPhotoVerified
@@ -454,26 +475,18 @@ private fun OnDemandTaskActions(
                 order.itemDescription?.takeIf { it.isNotBlank() }?.let {
                     VerificationNotice("Isi paket: $it. Pastikan foto memperlihatkan kondisi barang sebelum dibawa.")
                 }
-            } else if (!deliveryDone) {
-                OnDemandProofPanel(
-                    title = "Bukti serah terima",
-                    subtitle = "Ambil foto POD hanya saat sudah berada di titik penerima.",
-                    primaryIcon = Icons.Default.CameraAlt,
-                    primaryLabel = "Ambil foto POD",
-                    onPrimary = onCapturePod,
-                    secondaryIcon = Icons.Default.CheckCircle,
-                    secondaryLabel = "GPS divalidasi",
-                    onSecondary = {}
-                )
+            } else if (!flowState.deliveryDone) {
+                VerificationNotice("Pickup lengkap. Bukti terima wajib diambil saat paket sudah diserahkan ke penerima.")
             } else {
                 VerificationNotice("Pengiriman selesai. Tidak ada tindakan lanjutan untuk pekerjaan ini.")
             }
 
             OnDemandSupportActions(
                 order = order,
-                pickupDone = pickupDone,
+                pickupDone = flowState.pickupDone,
                 onChatClick = onChatClick,
                 onSosClick = onSosClick,
+                onIssueClick = { showIssueDialog = true },
                 onCancelPickupClick = { showCancelPickupDialog = true }
             )
         }
@@ -487,6 +500,18 @@ private fun OnDemandTaskActions(
             onSubmit = { reasonCode, reasonNote, photoFile ->
                 showCancelPickupDialog = false
                 onCancelPickup(reasonCode, reasonNote, photoFile)
+            }
+        )
+    }
+
+    if (showIssueDialog) {
+        CourierIssueReportDialog(
+            order = order,
+            pickupDone = flowState.pickupDone,
+            onDismiss = { showIssueDialog = false },
+            onSubmit = { eventType, severity, message, photoFile ->
+                showIssueDialog = false
+                onReportIssue(eventType, severity, message, photoFile)
             }
         )
     }
@@ -531,7 +556,7 @@ private fun OnDemandProgressTimeline(pickupDone: Boolean, deliveryDone: Boolean)
         OnDemandTimelineItem(
             icon = Icons.Default.Storefront,
             title = "Jemput barang",
-            subtitle = "Scan atau foto barang di titik pickup",
+            subtitle = "Scan kode paket dan foto barang di titik pickup",
             done = pickupDone,
             active = !pickupDone
         )
@@ -544,8 +569,8 @@ private fun OnDemandProgressTimeline(pickupDone: Boolean, deliveryDone: Boolean)
         )
         OnDemandTimelineItem(
             icon = Icons.Default.CameraAlt,
-            title = "Bukti selesai",
-            subtitle = "Foto POD di titik penerima",
+            title = "Bukti Terima",
+            subtitle = "Foto bukti terima di titik penerima",
             done = deliveryDone,
             active = false,
             showConnector = false
@@ -680,6 +705,140 @@ private fun OnDemandProofPanel(
 }
 
 @Composable
+private fun CourierNextActionPanel(
+    flowState: CourierFlowState,
+    onClick: () -> Unit
+) {
+    val action = flowState.nextAction
+    val hasAction = action.type != CourierNextActionType.NONE
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = if (hasAction) LogisticsOrange.copy(alpha = 0.12f) else Success.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(
+            1.dp,
+            if (hasAction) LogisticsOrange.copy(alpha = 0.42f) else Success.copy(alpha = 0.42f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(color = Color.White, shape = RoundedCornerShape(8.dp)) {
+                    Icon(
+                        courierActionIcon(action.type),
+                        contentDescription = null,
+                        tint = if (hasAction) LogisticsOrange else Success,
+                        modifier = Modifier.padding(8.dp).size(20.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Aksi berikutnya", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = DeepForest)
+                    Text(action.helperText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (hasAction) {
+                Button(
+                    onClick = onClick,
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black)
+                ) {
+                    Icon(courierActionIcon(action.type), contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(action.label, fontWeight = FontWeight.Black)
+                }
+            } else {
+                Text(action.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Success)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SyncStateNotice(order: Order) {
+    val (text, color, icon) = when {
+        order.needsPodSync -> Triple(
+            "Bukti tersimpan di perangkat. Menunggu sinkronisasi otomatis.",
+            LogisticsOrange,
+            Icons.Default.CloudUpload
+        )
+        order.needsScanSync -> Triple(
+            "Scan tersimpan di perangkat. Menunggu sinkronisasi otomatis.",
+            LogisticsOrange,
+            Icons.Default.Sync
+        )
+        order.needsSync -> Triple(
+            "Tahap pengiriman tersimpan lokal. Menunggu sinkronisasi status.",
+            LogisticsOrange,
+            Icons.Default.Sync
+        )
+        order.proofSyncedAt != null -> Triple(
+            "Bukti sudah tersinkron ke server.",
+            Success,
+            Icons.Default.CloudDone
+        )
+        else -> Triple(
+            "Data tugas tersinkron.",
+            Success,
+            Icons.Default.CheckCircle
+        )
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = color.copy(alpha = 0.10f),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.32f))
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+            Text(text, style = MaterialTheme.typography.bodySmall, color = DeepForest, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+private fun runCourierNextAction(
+    context: android.content.Context,
+    flowState: CourierFlowState,
+    onVerifyPickup: () -> Unit,
+    onCapturePickupProof: () -> Unit,
+    onCapturePod: () -> Unit,
+    onUpdateStatus: (String) -> Unit,
+    onChatClick: () -> Unit
+) {
+    when (flowState.nextAction.type) {
+        CourierNextActionType.NAVIGATE_TO_PICKUP,
+        CourierNextActionType.NAVIGATE_TO_DROPOFF -> openNavigation(context, flowState.activeAddress)
+        CourierNextActionType.SCAN_PICKUP -> onVerifyPickup()
+        CourierNextActionType.CAPTURE_PICKUP_PHOTO -> onCapturePickupProof()
+        CourierNextActionType.START_DELIVERY -> onUpdateStatus(flowState.nextAction.targetStatus ?: "in_transit")
+        CourierNextActionType.CAPTURE_DELIVERY_PROOF -> onCapturePod()
+        CourierNextActionType.CONTACT_SUPPORT -> onChatClick()
+        CourierNextActionType.ACCEPT_OFFER,
+        CourierNextActionType.COMPLETE_DELIVERY,
+        CourierNextActionType.NONE -> Unit
+    }
+}
+
+private fun courierActionIcon(type: CourierNextActionType): androidx.compose.ui.graphics.vector.ImageVector {
+    return when (type) {
+        CourierNextActionType.ACCEPT_OFFER -> Icons.Default.AssignmentTurnedIn
+        CourierNextActionType.NAVIGATE_TO_PICKUP,
+        CourierNextActionType.NAVIGATE_TO_DROPOFF -> Icons.Default.Navigation
+        CourierNextActionType.SCAN_PICKUP -> Icons.Default.QrCodeScanner
+        CourierNextActionType.CAPTURE_PICKUP_PHOTO,
+        CourierNextActionType.CAPTURE_DELIVERY_PROOF -> Icons.Default.CameraAlt
+        CourierNextActionType.START_DELIVERY -> Icons.Default.LocalShipping
+        CourierNextActionType.COMPLETE_DELIVERY -> Icons.Default.CheckCircle
+        CourierNextActionType.CONTACT_SUPPORT -> Icons.AutoMirrored.Filled.Chat
+        CourierNextActionType.NONE -> Icons.Default.CheckCircle
+    }
+}
+
+@Composable
 private fun MandatoryPickupChecklist(
     scanDone: Boolean,
     photoDone: Boolean
@@ -699,14 +858,135 @@ private fun MandatoryPickupChecklist(
             )
             VerificationRequirementRow(
                 done = scanDone,
-                label = "Scan barcode atau input kode paket",
+                label = "Scan Kode Paket atau input kode paket",
                 description = "Mencocokkan paket dengan order aktif."
             )
             VerificationRequirementRow(
                 done = photoDone,
-                label = "Foto barang pickup",
+                label = "Foto Barang Saat Pickup",
                 description = "Bukti kondisi barang sebelum dibawa."
             )
+        }
+    }
+}
+
+@Composable
+private fun PackageChecklistCard(order: Order, deliveryDone: Boolean) {
+    val packageItems = order.packages
+    val hasPackageRows = packageItems.isNotEmpty()
+    val countLabel = if (hasPackageRows) packageItems.size else order.packageCount.coerceAtLeast(1)
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Primary.copy(alpha = 0.16f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Checklist paket", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = DeepForest)
+                    Text("$countLabel paket dalam order ini", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Surface(color = PrimaryLight, shape = RoundedCornerShape(8.dp)) {
+                    Text(
+                        if (deliveryDone) "POD" else "Aktif",
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                        color = Primary,
+                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+
+            if (!hasPackageRows) {
+                VerificationRequirementRow(
+                    done = order.packageCount <= 1 || order.pickupScanVerified || order.pickupPhotoVerified,
+                    label = "Paket utama",
+                    description = "Detail paket belum tersinkron per item. Backend tetap memvalidasi jumlah paket dan bukti."
+                )
+                return@Column
+            }
+
+            packageItems.forEachIndexed { index, item ->
+                val pickupDone = item.pickupScanDone() && item.pickupPhotoDone()
+                val podDone = item.podDone()
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = if (podDone) Success.copy(alpha = 0.10f) else PrimaryLight.copy(alpha = 0.42f),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, if (podDone) Success.copy(alpha = 0.36f) else Primary.copy(alpha = 0.12f))
+                ) {
+                    Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Surface(
+                            modifier = Modifier.size(32.dp),
+                            color = if (podDone) Success.copy(alpha = 0.16f) else Color.White,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("${index + 1}", fontWeight = FontWeight.Black, color = if (podDone) Success else DeepForest)
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(item.displayCode(), fontWeight = FontWeight.Bold, color = DeepForest)
+                            Text(
+                                item.description?.takeIf { it.isNotBlank() } ?: item.sizeTier?.takeIf { it.isNotBlank() } ?: "Paket ${index + 1}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(if (pickupDone) "Pickup OK" else "Pickup", style = MaterialTheme.typography.labelSmall, color = if (pickupDone) Success else LogisticsOrange, fontWeight = FontWeight.Bold)
+                            Text(if (podDone) "POD OK" else "POD", style = MaterialTheme.typography.labelSmall, color = if (podDone) Success else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RegularFailedDeliveryPanel(order: Order, onReportFailed: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.28f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Default.EventRepeat, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Gagal antar regular", fontWeight = FontWeight.Black, color = DeepForest)
+                    Text(
+                        "Sistem akan menjadwalkan ulang sampai batas service. Setelah batas tercapai, order masuk return required.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Policy: ${order.serviceFailedDeliveryPolicy.replace('_', ' ')}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            OutlinedButton(
+                onClick = onReportFailed,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.55f))
+            ) {
+                Icon(Icons.Default.AssignmentLate, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Laporkan gagal antar", fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
@@ -749,7 +1029,9 @@ private fun OnDemandSupportActions(
     pickupDone: Boolean,
     onChatClick: () -> Unit,
     onSosClick: () -> Unit,
-    onCancelPickupClick: () -> Unit
+    onIssueClick: () -> Unit,
+    onCancelPickupClick: () -> Unit,
+    showCancelPickup: Boolean = true
 ) {
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -762,7 +1044,7 @@ private fun OnDemandSupportActions(
                 }
             }, modifier = Modifier.weight(1f))
         }
-        if (!pickupDone) {
+        if (showCancelPickup && !pickupDone) {
             OutlinedButton(
                 onClick = onCancelPickupClick,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -774,6 +1056,17 @@ private fun OnDemandSupportActions(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Batalkan pickup", fontWeight = FontWeight.Bold)
             }
+        }
+        OutlinedButton(
+            onClick = onIssueClick,
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Primary),
+            border = BorderStroke(1.dp, Primary.copy(alpha = 0.55f))
+        ) {
+            Icon(Icons.Default.AssignmentLate, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Laporkan kendala pekerjaan", fontWeight = FontWeight.Bold)
         }
         OutlinedButton(
             onClick = onSosClick,
@@ -922,6 +1215,37 @@ private fun saveCancellationPhoto(context: android.content.Context, orderId: Str
 }
 
 @Composable
+private fun RouteStateStrip(routePreview: CourierRoutePreview?) {
+    if (routePreview == null) {
+        Surface(
+            color = LogisticsOrange.copy(alpha = 0.10f),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, LogisticsOrange.copy(alpha = 0.34f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(10.dp),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(Icons.Default.Route, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.size(18.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Rute sedang dimuat", fontWeight = FontWeight.Bold, color = DeepForest)
+                    Text(
+                        "Jika peta belum siap, gunakan tombol navigasi eksternal. Estimasi garis lurus tidak dianggap rute resmi.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        return
+    }
+
+    RoutePreviewStrip(routePreview)
+}
+
+@Composable
 private fun RoutePreviewStrip(routePreview: CourierRoutePreview) {
     val snapshot = routePreview.routeSnapshot
     val distanceKm = snapshot?.distanceKm?.takeIf { it > 0.0 } ?: routePreview.distanceKm
@@ -930,7 +1254,10 @@ private fun RoutePreviewStrip(routePreview: CourierRoutePreview) {
         ?: snapshot?.provider?.takeIf { it.isNotBlank() }
         ?: routePreview.provider
     val hasRouteGeometry = !routePreview.routePolyline.isNullOrBlank() || !snapshot?.routePolyline.isNullOrBlank()
-    val hasFallback = !routePreview.fallbackReason.isNullOrBlank() || !snapshot?.fallbackReason.isNullOrBlank()
+    val fallbackReason = routePreview.fallbackReason?.takeIf { it.isNotBlank() }
+        ?: snapshot?.fallbackReason?.takeIf { it.isNotBlank() }
+    val hasFallback = fallbackReason != null
+    val unavailable = distanceKm <= 0.0 || etaMinutes <= 0
     Surface(
         color = Color.White.copy(alpha = 0.82f),
         shape = RoundedCornerShape(8.dp),
@@ -942,17 +1269,34 @@ private fun RoutePreviewStrip(routePreview: CourierRoutePreview) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(Icons.Default.Route, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+            Icon(
+                if (unavailable) Icons.Default.LocationOff else Icons.Default.Route,
+                contentDescription = null,
+                tint = if (unavailable) LogisticsOrange else Primary,
+                modifier = Modifier.size(20.dp)
+            )
             Column(modifier = Modifier.weight(1f)) {
-                Text("Preview rute", fontWeight = FontWeight.Bold, color = DeepForest)
                 Text(
-                    "${String.format(Locale.US, "%.1f", distanceKm)} km • ETA $etaMinutes menit",
+                    when {
+                        unavailable -> "Rute belum tersedia"
+                        hasFallback || !hasRouteGeometry -> "Rute estimasi"
+                        else -> "Preview rute"
+                    },
+                    fontWeight = FontWeight.Bold,
+                    color = DeepForest
+                )
+                Text(
+                    if (unavailable) {
+                        "Gunakan navigasi eksternal sambil menunggu route provider."
+                    } else {
+                        "${String.format(Locale.US, "%.1f", distanceKm)} km • ETA $etaMinutes menit"
+                    },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (!hasRouteGeometry || hasFallback) {
+                if (!hasRouteGeometry || hasFallback || unavailable) {
                     Text(
-                        "Estimasi sementara. Rute sedang diperbarui.",
+                        fallbackReason ?: "Estimasi sementara. Garis fallback bukan rute resmi.",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -970,6 +1314,8 @@ private fun LocationGateStatus(order: Order, targetPickup: Boolean) {
     val context = LocalContext.current
     val targetLat = if (targetPickup) order.pickupLatitude else order.dropLatitude
     val targetLng = if (targetPickup) order.pickupLongitude else order.dropLongitude
+    val radiusM = order.serviceProofGeofenceRadiusM.coerceIn(1, 100)
+    val minAccuracyM = order.serviceProofMinAccuracyM.coerceIn(1, 500)
     var distanceM by remember(order.orderId, targetPickup) { mutableStateOf<Int?>(null) }
     var accuracyM by remember(order.orderId, targetPickup) { mutableStateOf<Int?>(null) }
     var permissionMissing by remember { mutableStateOf(false) }
@@ -1001,13 +1347,13 @@ private fun LocationGateStatus(order: Order, targetPickup: Boolean) {
         }
     }
 
-    val ready = distanceM != null && distanceM!! <= 150 && (accuracyM == null || accuracyM!! <= 100)
+    val ready = distanceM != null && distanceM!! <= radiusM && (accuracyM == null || accuracyM!! <= minAccuracyM)
     val copy = when {
         permissionMissing -> "GPS belum diizinkan. Aktifkan permission lokasi untuk validasi titik."
-        targetLat == null || targetLng == null -> "Koordinat titik belum lengkap. Backend tetap akan memvalidasi saat bukti dikirim."
+        targetLat == null || targetLng == null -> "Koordinat titik belum lengkap. Laporkan kendala lokasi jika titik operasional tidak sesuai."
         distanceM == null -> "Mengecek jarak ke titik ${if (targetPickup) "pickup" else "tujuan"}..."
         ready -> "Lokasi valid: ${distanceM}m dari titik, akurasi ${accuracyM ?: 0}m."
-        else -> "Belum di titik ${if (targetPickup) "pickup" else "tujuan"}: ${distanceM}m dari radius 150m."
+        else -> "Belum di titik ${if (targetPickup) "pickup" else "tujuan"}: ${distanceM}m dari radius ${radiusM}m."
     }
     val color = if (ready) Success else LogisticsOrange
 
@@ -1022,7 +1368,14 @@ private fun LocationGateStatus(order: Order, targetPickup: Boolean) {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Icon(if (ready) Icons.Default.GpsFixed else Icons.Default.LocationSearching, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
-            Text(copy, style = MaterialTheme.typography.bodySmall, color = DeepForest, fontWeight = FontWeight.Medium)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(copy, style = MaterialTheme.typography.bodySmall, color = DeepForest, fontWeight = FontWeight.Medium)
+                Text(
+                    "Aturan bukti: radius maksimal ${radiusM}m dan akurasi maksimal ${minAccuracyM}m. GPS buruk harus retry atau override terkendali dari server.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
@@ -1035,7 +1388,7 @@ private fun OnDemandStepper(pickupDone: Boolean, deliveryDone: Boolean) {
     ) {
         StepPill("Pickup", active = !pickupDone, done = pickupDone, modifier = Modifier.weight(1f))
         StepPill("Antar", active = pickupDone && !deliveryDone, done = deliveryDone, modifier = Modifier.weight(1f))
-        StepPill("POD", active = false, done = deliveryDone, modifier = Modifier.weight(1f))
+        StepPill("Bukti", active = false, done = deliveryDone, modifier = Modifier.weight(1f))
     }
 }
 
@@ -1050,7 +1403,7 @@ private fun StepPill(label: String, active: Boolean, done: Boolean, modifier: Mo
         modifier = modifier,
         color = color,
         shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, Color.Black)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.32f))
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
@@ -1060,11 +1413,11 @@ private fun StepPill(label: String, active: Boolean, done: Boolean, modifier: Mo
             Icon(
                 imageVector = if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
                 contentDescription = null,
-                tint = if (done || active) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = if (done || active) DeepForest else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(14.dp)
             )
             Spacer(modifier = Modifier.width(4.dp))
-            Text(label, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, color = if (done || active) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(label, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium, color = if (done || active) DeepForest else MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -1102,7 +1455,7 @@ private fun CompactActionButton(
         modifier = modifier.height(52.dp),
         shape = RoundedCornerShape(8.dp),
         colors = ButtonDefaults.buttonColors(containerColor = container, contentColor = content),
-        border = BorderStroke(1.dp, Color.Black),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)),
         contentPadding = PaddingValues(horizontal = 8.dp)
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -1147,7 +1500,7 @@ private fun OrderInfoCard(order: Order) {
             InfoRow(label = "Order ID", value = order.orderId)
             InfoRow(label = "Pelanggan", value = order.customerName)
             InfoRow(label = "Pickup", value = order.pickupAddress)
-            InfoRow(label = "Drop-off", value = order.dropAddress)
+            InfoRow(label = "Tujuan", value = order.dropAddress)
             InfoRow(label = "Waktu Pickup", value = order.pickupTime)
             InfoRow(label = "Jarak", value = order.distance)
             InfoRow(label = "Pendapatan", value = order.fee)
@@ -1184,9 +1537,14 @@ private fun InfoRow(label: String, value: String) {
 @Composable
 private fun OrderActions(
     order: Order,
+    flowState: CourierFlowState,
     onStatusClick: () -> Unit,
+    onUpdateStatus: (String) -> Unit,
+    onVerifyPickup: () -> Unit,
+    onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
-    onChatClick: () -> Unit
+    onChatClick: () -> Unit,
+    onSosClick: () -> Unit
 ) {
     val context = LocalContext.current
     Card(
@@ -1194,88 +1552,225 @@ private fun OrderActions(
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Text(
-                text = "Aksi Kurir",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            OnDemandJobHeader(
+                order = order,
+                phaseTitle = flowState.title,
+                phaseInstruction = flowState.instruction
             )
-            Spacer(modifier = Modifier.height(16.dp))
 
-            ActionButton(
-                icon = Icons.Default.Navigation,
-                label = "Mulai Navigasi",
-                prominent = true,
+            OnDemandCurrentStopCard(
+                title = flowState.activeAddressLabel,
+                address = flowState.activeAddress,
+                icon = if (flowState.targetIsPickup) Icons.Default.Storefront else Icons.Default.LocationOn,
+                gateLabel = if (flowState.targetIsPickup) "Validasi di titik pickup" else "Validasi di titik penerima"
+            )
+
+            CourierNextActionPanel(
+                flowState = flowState,
                 onClick = {
-                    openNavigation(context, order.dropAddress)
+                    runCourierNextAction(
+                        context = context,
+                        flowState = flowState,
+                        onVerifyPickup = onVerifyPickup,
+                        onCapturePickupProof = onCapturePickupProof,
+                        onCapturePod = onCapturePod,
+                        onUpdateStatus = onUpdateStatus,
+                        onChatClick = onChatClick
+                    )
                 }
             )
 
-            ActionButton(
-                    icon = Icons.AutoMirrored.Filled.Chat,
-                label = "Chat Pelanggan",
-                onClick = onChatClick
-            )
+            LocationGateStatus(order = order, targetPickup = flowState.targetIsPickup)
 
-            ActionButton(
-                    icon = Icons.AutoMirrored.Filled.Message,
-                label = "Chat WhatsApp",
-                onClick = {
-                    val phone = order.phoneNumber ?: ""
-                    if (phone.isNotBlank()) {
-                        try {
-                            val clean = phone.replace(Regex("[^0-9]"), "")
-                            val formattedPhone = when {
-                                clean.startsWith("0") -> "62" + clean.substring(1)
-                                clean.startsWith("62") -> clean
-                                else -> "62$clean"
-                            }
-                            val message = "Halo ${order.customerName}, saya Kurir TEMBUS sedang menuju ke alamat pengantaran Anda (Pesanan: ${order.orderId})."
-                            val waUri = Uri.parse("https://api.whatsapp.com/send?phone=$formattedPhone&text=${Uri.encode(message)}")
-                            val waIntent = Intent(Intent.ACTION_VIEW, waUri)
-                            context.startActivity(waIntent)
-                        } catch (e: Exception) {
-                            android.widget.Toast.makeText(context, "WhatsApp tidak terinstall atau nomor tidak valid.", android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        android.widget.Toast.makeText(context, "Nomor telepon pelanggan tidak tersedia.", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }
-            )
-
-            ActionButton(
-                icon = Icons.Default.Phone,
-                label = "Telepon Pelanggan",
-                onClick = {
-                    val phone = order.phoneNumber ?: ""
-                    if (phone.isNotBlank()) {
-                        try {
-                            val callIntent = Intent(Intent.ACTION_DIAL).apply {
-                                data = Uri.parse("tel:$phone")
-                            }
-                            context.startActivity(callIntent)
-                        } catch (e: Exception) {
-                            android.widget.Toast.makeText(context, "Gagal membuka tombol telepon.", android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            )
-
-            ActionButton(
-                icon = Icons.Default.CameraAlt,
-                label = "Upload Bukti Pengiriman",
-                onClick = onCapturePod
-            )
-
-            if (order.normalizedWorkflowRole() == "on_demand" || order.status.isNotBlank()) {
+            if (!flowState.deliveryDone) {
                 ActionButton(
-                    icon = Icons.Default.Update,
-                label = "Perbarui Status Pesanan",
-                    onClick = onStatusClick
+                    icon = Icons.Default.Navigation,
+                    label = if (flowState.targetIsPickup) "Navigasi ke pickup" else "Navigasi ke penerima",
+                    prominent = false,
+                    onClick = { openNavigation(context, flowState.activeAddress) }
                 )
+            }
+
+            SyncStateNotice(order = order)
+            OnDemandProgressTimeline(pickupDone = flowState.pickupDone, deliveryDone = flowState.deliveryDone)
+
+            if (!flowState.pickupDone) {
+                PackageChecklistCard(order = order, deliveryDone = flowState.deliveryDone)
+                MandatoryPickupChecklist(
+                    scanDone = flowState.pickupScanDone,
+                    photoDone = flowState.pickupPhotoDone
+                )
+            } else if (!flowState.deliveryDone) {
+                PackageChecklistCard(order = order, deliveryDone = flowState.deliveryDone)
+                VerificationNotice("Order regular sedang diantar. Ambil bukti terima setelah paket diserahkan.")
+            }
+
+            OnDemandSupportActions(
+                order = order,
+                pickupDone = flowState.pickupDone,
+                onChatClick = onChatClick,
+                onSosClick = onSosClick,
+                onIssueClick = onChatClick,
+                onCancelPickupClick = {},
+                showCancelPickup = false
+            )
+
+            if (!flowState.deliveryDone && order.normalizedWorkflowRole() == "regular") {
+                RegularFailedDeliveryPanel(order = order, onReportFailed = { onUpdateStatus("failed") })
+            }
+
+            TextButton(onClick = onStatusClick, modifier = Modifier.align(Alignment.End)) {
+                Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Koreksi tahap")
             }
         }
     }
+}
+
+private data class CourierIssueReason(
+    val code: String,
+    val title: String,
+    val description: String,
+    val severity: String
+)
+
+@Composable
+private fun CourierIssueReportDialog(
+    order: Order,
+    pickupDone: Boolean,
+    onDismiss: () -> Unit,
+    onSubmit: (eventType: String, severity: String, message: String, photoFile: File) -> Unit
+) {
+    val context = LocalContext.current
+    val isOnDemand = order.normalizedWorkflowRole() == "on_demand"
+    val reasons = remember(order.orderId, isOnDemand, pickupDone) {
+        if (pickupDone && isOnDemand) {
+            listOf(
+                CourierIssueReason("recipient_unavailable", "Penerima tidak tersedia", "Kurir sudah di tujuan tetapi penerima tidak bisa menerima paket.", "high"),
+                CourierIssueReason("address_not_found", "Alamat tidak ditemukan", "Alamat tujuan tidak bisa diverifikasi dari lokasi atau navigasi.", "high"),
+                CourierIssueReason("package_issue", "Masalah paket", "Paket rusak, tertukar, atau butuh pemeriksaan operasional.", "high"),
+                CourierIssueReason("operational_assist", "Butuh bantuan operasional", "On-demand wajib diselesaikan, minta bantuan tanpa membuat return atau reschedule.", "high")
+            )
+        } else if (pickupDone) {
+            listOf(
+                CourierIssueReason("recipient_unavailable", "Penerima tidak tersedia", "Regular dapat dijadwalkan ulang sesuai policy percobaan maksimal.", "high"),
+                CourierIssueReason("address_not_found", "Alamat tidak ditemukan", "Alamat tujuan tidak bisa diverifikasi dari lokasi atau navigasi.", "high"),
+                CourierIssueReason("package_issue", "Masalah paket", "Paket rusak, tertukar, atau butuh pemeriksaan operasional.", "high"),
+                CourierIssueReason("reschedule_required", "Perlu reschedule", "Regular delivery perlu percobaan ulang sesuai policy operasional.", "high")
+            )
+        } else {
+            listOf(
+                CourierIssueReason("address_not_found", "Pickup tidak ditemukan", "Alamat pickup tidak bisa diverifikasi dari lokasi atau navigasi.", "medium"),
+                CourierIssueReason("package_issue", "Masalah barang pickup", "Barang tidak sesuai, rusak, atau tidak siap diserahkan.", "high"),
+                CourierIssueReason("route_issue", "Kendala rute/lokasi", "Rute, titik GPS, atau akses lokasi butuh bantuan operasional.", "medium")
+            )
+        }
+    }
+    var selectedCode by rememberSaveable(order.orderId, pickupDone) { mutableStateOf(reasons.first().code) }
+    var note by rememberSaveable(order.orderId, pickupDone) { mutableStateOf("") }
+    var proofBitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var submitAttempted by remember { mutableStateOf(false) }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        if (bitmap != null) proofBitmap = bitmap
+    }
+    val selectedReason = reasons.firstOrNull { it.code == selectedCode } ?: reasons.first()
+    val noteMissing = submitAttempted && note.trim().length < 8
+    val photoMissing = submitAttempted && proofBitmap == null
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Laporkan Kendala", fontWeight = FontWeight.Black) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 520.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Laporan dikirim ke operasional dengan order, lokasi terakhir, akurasi GPS, dan timestamp server.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                reasons.forEach { reason ->
+                    FilterChip(
+                        selected = selectedCode == reason.code,
+                        onClick = { selectedCode = reason.code },
+                        label = {
+                            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                Text(reason.title, fontWeight = FontWeight.Bold)
+                                Text(reason.description, style = MaterialTheme.typography.labelSmall)
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it.take(500) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Catatan operasional") },
+                    minLines = 3,
+                    supportingText = { Text("${note.length}/500") },
+                    isError = noteMissing
+                )
+                if (noteMissing) {
+                    Text("Tuliskan catatan minimal 8 karakter agar tim operasional punya konteks.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                }
+                OutlinedButton(
+                    onClick = { cameraLauncher.launch(null) },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = if (proofBitmap == null) MaterialTheme.colorScheme.error else Success),
+                    border = BorderStroke(1.dp, if (proofBitmap == null) MaterialTheme.colorScheme.error.copy(alpha = 0.7f) else Success.copy(alpha = 0.7f))
+                ) {
+                    Icon(if (proofBitmap == null) Icons.Default.CameraAlt else Icons.Default.CheckCircle, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(if (proofBitmap == null) "Ambil foto bukti" else "Foto bukti siap", fontWeight = FontWeight.Bold)
+                }
+                if (photoMissing) {
+                    Text("Foto bukti wajib untuk laporan kendala lapangan.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    submitAttempted = true
+                    val trimmed = note.trim()
+                    val bitmap = proofBitmap
+                    if (trimmed.length >= 8 && bitmap != null) {
+                        onSubmit(
+                            selectedReason.code,
+                            selectedReason.severity,
+                            "${selectedReason.title}: $trimmed",
+                            saveIssuePhoto(context, order.orderId, selectedReason.code, bitmap)
+                        )
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black)
+            ) {
+                Text("Kirim laporan", fontWeight = FontWeight.Black)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Kembali")
+            }
+        }
+    )
+}
+
+private fun saveIssuePhoto(context: android.content.Context, orderId: String, issueCode: String, bitmap: Bitmap): File {
+    val safeOrderId = orderId.replace(Regex("[^A-Za-z0-9_-]"), "_")
+    val safeIssueCode = issueCode.replace(Regex("[^A-Za-z0-9_-]"), "_")
+    val file = File(context.cacheDir, "issue_${safeIssueCode}_${safeOrderId}_${System.currentTimeMillis()}.jpg")
+    FileOutputStream(file).use { out ->
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 88, out)
+    }
+    return file
 }
 
 private fun openNavigation(context: android.content.Context, address: String) {
@@ -1307,7 +1802,7 @@ private fun ActionButton(
 
     Button(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().height(48.dp),
+        modifier = Modifier.fillMaxWidth().height(52.dp),
         shape = RoundedCornerShape(8.dp),
         colors = colors,
         border = border
@@ -1361,7 +1856,7 @@ private fun OrderStatusOptions(
                     )
                     if (option.requiresProof) {
                         Text(
-                            text = "Wajib lewat bukti pickup/POD",
+                            text = "Wajib lewat bukti pickup atau bukti terima",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -1374,6 +1869,18 @@ private fun OrderStatusOptions(
                 )
             }
         }
+    }
+}
+
+private fun isPickupPhotoRequired(order: Order, transitions: List<OrderStatusTransition>): Boolean {
+    if (order.normalizedWorkflowRole() == "on_demand") return true
+    if (order.pickupPhotoVerified || order.scanType == "pickup_photo") return true
+
+    val currentStatus = order.status.trim()
+    return transitions.any { transition ->
+        transition.fromStatus.equals(currentStatus, ignoreCase = true) &&
+            transition.requiresProof &&
+            transition.toStatus.lowercase(Locale.getDefault()) in setOf("picked_up", "pickup_verified", "in_transit")
     }
 }
 

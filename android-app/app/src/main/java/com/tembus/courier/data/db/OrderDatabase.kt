@@ -5,9 +5,11 @@ import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import net.sqlcipher.database.SupportFactory
+import com.tembus.courier.data.model.CourierOrderPackage
 import com.tembus.courier.data.model.Location
-
 import com.tembus.courier.data.model.Order
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 
 /**
  * Order Database
@@ -17,9 +19,10 @@ import com.tembus.courier.data.model.Order
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 10,
+    version = 13,
     exportSchema = false
 )
+@TypeConverters(Converters::class)
 abstract class OrderDatabase : RoomDatabase() {
 
     abstract fun orderDao(): OrderDao
@@ -100,6 +103,32 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `pod_proof_type` TEXT")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `proof_synced_at` INTEGER")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `pickup_evidence_updated_at` INTEGER")
+            }
+        }
+
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `package_count` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_max_packages_per_order` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_max_active_orders_on_demand` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_face_verification_required` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_proof_geofence_radius_m` INTEGER NOT NULL DEFAULT 10")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_failed_delivery_policy` TEXT NOT NULL DEFAULT 'must_deliver'")
+            }
+        }
+
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `packages` TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_proof_min_accuracy_m` INTEGER NOT NULL DEFAULT 50")
+            }
+        }
+
         fun getDatabase(context: Context): OrderDatabase {
             return INSTANCE ?: synchronized(this) {
                 // 🔐 SECURITY: Implementation of SQLCipher SupportFactory for on-disk encryption
@@ -116,7 +145,7 @@ abstract class OrderDatabase : RoomDatabase() {
                     "order_database"
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                     .build()
                 INSTANCE = instance
                 instance
@@ -131,7 +160,21 @@ abstract class OrderDatabase : RoomDatabase() {
  * Converts complex types (Uri, String) to database-compatible types.
  */
 class Converters {
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
-    // Add converters if needed for custom types
-    // Currently Order uses String for podImageUri which is compatible
+    @TypeConverter
+    fun packagesToString(packages: List<CourierOrderPackage>): String {
+        return json.encodeToString(ListSerializer(CourierOrderPackage.serializer()), packages)
+    }
+
+    @TypeConverter
+    fun stringToPackages(value: String?): List<CourierOrderPackage> {
+        if (value.isNullOrBlank()) return emptyList()
+        return runCatching {
+            json.decodeFromString(ListSerializer(CourierOrderPackage.serializer()), value)
+        }.getOrElse { emptyList() }
+    }
 }

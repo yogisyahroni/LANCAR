@@ -12,6 +12,7 @@ import com.tembus.courier.data.model.CourierPayoutCreateData
 import com.tembus.courier.data.model.CourierPayoutCreateRequest
 import com.tembus.courier.data.model.CourierPayoutRequestItem
 import com.tembus.courier.data.model.CourierPayoutSummaryData
+import com.tembus.courier.data.model.CourierActiveRoutePlan
 import com.tembus.courier.data.model.CourierRoutePreview
 import com.tembus.courier.data.model.CourierSafetyEventData
 import com.tembus.courier.data.model.CourierSafetyEventRequest
@@ -19,6 +20,7 @@ import com.tembus.courier.data.model.CourierServiceProduct
 import com.tembus.courier.data.model.CourierTrainingCompleteRequest
 import com.tembus.courier.data.model.CourierTrainingCompletion
 import com.tembus.courier.data.model.CourierDocumentUploadData
+import com.tembus.courier.data.model.CourierFaceVerificationData
 import com.tembus.courier.data.model.CourierOtpVerifyRequest
 import com.tembus.courier.data.model.CourierRegistrationData
 import com.tembus.courier.data.model.CourierRegistrationRequest
@@ -149,10 +151,33 @@ interface TEMBUSApiService {
         @Body request: CourierSafetyEventRequest
     ): Response<ApiResponse<CourierSafetyEventData>>
 
+    @Multipart
+    @POST("api/v1/courier/safety-events/photo")
+    suspend fun createSafetyEventWithPhoto(
+        @Part("order_id") orderId: RequestBody?,
+        @Part("event_type") eventType: RequestBody,
+        @Part("severity") severity: RequestBody,
+        @Part("latitude") latitude: RequestBody?,
+        @Part("longitude") longitude: RequestBody?,
+        @Part("accuracy") accuracy: RequestBody?,
+        @Part("message") message: RequestBody?,
+        @Part photo: MultipartBody.Part
+    ): Response<ApiResponse<CourierSafetyEventData>>
+
     @POST("api/v1/courier/trip-share")
     suspend fun createTripShare(
         @Body request: TripShareRequest
     ): Response<ApiResponse<TripShareData>>
+
+    @Multipart
+    @POST("api/v1/courier/face/verify")
+    suspend fun verifyCourierFace(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
+        @Part("order_id") orderId: RequestBody?,
+        @Part("verification_type") verificationType: RequestBody,
+        @Part("liveness_score") livenessScore: RequestBody?,
+        @Part photo: MultipartBody.Part
+    ): Response<ApiResponse<CourierFaceVerificationData>>
 
     @PATCH("api/v1/courier/duty")
     suspend fun updateDutyStatus(
@@ -196,6 +221,9 @@ interface TEMBUSApiService {
         @Path("orderId") orderId: String
     ): Response<ApiResponse<CourierRoutePreview>>
 
+    @GET("api/v1/courier/routes/active-plan")
+    suspend fun getCourierActiveRoutePlan(): Response<ApiResponse<CourierActiveRoutePlan>>
+
     @Multipart
     @POST("api/v1/courier/orders/{orderId}/cancel-pickup")
     suspend fun cancelOnDemandPickup(
@@ -213,7 +241,8 @@ interface TEMBUSApiService {
      */
     @POST("api/v1/courier/offers/{id}/accept")
     suspend fun acceptOnDemandOffer(
-        @Path("id") orderId: String
+        @Path("id") orderId: String,
+        @Header("X-Idempotency-Key") idempotencyKey: String
     ): Response<ApiResponse<Order>>
 
     /**
@@ -222,6 +251,7 @@ interface TEMBUSApiService {
     @POST("api/v1/courier/offers/{id}/reject")
     suspend fun rejectOnDemandOffer(
         @Path("id") orderId: String,
+        @Header("X-Idempotency-Key") idempotencyKey: String,
         @Body request: Map<String, String> = mapOf("reason" to "courier_rejected")
     ): Response<ApiResponse<Boolean>>
 
@@ -238,6 +268,7 @@ interface TEMBUSApiService {
      */
     @POST("api/v1/orders/scan")
     suspend fun scanPackage(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
         @Body request: ScanRequest
     ): Response<ApiResponse<ScanResponse>>
 
@@ -247,12 +278,16 @@ interface TEMBUSApiService {
     @Multipart
     @POST("api/v1/orders/pod/upload")
     suspend fun uploadPod(
+        @Header("X-Idempotency-Key") idempotencyKey: String,
         @Part("order_id") orderId: RequestBody,
         @Part("latitude") latitude: RequestBody,
         @Part("longitude") longitude: RequestBody,
         @Part("accuracy") accuracy: RequestBody,
         @Part("proof_type") proofType: RequestBody,
         @Part("barcode_value") barcodeValue: RequestBody?,
+        @Part("package_code") packageCode: RequestBody?,
+        @Part("face_verification_id") faceVerificationId: RequestBody?,
+        @Part("override_reason") overrideReason: RequestBody?,
         @Part("spoof_risk") spoofRisk: RequestBody?,
         @Part photo: MultipartBody.Part
     ): Response<ApiResponse<JsonElement>>

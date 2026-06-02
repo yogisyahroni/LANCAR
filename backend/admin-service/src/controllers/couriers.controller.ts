@@ -3,7 +3,7 @@ import { db, readDb } from '../db';
 import crypto from 'crypto';
 import { saveSecureUploadBuffer } from '../security/uploadSecurity';
 
-const requiredOnDemandDocuments = ['ktp', 'sim', 'stnk', 'skpd', 'vehicle_photo', 'skck', 'bank_account'];
+const requiredOnDemandDocuments = ['ktp', 'sim', 'stnk', 'skpd', 'vehicle_photo', 'skck', 'bank_account', 'face_enrollment'];
 const forbiddenVehicleCategories = ['trail', 'sport', 'touring'];
 const allowedApplicationChannels = ['on_demand', 'regular'];
 const channelLabels: Record<string, string> = {
@@ -64,7 +64,7 @@ const buildOnboardingChecklist = (body: any, applicationChannel = 'on_demand') =
   };
 };
 
-const requiredCourierDocuments = ['ktp', 'sim', 'stnk', 'skpd', 'vehicle_photo', 'skck', 'bank_account'];
+const requiredCourierDocuments = requiredOnDemandDocuments;
 
 const checklistPassed = (checklist: any) => {
   const docs = checklist.documents || {};
@@ -73,6 +73,8 @@ const checklistPassed = (checklist: any) => {
   const ruleValues = Object.values(rules);
   return requiredDocsPassed && ruleValues.length > 0 && ruleValues.every(Boolean);
 };
+
+const pseudoChecksum = (value: string) => crypto.createHash('sha256').update(value).digest('hex');
 
 const vehicleProductType = (profile: any) => {
   const value = String(profile.vehicle_category || profile.vehicle_type || '').toLowerCase();
@@ -487,6 +489,40 @@ const submitCourierApplication = async (
       );
     }
 
+    const faceEnrollmentUrl = documents.face_enrollment ? String(documents.face_enrollment) : null;
+    if (faceEnrollmentUrl) {
+      await client.query(
+        `INSERT INTO courier_face_enrollments (
+           courier_id,
+           status,
+           provider,
+           image_url,
+           image_checksum_sha256,
+           metadata
+         )
+         VALUES ($1, 'pending_review', 'registration_upload', $2, $3, $4)
+         ON CONFLICT DO NOTHING`,
+        [
+          userId,
+          faceEnrollmentUrl,
+          pseudoChecksum(faceEnrollmentUrl),
+          JSON.stringify({
+            source: 'courier_registration',
+            application_channel: applicationChannel,
+            captured_at: new Date().toISOString()
+          })
+        ]
+      );
+
+      await client.query(
+        `UPDATE courier_profiles
+            SET face_enrolled = TRUE,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [courierId]
+      );
+    }
+
     await upsertCourierVehicleAndCapabilities(client, courierId, { approveEligible: false });
 
     if (registrationLinkId) {
@@ -750,7 +786,8 @@ export const getCourierById = async (req: Request, res: Response): Promise<void>
       [id]
     );
     const capabilitiesRes = await readDb.query(
-      `SELECT csc.*, dsp.name AS service_name, dsp.service_category, dsp.service_family, dsp.route_model
+      `SELECT csc.*, dsp.name AS service_name, dsp.service_category, dsp.service_family, dsp.route_model,
+              dsp.batching_allowed
        FROM courier_service_capabilities csc
        JOIN delivery_service_products dsp ON dsp.code = csc.service_code
        WHERE csc.courier_profile_id = $1
@@ -917,6 +954,25 @@ export const getMobileCourierCapabilities = async (req: Request, res: Response):
     const capabilitiesRes = await readDb.query(
       `SELECT csc.id, csc.service_code, dsp.name AS service_name, dsp.description, dsp.service_category,
               dsp.service_family, dsp.route_model, csc.status, csc.eligibility_reason,
+              dsp.batching_allowed,
+              dsp.max_packages_per_order,
+              dsp.max_active_orders_regular,
+              dsp.max_active_orders_on_demand,
+              dsp.same_customer_batching_required,
+              dsp.allow_new_offer_while_pickup,
+              dsp.allow_new_offer_while_delivery,
+              dsp.max_pickup_detour_km::float8 AS max_pickup_detour_km,
+              dsp.max_delivery_detour_km::float8 AS max_delivery_detour_km,
+              dsp.max_direction_deviation_degrees,
+              dsp.assignment_radius_pickup_km::float8 AS assignment_radius_pickup_km,
+              dsp.assignment_radius_delivery_km::float8 AS assignment_radius_delivery_km,
+              dsp.traffic_aware_assignment,
+              dsp.proof_geofence_radius_m,
+              dsp.proof_min_accuracy_m,
+              dsp.face_verification_required,
+              dsp.regular_max_reschedule_attempts,
+              dsp.failed_delivery_policy,
+              dsp.pod_label,
               csc.max_weight_kg::float8 AS max_weight_kg, csc.approved_at
        FROM courier_service_capabilities csc
        JOIN delivery_service_products dsp ON dsp.code = csc.service_code

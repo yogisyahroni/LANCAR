@@ -20,6 +20,25 @@ type DeliveryService = {
   vehicle_types: string[]
   exclusive_driver: boolean
   batching_allowed: boolean
+  max_packages_per_order: number
+  max_active_orders_regular: number
+  max_active_orders_on_demand: number
+  same_customer_batching_required: boolean
+  allow_new_offer_while_pickup: boolean
+  allow_new_offer_while_delivery: boolean
+  max_pickup_detour_km: number
+  max_delivery_detour_km: number
+  max_direction_deviation_degrees: number
+  assignment_radius_pickup_km: number
+  assignment_radius_delivery_km: number
+  traffic_aware_assignment: boolean
+  proof_geofence_radius_m: number
+  proof_min_accuracy_m: number
+  proof_gps_override_policy: Record<string, any>
+  face_verification_required: boolean
+  regular_max_reschedule_attempts: number
+  failed_delivery_policy: 'must_deliver' | 'reschedule_then_return' | 'admin_review'
+  pod_label: string
   max_eta_minutes: number
   max_distance_km: number | null
   max_weight_kg: number | null
@@ -89,6 +108,25 @@ const emptyService: DeliveryService = {
   vehicle_types: ['motor'],
   exclusive_driver: true,
   batching_allowed: false,
+  max_packages_per_order: 1,
+  max_active_orders_regular: 3,
+  max_active_orders_on_demand: 1,
+  same_customer_batching_required: true,
+  allow_new_offer_while_pickup: false,
+  allow_new_offer_while_delivery: false,
+  max_pickup_detour_km: 1,
+  max_delivery_detour_km: 2,
+  max_direction_deviation_degrees: 45,
+  assignment_radius_pickup_km: 2,
+  assignment_radius_delivery_km: 3,
+  traffic_aware_assignment: true,
+  proof_geofence_radius_m: 10,
+  proof_min_accuracy_m: 50,
+  proof_gps_override_policy: { enabled: true, soft_radius_m: 25, max_accuracy_m: 100, requires_reason: true, manual_review_required: true },
+  face_verification_required: true,
+  regular_max_reschedule_attempts: 3,
+  failed_delivery_policy: 'must_deliver',
+  pod_label: 'POD',
   max_eta_minutes: 240,
   max_distance_km: 70,
   max_weight_kg: 20,
@@ -141,6 +179,12 @@ const serviceDefaultsForCategory = (categoryCode: string, familyCode = 'regular'
       route_model: 'p2p',
       exclusive_driver: false,
       batching_allowed: true,
+      max_packages_per_order: 8,
+      max_active_orders_regular: 6,
+      max_active_orders_on_demand: 1,
+      allow_new_offer_while_pickup: false,
+      allow_new_offer_while_delivery: false,
+      failed_delivery_policy: 'reschedule_then_return',
       max_eta_minutes: 480,
       base_fare_idr: familyCode === 'express' ? 15000 : 9000,
       per_km_idr: familyCode === 'express' ? 3500 : 2500,
@@ -155,6 +199,11 @@ const serviceDefaultsForCategory = (categoryCode: string, familyCode = 'regular'
       vehicle_types: ['car'],
       exclusive_driver: true,
       batching_allowed: false,
+      max_packages_per_order: 4,
+      max_active_orders_on_demand: 1,
+      allow_new_offer_while_pickup: false,
+      allow_new_offer_while_delivery: false,
+      failed_delivery_policy: 'must_deliver',
       max_eta_minutes: 240,
       max_weight_kg: 100,
       uses_size_tier: false,
@@ -170,6 +219,11 @@ const serviceDefaultsForCategory = (categoryCode: string, familyCode = 'regular'
     route_model: 'p2p',
     exclusive_driver: true,
     batching_allowed: false,
+    max_packages_per_order: 1,
+    max_active_orders_on_demand: 1,
+    allow_new_offer_while_pickup: false,
+    allow_new_offer_while_delivery: false,
+    failed_delivery_policy: 'must_deliver',
     max_eta_minutes: 180,
     base_fare_idr: 12000,
     per_km_idr: 4500,
@@ -203,6 +257,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
   const [jsonText, setJsonText] = useState({
     size_tiers: '[]',
     dimension_rules: '{}',
+    proof_gps_override_policy: '{}',
     availability_rules: '{}',
     metadata: '{}'
   })
@@ -239,6 +294,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
       setJsonText({
         size_tiers: JSON.stringify(selected.size_tiers || [], null, 2),
         dimension_rules: JSON.stringify(selected.dimension_rules || {}, null, 2),
+        proof_gps_override_policy: JSON.stringify(selected.proof_gps_override_policy || {}, null, 2),
         availability_rules: JSON.stringify(selected.availability_rules || {}, null, 2),
         metadata: JSON.stringify(selected.metadata || {}, null, 2)
       })
@@ -256,6 +312,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
     setJsonText({
       size_tiers: JSON.stringify(draft.size_tiers || [], null, 2),
       dimension_rules: JSON.stringify(draft.dimension_rules || {}, null, 2),
+      proof_gps_override_policy: JSON.stringify(draft.proof_gps_override_policy || {}, null, 2),
       availability_rules: JSON.stringify(draft.availability_rules || {}, null, 2),
       metadata: JSON.stringify(draft.metadata || {}, null, 2)
     })
@@ -291,6 +348,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
     setJsonText({
       size_tiers: JSON.stringify(draft.size_tiers || [], null, 2),
       dimension_rules: JSON.stringify(draft.dimension_rules || {}, null, 2),
+      proof_gps_override_policy: JSON.stringify(draft.proof_gps_override_policy || {}, null, 2),
       availability_rules: JSON.stringify(draft.availability_rules || {}, null, 2),
       metadata: JSON.stringify(draft.metadata || {}, null, 2)
     })
@@ -313,6 +371,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
       service_category: normalizedCategory || 'on_demand',
       size_tiers: parseJson(jsonText.size_tiers, []),
       dimension_rules: parseJson(jsonText.dimension_rules, {}),
+      proof_gps_override_policy: parseJson(jsonText.proof_gps_override_policy, {}),
       availability_rules: parseJson(jsonText.availability_rules, {}),
       metadata: parseJson(jsonText.metadata, {})
     })
@@ -489,6 +548,42 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
             <Toggle label="Pickup Verification" checked={form.requires_pickup_verification} onChange={(v) => updateField('requires_pickup_verification', v)} />
           </div>
 
+          <div className="mt-6 rounded-2xl border border-white/10 bg-zinc-950/70 p-5">
+            <div className="mb-4">
+              <p className="text-sm font-bold text-zinc-100">Courier V2 Operational Policy</p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Aturan ini dipakai backend untuk kapasitas paket, offer saat kurir aktif, geofence proof, dan face verification.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <NumberInput label="Max Packages / Order" value={form.max_packages_per_order} onChange={(v) => updateField('max_packages_per_order', v)} />
+              <NumberInput label="Regular Active Orders" value={form.max_active_orders_regular} onChange={(v) => updateField('max_active_orders_regular', v)} />
+              <NumberInput label="On Demand Active Orders" value={form.max_active_orders_on_demand} onChange={(v) => updateField('max_active_orders_on_demand', v)} />
+              <NumberInput label="Pickup Detour KM" value={form.max_pickup_detour_km} onChange={(v) => updateField('max_pickup_detour_km', v)} step="0.1" />
+              <NumberInput label="Delivery Detour KM" value={form.max_delivery_detour_km} onChange={(v) => updateField('max_delivery_detour_km', v)} step="0.1" />
+              <NumberInput label="Direction Deviation" value={form.max_direction_deviation_degrees} onChange={(v) => updateField('max_direction_deviation_degrees', v)} />
+              <NumberInput label="Pickup Radius KM" value={form.assignment_radius_pickup_km} onChange={(v) => updateField('assignment_radius_pickup_km', v)} step="0.1" />
+              <NumberInput label="Delivery Radius KM" value={form.assignment_radius_delivery_km} onChange={(v) => updateField('assignment_radius_delivery_km', v)} step="0.1" />
+              <NumberInput label="Proof Radius Meter" value={form.proof_geofence_radius_m} onChange={(v) => updateField('proof_geofence_radius_m', v)} />
+              <NumberInput label="Proof Accuracy Meter" value={form.proof_min_accuracy_m} onChange={(v) => updateField('proof_min_accuracy_m', v)} />
+              <NumberInput label="Regular Reschedule Max" value={form.regular_max_reschedule_attempts} onChange={(v) => updateField('regular_max_reschedule_attempts', v)} />
+              <TextInput label="POD Label" value={form.pod_label} onChange={(v) => updateField('pod_label', v)} />
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-3">
+              <Toggle label="Same Customer Batch Only" checked={form.same_customer_batching_required} onChange={(v) => updateField('same_customer_batching_required', v)} />
+              <Toggle label="Offer While Pickup" checked={form.allow_new_offer_while_pickup} onChange={(v) => updateField('allow_new_offer_while_pickup', v)} />
+              <Toggle label="Offer While Delivery" checked={form.allow_new_offer_while_delivery} onChange={(v) => updateField('allow_new_offer_while_delivery', v)} />
+              <Toggle label="Traffic-Aware Assignment" checked={form.traffic_aware_assignment} onChange={(v) => updateField('traffic_aware_assignment', v)} />
+              <Toggle label="Face Verification" checked={form.face_verification_required} onChange={(v) => updateField('face_verification_required', v)} />
+              <SelectInput
+                label="Failed Delivery Policy"
+                value={form.failed_delivery_policy}
+                onChange={(v) => updateField('failed_delivery_policy', v as DeliveryService['failed_delivery_policy'])}
+                options={['must_deliver', 'reschedule_then_return', 'admin_review']}
+              />
+            </div>
+          </div>
+
           <div className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100">
             <div className="flex items-start gap-3">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
@@ -502,6 +597,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
           <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
             <JsonInput label="Size Tiers JSON" value={jsonText.size_tiers} onChange={(v) => setJsonText((current) => ({ ...current, size_tiers: v }))} />
             <JsonInput label="Dimension Rules JSON" value={jsonText.dimension_rules} onChange={(v) => setJsonText((current) => ({ ...current, dimension_rules: v }))} />
+            <JsonInput label="GPS Override Policy JSON" value={jsonText.proof_gps_override_policy} onChange={(v) => setJsonText((current) => ({ ...current, proof_gps_override_policy: v }))} />
             <JsonInput label="Availability Rules JSON" value={jsonText.availability_rules} onChange={(v) => setJsonText((current) => ({ ...current, availability_rules: v }))} />
             <JsonInput label="Metadata JSON" value={jsonText.metadata} onChange={(v) => setJsonText((current) => ({ ...current, metadata: v }))} />
           </div>

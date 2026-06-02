@@ -38,6 +38,7 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
+import com.tembus.courier.domain.CourierProofTypes
 import com.tembus.courier.ui.theme.Primary
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -49,7 +50,7 @@ import java.util.concurrent.Executors
 @Composable
 fun ScanScreen(
     initialOrderId: String? = null,
-    scanType: String = "pickup",
+    scanType: String = CourierProofTypes.PICKUP_SCAN,
     title: String = "Verifikasi Barang",
     onScanSuccess: (String) -> Unit,
     onBack: () -> Unit,
@@ -59,9 +60,11 @@ fun ScanScreen(
     val scope = rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsState()
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
+    val isPickupScan = scanType in setOf("pickup", CourierProofTypes.PICKUP_SCAN)
 
     var packageCodeInput by remember(initialOrderId) { mutableStateOf("") }
     var hasSubmittedScan by remember(initialOrderId, scanType) { mutableStateOf(false) }
+    var verificationNotice by remember(initialOrderId, scanType) { mutableStateOf<String?>(null) }
 
     fun submitVerification(code: String) {
         val manualCode = code.trim()
@@ -69,10 +72,12 @@ fun ScanScreen(
         if (orderId.isBlank()) return
 
         hasSubmittedScan = true
+        verificationNotice = null
         scope.launch {
             val location = getCurrentVerificationLocation(context)
             if (location == null) {
                 hasSubmittedScan = false
+                verificationNotice = "Lokasi perangkat belum siap. Aktifkan GPS, tunggu akurasi membaik, lalu coba lagi."
                 Toast.makeText(
                     context,
                     "Lokasi perangkat sedang dikunci. Aktifkan GPS dan coba lagi.",
@@ -95,13 +100,16 @@ fun ScanScreen(
         when (uiState) {
             is ScanUiState.Success -> {
                 val data = (uiState as ScanUiState.Success).scanData
+                verificationNotice = null
                 Toast.makeText(context, "Verifikasi berhasil untuk ${data.orderId}", Toast.LENGTH_SHORT).show()
                 onScanSuccess(data.orderId)
                 viewModel.resetState()
             }
             is ScanUiState.Error -> {
+                val message = (uiState as ScanUiState.Error).message
                 hasSubmittedScan = false
-                Toast.makeText(context, (uiState as ScanUiState.Error).message, Toast.LENGTH_LONG).show()
+                verificationNotice = message
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 viewModel.resetState()
             }
             else -> {}
@@ -172,7 +180,7 @@ fun ScanScreen(
             }
             
             Text(
-                text = if (scanType == "pickup") "Scan barcode atau masukkan kode paket" else "Scan ulang kode paket",
+                text = if (isPickupScan) "Scan Kode Paket atau masukkan kode paket" else "Scan ulang Kode Paket",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -189,7 +197,7 @@ fun ScanScreen(
             )
 
             Text(
-                text = if (scanType == "pickup") {
+                text = if (isPickupScan) {
                     "Wajib diverifikasi sebelum kurir bisa mulai pengantaran."
                 } else {
                     "Validasi ulang dilakukan di titik penerima."
@@ -197,16 +205,37 @@ fun ScanScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
+            verificationNotice?.let { message ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.error.copy(alpha = 0.10f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
             
             Button(
                 onClick = { submitVerification(packageCodeInput) },
-                modifier = Modifier.fillMaxWidth().height(50.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
                 enabled = packageCodeInput.isNotBlank() && uiState !is ScanUiState.Loading
             ) {
                 if (uiState is ScanUiState.Loading) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                 } else {
-                    Text(if (scanType == "pickup") "Verifikasi Pickup" else "Verifikasi Dropoff")
+                    Text(if (isPickupScan) "Verifikasi Pickup" else "Verifikasi Tujuan")
                 }
             }
         }

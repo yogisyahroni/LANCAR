@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import * as controllers from './controllers/index';
 import { requireAuth, requireRole, requireTotp, verifyWebSession, verifySession, requireMobileOrWebAuth } from './middlewares';
-import { toggleRateLimiter } from './rateLimit';
+import { courierFaceRateLimiter, courierOfferRateLimiter, courierProofRateLimiter, toggleRateLimiter } from './rateLimit';
 import { requireIdempotencyKey } from './middleware/idempotencyRequirement';
 import { requireCookieCsrfProtection } from './middleware/csrfProtection';
 import { secureUploadSingle } from './security/uploadSecurity';
@@ -37,18 +37,21 @@ routes.get('/api/v1/courier/capabilities', requireMobileOrWebAuth, (req, res) =>
 routes.post('/api/v1/courier/training/complete', requireMobileOrWebAuth, (req, res) => controllers.completeMobileCourierTraining(req, res));
 routes.get('/api/v1/courier/orders', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOrders(req, res));
 routes.get('/api/v1/courier/offers', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOffers(req, res));
-routes.post('/api/v1/courier/offers/:id/accept', requireMobileOrWebAuth, requireIdempotencyKey('courier.offer.accept'), (req, res) => controllers.acceptMobileCourierOffer(req, res));
-routes.post('/api/v1/courier/offers/:id/reject', requireMobileOrWebAuth, requireIdempotencyKey('courier.offer.reject'), (req, res) => controllers.rejectMobileCourierOffer(req, res));
+routes.post('/api/v1/courier/offers/:id/accept', requireMobileOrWebAuth, courierOfferRateLimiter, requireIdempotencyKey('courier.offer.accept'), (req, res) => controllers.acceptMobileCourierOffer(req, res));
+routes.post('/api/v1/courier/offers/:id/reject', requireMobileOrWebAuth, courierOfferRateLimiter, requireIdempotencyKey('courier.offer.reject'), (req, res) => controllers.rejectMobileCourierOffer(req, res));
 routes.patch('/api/v1/courier/duty', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierDuty(req, res));
+routes.post('/api/v1/courier/face/verify', requireMobileOrWebAuth, courierFaceRateLimiter, requireIdempotencyKey('courier.face.verify'), ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.verifyMobileCourierFace(req, res));
 routes.post('/api/v1/courier/safety-events', requireMobileOrWebAuth, (req, res) => controllers.createMobileCourierSafetyEvent(req, res));
+routes.post('/api/v1/courier/safety-events/photo', requireMobileOrWebAuth, ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.createMobileCourierSafetyEvent(req, res));
 routes.post('/api/v1/courier/trip-share', requireMobileOrWebAuth, (req, res) => controllers.createMobileCourierTripShare(req, res));
+routes.get('/api/v1/courier/routes/active-plan', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierActiveRoutePlan(req, res));
 routes.get('/api/v1/courier/orders/:orderId/route', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierRoutePreview(req, res));
 routes.post('/api/v1/courier/orders/:orderId/cancel-pickup', requireMobileOrWebAuth, ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.cancelMobileCourierOnDemandPickup(req, res));
 routes.post('/api/v1/tracking/sync', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.syncCourierTracking(req, res));
 routes.get('/api/v1/tracking', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderTracking(req, res));
 routes.post('/api/v1/orders/status', requireMobileOrWebAuth, (req, res) => controllers.updateMobileCourierOrderStatus(req, res));
-routes.post('/api/v1/orders/scan', requireMobileOrWebAuth, requireIdempotencyKey('courier.proof.scan'), (req, res) => controllers.scanMobileCourierOrder(req, res));
-routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, requireIdempotencyKey('courier.pod.upload'), ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.uploadMobileCourierPod(req, res));
+routes.post('/api/v1/orders/scan', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.proof.scan'), (req, res) => controllers.scanMobileCourierOrder(req, res));
+routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, courierProofRateLimiter, requireIdempotencyKey('courier.pod.upload'), ...secureUploadSingle('photo', 'evidenceImage'), (req, res) => controllers.uploadMobileCourierPod(req, res));
 
 routes.get('/auth/web/me', verifySession, (req, res) => controllers.me(req, res));
 routes.get('/auth/web/notifications', verifySession, (req, res) => controllers.getUserNotifications(req, res));

@@ -77,7 +77,7 @@ fun OrderScreen(
             IconButton(onClick = { onSync() }) {
                 Icon(
                     imageVector = Icons.Default.Sync,
-                    contentDescription = "Sync orders",
+                    contentDescription = "Sinkronkan order",
                     tint = if (isSyncing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -173,7 +173,7 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
             }
 
             RouteRow(icon = Icons.Default.Storefront, label = "Pickup", value = order.pickupAddress)
-            RouteRow(icon = Icons.Default.LocationOn, label = "Dropoff", value = order.dropAddress)
+            RouteRow(icon = Icons.Default.LocationOn, label = "Tujuan", value = order.dropAddress)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

@@ -74,6 +74,12 @@ jest.mock('./controllers', () => ({
   getMobileCourierPayoutSummary: jest.fn((req, res) => res.status(200).json({ success: true, data: { eligibility: { can_request: true } } })),
   getMobileCourierPayoutRequests: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
   createMobileCourierPayoutRequest: jest.fn((req, res) => res.status(201).json({ success: true, data: { request: { id: 'payout-1' } } })),
+  getMobileCourierOffers: jest.fn((req, res) => res.status(200).json({ success: true, data: [] })),
+  acceptMobileCourierOffer: jest.fn((req, res) => res.status(200).json({ success: true, data: { id: req.params.id } })),
+  rejectMobileCourierOffer: jest.fn((req, res) => res.status(200).json({ success: true, data: { id: req.params.id } })),
+  verifyMobileCourierFace: jest.fn((req, res) => res.status(200).json({ success: true, data: { verified: true } })),
+  scanMobileCourierOrder: jest.fn((req, res) => res.status(200).json({ success: true, data: { scanned: true } })),
+  uploadMobileCourierPod: jest.fn((req, res) => res.status(200).json({ success: true, data: { uploaded: true } })),
   getPayouts: jest.fn((req, res) => res.status(200).json([])),
   exportPayouts: jest.fn((req, res) => res.status(200).send('csv,data')),
   updatePayoutStatus: jest.fn((req, res) => res.status(200).json({ status: 'updated' })),
@@ -148,6 +154,11 @@ jest.mock('./db', () => ({
 }));
 
 describe('Admin Service Routes', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (redis.get as jest.Mock).mockResolvedValue(null);
+  });
+
   it('should return all flags', async () => {
     const res = await request(app).get('/admin/feature-flags')
       .set(gatewayHeaders());
@@ -246,6 +257,82 @@ describe('Admin Service Routes', () => {
 
     expect(res.status).toBe(200);
     expect(controllers.getMobileCourierPayoutSummary).toHaveBeenCalled();
+  });
+
+  it('requires idempotency keys for courier offer, face, scan, and POD mutations', async () => {
+    const previousSetting = process.env.REQUIRE_IDEMPOTENCY_KEYS;
+    process.env.REQUIRE_IDEMPOTENCY_KEYS = 'true';
+
+    const courierHeaders = gatewayHeaders({
+      userId: 'courier-user-id',
+      role: 'courier',
+      fullName: 'Courier Test',
+      totpVerified: false,
+    });
+
+    const cases = [
+      {
+        path: '/api/v1/courier/offers/offer-1/accept',
+        body: {},
+        controller: controllers.acceptMobileCourierOffer,
+      },
+      {
+        path: '/api/v1/courier/face/verify',
+        body: { order_id: 'order-1' },
+        controller: controllers.verifyMobileCourierFace,
+      },
+      {
+        path: '/api/v1/orders/scan',
+        body: { order_id: 'order-1', package_code: 'PKG-1' },
+        controller: controllers.scanMobileCourierOrder,
+      },
+      {
+        path: '/api/v1/orders/pod/upload',
+        body: { order_id: 'order-1' },
+        controller: controllers.uploadMobileCourierPod,
+      },
+    ];
+
+    try {
+      for (const routeCase of cases) {
+        (routeCase.controller as jest.Mock).mockClear();
+
+        const res = await request(app)
+          .post(routeCase.path)
+          .set(courierHeaders)
+          .send(routeCase.body);
+
+        expect(res.status).toBe(428);
+        expect(res.body).toEqual(expect.objectContaining({ code: 'IDEMPOTENCY_KEY_REQUIRED' }));
+        expect(routeCase.controller).not.toHaveBeenCalled();
+      }
+    } finally {
+      if (previousSetting === undefined) {
+        delete process.env.REQUIRE_IDEMPOTENCY_KEYS;
+      } else {
+        process.env.REQUIRE_IDEMPOTENCY_KEYS = previousSetting;
+      }
+    }
+  });
+
+  it('rate limits courier mutations before idempotency persistence and controller execution', async () => {
+    (redis.get as jest.Mock).mockResolvedValueOnce('60');
+
+    const res = await request(app)
+      .post('/api/v1/courier/offers/offer-1/accept')
+      .set(gatewayHeaders({
+        userId: 'courier-user-id',
+        role: 'courier',
+        fullName: 'Courier Test',
+        totpVerified: false,
+      }))
+      .set('X-Idempotency-Key', 'offer-accept-rate-limit-1')
+      .send({});
+
+    expect(res.status).toBe(429);
+    expect(res.body).toEqual(expect.objectContaining({ code: 'ERR_RATE_LIMITED' }));
+    expect(controllers.acceptMobileCourierOffer).not.toHaveBeenCalled();
+    expect(db.query).not.toHaveBeenCalled();
   });
 
   it('requires TOTP for admin payout request status changes', async () => {

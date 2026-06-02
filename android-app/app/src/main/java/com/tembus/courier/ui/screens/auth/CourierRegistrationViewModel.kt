@@ -42,6 +42,7 @@ data class CourierRegistrationUiState(
     val vehiclePhotoRef: String = "",
     val skckRef: String = "",
     val bankRef: String = "",
+    val faceEnrollmentRef: String = "",
     val documentFileNames: Map<String, String> = emptyMap(),
     val uploadingDocType: String? = null,
     val simActive: Boolean = true,
@@ -102,6 +103,7 @@ class CourierRegistrationViewModel @Inject constructor(
                         "vehicle_photo" -> state.copy(vehiclePhotoRef = uploaded.fileUrl, documentFileNames = fileNames, uploadingDocType = null)
                         "skck" -> state.copy(skckRef = uploaded.fileUrl, documentFileNames = fileNames, uploadingDocType = null)
                         "bank_account" -> state.copy(bankRef = uploaded.fileUrl, documentFileNames = fileNames, uploadingDocType = null)
+                        "face_enrollment" -> state.copy(faceEnrollmentRef = uploaded.fileUrl, documentFileNames = fileNames, uploadingDocType = null)
                         else -> state.copy(documentFileNames = fileNames, uploadingDocType = null)
                     }
                 }
@@ -140,7 +142,8 @@ class CourierRegistrationViewModel @Inject constructor(
             state.skpdRef,
             state.vehiclePhotoRef,
             state.skckRef,
-            state.bankRef
+            state.bankRef,
+            state.faceEnrollmentRef
         ).any { it.isBlank() }
 
         if (requiredMissing) {
@@ -192,7 +195,8 @@ class CourierRegistrationViewModel @Inject constructor(
                         "skpd" to state.skpdRef,
                         "vehicle_photo" to state.vehiclePhotoRef,
                         "skck" to state.skckRef,
-                        "bank_account" to state.bankRef
+                        "bank_account" to state.bankRef,
+                        "face_enrollment" to state.faceEnrollmentRef
                     )
                 )
                 val response = apiService.registerCourier(request)

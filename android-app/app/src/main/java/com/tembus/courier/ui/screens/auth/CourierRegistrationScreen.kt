@@ -42,7 +42,8 @@ fun CourierRegistrationScreen(
         state.skpdRef,
         state.vehiclePhotoRef,
         state.skckRef,
-        state.bankRef
+        state.bankRef,
+        state.faceEnrollmentRef
     )
     val uploadedDocumentCount = requiredDocuments.count { it.isNotBlank() }
     val profileReady = state.fullName.isNotBlank() &&
@@ -105,7 +106,7 @@ fun CourierRegistrationScreen(
                     Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Primary, modifier = Modifier.size(42.dp))
                         Text("Pendaftaran terkirim", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("Tim operasional akan memeriksa e-KTP, SIM, STNK, SKPD, SKCK, rekening bank, dan kelayakan kendaraan.")
+                        Text("Tim operasional akan memeriksa e-KTP, SIM, STNK, SKPD, SKCK, rekening bank, verifikasi wajah, dan kelayakan kendaraan.")
                         Button(onClick = onBack, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Primary)) {
                             Text("Kembali ke Login")
                         }
@@ -179,6 +180,10 @@ fun CourierRegistrationScreen(
                 DocumentUploadRow("Bukti rekening bank", "bank_account", state.bankRef, state.documentFileNames["bank_account"], state.uploadingDocType) { docType ->
                     pendingDocType = docType
                     documentPicker.launch("*/*")
+                }
+                DocumentUploadRow("Verifikasi wajah", "face_enrollment", state.faceEnrollmentRef, state.documentFileNames["face_enrollment"], state.uploadingDocType) { docType ->
+                    pendingDocType = docType
+                    documentPicker.launch("image/*")
                 }
             }
 

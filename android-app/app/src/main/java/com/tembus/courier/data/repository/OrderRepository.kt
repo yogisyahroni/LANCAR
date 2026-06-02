@@ -2,8 +2,10 @@ package com.tembus.courier.data.repository
 
 import com.tembus.courier.data.api.TEMBUSApiService
 import com.tembus.courier.data.db.OrderDao
+import com.tembus.courier.data.model.CourierActiveRoutePlan
 import com.tembus.courier.data.model.Order
 import com.tembus.courier.data.model.StatusUpdateRequest
+import com.tembus.courier.domain.CourierProofTypes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -12,6 +14,7 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -73,23 +76,37 @@ class OrderRepository @Inject constructor(
     /**
      * Save scan locally
      */
-    suspend fun saveScanLocally(orderId: String, latitude: Double, longitude: Double, scanType: String) = withContext(Dispatchers.IO) {
+    suspend fun saveScanLocally(
+        orderId: String,
+        latitude: Double,
+        longitude: Double,
+        scanType: String,
+        synced: Boolean = false
+    ) = withContext(Dispatchers.IO) {
         val order = orderDao.getOrderById(orderId) ?: return@withContext
-        val nextStatus = when (scanType) {
-            "pickup", "pickup_photo" -> order.status
-            "delivery", "pod" -> "delivered"
+        val now = System.currentTimeMillis()
+        val normalizedScanType = normalizeScanType(scanType)
+        val scanCompletesPickup = normalizedScanType == CourierProofTypes.PICKUP_SCAN
+        val photoCompletesPickup = normalizedScanType == CourierProofTypes.PICKUP_PHOTO
+        val pickupScanDone = order.pickupScanVerified || scanCompletesPickup
+        val pickupPhotoDone = order.pickupPhotoVerified || photoCompletesPickup
+        val nextStatus = when {
+            normalizedScanType in setOf("delivery", "pod", CourierProofTypes.DELIVERY_POD_PHOTO) -> "delivered"
+            pickupScanDone && pickupPhotoDone && order.status.lowercase() !in setOf("in_transit", "delivered", "completed") -> "in_transit"
             else -> order.status
         }
         orderDao.update(
             order.copy(
-                needsScanSync = scanType != "pickup_photo",
+                needsScanSync = !synced && normalizedScanType != CourierProofTypes.PICKUP_PHOTO,
                 scanLatitude = latitude,
                 scanLongitude = longitude,
-                scanType = scanType,
+                scanType = normalizedScanType,
                 status = nextStatus,
-                pickupScanVerified = order.pickupScanVerified || scanType == "pickup" || scanType == "pickup_scan",
-                pickupPhotoVerified = order.pickupPhotoVerified || scanType == "pickup_photo",
-                updatedAt = System.currentTimeMillis()
+                pickupScanVerified = pickupScanDone,
+                pickupPhotoVerified = pickupPhotoDone,
+                pickupEvidenceUpdatedAt = if (scanCompletesPickup || photoCompletesPickup) now else order.pickupEvidenceUpdatedAt,
+                proofSyncedAt = if (synced) now else order.proofSyncedAt,
+                updatedAt = now
             )
         )
     }
@@ -97,16 +114,39 @@ class OrderRepository @Inject constructor(
     /**
      * Save PoD locally
      */
-    suspend fun savePodLocally(orderId: String, imageUri: String, latitude: Double? = null, longitude: Double? = null) = withContext(Dispatchers.IO) {
+    suspend fun savePodLocally(
+        orderId: String,
+        imageUri: String,
+        latitude: Double? = null,
+        longitude: Double? = null,
+        proofType: String = CourierProofTypes.DELIVERY_POD_PHOTO,
+        synced: Boolean = false
+    ) = withContext(Dispatchers.IO) {
         val order = orderDao.getOrderById(orderId) ?: return@withContext
+        val now = System.currentTimeMillis()
+        val normalizedProofType = CourierProofTypes.normalize(proofType)
+        val isPickupProof = CourierProofTypes.isPickupProof(normalizedProofType)
+        val isDeliveryProof = CourierProofTypes.isDeliveryProof(normalizedProofType)
+        val pickupPhotoDone = order.pickupPhotoVerified || normalizedProofType == CourierProofTypes.PICKUP_PHOTO
+        val pickupScanDone = order.pickupScanVerified || order.scanType in setOf("pickup", CourierProofTypes.PICKUP_SCAN)
+        val nextStatus = when {
+            isDeliveryProof -> "delivered"
+            isPickupProof && pickupScanDone && pickupPhotoDone && order.status.lowercase() !in setOf("in_transit", "delivered", "completed") -> "in_transit"
+            else -> order.status
+        }
         orderDao.update(
             order.copy(
-                needsPodSync = true,
+                needsPodSync = !synced,
                 podImageUri = imageUri,
+                podProofType = normalizedProofType,
                 scanLatitude = latitude ?: order.scanLatitude,
                 scanLongitude = longitude ?: order.scanLongitude,
-                status = "delivered",
-                updatedAt = System.currentTimeMillis()
+                scanType = if (isPickupProof) CourierProofTypes.PICKUP_PHOTO else order.scanType,
+                status = nextStatus,
+                pickupPhotoVerified = pickupPhotoDone,
+                pickupEvidenceUpdatedAt = if (isPickupProof) now else order.pickupEvidenceUpdatedAt,
+                proofSyncedAt = if (synced) now else order.proofSyncedAt,
+                updatedAt = now
             )
         )
     }
@@ -121,7 +161,11 @@ class OrderRepository @Inject constructor(
     suspend fun acceptOnDemandOffer(order: Order): Result<Order> = withContext(Dispatchers.IO) {
         try {
             orderDao.upsert(order.copy(status = "accepting", workflowRole = "on_demand", needsSync = true))
-            val response = apiService.acceptOnDemandOffer(order.dispatchId ?: order.orderId)
+            val targetId = order.dispatchId ?: order.orderId
+            val response = apiService.acceptOnDemandOffer(
+                orderId = targetId,
+                idempotencyKey = idempotencyKey("offer-accept", targetId)
+            )
             if (response.isSuccessful && response.body()?.success == true) {
                 val accepted = response.body()?.data ?: order.copy(status = "accepted", workflowRole = "on_demand")
                 orderDao.deleteById(order.orderId)
@@ -137,12 +181,31 @@ class OrderRepository @Inject constructor(
 
     suspend fun rejectOnDemandOffer(order: Order, reason: String = "courier_rejected"): Result<Boolean> = withContext(Dispatchers.IO) {
         try {
-            val response = apiService.rejectOnDemandOffer(order.dispatchId ?: order.orderId, mapOf("reason" to reason))
+            val targetId = order.dispatchId ?: order.orderId
+            val response = apiService.rejectOnDemandOffer(
+                orderId = targetId,
+                idempotencyKey = idempotencyKey("offer-reject", targetId),
+                request = mapOf("reason" to reason)
+            )
             if (response.isSuccessful && response.body()?.success == true) {
                 orderDao.deleteById(order.orderId)
                 Result.success(true)
             } else {
                 Result.failure(IllegalStateException(response.body()?.message ?: "Gagal menolak pekerjaan"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun fetchActiveRoutePlan(): Result<CourierActiveRoutePlan> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.getCourierActiveRoutePlan()
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.data != null) {
+                Result.success(body.data)
+            } else {
+                Result.failure(IllegalStateException(body?.message ?: "Route plan belum tersedia"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -209,7 +272,10 @@ class OrderRepository @Inject constructor(
                             longitude = scanLongitude,
                             accuracy = null
                         )
-                    val response = apiService.scanPackage(request)
+                    val response = apiService.scanPackage(
+                        idempotencyKey = idempotencyKey("scan", "${order.orderId}-${order.scanType ?: "pickup"}-${order.updatedAt}"),
+                        request = request
+                    )
                     if (response.isSuccessful && response.body()?.success == true) {
                         orderDao.markScanAsSynced(listOf(order.orderId))
                         syncedOrderIds.add(order.orderId)
@@ -228,10 +294,24 @@ class OrderRepository @Inject constructor(
                         val latitudeBody = (order.scanLatitude ?: 0.0).toString().toRequestBody("text/plain".toMediaTypeOrNull())
                         val longitudeBody = (order.scanLongitude ?: 0.0).toString().toRequestBody("text/plain".toMediaTypeOrNull())
                         val accuracyBody = "0".toRequestBody("text/plain".toMediaTypeOrNull())
-                        val proofTypeBody = "delivery".toRequestBody("text/plain".toMediaTypeOrNull())
+                        val proofType = CourierProofTypes.normalize(order.podProofType ?: CourierProofTypes.DELIVERY_POD_PHOTO)
+                        val proofTypeBody = proofType.toRequestBody("text/plain".toMediaTypeOrNull())
 
                         val spoofRiskBody = "offline_sync".toRequestBody("text/plain".toMediaTypeOrNull())
-                        val response = apiService.uploadPod(orderIdBody, latitudeBody, longitudeBody, accuracyBody, proofTypeBody, null, spoofRiskBody, body)
+                        val response = apiService.uploadPod(
+                            idempotencyKey = idempotencyKey("pod", "${order.orderId}-$proofType-${order.updatedAt}"),
+                            orderId = orderIdBody,
+                            latitude = latitudeBody,
+                            longitude = longitudeBody,
+                            accuracy = accuracyBody,
+                            proofType = proofTypeBody,
+                            barcodeValue = null,
+                            packageCode = null,
+                            faceVerificationId = null,
+                            overrideReason = null,
+                            spoofRisk = spoofRiskBody,
+                            photo = body
+                        )
                         if (response.isSuccessful && response.body()?.success == true) {
                             orderDao.markPodAsSynced(listOf(order.orderId))
                             syncedOrderIds.add(order.orderId)
@@ -267,5 +347,18 @@ class OrderRepository @Inject constructor(
      */
     suspend fun getPendingCount(): Int = withContext(Dispatchers.IO) {
         orderDao.getPendingCount()
+    }
+
+    private fun normalizeScanType(scanType: String): String {
+        return when (scanType.trim().lowercase()) {
+            "pickup" -> CourierProofTypes.PICKUP_SCAN
+            "pickup_scan" -> CourierProofTypes.PICKUP_SCAN
+            "pickup_photo" -> CourierProofTypes.PICKUP_PHOTO
+            else -> scanType.trim().lowercase().ifBlank { CourierProofTypes.PICKUP_SCAN }
+        }
+    }
+
+    private fun idempotencyKey(scope: String, discriminator: String): String {
+        return "courier-$scope-$discriminator-${UUID.randomUUID()}"
     }
 }

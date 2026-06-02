@@ -3,6 +3,7 @@ package com.tembus.courier.ui.screens.pod
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Location
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -45,9 +46,12 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.accompanist.permissions.shouldShowRationale
 import com.tembus.courier.data.model.Order
+import com.tembus.courier.domain.CourierProofTypes
 import com.tembus.courier.ui.theme.Primary
 import java.io.File
 import java.util.concurrent.Executor
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
@@ -66,7 +70,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 @Composable
 fun ProofOfDeliveryScreen(
     order: Order,
-    proofMode: String = "delivery",
+    proofMode: String = CourierProofTypes.DELIVERY_POD_PHOTO,
     onImageConfirmed: (Uri) -> Unit,
     onBack: () -> Unit,
     viewModel: ProofOfDeliveryViewModel = hiltViewModel()
@@ -75,10 +79,22 @@ fun ProofOfDeliveryScreen(
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsState()
+    val normalizedProofMode = remember(proofMode) { CourierProofTypes.normalize(proofMode) }
+    val isPickupProof = CourierProofTypes.isPickupProof(normalizedProofMode)
 
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
     var imageCapture by remember { mutableStateOf<ImageCapture?>(null) }
+    var proofNotice by remember(order.orderId, normalizedProofMode) { mutableStateOf<String?>(null) }
+    var gpsRetryCount by remember(order.orderId, normalizedProofMode) { mutableStateOf(0) }
+    var selectedGpsOverrideReason by remember(order.orderId, normalizedProofMode) { mutableStateOf<String?>(null) }
+    val proofRadiusM = remember(order.orderId, normalizedProofMode) {
+        order.serviceProofGeofenceRadiusM.coerceIn(1, 100)
+    }
+    val proofMinAccuracyM = remember(order.orderId, normalizedProofMode) {
+        order.serviceProofMinAccuracyM.coerceIn(1, 500)
+    }
+
     LaunchedEffect(Unit) {
         if (!cameraPermissionState.status.isGranted) {
             cameraPermissionState.launchPermissionRequest()
@@ -88,6 +104,7 @@ fun ProofOfDeliveryScreen(
     // Handle errors
     LaunchedEffect(uiState.error) {
         uiState.error?.let { error ->
+            proofNotice = error
             Toast.makeText(context, error, Toast.LENGTH_LONG).show()
             viewModel.clearError()
         }
@@ -97,12 +114,17 @@ fun ProofOfDeliveryScreen(
     LaunchedEffect(uiState.podSavedLocally) {
         val capturedUri = uiState.capturedImageUri
         if (uiState.podSavedLocally && capturedUri != null) {
-            val message = if (proofMode == "pickup") {
-                "Bukti pickup berhasil diverifikasi"
+            proofNotice = null
+            val message = if (isPickupProof) {
+                if (uiState.serverSyncSuccess) {
+                    "Foto pickup berhasil diverifikasi"
+                } else {
+                    "Foto pickup tersimpan. Akan tersinkronisasi otomatis."
+                }
             } else if (uiState.serverSyncSuccess) {
-                "Bukti pengiriman berhasil terkirim"
+                "Bukti terima berhasil terkirim"
             } else {
-                "Bukti pengiriman tersimpan. Akan tersinkronisasi otomatis."
+                "Bukti terima tersimpan. Akan tersinkronisasi otomatis."
             }
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             onImageConfirmed(capturedUri)
@@ -112,10 +134,10 @@ fun ProofOfDeliveryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (proofMode == "pickup") "Foto Barang Pickup" else "Proof of Delivery") },
+                title = { Text(if (isPickupProof) "Foto Barang Saat Pickup" else "Bukti Terima") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -139,7 +161,7 @@ fun ProofOfDeliveryScreen(
                     )
                 }
                 uiState.capturedImageUri != null -> {
-                    if (proofMode == "delivery" && !uiState.isSignatureCaptured) {
+                    if (!isPickupProof && !uiState.isSignatureCaptured) {
                         SignatureCaptureContent(
                             onSignatureCaptured = { bitmap ->
                                 viewModel.combinePhotoAndSignature(context, bitmap)
@@ -149,24 +171,39 @@ fun ProofOfDeliveryScreen(
                     } else {
                         ImagePreviewContent(
                             uiState = uiState,
+                            gpsRetryCount = gpsRetryCount,
+                            selectedGpsOverrideReason = selectedGpsOverrideReason,
+                            onGpsOverrideReasonChange = { selectedGpsOverrideReason = it },
                             onRetake = { viewModel.clearImage() },
                             onConfirm = {
                                 scope.launch {
                                     val location = getCurrentPodLocation(context)
-                                    if (location == null) {
+                                    val locationCheck = evaluatePodLocationGate(
+                                        order = order,
+                                        isPickupProof = isPickupProof,
+                                        location = location,
+                                        radiusM = proofRadiusM,
+                                        minAccuracyM = proofMinAccuracyM,
+                                        retryCount = gpsRetryCount,
+                                        overrideReason = selectedGpsOverrideReason
+                                    )
+                                    if (!locationCheck.canSubmit) {
+                                        gpsRetryCount += 1
+                                        proofNotice = locationCheck.message
                                         Toast.makeText(
                                             context,
-                                            "Lokasi perangkat sedang dikunci. Aktifkan GPS dan coba lagi.",
+                                            locationCheck.message,
                                             Toast.LENGTH_LONG
                                         ).show()
                                         return@launch
                                     }
                                     viewModel.uploadPod(
                                         orderId = order.orderId,
-                                        latitude = location.latitude,
-                                        longitude = location.longitude,
-                                        accuracy = location.accuracy,
-                                        proofType = proofMode
+                                        latitude = locationCheck.location.latitude,
+                                        longitude = locationCheck.location.longitude,
+                                        accuracy = locationCheck.location.accuracy,
+                                        overrideReason = if (locationCheck.requiresOverride) selectedGpsOverrideReason else null,
+                                        proofType = normalizedProofMode
                                     )
                                 }
                             }
@@ -176,7 +213,7 @@ fun ProofOfDeliveryScreen(
                 else -> {
                     CameraPreviewContent(
                         order = order,
-                        proofMode = proofMode,
+                        proofMode = normalizedProofMode,
                         onImageCaptureReady = { imageCapture = it },
                         onCapture = {
                             imageCapture?.let { capture ->
@@ -191,6 +228,39 @@ fun ProofOfDeliveryScreen(
                     )
                 }
             }
+            proofNotice?.let { message ->
+                ProofInlineNotice(
+                    message = message,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(12.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProofInlineNotice(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(Icons.Default.GpsOff, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
         }
     }
 }
@@ -223,7 +293,7 @@ private fun CameraPermissionContent(
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onRequestPermission) {
+        Button(onClick = onRequestPermission, modifier = Modifier.height(52.dp)) {
             Text("Aktifkan Kamera")
         }
     }
@@ -241,6 +311,7 @@ private fun CameraPreviewContent(
     lifecycleOwner: androidx.lifecycle.LifecycleOwner
 ) {
     var activeCamera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
+    val isPickupProof = remember(proofMode) { CourierProofTypes.isPickupProof(proofMode) }
 
     LaunchedEffect(isTorchEnabled, activeCamera) {
         activeCamera?.cameraControl?.enableTorch(isTorchEnabled)
@@ -273,7 +344,7 @@ private fun CameraPreviewContent(
         ) {
             Icon(
                 imageVector = if (isTorchEnabled) Icons.Default.FlashOn else Icons.Default.FlashOff,
-                contentDescription = "Toggle Flash",
+                contentDescription = if (isTorchEnabled) "Matikan lampu kamera" else "Nyalakan lampu kamera",
                 tint = if (isTorchEnabled) Color.Yellow else Color.White
             )
         }
@@ -318,7 +389,7 @@ private fun CameraPreviewContent(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = if (proofMode == "pickup")
+                        text = if (isPickupProof)
                             "Ambil foto barang yang jelas untuk verifikasi pickup"
                         else
                             "Ambil foto paket yang jelas di titik penerima",
@@ -351,7 +422,7 @@ private fun CameraPreviewContent(
                     } else {
                         Icon(
                             imageVector = Icons.Default.CameraAlt,
-                            contentDescription = "Capture",
+                            contentDescription = "Ambil foto bukti",
                             modifier = Modifier.size(40.dp),
                             tint = Primary
                         )
@@ -365,6 +436,9 @@ private fun CameraPreviewContent(
 @Composable
 private fun ImagePreviewContent(
     uiState: PodUiState,
+    gpsRetryCount: Int,
+    selectedGpsOverrideReason: String?,
+    onGpsOverrideReasonChange: (String) -> Unit,
     onRetake: () -> Unit,
     onConfirm: () -> Unit
 ) {
@@ -386,7 +460,7 @@ private fun ImagePreviewContent(
                     .data(uiState.capturedImageUri)
                     .crossfade(true)
                     .build(),
-                contentDescription = "Captured proof of delivery",
+                contentDescription = "Pratinjau foto bukti",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Fit
             )
@@ -410,7 +484,7 @@ private fun ImagePreviewContent(
                 ) {
                     Column {
                         Text(
-                            text = "Original Size",
+                            text = "Ukuran awal",
                             style = MaterialTheme.typography.labelSmall
                         )
                         Text(
@@ -422,7 +496,7 @@ private fun ImagePreviewContent(
                     if (uiState.isCompressed) {
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
-                                text = "Compressed",
+                                text = "Ukuran kirim",
                                 style = MaterialTheme.typography.labelSmall
                             )
                             Text(
@@ -439,6 +513,14 @@ private fun ImagePreviewContent(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        if (gpsRetryCount >= 2) {
+            GpsOverrideReasonPanel(
+                selectedReason = selectedGpsOverrideReason,
+                onReasonSelected = onGpsOverrideReasonChange
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
         // Action buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -446,16 +528,16 @@ private fun ImagePreviewContent(
         ) {
             OutlinedButton(
                 onClick = onRetake,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f).height(52.dp)
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Retake")
+                Text("Ambil Ulang")
             }
 
             Button(
                 onClick = onConfirm,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).height(52.dp),
                 enabled = !uiState.isUploading
             ) {
                 if (uiState.isUploading) {
@@ -466,8 +548,44 @@ private fun ImagePreviewContent(
                 } else {
                     Icon(Icons.Default.Check, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Confirm")
+                    Text("Konfirmasi")
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GpsOverrideReasonPanel(
+    selectedReason: String?,
+    onReasonSelected: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.26f))
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.VerifiedUser, contentDescription = null, tint = Primary)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Override GPS terkendali", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Gunakan hanya saat sudah berada di titik operasional tetapi sinyal GPS buruk. Alasan, akurasi, dan jarak tetap diaudit server.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            gpsOverrideReasons.forEach { (code, label) ->
+                FilterChip(
+                    selected = selectedReason == code,
+                    onClick = { onReasonSelected(code) },
+                    label = { Text(label, fontWeight = FontWeight.Medium) }
+                )
             }
         }
     }
@@ -520,7 +638,108 @@ private fun formatFileSize(bytes: Long): String {
     }
 }
 
-private suspend fun getCurrentPodLocation(context: Context): android.location.Location? {
+private data class PodLocationGateResult(
+    val canSubmit: Boolean,
+    val requiresOverride: Boolean,
+    val message: String,
+    val location: Location
+)
+
+private val gpsOverrideReasons = listOf(
+    "gps_indoor_weak_signal" to "GPS indoor lemah",
+    "map_pin_offset" to "Titik peta bergeser",
+    "receiver_area_access_limited" to "Akses titik terbatas"
+)
+
+private fun evaluatePodLocationGate(
+    order: Order,
+    isPickupProof: Boolean,
+    location: Location?,
+    radiusM: Int,
+    minAccuracyM: Int,
+    retryCount: Int,
+    overrideReason: String?
+): PodLocationGateResult {
+    if (location == null) {
+        return PodLocationGateResult(
+            canSubmit = false,
+            requiresOverride = false,
+            message = "Lokasi perangkat belum siap. Aktifkan GPS, tunggu akurasi membaik, lalu coba lagi.",
+            location = Location("unavailable")
+        )
+    }
+
+    val targetLat = if (isPickupProof) order.pickupLatitude else order.dropLatitude
+    val targetLng = if (isPickupProof) order.pickupLongitude else order.dropLongitude
+    val distanceM = if (targetLat != null && targetLng != null) {
+        FloatArray(1).also { result ->
+            Location.distanceBetween(location.latitude, location.longitude, targetLat, targetLng, result)
+        }[0].roundToInt()
+    } else {
+        null
+    }
+    val accuracyM = location.accuracy.roundToInt()
+    val isAccurateEnough = accuracyM <= minAccuracyM
+    val isInsideRadius = distanceM == null || distanceM <= radiusM
+
+    if (isAccurateEnough && isInsideRadius) {
+        return PodLocationGateResult(
+            canSubmit = true,
+            requiresOverride = false,
+            message = "Lokasi valid.",
+            location = location
+        )
+    }
+
+    val maxOverrideDistanceM = max(35, radiusM * 3)
+    val canOverrideDistance = distanceM == null || distanceM <= maxOverrideDistanceM
+    val canOverrideAccuracy = accuracyM <= 120
+    val overrideEligible = canOverrideDistance && canOverrideAccuracy
+    val hasRetriedEnough = retryCount >= 2
+    val hasOverrideReason = !overrideReason.isNullOrBlank()
+    val distanceCopy = distanceM?.let { "jarak ${it}m dari radius ${radiusM}m" }
+    val accuracyCopy = "akurasi ${accuracyM}m dari batas ${minAccuracyM}m"
+    val issueCopy = listOfNotNull(
+        if (!isInsideRadius) distanceCopy else null,
+        if (!isAccurateEnough) accuracyCopy else null
+    ).joinToString(", ")
+
+    if (!overrideEligible) {
+        return PodLocationGateResult(
+            canSubmit = false,
+            requiresOverride = false,
+            message = "Validasi GPS belum aman: $issueCopy. Dekati titik operasional dan coba lagi.",
+            location = location
+        )
+    }
+
+    if (!hasRetriedEnough) {
+        return PodLocationGateResult(
+            canSubmit = false,
+            requiresOverride = true,
+            message = "Validasi GPS belum memenuhi aturan: $issueCopy. Coba ulang sampai lokasi stabil.",
+            location = location
+        )
+    }
+
+    if (!hasOverrideReason) {
+        return PodLocationGateResult(
+            canSubmit = false,
+            requiresOverride = true,
+            message = "GPS masih belum ideal: $issueCopy. Pilih alasan override agar dikirim untuk audit server.",
+            location = location
+        )
+    }
+
+    return PodLocationGateResult(
+        canSubmit = true,
+        requiresOverride = true,
+        message = "Override GPS dikirim untuk audit.",
+        location = location
+    )
+}
+
+private suspend fun getCurrentPodLocation(context: Context): Location? {
     val fineGranted = ContextCompat.checkSelfPermission(
         context,
         Manifest.permission.ACCESS_FINE_LOCATION

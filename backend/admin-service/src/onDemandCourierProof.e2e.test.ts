@@ -86,11 +86,15 @@ describe('on-demand courier proof to ledger lifecycle', () => {
           order_number: 'LCR-OD-1',
           status: 'accepted',
           model: 'p2p',
+          service_code: 'instant',
           leg_id: 'leg-1',
           leg_status: 'assigned',
-          distance_m: 12,
+          distance_m: 8,
+          face_verification_required: true,
         }],
       })
+      .mockResolvedValueOnce({ rows: [{ total_packages: 0 }] })
+      .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ id: 'scan-pickup-code', recorded_at: '2026-05-18T04:00:00.000Z' }] })
       .mockResolvedValueOnce({ rows: [{ has_scan: true, has_photo: false }] })
       .mockResolvedValueOnce({ rows: [] }) // order event
@@ -134,11 +138,15 @@ describe('on-demand courier proof to ledger lifecycle', () => {
           order_number: 'LCR-OD-1',
           status: 'accepted',
           model: 'p2p',
+          service_code: 'instant',
           leg_id: 'leg-1',
           leg_status: 'assigned',
           distance_m: 10,
+          face_verification_required: true,
         }],
       })
+      .mockResolvedValueOnce({ rows: [{ id: 'face-pickup' }] })
+      .mockResolvedValueOnce({ rows: [{ total_packages: 0 }] })
       .mockResolvedValueOnce({ rows: [{ id: 'scan-pickup-photo', recorded_at: '2026-05-18T04:01:00.000Z' }] })
       .mockResolvedValueOnce({ rows: [{ has_scan: true, has_photo: true }] })
       .mockResolvedValueOnce({ rows: [] }) // update orders
@@ -157,6 +165,7 @@ describe('on-demand courier proof to ledger lifecycle', () => {
         latitude: -6.175392,
         longitude: 106.827153,
         accuracy: 10,
+        face_verification_id: 'face-pickup',
       },
       file: makeValidatedImageFile('pickup.jpg'),
     } as any, pickupPhotoRes);
@@ -189,12 +198,17 @@ describe('on-demand courier proof to ledger lifecycle', () => {
           order_number: 'LCR-OD-1',
           status: 'in_transit',
           model: 'p2p',
+          service_code: 'instant',
           leg_id: 'leg-1',
           leg_status: 'in_transit',
           distance_m: 8,
+          face_verification_required: true,
         }],
       })
+      .mockResolvedValueOnce({ rows: [{ id: 'face-delivery' }] })
+      .mockResolvedValueOnce({ rows: [{ total_packages: 0 }] })
       .mockResolvedValueOnce({ rows: [{ id: 'scan-pod', recorded_at: '2026-05-18T04:20:00.000Z' }] })
+      .mockResolvedValueOnce({ rows: [{ complete: true }] })
       .mockResolvedValueOnce({ rows: [] }) // update orders
       .mockResolvedValueOnce({ rows: [] }) // update legs
       .mockResolvedValueOnce({ rows: [] }) // advisory lock
@@ -212,6 +226,7 @@ describe('on-demand courier proof to ledger lifecycle', () => {
         latitude: -6.218285,
         longitude: 106.802433,
         accuracy: 9,
+        face_verification_id: 'face-delivery',
       },
       file: makeValidatedImageFile('pod.jpg'),
     } as any, podRes);

@@ -123,6 +123,15 @@ data class ScanRequest(
     @SerialName("barcode_value")
     val barcodeValue: String? = null,
 
+    @SerialName("package_code")
+    val packageCode: String? = null,
+
+    @SerialName("face_verification_id")
+    val faceVerificationId: String? = null,
+
+    @SerialName("override_reason")
+    val overrideReason: String? = null,
+
     @SerialName("spoof_risk")
     val spoofRisk: String? = null,
     
@@ -167,6 +176,48 @@ data class CourierServiceProduct(
 
     @SerialName("vehicle_types")
     val vehicleTypes: List<String> = emptyList(),
+
+    @SerialName("batching_allowed")
+    val batchingAllowed: Boolean = false,
+
+    @SerialName("max_packages_per_order")
+    val maxPackagesPerOrder: Int = 1,
+
+    @SerialName("max_active_orders_regular")
+    val maxActiveOrdersRegular: Int = 3,
+
+    @SerialName("max_active_orders_on_demand")
+    val maxActiveOrdersOnDemand: Int = 1,
+
+    @SerialName("same_customer_batching_required")
+    val sameCustomerBatchingRequired: Boolean = true,
+
+    @SerialName("allow_new_offer_while_pickup")
+    val allowNewOfferWhilePickup: Boolean = false,
+
+    @SerialName("allow_new_offer_while_delivery")
+    val allowNewOfferWhileDelivery: Boolean = false,
+
+    @SerialName("assignment_radius_pickup_km")
+    val assignmentRadiusPickupKm: Double = 2.0,
+
+    @SerialName("assignment_radius_delivery_km")
+    val assignmentRadiusDeliveryKm: Double = 3.0,
+
+    @SerialName("proof_geofence_radius_m")
+    val proofGeofenceRadiusM: Int = 10,
+
+    @SerialName("proof_min_accuracy_m")
+    val proofMinAccuracyM: Int = 50,
+
+    @SerialName("face_verification_required")
+    val faceVerificationRequired: Boolean = true,
+
+    @SerialName("failed_delivery_policy")
+    val failedDeliveryPolicy: String = "must_deliver",
+
+    @SerialName("pod_label")
+    val podLabel: String = "POD",
 
     @SerialName("display_order")
     val displayOrder: Int = 100
@@ -292,6 +343,74 @@ data class CourierRoutePreview(
     val vehicleType: String? = null,
     @SerialName("fallback_reason")
     val fallbackReason: String? = null
+)
+
+@Serializable
+data class CourierRouteLocation(
+    @SerialName("latitude")
+    val latitude: Double? = null,
+    @SerialName("longitude")
+    val longitude: Double? = null
+)
+
+@Serializable
+data class CourierActiveRouteStop(
+    @SerialName("order_id")
+    val orderId: String,
+    @SerialName("order_number")
+    val orderNumber: String? = null,
+    @SerialName("stop_type")
+    val stopType: String = "pickup",
+    @SerialName("address")
+    val address: String? = null,
+    @SerialName("latitude")
+    val latitude: Double? = null,
+    @SerialName("longitude")
+    val longitude: Double? = null,
+    @SerialName("service_code")
+    val serviceCode: String? = null,
+    @SerialName("package_count")
+    val packageCount: Int = 1,
+    @SerialName("detour_limit_km")
+    val detourLimitKm: Double = 0.0
+)
+
+@Serializable
+data class CourierActiveRouteSegment(
+    @SerialName("to_order_id")
+    val toOrderId: String? = null,
+    @SerialName("to_stop_type")
+    val toStopType: String? = null,
+    @SerialName("provider")
+    val provider: String? = null,
+    @SerialName("distance_meters")
+    val distanceMeters: Int = 0,
+    @SerialName("duration_seconds")
+    val durationSeconds: Int = 0,
+    @SerialName("eta_minutes")
+    val etaMinutes: Int = 0,
+    @SerialName("route_profile")
+    val routeProfile: String? = null,
+    @SerialName("route_polyline")
+    val routePolyline: String? = null,
+    @SerialName("fallback_reason")
+    val fallbackReason: String? = null
+)
+
+@Serializable
+data class CourierActiveRoutePlan(
+    @SerialName("courier_location")
+    val courierLocation: CourierRouteLocation? = null,
+    @SerialName("stops")
+    val stops: List<CourierActiveRouteStop> = emptyList(),
+    @SerialName("segments")
+    val segments: List<CourierActiveRouteSegment> = emptyList(),
+    @SerialName("total_distance_km")
+    val totalDistanceKm: Double = 0.0,
+    @SerialName("total_eta_minutes")
+    val totalEtaMinutes: Int = 0,
+    @SerialName("traffic_aware")
+    val trafficAware: Boolean = false
 )
 
 @Serializable
@@ -638,8 +757,65 @@ data class CourierServiceCapability(
     val status: String = "pending_review",
     @SerialName("eligibility_reason")
     val eligibilityReason: String? = null,
+
+    @SerialName("batching_allowed")
+    val batchingAllowed: Boolean = false,
+
+    @SerialName("max_packages_per_order")
+    val maxPackagesPerOrder: Int = 1,
+
+    @SerialName("max_active_orders_regular")
+    val maxActiveOrdersRegular: Int = 3,
+
+    @SerialName("max_active_orders_on_demand")
+    val maxActiveOrdersOnDemand: Int = 1,
+
+    @SerialName("same_customer_batching_required")
+    val sameCustomerBatchingRequired: Boolean = true,
+
+    @SerialName("allow_new_offer_while_pickup")
+    val allowNewOfferWhilePickup: Boolean = false,
+
+    @SerialName("allow_new_offer_while_delivery")
+    val allowNewOfferWhileDelivery: Boolean = false,
+
+    @SerialName("assignment_radius_pickup_km")
+    val assignmentRadiusPickupKm: Double = 2.0,
+
+    @SerialName("assignment_radius_delivery_km")
+    val assignmentRadiusDeliveryKm: Double = 3.0,
+
+    @SerialName("proof_geofence_radius_m")
+    val proofGeofenceRadiusM: Int = 10,
+
+    @SerialName("proof_min_accuracy_m")
+    val proofMinAccuracyM: Int = 50,
+
+    @SerialName("face_verification_required")
+    val faceVerificationRequired: Boolean = true,
+
+    @SerialName("failed_delivery_policy")
+    val failedDeliveryPolicy: String = "must_deliver",
+
+    @SerialName("pod_label")
+    val podLabel: String = "POD",
+
     @SerialName("max_weight_kg")
     val maxWeightKg: Double? = null
+)
+
+@Serializable
+data class CourierFaceVerificationData(
+    @SerialName("verification_id")
+    val verificationId: String,
+    @SerialName("status")
+    val status: String,
+    @SerialName("verification_type")
+    val verificationType: String,
+    @SerialName("order_id")
+    val orderId: String? = null,
+    @SerialName("created_at")
+    val createdAt: String? = null
 )
 
 @Serializable

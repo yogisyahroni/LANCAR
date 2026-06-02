@@ -2,7 +2,13 @@ package com.tembus.courier.ui.screens
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -18,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +65,7 @@ import com.tembus.courier.data.model.CourierEarningsTransaction
 import com.tembus.courier.data.model.CourierPerformanceSummary
 import com.tembus.courier.data.model.CourierPayoutRequestItem
 import com.tembus.courier.data.model.CourierPayoutSummaryData
+import com.tembus.courier.data.model.CourierActiveRoutePlan
 import com.tembus.courier.data.model.CourierRoutePreview
 import com.tembus.courier.data.model.MapsProviderConfig
 import com.tembus.courier.data.model.Order
@@ -65,6 +73,10 @@ import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.data.model.displayServiceName
 import com.tembus.courier.data.model.normalizedWorkflowRole
 import com.tembus.courier.data.model.toRupiahCompact
+import com.tembus.courier.domain.CourierProofTypes
+import com.tembus.courier.domain.CourierRouteReducer
+import com.tembus.courier.domain.CourierRouteScreen
+import com.tembus.courier.domain.CourierRouteState
 import com.tembus.courier.data.security.LocalDeviceSecurityManager
 import com.tembus.courier.data.session.AuthSessionManager
 import com.tembus.courier.service.LocationTrackerService
@@ -100,11 +112,34 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
+import java.io.File
 import kotlin.math.min
 
 private val LogisticsOrange = Accent
 private val SageBase = Background
 private val DeepForest = PrimaryDark
+
+private val CourierRouteStateSaver = Saver<CourierRouteState, List<String>>(
+    save = { state ->
+        listOf(
+            state.screen.name,
+            state.orderId.orEmpty(),
+            state.scanType,
+            state.proofMode
+        )
+    },
+    restore = { raw ->
+        val screen = raw.getOrNull(0)
+            ?.let { value -> runCatching { CourierRouteScreen.valueOf(value) }.getOrNull() }
+            ?: CourierRouteScreen.HOME
+        CourierRouteState(
+            screen = screen,
+            orderId = raw.getOrNull(1)?.takeIf { it.isNotBlank() },
+            scanType = raw.getOrNull(2) ?: CourierProofTypes.PICKUP_SCAN,
+            proofMode = raw.getOrNull(3) ?: CourierProofTypes.DELIVERY_POD_PHOTO
+        )
+    }
+)
 
 /**
  * Main Screen — Courier Dashboard
@@ -145,6 +180,7 @@ fun MainScreen(
     val payoutRequests by orderViewModel.payoutRequests.collectAsState()
     val isPayoutSubmitting by orderViewModel.isPayoutSubmitting.collectAsState()
     val routePreviews by orderViewModel.routePreviews.collectAsState()
+    val activeRoutePlan by orderViewModel.activeRoutePlan.collectAsState()
     val mapsProviderConfig by orderViewModel.mapsProviderConfig.collectAsState()
     val cancelPickupReasons by orderViewModel.cancelPickupReasons.collectAsState()
     val statusTransitions by orderViewModel.statusTransitions.collectAsState()
@@ -182,18 +218,36 @@ fun MainScreen(
     }
 
     var selectedTab by remember { mutableStateOf(0) }
-    var showPodScreen by remember { mutableStateOf(false) }
-    var showOrderDetail by remember { mutableStateOf(false) }
-    var showScanScreen by remember { mutableStateOf(false) }
-    var showChatScreen by remember { mutableStateOf(false) }
+    var routeState by rememberSaveable(stateSaver = CourierRouteStateSaver) {
+        mutableStateOf(CourierRouteState())
+    }
     var selectedOrder by remember { mutableStateOf<Order?>(null) }
-    var activeScanType by remember { mutableStateOf("pickup") }
-    var activeProofMode by remember { mutableStateOf("delivery") }
+    val showPodScreen = routeState.screen == CourierRouteScreen.PROOF
+    val showOrderDetail = routeState.screen == CourierRouteScreen.ORDER_DETAIL
+    val showScanScreen = routeState.screen == CourierRouteScreen.SCAN
+    val showChatScreen = routeState.screen == CourierRouteScreen.CHAT
+    val activeScanType = routeState.scanType
+    val activeProofMode = routeState.proofMode
     var pickupScanVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var pickupPhotoVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var pendingDutySecurityTarget by remember { mutableStateOf<Boolean?>(null) }
+    var inlineErrorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingOnlineAfterForegroundPermission by remember { mutableStateOf(false) }
+    var showForegroundLocationPermissionDialog by remember { mutableStateOf(false) }
+    var showBackgroundLocationPermissionDialog by remember { mutableStateOf(false) }
     val isOnDemandCourier = courierRole == "on_demand"
+    val activeOnDemandJobCount = roleOrders.count {
+        it.normalizedWorkflowRole() == "on_demand" &&
+            it.status.lowercase() in ACTIVE_ON_DEMAND_STATUSES
+    }
+    val maxActiveOnDemandJobs = remember(capabilityProfile, onDemandServices, courierVehicleType) {
+        resolveMaxActiveOnDemandJobs(
+            capabilityProfile = capabilityProfile,
+            services = onDemandServices,
+            courierVehicleType = courierVehicleType
+        )
+    }
     val secureScreenRequired = selectedTab == 2 ||
         (isOnDemandCourier && selectedTab == 3) ||
         showPodScreen ||
@@ -203,7 +257,7 @@ fun MainScreen(
 
     SecureScreenEffect(enabled = secureScreenRequired)
 
-    suspend fun sendSafetyEvent(order: Order?, eventType: String, severity: String, message: String) {
+    suspend fun sendSafetyEvent(order: Order?, eventType: String, severity: String, message: String, photoFile: File? = null) {
         val location = getLastKnownDutyLocation(context)
         val result = orderViewModel.createSafetyEvent(
             orderId = order?.orderId,
@@ -212,7 +266,8 @@ fun MainScreen(
             latitude = location?.latitude,
             longitude = location?.longitude,
             accuracy = location?.accuracy,
-            message = message
+            message = message,
+            photoFile = photoFile
         )
         snackbarHostState.showSnackbar(
             result.getOrElse { it.message ?: "Laporan belum terkirim. Coba lagi." }
@@ -261,6 +316,9 @@ fun MainScreen(
                 val intent = LocationTrackerService.startIntent(context)
                 androidx.core.content.ContextCompat.startForegroundService(context, intent)
                 snackbarHostState.showSnackbar("Status aktif. Tracking operasional berjalan.")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && !hasBackgroundLocationPermission(context)) {
+                    showBackgroundLocationPermissionDialog = true
+                }
             } else {
                 val dutyResult = orderViewModel.updateDutyStatus(online = false)
                 dutyResult.onFailure { e ->
@@ -277,18 +335,113 @@ fun MainScreen(
         }
     }
 
-    if (courierRole == "on_demand") onDemandOffers.firstOrNull()?.let { offer ->
-        OnDemandOfferDialog(
-            order = offer,
+    val foregroundLocationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        val granted = grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
+            hasForegroundLocationPermission(context)
+        if (granted && pendingOnlineAfterForegroundPermission) {
+            pendingOnlineAfterForegroundPermission = false
+            if (localSecuritySettings.active) {
+                pendingDutySecurityTarget = true
+            } else {
+                scope.launch { performDutyToggle(true) }
+            }
+        } else if (!granted) {
+            pendingOnlineAfterForegroundPermission = false
+            scope.launch {
+                snackbarHostState.showSnackbar("Izin lokasi diperlukan sebelum kurir bisa On Duty.")
+            }
+        }
+    }
+
+    val backgroundLocationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        scope.launch {
+            snackbarHostState.showSnackbar(
+                if (granted || hasBackgroundLocationPermission(context)) {
+                    "Tracking background aktif untuk pekerjaan berjalan."
+                } else {
+                    "Tracking tetap berjalan saat aplikasi terbuka. Aktifkan background location dari pengaturan untuk mode operasional penuh."
+                }
+            )
+        }
+    }
+
+    fun requestDutyToggle(online: Boolean) {
+        if (online && !hasForegroundLocationPermission(context)) {
+            pendingOnlineAfterForegroundPermission = true
+            showForegroundLocationPermissionDialog = true
+            return
+        }
+
+        if (online && localSecuritySettings.active) {
+            pendingDutySecurityTarget = true
+        } else {
+            scope.launch { performDutyToggle(online) }
+        }
+    }
+
+    fun openOrderDetail(order: Order) {
+        selectedOrder = order
+        routeState = CourierRouteReducer.detail(order.orderId)
+    }
+
+    fun openChat(order: Order) {
+        selectedOrder = order
+        routeState = CourierRouteReducer.chat(order.orderId)
+    }
+
+    fun openScan(order: Order?, scanType: String = CourierProofTypes.PICKUP_SCAN) {
+        selectedOrder = order
+        routeState = CourierRouteReducer.scan(order?.orderId, scanType)
+    }
+
+    fun openProof(order: Order, proofMode: String) {
+        selectedOrder = order
+        routeState = CourierRouteReducer.proof(order.orderId, proofMode)
+    }
+
+    fun closeRoute() {
+        selectedOrder = null
+        routeState = CourierRouteReducer.home()
+    }
+
+    fun backToOrderOrHome() {
+        routeState = CourierRouteReducer.backFromChild(routeState)
+        if (routeState.screen == CourierRouteScreen.HOME) {
+            selectedOrder = null
+        }
+    }
+
+    LaunchedEffect(routeState.orderId, routeState.screen, roleOrders, onDemandOffers) {
+        val orderId = routeState.orderId ?: return@LaunchedEffect
+        if (selectedOrder?.orderId == orderId) return@LaunchedEffect
+        val cachedOrder = roleOrders.firstOrNull { it.orderId == orderId }
+            ?: onDemandOffers.firstOrNull { it.orderId == orderId }
+            ?: orderViewModel.getOrderById(orderId)
+        if (cachedOrder != null) {
+            selectedOrder = cachedOrder
+        }
+    }
+
+    if (courierRole == "on_demand" && onDemandOffers.isNotEmpty()) {
+        val capacityBlocked = activeOnDemandJobCount >= maxActiveOnDemandJobs
+        OnDemandOfferQueueDialog(
+            offers = onDemandOffers,
             mapsProviderConfig = mapsProviderConfig,
-            onAccept = {
+            activeJobCount = activeOnDemandJobCount,
+            maxActiveJobs = maxActiveOnDemandJobs,
+            acceptBlocked = capacityBlocked,
+            onAccept = { offer ->
                 orderViewModel.acceptOffer(offer) { accepted ->
-                    selectedOrder = accepted
-                    showOrderDetail = true
+                    openOrderDetail(accepted)
                 }
             },
-            onReject = { orderViewModel.rejectOffer(offer) },
-            onExpired = { orderViewModel.rejectOffer(offer, "ttl_expired") }
+            onReject = { offer -> orderViewModel.rejectOffer(offer) },
+            onExpired = { offer -> orderViewModel.rejectOffer(offer, "ttl_expired") }
         )
     }
 
@@ -297,9 +450,7 @@ fun MainScreen(
         if (initialOrderId != null) {
             val order = orderViewModel.getOrderById(initialOrderId)
             if (order != null) {
-                selectedOrder = order
-                showChatScreen = false // Reset Chat focus
-                showOrderDetail = true
+                openOrderDetail(order)
                 onConsumedDeepLink()
             }
         }
@@ -310,17 +461,16 @@ fun MainScreen(
         if (initialChatOrderId != null) {
             val order = orderViewModel.getOrderById(initialChatOrderId)
             if (order != null) {
-                selectedOrder = order
-                showOrderDetail = false // Take directly to chat viewport
-                showChatScreen = true
+                openChat(order)
                 onConsumedDeepLink()
             }
         }
     }
 
-    // Show error as Snackbar
+    // Show error as Snackbar and persistent inline retry state.
     LaunchedEffect(error) {
         error?.let { msg ->
+            inlineErrorMessage = msg
             snackbarHostState.showSnackbar(
                 message = msg,
                 duration = SnackbarDuration.Short
@@ -380,32 +530,33 @@ fun MainScreen(
             order = order,
             proofMode = activeProofMode,
             onImageConfirmed = { _ ->
-                showPodScreen = false
-                if (activeProofMode == "pickup") {
+                if (CourierProofTypes.isPickupProof(activeProofMode)) {
                     pickupPhotoVerifiedOrderIds = pickupPhotoVerifiedOrderIds + order.orderId
-                    val hasPickupScan = pickupScanVerifiedOrderIds.contains(order.orderId) ||
-                        order.pickupScanVerified ||
-                        order.scanType == "pickup" ||
-                        order.scanType == "pickup_scan"
-                    if (hasPickupScan) {
-                        selectedOrder = order.copy(status = "in_transit", pickupPhotoVerified = true)
-                        orderViewModel.fetchOrdersFromBackend()
+                    scope.launch {
+                        val updatedOrder = orderViewModel.getOrderById(order.orderId)
+                            ?: order.copy(pickupPhotoVerified = true)
+                        val hasPickupScan = pickupScanVerifiedOrderIds.contains(order.orderId) ||
+                            updatedOrder.pickupScanVerified ||
+                            updatedOrder.scanType == "pickup" ||
+                            updatedOrder.scanType == CourierProofTypes.PICKUP_SCAN
+                        selectedOrder = updatedOrder
                         snackbarHostState.currentSnackbarData?.dismiss()
-                        scope.launch { snackbarHostState.showSnackbar("Pickup lengkap. Mulai pengantaran.") }
-                    } else {
-                        selectedOrder = order.copy(pickupPhotoVerified = true)
-                        snackbarHostState.currentSnackbarData?.dismiss()
-                        scope.launch { snackbarHostState.showSnackbar("Foto barang tersimpan. Scan barcode/kode paket masih wajib.") }
+                        snackbarHostState.showSnackbar(
+                            if (hasPickupScan) {
+                                "Pickup lengkap. Mulai pengantaran."
+                            } else {
+                                "Foto barang tersimpan. Scan kode paket masih wajib."
+                            }
+                        )
                     }
-                    showOrderDetail = true
+                    routeState = CourierRouteReducer.detail(order.orderId)
                 } else {
                     orderViewModel.fetchOrdersFromBackend()
-                    selectedOrder = null
+                    closeRoute()
                 }
             },
             onBack = {
-                showPodScreen = false
-                selectedOrder = null
+                backToOrderOrHome()
             }
         )
         return
@@ -428,11 +579,10 @@ fun MainScreen(
             pickupScanVerified = pickupScanVerifiedOrderIds.contains(order.orderId) ||
                 order.pickupScanVerified ||
                 order.scanType == "pickup" ||
-                order.scanType == "pickup_scan",
+                order.scanType == CourierProofTypes.PICKUP_SCAN,
             pickupPhotoVerified = pickupPhotoVerifiedOrderIds.contains(order.orderId) || order.pickupPhotoVerified,
             onBack = {
-                showOrderDetail = false
-                selectedOrder = null
+                closeRoute()
             },
             onUpdateStatus = { newStatus ->
                 // Optimistic local update + backend sync
@@ -443,27 +593,25 @@ fun MainScreen(
                 selectedOrder = selectedOrder?.copy(status = newStatus)
             },
             onVerifyPickup = {
-                activeScanType = "pickup"
-                showOrderDetail = false
-                showScanScreen = true
+                openScan(order, CourierProofTypes.PICKUP_SCAN)
             },
             onCapturePickupProof = {
-                activeProofMode = "pickup"
-                showOrderDetail = false
-                showPodScreen = true
+                openProof(order, CourierProofTypes.PICKUP_PHOTO)
             },
             onCapturePod = {
-                activeProofMode = "delivery"
-                showOrderDetail = false
-                showPodScreen = true
+                openProof(order, CourierProofTypes.DELIVERY_POD_PHOTO)
             },
             onChatClick = {
-                showOrderDetail = false
-                showChatScreen = true
+                openChat(order)
             },
             onSosClick = {
                 scope.launch {
-                    sendSafetyEvent(order, "sos", "critical", "Kurir membutuhkan bantuan segera di pekerjaan on-demand.")
+                    sendSafetyEvent(order, "sos", "critical", "Kurir membutuhkan bantuan segera di pekerjaan aktif.")
+                }
+            },
+            onReportIssue = { eventType, severity, message, photoFile ->
+                scope.launch {
+                    sendSafetyEvent(order, eventType, severity, message, photoFile)
                 }
             },
             onCancelPickup = { reasonCode, reasonNote, photoFile ->
@@ -479,8 +627,7 @@ fun MainScreen(
                         photoFile = photoFile
                     )
                     result.onSuccess { message ->
-                        showOrderDetail = false
-                        selectedOrder = null
+                        closeRoute()
                         snackbarHostState.showSnackbar(message)
                     }.onFailure { error ->
                         snackbarHostState.showSnackbar(error.message ?: "Pembatalan pickup belum terkirim. Coba lagi.")
@@ -496,8 +643,7 @@ fun MainScreen(
         ChatScreen(
             orderId = order.orderId,
             onBackClick = {
-                showChatScreen = false
-                showOrderDetail = true // Back to context-sensitive screen
+                backToOrderOrHome()
             }
         )
         return
@@ -508,18 +654,17 @@ fun MainScreen(
         ScanScreen(
             initialOrderId = selectedOrder?.orderId,
             scanType = activeScanType,
-            title = if (activeScanType == "pickup") "Verifikasi Barang" else "Verifikasi Dropoff",
+            title = if (activeScanType == CourierProofTypes.PICKUP_SCAN) "Verifikasi Barang" else "Verifikasi Tujuan",
             onScanSuccess = { orderId ->
-                showScanScreen = false
                 scope.launch {
                     // Load real order from DB (may have been added by notification)
                     val order = orderViewModel.getOrderById(orderId)
                     if (order != null) {
-                        if (activeScanType == "pickup") {
+                        if (activeScanType == CourierProofTypes.PICKUP_SCAN) {
                             pickupScanVerifiedOrderIds = pickupScanVerifiedOrderIds + orderId
                             val hasPickupPhoto = pickupPhotoVerifiedOrderIds.contains(orderId) || order.pickupPhotoVerified
                             if (hasPickupPhoto) {
-                                selectedOrder = order.copy(status = "in_transit", pickupScanVerified = true)
+                                selectedOrder = order.copy(pickupScanVerified = true)
                                 orderViewModel.fetchOrdersFromBackend()
                                 snackbarHostState.showSnackbar("Pickup lengkap. Mulai pengantaran.")
                             } else {
@@ -529,15 +674,14 @@ fun MainScreen(
                         } else {
                             selectedOrder = order
                         }
-                        showOrderDetail = true
+                        routeState = CourierRouteReducer.detail(orderId)
                     } else {
                         snackbarHostState.showSnackbar("Order $orderId tidak ditemukan")
                     }
                 }
             },
             onBack = {
-                showScanScreen = false
-                if (selectedOrder != null) showOrderDetail = true
+                backToOrderOrHome()
             }
         )
         return
@@ -566,6 +710,76 @@ fun MainScreen(
             dismissButton = {
                 TextButton(onClick = { showLogoutDialog = false }) {
                     Text("Batal")
+                }
+            }
+        )
+    }
+
+    if (showForegroundLocationPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showForegroundLocationPermissionDialog = false
+                pendingOnlineAfterForegroundPermission = false
+            },
+            title = { Text("Aktifkan Lokasi") },
+            text = {
+                Text("Lokasi foreground dibutuhkan untuk validasi area kerja, rute pickup, dan bukti pengantaran. TEMBUS hanya memakai lokasi saat kurir On Duty.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showForegroundLocationPermissionDialog = false
+                        foregroundLocationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }
+                ) {
+                    Text("Izinkan lokasi")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showForegroundLocationPermissionDialog = false
+                        pendingOnlineAfterForegroundPermission = false
+                    }
+                ) {
+                    Text("Batal")
+                }
+            }
+        )
+    }
+
+    if (showBackgroundLocationPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showBackgroundLocationPermissionDialog = false },
+            title = { Text("Tracking Saat App Ditutup") },
+            text = {
+                Text("Agar dispatcher dan pelanggan tetap mendapat posisi akurat selama pekerjaan aktif, aktifkan izin lokasi background. Izin ini hanya dipakai saat status On Duty.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showBackgroundLocationPermissionDialog = false
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            backgroundLocationPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                        }
+                    }
+                ) {
+                    Text("Buka pengaturan")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBackgroundLocationPermissionDialog = false }) {
+                    Text("Nanti")
                 }
             }
         )
@@ -683,19 +897,13 @@ fun MainScreen(
                 capabilityProfile = capabilityProfile,
                 courierVehicleType = courierVehicleType,
                 routePreviews = routePreviews,
+                activeRoutePlan = activeRoutePlan,
                 hotspots = onDemandHotspots,
                 mapsProviderConfig = mapsProviderConfig,
                 isOnline = isOnline,
-                onOnlineToggle = { online ->
-                    if (online && localSecuritySettings.active) {
-                        pendingDutySecurityTarget = true
-                    } else {
-                        scope.launch { performDutyToggle(online) }
-                    }
-                },
+                onOnlineToggle = { online -> requestDutyToggle(online) },
                 onOpenDelivery = { order ->
-                    selectedOrder = order
-                    showOrderDetail = true
+                    openOrderDetail(order)
                 },
                 onViewOrders = { selectedTab = 1 }
             )
@@ -708,6 +916,16 @@ fun MainScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                inlineErrorMessage?.let { message ->
+                    CourierInlineErrorState(
+                        message = message,
+                        onRetry = {
+                            inlineErrorMessage = null
+                            orderViewModel.fetchOrdersFromBackend()
+                        },
+                        onDismiss = { inlineErrorMessage = null }
+                    )
+                }
                 when (selectedTab) {
                     0 -> HomeContent(
                     courierName = displayCourierName,
@@ -721,27 +939,22 @@ fun MainScreen(
                     services = onDemandServices,
                     capabilityProfile = capabilityProfile,
                     courierVehicleType = courierVehicleType,
-                    routePreviews = routePreviews,
-                    hotspots = onDemandHotspots,
-                    mapsProviderConfig = mapsProviderConfig,
+            routePreviews = routePreviews,
+            activeRoutePlan = activeRoutePlan,
+            hotspots = onDemandHotspots,
+            mapsProviderConfig = mapsProviderConfig,
                     isOnline = isOnline,
-                    onOnlineToggle = { online ->
-                        if (online && localSecuritySettings.active) {
-                            pendingDutySecurityTarget = true
-                        } else {
-                            scope.launch { performDutyToggle(online) }
-                        }
-                    },
+                    onOnlineToggle = { online -> requestDutyToggle(online) },
                     onCapturePod = { order ->
-                        selectedOrder = order
-                        showPodScreen = true
+                        openProof(order, CourierProofTypes.DELIVERY_POD_PHOTO)
                     },
                     onOpenDelivery = { order ->
-                        selectedOrder = order
-                        showOrderDetail = true
+                        openOrderDetail(order)
                     },
                     onViewOrders = { selectedTab = 1 },
-                    onScanPackage = { showScanScreen = true }
+                    onScanPackage = {
+                        openScan(null, CourierProofTypes.PICKUP_SCAN)
+                    }
                 )
                     1 -> OrdersContent(
                     orders = roleOrders,
@@ -750,8 +963,7 @@ fun MainScreen(
                     isOnline = isOnline,
                     lastRemoteSyncAt = lastRemoteSyncAt,
                     onOrderClick = { order ->
-                        selectedOrder = order
-                        showOrderDetail = true
+                        openOrderDetail(order)
                     },
                     onSync = { orderViewModel.syncPendingOrders() },
                     onRefresh = { orderViewModel.fetchOrdersFromBackend() }
@@ -916,6 +1128,7 @@ private fun OnDemandMapHome(
     capabilityProfile: CourierCapabilityProfile?,
     courierVehicleType: String,
     routePreviews: Map<String, CourierRoutePreview>,
+    activeRoutePlan: CourierActiveRoutePlan?,
     hotspots: List<CourierHotspot>,
     mapsProviderConfig: MapsProviderConfig,
     isOnline: Boolean,
@@ -938,13 +1151,27 @@ private fun OnDemandMapHome(
         val lng = order.dropLongitude
         if (lat != null && lng != null) LatLng(lat, lng) else null
     }
-    val activeRoutePoints = activeOrder?.let { order ->
+    val plannedRoutePoints = remember(activeRoutePlan) {
+        activeRoutePlan?.segments
+            ?.flatMap { segment -> decodeRuntimeRoutePolyline(segment.routePolyline) }
+            ?.takeIf { it.isNotEmpty() }
+            ?: activeRoutePlan?.stops
+                ?.mapNotNull { stop ->
+                    val lat = stop.latitude
+                    val lng = stop.longitude
+                    if (lat != null && lng != null) LatLng(lat, lng) else null
+                }
+            ?: emptyList()
+    }
+    val activeRoutePoints = plannedRoutePoints.ifEmpty {
+        activeOrder?.let { order ->
         val preview = routePreviews[order.orderId]
         preview?.let {
             decodeRuntimeRoutePolyline(it.routePolyline ?: it.routeSnapshot?.routePolyline)
                 .ifEmpty { it.polyline.map { point -> LatLng(point.latitude, point.longitude) } }
         }
-    }.orEmpty()
+        }.orEmpty()
+    }
     val mapMarkers = buildList {
         pickupPoint?.let { add(RuntimeMapMarker("pickup", it, focusOrder.pickupAddress)) }
         dropPoint?.let { add(RuntimeMapMarker("dropoff", it, focusOrder.dropAddress)) }
@@ -1081,6 +1308,10 @@ private fun OnDemandMapHome(
                     disabledServiceCodesText = nextCodes.sorted().joinToString(",")
                 }
             )
+
+            if (activeRoutePlan != null && activeRoutePlan.stops.isNotEmpty()) {
+                ActiveRoutePlanCard(activeRoutePlan = activeRoutePlan, onViewOrders = onViewOrders)
+            }
 
             if (activeOrder != null) {
                 val order = activeOrder
@@ -1255,6 +1486,86 @@ private fun OnDemandActiveOrderCard(
 }
 
 @Composable
+private fun ActiveRoutePlanCard(
+    activeRoutePlan: CourierActiveRoutePlan,
+    onViewOrders: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = CourierPanel.copy(alpha = 0.96f),
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 10.dp
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(color = LogisticsOrange.copy(alpha = 0.18f), shape = RoundedCornerShape(12.dp)) {
+                    Icon(Icons.Default.Route, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(10.dp).size(22.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Route plan aktif", color = Color.White, fontWeight = FontWeight.Black)
+                    Text(
+                        "${activeRoutePlan.stops.size} stop • ${String.format("%.1f", activeRoutePlan.totalDistanceKm)} km • ETA ${activeRoutePlan.totalEtaMinutes} menit",
+                        color = Color.White.copy(alpha = 0.68f),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+                Surface(
+                    color = if (activeRoutePlan.trafficAware) Success.copy(alpha = 0.18f) else Warning.copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        if (activeRoutePlan.trafficAware) "Traffic" else "Fallback",
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                        color = if (activeRoutePlan.trafficAware) Success else Warning,
+                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                activeRoutePlan.stops.take(4).forEachIndexed { index, stop ->
+                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Surface(
+                            modifier = Modifier.size(26.dp),
+                            color = if (stop.stopType == "pickup") Primary.copy(alpha = 0.24f) else LogisticsOrange.copy(alpha = 0.22f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("${index + 1}", color = Color.White, fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                if (stop.stopType == "pickup") "Pickup ${stop.orderNumber ?: stop.orderId.take(8)}" else "Dropoff ${stop.orderNumber ?: stop.orderId.take(8)}",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                            Text(
+                                "${stop.packageCount} paket • ${stop.address ?: "Alamat sinkron"}",
+                                color = Color.White.copy(alpha = 0.62f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            }
+
+            TextButton(onClick = onViewOrders, modifier = Modifier.align(Alignment.End)) {
+                Text("Lihat semua order", color = LogisticsOrange, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
 private fun OnDemandWaitingCard(onViewOrders: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -1294,6 +1605,7 @@ private fun HomeContent(
     capabilityProfile: CourierCapabilityProfile?,
     courierVehicleType: String,
     routePreviews: Map<String, CourierRoutePreview>,
+    activeRoutePlan: CourierActiveRoutePlan?,
     hotspots: List<CourierHotspot>,
     mapsProviderConfig: MapsProviderConfig,
     isOnline: Boolean,
@@ -1329,6 +1641,7 @@ private fun HomeContent(
             capabilityProfile = capabilityProfile,
             courierVehicleType = courierVehicleType,
             routePreviews = routePreviews,
+            activeRoutePlan = activeRoutePlan,
             hotspots = hotspots,
             mapsProviderConfig = mapsProviderConfig,
             isOnline = isOnline,
@@ -1527,13 +1840,13 @@ private fun HomeContent(
                     }
                     Button(
                         onClick = { onCapturePod(activeOrder) },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Secondary)
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Upload Bukti Pengiriman")
+                        Text("Ambil Bukti Terima")
                     }
                 } else {
                     EmptyActiveOrder(
@@ -1557,7 +1870,7 @@ private fun HomeContent(
             ) {
                 Icon(Icons.Default.QrCodeScanner, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Scan")
+                Text("Scan Kode Paket")
             }
             OutlinedButton(
                 onClick = onViewOrders,
@@ -1566,7 +1879,7 @@ private fun HomeContent(
             ) {
                 Icon(Icons.Default.LocalShipping, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Order")
+                Text("Daftar Order")
             }
         }
     }
@@ -1585,6 +1898,7 @@ private fun OnDemandHomeHubEnterprise(
     capabilityProfile: CourierCapabilityProfile?,
     courierVehicleType: String,
     routePreviews: Map<String, CourierRoutePreview>,
+    activeRoutePlan: CourierActiveRoutePlan?,
     hotspots: List<CourierHotspot>,
     mapsProviderConfig: MapsProviderConfig,
     isOnline: Boolean,
@@ -1627,12 +1941,26 @@ private fun OnDemandHomeHubEnterprise(
         if (lat != null && lng != null) LatLng(lat, lng) else null
     }
     val activeRoutePreview = activeOrder?.let { routePreviews[it.orderId] }
-    val activeRoutePoints = activeRoutePreview?.let { preview ->
+    val plannedRoutePoints = remember(activeRoutePlan) {
+        activeRoutePlan?.segments
+            ?.flatMap { segment -> decodeRuntimeRoutePolyline(segment.routePolyline) }
+            ?.takeIf { it.isNotEmpty() }
+            ?: activeRoutePlan?.stops
+                ?.mapNotNull { stop ->
+                    val lat = stop.latitude
+                    val lng = stop.longitude
+                    if (lat != null && lng != null) LatLng(lat, lng) else null
+                }
+            ?: emptyList()
+    }
+    val activeRoutePoints = plannedRoutePoints.ifEmpty {
+        activeRoutePreview?.let { preview ->
         decodeRuntimeRoutePolyline(preview.routePolyline ?: preview.routeSnapshot?.routePolyline)
             .ifEmpty {
                 preview.polyline.map { point -> LatLng(point.latitude, point.longitude) }
             }
-    }.orEmpty()
+        }.orEmpty()
+    }
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(pickupPoint ?: LatLng(0.0, 0.0), 13f)
     }
@@ -1765,6 +2093,10 @@ private fun OnDemandHomeHubEnterprise(
                     InfoPill(icon = Icons.Default.Inventory2, text = "$totalOrders order")
                 }
             }
+        }
+
+        if (activeRoutePlan != null && activeRoutePlan.stops.isNotEmpty()) {
+            ActiveRoutePlanCard(activeRoutePlan = activeRoutePlan, onViewOrders = onViewOrders)
         }
 
         if (activeOrder != null) {
@@ -2347,8 +2679,55 @@ private fun CourierServiceCapability.toServiceProduct(vehicleGroup: String): Cou
         serviceCategory = serviceCategory,
         routeModel = routeModel,
         maxWeightKg = maxWeightKg,
-        vehicleTypes = listOf(vehicleGroup)
+        vehicleTypes = listOf(vehicleGroup),
+        batchingAllowed = batchingAllowed,
+        maxPackagesPerOrder = maxPackagesPerOrder,
+        maxActiveOrdersRegular = maxActiveOrdersRegular,
+        maxActiveOrdersOnDemand = maxActiveOrdersOnDemand,
+        sameCustomerBatchingRequired = sameCustomerBatchingRequired,
+        allowNewOfferWhilePickup = allowNewOfferWhilePickup,
+        allowNewOfferWhileDelivery = allowNewOfferWhileDelivery,
+        assignmentRadiusPickupKm = assignmentRadiusPickupKm,
+        assignmentRadiusDeliveryKm = assignmentRadiusDeliveryKm,
+        proofGeofenceRadiusM = proofGeofenceRadiusM,
+        proofMinAccuracyM = proofMinAccuracyM,
+        faceVerificationRequired = faceVerificationRequired,
+        failedDeliveryPolicy = failedDeliveryPolicy,
+        podLabel = podLabel
     )
+}
+
+private fun resolveMaxActiveOnDemandJobs(
+    capabilityProfile: CourierCapabilityProfile?,
+    services: List<CourierServiceProduct>,
+    courierVehicleType: String
+): Int {
+    val vehicleGroup = normalizedVehicleGroup(courierVehicleType)
+    val enabledCapabilityCodes = capabilityProfile?.serviceCapabilities
+        ?.filter { capability ->
+            capability.serviceCategory == "on_demand" &&
+                capability.status.equals("enabled", ignoreCase = true)
+        }
+        ?.map { it.serviceCode }
+        ?.toSet()
+        .orEmpty()
+    val capabilityMaxActive = capabilityProfile?.serviceCapabilities
+        ?.filter { capability ->
+            capability.serviceCategory == "on_demand" &&
+                capability.status.equals("enabled", ignoreCase = true)
+        }
+        ?.maxOfOrNull { it.maxActiveOrdersOnDemand.coerceAtLeast(1) }
+        ?: 1
+    val serviceMaxActive = services
+        .filter { service ->
+            service.serviceCategory == "on_demand" &&
+                service.supportsVehicleGroup(vehicleGroup) &&
+                (enabledCapabilityCodes.isEmpty() || service.code in enabledCapabilityCodes)
+        }
+        .maxOfOrNull { it.maxActiveOrdersOnDemand.coerceAtLeast(1) }
+        ?: 1
+
+    return maxOf(capabilityMaxActive, serviceMaxActive, 1)
 }
 
 private fun normalizedVehicleGroup(raw: String?): String {
@@ -2423,6 +2802,282 @@ private fun HotspotRow(hotspot: CourierHotspot) {
             )
         }
         Text(hotspot.code ?: "zone", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Primary)
+    }
+}
+
+@Composable
+private fun OnDemandOfferQueueDialog(
+    offers: List<Order>,
+    mapsProviderConfig: MapsProviderConfig,
+    activeJobCount: Int,
+    maxActiveJobs: Int,
+    acceptBlocked: Boolean,
+    onAccept: (Order) -> Unit,
+    onReject: (Order) -> Unit,
+    onExpired: (Order) -> Unit
+) {
+    val orderedOffers = remember(offers) {
+        offers.sortedWith(
+            compareBy<Order> { it.offerExpiresAt ?: Long.MAX_VALUE }
+                .thenByDescending { it.cleanPayoutIdr() }
+        )
+    }
+    val capacityText = if (acceptBlocked) {
+        "Selesaikan pekerjaan aktif dulu. Profil operasional saat ini mengizinkan $maxActiveJobs pekerjaan aktif."
+    } else {
+        "Kapasitas aktif $activeJobCount/$maxActiveJobs pekerjaan."
+    }
+
+    Dialog(
+        onDismissRequest = {},
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.58f))
+                .padding(horizontal = 18.dp, vertical = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xF70A2218),
+                shape = RoundedCornerShape(24.dp),
+                shadowElevation = 12.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(color = LogisticsOrange, shape = RoundedCornerShape(12.dp)) {
+                            Icon(Icons.Default.Bolt, contentDescription = null, tint = Color.Black, modifier = Modifier.padding(10.dp).size(22.dp))
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Tawaran Masuk", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+                            Text(
+                                "${orderedOffers.size} pekerjaan menunggu keputusan",
+                                color = Color.White.copy(alpha = 0.72f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = if (acceptBlocked) MaterialTheme.colorScheme.error.copy(alpha = 0.14f) else Primary.copy(alpha = 0.14f),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(
+                            1.dp,
+                            if (acceptBlocked) MaterialTheme.colorScheme.error.copy(alpha = 0.42f) else Primary.copy(alpha = 0.38f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                if (acceptBlocked) Icons.Default.LockClock else Icons.Default.VerifiedUser,
+                                contentDescription = null,
+                                tint = if (acceptBlocked) MaterialTheme.colorScheme.error else Primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(capacityText, color = Color.White.copy(alpha = 0.86f), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = 560.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        orderedOffers.forEachIndexed { index, offer ->
+                            OnDemandOfferQueueItem(
+                                order = offer,
+                                mapsProviderConfig = mapsProviderConfig,
+                                promoted = index == 0,
+                                acceptBlocked = acceptBlocked,
+                                blockedReason = capacityText,
+                                onAccept = { onAccept(offer) },
+                                onReject = { onReject(offer) },
+                                onExpired = { onExpired(offer) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnDemandOfferQueueItem(
+    order: Order,
+    mapsProviderConfig: MapsProviderConfig,
+    promoted: Boolean,
+    acceptBlocked: Boolean,
+    blockedReason: String,
+    onAccept: () -> Unit,
+    onReject: () -> Unit,
+    onExpired: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    var now by remember(order.dispatchId, order.orderId) { mutableStateOf(System.currentTimeMillis()) }
+    var expiredSent by remember(order.dispatchId, order.orderId) { mutableStateOf(false) }
+    val expiresAt = order.offerExpiresAt ?: remember(order.dispatchId, order.orderId) {
+        System.currentTimeMillis() + (order.offerTtlSeconds ?: ON_DEMAND_OFFER_TTL_SECONDS) * 1000L
+    }
+    val totalTtlMs = ((order.offerTtlSeconds ?: ON_DEMAND_OFFER_TTL_SECONDS) * 1000L).coerceAtLeast(1L)
+    val remainingMs = (expiresAt - now).coerceAtLeast(0L)
+    val remainingSeconds = ((remainingMs + 999L) / 1000L).toInt()
+    val progress = (remainingMs.toFloat() / totalTtlMs.toFloat()).coerceIn(0f, 1f)
+    val pickupPoint = remember(order.pickupLatitude, order.pickupLongitude) {
+        val lat = order.pickupLatitude
+        val lng = order.pickupLongitude
+        if (lat != null && lng != null) LatLng(lat, lng) else null
+    }
+    val dropPoint = remember(order.dropLatitude, order.dropLongitude) {
+        val lat = order.dropLatitude
+        val lng = order.dropLongitude
+        if (lat != null && lng != null) LatLng(lat, lng) else null
+    }
+    val expired = remainingSeconds <= 0
+
+    LaunchedEffect(order.dispatchId, order.orderId, expiresAt) {
+        while (now < expiresAt) {
+            delay(250L)
+            now = System.currentTimeMillis()
+        }
+    }
+
+    LaunchedEffect(remainingSeconds) {
+        if (remainingSeconds in 1..5) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+        if (expired && !expiredSent) {
+            expiredSent = true
+            onExpired()
+        }
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = if (promoted) Color.White else Color.White.copy(alpha = 0.92f),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, if (promoted) LogisticsOrange.copy(alpha = 0.65f) else Color.White.copy(alpha = 0.22f))
+    ) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(if (promoted) "Prioritas berikutnya" else order.orderId.ifBlank { "Tawaran lain" }, color = DeepForest, fontWeight = FontWeight.Black)
+                    Text(order.displayServiceName(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                }
+                Surface(color = if (expired) MaterialTheme.colorScheme.error.copy(alpha = 0.12f) else LogisticsOrange.copy(alpha = 0.16f), shape = RoundedCornerShape(10.dp)) {
+                    Text(
+                        if (expired) "Expired" else "${remainingSeconds}s",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        color = if (expired) MaterialTheme.colorScheme.error else LogisticsOrange,
+                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth().height(7.dp),
+                color = if (remainingSeconds <= 5) MaterialTheme.colorScheme.error else LogisticsOrange,
+                trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.16f)
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                InfoPill(icon = Icons.Default.Route, text = order.distance.ifBlank { "Jarak dihitung" })
+                InfoPill(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
+            }
+
+            OfferRouteRow(
+                icon = Icons.Default.Storefront,
+                label = "Pickup",
+                value = order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }
+            )
+            OfferRouteRow(
+                icon = Icons.Default.Place,
+                label = "Tujuan",
+                value = order.dropAddress.ifBlank { "Alamat tujuan dibuka setelah diterima" }
+            )
+
+            if (promoted && (pickupPoint != null || dropPoint != null)) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().height(104.dp),
+                    color = PrimaryLight.copy(alpha = 0.55f),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    RuntimeMapRenderer(
+                        modifier = Modifier.fillMaxSize(),
+                        providerConfig = mapsProviderConfig,
+                        markers = buildList {
+                            pickupPoint?.let { add(RuntimeMapMarker("pickup-${order.orderId}", it, "Pickup", order.pickupAddress)) }
+                            dropPoint?.let { add(RuntimeMapMarker("dropoff-${order.orderId}", it, "Tujuan", order.dropAddress)) }
+                        },
+                        routePoints = buildList {
+                            pickupPoint?.let { add(it) }
+                            dropPoint?.let { add(it) }
+                        },
+                        followLocation = pickupPoint ?: dropPoint,
+                        googleUiSettings = MapUiSettings(
+                            zoomControlsEnabled = false,
+                            myLocationButtonEnabled = false,
+                            mapToolbarEnabled = false,
+                            scrollGesturesEnabled = false,
+                            zoomGesturesEnabled = false,
+                            tiltGesturesEnabled = false,
+                            rotationGesturesEnabled = false
+                        ),
+                        routeColor = LogisticsOrange,
+                        fallbackTitle = "Area tawaran",
+                        fallbackMessage = "Peta mengikuti konfigurasi operasional."
+                    )
+                }
+            }
+
+            if (acceptBlocked) {
+                Text(blockedReason, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onReject()
+                    },
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Tolak", fontWeight = FontWeight.Black)
+                }
+                Button(
+                    onClick = {
+                        if (!expired && !acceptBlocked) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onAccept()
+                        }
+                    },
+                    enabled = !expired && !acceptBlocked,
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.White)
+                ) {
+                    Text("Terima", fontWeight = FontWeight.Black)
+                }
+            }
+        }
     }
 }
 
@@ -2698,7 +3353,7 @@ private fun RouteSummary(order: Order) {
         )
         RouteLine(
             icon = Icons.Default.LocationOn,
-            label = "Dropoff",
+            label = "Tujuan",
             value = order.dropAddress.ifBlank { "Alamat tujuan sedang disinkronkan" }
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -2777,7 +3432,9 @@ private fun OrdersContent(
     onSync: () -> Unit,
     onRefresh: () -> Unit
 ) {
-    if (orders.isEmpty() && !isSyncing) {
+    if (orders.isEmpty() && isSyncing) {
+        CourierListSkeleton(title = "Menyiapkan daftar order")
+    } else if (orders.isEmpty()) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -2827,6 +3484,115 @@ private fun OrdersContent(
             )
         }
     }
+}
+
+@Composable
+private fun CourierInlineErrorState(
+    message: String,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.error.copy(alpha = 0.10f),
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.28f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.SyncProblem,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(20.dp)
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Data belum tersinkron", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            TextButton(onClick = onRetry, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                Text("Coba Lagi")
+            }
+            IconButton(onClick = onDismiss, modifier = Modifier.size(40.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "Tutup pesan")
+            }
+        }
+    }
+}
+
+@Composable
+private fun CourierListSkeleton(title: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        DataFreshnessSkeleton(title)
+        repeat(4) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.10f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            CourierSkeletonBlock(width = 150.dp, height = 16.dp)
+                            CourierSkeletonBlock(width = 98.dp, height = 12.dp)
+                        }
+                        CourierSkeletonBlock(width = 72.dp, height = 28.dp)
+                    }
+                    CourierSkeletonBlock(width = 260.dp, height = 14.dp)
+                    CourierSkeletonBlock(width = 220.dp, height = 14.dp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DataFreshnessSkeleton(title: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Info.copy(alpha = 0.10f),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Info, strokeWidth = 2.dp)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                CourierSkeletonBlock(width = 210.dp, height = 12.dp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CourierSkeletonBlock(width: androidx.compose.ui.unit.Dp, height: androidx.compose.ui.unit.Dp) {
+    Box(
+        modifier = Modifier
+            .width(width)
+            .height(height)
+            .background(
+                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.14f),
+                shape = RoundedCornerShape(6.dp)
+            )
+    )
 }
 
 @Composable
@@ -2988,27 +3754,7 @@ private fun WalletContent(
         )
 
         if (earningsLedger == null) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Primary, strokeWidth = 3.dp)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Memuat riwayat dompet", fontWeight = FontWeight.Bold)
-                        Text(
-                            "Data saldo disinkronkan dari sistem pencairan.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
+            CourierWalletSkeleton()
         } else {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -3064,6 +3810,51 @@ private fun WalletContent(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CourierWalletSkeleton() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.10f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(22.dp), color = Primary, strokeWidth = 3.dp)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Menyiapkan ledger pendapatan", fontWeight = FontWeight.Bold)
+                    CourierSkeletonBlock(width = 240.dp, height = 12.dp)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                CourierSkeletonBlock(width = 96.dp, height = 52.dp)
+                CourierSkeletonBlock(width = 96.dp, height = 52.dp)
+                CourierSkeletonBlock(width = 96.dp, height = 52.dp)
+            }
+            repeat(3) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        CourierSkeletonBlock(width = 150.dp, height = 14.dp)
+                        CourierSkeletonBlock(width = 92.dp, height = 11.dp)
+                    }
+                    CourierSkeletonBlock(width = 82.dp, height = 16.dp)
                 }
             }
         }
@@ -4200,6 +4991,7 @@ private const val ON_DEMAND_FOREGROUND_SYNC_MIN_INTERVAL_MS = 4_000L
 private const val FOREGROUND_SYNC_MAX_BACKOFF_MS = 120_000L
 private const val PUSH_SYNC_MIN_INTERVAL_MS = 2_000L
 private const val ON_DEMAND_OFFER_TTL_SECONDS = 15
+private val ACTIVE_ON_DEMAND_STATUSES = setOf("accepted", "picked_up", "in_transit")
 
 private data class DutyLocation(
     val latitude: Double,
@@ -4207,17 +4999,27 @@ private data class DutyLocation(
     val accuracy: Float?
 )
 
-private suspend fun getLastKnownDutyLocation(context: Context): DutyLocation? {
-    val hasFineLocation = ContextCompat.checkSelfPermission(
+private fun hasForegroundLocationPermission(context: Context): Boolean {
+    return ContextCompat.checkSelfPermission(
         context,
         Manifest.permission.ACCESS_FINE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
-    val hasCoarseLocation = ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_COARSE_LOCATION
-    ) == PackageManager.PERMISSION_GRANTED
+    ) == PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+}
 
-    if (!hasFineLocation && !hasCoarseLocation) return null
+private fun hasBackgroundLocationPermission(context: Context): Boolean {
+    return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q ||
+        ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+}
+
+private suspend fun getLastKnownDutyLocation(context: Context): DutyLocation? {
+    if (!hasForegroundLocationPermission(context)) return null
 
     return try {
         val client = LocationServices.getFusedLocationProviderClient(context)

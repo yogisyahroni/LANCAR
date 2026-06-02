@@ -77,6 +77,24 @@ const readNumber = (...values: any[]) => {
   return null
 }
 
+const readObject = (value: any) => {
+  if (!value) return {}
+  if (typeof value === 'object' && !Array.isArray(value)) return value
+  if (typeof value !== 'string') return {}
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+const formatShortTime = (value?: string | null) => {
+  if (!value) return '---'
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '---' : format(date, 'HH:mm')
+}
+
 function RouteTelemetryPanel({ orderDetail }: { orderDetail: any }) {
   const pickupLat = readNumber(orderDetail.pickup_lat, orderDetail.pickup?.lat, orderDetail.pickup_location?.lat, orderDetail.route_snapshot?.pickup?.lat)
   const pickupLng = readNumber(orderDetail.pickup_lng, orderDetail.pickup?.lng, orderDetail.pickup_location?.lng, orderDetail.route_snapshot?.pickup?.lng)
@@ -115,6 +133,119 @@ function RouteTelemetryPanel({ orderDetail }: { orderDetail: any }) {
       <div className="relative flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-zinc-600">
         <MapPin size={14} className={hasRoute ? 'text-primary-light' : 'text-zinc-700'} />
         Static placeholder map removed
+      </div>
+    </div>
+  )
+}
+
+function OperationalMonitoringPanel({ orderDetail }: { orderDetail: any }) {
+  const packages = Array.isArray(orderDetail.packages) ? orderDetail.packages : []
+  const dispatches = Array.isArray(orderDetail.dispatches) ? orderDetail.dispatches : []
+  const proofAttempts = Array.isArray(orderDetail.proof_attempts) ? orderDetail.proof_attempts : []
+  const faceVerifications = Array.isArray(orderDetail.face_verifications) ? orderDetail.face_verifications : []
+  const selectedDispatch = dispatches.find((dispatch: any) => dispatch.status === 'accepted') || dispatches[0]
+  const latestProofAttempt = proofAttempts[0]
+  const latestFaceVerification = faceVerifications[0]
+  const dispatchMetadata = readObject(selectedDispatch?.metadata)
+  const proofPolicy = readObject(latestProofAttempt?.policy_snapshot)
+  const acceptedPackages = packages.filter((item: any) => ['pod_verified', 'delivered'].includes(String(item.status))).length
+  const pickupReadyPackages = packages.filter((item: any) => item.pickup_scan_verified_at && item.pickup_photo_verified_at).length
+
+  return (
+    <div className="p-8 rounded-[40px] bg-white/[0.02] border border-white/5 space-y-6 shadow-inner">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+          <BarChart3 size={14} className="text-primary-light" />
+          Courier V2 Monitoring
+        </p>
+        <span className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black text-primary-light">
+          P1
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Packages</p>
+          <p className="text-lg font-black text-zinc-100 mt-1">{packages.length}</p>
+          <p className="text-[10px] text-zinc-500 font-bold">{pickupReadyPackages} pickup verified</p>
+        </div>
+        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">POD</p>
+          <p className="text-lg font-black text-zinc-100 mt-1">{acceptedPackages}/{packages.length || 1}</p>
+          <p className="text-[10px] text-zinc-500 font-bold">same-order scope</p>
+        </div>
+      </div>
+
+      <div className="rounded-[28px] bg-primary/5 border border-primary/10 p-4 space-y-3">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-black text-zinc-100 uppercase tracking-widest">Dispatch Decision</p>
+            <p className="text-sm text-zinc-400 mt-1">{selectedDispatch?.courier_name || 'Belum ada offer dispatch'}</p>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-zinc-400">
+            {selectedDispatch?.status || 'pending'}
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-2xl bg-white/[0.03] p-2">
+            <p className="text-[10px] text-zinc-600 font-black uppercase">Rank</p>
+            <p className="text-xs text-zinc-200 font-black">{selectedDispatch?.rank_number ?? '---'}</p>
+          </div>
+          <div className="rounded-2xl bg-white/[0.03] p-2">
+            <p className="text-[10px] text-zinc-600 font-black uppercase">Score</p>
+            <p className="text-xs text-zinc-200 font-black">{readNumber(selectedDispatch?.score)?.toFixed(1) || '---'}</p>
+          </div>
+          <div className="rounded-2xl bg-white/[0.03] p-2">
+            <p className="text-[10px] text-zinc-600 font-black uppercase">Distance</p>
+            <p className="text-xs text-zinc-200 font-black">{selectedDispatch?.distance_m ? `${selectedDispatch.distance_m}m` : '---'}</p>
+          </div>
+        </div>
+        <p className="text-[10px] leading-relaxed text-zinc-500 font-bold">
+          {dispatchMetadata.assignment_policy || dispatchMetadata.route_policy || 'Dispatch metadata belum tersedia dari route matcher.'}
+        </p>
+      </div>
+
+      <div className="rounded-[28px] bg-white/[0.03] border border-white/10 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-black text-zinc-100 uppercase tracking-widest">Proof Risk</p>
+          <span className={cn(
+            "px-3 py-1 rounded-full border text-[10px] font-black uppercase",
+            latestProofAttempt?.proof_status === 'accepted'
+              ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-300"
+              : latestProofAttempt ? "bg-red-500/10 border-red-500/20 text-red-300" : "bg-white/5 border-white/10 text-zinc-500"
+          )}>
+            {latestProofAttempt?.proof_status || 'no attempt'}
+          </span>
+        </div>
+        <p className="text-xs text-zinc-400 leading-relaxed">
+          {latestProofAttempt
+            ? `${latestProofAttempt.proof_step} • ${latestProofAttempt.distance_m ?? '---'}m/${latestProofAttempt.radius_m ?? '---'}m • accuracy ${latestProofAttempt.accuracy_m ?? '---'}m`
+            : 'Proof attempt belum masuk.'}
+        </p>
+        {latestProofAttempt?.override_reason && (
+          <p className="text-[10px] text-amber-200 font-bold">Override: {latestProofAttempt.override_reason}</p>
+        )}
+        <p className="text-[10px] text-zinc-600 font-bold">
+          Policy: {proofPolicy.proof_gps_override_policy || proofPolicy.pod_label || 'snapshot belum tersedia'}
+        </p>
+      </div>
+
+      <div className="rounded-[28px] bg-white/[0.03] border border-white/10 p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-black text-zinc-100 uppercase tracking-widest">Face Verification</p>
+          <span className="text-[10px] text-zinc-500 font-black uppercase">{formatShortTime(latestFaceVerification?.created_at)}</span>
+        </div>
+        <p className={cn(
+          "text-sm font-black",
+          latestFaceVerification?.status === 'verified' ? "text-emerald-300" : latestFaceVerification ? "text-amber-300" : "text-zinc-500"
+        )}>
+          {latestFaceVerification?.status || 'Belum ada verifikasi wajah'}
+        </p>
+        <p className="text-[10px] text-zinc-600 font-bold">
+          {latestFaceVerification
+            ? `${latestFaceVerification.verification_type} • liveness ${latestFaceVerification.liveness_score ?? '---'}`
+            : 'Pickup dan POD wajib face verification sebelum bukti diterima server.'}
+        </p>
       </div>
     </div>
   )
@@ -524,6 +655,8 @@ export default function ActiveOrdersTable() {
                             Flag Issue
                           </button>
                         </div>
+
+                        <OperationalMonitoringPanel orderDetail={orderDetail} />
 
                         <div className="p-8 rounded-[40px] bg-zinc-900 border border-white/5 space-y-6 shadow-inner">
                           <div className="flex items-center justify-between gap-3">

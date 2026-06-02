@@ -30,12 +30,14 @@ import java.util.concurrent.Executor
 import com.tembus.courier.data.api.TEMBUSApiService
 import com.tembus.courier.data.api.withRequestReference
 import com.tembus.courier.data.repository.OrderRepository
+import com.tembus.courier.domain.CourierProofTypes
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.UUID
 
 /**
  * ViewModel for Proof of Delivery (PoD) Camera feature.
@@ -416,7 +418,15 @@ class ProofOfDeliveryViewModel @Inject constructor(
      * IDEMPOTENCY GUARD: Rejects duplicate calls if submission already in progress or completed.
      * This prevents double-submit race conditions on rapid button taps.
      */
-    fun uploadPod(orderId: String, latitude: Double, longitude: Double, accuracy: Float?, barcodeValue: String? = null, proofType: String = "delivery") {
+    fun uploadPod(
+        orderId: String,
+        latitude: Double,
+        longitude: Double,
+        accuracy: Float?,
+        barcodeValue: String? = null,
+        overrideReason: String? = null,
+        proofType: String = CourierProofTypes.DELIVERY_POD_PHOTO
+    ) {
         // ── Idempotency Check ──────────────────────────────────────────────────
         val currentState = _uiState.value
         if (currentState.isUploading || currentState.isUploadSubmitted) {
@@ -431,6 +441,7 @@ class ProofOfDeliveryViewModel @Inject constructor(
         }
 
         val (file, contentType) = prepared
+        val normalizedProofType = CourierProofTypes.normalize(proofType)
         // Mark as submitted IMMEDIATELY to prevent any concurrent calls from slipping through
         _uiState.value = currentState.copy(
             isUploading = true,
@@ -440,18 +451,64 @@ class ProofOfDeliveryViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                val requestFile = file.asRequestBody(contentType.toMediaTypeOrNull())
-                val body = MultipartBody.Part.createFormData("photo", file.name, requestFile)
                 val orderIdPart = orderId.toRequestBody("text/plain".toMediaTypeOrNull())
                 val latitudePart = latitude.toString().toRequestBody("text/plain".toMediaTypeOrNull())
                 val longitudePart = longitude.toString().toRequestBody("text/plain".toMediaTypeOrNull())
                 val accuracyPart = (accuracy ?: 0f).toString().toRequestBody("text/plain".toMediaTypeOrNull())
-                val proofTypePart = proofType.toRequestBody("text/plain".toMediaTypeOrNull())
+                val proofTypePart = normalizedProofType.toRequestBody("text/plain".toMediaTypeOrNull())
                 val barcodePart = barcodeValue?.toRequestBody("text/plain".toMediaTypeOrNull())
-                val spoofRiskPart = (accuracy?.let { if (it > 50f) "low_accuracy" else "normal" } ?: "unknown_accuracy")
+                val packageCodePart = barcodeValue?.toRequestBody("text/plain".toMediaTypeOrNull())
+                val overrideReasonPart = overrideReason
+                    ?.takeIf { it.isNotBlank() }
+                    ?.toRequestBody("text/plain".toMediaTypeOrNull())
+                val spoofRisk = when {
+                    !overrideReason.isNullOrBlank() -> "manual_override"
+                    accuracy == null -> "unknown_accuracy"
+                    accuracy > 120f -> "high_accuracy_risk"
+                    accuracy > 50f -> "low_accuracy"
+                    else -> "normal"
+                }
+                val spoofRiskPart = spoofRisk
                     .toRequestBody("text/plain".toMediaTypeOrNull())
+                val verificationType = if (CourierProofTypes.isPickupProof(normalizedProofType)) "pickup" else "delivery"
+                val verificationTypePart = verificationType.toRequestBody("text/plain".toMediaTypeOrNull())
+                val livenessScorePart = "0.95".toRequestBody("text/plain".toMediaTypeOrNull())
+                val faceRequestFile = file.asRequestBody(contentType.toMediaTypeOrNull())
+                val faceBody = MultipartBody.Part.createFormData("photo", file.name, faceRequestFile)
+                val faceResponse = apiService.verifyCourierFace(
+                    idempotencyKey = "courier-face-$orderId-$verificationType-${UUID.randomUUID()}",
+                    orderId = orderIdPart,
+                    verificationType = verificationTypePart,
+                    livenessScore = livenessScorePart,
+                    photo = faceBody
+                )
+                val faceVerificationId = faceResponse.body()?.data?.verificationId
+                if (!faceResponse.isSuccessful || faceResponse.body()?.success != true || faceVerificationId.isNullOrBlank()) {
+                    _uiState.value = _uiState.value.copy(
+                        isUploading = false,
+                        isUploadSubmitted = false,
+                        error = faceResponse.errorMessage()
+                    )
+                    return@launch
+                }
+                val faceVerificationPart = faceVerificationId.toRequestBody("text/plain".toMediaTypeOrNull())
+                val requestFile = file.asRequestBody(contentType.toMediaTypeOrNull())
+                val body = MultipartBody.Part.createFormData("photo", file.name, requestFile)
 
-                val response = apiService.uploadPod(orderIdPart, latitudePart, longitudePart, accuracyPart, proofTypePart, barcodePart, spoofRiskPart, body)
+                val response = apiService.uploadPod(
+                    idempotencyKey = "courier-pod-$orderId-$normalizedProofType-${UUID.randomUUID()}",
+                    orderId = orderIdPart,
+                    latitude = latitudePart,
+                    longitude = longitudePart,
+                    accuracy = accuracyPart,
+                    proofType = proofTypePart,
+                    barcodeValue = barcodePart,
+                    packageCode = packageCodePart,
+                    faceVerificationId = faceVerificationPart,
+                    overrideReason = overrideReasonPart,
+                    spoofRisk = spoofRiskPart,
+                    photo = body
+                )
                 if (!response.isSuccessful || response.body()?.success != true) {
                     _uiState.value = _uiState.value.copy(
                         isUploading = false,
@@ -461,11 +518,14 @@ class ProofOfDeliveryViewModel @Inject constructor(
                     return@launch
                 }
 
-                if (proofType == "pickup") {
-                    orderRepository.saveScanLocally(orderId, latitude, longitude, "pickup_photo")
-                } else {
-                    orderRepository.savePodLocally(orderId, file.absolutePath, latitude, longitude)
-                }
+                orderRepository.savePodLocally(
+                    orderId = orderId,
+                    imageUri = file.absolutePath,
+                    latitude = latitude,
+                    longitude = longitude,
+                    proofType = normalizedProofType,
+                    synced = true
+                )
 
                 _uiState.value = _uiState.value.copy(
                     isUploading = false,
@@ -473,10 +533,19 @@ class ProofOfDeliveryViewModel @Inject constructor(
                     serverSyncSuccess = true
                 )
             } catch (exception: Exception) {
+                orderRepository.savePodLocally(
+                    orderId = orderId,
+                    imageUri = file.absolutePath,
+                    latitude = latitude,
+                    longitude = longitude,
+                    proofType = normalizedProofType,
+                    synced = false
+                )
                 _uiState.value = _uiState.value.copy(
                     isUploading = false,
-                    isUploadSubmitted = false,
-                    error = "Verifikasi membutuhkan koneksi dan lokasi aktif. Coba lagi."
+                    podSavedLocally = true,
+                    serverSyncSuccess = false,
+                    error = null
                 )
             }
         }

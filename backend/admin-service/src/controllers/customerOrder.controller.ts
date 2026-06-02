@@ -25,6 +25,21 @@ type CoordinatePayload = {
   lng: number;
 };
 
+type NormalizedOrderPackage = {
+  package_index: number;
+  package_code: string;
+  description: string;
+  category: string;
+  size_tier: string | null;
+  weight_kg: number;
+  length_cm: number;
+  width_cm: number;
+  height_cm: number;
+  declared_value_idr: number;
+  dimensions_scanned: boolean;
+  metadata: Record<string, any>;
+};
+
 // Helper to calculate distance based on coordinates (Haversine formula)
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const radlat1 = Math.PI * lat1 / 180;
@@ -227,7 +242,8 @@ const normalizePackageDetailsForOrder = (
   packageDetails: any,
   service: DeliveryServiceProduct,
   selectedTier: any,
-  chargeableWeightKg: number
+  chargeableWeightKg: number,
+  packages: NormalizedOrderPackage[] = []
 ) => {
   const dimensions = packageDetails?.dimensions || {};
   const lengthCm = toNumber(packageDetails?.length_cm ?? dimensions.length, 0);
@@ -256,8 +272,111 @@ const normalizePackageDetailsForOrder = (
     requires_delivery_code: Boolean(packageDetails?.requires_delivery_code),
     service_code: service.code,
     service_name: service.name,
-    vehicle_types: service.vehicle_types || []
+    vehicle_types: service.vehicle_types || [],
+    package_count: packages.length || 1,
+    packages: packages.length > 0 ? packages : undefined
   };
+};
+
+const sanitizePackageString = (value: any, fallback = '') =>
+  String(value || fallback)
+    .replace(/[<>{}]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 180);
+
+const normalizePackageInputs = (rawPackages: any, legacyPackageDetails: any): NormalizedOrderPackage[] => {
+  const source = Array.isArray(rawPackages) && rawPackages.length > 0
+    ? rawPackages
+    : [legacyPackageDetails || {}];
+  const seenCodes = new Set<string>();
+
+  return source.slice(0, 100).map((item: any, index: number) => {
+    const dimensions = item?.dimensions || {};
+    const fallbackCode = `PKG-${String(index + 1).padStart(2, '0')}`;
+    const rawCode = sanitizePackageString(item?.package_code || item?.barcode_value || item?.barcode || fallbackCode, fallbackCode)
+      .replace(/[^A-Za-z0-9._-]/g, '')
+      .slice(0, 80) || fallbackCode;
+    let packageCode = rawCode;
+    let suffix = 2;
+    while (seenCodes.has(packageCode)) {
+      packageCode = `${rawCode}-${suffix}`;
+      suffix += 1;
+    }
+    seenCodes.add(packageCode);
+
+    return {
+      package_index: index + 1,
+      package_code: packageCode,
+      description: sanitizePackageString(item?.description || item?.item_description || legacyPackageDetails?.description, 'Paket'),
+      category: sanitizePackageString(item?.category || item?.item_category || legacyPackageDetails?.category, 'other'),
+      size_tier: item?.size_tier ? sanitizePackageString(item.size_tier).slice(0, 50) : null,
+      weight_kg: Math.max(0, toNumber(item?.weight_kg ?? legacyPackageDetails?.weight_kg, 0)),
+      length_cm: Math.max(0, toNumber(item?.length_cm ?? dimensions.length ?? legacyPackageDetails?.length_cm, 0)),
+      width_cm: Math.max(0, toNumber(item?.width_cm ?? dimensions.width ?? legacyPackageDetails?.width_cm, 0)),
+      height_cm: Math.max(0, toNumber(item?.height_cm ?? dimensions.height ?? legacyPackageDetails?.height_cm, 0)),
+      declared_value_idr: Math.max(0, Math.trunc(toNumber(item?.declared_value_idr ?? item?.item_value_idr, 0))),
+      dimensions_scanned: Boolean(item?.dimensions_scanned ?? legacyPackageDetails?.dimensions_scanned),
+      metadata: {
+        source: Array.isArray(rawPackages) && rawPackages.length > 0 ? 'packages_array' : 'legacy_package_details',
+      },
+    };
+  });
+};
+
+const packageChargeableWeight = (service: DeliveryServiceProduct, item: NormalizedOrderPackage) => {
+  const divisor = toNumber(service.dimension_rules?.volumetric_divisor, 6000);
+  const volumetric = item.length_cm && item.width_cm && item.height_cm
+    ? (item.length_cm * item.width_cm * item.height_cm) / divisor
+    : 0;
+  return {
+    actual: item.weight_kg,
+    volumetric,
+    chargeable: Math.max(item.weight_kg, volumetric),
+  };
+};
+
+const summarizePackages = (service: DeliveryServiceProduct, packages: NormalizedOrderPackage[]) => {
+  const packageSummaries = packages.map((item) => ({
+    ...item,
+    ...packageChargeableWeight(service, item),
+  }));
+  const actualWeightKg = packageSummaries.reduce((sum, item) => sum + item.actual, 0);
+  const volumetricWeightKg = packageSummaries.reduce((sum, item) => sum + item.volumetric, 0);
+  const chargeableWeightKg = packageSummaries.reduce((sum, item) => sum + item.chargeable, 0);
+  const maxDimensions = packageSummaries.reduce(
+    (acc, item) => ({
+      length: Math.max(acc.length, item.length_cm),
+      width: Math.max(acc.width, item.width_cm),
+      height: Math.max(acc.height, item.height_cm),
+    }),
+    { length: 0, width: 0, height: 0 }
+  );
+
+  return {
+    package_count: packages.length,
+    actual_weight_kg: actualWeightKg,
+    dimensional_weight_kg: volumetricWeightKg,
+    chargeable_weight_kg: chargeableWeightKg,
+    max_dimensions: maxDimensions,
+    packages: packageSummaries,
+  };
+};
+
+const validatePackagePolicy = (service: DeliveryServiceProduct, packages: NormalizedOrderPackage[]) => {
+  if (packages.length > service.max_packages_per_order) {
+    const error = new Error(`${service.name} maksimal ${service.max_packages_per_order} paket dalam satu order.`);
+    (error as any).statusCode = 400;
+    (error as any).code = 'ERR_SERVICE_PACKAGE_LIMIT';
+    throw error;
+  }
+
+  if (service.requires_dimension_scan && packages.some((item) => !item.dimensions_scanned)) {
+    const error = new Error(`${service.name} wajib scan dimensi untuk semua paket sebelum order dibuat.`);
+    (error as any).statusCode = 400;
+    (error as any).code = 'ERR_DIMENSION_SCAN_REQUIRED';
+    throw error;
+  }
 };
 
 const routeVehicleTypeForService = (service: DeliveryServiceProduct) => {
@@ -310,6 +429,7 @@ type CustomerPriceCalculationInput = {
   dropoffPoint: CoordinatePayload;
   dimensions?: any;
   weightKg?: any;
+  packages?: NormalizedOrderPackage[];
   hasInsurance?: any;
   itemValue?: any;
   sizeTier?: string | null;
@@ -322,6 +442,7 @@ const calculateCustomerPriceBreakdown = async ({
   dropoffPoint,
   dimensions,
   weightKg,
+  packages,
   hasInsurance,
   itemValue,
   sizeTier,
@@ -357,13 +478,18 @@ const calculateCustomerPriceBreakdown = async ({
     throw error;
   }
 
-  const selectedTier = resolveSizeTier(service, sizeTier || undefined);
+  const normalizedPackages = packages && packages.length > 0
+    ? packages
+    : normalizePackageInputs(null, { dimensions, weight_kg: weightKg, size_tier: sizeTier });
+  validatePackagePolicy(service, normalizedPackages);
+  const packageSummary = summarizePackages(service, normalizedPackages);
+  const selectedTier = resolveSizeTier(service, sizeTier || normalizedPackages[0]?.size_tier || undefined);
   const divisor = toNumber(service.dimension_rules?.volumetric_divisor, 6000);
   const surchargeThreshold = toNumber(service.dimension_rules?.surcharge_threshold_kg, service.max_weight_kg || 20);
   const surchargePerKg = toNumber(service.dimension_rules?.surcharge_per_kg_idr, 2000);
 
-  let volumetricWeight = 0;
-  const actualWeight = toNumber(weightKg, 0);
+  let volumetricWeight = packageSummary.dimensional_weight_kg;
+  const actualWeight = packageSummary.actual_weight_kg;
   if (selectedTier?.max_weight_kg && actualWeight > toNumber(selectedTier.max_weight_kg)) {
     const error = new Error(`Berat aktual melewati tier ${selectedTier.name}. Pilih tier yang lebih besar.`);
     (error as any).statusCode = 400;
@@ -371,11 +497,7 @@ const calculateCustomerPriceBreakdown = async ({
     throw error;
   }
 
-  let chargeableWeight = actualWeight;
-  if (dimensions?.length && dimensions?.width && dimensions?.height) {
-    volumetricWeight = (toNumber(dimensions.length) * toNumber(dimensions.width) * toNumber(dimensions.height)) / divisor;
-    chargeableWeight = Math.max(volumetricWeight, actualWeight);
-  }
+  const chargeableWeight = packageSummary.chargeable_weight_kg;
 
   if (service.max_weight_kg && chargeableWeight > service.max_weight_kg) {
     const error = new Error(`${service.name} maksimal ${service.max_weight_kg} kg. Berat hitung order ini ${chargeableWeight.toFixed(2)} kg.`);
@@ -438,6 +560,8 @@ const calculateCustomerPriceBreakdown = async ({
     actual_weight_kg: Number(actualWeight.toFixed(2)),
     dimensional_weight_kg: Number(volumetricWeight.toFixed(2)),
     chargeable_weight_kg: Number(chargeableWeight.toFixed(2)),
+    package_count: packageSummary.package_count,
+    packages: normalizedPackages,
     volumetric_surcharge_idr: volumetricSurcharge,
     insurance_premium_idr: insurancePremium,
     dynamic_price_idr: dynamicPrice,
@@ -454,6 +578,7 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       dropoff,
       dimensions,
       weight_kg,
+      packages: rawPackages,
       has_insurance,
       item_value,
       dimension_scan_verified,
@@ -477,6 +602,14 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       });
       return;
     }
+    const normalizedPackages = normalizePackageInputs(rawPackages, {
+      dimensions,
+      weight_kg,
+      size_tier,
+      dimensions_scanned: dimension_scan_verified,
+      item_value_idr: item_value,
+    });
+    validatePackagePolicy(service, normalizedPackages);
 
     const pickupPoint = normalizeCoordinatePayload(pickup);
     const dropoffPoint = normalizeCoordinatePayload(dropoff);
@@ -494,6 +627,7 @@ export const calculatePrice = async (req: Request, res: Response): Promise<void>
       dropoffPoint,
       dimensions,
       weightKg: weight_kg,
+      packages: normalizedPackages,
       hasInsurance: has_insurance,
       itemValue: item_value,
       sizeTier: size_tier,
@@ -516,6 +650,7 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
       dropoff,
       dimensions,
       weight_kg,
+      packages: rawPackages,
       has_insurance,
       item_value,
       dimension_scan_verified,
@@ -563,6 +698,14 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
           (error as any).code = 'ERR_DIMENSION_SCAN_REQUIRED';
           throw error;
         }
+        const normalizedPackages = normalizePackageInputs(rawPackages, {
+          dimensions,
+          weight_kg,
+          size_tier,
+          dimensions_scanned: dimension_scan_verified,
+          item_value_idr: item_value,
+        });
+        validatePackagePolicy(service, normalizedPackages);
 
         const routeSnapshot = await routeForService(service);
         const breakdown = await calculateCustomerPriceBreakdown({
@@ -571,6 +714,7 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
           dropoffPoint,
           dimensions,
           weightKg: weight_kg,
+          packages: normalizedPackages,
           hasInsurance: has_insurance,
           itemValue: item_value,
           sizeTier: size_tier,
@@ -632,6 +776,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       recipient_name,
       recipient_phone,
       package_details,
+      packages: raw_packages,
       has_insurance,
       item_value,
       schedule_type,
@@ -651,23 +796,13 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       return;
     }
 
-    if (service.requires_dimension_scan && !package_details?.dimensions_scanned) {
-      client.release();
-      res.status(400).json({
-        code: 'ERR_DIMENSION_SCAN_REQUIRED',
-        error: `${service.name} wajib scan dimensi sebelum order dibuat`
-      });
-      return;
-    }
-
-    const selectedTier = resolveSizeTier(service, package_details?.size_tier);
-    const packageDimensions = package_details?.dimensions || {};
-    const packageActualWeight = toNumber(package_details?.weight_kg, 0);
-    const packageDivisor = toNumber(service.dimension_rules?.volumetric_divisor, 6000);
-    const packageVolumetricWeight = packageDimensions?.length && packageDimensions?.width && packageDimensions?.height
-      ? (toNumber(packageDimensions.length) * toNumber(packageDimensions.width) * toNumber(packageDimensions.height)) / packageDivisor
-      : 0;
-    const packageChargeableWeight = Math.max(packageActualWeight, packageVolumetricWeight);
+    const normalizedPackages = normalizePackageInputs(raw_packages, package_details || {});
+    validatePackagePolicy(service, normalizedPackages);
+    const packageSummary = summarizePackages(service, normalizedPackages);
+    const selectedTier = resolveSizeTier(service, package_details?.size_tier || normalizedPackages[0]?.size_tier || undefined);
+    const packageDimensions = package_details?.dimensions || packageSummary.max_dimensions;
+    const packageActualWeight = packageSummary.actual_weight_kg;
+    const packageChargeableWeight = packageSummary.chargeable_weight_kg;
 
     if (selectedTier?.max_weight_kg && packageActualWeight > toNumber(selectedTier.max_weight_kg)) {
       client.release();
@@ -704,9 +839,10 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       dropoffPoint,
       dimensions: packageDimensions,
       weightKg: packageActualWeight,
+      packages: normalizedPackages,
       hasInsurance: has_insurance,
       itemValue: item_value,
-      sizeTier: package_details?.size_tier,
+      sizeTier: package_details?.size_tier || normalizedPackages[0]?.size_tier,
     });
     const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
 
@@ -796,7 +932,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       JSON.stringify(settlement.settlement_snapshot),
       has_insurance || false,
       item_value || 0,
-      JSON.stringify(normalizePackageDetailsForOrder(package_details || {}, service, selectedTier, packageChargeableWeight)),
+      JSON.stringify(normalizePackageDetailsForOrder(package_details || {}, service, selectedTier, packageChargeableWeight, normalizedPackages)),
       customer_notes || '',
       schedule_type || 'now',
       scheduled_at ? new Date(scheduled_at) : null,
@@ -811,6 +947,44 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
     const result = await client.query(insertQuery, values);
     const newOrder = result.rows[0];
+
+    for (const item of normalizedPackages) {
+      await client.query(
+        `INSERT INTO order_packages (
+           order_id, package_index, package_code, description, size_tier,
+           weight_kg, length_cm, width_cm, height_cm, declared_value_idr, metadata
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (order_id, package_index) DO UPDATE SET
+           package_code = EXCLUDED.package_code,
+           description = EXCLUDED.description,
+           size_tier = EXCLUDED.size_tier,
+           weight_kg = EXCLUDED.weight_kg,
+           length_cm = EXCLUDED.length_cm,
+           width_cm = EXCLUDED.width_cm,
+           height_cm = EXCLUDED.height_cm,
+           declared_value_idr = EXCLUDED.declared_value_idr,
+           metadata = EXCLUDED.metadata,
+           updated_at = NOW()`,
+        [
+          newOrder.id,
+          item.package_index,
+          item.package_code,
+          item.description,
+          item.size_tier,
+          item.weight_kg,
+          item.length_cm || null,
+          item.width_cm || null,
+          item.height_cm || null,
+          item.declared_value_idr,
+          JSON.stringify({
+            ...item.metadata,
+            category: item.category,
+            dimensions_scanned: item.dimensions_scanned,
+          }),
+        ]
+      );
+    }
 
     // Insert a pending payment shell. The actual provider is selected explicitly on the payment screen.
     await client.query(`
@@ -1966,6 +2140,22 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
       ORDER BY created_at ASC
     `, [id]);
 
+    const { rows: packages } = await db.query(`
+      SELECT id AS package_id,
+             package_index,
+             package_code,
+             description,
+             size_tier,
+             weight_kg,
+             status,
+             pickup_scan_verified_at,
+             pickup_photo_verified_at,
+             delivery_pod_verified_at
+      FROM order_packages
+      WHERE order_id = $1
+      ORDER BY package_index ASC
+    `, [id]);
+
     const { rows: proofs } = await db.query(`
       SELECT id,
              CASE
@@ -2019,6 +2209,7 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
       data: {
         order: rows[0],
         events,
+        packages,
         proofs,
         tracking,
       },

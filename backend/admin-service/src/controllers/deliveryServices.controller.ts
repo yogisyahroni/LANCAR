@@ -4,6 +4,10 @@ import { db } from '../db';
 const numericFields = [
   'max_distance_km',
   'max_weight_kg',
+  'max_pickup_detour_km',
+  'max_delivery_detour_km',
+  'assignment_radius_pickup_km',
+  'assignment_radius_delivery_km',
   'included_distance_km',
   'service_multiplier',
   'platform_commission_percent',
@@ -25,6 +29,25 @@ export type DeliveryServiceProduct = {
   vehicle_types: string[];
   exclusive_driver: boolean;
   batching_allowed: boolean;
+  max_packages_per_order: number;
+  max_active_orders_regular: number;
+  max_active_orders_on_demand: number;
+  same_customer_batching_required: boolean;
+  allow_new_offer_while_pickup: boolean;
+  allow_new_offer_while_delivery: boolean;
+  max_pickup_detour_km: number;
+  max_delivery_detour_km: number;
+  max_direction_deviation_degrees: number;
+  assignment_radius_pickup_km: number;
+  assignment_radius_delivery_km: number;
+  traffic_aware_assignment: boolean;
+  proof_geofence_radius_m: number;
+  proof_min_accuracy_m: number;
+  proof_gps_override_policy: Record<string, any>;
+  face_verification_required: boolean;
+  regular_max_reschedule_attempts: number;
+  failed_delivery_policy: 'must_deliver' | 'reschedule_then_return' | 'admin_review';
+  pod_label: string;
   max_eta_minutes: number;
   max_distance_km: number | null;
   max_weight_kg: number | null;
@@ -62,13 +85,23 @@ const normalizeService = (row: any): DeliveryServiceProduct => {
   service.courier_min_payout_idr = Number(service.courier_min_payout_idr || 0);
   service.display_order = Number(service.display_order || 0);
   service.max_eta_minutes = Number(service.max_eta_minutes || 0);
+  service.max_packages_per_order = Number(service.max_packages_per_order || 1);
+  service.max_active_orders_regular = Number(service.max_active_orders_regular || 3);
+  service.max_active_orders_on_demand = Number(service.max_active_orders_on_demand || 1);
+  service.max_direction_deviation_degrees = Number(service.max_direction_deviation_degrees || 45);
+  service.proof_geofence_radius_m = Number(service.proof_geofence_radius_m || 10);
+  service.proof_min_accuracy_m = Number(service.proof_min_accuracy_m || 50);
+  service.regular_max_reschedule_attempts = Number(service.regular_max_reschedule_attempts || 3);
   service.size_tiers = Array.isArray(service.size_tiers) ? service.size_tiers : [];
   service.dimension_rules = service.dimension_rules || {};
   service.availability_rules = service.availability_rules || {};
   service.metadata = service.metadata || {};
+  service.proof_gps_override_policy = service.proof_gps_override_policy || {};
   service.vehicle_types = Array.isArray(service.vehicle_types) ? service.vehicle_types : [];
   service.service_category = service.service_category || 'on_demand';
   service.service_family = service.service_family || 'regular';
+  service.failed_delivery_policy = service.failed_delivery_policy || (service.service_category === 'regular' ? 'reschedule_then_return' : 'must_deliver');
+  service.pod_label = service.pod_label || 'POD';
 
   return service;
 };
@@ -106,6 +139,25 @@ const normalizeRouteModel = (value: unknown): 'p2p' => {
   return 'p2p';
 };
 
+const positiveInt = (value: unknown, fallback: number, min: number, max: number) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(parsed)));
+};
+
+const nonNegativeNumber = (value: unknown, fallback: number) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+};
+
+const normalizeFailedDeliveryPolicy = (value: unknown, serviceCategory: string): DeliveryServiceProduct['failed_delivery_policy'] => {
+  const policy = String(value || '').trim().toLowerCase();
+  if (policy === 'reschedule_then_return' || policy === 'admin_review' || policy === 'must_deliver') {
+    return policy;
+  }
+  return serviceCategory === 'regular' ? 'reschedule_then_return' : 'must_deliver';
+};
+
 export const customerFacingService = (service: DeliveryServiceProduct) => ({
   code: service.code,
   name: service.name,
@@ -118,6 +170,25 @@ export const customerFacingService = (service: DeliveryServiceProduct) => ({
   vehicle_types: service.vehicle_types,
   exclusive_driver: service.exclusive_driver,
   batching_allowed: service.batching_allowed,
+  max_packages_per_order: service.max_packages_per_order,
+  max_active_orders_regular: service.max_active_orders_regular,
+  max_active_orders_on_demand: service.max_active_orders_on_demand,
+  same_customer_batching_required: service.same_customer_batching_required,
+  allow_new_offer_while_pickup: service.allow_new_offer_while_pickup,
+  allow_new_offer_while_delivery: service.allow_new_offer_while_delivery,
+  max_pickup_detour_km: service.max_pickup_detour_km,
+  max_delivery_detour_km: service.max_delivery_detour_km,
+  max_direction_deviation_degrees: service.max_direction_deviation_degrees,
+  assignment_radius_pickup_km: service.assignment_radius_pickup_km,
+  assignment_radius_delivery_km: service.assignment_radius_delivery_km,
+  traffic_aware_assignment: service.traffic_aware_assignment,
+  proof_geofence_radius_m: service.proof_geofence_radius_m,
+  proof_min_accuracy_m: service.proof_min_accuracy_m,
+  proof_gps_override_policy: service.proof_gps_override_policy,
+  face_verification_required: service.face_verification_required,
+  regular_max_reschedule_attempts: service.regular_max_reschedule_attempts,
+  failed_delivery_policy: service.failed_delivery_policy,
+  pod_label: service.pod_label,
   max_eta_minutes: service.max_eta_minutes,
   max_distance_km: service.max_distance_km,
   max_weight_kg: service.max_weight_kg,
@@ -250,6 +321,31 @@ const servicePayload = (body: any) => ({
   vehicle_types: Array.isArray(body.vehicle_types) ? body.vehicle_types : ['motor'],
   exclusive_driver: Boolean(body.exclusive_driver),
   batching_allowed: Boolean(body.batching_allowed),
+  max_packages_per_order: positiveInt(body.max_packages_per_order, body.batching_allowed ? 2 : 1, 1, 100),
+  max_active_orders_regular: positiveInt(body.max_active_orders_regular, 3, 1, 50),
+  max_active_orders_on_demand: positiveInt(body.max_active_orders_on_demand, body.batching_allowed ? 2 : 1, 1, 20),
+  same_customer_batching_required: body.same_customer_batching_required !== false,
+  allow_new_offer_while_pickup: Boolean(body.allow_new_offer_while_pickup),
+  allow_new_offer_while_delivery: Boolean(body.allow_new_offer_while_delivery),
+  max_pickup_detour_km: nonNegativeNumber(body.max_pickup_detour_km, 1),
+  max_delivery_detour_km: nonNegativeNumber(body.max_delivery_detour_km, 2),
+  max_direction_deviation_degrees: positiveInt(body.max_direction_deviation_degrees, 45, 0, 180),
+  assignment_radius_pickup_km: nonNegativeNumber(body.assignment_radius_pickup_km, 2),
+  assignment_radius_delivery_km: nonNegativeNumber(body.assignment_radius_delivery_km, 3),
+  traffic_aware_assignment: body.traffic_aware_assignment !== false,
+  proof_geofence_radius_m: positiveInt(body.proof_geofence_radius_m, 10, 1, 100),
+  proof_min_accuracy_m: positiveInt(body.proof_min_accuracy_m, 50, 1, 500),
+  proof_gps_override_policy: body.proof_gps_override_policy || {
+    enabled: true,
+    soft_radius_m: 25,
+    max_accuracy_m: 100,
+    requires_reason: true,
+    manual_review_required: true
+  },
+  face_verification_required: body.face_verification_required !== false,
+  regular_max_reschedule_attempts: positiveInt(body.regular_max_reschedule_attempts, 3, 0, 10),
+  failed_delivery_policy: normalizeFailedDeliveryPolicy(body.failed_delivery_policy, body.service_category || 'on_demand'),
+  pod_label: String(body.pod_label || 'POD').trim().slice(0, 20) || 'POD',
   max_eta_minutes: Number(body.max_eta_minutes || 240),
   max_distance_km: body.max_distance_km === '' || body.max_distance_km === null ? null : Number(body.max_distance_km),
   max_weight_kg: body.max_weight_kg === '' || body.max_weight_kg === null ? null : Number(body.max_weight_kg),
@@ -286,6 +382,12 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
       `INSERT INTO delivery_service_products (
         code, name, description, service_family, service_category, route_model, is_enabled, display_order,
         vehicle_types, exclusive_driver, batching_allowed, max_eta_minutes, max_distance_km, max_weight_kg,
+        max_packages_per_order, max_active_orders_regular, max_active_orders_on_demand,
+        same_customer_batching_required, allow_new_offer_while_pickup, allow_new_offer_while_delivery,
+        max_pickup_detour_km, max_delivery_detour_km, max_direction_deviation_degrees,
+        assignment_radius_pickup_km, assignment_radius_delivery_km, traffic_aware_assignment,
+        proof_geofence_radius_m, proof_min_accuracy_m, proof_gps_override_policy,
+        face_verification_required, regular_max_reschedule_attempts, failed_delivery_policy, pod_label,
         uses_size_tier, requires_dimension_scan, allows_manual_dimension, requires_pickup_verification,
         price_mode, base_fare_idr, included_distance_km, per_km_idr, service_multiplier,
         platform_commission_percent, courier_payout_percent, courier_min_payout_idr,
@@ -294,17 +396,29 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8,
         $9, $10, $11, $12, $13, $14,
-        $15, $16, $17, $18,
-        $19, $20, $21, $22, $23,
+        $15, $16, $17,
+        $18, $19, $20,
+        $21, $22, $23,
         $24, $25, $26,
         $27, $28, $29,
-        $30, $31, $32, $33
+        $30, $31, $32, $33,
+        $34, $35, $36, $37,
+        $38, $39, $40, $41, $42,
+        $43, $44, $45,
+        $46, $47, $48,
+        $49, $50, $51, $52
       )
       RETURNING *`,
       [
         payload.code, payload.name, payload.description, payload.service_family, payload.service_category, payload.route_model,
         payload.is_enabled, payload.display_order, payload.vehicle_types, payload.exclusive_driver,
         payload.batching_allowed, payload.max_eta_minutes, payload.max_distance_km, payload.max_weight_kg,
+        payload.max_packages_per_order, payload.max_active_orders_regular, payload.max_active_orders_on_demand,
+        payload.same_customer_batching_required, payload.allow_new_offer_while_pickup, payload.allow_new_offer_while_delivery,
+        payload.max_pickup_detour_km, payload.max_delivery_detour_km, payload.max_direction_deviation_degrees,
+        payload.assignment_radius_pickup_km, payload.assignment_radius_delivery_km, payload.traffic_aware_assignment,
+        payload.proof_geofence_radius_m, payload.proof_min_accuracy_m, JSON.stringify(payload.proof_gps_override_policy),
+        payload.face_verification_required, payload.regular_max_reschedule_attempts, payload.failed_delivery_policy, payload.pod_label,
         payload.uses_size_tier, payload.requires_dimension_scan, payload.allows_manual_dimension,
         payload.requires_pickup_verification, payload.price_mode, payload.base_fare_idr,
         payload.included_distance_km, payload.per_km_idr, payload.service_multiplier,
@@ -341,25 +455,44 @@ export const updateAdminDeliveryService = async (req: Request, res: Response): P
         max_eta_minutes = $12,
         max_distance_km = $13,
         max_weight_kg = $14,
-        uses_size_tier = $15,
-        requires_dimension_scan = $16,
-        allows_manual_dimension = $17,
-        requires_pickup_verification = $18,
-        price_mode = $19,
-        base_fare_idr = $20,
-        included_distance_km = $21,
-        per_km_idr = $22,
-        service_multiplier = $23,
-        platform_commission_percent = $24,
-        courier_payout_percent = $25,
-        courier_min_payout_idr = $26,
-        mdr_percent = $27,
-        ppn_percent = $28,
-        show_customer_price_to_courier = $29,
-        size_tiers = $30,
-        dimension_rules = $31,
-        availability_rules = $32,
-        metadata = $33,
+        max_packages_per_order = $15,
+        max_active_orders_regular = $16,
+        max_active_orders_on_demand = $17,
+        same_customer_batching_required = $18,
+        allow_new_offer_while_pickup = $19,
+        allow_new_offer_while_delivery = $20,
+        max_pickup_detour_km = $21,
+        max_delivery_detour_km = $22,
+        max_direction_deviation_degrees = $23,
+        assignment_radius_pickup_km = $24,
+        assignment_radius_delivery_km = $25,
+        traffic_aware_assignment = $26,
+        proof_geofence_radius_m = $27,
+        proof_min_accuracy_m = $28,
+        proof_gps_override_policy = $29,
+        face_verification_required = $30,
+        regular_max_reschedule_attempts = $31,
+        failed_delivery_policy = $32,
+        pod_label = $33,
+        uses_size_tier = $34,
+        requires_dimension_scan = $35,
+        allows_manual_dimension = $36,
+        requires_pickup_verification = $37,
+        price_mode = $38,
+        base_fare_idr = $39,
+        included_distance_km = $40,
+        per_km_idr = $41,
+        service_multiplier = $42,
+        platform_commission_percent = $43,
+        courier_payout_percent = $44,
+        courier_min_payout_idr = $45,
+        mdr_percent = $46,
+        ppn_percent = $47,
+        show_customer_price_to_courier = $48,
+        size_tiers = $49,
+        dimension_rules = $50,
+        availability_rules = $51,
+        metadata = $52,
         updated_at = NOW()
       WHERE code = $1
       RETURNING *`,
@@ -367,6 +500,12 @@ export const updateAdminDeliveryService = async (req: Request, res: Response): P
         payload.code, payload.name, payload.description, payload.service_family, payload.service_category, payload.route_model,
         payload.is_enabled, payload.display_order, payload.vehicle_types, payload.exclusive_driver,
         payload.batching_allowed, payload.max_eta_minutes, payload.max_distance_km, payload.max_weight_kg,
+        payload.max_packages_per_order, payload.max_active_orders_regular, payload.max_active_orders_on_demand,
+        payload.same_customer_batching_required, payload.allow_new_offer_while_pickup, payload.allow_new_offer_while_delivery,
+        payload.max_pickup_detour_km, payload.max_delivery_detour_km, payload.max_direction_deviation_degrees,
+        payload.assignment_radius_pickup_km, payload.assignment_radius_delivery_km, payload.traffic_aware_assignment,
+        payload.proof_geofence_radius_m, payload.proof_min_accuracy_m, JSON.stringify(payload.proof_gps_override_policy),
+        payload.face_verification_required, payload.regular_max_reschedule_attempts, payload.failed_delivery_policy, payload.pod_label,
         payload.uses_size_tier, payload.requires_dimension_scan, payload.allows_manual_dimension,
         payload.requires_pickup_verification, payload.price_mode, payload.base_fare_idr,
         payload.included_distance_km, payload.per_km_idr, payload.service_multiplier,

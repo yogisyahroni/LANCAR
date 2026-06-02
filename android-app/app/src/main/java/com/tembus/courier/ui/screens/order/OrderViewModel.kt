@@ -8,6 +8,7 @@ import com.tembus.courier.data.model.CourierProfile
 import com.tembus.courier.data.model.CourierCapabilityProfile
 import com.tembus.courier.data.model.CourierEarningsLedger
 import com.tembus.courier.data.model.CourierHotspot
+import com.tembus.courier.data.model.CourierActiveRoutePlan
 import com.tembus.courier.data.model.CourierPerformanceSummary
 import com.tembus.courier.data.model.CourierPayoutCreateRequest
 import com.tembus.courier.data.model.CourierPayoutRequestItem
@@ -99,6 +100,9 @@ class OrderViewModel @Inject constructor(
 
     private val _routePreviews = MutableStateFlow<Map<String, CourierRoutePreview>>(emptyMap())
     val routePreviews: StateFlow<Map<String, CourierRoutePreview>> = _routePreviews.asStateFlow()
+
+    private val _activeRoutePlan = MutableStateFlow<CourierActiveRoutePlan?>(null)
+    val activeRoutePlan: StateFlow<CourierActiveRoutePlan?> = _activeRoutePlan.asStateFlow()
 
     private val _mapsProviderConfig = MutableStateFlow(MapsProviderConfig())
     val mapsProviderConfig: StateFlow<MapsProviderConfig> = _mapsProviderConfig.asStateFlow()
@@ -360,9 +364,13 @@ class OrderViewModel @Inject constructor(
                     if (offerResponse.isSuccessful && offerResponse.body()?.success == true) {
                         _offers.update { offerResponse.body()?.data ?: emptyList() }
                     }
+
+                    orderRepository.fetchActiveRoutePlan()
+                        .onSuccess { plan -> _activeRoutePlan.update { plan } }
                 } else {
                     _offers.update { emptyList() }
                     _onDemandHotspots.update { emptyList() }
+                    _activeRoutePlan.update { null }
                 }
 
                 val performanceResponse = apiService.getCourierPerformance()
@@ -510,20 +518,37 @@ class OrderViewModel @Inject constructor(
         latitude: Double?,
         longitude: Double?,
         accuracy: Float?,
-        message: String?
+        message: String?,
+        photoFile: File? = null
     ): Result<String> {
         return try {
-            val response = apiService.createSafetyEvent(
-                CourierSafetyEventRequest(
-                    orderId = orderId,
-                    eventType = eventType,
-                    severity = severity,
-                    latitude = latitude,
-                    longitude = longitude,
-                    accuracy = accuracy,
-                    message = message
+            val response = if (photoFile != null) {
+                val textType = "text/plain".toMediaTypeOrNull()
+                val photoBody = photoFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+                val photoPart = MultipartBody.Part.createFormData("photo", photoFile.name, photoBody)
+                apiService.createSafetyEventWithPhoto(
+                    orderId = orderId?.toRequestBody(textType),
+                    eventType = eventType.toRequestBody(textType),
+                    severity = severity.toRequestBody(textType),
+                    latitude = latitude?.toString()?.toRequestBody(textType),
+                    longitude = longitude?.toString()?.toRequestBody(textType),
+                    accuracy = accuracy?.toString()?.toRequestBody(textType),
+                    message = message?.takeIf { it.isNotBlank() }?.toRequestBody(textType),
+                    photo = photoPart
                 )
-            )
+            } else {
+                apiService.createSafetyEvent(
+                    CourierSafetyEventRequest(
+                        orderId = orderId,
+                        eventType = eventType,
+                        severity = severity,
+                        latitude = latitude,
+                        longitude = longitude,
+                        accuracy = accuracy,
+                        message = message
+                    )
+                )
+            }
             val body = response.body()
             if (response.isSuccessful && body?.success == true) {
                 Result.success(body.message ?: "Laporan terkirim.")

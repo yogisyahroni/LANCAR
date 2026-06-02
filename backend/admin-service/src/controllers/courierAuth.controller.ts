@@ -763,6 +763,35 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          COALESCE(dsp.service_family, 'regular') AS service_family,
          COALESCE(dsp.route_model, o.model, 'p2p') AS service_route_model,
          COALESCE(dsp.max_eta_minutes, 0)::int AS service_max_eta_minutes,
+         COALESCE(
+           NULLIF(o.package_details->>'package_count', '')::int,
+           NULLIF((SELECT COUNT(*) FROM order_packages op WHERE op.order_id = o.id), 0),
+           1
+         )::int AS package_count,
+         COALESCE((
+           SELECT jsonb_agg(jsonb_build_object(
+             'id', op.id,
+             'package_index', op.package_index,
+             'package_code', op.package_code,
+             'description', op.description,
+             'size_tier', op.size_tier,
+             'weight_kg', op.weight_kg,
+             'status', op.status,
+             'pickup_scan_verified_at', op.pickup_scan_verified_at,
+             'pickup_photo_verified_at', op.pickup_photo_verified_at,
+             'delivery_pod_verified_at', op.delivery_pod_verified_at
+           ) ORDER BY op.package_index)
+           FROM order_packages op
+           WHERE op.order_id = o.id
+         ), '[]'::jsonb) AS packages,
+         COALESCE(dsp.max_packages_per_order, 1)::int AS service_max_packages_per_order,
+         COALESCE(dsp.max_active_orders_regular, 3)::int AS service_max_active_orders_regular,
+         COALESCE(dsp.max_active_orders_on_demand, 1)::int AS service_max_active_orders_on_demand,
+         COALESCE(dsp.face_verification_required, TRUE) AS service_face_verification_required,
+         COALESCE(dsp.proof_geofence_radius_m, 10)::int AS service_proof_geofence_radius_m,
+         COALESCE(dsp.proof_min_accuracy_m, 50)::int AS service_proof_min_accuracy_m,
+         COALESCE(dsp.failed_delivery_policy, 'must_deliver') AS service_failed_delivery_policy,
+         COALESCE(dsp.pod_label, 'POD') AS service_pod_label,
          NULLIF(COALESCE(o.package_details->>'description', o.customer_notes, o.pickup_notes, ''), '') AS item_description,
          NULLIF(o.package_details->>'length_cm', '')::float8 AS length,
          NULLIF(o.package_details->>'width_cm', '')::float8 AS width,
@@ -861,6 +890,35 @@ const mobileOrderSelect = `
   COALESCE(dsp.service_family, 'regular') AS service_family,
   COALESCE(dsp.route_model, o.model, 'p2p') AS service_route_model,
   COALESCE(dsp.max_eta_minutes, 0)::int AS service_max_eta_minutes,
+  COALESCE(
+    NULLIF(o.package_details->>'package_count', '')::int,
+    NULLIF((SELECT COUNT(*) FROM order_packages op WHERE op.order_id = o.id), 0),
+    1
+  )::int AS package_count,
+  COALESCE((
+    SELECT jsonb_agg(jsonb_build_object(
+      'id', op.id,
+      'package_index', op.package_index,
+      'package_code', op.package_code,
+      'description', op.description,
+      'size_tier', op.size_tier,
+      'weight_kg', op.weight_kg,
+      'status', op.status,
+      'pickup_scan_verified_at', op.pickup_scan_verified_at,
+      'pickup_photo_verified_at', op.pickup_photo_verified_at,
+      'delivery_pod_verified_at', op.delivery_pod_verified_at
+    ) ORDER BY op.package_index)
+    FROM order_packages op
+    WHERE op.order_id = o.id
+  ), '[]'::jsonb) AS packages,
+  COALESCE(dsp.max_packages_per_order, 1)::int AS service_max_packages_per_order,
+  COALESCE(dsp.max_active_orders_regular, 3)::int AS service_max_active_orders_regular,
+  COALESCE(dsp.max_active_orders_on_demand, 1)::int AS service_max_active_orders_on_demand,
+  COALESCE(dsp.face_verification_required, TRUE) AS service_face_verification_required,
+  COALESCE(dsp.proof_geofence_radius_m, 10)::int AS service_proof_geofence_radius_m,
+  COALESCE(dsp.proof_min_accuracy_m, 50)::int AS service_proof_min_accuracy_m,
+  COALESCE(dsp.failed_delivery_policy, 'must_deliver') AS service_failed_delivery_policy,
+  COALESCE(dsp.pod_label, 'POD') AS service_pod_label,
   NULLIF(COALESCE(o.package_details->>'description', o.customer_notes, o.pickup_notes, ''), '') AS item_description,
   NULLIF(o.package_details->>'length_cm', '')::float8 AS length,
   NULLIF(o.package_details->>'width_cm', '')::float8 AS width,
@@ -921,6 +979,26 @@ export const getMobileCourierOnDemandServices = async (_req: Request, res: Respo
          service_family,
          service_category,
          route_model,
+         batching_allowed,
+         max_packages_per_order,
+         max_active_orders_regular,
+         max_active_orders_on_demand,
+         same_customer_batching_required,
+         allow_new_offer_while_pickup,
+         allow_new_offer_while_delivery,
+         max_pickup_detour_km::float8 AS max_pickup_detour_km,
+         max_delivery_detour_km::float8 AS max_delivery_detour_km,
+         max_direction_deviation_degrees,
+         assignment_radius_pickup_km::float8 AS assignment_radius_pickup_km,
+         assignment_radius_delivery_km::float8 AS assignment_radius_delivery_km,
+         traffic_aware_assignment,
+         proof_geofence_radius_m,
+         proof_min_accuracy_m,
+         proof_gps_override_policy,
+         face_verification_required,
+         regular_max_reschedule_attempts,
+         failed_delivery_policy,
+         pod_label,
          max_eta_minutes,
          max_distance_km::float8 AS max_distance_km,
          max_weight_kg::float8 AS max_weight_kg,
@@ -1093,21 +1171,76 @@ const notifyAdminOps = async (payload: {
   })));
 };
 
+const MOBILE_COURIER_SAFETY_EVENT_TYPES = new Set([
+  'sos',
+  'support_request',
+  'recipient_unavailable',
+  'address_not_found',
+  'package_issue',
+  'return_required',
+  'failed_delivery',
+  'route_issue',
+]);
+
+const MOBILE_COURIER_SAFETY_SEVERITIES = new Set(['low', 'medium', 'high', 'critical']);
+
+const normalizeSafetyEventType = (value: unknown) =>
+  String(value || 'support_request')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_:-]/g, '_')
+    .slice(0, 40);
+
+const sanitizeSafetyMessage = (value: unknown): string | null => {
+  const message = String(value || '')
+    .replace(/[<>{}]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500);
+  return message || null;
+};
+
 export const createMobileCourierSafetyEvent = async (req: Request, res: Response) => {
   if (!req.user?.id) {
     res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
     return;
   }
 
-  const eventType = String(req.body?.event_type || req.body?.eventType || 'support_request');
-  const severity = String(req.body?.severity || (eventType === 'sos' ? 'critical' : 'medium'));
-  const orderId = req.body?.order_id || req.body?.orderId || null;
+  const eventType = normalizeSafetyEventType(req.body?.event_type || req.body?.eventType || 'support_request');
+  if (!MOBILE_COURIER_SAFETY_EVENT_TYPES.has(eventType)) {
+    res.status(400).json({ success: false, data: null, message: 'Jenis laporan tidak valid.', code: 'ERR_INVALID_EVENT_TYPE' });
+    return;
+  }
+
+  const requestedSeverity = String(req.body?.severity || (eventType === 'sos' ? 'critical' : 'medium')).trim().toLowerCase();
+  const severity = MOBILE_COURIER_SAFETY_SEVERITIES.has(requestedSeverity) ? requestedSeverity : 'medium';
+  const orderId = req.body?.order_id || req.body?.orderId
+    ? String(req.body?.order_id || req.body?.orderId).trim().slice(0, 100)
+    : null;
   const latitude = parseCoordinate(req.body?.latitude);
   const longitude = parseCoordinate(req.body?.longitude);
   const accuracy = parseCoordinate(req.body?.accuracy);
-  const message = req.body?.message ? String(req.body.message) : null;
+  const message = sanitizeSafetyMessage(req.body?.message);
 
   try {
+    if (orderId) {
+      const ownership = await db.query(
+        `SELECT 1
+         FROM order_legs
+         WHERE order_id = $1
+           AND courier_id = $2
+         LIMIT 1`,
+        [orderId, req.user.id]
+      );
+
+      if (ownership.rows.length === 0) {
+        res.status(403).json({ success: false, data: null, message: 'Order tidak tersedia untuk akun kurir ini.', code: 'ERR_ORDER_FORBIDDEN' });
+        return;
+      }
+    }
+
+    const uploadedPhoto = req.file ? saveSecureUploadBuffer(req.file, 'safety-events') : null;
+
     const result = await db.query(
       `INSERT INTO courier_safety_events (
          order_id, courier_id, event_type, severity, latitude, longitude, accuracy_m, message, metadata
@@ -1123,7 +1256,13 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
         longitude,
         accuracy,
         message,
-        JSON.stringify({ source: 'courier_app', app_surface: 'on_demand_active_job' }),
+        JSON.stringify({
+          source: 'courier_app',
+          app_surface: 'on_demand_active_job',
+          photo_url: uploadedPhoto?.fileUrl || null,
+          photo_checksum_sha256: req.file?.checksumSha256 || null,
+          photo_mime_type: req.file?.detectedMimeType || null,
+        }),
       ]
     );
 
@@ -1139,6 +1278,7 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
         courier_id: req.user.id,
         latitude,
         longitude,
+        photo_url: uploadedPhoto?.fileUrl || null,
       },
     });
 
@@ -1827,6 +1967,153 @@ export const getMobileCourierRoutePreview = async (req: Request, res: Response) 
   }
 };
 
+export const getMobileCourierActiveRoutePlan = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  try {
+    const result = await db.query(
+      `SELECT
+         cp.user_id AS courier_id,
+         ST_Y(cp.current_location::geometry)::float8 AS courier_latitude,
+         ST_X(cp.current_location::geometry)::float8 AS courier_longitude,
+         o.id AS order_id,
+         o.order_number,
+         COALESCE(ol.status, o.status) AS status,
+         o.service_code,
+         COALESCE(dsp.traffic_aware_assignment, TRUE) AS traffic_aware_assignment,
+         COALESCE(dsp.max_pickup_detour_km, 1)::float8 AS max_pickup_detour_km,
+         COALESCE(dsp.max_delivery_detour_km, 2)::float8 AS max_delivery_detour_km,
+         ST_Y(o.pickup_location::geometry)::float8 AS pickup_latitude,
+         ST_X(o.pickup_location::geometry)::float8 AS pickup_longitude,
+         ST_Y(o.dropoff_location::geometry)::float8 AS drop_latitude,
+         ST_X(o.dropoff_location::geometry)::float8 AS drop_longitude,
+         o.pickup_address,
+         o.dropoff_address,
+         NULLIF(o.route_snapshot->>'vehicle_type', '') AS route_vehicle_type,
+         o.route_profile,
+         COALESCE((SELECT COUNT(*) FROM order_packages op WHERE op.order_id = o.id), 1)::int AS package_count
+       FROM courier_profiles cp
+       JOIN order_legs ol ON ol.courier_id = cp.user_id
+       JOIN orders o ON o.id = ol.order_id
+       LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
+       WHERE cp.user_id = $1
+         AND cp.current_location IS NOT NULL
+         AND COALESCE(ol.status, o.status) NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
+       ORDER BY o.created_at ASC
+       LIMIT 20`,
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      res.json({
+        success: true,
+        data: {
+          courier_location: null,
+          stops: [],
+          segments: [],
+          total_distance_km: 0,
+          total_eta_minutes: 0,
+          traffic_aware: true,
+        },
+        message: 'Tidak ada route aktif.',
+      });
+      return;
+    }
+
+    const first = result.rows[0];
+    const courierLocation = {
+      latitude: Number(first.courier_latitude),
+      longitude: Number(first.courier_longitude),
+    };
+    const stops = result.rows.flatMap((row: any) => {
+      const status = String(row.status || '').toLowerCase();
+      const orderStops: any[] = [];
+      if (!['picked_up', 'in_transit'].includes(status)) {
+        orderStops.push({
+          order_id: row.order_id,
+          order_number: row.order_number,
+          stop_type: 'pickup',
+          address: row.pickup_address,
+          latitude: Number(row.pickup_latitude),
+          longitude: Number(row.pickup_longitude),
+          service_code: row.service_code,
+          package_count: Number(row.package_count || 1),
+          detour_limit_km: Number(row.max_pickup_detour_km || 0),
+        });
+      }
+      orderStops.push({
+        order_id: row.order_id,
+        order_number: row.order_number,
+        stop_type: 'dropoff',
+        address: row.dropoff_address,
+        latitude: Number(row.drop_latitude),
+        longitude: Number(row.drop_longitude),
+        service_code: row.service_code,
+        package_count: Number(row.package_count || 1),
+        detour_limit_km: Number(row.max_delivery_detour_km || 0),
+      });
+      return orderStops;
+    }).sort((a: any, b: any) => {
+      const aDistance = haversineKm(courierLocation.latitude, courierLocation.longitude, a.latitude, a.longitude);
+      const bDistance = haversineKm(courierLocation.latitude, courierLocation.longitude, b.latitude, b.longitude);
+      if (a.stop_type !== b.stop_type) return a.stop_type === 'pickup' ? -1 : 1;
+      return aDistance - bDistance;
+    });
+
+    const segments = [];
+    let previousPoint = courierLocation;
+    let totalDistanceMeters = 0;
+    let totalDurationSeconds = 0;
+    for (const stop of stops) {
+      const routeSnapshot = await buildMapsRouteEtaSnapshot(
+        previousPoint,
+        { latitude: stop.latitude, longitude: stop.longitude },
+        'courier_mobile',
+        {
+          serviceCode: stop.service_code || null,
+          vehicleType: first.route_vehicle_type || null,
+          routeProfile: first.route_profile || null,
+        }
+      );
+      const distanceMeters = Number(routeSnapshot.distance_meters || 0);
+      const durationSeconds = Number(routeSnapshot.duration_seconds || 0);
+      totalDistanceMeters += distanceMeters;
+      totalDurationSeconds += durationSeconds;
+      segments.push({
+        to_order_id: stop.order_id,
+        to_stop_type: stop.stop_type,
+        provider: routeSnapshot.provider || null,
+        distance_meters: distanceMeters,
+        duration_seconds: durationSeconds,
+        eta_minutes: routeSnapshot.eta_minutes || Math.ceil(durationSeconds / 60),
+        route_profile: routeSnapshot.route_profile || null,
+        route_polyline: routeSnapshot.route_polyline || null,
+        fallback_reason: routeSnapshot.fallback_reason || null,
+      });
+      previousPoint = { latitude: stop.latitude, longitude: stop.longitude };
+    }
+
+    res.json({
+      success: true,
+      data: {
+        courier_location: courierLocation,
+        stops,
+        segments,
+        total_distance_km: Number((totalDistanceMeters / 1000).toFixed(2)),
+        total_eta_minutes: Math.ceil(totalDurationSeconds / 60),
+        traffic_aware: result.rows.every((row: any) => row.traffic_aware_assignment !== false),
+      },
+      message: 'Route aktif kurir tersedia.',
+    });
+  } catch (error) {
+    console.error('Get mobile courier active route plan error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  }
+};
+
 export const getMobileCourierPerformance = async (req: Request, res: Response) => {
   if (!req.user?.id) {
     res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
@@ -2106,11 +2393,19 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
 
   const candidate = await client.query(
     `WITH active_jobs AS (
-       SELECT courier_id, COUNT(*)::int AS active_count
-       FROM order_legs
-       WHERE courier_id IS NOT NULL
-         AND status NOT IN ('delivered', 'failed', 'cancelled', 'rejected')
-       GROUP BY courier_id
+       SELECT
+         ol.courier_id,
+         COUNT(*)::int AS active_count,
+         BOOL_OR(COALESCE(ol.status, ao.status) IN ('accepted', 'assigned', 'going_to_pickup', 'pickup_pending')) AS has_pickup_job,
+         BOOL_OR(COALESCE(ol.status, ao.status) IN ('picked_up', 'in_transit')) AS has_delivery_job,
+         BOOL_OR(ao.customer_id IS DISTINCT FROM target.customer_id) AS has_different_customer_job
+       FROM order_legs ol
+       JOIN orders ao ON ao.id = ol.order_id
+       JOIN orders target ON target.id = $1
+       WHERE ol.courier_id IS NOT NULL
+         AND ol.order_id <> $1
+         AND COALESCE(ol.status, ao.status) NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
+       GROUP BY ol.courier_id
      ),
      candidate AS (
        SELECT
@@ -2148,6 +2443,18 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
           NULLIF(o.route_snapshot->>'snapshot_version', '')::int AS route_snapshot_version,
           NULLIF(o.route_snapshot->>'route_version', '') AS route_version,
           o.service_code,
+          COALESCE(dsp.max_active_orders_on_demand, 1)::int AS max_active_orders_on_demand,
+          COALESCE(dsp.same_customer_batching_required, TRUE) AS same_customer_batching_required,
+          COALESCE(dsp.allow_new_offer_while_pickup, FALSE) AS allow_new_offer_while_pickup,
+          COALESCE(dsp.allow_new_offer_while_delivery, FALSE) AS allow_new_offer_while_delivery,
+          COALESCE(dsp.assignment_radius_pickup_km, 2)::float8 AS assignment_radius_pickup_km,
+          COALESCE(dsp.assignment_radius_delivery_km, 3)::float8 AS assignment_radius_delivery_km,
+          COALESCE(dsp.max_pickup_detour_km, 1)::float8 AS max_pickup_detour_km,
+          COALESCE(dsp.max_delivery_detour_km, 2)::float8 AS max_delivery_detour_km,
+          COALESCE(dsp.traffic_aware_assignment, TRUE) AS traffic_aware_assignment,
+          COALESCE(aj.active_count, 0)::int AS active_count,
+          COALESCE(aj.has_pickup_job, FALSE) AS has_pickup_job,
+          COALESCE(aj.has_delivery_job, FALSE) AS has_delivery_job,
           COALESCE(u.full_name, 'Customer') AS customer_name,
           COALESCE(dsp.name, o.service_snapshot->>'service_name', o.service_code, 'TEMBUS On Demand') AS service_name
        FROM orders o
@@ -2182,7 +2489,21 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
         AND LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
         AND o.status = ANY($2::text[])
         AND (o.pickup_location IS NULL OR ST_Covers(z.polygon, o.pickup_location))
-        AND COALESCE(aj.active_count, 0) = 0
+        AND COALESCE(aj.active_count, 0) < COALESCE(dsp.max_active_orders_on_demand, 1)
+        AND (
+          COALESCE(aj.active_count, 0) = 0
+          OR (
+            (COALESCE(aj.has_pickup_job, FALSE) = FALSE OR COALESCE(dsp.allow_new_offer_while_pickup, FALSE) = TRUE)
+            AND (COALESCE(aj.has_delivery_job, FALSE) = FALSE OR COALESCE(dsp.allow_new_offer_while_delivery, FALSE) = TRUE)
+            AND (COALESCE(dsp.same_customer_batching_required, TRUE) = FALSE OR COALESCE(aj.has_different_customer_job, FALSE) = FALSE)
+            AND COALESCE(ST_Distance(cp.current_location, o.pickup_location), 0) <= (
+              CASE
+                WHEN COALESCE(aj.has_delivery_job, FALSE) THEN COALESCE(dsp.assignment_radius_delivery_km, 3)
+                ELSE COALESCE(dsp.assignment_radius_pickup_km, 2)
+              END * 1000
+            )
+          )
+        )
         AND NOT EXISTS (
           SELECT 1
           FROM courier_offer_dispatches d
@@ -2224,6 +2545,18 @@ export const dispatchNextOnDemandCourier = async (client: any, orderId: string):
     service_code: routeContract.service_code,
     courier_payout_estimate_idr: Number(nextCourier.courier_payout_estimate_idr || 0),
     customer_price_idr: Number(nextCourier.customer_price_idr || 0),
+    assignment_policy: {
+      active_count: Number(nextCourier.active_count || 0),
+      max_active_orders_on_demand: Number(nextCourier.max_active_orders_on_demand || 1),
+      allow_new_offer_while_pickup: Boolean(nextCourier.allow_new_offer_while_pickup),
+      allow_new_offer_while_delivery: Boolean(nextCourier.allow_new_offer_while_delivery),
+      same_customer_batching_required: Boolean(nextCourier.same_customer_batching_required),
+      assignment_radius_pickup_km: Number(nextCourier.assignment_radius_pickup_km || 0),
+      assignment_radius_delivery_km: Number(nextCourier.assignment_radius_delivery_km || 0),
+      max_pickup_detour_km: Number(nextCourier.max_pickup_detour_km || 0),
+      max_delivery_detour_km: Number(nextCourier.max_delivery_detour_km || 0),
+      traffic_aware_assignment: Boolean(nextCourier.traffic_aware_assignment),
+    },
   };
 
   const rank = await client.query(
@@ -2549,20 +2882,56 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
     }
 
     const courierEligibility = await client.query(
-      `SELECT cp.id, cp.current_zone_id, z.name AS zone_name
+      `WITH active_jobs AS (
+         SELECT
+           COUNT(*)::int AS active_count,
+           BOOL_OR(COALESCE(ol.status, ao.status) IN ('accepted', 'assigned', 'going_to_pickup', 'pickup_pending')) AS has_pickup_job,
+           BOOL_OR(COALESCE(ol.status, ao.status) IN ('picked_up', 'in_transit')) AS has_delivery_job,
+           BOOL_OR(ao.customer_id IS DISTINCT FROM $5::uuid) AS has_different_customer_job
+         FROM order_legs ol
+         JOIN orders ao ON ao.id = ol.order_id
+         WHERE ol.courier_id = $1
+           AND ol.order_id <> $4
+           AND COALESCE(ol.status, ao.status) NOT IN ('delivered', 'completed', 'failed', 'cancelled', 'rejected', 'return_required')
+       )
+       SELECT
+         cp.id,
+         cp.current_zone_id,
+         z.name AS zone_name,
+         COALESCE(aj.active_count, 0)::int AS active_count,
+         COALESCE(dsp.max_active_orders_on_demand, 1)::int AS max_active_orders_on_demand,
+         COALESCE(dsp.allow_new_offer_while_pickup, FALSE) AS allow_new_offer_while_pickup,
+         COALESCE(dsp.allow_new_offer_while_delivery, FALSE) AS allow_new_offer_while_delivery,
+         COALESCE(dsp.same_customer_batching_required, TRUE) AS same_customer_batching_required,
+         COALESCE(aj.has_pickup_job, FALSE) AS has_pickup_job,
+         COALESCE(aj.has_delivery_job, FALSE) AS has_delivery_job,
+         COALESCE(aj.has_different_customer_job, FALSE) AS has_different_customer_job
        FROM courier_profiles cp
        JOIN zones z ON z.id = cp.current_zone_id AND z.is_active = TRUE
        JOIN courier_service_capabilities csc ON csc.courier_profile_id = cp.id
         AND csc.service_code = $3
         AND csc.application_channel = 'on_demand'
         AND csc.status = 'enabled'
+       JOIN delivery_service_products dsp ON dsp.code = csc.service_code
+        AND dsp.is_enabled = TRUE
+        AND dsp.service_category = 'on_demand'
+       CROSS JOIN active_jobs aj
        WHERE cp.user_id = $1
          AND cp.application_channel = 'on_demand'
          AND cp.verification_status = 'approved'
          AND cp.is_online = TRUE
          AND cp.current_zone_id = $2
+         AND COALESCE(aj.active_count, 0) < COALESCE(dsp.max_active_orders_on_demand, 1)
+         AND (
+           COALESCE(aj.active_count, 0) = 0
+           OR (
+             (COALESCE(aj.has_pickup_job, FALSE) = FALSE OR COALESCE(dsp.allow_new_offer_while_pickup, FALSE) = TRUE)
+             AND (COALESCE(aj.has_delivery_job, FALSE) = FALSE OR COALESCE(dsp.allow_new_offer_while_delivery, FALSE) = TRUE)
+             AND (COALESCE(dsp.same_customer_batching_required, TRUE) = FALSE OR COALESCE(aj.has_different_customer_job, FALSE) = FALSE)
+           )
+         )
        LIMIT 1`,
-      [req.user.id, dispatch.zone_id, dispatch.service_code]
+      [req.user.id, dispatch.zone_id, dispatch.service_code, dispatch.order_id, dispatch.customer_id]
     );
 
     if (courierEligibility.rows.length === 0) {
@@ -2799,8 +3168,37 @@ export const rejectMobileCourierOffer = async (req: Request, res: Response) => {
   }
 };
 
-const ON_DEMAND_GEOFENCE_RADIUS_M = Number(process.env.ON_DEMAND_GEOFENCE_RADIUS_M || 150);
-const ON_DEMAND_MAX_ACCURACY_M = Number(process.env.ON_DEMAND_MAX_ACCURACY_M || 100);
+const ON_DEMAND_GEOFENCE_RADIUS_M = Number(process.env.ON_DEMAND_GEOFENCE_RADIUS_M || 10);
+const ON_DEMAND_MAX_ACCURACY_M = Number(process.env.ON_DEMAND_MAX_ACCURACY_M || 50);
+
+const DEFAULT_GPS_OVERRIDE_POLICY = {
+  enabled: true,
+  soft_radius_m: 25,
+  max_accuracy_m: 100,
+  requires_reason: true,
+  manual_review_required: true,
+};
+
+const HIGH_RISK_SPOOF_SIGNALS = new Set([
+  'mock',
+  'mock_location',
+  'rooted',
+  'rooted_device',
+  'emulator',
+  'tampered',
+  'high',
+]);
+
+const normalizeProofPolicyNumber = (value: unknown, fallback: number, min: number, max: number) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(Math.round(parsed), min), max);
+};
+
+const normalizeGpsOverridePolicy = (value: unknown) => ({
+  ...DEFAULT_GPS_OVERRIDE_POLICY,
+  ...(parseJsonObject(value) || {}),
+});
 
 const parseCoordinate = (value: unknown): number | null => {
   const parsed = typeof value === 'number' ? value : Number(value);
@@ -2882,6 +3280,144 @@ const creditCourierDeliveryEarning = async (client: any, orderId: string, courie
   return existing.rows[0] || null;
 };
 
+const normalizeFaceVerificationType = (value: unknown) => {
+  const verificationType = String(value || 'pickup').trim().toLowerCase();
+  if (verificationType === 'pod' || verificationType === 'delivery_pod') return 'delivery';
+  if (verificationType === 'registration') return 'registration';
+  return verificationType === 'delivery' ? 'delivery' : 'pickup';
+};
+
+export const verifyMobileCourierFace = async (req: Request, res: Response) => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  const verificationType = normalizeFaceVerificationType(req.body?.verification_type || req.body?.verificationType);
+  const orderId = req.body?.order_id || req.body?.orderId ? String(req.body?.order_id || req.body?.orderId).trim() : null;
+  const challengeCode = req.body?.challenge_code || req.body?.challengeCode ? String(req.body?.challenge_code || req.body?.challengeCode).trim() : null;
+  const livenessScore = req.body?.liveness_score || req.body?.livenessScore ? Number(req.body?.liveness_score || req.body?.livenessScore) : null;
+
+  if (!req.file) {
+    res.status(400).json({
+      success: false,
+      data: null,
+      message: 'Foto wajah wajib dikirim untuk verifikasi.',
+      code: 'ERR_FACE_PHOTO_REQUIRED',
+    });
+    return;
+  }
+
+  const provider = String(process.env.FACE_VERIFICATION_PROVIDER || '').trim();
+  const devBypassAllowed = process.env.NODE_ENV !== 'production' && process.env.FACE_VERIFICATION_DEV_BYPASS === 'true';
+  const minimumScore = Number(process.env.FACE_VERIFICATION_MIN_SCORE || 0.75);
+  const canVerifyLocally = devBypassAllowed && (livenessScore == null || livenessScore >= minimumScore);
+  const status = provider
+    ? (canVerifyLocally ? 'verified' : 'pending_review')
+    : (canVerifyLocally ? 'verified' : 'provider_required');
+  const savedUpload = saveSecureUploadBuffer(req.file, 'face-verifications');
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    if (orderId) {
+      const accessRes = await client.query(
+        `SELECT 1
+         FROM order_legs
+         WHERE order_id = $1
+           AND courier_id = $2
+         LIMIT 1`,
+        [orderId, req.user.id]
+      );
+      if (accessRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        res.status(403).json({
+          success: false,
+          data: null,
+          message: 'Order tidak tersedia untuk akun kurir ini.',
+          code: 'ERR_ORDER_FORBIDDEN',
+        });
+        return;
+      }
+    }
+
+    const insertRes = await client.query(
+      `INSERT INTO courier_face_verifications (
+         courier_id,
+         order_id,
+         verification_type,
+         status,
+         provider,
+         liveness_score,
+         image_url,
+         image_checksum_sha256,
+         challenge_code_hash,
+         failure_reason,
+         metadata
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id, status, created_at`,
+      [
+        req.user.id,
+        orderId,
+        verificationType,
+        status,
+        provider || (devBypassAllowed ? 'non_production_device_check' : 'provider_required'),
+        Number.isFinite(livenessScore) ? livenessScore : null,
+        savedUpload.fileUrl,
+        req.file.checksumSha256 || sha256(savedUpload.fileUrl),
+        challengeCode ? sha256(challengeCode) : null,
+        status === 'provider_required' ? 'FACE_VERIFICATION_PROVIDER is not configured' : null,
+        JSON.stringify({
+          source: 'courier_mobile',
+          mime_type: req.file.detectedMimeType,
+          file_size_bytes: req.file.size,
+          dev_bypass: devBypassAllowed,
+        }),
+      ]
+    );
+
+    if (status === 'verified') {
+      await client.query(
+        `UPDATE courier_profiles
+            SET face_enrolled = TRUE,
+                face_verified_at = NOW(),
+                face_liveness_score = COALESCE($2, face_liveness_score),
+                updated_at = NOW()
+          WHERE user_id = $1`,
+        [req.user.id, Number.isFinite(livenessScore) ? livenessScore : null]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    const responseStatus = status === 'provider_required' ? 503 : 200;
+    res.status(responseStatus).json({
+      success: status === 'verified',
+      data: {
+        verification_id: insertRes.rows[0].id,
+        status: insertRes.rows[0].status,
+        verification_type: verificationType,
+        order_id: orderId,
+        created_at: insertRes.rows[0].created_at,
+      },
+      message: status === 'verified'
+        ? 'Verifikasi wajah berhasil.'
+        : status === 'pending_review'
+          ? 'Verifikasi wajah menunggu review provider.'
+          : 'Provider verifikasi wajah belum dikonfigurasi.',
+      code: status === 'provider_required' ? 'ERR_FACE_PROVIDER_REQUIRED' : undefined,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Verify mobile courier face error:', error);
+    res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
+  } finally {
+    client.release();
+  }
+};
+
 const verifyOnDemandStep = async ({
   req,
   res,
@@ -2893,6 +3429,9 @@ const verifyOnDemandStep = async ({
   barcodeValue,
   photoUrl,
   spoofRisk,
+  faceVerificationId,
+  packageCode,
+  overrideReason,
 }: {
   req: Request;
   res: Response;
@@ -2904,6 +3443,9 @@ const verifyOnDemandStep = async ({
   barcodeValue?: string | null;
   photoUrl?: string | null;
   spoofRisk?: string | null;
+  faceVerificationId?: string | null;
+  packageCode?: string | null;
+  overrideReason?: string | null;
 }) => {
   if (!req.user?.id) {
     res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
@@ -2914,12 +3456,15 @@ const verifyOnDemandStep = async ({
     client: any,
     status: 'accepted' | 'rejected',
     reason: string | null,
-    distanceM?: number | null
+    distanceM?: number | null,
+    policySnapshot: Record<string, unknown> = {},
+    manualReviewRequired = false
   ) => {
     await client.query(
       `INSERT INTO courier_proof_attempts (
          order_id,
          courier_id,
+         service_code,
          proof_step,
          proof_status,
          rejection_reason,
@@ -2930,23 +3475,32 @@ const verifyOnDemandStep = async ({
          accuracy_m,
          spoof_risk,
          barcode_value,
-         photo_url
+         photo_url,
+         face_verification_id,
+         override_reason,
+         manual_review_required,
+         policy_snapshot
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
       [
         orderId,
         req.user?.id,
+        policySnapshot.service_code || null,
         step,
         status,
         reason,
         distanceM ?? null,
-        ON_DEMAND_GEOFENCE_RADIUS_M,
+        policySnapshot.radius_m || ON_DEMAND_GEOFENCE_RADIUS_M,
         latitude,
         longitude,
         accuracy,
         spoofRisk || 'normal',
         barcodeValue || null,
         photoUrl || null,
+        faceVerificationId || null,
+        overrideReason || null,
+        manualReviewRequired,
+        JSON.stringify(policySnapshot),
       ]
     );
   };
@@ -2962,17 +3516,6 @@ const verifyOnDemandStep = async ({
     }
   };
 
-  if (accuracy != null && accuracy > ON_DEMAND_MAX_ACCURACY_M) {
-    await writeRejectedProofAttempt('location_accuracy_low', null);
-    res.status(422).json({
-      success: false,
-      data: null,
-      message: 'Akurasi lokasi belum cukup. Tunggu beberapa detik lalu coba lagi.',
-      code: 'ERR_LOCATION_ACCURACY_LOW',
-    });
-    return;
-  }
-
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -2984,8 +3527,14 @@ const verifyOnDemandStep = async ({
          o.order_number,
          o.status,
          o.model,
+         o.service_code,
          ol.id AS leg_id,
          ol.status AS leg_status,
+         COALESCE(dsp.proof_geofence_radius_m, $6)::int AS proof_geofence_radius_m,
+         COALESCE(dsp.proof_min_accuracy_m, $7)::int AS proof_min_accuracy_m,
+         COALESCE(dsp.proof_gps_override_policy, '{}'::jsonb) AS proof_gps_override_policy,
+         COALESCE(dsp.face_verification_required, TRUE) AS face_verification_required,
+         COALESCE(dsp.pod_label, 'POD') AS pod_label,
          ST_Distance(
            CASE WHEN $2 = 'pickup' THEN o.pickup_location ELSE o.dropoff_location END,
            ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography
@@ -2993,13 +3542,14 @@ const verifyOnDemandStep = async ({
        FROM orders o
        JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
        JOIN courier_profiles cp ON cp.user_id = ol.courier_id
+       LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
        WHERE o.id = $1
          AND ol.courier_id = $5
          AND cp.application_channel = 'on_demand'
          AND LOWER(o.model) IN ('p2p', 'on_demand', 'ondemand')
        LIMIT 1
        FOR UPDATE OF o, ol`,
-      [orderId, step, longitude, latitude, req.user.id]
+      [orderId, step, longitude, latitude, req.user.id, ON_DEMAND_GEOFENCE_RADIUS_M, ON_DEMAND_MAX_ACCURACY_M]
     );
 
     const order = orderRes.rows[0];
@@ -3015,17 +3565,106 @@ const verifyOnDemandStep = async ({
       return;
     }
 
-    const distanceM = Number(order.distance_m || 0);
-    if (distanceM > ON_DEMAND_GEOFENCE_RADIUS_M) {
+    const proofRadiusM = Math.min(
+      normalizeProofPolicyNumber(order.proof_geofence_radius_m, ON_DEMAND_GEOFENCE_RADIUS_M, 1, 100),
+      10
+    );
+    const proofMinAccuracyM = normalizeProofPolicyNumber(order.proof_min_accuracy_m, ON_DEMAND_MAX_ACCURACY_M, 1, 500);
+    const gpsOverridePolicy = normalizeGpsOverridePolicy(order.proof_gps_override_policy);
+    const faceRequired = order.face_verification_required !== false;
+    const normalizedSpoofRisk = String(spoofRisk || 'normal').trim().toLowerCase();
+    const policySnapshot = {
+      service_code: order.service_code || null,
+      radius_m: proofRadiusM,
+      min_accuracy_m: proofMinAccuracyM,
+      gps_override_policy: gpsOverridePolicy,
+      face_verification_required: faceRequired,
+      pod_label: order.pod_label || 'POD',
+    };
+
+    if (accuracy != null && accuracy > proofMinAccuracyM) {
       await client.query('ROLLBACK');
-      await writeRejectedProofAttempt('outside_geofence', distanceM);
+      await writeRejectedProofAttempt('location_accuracy_low', null);
       res.status(422).json({
         success: false,
-        data: { distance_m: distanceM, radius_m: ON_DEMAND_GEOFENCE_RADIUS_M },
-        message: step === 'pickup'
-          ? 'Anda belum berada di titik pickup. Dekati lokasi pengambilan untuk melanjutkan.'
-          : 'Anda belum berada di titik tujuan. Penyelesaian paket hanya bisa dilakukan di lokasi penerima.',
-        code: 'ERR_OUTSIDE_GEOFENCE',
+        data: {
+          accuracy_m: accuracy,
+          max_accuracy_m: proofMinAccuracyM,
+        },
+        message: 'Akurasi lokasi belum cukup. Tunggu beberapa detik lalu coba lagi.',
+        code: 'ERR_LOCATION_ACCURACY_LOW',
+      });
+      return;
+    }
+
+    let manualReviewRequired = false;
+    const distanceM = Number(order.distance_m || 0);
+    if (distanceM > proofRadiusM) {
+      const softRadiusM = normalizeProofPolicyNumber(gpsOverridePolicy.soft_radius_m, DEFAULT_GPS_OVERRIDE_POLICY.soft_radius_m, proofRadiusM, 100);
+      const overrideMaxAccuracyM = normalizeProofPolicyNumber(gpsOverridePolicy.max_accuracy_m, DEFAULT_GPS_OVERRIDE_POLICY.max_accuracy_m, proofMinAccuracyM, 500);
+      const canOverrideDistance = gpsOverridePolicy.enabled === true
+        && !HIGH_RISK_SPOOF_SIGNALS.has(normalizedSpoofRisk)
+        && distanceM <= softRadiusM
+        && (accuracy == null || accuracy <= overrideMaxAccuracyM)
+        && (gpsOverridePolicy.requires_reason !== true || Boolean(overrideReason?.trim()));
+
+      if (canOverrideDistance) {
+        manualReviewRequired = gpsOverridePolicy.manual_review_required !== false;
+      } else {
+        await client.query('ROLLBACK');
+        await writeRejectedProofAttempt('outside_geofence', distanceM);
+        res.status(422).json({
+          success: false,
+          data: { distance_m: distanceM, radius_m: proofRadiusM },
+          message: step === 'pickup'
+            ? 'Anda belum berada di titik pickup. Dekati lokasi pengambilan untuk melanjutkan.'
+            : 'Anda belum berada di titik tujuan. Penyelesaian paket hanya bisa dilakukan di lokasi penerima.',
+          code: 'ERR_OUTSIDE_GEOFENCE',
+        });
+        return;
+      }
+    }
+
+    const faceCheckRequiredForProof = faceRequired && (step === 'delivery' || Boolean(photoUrl));
+    if (faceCheckRequiredForProof) {
+      const verifiedFaceRes = faceVerificationId
+        ? await client.query(
+            `SELECT id
+             FROM courier_face_verifications
+             WHERE id = $1
+               AND courier_id = $2
+               AND verification_type = $3
+               AND status = 'verified'
+               AND (order_id = $4 OR order_id IS NULL)
+             LIMIT 1`,
+            [faceVerificationId, req.user.id, step, orderId]
+          )
+        : { rows: [] };
+
+      if (verifiedFaceRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        await writeRejectedProofAttempt('face_verification_required', distanceM);
+        res.status(403).json({
+          success: false,
+          data: {
+            face_verification_required: true,
+            verification_type: step,
+          },
+          message: 'Verifikasi wajah wajib dilakukan sebelum bukti pickup/POD dikirim.',
+          code: 'ERR_FACE_VERIFICATION_REQUIRED',
+        });
+        return;
+      }
+    }
+
+    if (HIGH_RISK_SPOOF_SIGNALS.has(normalizedSpoofRisk)) {
+      await client.query('ROLLBACK');
+      await writeRejectedProofAttempt('high_spoof_risk', distanceM);
+      res.status(422).json({
+        success: false,
+        data: { spoof_risk: normalizedSpoofRisk },
+        message: 'Perangkat atau lokasi terdeteksi tidak aman. Gunakan perangkat operasional yang valid.',
+        code: 'ERR_HIGH_SPOOF_RISK',
       });
       return;
     }
@@ -3073,12 +3712,65 @@ const verifyOnDemandStep = async ({
       return;
     }
 
+    const packageSummaryRes = await client.query(
+      `SELECT COUNT(*)::int AS total_packages
+       FROM order_packages
+       WHERE order_id = $1`,
+      [orderId]
+    );
+    const totalPackages = Number(packageSummaryRes.rows[0]?.total_packages || 0);
+    const normalizedPackageCode = String(packageCode || barcodeValue || '').trim();
+    if (totalPackages > 1 && !normalizedPackageCode) {
+      await client.query('ROLLBACK');
+      await writeRejectedProofAttempt('package_code_required', distanceM);
+      res.status(400).json({
+        success: false,
+        data: { package_count: totalPackages },
+        message: 'Kode paket wajib dikirim untuk order dengan lebih dari satu paket.',
+        code: 'ERR_PACKAGE_CODE_REQUIRED',
+      });
+      return;
+    }
+
+    const packageRes = normalizedPackageCode
+      ? await client.query(
+          `SELECT id, package_code
+           FROM order_packages
+           WHERE order_id = $1
+             AND package_code = $2
+           LIMIT 1`,
+          [orderId, normalizedPackageCode]
+        )
+      : totalPackages === 1
+        ? await client.query(
+            `SELECT id, package_code
+             FROM order_packages
+             WHERE order_id = $1
+             ORDER BY package_index ASC
+             LIMIT 1`,
+            [orderId]
+          )
+      : { rows: [] };
+    if (normalizedPackageCode && totalPackages > 0 && packageRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      await writeRejectedProofAttempt('package_code_not_found', distanceM);
+      res.status(404).json({
+        success: false,
+        data: { package_code: normalizedPackageCode },
+        message: 'Kode paket tidak terdaftar pada order ini.',
+        code: 'ERR_PACKAGE_CODE_NOT_FOUND',
+      });
+      return;
+    }
+    const packageId = packageRes.rows[0]?.id || null;
+
     const scanType = step === 'pickup'
       ? (photoUrl ? 'pickup_photo' : 'pickup_scan')
       : 'pod';
     const scanRes = await client.query(
       `INSERT INTO package_scans (
          order_id,
+         package_id,
          scanned_by,
          scanned_by_role,
          scan_type,
@@ -3088,47 +3780,99 @@ const verifyOnDemandStep = async ({
          longitude,
          location_accuracy_m,
          scan_location,
-         override_reason
+         override_reason,
+         face_verification_id
        )
        VALUES (
          $1,
          $2,
-         'courier',
          $3,
-         CASE WHEN $4::text IS NULL THEN NULL ELSE ARRAY[$4::text] END,
+         'courier',
          $4,
+         CASE WHEN $5::text IS NULL THEN NULL ELSE ARRAY[$5::text] END,
          $5,
          $6,
          $7,
-         ST_SetSRID(ST_MakePoint($6, $5), 4326)::geography,
-         $8
+         $8,
+         ST_SetSRID(ST_MakePoint($7, $6), 4326)::geography,
+         $9,
+         $10
        )
        RETURNING id, COALESCE(scanned_at, created_at, NOW()) AS recorded_at`,
       [
         orderId,
+        packageId,
         req.user.id,
         scanType,
         photoUrl || null,
         latitude,
         longitude,
         accuracy,
-        barcodeValue ? `barcode:${barcodeValue}` : null,
+        overrideReason || (barcodeValue ? `barcode:${barcodeValue}` : null),
+        faceVerificationId || null,
       ]
     );
+
+    if (packageId) {
+      if (scanType === 'pickup_scan') {
+        await client.query(
+          `UPDATE order_packages
+              SET status = CASE
+                    WHEN pickup_photo_verified_at IS NOT NULL THEN 'pickup_verified'
+                    ELSE 'pickup_scanned'
+                  END,
+                  pickup_scan_verified_at = COALESCE(pickup_scan_verified_at, NOW()),
+                  updated_at = NOW()
+            WHERE id = $1`,
+          [packageId]
+        );
+      } else if (scanType === 'pickup_photo') {
+        await client.query(
+          `UPDATE order_packages
+              SET status = CASE
+                    WHEN pickup_scan_verified_at IS NOT NULL THEN 'pickup_verified'
+                    ELSE status
+                  END,
+                  pickup_photo_verified_at = COALESCE(pickup_photo_verified_at, NOW()),
+                  updated_at = NOW()
+            WHERE id = $1`,
+          [packageId]
+        );
+      } else if (scanType === 'pod') {
+        await client.query(
+          `UPDATE order_packages
+              SET status = 'delivered',
+                  delivery_pod_verified_at = COALESCE(delivery_pod_verified_at, NOW()),
+                  updated_at = NOW()
+            WHERE id = $1`,
+          [packageId]
+        );
+      }
+    }
 
     const pickupProofRes = step === 'pickup'
       ? await client.query(
           `SELECT
-             EXISTS (
-               SELECT 1 FROM package_scans
-               WHERE order_id = $1
-                 AND scan_type IN ('pickup_scan', 'pickup')
-             ) AS has_scan,
-             EXISTS (
-               SELECT 1 FROM package_scans
-               WHERE order_id = $1
-                 AND scan_type = 'pickup_photo'
-             ) AS has_photo`,
+             CASE
+               WHEN COUNT(op.id) > 0
+               THEN COUNT(op.id) = COUNT(op.id) FILTER (WHERE op.pickup_scan_verified_at IS NOT NULL)
+               ELSE EXISTS (
+                 SELECT 1 FROM package_scans
+                 WHERE order_id = $1
+                   AND scan_type IN ('pickup_scan', 'pickup')
+               )
+             END AS has_scan,
+             CASE
+               WHEN COUNT(op.id) > 0
+               THEN COUNT(op.id) = COUNT(op.id) FILTER (WHERE op.pickup_photo_verified_at IS NOT NULL)
+               ELSE EXISTS (
+                 SELECT 1 FROM package_scans
+                 WHERE order_id = $1
+                   AND scan_type = 'pickup_photo'
+               )
+             END AS has_photo
+           FROM order_packages op
+           WHERE op.order_id = $1`,
           [orderId]
         )
       : null;
@@ -3136,9 +3880,25 @@ const verifyOnDemandStep = async ({
     const pickupScanVerified = Boolean(pickupProofRes?.rows[0]?.has_scan);
     const pickupPhotoVerified = Boolean(pickupProofRes?.rows[0]?.has_photo);
     const pickupComplete = step === 'pickup' && pickupScanVerified && pickupPhotoVerified;
-    const nextStatus = step === 'delivery' ? 'delivered' : (pickupComplete ? 'in_transit' : currentStatus);
+    const deliveryProofRes = step === 'delivery'
+      ? await client.query(
+          `SELECT
+             CASE
+               WHEN COUNT(id) > 0
+               THEN COUNT(id) = COUNT(id) FILTER (WHERE delivery_pod_verified_at IS NOT NULL)
+               ELSE TRUE
+             END AS complete
+           FROM order_packages
+           WHERE order_id = $1`,
+          [orderId]
+        )
+      : null;
+    const deliveryComplete = step === 'delivery' && Boolean(deliveryProofRes?.rows[0]?.complete);
+    const nextStatus = step === 'delivery'
+      ? (deliveryComplete ? 'delivered' : currentStatus)
+      : (pickupComplete ? 'in_transit' : currentStatus);
 
-    if (step === 'delivery' || pickupComplete) {
+    if (deliveryComplete || pickupComplete) {
       await client.query(
         `UPDATE orders
          SET status = $2,
@@ -3160,15 +3920,17 @@ const verifyOnDemandStep = async ({
       );
     }
 
-    const earningCredit = step === 'delivery'
+    const earningCredit = deliveryComplete
       ? await creditCourierDeliveryEarning(client, orderId, req.user.id)
       : null;
 
     const eventType = step === 'delivery'
-      ? 'pod_verified'
+      ? (deliveryComplete ? 'pod_verified' : 'pod_package_verified')
       : (pickupComplete ? 'pickup_verified' : (photoUrl ? 'pickup_photo_uploaded' : 'pickup_scan_verified'));
     const eventDescription = step === 'delivery'
-      ? 'Courier verified on-demand delivery POD at geofence'
+      ? (deliveryComplete
+          ? 'Courier verified on-demand delivery POD at geofence'
+          : 'Courier verified one package POD at geofence')
       : (pickupComplete
           ? 'Courier completed on-demand pickup evidence at geofence'
           : (photoUrl ? 'Courier uploaded on-demand pickup photo at geofence' : 'Courier verified on-demand pickup scan at geofence'));
@@ -3185,11 +3947,17 @@ const verifyOnDemandStep = async ({
           distance_m: distanceM,
           accuracy_m: accuracy,
           barcode_value: barcodeValue || null,
+          package_code: normalizedPackageCode || packageRes.rows[0]?.package_code || null,
+          package_id: packageId,
           photo_url: photoUrl || null,
           spoof_risk: spoofRisk || 'normal',
+          face_verification_id: faceVerificationId || null,
+          manual_review_required: manualReviewRequired,
+          policy_snapshot: policySnapshot,
           pickup_scan_verified: pickupScanVerified,
           pickup_photo_verified: pickupPhotoVerified,
           pickup_complete: pickupComplete,
+          delivery_complete: deliveryComplete,
           earning_ledger_id: earningCredit?.id || null,
           earning_amount_idr: earningCredit?.amount_idr || null,
         }),
@@ -3214,11 +3982,11 @@ const verifyOnDemandStep = async ({
       );
     }
 
-    await writeProofAttempt(client, 'accepted', null, distanceM);
+    await writeProofAttempt(client, 'accepted', null, distanceM, policySnapshot, manualReviewRequired);
 
     await client.query('COMMIT');
     const realtimeEvent = step === 'delivery'
-      ? ON_DEMAND_REALTIME_EVENTS.POD_COMPLETED
+      ? (deliveryComplete ? ON_DEMAND_REALTIME_EVENTS.POD_COMPLETED : ON_DEMAND_REALTIME_EVENTS.TRACKING_UPDATED)
       : (pickupComplete ? ON_DEMAND_REALTIME_EVENTS.PICKUP_VERIFIED : (photoUrl ? ON_DEMAND_REALTIME_EVENTS.PICKUP_VERIFIED : ON_DEMAND_REALTIME_EVENTS.PICKUP_VERIFIED));
     emitOnDemandRealtime(realtimeEvent, {
       order_id: orderId,
@@ -3226,7 +3994,7 @@ const verifyOnDemandStep = async ({
       customer_id: order.customer_id,
       courier_user_id: req.user.id,
       status: nextStatus,
-      stage: step === 'delivery' ? 'pod_completed' : (pickupComplete ? 'delivery_started' : 'pickup_validation'),
+      stage: step === 'delivery' ? (deliveryComplete ? 'pod_completed' : 'pod_package_verified') : (pickupComplete ? 'delivery_started' : 'pickup_validation'),
       location: {
         latitude,
         longitude,
@@ -3238,9 +4006,12 @@ const verifyOnDemandStep = async ({
         scan_type: scanType,
         photo_url: photoUrl || null,
         barcode_value: barcodeValue || null,
+        package_id: packageId,
+        package_code: normalizedPackageCode || packageRes.rows[0]?.package_code || null,
         pickup_scan_verified: pickupScanVerified,
         pickup_photo_verified: pickupPhotoVerified,
         pickup_complete: pickupComplete,
+        delivery_complete: deliveryComplete,
       },
       metadata: {
         earning_ledger_id: earningCredit?.id || null,
@@ -3262,7 +4033,7 @@ const verifyOnDemandStep = async ({
       });
     }
 
-    if (order.customer_id && (step === 'delivery' || pickupComplete)) {
+    if (order.customer_id && (deliveryComplete || pickupComplete)) {
       try {
         await createNotification({
           user_id: order.customer_id,
@@ -3295,15 +4066,19 @@ const verifyOnDemandStep = async ({
         status: nextStatus,
         scan_type: scanType,
         distance_m: distanceM,
+        package_id: packageId,
+        package_code: normalizedPackageCode || packageRes.rows[0]?.package_code || null,
         pickup_scan_verified: pickupScanVerified,
         pickup_photo_verified: pickupPhotoVerified,
         pickup_complete: pickupComplete,
+        delivery_complete: deliveryComplete,
+        manual_review_required: manualReviewRequired,
         earning_ledger_id: earningCredit?.id || null,
         earning_amount_idr: earningCredit?.amount_idr || null,
         recorded_at: scanRes.rows[0]?.recorded_at || new Date().toISOString(),
       },
       message: step === 'delivery'
-        ? 'Pengiriman berhasil diselesaikan.'
+        ? (deliveryComplete ? 'Pengiriman berhasil diselesaikan.' : 'POD paket tersimpan. Selesaikan POD paket lainnya.')
         : (pickupComplete
             ? 'Pickup lengkap. Pengantaran bisa dimulai.'
             : (photoUrl ? 'Foto barang tersimpan. Scan/input kode paket masih wajib.' : 'Scan/input kode tersimpan. Foto barang pickup masih wajib.')),
@@ -3339,6 +4114,9 @@ export const scanMobileCourierOrder = async (req: Request, res: Response) => {
     accuracy,
     barcodeValue: req.body?.barcode_value || req.body?.barcodeValue || null,
     spoofRisk: req.body?.spoof_risk || req.body?.spoofRisk || null,
+    faceVerificationId: req.body?.face_verification_id || req.body?.faceVerificationId || null,
+    packageCode: req.body?.package_code || req.body?.packageCode || null,
+    overrideReason: req.body?.override_reason || req.body?.overrideReason || null,
   });
 };
 
@@ -3356,18 +4134,33 @@ export const uploadMobileCourierPod = async (req: Request, res: Response) => {
   const savedUpload = saveSecureUploadBuffer(req.file, 'pod');
 
   const proofType = String(req.body?.proof_type || req.body?.proofType || 'delivery').toLowerCase();
+  const pickupProofTypes = new Set(['pickup', 'pickup_photo', 'pickup_scan']);
+  const deliveryProofTypes = new Set(['delivery', 'pod', 'delivery_pod', 'delivery_pod_photo', 'delivery_signature']);
+
+  if (!pickupProofTypes.has(proofType) && !deliveryProofTypes.has(proofType)) {
+    res.status(400).json({
+      success: false,
+      data: null,
+      message: 'Tipe bukti tidak dikenali.',
+      code: 'ERR_INVALID_PROOF_TYPE',
+    });
+    return;
+  }
 
   await verifyOnDemandStep({
     req,
     res,
     orderId,
-    step: proofType === 'pickup' ? 'pickup' : 'delivery',
+    step: pickupProofTypes.has(proofType) ? 'pickup' : 'delivery',
     latitude,
     longitude,
     accuracy,
     barcodeValue: req.body?.barcode_value || req.body?.barcodeValue || null,
     photoUrl: savedUpload.fileUrl,
     spoofRisk: req.body?.spoof_risk || req.body?.spoofRisk || null,
+    faceVerificationId: req.body?.face_verification_id || req.body?.faceVerificationId || null,
+    packageCode: req.body?.package_code || req.body?.packageCode || null,
+    overrideReason: req.body?.override_reason || req.body?.overrideReason || null,
   });
 };
 
@@ -3509,8 +4302,12 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
           o.customer_id,
           o.model,
           o.status AS order_status,
+          o.service_code,
           ol.id AS leg_id,
           ol.status AS leg_status,
+          COALESCE(dsp.service_category, '') AS service_category,
+          COALESCE(dsp.failed_delivery_policy, CASE WHEN COALESCE(dsp.service_category, '') = 'regular' THEN 'reschedule_then_return' ELSE 'must_deliver' END) AS failed_delivery_policy,
+          COALESCE(dsp.regular_max_reschedule_attempts, 3)::int AS regular_max_reschedule_attempts,
           CASE
             WHEN COALESCE(dsp.service_category, '') = 'on_demand' THEN 'on_demand'
             WHEN LOWER(o.model) = 'p2p' THEN 'regular'
@@ -3543,6 +4340,35 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
     const order = orderRes.rows[0];
     const workflowRole = String(order.workflow_role || 'network');
     const currentStatus = String(order.leg_status || order.order_status || '').toLowerCase();
+    const failedDeliveryPolicy = String(order.failed_delivery_policy || '').toLowerCase();
+
+    if (workflowRole === 'on_demand' && ['failed', 'return_required', 'returned', 'reschedule_required', 'delivery_rescheduled'].includes(requestedStatus)) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        data: {
+          failed_delivery_policy: failedDeliveryPolicy || 'must_deliver',
+        },
+        message: 'Order on-demand wajib diselesaikan sampai terkirim. Laporkan kendala melalui fitur bantuan/SOS, bukan status gagal atau return.',
+        code: 'ERR_ON_DEMAND_MUST_DELIVER',
+      });
+      return;
+    }
+
+    let effectiveRequestedStatus = requestedStatus;
+    let regularFailedAttempt = 0;
+    if (workflowRole === 'regular' && requestedStatus === 'failed') {
+      const attemptRes = await client.query(
+        `SELECT COUNT(*)::int AS attempts
+         FROM order_events
+         WHERE order_id = $1
+           AND event_type IN ('regular_delivery_failed', 'delivery_rescheduled')`,
+        [orderId]
+      );
+      regularFailedAttempt = Number(attemptRes.rows[0]?.attempts || 0) + 1;
+      const maxAttempts = Number(order.regular_max_reschedule_attempts || 3);
+      effectiveRequestedStatus = regularFailedAttempt >= maxAttempts ? 'return_required' : 'delivery_rescheduled';
+    }
 
     const configuredRes = await client.query(
       `SELECT COUNT(*)::int AS total
@@ -3574,7 +4400,7 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
           AND is_active = TRUE
           AND requires_admin = FALSE
         LIMIT 1`,
-      [workflowRole, currentStatus, requestedStatus]
+      [workflowRole, currentStatus, effectiveRequestedStatus]
     );
 
     if (!policyRes.rows.length) {
@@ -3604,10 +4430,10 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
       `UPDATE order_legs
           SET status = $2,
               started_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(started_at, NOW()) ELSE started_at END,
-              completed_at = CASE WHEN $2 IN ('delivered', 'failed') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+              completed_at = CASE WHEN $2 IN ('delivered', 'failed', 'return_required') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
               updated_at = NOW()
         WHERE id = $1`,
-      [order.leg_id, requestedStatus]
+      [order.leg_id, effectiveRequestedStatus]
     );
 
     await client.query(
@@ -3617,21 +4443,30 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
               delivered_at = CASE WHEN $2 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
               updated_at = NOW()
         WHERE id = $1`,
-      [orderId, requestedStatus]
+      [orderId, effectiveRequestedStatus]
     );
+
+    const statusEventType = workflowRole === 'regular' && requestedStatus === 'failed'
+      ? (effectiveRequestedStatus === 'return_required' ? 'return_required' : 'delivery_rescheduled')
+      : 'courier_status_updated';
 
     await client.query(
       `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
-       VALUES ($1, $2, 'courier_status_updated', $3, $4)`,
+       VALUES ($1, $2, $3, $4, $5)`,
       [
         orderId,
         req.user.id,
-        `Courier updated status from ${currentStatus} to ${requestedStatus}`,
+        statusEventType,
+        `Courier updated status from ${currentStatus} to ${effectiveRequestedStatus}`,
         JSON.stringify({
           from_status: currentStatus,
-          to_status: requestedStatus,
+          requested_status: requestedStatus,
+          to_status: effectiveRequestedStatus,
           workflow_role: workflowRole,
           policy_label: policy.label,
+          failed_delivery_policy: failedDeliveryPolicy || null,
+          regular_failed_attempt: regularFailedAttempt || null,
+          regular_max_reschedule_attempts: Number(order.regular_max_reschedule_attempts || 3),
           notes,
           source: 'courier_mobile',
         }),
@@ -3645,11 +4480,12 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
       order_number: order.order_number || null,
       customer_id: order.customer_id || null,
       courier_user_id: req.user.id,
-      status: requestedStatus,
+      status: effectiveRequestedStatus,
       stage: 'status_updated',
       metadata: {
         from_status: currentStatus,
-        to_status: requestedStatus,
+        requested_status: requestedStatus,
+        to_status: effectiveRequestedStatus,
         workflow_role: workflowRole,
         policy_label: policy.label,
       },

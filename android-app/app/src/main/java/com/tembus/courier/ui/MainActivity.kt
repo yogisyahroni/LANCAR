@@ -84,20 +84,6 @@ class MainActivity : FragmentActivity() {
         obtainAndRegisterFCMToken()
     }
 
-    private val requestLocationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            Log.d("LOCATION", "Permission step granted - triggering sequential escalation check")
-            // Recurse to process next item in the permissions hierarchy (e.g., Foreground -> Background)
-            askLocationPermission()
-        } else {
-            Log.d("LOCATION", "Permission step denied")
-            // Fallback: attempt tracking anyway with whatever permissions exist
-            startLocationTrackingIfLoggedIn()
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -106,9 +92,6 @@ class MainActivity : FragmentActivity() {
 
         // 🎨 VISUAL ELEVATION: Enable transparent edge-to-edge Canvas
         enableEdgeToEdge()
-
-        askNotificationPermission()
-        askLocationPermission()
 
         setContent {
             TEMBUSCourierTheme {
@@ -131,7 +114,7 @@ class MainActivity : FragmentActivity() {
                         updateInfo = updateManager.checkUpdate()
                     }
 
-                    updateInfo?.let { info ->
+                    updateInfo?.takeIf { info -> info.force || isLoggedIn }?.let { info ->
                         UpdateDialog(
                             version = info,
                             isUpdating = isUpdating,
@@ -179,9 +162,7 @@ class MainActivity : FragmentActivity() {
                     } else {
                         LoginScreen(
                             onLoginSuccess = {
-                                // After login: register FCM token + start location
-                                obtainAndRegisterFCMToken()
-                                startLocationTrackingIfLoggedIn()
+                                askNotificationPermission()
                             }
                         )
                     }
@@ -205,30 +186,6 @@ class MainActivity : FragmentActivity() {
             }
         } else {
             obtainAndRegisterFCMToken()
-        }
-    }
-
-    private fun askLocationPermission() {
-        when {
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) == PackageManager.PERMISSION_GRANTED -> {
-                // Check background location on Android 10+
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-                    ContextCompat.checkSelfPermission(
-                        this,
-                        Manifest.permission.ACCESS_BACKGROUND_LOCATION
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    requestLocationPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-                } else {
-                    startLocationTrackingIfLoggedIn()
-                }
-            }
-            else -> {
-                requestLocationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-            }
         }
     }
 

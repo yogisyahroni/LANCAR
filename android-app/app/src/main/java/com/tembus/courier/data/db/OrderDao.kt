@@ -106,12 +106,12 @@ interface OrderDao {
     /**
      * Mark scans as synced
      */
-    @Query("UPDATE orders SET needsScanSync = 0 WHERE order_id IN (:orderIds)")
-    suspend fun markScanAsSynced(orderIds: List<String>)
+    @Query("UPDATE orders SET needsScanSync = 0, proof_synced_at = :syncedAt WHERE order_id IN (:orderIds)")
+    suspend fun markScanAsSynced(orderIds: List<String>, syncedAt: Long = System.currentTimeMillis())
 
     /**
      * Mark PoDs as synced
      */
-    @Query("UPDATE orders SET needsPodSync = 0 WHERE order_id IN (:orderIds)")
-    suspend fun markPodAsSynced(orderIds: List<String>)
+    @Query("UPDATE orders SET needsPodSync = 0, proof_synced_at = :syncedAt WHERE order_id IN (:orderIds)")
+    suspend fun markPodAsSynced(orderIds: List<String>, syncedAt: Long = System.currentTimeMillis())
 }

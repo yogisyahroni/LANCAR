@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.courier.data.model.ChatMessage
+import com.tembus.courier.ui.theme.Primary
+import com.tembus.courier.ui.theme.Secondary
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -112,7 +114,7 @@ fun ChatScreen(
                     .fillMaxWidth()
             ) {
                 if (isLoading && messages.isEmpty()) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    ChatLoadingSkeleton()
                 } else if (messages.isEmpty()) {
                     Column(
                         modifier = Modifier
@@ -150,6 +152,14 @@ fun ChatScreen(
                             )
                         }
                     }
+                }
+                errorMessage?.let { message ->
+                    ChatInlineNotice(
+                        message = message,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(12.dp)
+                    )
                 }
             }
 
@@ -255,8 +265,8 @@ private fun ChatBubble(
                         // Linear gradients for premium visual engagement
                         Brush.linearGradient(
                             colors = listOf(
-                                Color(0xFF4F46E5),
-                                Color(0xFF3B82F6)
+                                Primary,
+                                Secondary
                             )
                         )
                     } else {
@@ -283,6 +293,62 @@ private fun ChatBubble(
                     fontSize = 10.sp,
                     modifier = Modifier.align(Alignment.End)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatInlineNotice(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.error.copy(alpha = 0.10f),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
+private fun ChatLoadingSkeleton() {
+    LazyColumn(
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        items(5) { index ->
+            val alignEnd = index % 2 == 1
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start
+            ) {
+                Column(
+                    modifier = Modifier.widthIn(min = 160.dp, max = 260.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(if (alignEnd) 0.78f else 0.92f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(68.dp)
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.10f))
+                    )
+                }
             }
         }
     }
