@@ -153,7 +153,7 @@ class AuthRepository @Inject constructor(
                 else -> "Reset password belum dapat diproses. Coba lagi."
             }
             Result.failure(
-                Exception(fallback.withRequestReference(response))
+                Exception(fallback.withHttpDiagnostics(response))
             )
         }
     }
@@ -181,9 +181,13 @@ class AuthRepository @Inject constructor(
                 else -> "Akses belum dapat diproses. Coba lagi beberapa saat."
             }
             Result.failure(
-                Exception(fallback.withRequestReference(response))
+                Exception(fallback.withHttpDiagnostics(response))
             )
         }
+    }
+
+    private fun String.withHttpDiagnostics(response: Response<*>): String {
+        return "$this (HTTP ${response.code()})".withRequestReference(response)
     }
 
     private fun userSafeMessage(raw: String?, fallback: String): String {
