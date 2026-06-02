@@ -29,6 +29,7 @@ import androidx.navigation.navDeepLink
 
 import com.tembus.customer.ui.screens.history.OrderHistoryScreen
 import com.tembus.customer.ui.screens.history.OrderHistoryViewModel
+import com.tembus.customer.ui.screens.onboarding.OnboardingScreen
 import com.tembus.customer.ui.screens.profile.ProfileScreen
 import com.tembus.customer.ui.screens.profile.ProfileViewModel
 import com.tembus.customer.ui.screens.detail.OrderDetailScreen
@@ -95,6 +96,18 @@ fun RootNavGraph(
         navController = navController,
         startDestination = startDestination
     ) {
+        composable(Screen.Onboarding.route) {
+            OnboardingScreen(
+                onComplete = {
+                    val nextRoute = viewModel.completeOnboarding()
+                    navController.navigate(nextRoute) {
+                        popUpTo(Screen.Onboarding.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+
         composable(Screen.AuthGraph.route) {
             AuthNavGraph(
                 onAuthSuccess = {

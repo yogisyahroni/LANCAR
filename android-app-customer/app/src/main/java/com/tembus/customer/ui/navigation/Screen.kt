@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.navigation
 
 sealed class Screen(val route: String) {
+    object Onboarding : Screen("onboarding")
     object AuthGraph : Screen("auth_graph")
     object Dashboard : Screen("dashboard")
     object Booking : Screen("booking?open={open}") {

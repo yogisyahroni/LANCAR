@@ -3,9 +3,11 @@ package com.tembus.customer.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.messaging.FirebaseMessaging
+import com.tembus.customer.data.onboarding.OnboardingPreferences
 import com.tembus.customer.data.repository.NotificationRepository
 import com.tembus.customer.data.session.AuthSessionManager
 import com.tembus.customer.data.session.SessionInvalidationReason
+import com.tembus.customer.ui.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,15 +18,17 @@ import javax.inject.Inject
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val sessionManager: AuthSessionManager,
-    private val notificationRepository: NotificationRepository
+    private val notificationRepository: NotificationRepository,
+    private val onboardingPreferences: OnboardingPreferences
 ) : ViewModel() {
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading = _isLoading.asStateFlow()
 
-    private val _startDestination = MutableStateFlow<String>("auth_graph")
+    private val _startDestination = MutableStateFlow(Screen.AuthGraph.route)
     val startDestination = _startDestination.asStateFlow()
     val sessionInvalidationReason = sessionManager.sessionInvalidationReason
+    private var authenticatedDestination = Screen.AuthGraph.route
 
     init {
         checkAuth()
@@ -33,15 +37,30 @@ class MainViewModel @Inject constructor(
 
     private fun checkAuth() {
         viewModelScope.launch {
-            val token = sessionManager.getTokenOnce()
-            if (!token.isNullOrEmpty() && sessionManager.isCurrentTokenExpired()) {
-                sessionManager.clearSession(SessionInvalidationReason.TOKEN_EXPIRED)
-                _startDestination.value = "auth_graph"
-            } else if (!token.isNullOrEmpty()) {
-                _startDestination.value = "dashboard"
-                syncFcmToken()
+            authenticatedDestination = resolveAuthenticatedDestination()
+            _startDestination.value = if (onboardingPreferences.isCompleted()) {
+                authenticatedDestination
+            } else {
+                Screen.Onboarding.route
             }
             _isLoading.value = false
+        }
+    }
+
+    private suspend fun resolveAuthenticatedDestination(): String {
+        val token = sessionManager.getTokenOnce()
+        if (!token.isNullOrEmpty() && sessionManager.isCurrentTokenExpired()) {
+            sessionManager.clearSession(SessionInvalidationReason.TOKEN_EXPIRED)
+            return Screen.AuthGraph.route
+        }
+
+        return if (!token.isNullOrEmpty()) {
+            if (onboardingPreferences.isCompleted()) {
+                syncFcmToken()
+            }
+            Screen.Dashboard.route
+        } else {
+            Screen.AuthGraph.route
         }
     }
 
@@ -63,15 +82,28 @@ class MainViewModel @Inject constructor(
     private fun observeAuthSession() {
         viewModelScope.launch {
             sessionManager.isLoggedIn.collectLatest { loggedIn ->
-                _startDestination.value = if (loggedIn) "dashboard" else "auth_graph"
+                authenticatedDestination = if (loggedIn) Screen.Dashboard.route else Screen.AuthGraph.route
+                if (onboardingPreferences.isCompleted()) {
+                    _startDestination.value = authenticatedDestination
+                }
             }
         }
+    }
+
+    fun completeOnboarding(): String {
+        onboardingPreferences.markCompleted()
+        _startDestination.value = authenticatedDestination
+        if (authenticatedDestination == Screen.Dashboard.route) {
+            syncFcmToken()
+        }
+        return authenticatedDestination
     }
 
     fun logout() {
         viewModelScope.launch {
             sessionManager.clearSession()
-            _startDestination.value = "auth_graph"
+            authenticatedDestination = Screen.AuthGraph.route
+            _startDestination.value = Screen.AuthGraph.route
         }
     }
 
