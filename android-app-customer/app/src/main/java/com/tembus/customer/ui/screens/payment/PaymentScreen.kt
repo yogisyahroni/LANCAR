@@ -265,7 +265,7 @@ private fun PaymentMethodChooser(
                 )
                 Spacer(modifier = Modifier.width(14.dp))
                 Text(
-                    text = "LAPAY memakai ledger saldo. QRIS memakai token gateway dari backend dan webhook Midtrans.",
+                    text = "Pembayaran diproses aman melalui saldo LAPAY atau QRIS resmi TEMBUS.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFF084C2E)
                 )

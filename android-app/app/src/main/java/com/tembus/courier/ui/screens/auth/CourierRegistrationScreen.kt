@@ -90,7 +90,7 @@ fun CourierRegistrationScreen(
             }
 
             Text("Daftar Kurir On-Demand", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = Color.White)
-            Text("Data ini akan masuk ke admin untuk review dokumen dan kendaraan.", color = Color.White.copy(alpha = 0.78f))
+            Text("Data ini akan diverifikasi oleh tim operasional.", color = Color.White.copy(alpha = 0.78f))
 
             RegistrationProgressCard(
                 profileReady = profileReady,
@@ -105,7 +105,7 @@ fun CourierRegistrationScreen(
                     Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Primary, modifier = Modifier.size(42.dp))
                         Text("Pendaftaran terkirim", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("Tim admin akan memeriksa e-KTP, SIM, STNK, SKPD, SKCK, rekening bank, dan kelayakan kendaraan.")
+                        Text("Tim operasional akan memeriksa e-KTP, SIM, STNK, SKPD, SKCK, rekening bank, dan kelayakan kendaraan.")
                         Button(onClick = onBack, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Primary)) {
                             Text("Kembali ke Login")
                         }

@@ -217,7 +217,7 @@ private fun ProfileContent(
         AvatarBadge(name = profile.name)
         Spacer(Modifier.height(14.dp))
         Text(
-            text = profile.name.ifBlank { "Customer TEMBUS" },
+            text = profile.name.ifBlank { "Pelanggan TEMBUS" },
             fontWeight = FontWeight.ExtraBold,
             fontSize = 24.sp,
             color = Color(0xFF17202A),
@@ -379,7 +379,7 @@ private fun ProfileStatusCard(profile: ProfileResponse) {
             StatusRow(
                 Icons.Default.Email,
                 "Kontak utama",
-                profile.email.ifBlank { profile.phoneNumber.ifBlank { "Belum tersedia" } }
+                profile.email.ifBlank { profile.phoneNumber.ifBlank { "Perlu dilengkapi" } }
             )
             StatusRow(
                 Icons.Default.NotificationsActive,
@@ -513,7 +513,7 @@ private fun SettingsDialog(onDismiss: () -> Unit, onRefresh: () -> Unit) {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 StatusRow(Icons.Default.NotificationsActive, "Notifikasi", "Mengikuti preferensi sistem perangkat")
-                StatusRow(Icons.Default.Refresh, "Konfigurasi peta", "Disinkronkan dari admin tanpa rebuild app")
+                StatusRow(Icons.Default.Refresh, "Konfigurasi peta", "Disinkronkan otomatis tanpa update aplikasi")
                 Text(
                     text = "Gunakan sinkronisasi untuk mengambil konfigurasi terbaru dari server.",
                     color = Color(0xFF6B7280),
@@ -687,7 +687,7 @@ private fun formatRupiah(value: Long): String {
 
 private fun String.asPhoneDisplay(): String {
     val normalized = trim()
-    return if (normalized.isBlank() || normalized.contains("@")) "Belum tersedia" else normalized
+    return if (normalized.isBlank() || normalized.contains("@")) "Perlu dilengkapi" else normalized
 }
 
 private enum class ProfileDialog {

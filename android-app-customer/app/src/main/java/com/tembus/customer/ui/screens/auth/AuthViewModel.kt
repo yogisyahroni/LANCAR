@@ -25,6 +25,15 @@ sealed class AuthState {
     data class Error(val message: String) : AuthState()
 }
 
+sealed class PasswordResetState {
+    object Idle : PasswordResetState()
+    object Sending : PasswordResetState()
+    data class CodeSent(val email: String, val message: String) : PasswordResetState()
+    object Confirming : PasswordResetState()
+    data class Completed(val message: String) : PasswordResetState()
+    data class Error(val message: String) : PasswordResetState()
+}
+
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
@@ -32,9 +41,27 @@ class AuthViewModel @Inject constructor(
     private val notificationRepository: NotificationRepository,
     private val profileRepository: ProfileRepository
 ) : ViewModel() {
+    private val technicalErrorMarkers = listOf(
+        "HTTP ",
+        "Exception",
+        "retrofit",
+        "okhttp",
+        "java.",
+        "kotlin.",
+        "failed to",
+        "Unable to",
+        "UnknownHost",
+        "timeout",
+        "SSL",
+        "certificate",
+        "stack"
+    )
 
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
+
+    private val _passwordResetState = MutableStateFlow<PasswordResetState>(PasswordResetState.Idle)
+    val passwordResetState: StateFlow<PasswordResetState> = _passwordResetState.asStateFlow()
 
     private val _phoneNumber = MutableStateFlow("")
     val phoneNumber: StateFlow<String> = _phoneNumber.asStateFlow()
@@ -84,7 +111,9 @@ class AuthViewModel @Inject constructor(
             result.onSuccess {
                 _authState.value = AuthState.OtpSent
             }.onFailure { exception ->
-                _authState.value = AuthState.Error(exception.localizedMessage ?: "Gagal mengirim OTP")
+                _authState.value = AuthState.Error(
+                    userSafeMessage(exception.localizedMessage, "Kode verifikasi belum dapat dikirim. Coba lagi.")
+                )
             }
         }
     }
@@ -113,7 +142,9 @@ class AuthViewModel @Inject constructor(
                     }
                 }
                 .onFailure { exception ->
-                    _authState.value = AuthState.Error(exception.localizedMessage ?: "Email atau password tidak sesuai")
+                    _authState.value = AuthState.Error(
+                        userSafeMessage(exception.localizedMessage, "Email atau password tidak sesuai.")
+                    )
                 }
         }
     }
@@ -146,7 +177,68 @@ class AuthViewModel @Inject constructor(
             authRepository.startPasswordRegistration(fullName, email, phone, password)
                 .onSuccess { _authState.value = AuthState.OtpSent }
                 .onFailure { exception ->
-                    _authState.value = AuthState.Error(exception.localizedMessage ?: "Pendaftaran gagal diproses")
+                    _authState.value = AuthState.Error(
+                        userSafeMessage(exception.localizedMessage, "Pendaftaran belum dapat diproses. Coba lagi.")
+                    )
+                }
+        }
+    }
+
+    fun requestPasswordReset(email: String) {
+        val normalizedEmail = email.trim()
+        val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\$")
+        if (!emailRegex.matches(normalizedEmail)) {
+            _passwordResetState.value = PasswordResetState.Error("Email tidak valid")
+            return
+        }
+
+        viewModelScope.launch {
+            _passwordResetState.value = PasswordResetState.Sending
+            authRepository.requestPasswordReset(normalizedEmail)
+                .onSuccess { response ->
+                    _passwordResetState.value = PasswordResetState.CodeSent(
+                        email = normalizedEmail,
+                        message = response.message ?: "Jika email terdaftar, kode reset sudah dikirim."
+                    )
+                }
+                .onFailure { exception ->
+                    _passwordResetState.value = PasswordResetState.Error(
+                        userSafeMessage(exception.localizedMessage, "Kode reset belum dapat dikirim. Coba lagi.")
+                    )
+                }
+        }
+    }
+
+    fun confirmPasswordReset(email: String, code: String, newPassword: String) {
+        val normalizedEmail = email.trim()
+        val resetCode = code.trim()
+        val emailRegex = Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\$")
+        if (!emailRegex.matches(normalizedEmail)) {
+            _passwordResetState.value = PasswordResetState.Error("Email tidak valid")
+            return
+        }
+        if (!resetCode.matches(Regex("^\\d{6}\$"))) {
+            _passwordResetState.value = PasswordResetState.Error("Kode reset harus 6 digit")
+            return
+        }
+        if (newPassword.length < 8) {
+            _passwordResetState.value = PasswordResetState.Error("Password baru minimal 8 karakter")
+            return
+        }
+
+        viewModelScope.launch {
+            _passwordResetState.value = PasswordResetState.Confirming
+            authRepository.confirmPasswordReset(normalizedEmail, resetCode, newPassword)
+                .onSuccess { response ->
+                    _password.value = ""
+                    _passwordResetState.value = PasswordResetState.Completed(
+                        response.message ?: "Password berhasil diperbarui. Silakan masuk kembali."
+                    )
+                }
+                .onFailure { exception ->
+                    _passwordResetState.value = PasswordResetState.Error(
+                        userSafeMessage(exception.localizedMessage, "Kode reset tidak valid atau sudah kedaluwarsa.")
+                    )
                 }
         }
     }
@@ -160,13 +252,19 @@ class AuthViewModel @Inject constructor(
             result.onSuccess { response ->
                 completeAuthenticatedSession(response)
             }.onFailure { exception ->
-                _authState.value = AuthState.Error(exception.localizedMessage ?: "Kode OTP salah")
+                _authState.value = AuthState.Error(
+                    userSafeMessage(exception.localizedMessage, "Kode OTP tidak valid.")
+                )
             }
         }
     }
 
     fun resetState() {
         _authState.value = AuthState.Idle
+    }
+
+    fun resetPasswordResetState() {
+        _passwordResetState.value = PasswordResetState.Idle
     }
 
     fun completeProfile(fullName: String) {
@@ -188,7 +286,9 @@ class AuthViewModel @Inject constructor(
                     sessionManager.updateCustomerName(profile.name)
                     _authState.value = AuthState.ProfileCompleted
                 }.onFailure { exception ->
-                    _authState.value = AuthState.Error(exception.localizedMessage ?: "Gagal melengkapi profil")
+                    _authState.value = AuthState.Error(
+                        userSafeMessage(exception.localizedMessage, "Profil belum dapat disimpan. Coba lagi.")
+                    )
                 }
             }
         }
@@ -226,7 +326,17 @@ class AuthViewModel @Inject constructor(
             _authState.value = AuthState.Success(isNewUser = needsProfile)
             syncFcmToken()
         } else {
-            _authState.value = AuthState.Error("Data autentikasi kosong")
+            _authState.value = AuthState.Error("Sesi belum dapat dibuat. Coba lagi beberapa saat.")
+        }
+    }
+
+    private fun userSafeMessage(raw: String?, fallback: String): String {
+        val message = raw?.trim().orEmpty()
+        if (message.isBlank()) return fallback
+        return if (technicalErrorMarkers.any { marker -> message.contains(marker, ignoreCase = true) }) {
+            fallback
+        } else {
+            message.take(160)
         }
     }
 

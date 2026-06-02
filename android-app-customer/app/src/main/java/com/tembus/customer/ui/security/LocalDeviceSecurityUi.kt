@@ -138,7 +138,7 @@ fun LocalSecuritySettingsPanel(
             ) {
                 Icon(Icons.Default.Fingerprint, contentDescription = null, tint = SecureBlue)
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(if (settings.biometricSupported) "Biometrik perangkat" else "Biometrik belum tersedia")
+                    Text(if (settings.biometricSupported) "Biometrik perangkat" else "Biometrik perangkat tidak aktif")
                     Text(
                         if (settings.biometricSupported) "Sidik jari atau Face Unlock sesuai dukungan perangkat." else "Tambahkan biometric di pengaturan HP untuk mengaktifkan.",
                         style = MaterialTheme.typography.bodySmall,

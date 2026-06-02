@@ -8,6 +8,7 @@ type UserRepository interface {
 	Create(ctx context.Context, user *User) error
 	Update(ctx context.Context, user *User) error
 	MarkVerified(ctx context.Context, userID string) error
+	UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error
 	SetPIN(ctx context.Context, userID, pinHash string) error
 	UpdateLastLogin(ctx context.Context, userID string) error
 	UpdatePhotoURL(ctx context.Context, userID, url string) error

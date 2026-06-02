@@ -50,6 +50,8 @@ const authServicePublic = (method: string, path: string) => {
     { method: 'POST', path: '/api/v1/auth/otp/verify' },
     { method: 'POST', path: '/api/v1/auth/customer/login/start' },
     { method: 'POST', path: '/api/v1/auth/customer/register/start' },
+    { method: 'POST', path: '/api/v1/auth/password-reset/request' },
+    { method: 'POST', path: '/api/v1/auth/password-reset/confirm' },
     { method: 'POST', path: '/api/v1/auth/refresh' },
     { method: 'POST', path: '/api/v1/auth/logout' },
     { method: 'POST', path: '/api/v1/auth/2fa/complete' },

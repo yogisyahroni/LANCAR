@@ -101,7 +101,7 @@ class BookingViewModel @Inject constructor(
                 )
             }.onFailure { e ->
                 _bookingState.value = _bookingState.value.copy(
-                    mapsProviderError = e.localizedMessage ?: "Konfigurasi peta belum tersedia"
+                    mapsProviderError = e.localizedMessage ?: "Konfigurasi peta sedang disinkronkan."
                 )
             }
         }
@@ -409,7 +409,7 @@ class BookingViewModel @Inject constructor(
                     ?.associateBy { it.serviceCode }
                     .orEmpty()
                 val firstError = estimateResult.exceptionOrNull()?.localizedMessage
-                    ?: if (estimates.isEmpty()) "Rute jalan belum tersedia. Harga tidak dihitung dari garis lurus." else null
+                    ?: if (estimates.isEmpty()) "Rute jalan sedang dihitung. Pilih alamat yang lebih spesifik." else null
 
                 if (calculationVersion != routeCalculationVersion) {
                     return@launch
@@ -425,7 +425,7 @@ class BookingViewModel @Inject constructor(
                     selectedServiceCode = preferredCode,
                     estimatedPrice = estimates[preferredCode]?.totalPriceIdr ?: 0,
                     error = if (estimates.isEmpty()) {
-                        firstError ?: "Rute jalan belum tersedia. Coba pilih alamat yang lebih spesifik."
+                        firstError ?: "Rute jalan sedang dihitung. Coba pilih alamat yang lebih spesifik."
                     } else {
                         null
                     }

@@ -118,14 +118,14 @@ class PaymentViewModel @Inject constructor(
                             )
                         }
                         else -> _uiState.value = PaymentUiState.Error(
-                            message = "Link pembayaran QRIS belum tersedia. Coba ulangi beberapa saat lagi.",
+                            message = "Link pembayaran QRIS sedang disiapkan. Coba ulangi beberapa saat lagi.",
                             selectedMethod = selected
                         )
                     }
                 }
-                result.onFailure { error ->
+                result.onFailure { _ ->
                     _uiState.value = PaymentUiState.Error(
-                        message = error.localizedMessage ?: "Gagal memproses pembayaran",
+                        message = "Pembayaran belum dapat diproses. Coba lagi.",
                         selectedMethod = selected
                     )
                 }

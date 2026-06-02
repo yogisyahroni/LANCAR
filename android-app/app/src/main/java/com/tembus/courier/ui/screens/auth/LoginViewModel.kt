@@ -56,6 +56,25 @@ class LoginViewModel @Inject constructor(
         isLenient = true
     }
 
+    private val technicalErrorMarkers = listOf(
+        "java.",
+        "kotlin.",
+        "retrofit",
+        "okhttp",
+        "ClassCastException",
+        "ParameterizedType",
+        "Exception",
+        "HTTP ",
+        "failed to",
+        "Unable to",
+        "certificate",
+        "SSL",
+        "UnknownHost",
+        "timeout",
+        "stack",
+        "No address associated"
+    )
+
     fun onUsernameChange(value: String) {
         _uiState.update { it.copy(username = value, usernameError = null, error = null) }
     }
@@ -123,7 +142,7 @@ class LoginViewModel @Inject constructor(
                     val loginData = responseBody.data
                     if (loginData == null) {
                         _uiState.update {
-                            it.copy(isLoading = false, error = "Login gagal: data sesi kosong dari server")
+                            it.copy(isLoading = false, error = "Sesi belum dapat dibuat. Coba lagi beberapa saat.")
                         }
                         return@launch
                     }
@@ -142,14 +161,14 @@ class LoginViewModel @Inject constructor(
 
                     persistLoginSession(loginData)
                 } else {
-                    val message = extractErrorMessage(response)
-                        ?: responseBody?.message
-                        ?: when (response.code()) {
-                            401 -> "Username atau password salah"
-                            403 -> "Akun tidak memiliki akses kurir"
-                            429 -> "Terlalu banyak percobaan. Coba lagi nanti"
-                            else -> "Login gagal (${response.code()})"
-                        }
+                    val rawMessage = extractErrorMessage(response) ?: responseBody?.message
+                    val fallbackMessage = when (response.code()) {
+                        401 -> "Username atau password salah"
+                        403 -> "Akun belum memiliki akses kurir"
+                        429 -> "Terlalu banyak percobaan. Coba lagi nanti"
+                        else -> "Akses belum dapat diproses. Coba lagi beberapa saat."
+                    }
+                    val message = userSafeMessage(rawMessage, fallbackMessage)
                     _uiState.update { it.copy(isLoading = false, error = message.withRequestReference(response)) }
                 }
             } catch (e: java.net.UnknownHostException) {
@@ -162,7 +181,13 @@ class LoginViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(isLoading = false, error = "Error: ${e.message}")
+                    it.copy(
+                        isLoading = false,
+                        error = userSafeMessage(
+                            e.message,
+                            "Akses belum dapat diproses. Coba lagi beberapa saat."
+                        )
+                    )
                 }
             }
         }
@@ -190,9 +215,10 @@ class LoginViewModel @Inject constructor(
                 if (response.isSuccessful && responseBody?.success == true && responseBody.data != null) {
                     persistLoginSession(responseBody.data)
                 } else {
-                    val message = extractErrorMessage(response)
-                        ?: responseBody?.message
-                        ?: "Kode OTP tidak valid"
+                    val message = userSafeMessage(
+                        extractErrorMessage(response) ?: responseBody?.message,
+                        "Kode OTP tidak valid"
+                    )
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -205,7 +231,15 @@ class LoginViewModel @Inject constructor(
             } catch (e: java.net.SocketTimeoutException) {
                 _uiState.update { it.copy(isLoading = false, error = "Server tidak merespons. Coba lagi") }
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = "Error: ${e.message}") }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = userSafeMessage(
+                            e.message,
+                            "Verifikasi belum dapat diproses. Coba lagi beberapa saat."
+                        )
+                    )
+                }
             }
         }
     }
@@ -216,7 +250,7 @@ class LoginViewModel @Inject constructor(
         val courierName = loginData.name
         if (token.isNullOrBlank() || courierId.isNullOrBlank() || courierName.isNullOrBlank()) {
             _uiState.update {
-                it.copy(isLoading = false, error = "Login gagal: data sesi kosong dari server")
+                it.copy(isLoading = false, error = "Sesi belum dapat dibuat. Coba lagi beberapa saat.")
             }
             return
         }
@@ -239,5 +273,15 @@ class LoginViewModel @Inject constructor(
                 ?: errorObject["error"]?.jsonPrimitive?.contentOrNull
         }.getOrNull()
             ?: rawErrorBody.takeIf { it.length <= 180 }
+    }
+
+    private fun userSafeMessage(raw: String?, fallback: String): String {
+        val message = raw?.trim().orEmpty()
+        if (message.isBlank()) return fallback
+        return if (technicalErrorMarkers.any { marker -> message.contains(marker, ignoreCase = true) }) {
+            fallback
+        } else {
+            message.take(160)
+        }
     }
 }

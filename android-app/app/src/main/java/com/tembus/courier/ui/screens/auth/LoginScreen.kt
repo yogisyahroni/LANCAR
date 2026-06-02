@@ -3,6 +3,7 @@ package com.tembus.courier.ui.screens.auth
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.VerifiedUser
@@ -35,7 +37,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.courier.BuildConfig
 import com.tembus.courier.ui.security.SecureScreenEffect
+import com.tembus.courier.ui.theme.Accent
 import com.tembus.courier.ui.theme.Primary
+import com.tembus.courier.ui.theme.PrimaryDark
 
 /**
  * Login Screen
@@ -73,8 +77,8 @@ fun LoginScreen(
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
+                        PrimaryDark,
                         Primary,
-                        Primary.copy(alpha = 0.85f),
                         MaterialTheme.colorScheme.background
                     ),
                     startY = 0f,
@@ -92,11 +96,18 @@ fun LoginScreen(
 
             // ── Logo & Title ──────────────────────────────────────
             Spacer(modifier = Modifier.height(48.dp))
-            Text(
-                text = "🚚",
-                fontSize = 64.sp,
-                textAlign = TextAlign.Center
-            )
+            Surface(
+                color = Color.White.copy(alpha = 0.14f),
+                shape = RoundedCornerShape(24.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocalShipping,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.padding(18.dp).size(48.dp)
+                )
+            }
             Spacer(modifier = Modifier.height(12.dp))
             Text(
                 text = "TEMBUS",
@@ -106,7 +117,7 @@ fun LoginScreen(
                 letterSpacing = 4.sp
             )
             Text(
-                text = "Courier App",
+                text = "Mitra Kurir",
                 style = MaterialTheme.typography.titleMedium,
                 color = Color.White.copy(alpha = 0.8f)
             )
@@ -116,7 +127,7 @@ fun LoginScreen(
             // ── Login Card ────────────────────────────────────────
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(20.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface
@@ -127,12 +138,12 @@ fun LoginScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
-                        text = "Masuk ke Akun",
+                        text = "Masuk Operasional",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Masukkan kredensial akun kurir kamu",
+                        text = "Gunakan kredensial mitra kurir yang terdaftar.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -158,7 +169,7 @@ fun LoginScreen(
                         ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(14.dp)
                     )
 
                     // Password field
@@ -206,7 +217,7 @@ fun LoginScreen(
                         ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(14.dp)
                     )
 
                     AnimatedVisibility(
@@ -266,7 +277,7 @@ fun LoginScreen(
                                     ),
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp)
+                                    shape = RoundedCornerShape(14.dp)
                                 )
 
                                 TextButton(
@@ -296,7 +307,7 @@ fun LoginScreen(
                     ) {
                         Surface(
                             color = MaterialTheme.colorScheme.errorContainer,
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(14.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(
@@ -324,8 +335,8 @@ fun LoginScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Accent)
                     ) {
                         if (uiState.isLoading) {
                             CircularProgressIndicator(
@@ -346,14 +357,14 @@ fun LoginScreen(
                         onClick = { showRegistration = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Daftar sebagai kurir on-demand")
+                        Text("Daftar sebagai mitra kurir")
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "v${BuildConfig.VERSION_NAME} — TEMBUS Courier",
+                text = "v${BuildConfig.VERSION_NAME} - TEMBUS Mitra Kurir",
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.5f)
             )

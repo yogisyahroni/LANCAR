@@ -21,6 +21,7 @@ class DashboardViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
     private val sessionManager: AuthSessionManager
 ) : ViewModel() {
+    private val technicalErrorMarkers = listOf("HTTP ", "Exception", "java.", "kotlin.", "retrofit", "okhttp", "timeout")
 
     val customerName: StateFlow<String?> = sessionManager.customerName
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Pelanggan")
@@ -52,7 +53,10 @@ class DashboardViewModel @Inject constructor(
                     _activeOrder.value = orders.firstOrNull { it.status != "delivered" && it.status != "failed" }
                 }.onFailure { error ->
                     _activeOrder.value = null
-                    _dataError.value = error.localizedMessage ?: "Riwayat order belum bisa dimuat dari server."
+                    _dataError.value = userSafeMessage(
+                        error.localizedMessage,
+                        "Riwayat pengiriman belum dapat dimuat. Coba lagi."
+                    )
                 }
             }
         }
@@ -64,9 +68,22 @@ class DashboardViewModel @Inject constructor(
                         .sortedBy { it.displayOrder }
                 }.onFailure { error ->
                     _services.value = emptyList()
-                    _dataError.value = error.localizedMessage ?: "Layanan belum bisa dimuat dari server."
+                    _dataError.value = userSafeMessage(
+                        error.localizedMessage,
+                        "Layanan pengiriman belum dapat dimuat. Coba lagi."
+                    )
                 }
             }
+        }
+    }
+
+    private fun userSafeMessage(raw: String?, fallback: String): String {
+        val message = raw?.trim().orEmpty()
+        if (message.isBlank()) return fallback
+        return if (technicalErrorMarkers.any { marker -> message.contains(marker, ignoreCase = true) }) {
+            fallback
+        } else {
+            message.take(160)
         }
     }
 }

@@ -49,6 +49,16 @@ interface TEMBUSApiService {
         @Body request: CustomerPasswordRegisterStartRequest
     ): Response<AuthResponse>
 
+    @POST("api/v1/auth/password-reset/request")
+    suspend fun requestPasswordReset(
+        @Body request: PasswordResetRequest
+    ): Response<PasswordResetResponse>
+
+    @POST("api/v1/auth/password-reset/confirm")
+    suspend fun confirmPasswordReset(
+        @Body request: PasswordResetConfirmRequest
+    ): Response<PasswordResetResponse>
+
     // Tracking Endpoints
     @GET("api/v1/tracking")
     suspend fun getTracking(

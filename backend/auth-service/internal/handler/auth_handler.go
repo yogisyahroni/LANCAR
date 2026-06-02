@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"tembus/auth-service/internal/domain"
 	"tembus/auth-service/internal/middleware"
 	"tembus/auth-service/internal/service"
@@ -16,6 +17,8 @@ type AuthHandler struct {
 	abuse *middleware.AuthAbuseProtector
 	svc   interface {
 		RequestOTP(ctx context.Context, phoneNumber string) error
+		RequestCustomerPasswordReset(ctx context.Context, email string) error
+		ConfirmCustomerPasswordReset(ctx context.Context, email, code, newPassword string) error
 		StartCustomerPasswordLogin(ctx context.Context, email, password, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
 		StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
 		VerifyOTP(ctx context.Context, phoneNumber, code, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
@@ -106,6 +109,65 @@ func (h *AuthHandler) StartCustomerPasswordLogin(w http.ResponseWriter, r *http.
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(res)
+}
+
+func (h *AuthHandler) RequestCustomerPasswordReset(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	email := strings.TrimSpace(strings.ToLower(req.Email))
+	if h.rejectIfAuthAbuseBlocked(w, r, middleware.ScopePasswordReset, email) {
+		return
+	}
+
+	if err := h.svc.RequestCustomerPasswordReset(r.Context(), email); err != nil {
+		h.recordAuthFailure(r, middleware.ScopePasswordReset, email, "invalid_password_reset_request")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Jika email terdaftar, kode reset sudah dikirim.",
+	})
+}
+
+func (h *AuthHandler) ConfirmCustomerPasswordReset(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email       string `json:"email"`
+		Code        string `json:"code"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	email := strings.TrimSpace(strings.ToLower(req.Email))
+	if h.rejectIfAuthAbuseBlocked(w, r, middleware.ScopePasswordReset, email) {
+		return
+	}
+
+	if err := h.svc.ConfirmCustomerPasswordReset(r.Context(), email, req.Code, req.NewPassword); err != nil {
+		h.recordAuthFailure(r, middleware.ScopePasswordReset, email, "invalid_password_reset_confirm")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	h.recordAuthSuccess(r, middleware.ScopePasswordReset, email)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Password berhasil diperbarui. Silakan masuk kembali.",
+	})
 }
 
 func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r *http.Request) {

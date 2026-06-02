@@ -13,6 +13,20 @@ export const OTPVerifySchema = z.object({
   }),
 });
 
+export const PasswordResetRequestSchema = z.object({
+  body: z.object({
+    email: z.string().email().max(255),
+  }),
+});
+
+export const PasswordResetConfirmSchema = z.object({
+  body: z.object({
+    email: z.string().email().max(255),
+    code: z.string().regex(/^\d{6}$/),
+    new_password: z.string().min(8).max(80),
+  }),
+});
+
 export const RegisterSchema = z.object({
   body: z.object({
     name: z.string().min(2),

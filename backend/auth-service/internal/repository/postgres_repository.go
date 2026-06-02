@@ -99,6 +99,18 @@ func (r *postgresRepo) MarkVerified(ctx context.Context, userID string) error {
 	return sql.ErrNoRows
 }
 
+func (r *postgresRepo) UpdatePasswordHash(ctx context.Context, userID, passwordHash string) error {
+	query := `UPDATE users SET password_hash = $1, updated_at = $2 WHERE id = $3`
+	res, err := r.db.ExecContext(ctx, query, passwordHash, time.Now(), userID)
+	if err != nil {
+		return err
+	}
+	if count, _ := res.RowsAffected(); count > 0 {
+		return nil
+	}
+	return sql.ErrNoRows
+}
+
 func (r *postgresRepo) UpdateLastLogin(ctx context.Context, userID string) error {
 	query := `UPDATE users SET last_login_at = $1 WHERE id = $2`
 	res, err := r.db.ExecContext(ctx, query, time.Now(), userID)

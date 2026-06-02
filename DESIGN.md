@@ -3,6 +3,8 @@
 
 ---
 
+> **ACTIVE MOBILE UI NOTE:** Token visual customer dan kurir terbaru ada di `docs/TEMBUS_MOBILE_DESIGN_GUIDELINES_2026.md`. File ini tetap menjadi spesifikasi arsitektur mobile, tetapi palette hijau-orange, radius, typography, dan aturan copy enterprise mengikuti guideline 2026 tersebut.
+
 > **CLASSIFICATION:** TOP SECRET / HIGH-FIDELITY ARCHITECTURE
 > **OPERATIONAL SCHEMA:** OFFLINE-FIRST / SECURITY GRADE S++
 > **TARGET COMPATIBILITY:** Native Android (Kotlin / SDK 26+ / Android 8.0+) - Jetpack Compose Priority

@@ -74,7 +74,7 @@ class LocalDeviceSecurityManager(private val context: Context) {
             throw IllegalStateException("Buat PIN perangkat terlebih dahulu.")
         }
         if (enabled && !isBiometricSupported()) {
-            throw IllegalStateException("Biometrik belum tersedia di perangkat ini.")
+            throw IllegalStateException("Biometrik perangkat tidak aktif.")
         }
         sharedPreferences.edit().putBoolean(KEY_BIOMETRIC_ENABLED, enabled).apply()
         refresh()

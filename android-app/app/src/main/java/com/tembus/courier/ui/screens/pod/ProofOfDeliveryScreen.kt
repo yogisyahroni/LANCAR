@@ -156,7 +156,7 @@ fun ProofOfDeliveryScreen(
                                     if (location == null) {
                                         Toast.makeText(
                                             context,
-                                            "Lokasi belum tersedia. Aktifkan GPS dan coba lagi.",
+                                            "Lokasi perangkat sedang dikunci. Aktifkan GPS dan coba lagi.",
                                             Toast.LENGTH_LONG
                                         ).show()
                                         return@launch
@@ -216,15 +216,15 @@ private fun CameraPermissionContent(
         Spacer(modifier = Modifier.height(24.dp))
         Text(
             text = if (shouldShowRationale)
-                "Camera permission is required to capture proof of delivery photos."
+                "Akses kamera diperlukan untuk mengambil bukti pengiriman."
             else
-                "Please grant camera permission to take photos.",
+                "Aktifkan akses kamera untuk melanjutkan.",
             style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = onRequestPermission) {
-            Text("Grant Permission")
+            Text("Aktifkan Kamera")
         }
     }
 }
@@ -300,19 +300,19 @@ private fun CameraPreviewContent(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Order: ${order.orderId}",
+                        text = "Pesanan: ${order.orderId}",
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Pelanggan: ${order.customerName.ifBlank { "Data belum tersedia" }}",
+                        text = "Pelanggan: ${order.customerName.ifBlank { "Data sedang disinkronkan" }}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White
                     )
                     Text(
-                        text = "To: ${order.dropAddress}",
+                        text = "Tujuan: ${order.dropAddress}",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.8f)
                     )
@@ -321,7 +321,7 @@ private fun CameraPreviewContent(
                         text = if (proofMode == "pickup")
                             "Ambil foto barang yang jelas untuk verifikasi pickup"
                         else
-                            "Take a clear photo of the delivered package",
+                            "Ambil foto paket yang jelas di titik penerima",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.6f),
                         textAlign = TextAlign.Center

@@ -80,7 +80,14 @@ import com.tembus.courier.ui.screens.chat.ChatScreen
 import com.tembus.courier.ui.security.LocalSecurityChallengeDialog
 import com.tembus.courier.ui.security.LocalSecuritySettingsPanel
 import com.tembus.courier.ui.security.SecureScreenEffect
+import com.tembus.courier.ui.theme.Accent
+import com.tembus.courier.ui.theme.AccentLight
+import com.tembus.courier.ui.theme.Background
+import com.tembus.courier.ui.theme.CourierMapBase
+import com.tembus.courier.ui.theme.CourierPanel
+import com.tembus.courier.ui.theme.Outline
 import com.tembus.courier.ui.theme.Primary
+import com.tembus.courier.ui.theme.PrimaryDark
 import com.tembus.courier.ui.theme.PrimaryLight
 import com.tembus.courier.ui.theme.Secondary
 import com.tembus.courier.ui.theme.SecondaryLight
@@ -95,9 +102,9 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.min
 
-private val LogisticsOrange = Color(0xFFFF6D00)
-private val SageBase = Color(0xFFF2F5F0)
-private val DeepForest = Color(0xFF0A2F20)
+private val LogisticsOrange = Accent
+private val SageBase = Background
+private val DeepForest = PrimaryDark
 
 /**
  * Main Screen — Courier Dashboard
@@ -150,7 +157,7 @@ fun MainScreen(
     val isOnline by authSessionManager.isOnline.collectAsState(initial = false)
     val lifecycleOwner = LocalLifecycleOwner.current
     val courierRole = normalizeCourierMode(courierProfile?.applicationChannel ?: inferCourierRole(allOrders))
-    val displayCourierName = courierName?.takeIf { it.isNotBlank() } ?: "Profil belum tersinkron"
+    val displayCourierName = courierName?.takeIf { it.isNotBlank() } ?: "Profil sedang disinkronkan"
     val courierVehicleType = capabilityProfile?.vehicle?.vehicleType
         ?: capabilityProfile?.vehicles?.firstOrNull { it.verificationStatus.equals("approved", ignoreCase = true) }?.vehicleType
         ?: capabilityProfile?.vehicles?.firstOrNull()?.vehicleType
@@ -233,7 +240,7 @@ fun MainScreen(
             if (online) {
                 val location = getLastKnownDutyLocation(context)
                 if (location == null) {
-                    snackbarHostState.showSnackbar("Lokasi perangkat belum tersedia. Aktifkan GPS dan coba lagi untuk mulai On Duty.")
+                    snackbarHostState.showSnackbar("Lokasi perangkat sedang dikunci. Aktifkan GPS dan coba lagi untuk mulai On Duty.")
                     return
                 }
 
@@ -584,7 +591,7 @@ fun MainScreen(
                 TopAppBar(
                     title = {
                         Column {
-                            Text("TEMBUS Courier", fontWeight = FontWeight.Bold)
+                            Text("TEMBUS Mitra Kurir", fontWeight = FontWeight.Bold)
                             Text(
                                 text = if (isOnline) "On duty" else "Off duty",
                                 style = MaterialTheme.typography.labelMedium,
@@ -611,13 +618,13 @@ fun MainScreen(
                         IconButton(onClick = { orderViewModel.fetchOrdersFromBackend() }) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Refresh"
+                                contentDescription = "Muat ulang"
                             )
                         }
                         IconButton(onClick = { /* notifications */ }) {
                             Icon(
                                 imageVector = Icons.Default.Notifications,
-                                contentDescription = "Notifications"
+                                contentDescription = "Notifikasi"
                             )
                         }
                     }
@@ -632,9 +639,9 @@ fun MainScreen(
                     onSelectTab = { selectedTab = it }
                 )
             } else {
-                NavigationBar {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                        icon = { Icon(Icons.Default.Home, contentDescription = "Beranda") },
                         label = { Text("Beranda") },
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 }
@@ -648,7 +655,7 @@ fun MainScreen(
                                     }
                                 }
                             ) {
-                                Icon(Icons.Default.LocalShipping, contentDescription = "Orders")
+                                Icon(Icons.Default.LocalShipping, contentDescription = "Order")
                             }
                         },
                         label = { Text("Order") },
@@ -656,7 +663,7 @@ fun MainScreen(
                         onClick = { selectedTab = 1 }
                     )
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                        icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
                         label = { Text("Profil") },
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 }
@@ -846,7 +853,7 @@ private fun OnDemandBottomNavigation(
     offerCount: Int,
     onSelectTab: (Int) -> Unit
 ) {
-    NavigationBar(containerColor = Color(0xFF111015), contentColor = Color.White) {
+    NavigationBar(containerColor = PrimaryDark, contentColor = Color.White) {
         NavigationBarItem(
             icon = { Icon(Icons.Default.Map, contentDescription = "Peta") },
             label = { Text("Peta") },
@@ -859,7 +866,7 @@ private fun OnDemandBottomNavigation(
                 BadgedBox(
                     badge = {
                         if (offerCount > 0) {
-                            Badge(containerColor = LogisticsOrange, contentColor = Color.Black) {
+            Badge(containerColor = LogisticsOrange, contentColor = Color.White) {
                                 Text(offerCount.toString())
                             }
                         }
@@ -895,7 +902,7 @@ private fun onDemandNavigationItemColors(): NavigationBarItemColors =
     NavigationBarItemDefaults.colors(
         selectedIconColor = Color.White,
         selectedTextColor = Color.White,
-        indicatorColor = LogisticsOrange.copy(alpha = 0.78f),
+        indicatorColor = LogisticsOrange.copy(alpha = 0.9f),
         unselectedIconColor = Color.White.copy(alpha = 0.66f),
         unselectedTextColor = Color.White.copy(alpha = 0.66f)
     )
@@ -990,7 +997,7 @@ private fun OnDemandMapHome(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF111015))
+            .background(CourierMapBase)
     ) {
         RuntimeMapRenderer(
             modifier = Modifier.fillMaxSize(),
@@ -1004,15 +1011,15 @@ private fun OnDemandMapHome(
                 mapToolbarEnabled = false
             ),
             routeColor = LogisticsOrange,
-            fallbackTitle = "Peta on-demand",
-            fallbackMessage = "Lokasi akan tampil setelah GPS, hotspot, atau offer dari backend tersedia."
+            fallbackTitle = "Peta operasional",
+            fallbackMessage = "Lokasi tampil otomatis setelah GPS, hotspot, atau tawaran aktif tersinkron."
         )
 
         Surface(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(start = 18.dp, top = 18.dp),
-            color = Color(0xE60E1411),
+            color = CourierPanel,
             shape = RoundedCornerShape(24.dp),
             shadowElevation = 6.dp
         ) {
@@ -1027,7 +1034,7 @@ private fun OnDemandMapHome(
                     shape = RoundedCornerShape(50)
                 ) {}
                 Text(
-                    text = if (isOnline) "Kamu Sedang Online" else "Kamu Sedang Offline",
+                    text = if (isOnline) "Online" else "Offline",
                     color = Color.White,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Black
@@ -1099,7 +1106,7 @@ private fun OnDemandServiceActivationCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xF20B1F17),
+        color = CourierPanel,
         shape = RoundedCornerShape(18.dp),
         shadowElevation = 8.dp
     ) {
@@ -1118,9 +1125,9 @@ private fun OnDemandServiceActivationCard(
                         if (isServiceCatalogLoading) {
                             "Memuat layanan aktif..."
                         } else if (serviceItems.isEmpty()) {
-                            "Belum ada service cocok untuk ${vehicleGroup.toVehicleLabel()}"
+                            "Layanan ${vehicleGroup.toVehicleLabel()} sedang disinkronkan"
                         } else {
-                            "$activeServiceCount dari ${serviceItems.size} service ${vehicleGroup.toVehicleLabel()}"
+                            "$activeServiceCount dari ${serviceItems.size} layanan ${vehicleGroup.toVehicleLabel()}"
                         },
                         color = Color.White.copy(alpha = 0.68f),
                         style = MaterialTheme.typography.labelMedium,
@@ -1137,7 +1144,7 @@ private fun OnDemandServiceActivationCard(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (serviceItems.isEmpty()) {
                         Text(
-                            "Service diambil dari capability admin. Minta admin mengaktifkan layanan on-demand untuk kendaraan ini.",
+                            "Layanan mengikuti profil kendaraan operasional.",
                             color = Color.White.copy(alpha = 0.72f),
                             style = MaterialTheme.typography.labelMedium
                         )
@@ -1188,7 +1195,7 @@ private fun OnDemandServiceToggleRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(service.name, color = Color.White, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    if (lockedByAdmin) "Dikunci admin" else "ETA maks ${service.maxEtaMinutes.takeIf { it > 0 } ?: 240} menit",
+                    if (lockedByAdmin) "Dikunci operasional" else "ETA maks ${service.maxEtaMinutes.takeIf { it > 0 } ?: 240} menit",
                     color = Color.White.copy(alpha = 0.62f),
                     style = MaterialTheme.typography.labelSmall,
                     maxLines = 1,
@@ -1217,7 +1224,7 @@ private fun OnDemandActiveOrderCard(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xF20B1F17),
+        color = CourierPanel,
         shape = RoundedCornerShape(18.dp),
         shadowElevation = 10.dp
     ) {
@@ -1251,7 +1258,7 @@ private fun OnDemandActiveOrderCard(
 private fun OnDemandWaitingCard(onViewOrders: () -> Unit) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = Color(0xCC0B1F17),
+        color = CourierPanel.copy(alpha = 0.86f),
         shape = RoundedCornerShape(18.dp)
     ) {
         Row(
@@ -1264,7 +1271,7 @@ private fun OnDemandWaitingCard(onViewOrders: () -> Unit) {
             CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Primary, strokeWidth = 3.dp)
             Column(modifier = Modifier.weight(1f)) {
                 Text("Menunggu pesanan terdekat", color = Color.White, fontWeight = FontWeight.Black)
-                Text("Offer akan muncul otomatis dari backend.", color = Color.White.copy(alpha = 0.68f), style = MaterialTheme.typography.labelMedium)
+                Text("Tawaran akan muncul otomatis.", color = Color.White.copy(alpha = 0.68f), style = MaterialTheme.typography.labelMedium)
             }
             TextButton(onClick = onViewOrders) {
                 Text("Riwayat", color = LogisticsOrange, fontWeight = FontWeight.Bold)
@@ -1344,7 +1351,7 @@ private fun HomeContent(
             } else {
                 RoundedCornerShape(8.dp)
             },
-            border = if (courierRole == "on_demand") BorderStroke(2.dp, Color.Black) else null
+            border = if (courierRole == "on_demand") BorderStroke(1.dp, Outline.copy(alpha = 0.24f)) else null
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -1393,19 +1400,19 @@ private fun HomeContent(
                         Icon(
                             imageVector = if (isOnline) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
                             contentDescription = null,
-                            tint = if (courierRole == "on_demand" && isOnline) Color.Black else if (isOnline) Secondary else Color.White.copy(alpha = 0.78f)
+                            tint = if (courierRole == "on_demand" && isOnline) PrimaryDark else if (isOnline) Secondary else Color.White.copy(alpha = 0.78f)
                         )
                         Column {
                             Text(
                                 text = if (isOnline) "On Duty" else "Off Duty",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (courierRole == "on_demand" && isOnline) Color.Black else Color.White
+                                color = if (courierRole == "on_demand" && isOnline) PrimaryDark else Color.White
                             )
                             Text(
-                                text = if (courierRole == "on_demand" && isOnline) "Siap menerima tawaran 15 detik" else if (isOnline) "Lokasi dan sinkronisasi aktif" else "Tracking lokasi berhenti",
+                            text = if (courierRole == "on_demand" && isOnline) "Siap menerima tawaran prioritas" else if (isOnline) "Lokasi dan sinkronisasi aktif" else "Pelacakan lokasi berhenti",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = if (courierRole == "on_demand" && isOnline) Color.Black.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.78f)
+                                color = if (courierRole == "on_demand" && isOnline) PrimaryDark.copy(alpha = 0.72f) else Color.White.copy(alpha = 0.78f)
                             )
                         }
                     }
@@ -1418,7 +1425,7 @@ private fun HomeContent(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E8)),
                 shape = RoundedCornerShape(topStart = 16.dp, topEnd = 26.dp, bottomStart = 26.dp, bottomEnd = 16.dp),
-                border = BorderStroke(2.dp, Color.Black)
+                border = BorderStroke(1.dp, Accent.copy(alpha = 0.28f))
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -1431,7 +1438,7 @@ private fun HomeContent(
                     ) {
                         Column {
                             Text("Pendapatan Hari Ini", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
-                            Text("Payout bersih dari pricing admin", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Pendapatan bersih hari ini", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = LogisticsOrange)
                     }
@@ -1668,7 +1675,7 @@ private fun OnDemandHomeHubEnterprise(
                             color = if (isOnline) Color.White else DeepForest
                         )
                         Text(
-                            text = if (isOnline) "Offer masuk otomatis sesuai zona dan ranking." else "Aktifkan saat sudah siap menerima pekerjaan.",
+                            text = if (isOnline) "Tawaran masuk otomatis sesuai zona dan prioritas." else "Aktifkan saat sudah siap menerima pekerjaan.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = if (isOnline) Color.White.copy(alpha = 0.78f) else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -1789,7 +1796,7 @@ private fun OnDemandHomeHubEnterprise(
                             ),
                             routeColor = LogisticsOrange,
                             fallbackTitle = "Rute pekerjaan aktif",
-                            fallbackMessage = "Rute dan ETA tetap mengikuti backend; provider peta dapat diganti dari admin."
+                            fallbackMessage = "Rute dan ETA mengikuti data operasional terbaru."
                         )
                     }
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1805,7 +1812,7 @@ private fun OnDemandHomeHubEnterprise(
                             onClick = { onOpenDelivery(activeOrder) },
                             modifier = Modifier.fillMaxWidth().height(52.dp),
                             shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black)
+                            colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.White)
                         ) {
                             Icon(Icons.Default.Navigation, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
@@ -1826,7 +1833,7 @@ private fun OnDemandHomeHubEnterprise(
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Tugas sekarang", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
                             Text(
-                                if (isOnline) "Menunggu offer berikutnya" else "Aktifkan duty untuk mulai",
+                                if (isOnline) "Menunggu tawaran berikutnya" else "Aktifkan duty untuk mulai",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1894,7 +1901,7 @@ private fun OnDemandHomeHubEnterprise(
                 }
                 if (hotspots.isEmpty()) {
                     Text(
-                        "Belum ada hotspot aktif. Tetap online untuk menerima offer terdekat.",
+                        "Zona permintaan sedang normal. Tetap online untuk menerima tawaran terdekat.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1913,7 +1920,7 @@ private fun OnDemandHomeHubEnterprise(
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Coverage layanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
+                        Text("Cakupan layanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
                         Text(
                             "${activeServiceItems.size} aktif dari ${serviceItems.size} layanan ${vehicleGroup.toVehicleLabel()}",
                             style = MaterialTheme.typography.bodySmall,
@@ -1938,7 +1945,7 @@ private fun OnDemandHomeHubEnterprise(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            "Belum ada layanan yang cocok dengan kendaraan ${vehicleGroup.toVehicleLabel()}. Hubungi admin untuk review capability.",
+                            "Layanan kendaraan ${vehicleGroup.toVehicleLabel()} sedang diverifikasi.",
                             modifier = Modifier.padding(12.dp),
                             style = MaterialTheme.typography.bodySmall,
                             color = DeepForest
@@ -2024,7 +2031,7 @@ private fun OnDemandHomeHub(
                 modifier = Modifier.fillMaxSize(),
                 color = SageBase,
                 shape = RoundedCornerShape(topStart = 16.dp, topEnd = 28.dp, bottomStart = 28.dp, bottomEnd = 16.dp),
-                border = BorderStroke(2.dp, Color.Black)
+                border = BorderStroke(1.dp, Outline.copy(alpha = 0.24f))
             ) {
                 RuntimeMapRenderer(
                     modifier = Modifier.fillMaxSize(),
@@ -2049,7 +2056,7 @@ private fun OnDemandHomeHub(
                     ),
                     routeColor = LogisticsOrange,
                     fallbackTitle = "Area permintaan",
-                    fallbackMessage = "Hotspot dan rute tetap disediakan dari backend."
+                    fallbackMessage = "Hotspot dan rute mengikuti data operasional terbaru."
                 )
             }
 
@@ -2059,7 +2066,7 @@ private fun OnDemandHomeHub(
                     .padding(12.dp),
                 color = Color.White.copy(alpha = 0.92f),
                 shape = RoundedCornerShape(topStart = 8.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 8.dp),
-                border = BorderStroke(1.dp, Color.Black)
+                border = BorderStroke(1.dp, Outline.copy(alpha = 0.28f))
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -2081,7 +2088,7 @@ private fun OnDemandHomeHub(
                     .padding(12.dp),
                 color = if (isOnline) LogisticsOrange else Color.White,
                 shape = RoundedCornerShape(48.dp),
-                border = BorderStroke(2.dp, Color.Black)
+                border = BorderStroke(1.dp, Outline.copy(alpha = 0.28f))
             ) {
                 Row(
                     modifier = Modifier.padding(10.dp),
@@ -2092,7 +2099,7 @@ private fun OnDemandHomeHub(
                         modifier = Modifier.size(56.dp),
                         color = if (isOnline) DeepForest else Color(0xFFE0E3E0),
                         shape = RoundedCornerShape(50),
-                        border = BorderStroke(1.dp, Color.Black)
+                        border = BorderStroke(1.dp, Outline.copy(alpha = 0.28f))
                     ) {
                         Icon(
                             if (isOnline) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
@@ -2102,8 +2109,8 @@ private fun OnDemandHomeHub(
                         )
                     }
                     Column {
-                        Text(if (isOnline) "On Duty" else "Off Duty", fontWeight = FontWeight.Black, color = if (isOnline) Color.Black else DeepForest)
-                        Text("Aktifkan untuk bekerja", style = MaterialTheme.typography.labelMedium, color = if (isOnline) Color.Black.copy(alpha = 0.66f) else Color.Gray)
+                        Text(if (isOnline) "On Duty" else "Off Duty", fontWeight = FontWeight.Black, color = if (isOnline) PrimaryDark else DeepForest)
+                        Text("Aktifkan untuk bekerja", style = MaterialTheme.typography.labelMedium, color = if (isOnline) PrimaryDark.copy(alpha = 0.66f) else Color.Gray)
                     }
                     Switch(
                         checked = isOnline,
@@ -2123,14 +2130,14 @@ private fun OnDemandHomeHub(
             modifier = Modifier.fillMaxWidth(),
             color = Color(0xFFFFF3E8),
             shape = RoundedCornerShape(topStart = 16.dp, topEnd = 26.dp, bottomStart = 26.dp, bottomEnd = 16.dp),
-            border = BorderStroke(2.dp, Color.Black)
+            border = BorderStroke(1.dp, Accent.copy(alpha = 0.28f))
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Halo, $courierName", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = DeepForest)
                         Text(
-                            text = "Payout bersih dari pricing admin",
+                            text = "Pendapatan bersih hari ini",
                             style = MaterialTheme.typography.bodyMedium,
                             color = DeepForest.copy(alpha = 0.68f)
                         )
@@ -2150,7 +2157,7 @@ private fun OnDemandHomeHub(
             modifier = Modifier.fillMaxWidth(),
             color = Color.White.copy(alpha = 0.94f),
             shape = RoundedCornerShape(8.dp),
-            border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.14f))
+            border = BorderStroke(1.dp, Outline.copy(alpha = 0.24f))
         ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
@@ -2167,7 +2174,7 @@ private fun OnDemandHomeHub(
                 }
                 if (hotspots.isEmpty()) {
                     Text(
-                        "Belum ada hotspot aktif. Tetap online untuk menerima offer terdekat.",
+                        "Zona permintaan sedang normal. Tetap online untuk menerima tawaran terdekat.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2183,13 +2190,13 @@ private fun OnDemandHomeHub(
             modifier = Modifier.fillMaxWidth(),
             color = Color.White.copy(alpha = 0.94f),
             shape = RoundedCornerShape(8.dp),
-            border = BorderStroke(1.dp, Color.Black.copy(alpha = 0.14f))
+            border = BorderStroke(1.dp, Outline.copy(alpha = 0.24f))
         ) {
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Layanan aktif", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
                 if (services.isEmpty()) {
                     Text(
-                        "Layanan aktif belum tersinkron dari admin.",
+                        "Layanan aktif sedang disinkronkan.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -2236,8 +2243,8 @@ private fun OnDemandHomeHub(
                         onClick = { onOpenDelivery(activeOrder) },
                         modifier = Modifier.fillMaxWidth().height(54.dp),
                         shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black),
-                        border = BorderStroke(1.dp, Color.Black)
+                        colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.White),
+                        border = BorderStroke(1.dp, LogisticsOrange.copy(alpha = 0.35f))
                     ) {
                         Icon(Icons.Default.Navigation, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
@@ -2246,7 +2253,7 @@ private fun OnDemandHomeHub(
                 } else {
                     EmptyActiveOrder(
                         title = if (isOnline) "Menunggu pekerjaan on-demand" else "Belum aktif bekerja",
-                        subtitle = if (isOnline) "Offer akan muncul otomatis sesuai zona dan ranking." else "Aktifkan duty saat sudah siap menerima pekerjaan.",
+                        subtitle = if (isOnline) "Tawaran akan muncul otomatis sesuai zona dan prioritas." else "Aktifkan duty saat sudah siap menerima pekerjaan.",
                         onViewOrders = onViewOrders
                     )
                 }
@@ -2485,7 +2492,7 @@ private fun OnDemandOfferDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "Pesanan Baru!",
+                    text = "Pesanan Baru",
                     color = Primary,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black
@@ -2507,7 +2514,7 @@ private fun OnDemandOfferDialog(
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Jarak", color = Color.White.copy(alpha = 0.82f), style = MaterialTheme.typography.titleSmall)
-                    Text(order.distance.ifBlank { "Belum tersedia" }, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                    Text(order.distance.ifBlank { "Jarak dihitung" }, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Pendapatan", color = Color.White.copy(alpha = 0.82f), style = MaterialTheme.typography.titleSmall)
@@ -2525,7 +2532,7 @@ private fun OnDemandOfferDialog(
                             icon = Icons.Default.LocationOn,
                             tint = Primary,
                             label = "Titik Jemput",
-                            value = order.pickupAddress.ifBlank { "Alamat jemput belum tersedia" }
+                            value = order.pickupAddress.ifBlank { "Alamat jemput sedang disinkronkan" }
                         )
                         OfferRouteRowDark(
                             icon = Icons.Default.Place,
@@ -2567,7 +2574,7 @@ private fun OnDemandOfferDialog(
                             ),
                             routeColor = Primary,
                             fallbackTitle = "Area pesanan",
-                            fallbackMessage = "Peta mengikuti provider yang diatur admin."
+                            fallbackMessage = "Peta mengikuti konfigurasi operasional."
                         )
                     }
                 }
@@ -2687,15 +2694,15 @@ private fun RouteSummary(order: Order) {
         RouteLine(
             icon = Icons.Default.Storefront,
             label = "Pickup",
-            value = order.pickupAddress.ifBlank { "Alamat pickup belum tersedia" }
+            value = order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }
         )
         RouteLine(
             icon = Icons.Default.LocationOn,
             label = "Dropoff",
-            value = order.dropAddress.ifBlank { "Alamat tujuan belum tersedia" }
+            value = order.dropAddress.ifBlank { "Alamat tujuan sedang disinkronkan" }
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            InfoPill(icon = Icons.Default.Route, text = order.distance.ifBlank { "Jarak belum tersedia" })
+            InfoPill(icon = Icons.Default.Route, text = order.distance.ifBlank { "Jarak dihitung" })
             InfoPill(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
         }
     }
@@ -2995,7 +3002,7 @@ private fun WalletContent(
                     Column(modifier = Modifier.weight(1f)) {
                         Text("Memuat riwayat dompet", fontWeight = FontWeight.Bold)
                         Text(
-                            "Data ledger diambil dari backend payout.",
+                            "Data saldo disinkronkan dari sistem pencairan.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -3571,7 +3578,7 @@ private fun PayoutBalanceCard(
             eligibility?.reasons?.takeIf { it.isNotEmpty() }?.let { reasons ->
                 Surface(modifier = Modifier.fillMaxWidth(), color = Warning.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Pencairan belum tersedia", fontWeight = FontWeight.Bold, color = DeepForest)
+                        Text("Pencairan sedang ditinjau", fontWeight = FontWeight.Bold, color = DeepForest)
                         reasons.take(2).forEach { reason ->
                             Text(reason, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -3604,7 +3611,7 @@ private fun PayoutBalanceCard(
             HorizontalDivider()
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("Riwayat pencairan", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                Text("${payoutRequests.size} request", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${payoutRequests.size} pengajuan", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             if (payoutRequests.isEmpty()) {
@@ -3648,7 +3655,7 @@ private fun PayoutAccountStatusPanel(account: com.tembus.courier.data.model.Cour
                     if (account != null) {
                         "${account.bankCode ?: "-"} • ${maskAccountNumber(account.accountNumber.orEmpty())} • ${account.accountName ?: "-"}"
                     } else {
-                        "Rekening belum tersedia. Tunggu review admin."
+                        "Rekening sedang ditinjau operasional."
                     },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -3761,7 +3768,7 @@ private fun PayoutRequestDialog(
                         PayoutReviewRow("Atas nama", account?.accountName ?: "-")
                         Surface(modifier = Modifier.fillMaxWidth(), color = PrimaryLight.copy(alpha = 0.55f), shape = RoundedCornerShape(8.dp)) {
                             Text(
-                                "Pastikan nominal dan rekening sudah benar. Setelah dikirim, request akan masuk review treasury.",
+                                "Pastikan nominal dan rekening sudah benar. Setelah dikirim, pengajuan masuk tinjauan treasury.",
                                 modifier = Modifier.padding(12.dp),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -3946,7 +3953,7 @@ private fun PayoutAccountPanel(ledger: CourierEarningsLedger) {
                     if (isReady) {
                         "$bankCode • ${maskAccountNumber(accountNumber.orEmpty())} • $accountName"
                     } else {
-                        "Rekening belum lengkap. Lengkapi lewat review admin."
+                        "Rekening belum lengkap. Lengkapi lewat proses verifikasi operasional."
                     },
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

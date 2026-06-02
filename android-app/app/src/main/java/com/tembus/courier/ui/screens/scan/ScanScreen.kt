@@ -75,7 +75,7 @@ fun ScanScreen(
                 hasSubmittedScan = false
                 Toast.makeText(
                     context,
-                    "Lokasi belum tersedia. Aktifkan GPS dan coba lagi.",
+                    "Lokasi perangkat sedang dikunci. Aktifkan GPS dan coba lagi.",
                     Toast.LENGTH_LONG
                 ).show()
                 return@launch
@@ -114,7 +114,7 @@ fun ScanScreen(
                 title = { Text(title) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

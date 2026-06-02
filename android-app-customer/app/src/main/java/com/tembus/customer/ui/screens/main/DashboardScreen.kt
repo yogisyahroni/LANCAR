@@ -39,11 +39,15 @@ import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -61,17 +65,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.data.model.DeliveryServiceProduct
+import com.tembus.customer.ui.theme.Accent
+import com.tembus.customer.ui.theme.AccentLight
+import com.tembus.customer.ui.theme.Background
+import com.tembus.customer.ui.theme.CustomerHeroEnd
+import com.tembus.customer.ui.theme.CustomerHeroStart
+import com.tembus.customer.ui.theme.OnSurface
+import com.tembus.customer.ui.theme.OnSurfaceVariant
+import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
+import com.tembus.customer.ui.theme.PrimaryDark
+import com.tembus.customer.ui.theme.PrimaryLight
 import com.tembus.customer.ui.theme.Secondary
+import com.tembus.customer.ui.theme.SecondaryLight
 
-private val Ink = Color(0xFF17202A)
-private val Muted = Color(0xFF657086)
-private val LcGreen = Color(0xFF067A46)
-private val LcGreenDark = Color(0xFF06412B)
-private val SoftGreen = Color(0xFFEAF8EF)
-private val SoftBlue = Color(0xFFEAF4FF)
-private val SoftOrange = Color(0xFFFFF3E8)
-private val SurfaceLine = Color(0xFFE1E7F0)
+private val Ink = OnSurface
+private val Muted = OnSurfaceVariant
+private val LcGreen = Primary
+private val LcGreenDark = PrimaryDark
+private val SoftGreen = PrimaryLight
+private val SoftBlue = SecondaryLight
+private val SoftOrange = AccentLight
+private val SurfaceLine = Outline
 
 @Composable
 fun DashboardScreen(
@@ -88,26 +103,29 @@ fun DashboardScreen(
     val dataError by viewModel.dataError.collectAsState()
 
     Scaffold(
-        containerColor = Color(0xFFF3F5F8),
+        containerColor = Background,
         bottomBar = {
             NavigationBar(containerColor = Color.White, tonalElevation = 8.dp) {
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Home, contentDescription = "Beranda") },
                     label = { Text("Beranda") },
                     selected = true,
-                    onClick = {}
+                    onClick = {},
+                    colors = tembusNavigationColors()
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.History, contentDescription = "Riwayat") },
                     label = { Text("Riwayat") },
                     selected = false,
-                    onClick = onHistoryClick
+                    onClick = onHistoryClick,
+                    colors = tembusNavigationColors()
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
                     label = { Text("Profil") },
                     selected = false,
-                    onClick = onProfileClick
+                    onClick = onProfileClick,
+                    colors = tembusNavigationColors()
                 )
             }
         }
@@ -123,6 +141,7 @@ fun DashboardScreen(
                 HomeHero(
                     customerName = customerName.orEmpty().ifBlank { "Pelanggan" },
                     onLogout = onLogout,
+                    onCreateOrderClick = { onBookingClick(null) },
                     onPickupClick = { onBookingClick("pickup") },
                     onDestinationClick = { onBookingClick("dropoff") }
                 )
@@ -159,6 +178,76 @@ fun DashboardScreen(
 }
 
 @Composable
+private fun tembusNavigationColors() = NavigationBarItemDefaults.colors(
+    selectedIconColor = Primary,
+    selectedTextColor = Primary,
+    indicatorColor = PrimaryLight,
+    unselectedIconColor = Muted,
+    unselectedTextColor = Muted
+)
+
+@Composable
+private fun TembusBrandMark(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(width = 56.dp, height = 38.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    repeat(3) {
+                        Box(
+                            modifier = Modifier
+                                .width(18.dp)
+                                .height(4.dp)
+                                .clip(CircleShape)
+                                .background(Accent)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(5.dp))
+                Text("T", color = PrimaryDark, fontSize = 28.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text("TEMBUS", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+            Text("KIRIMAN AMAN", color = Color.White.copy(alpha = 0.8f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun TrustMiniPill(
+    icon: ImageVector,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        color = Color.White.copy(alpha = 0.11f),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
 private fun DashboardDataErrorCard(
     message: String,
     onRetry: () -> Unit
@@ -168,18 +257,18 @@ private fun DashboardDataErrorCard(
             .fillMaxWidth()
             .padding(horizontal = 18.dp),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)),
-        border = BorderStroke(1.dp, Color(0xFFF4D58D))
+        colors = CardDefaults.cardColors(containerColor = AccentLight),
+        border = BorderStroke(1.dp, Accent.copy(alpha = 0.24f))
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.Shield, contentDescription = null, tint = Color(0xFFB45309))
+            Icon(Icons.Default.Shield, contentDescription = null, tint = Accent)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Data live belum tersedia", color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                Text(message, color = Color(0xFF8A5A0A), fontSize = 12.sp, lineHeight = 17.sp)
+                Text("Data sedang disinkronkan", color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                Text(message, color = PrimaryDark, fontSize = 12.sp, lineHeight = 17.sp)
             }
             TextButton(onClick = onRetry) {
                 Text("Coba Lagi", fontWeight = FontWeight.ExtraBold)
@@ -192,47 +281,85 @@ private fun DashboardDataErrorCard(
 private fun HomeHero(
     customerName: String,
     onLogout: () -> Unit,
+    onCreateOrderClick: () -> Unit,
     onPickupClick: () -> Unit,
     onDestinationClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(410.dp)
-            .background(Color(0xFFF3F5F8))
+            .height(500.dp)
+            .background(Background)
             .statusBarsPadding()
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(280.dp)
+                .height(342.dp)
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color(0xFF0B68C7), Color(0xFF087A54)),
+                        listOf(PrimaryDark, CustomerHeroStart, CustomerHeroEnd),
                         startY = 0f,
-                        endY = 580f
+                        endY = 680f
                     )
                 )
         )
 
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 22.dp, vertical = 20.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 22.dp, vertical = 18.dp)
         ) {
-            Column(Modifier.weight(1f)) {
-                Text("TEMBUS", color = Color.White, fontSize = 31.sp, fontWeight = FontWeight.ExtraBold)
-                Text("Kirim instan, pantau real-time.", color = Color.White.copy(alpha = 0.9f), fontSize = 15.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TembusBrandMark(modifier = Modifier.size(width = 150.dp, height = 54.dp))
+                Spacer(Modifier.weight(1f))
+                IconButton(
+                    onClick = onLogout,
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.14f))
+                        .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)), CircleShape)
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Keluar", tint = Color.White)
+                }
             }
-            IconButton(
-                onClick = onLogout,
+
+            Spacer(Modifier.height(28.dp))
+            Text(
+                "Kirim Aman,\nSampai Tujuan.",
+                color = Color.White,
+                fontSize = 30.sp,
+                lineHeight = 36.sp,
+                fontWeight = FontWeight.Black
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Atur pickup, tujuan, dan pantau pengiriman dalam satu aplikasi.",
+                color = Color.White.copy(alpha = 0.86f),
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+            Spacer(Modifier.height(22.dp))
+            Button(
+                onClick = onCreateOrderClick,
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.15f))
+                    .fillMaxWidth()
+                    .height(54.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Keluar", tint = Color.White)
+                Text("Kirim Sekarang", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                Spacer(Modifier.width(10.dp))
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
+            }
+
+            Spacer(Modifier.height(18.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                TrustMiniPill(Icons.Default.LocalShipping, "Cepat", Modifier.weight(1f))
+                TrustMiniPill(Icons.Default.Shield, "Aman", Modifier.weight(1f))
+                TrustMiniPill(Icons.Default.VerifiedUser, "Terpercaya", Modifier.weight(1f))
             }
         }
 
@@ -241,8 +368,9 @@ private fun HomeHero(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .align(Alignment.BottomCenter),
-            shape = RoundedCornerShape(30.dp),
+            shape = RoundedCornerShape(20.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, SurfaceLine),
             elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
         ) {
             Column(Modifier.padding(22.dp)) {
@@ -250,13 +378,13 @@ private fun HomeHero(
                     Column(Modifier.weight(1f)) {
                         Text(
                             "Halo, $customerName",
-                            fontSize = 23.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Ink,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        Text("Mau kirim paket ke mana hari ini?", color = Muted, fontSize = 15.sp)
+                        Text("Mulai pengiriman baru atau lanjut pantau order aktif.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
                     }
                     Box(
                         modifier = Modifier
@@ -273,8 +401,8 @@ private fun HomeHero(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Color(0xFFF5F8FC))
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Background)
                         .padding(14.dp)
                 ) {
                     RouteLine(
@@ -306,7 +434,7 @@ private fun HomeHero(
                     RouteLine(
                         icon = Icons.Default.Navigation,
                         color = Secondary,
-                        label = "Kirim paket ke mana?",
+                        label = "Tujuan pengiriman",
                         value = "Tambah alamat tujuan",
                         onClick = onDestinationClick
                     )
@@ -427,7 +555,7 @@ private fun LocationRequestCard(onBookingClick: () -> Unit) {
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text("Minta lokasi penerima", color = Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-                Text("Bagikan link agar titik dropoff lebih akurat.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
+                Text("Bagikan tautan agar titik tujuan lebih akurat.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
             }
             Text("Mulai", color = LcGreen, fontWeight = FontWeight.ExtraBold)
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = LcGreen)
@@ -449,7 +577,7 @@ private fun ServiceOverview(
         ) {
             Column(Modifier.weight(1f)) {
                 Text("Layanan TEMBUS", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-                Text("Aktif dari pricing admin dan siap dihitung real-time.", color = Muted, fontSize = 13.sp)
+                Text("Harga dihitung otomatis sesuai layanan aktif.", color = Muted, fontSize = 13.sp)
             }
             TextButton(onClick = onBookingClick) {
                 Text("Order", fontWeight = FontWeight.ExtraBold)
@@ -481,8 +609,8 @@ private fun EmptyServiceCard() {
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
         Column(Modifier.padding(18.dp)) {
-            Text("Layanan belum tersedia", color = Ink, fontWeight = FontWeight.ExtraBold)
-            Text("Pastikan service on-demand aktif di admin pricing.", color = Muted, fontSize = 13.sp)
+            Text("Layanan sedang disiapkan", color = Ink, fontWeight = FontWeight.ExtraBold)
+            Text("Muat ulang untuk mengambil pilihan pengiriman terbaru.", color = Muted, fontSize = 13.sp)
         }
     }
 }
@@ -542,9 +670,9 @@ private fun TrustCard() {
         Column(Modifier.padding(18.dp)) {
             Text("Siap bantu kebutuhan harian", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(12.dp))
-            TrustRow(Icons.Default.LocalShipping, "Kurir on-demand", "Request diteruskan ke kurir aktif terdekat.")
+            TrustRow(Icons.Default.LocalShipping, "Kurir on-demand", "Permintaan diteruskan ke kurir aktif terdekat.")
             TrustRow(Icons.Default.Map, "Tracking transparan", "Pantau posisi, timeline, chat, dan bukti pengiriman.")
-            TrustRow(Icons.Default.VerifiedUser, "Bukti pickup & POD", "Foto dan status tersimpan untuk audit pengiriman.")
+            TrustRow(Icons.Default.VerifiedUser, "Bukti pickup & terima", "Foto dan status tersimpan untuk audit pengiriman.")
             TrustRow(Icons.Default.Shield, "Keamanan transaksi", "Order, pembayaran, dan log pengiriman tercatat.")
         }
     }

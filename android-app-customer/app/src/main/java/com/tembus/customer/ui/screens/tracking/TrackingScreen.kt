@@ -94,7 +94,7 @@ fun TrackingScreen(
             ),
             routeColor = Primary,
             fallbackTitle = "Tracking tetap aktif",
-            fallbackMessage = "Posisi kurir dan ETA tetap diperbarui dari backend.",
+            fallbackMessage = "Posisi kurir dan ETA tetap diperbarui otomatis.",
             modifier = Modifier.fillMaxSize()
         )
 
@@ -111,7 +111,7 @@ fun TrackingScreen(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = "Kembali",
                     tint = MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -197,7 +197,7 @@ private fun RuntimeMapFallback(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Tracking tetap berjalan realtime. Renderer peta mengikuti konfigurasi admin tanpa install ulang aplikasi.",
+                    text = "Pelacakan tetap berjalan realtime dan mengikuti konfigurasi operasional terbaru.",
                     color = Color(0xFF4B5563),
                     fontSize = 14.sp,
                     lineHeight = 20.sp

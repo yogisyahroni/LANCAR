@@ -144,7 +144,7 @@ class MainActivity : FragmentActivity() {
                                     isUpdating = false
                                     result.onFailure { error ->
                                         if (error is UpdateManager.InstallPermissionRequiredException) {
-                                            updateError = "Aktifkan izin install update untuk TEMBUS Courier, lalu tekan Update sekarang lagi."
+                                            updateError = "Aktifkan izin install update untuk TEMBUS Mitra Kurir, lalu tekan Update sekarang lagi."
                                             updateManager.openInstallPermissionSettings(this@MainActivity)
                                         } else {
                                             updateError = error.message ?: "Gagal menyiapkan update."

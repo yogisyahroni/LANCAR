@@ -34,7 +34,13 @@ import {
 
 
 import { PricingEstimateSchema, CreateOrderSchema } from './schemas/order.schema';
-import { OTPSendSchema, OTPVerifySchema, RegisterSchema } from './schemas/auth.schema';
+import {
+  OTPSendSchema,
+  OTPVerifySchema,
+  PasswordResetConfirmSchema,
+  PasswordResetRequestSchema,
+  RegisterSchema,
+} from './schemas/auth.schema';
 
 dotenv.config({ path: '../../.env' });
 validateProductionEnv();
@@ -419,6 +425,22 @@ app.post(
   '/api/v1/auth/customer/register/start',
   authLimiter,
   jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+);
+
+app.post(
+  '/api/v1/auth/password-reset/request',
+  authLimiter,
+  jsonParser,
+  validate(PasswordResetRequestSchema),
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+);
+
+app.post(
+  '/api/v1/auth/password-reset/confirm',
+  authLimiter,
+  jsonParser,
+  validate(PasswordResetConfirmSchema),
   proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
 );
 

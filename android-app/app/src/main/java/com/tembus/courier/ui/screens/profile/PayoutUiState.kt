@@ -22,10 +22,9 @@ fun resolvePayoutActionState(
     if (!summary.eligibility.canRequest) {
         return PayoutActionState(
             enabled = false,
-            reason = summary.eligibility.reasons.firstOrNull() ?: "Pencairan belum tersedia."
+            reason = summary.eligibility.reasons.firstOrNull() ?: "Pencairan sedang ditinjau."
         )
     }
 
     return PayoutActionState(enabled = true)
 }
-

@@ -71,6 +71,25 @@ func identifierType(identifier string) string {
 	return "phone"
 }
 
+func normalizeCustomerEmail(email string) string {
+	return strings.TrimSpace(strings.ToLower(email))
+}
+
+func isValidCustomerEmail(email string) bool {
+	if email == "" || len(email) > 255 || strings.Contains(email, " ") {
+		return false
+	}
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return false
+	}
+	return strings.Contains(parts[1], ".")
+}
+
+func passwordResetOTPIdentifier(email string) string {
+	return "password-reset:" + hashSensitiveIdentifier(email)
+}
+
 func completeAuthSpan(span trace.Span, result string, failed bool) {
 	span.SetAttributes(attribute.String("auth.result", result))
 	if failed {
@@ -120,6 +139,146 @@ func (s *AuthService) RequestOTP(ctx context.Context, phoneNumber string) error 
 	)
 
 	completeAuthSpan(span, "otp_issued", false)
+	return nil
+}
+
+func (s *AuthService) RequestCustomerPasswordReset(ctx context.Context, email string) error {
+	ctx, span := authTracer.Start(ctx, "auth.customer_password_reset.request")
+	result := "unknown"
+	failed := false
+	defer func() {
+		completeAuthSpan(span, result, failed)
+		span.End()
+	}()
+
+	email = normalizeCustomerEmail(email)
+	span.SetAttributes(
+		attribute.String("auth.flow", "customer_password_reset"),
+		attribute.String("auth.identifier_type", identifierType(email)),
+	)
+
+	if !isValidCustomerEmail(email) {
+		result = "invalid_email"
+		failed = true
+		return errors.New("email is required")
+	}
+
+	user, err := s.userRepo.GetByPhoneNumber(ctx, email)
+	if err != nil || user == nil || user.ID == "" || user.Role != domain.RoleCustomer ||
+		user.Status != domain.StatusActive || user.PasswordHash == nil {
+		result = "identifier_not_eligible"
+		fmt.Printf(
+			"{\"event\":\"customer_password_reset_requested\",\"recipient_hash\":\"%s\",\"eligible\":false}\n",
+			hashSensitiveIdentifier(email),
+		)
+		return nil
+	}
+
+	code, err := generateOTP(6)
+	if err != nil {
+		result = "otp_generation_failed"
+		failed = true
+		return err
+	}
+
+	otp := &domain.OTPLog{
+		PhoneNumber: passwordResetOTPIdentifier(email),
+		Code:        code,
+		ExpiresAt:   time.Now().Add(5 * time.Minute),
+		IsUsed:      false,
+		CreatedAt:   time.Now(),
+	}
+
+	if err := s.authRepo.SaveOTP(ctx, otp); err != nil {
+		result = "otp_store_failed"
+		failed = true
+		return err
+	}
+
+	fmt.Printf(
+		"{\"event\":\"customer_password_reset_otp_issued\",\"recipient_hash\":\"%s\",\"expires_in_seconds\":300}\n",
+		hashSensitiveIdentifier(email),
+	)
+
+	result = "reset_otp_issued"
+	return nil
+}
+
+func (s *AuthService) ConfirmCustomerPasswordReset(ctx context.Context, email, code, newPassword string) error {
+	ctx, span := authTracer.Start(ctx, "auth.customer_password_reset.confirm")
+	result := "unknown"
+	failed := false
+	defer func() {
+		completeAuthSpan(span, result, failed)
+		span.End()
+	}()
+
+	email = normalizeCustomerEmail(email)
+	code = strings.TrimSpace(code)
+	span.SetAttributes(
+		attribute.String("auth.flow", "customer_password_reset"),
+		attribute.String("auth.identifier_type", identifierType(email)),
+	)
+
+	if !isValidCustomerEmail(email) {
+		result = "invalid_email"
+		failed = true
+		return errors.New("email is required")
+	}
+	if len(code) != 6 {
+		result = "invalid_code_shape"
+		failed = true
+		return errors.New("reset code is invalid or expired")
+	}
+	if len(newPassword) < 8 || len(newPassword) > 80 {
+		result = "weak_password"
+		failed = true
+		return errors.New("new password must be 8 to 80 characters")
+	}
+
+	user, err := s.userRepo.GetByPhoneNumber(ctx, email)
+	if err != nil || user == nil || user.ID == "" || user.Role != domain.RoleCustomer ||
+		user.Status != domain.StatusActive || user.PasswordHash == nil {
+		result = "identifier_not_eligible"
+		failed = true
+		return errors.New("reset code is invalid or expired")
+	}
+
+	otp, err := s.authRepo.VerifyOTP(ctx, passwordResetOTPIdentifier(email), code)
+	if err != nil || otp == nil || otp.IsUsed || otp.ExpiresAt.Before(time.Now()) {
+		result = "invalid_or_expired_otp"
+		failed = true
+		return errors.New("reset code is invalid or expired")
+	}
+
+	passwordHash, err := utils.HashPassword(newPassword)
+	if err != nil {
+		result = "password_hash_failed"
+		failed = true
+		return err
+	}
+
+	if err := s.userRepo.UpdatePasswordHash(ctx, user.ID, passwordHash); err != nil {
+		result = "password_update_failed"
+		failed = true
+		return err
+	}
+
+	_ = s.authRepo.MarkOTPAsUsed(ctx, otp.ID)
+	_ = s.sessionRepo.RevokeUserSessions(ctx, user.ID)
+	_ = s.auditRepo.CreateAuditLog(ctx, &domain.AuditLog{
+		ActorID:  user.ID,
+		Action:   "customer_password_reset",
+		TargetID: user.ID,
+		Payload:  "{}",
+	})
+
+	fmt.Printf(
+		"{\"event\":\"customer_password_reset_completed\",\"recipient_hash\":\"%s\"}\n",
+		hashSensitiveIdentifier(email),
+	)
+
+	result = "password_reset_completed"
 	return nil
 }
 

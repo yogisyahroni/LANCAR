@@ -76,6 +76,33 @@ data class CustomerPasswordRegisterStartRequest(
 )
 
 @Serializable
+data class PasswordResetRequest(
+    @SerialName("email")
+    val email: String
+)
+
+@Serializable
+data class PasswordResetConfirmRequest(
+    @SerialName("email")
+    val email: String,
+
+    @SerialName("code")
+    val code: String,
+
+    @SerialName("new_password")
+    val newPassword: String
+)
+
+@Serializable
+data class PasswordResetResponse(
+    @SerialName("success")
+    val success: Boolean = true,
+
+    @SerialName("message")
+    val message: String? = null
+)
+
+@Serializable
 data class AuthResponse(
     @SerialName("success")
     val success: Boolean = true,

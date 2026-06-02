@@ -336,7 +336,7 @@ private fun DeliveryMapCard(
                         ),
                         routeColor = Primary,
                         fallbackTitle = "Preview rute siap",
-                        fallbackMessage = "Koordinat dan ETA tetap dipakai dari backend. Provider peta dapat diganti dari admin.",
+                        fallbackMessage = "Koordinat dan ETA mengikuti data operasional terbaru.",
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
@@ -349,9 +349,9 @@ private fun DeliveryMapCard(
                     ) {
                         Icon(Icons.Default.LocationOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(36.dp))
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Koordinat order belum tersedia", fontWeight = FontWeight.Bold)
+                        Text("Koordinat order sedang disinkronkan", fontWeight = FontWeight.Bold)
                         Text(
-                            "Map akan muncul setelah backend mengirim titik pickup/dropoff atau alamat valid.",
+                            "Peta tampil otomatis setelah titik pickup atau tujuan valid.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -364,8 +364,8 @@ private fun DeliveryMapCard(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Text(if (order.normalizedWorkflowRole() == "on_demand") "Rute On Demand" else "Rute Pengantaran", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                DeliveryStop(icon = Icons.Default.Storefront, label = "Pickup", value = order.pickupAddress.ifBlank { "Alamat pickup belum tersedia" }, color = Primary)
-                DeliveryStop(icon = Icons.Default.LocationOn, label = "Dropoff", value = order.dropAddress.ifBlank { "Alamat tujuan belum tersedia" }, color = Secondary)
+                DeliveryStop(icon = Icons.Default.Storefront, label = "Pickup", value = order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }, color = Primary)
+                DeliveryStop(icon = Icons.Default.LocationOn, label = "Dropoff", value = order.dropAddress.ifBlank { "Alamat tujuan sedang disinkronkan" }, color = Secondary)
             }
         }
     }
@@ -422,7 +422,7 @@ private fun OnDemandTaskActions(
 
             OnDemandCurrentStopCard(
                 title = if (pickupDone) "Lokasi penerima" else "Lokasi pickup",
-                address = activeAddress.ifBlank { "Alamat belum tersedia" },
+                address = activeAddress.ifBlank { "Alamat sedang disinkronkan" },
                 icon = if (pickupDone) Icons.Default.LocationOn else Icons.Default.Storefront,
                 gateLabel = if (pickupDone) "Validasi di titik penerima" else "Validasi di titik pickup"
             )
@@ -836,7 +836,7 @@ private fun CancelPickupDialog(
                     Text("Pilih alasan", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                     if (cancelPickupReasons.isEmpty()) {
                         Text(
-                            "Alasan pembatalan belum tersedia dari server.",
+                            "Alasan pembatalan sedang disinkronkan.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )
@@ -1145,19 +1145,19 @@ private fun OrderInfoCard(order: Order) {
             Spacer(modifier = Modifier.height(16.dp))
 
             InfoRow(label = "Order ID", value = order.orderId)
-            InfoRow(label = "Customer", value = order.customerName)
+            InfoRow(label = "Pelanggan", value = order.customerName)
             InfoRow(label = "Pickup", value = order.pickupAddress)
             InfoRow(label = "Drop-off", value = order.dropAddress)
-            InfoRow(label = "Pickup Time", value = order.pickupTime)
-            InfoRow(label = "Distance", value = order.distance)
-            InfoRow(label = "Fee", value = order.fee)
+            InfoRow(label = "Waktu Pickup", value = order.pickupTime)
+            InfoRow(label = "Jarak", value = order.distance)
+            InfoRow(label = "Pendapatan", value = order.fee)
             
             if (order.length != null || order.width != null || order.height != null) {
                 val dims = "${order.length ?: 0} x ${order.width ?: 0} x ${order.height ?: 0} cm"
-                InfoRow(label = "Dimensions", value = dims)
+                InfoRow(label = "Dimensi", value = dims)
             }
             if (order.weight != null) {
-                InfoRow(label = "Weight", value = "${order.weight} kg")
+                InfoRow(label = "Berat", value = "${order.weight} kg")
             }
 
             InfoRow(label = "Status", value = order.status.replace("_", " ").uppercase())
@@ -1173,7 +1173,7 @@ private fun InfoRow(label: String, value: String) {
     ) {
         Text(text = "$label:", style = MaterialTheme.typography.bodyMedium)
         Text(
-            text = value.ifBlank { "Data belum tersedia" },
+            text = value.ifBlank { "Data sedang disinkronkan" },
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium
         )
@@ -1213,7 +1213,7 @@ private fun OrderActions(
 
             ActionButton(
                     icon = Icons.AutoMirrored.Filled.Chat,
-                label = "Chat Customer",
+                label = "Chat Pelanggan",
                 onClick = onChatClick
             )
 
@@ -1245,7 +1245,7 @@ private fun OrderActions(
 
             ActionButton(
                 icon = Icons.Default.Phone,
-                label = "Call Customer",
+                label = "Telepon Pelanggan",
                 onClick = {
                     val phone = order.phoneNumber ?: ""
                     if (phone.isNotBlank()) {
@@ -1270,7 +1270,7 @@ private fun OrderActions(
             if (order.normalizedWorkflowRole() == "on_demand" || order.status.isNotBlank()) {
                 ActionButton(
                     icon = Icons.Default.Update,
-                    label = "Update Status Order",
+                label = "Perbarui Status Pesanan",
                     onClick = onStatusClick
                 )
             }
@@ -1333,7 +1333,7 @@ private fun OrderStatusOptions(
     Column {
         if (options.isEmpty()) {
             Text(
-                text = "Policy transisi status belum tersedia dari backend.",
+                text = "Aturan transisi status sedang disinkronkan.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

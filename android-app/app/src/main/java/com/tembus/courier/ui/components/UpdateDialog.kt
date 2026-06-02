@@ -42,7 +42,7 @@ fun UpdateDialog(
         text = {
             Column {
                 Text(
-                    text = "TEMBUS Courier ${version.name} sudah tersedia. App akan menyiapkan paket update dan membuka installer Android."
+                    text = "TEMBUS Mitra Kurir ${version.name} sudah tersedia. Aplikasi akan menyiapkan paket update dan membuka installer Android."
                 )
 
                 if (isUpdating) {

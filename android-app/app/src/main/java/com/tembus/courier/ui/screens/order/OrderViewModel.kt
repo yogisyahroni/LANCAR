@@ -113,6 +113,17 @@ class OrderViewModel @Inject constructor(
     val lastRemoteSyncAt: StateFlow<Long?> = _lastRemoteSyncAt.asStateFlow()
 
     private val refreshMutex = Mutex()
+    private val technicalErrorMarkers = listOf(
+        "HTTP ",
+        "Exception",
+        "timeout",
+        "Socket",
+        "retrofit",
+        "kotlin.",
+        "java.",
+        "backend",
+        "null"
+    )
 
     // All orders from local Room DB (reactive)
     val allOrders = orderRepository.getAllOrders()
@@ -260,15 +271,27 @@ class OrderViewModel @Inject constructor(
         serverMessage: String? = null,
         fallback: String
     ): String {
-        if (!serverMessage.isNullOrBlank()) return serverMessage.withRequestReference(this)
+        if (!serverMessage.isNullOrBlank()) return userSafeMessage(serverMessage, fallback).withRequestReference(this)
 
         val raw = errorBody()?.string() ?: return fallback.withRequestReference(this)
         return try {
-            (Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content ?: fallback)
+            userSafeMessage(
+                Json.parseToJsonElement(raw).jsonObject["message"]?.jsonPrimitive?.content,
+                fallback
+            )
                 .withRequestReference(this)
         } catch (_: Exception) {
             fallback.withRequestReference(this)
         }
+    }
+
+    private fun userSafeMessage(rawMessage: String?, fallback: String): String {
+        val message = rawMessage?.trim().orEmpty()
+        if (message.isBlank()) return fallback
+        if (technicalErrorMarkers.any { marker -> message.contains(marker, ignoreCase = true) }) {
+            return fallback
+        }
+        return message
     }
 
     /**
@@ -369,8 +392,8 @@ class OrderViewModel @Inject constructor(
                     Result.success(Unit)
                 } else {
                     val message = response.errorMessage(
-                        serverMessage = "Gagal memuat orders: ${responseBody?.message ?: "HTTP ${response.code()}"}",
-                        fallback = "Gagal memuat orders."
+                        serverMessage = responseBody?.message,
+                        fallback = "Pesanan belum dapat dimuat. Coba lagi."
                     )
                     if (showUserErrors) _error.update { message }
                     Result.failure(Exception(message))
@@ -379,10 +402,10 @@ class OrderViewModel @Inject constructor(
                 if (showUserErrors) _error.update { "Tidak ada koneksi. Menampilkan data offline." }
                 Result.failure(e)
             } catch (e: java.net.SocketTimeoutException) {
-                if (showUserErrors) _error.update { "Server tidak merespons. Coba lagi." }
+                if (showUserErrors) _error.update { "Sistem tidak merespons. Coba lagi." }
                 Result.failure(e)
             } catch (e: Exception) {
-                if (showUserErrors) _error.update { "Error: ${e.message}" }
+                if (showUserErrors) _error.update { userSafeMessage(e.message, "Pesanan belum dapat dimuat. Coba lagi.") }
                 Result.failure(e)
             } finally {
                 if (showLoading) _isSyncing.update { false }
@@ -405,7 +428,7 @@ class OrderViewModel @Inject constructor(
                     _payoutRequests.update { requestsBody.data ?: emptyList() }
                 }
             } catch (e: Exception) {
-                if (showUserErrors) _error.update { e.message ?: "Gagal memuat data pencairan" }
+                if (showUserErrors) _error.update { userSafeMessage(e.message, "Data pencairan belum dapat dimuat.") }
             }
         }
     }

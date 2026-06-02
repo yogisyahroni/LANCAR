@@ -86,8 +86,8 @@ fun RuntimeMapRenderer(
         mapToolbarEnabled = false
     ),
     routeColor: Color = Color(0xFF0B7A53),
-    fallbackTitle: String = "Peta belum tersedia",
-    fallbackMessage: String = "Tracking tetap berjalan. Admin dapat mengaktifkan Google Maps atau OpenStreetMap tanpa install ulang aplikasi.",
+    fallbackTitle: String = "Peta sedang disiapkan",
+    fallbackMessage: String = "Pelacakan tetap berjalan dan akan tampil otomatis saat konfigurasi peta aktif.",
     onMapClick: ((LatLng) -> Unit)? = null
 ) {
     val validMarkers = remember(markers) { markers.filter { it.position.isValidLatLng() } }
@@ -149,7 +149,6 @@ fun RuntimeMapRenderer(
             RuntimeMapFallback(
                 title = fallbackTitle,
                 message = providerConfig.reason?.replace("_", " ") ?: fallbackMessage,
-                provider = providerConfig.activeProvider,
                 center = viewport.center,
                 modifier = modifier
             )
@@ -267,7 +266,6 @@ private fun OpenStreetMapTileRenderer(
 private fun RuntimeMapFallback(
     title: String,
     message: String,
-    provider: String,
     center: LatLng,
     modifier: Modifier = Modifier
 ) {
@@ -288,7 +286,7 @@ private fun RuntimeMapFallback(
                 Text(message, style = MaterialTheme.typography.bodyMedium, color = Color(0xFF4B5563))
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "Provider: ${provider.ifBlank { "disabled" }} • ${"%.5f".format(center.latitude)}, ${"%.5f".format(center.longitude)}",
+                    "Koordinat referensi: ${"%.5f".format(center.latitude)}, ${"%.5f".format(center.longitude)}",
                     style = MaterialTheme.typography.labelMedium,
                     color = Color(0xFF6B7280)
                 )

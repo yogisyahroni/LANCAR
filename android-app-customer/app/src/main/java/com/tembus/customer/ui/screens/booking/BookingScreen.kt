@@ -101,19 +101,27 @@ import com.tembus.customer.data.model.PriceBreakdown
 import com.tembus.customer.data.model.ServiceSizeTier
 import com.tembus.customer.ui.components.maps.RuntimeMapMarker
 import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
+import com.tembus.customer.ui.theme.Accent
+import com.tembus.customer.ui.theme.AccentLight
+import com.tembus.customer.ui.theme.Background
+import com.tembus.customer.ui.theme.OnSurface
+import com.tembus.customer.ui.theme.OnSurfaceVariant
+import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
+import com.tembus.customer.ui.theme.PrimaryLight
 import com.tembus.customer.ui.theme.Secondary
+import com.tembus.customer.ui.theme.SecondaryLight
 import kotlinx.coroutines.flow.collectLatest
 import java.text.NumberFormat
 import java.util.Locale
 
-private val Ink = Color(0xFF17202A)
-private val Muted = Color(0xFF657086)
-private val FieldBg = Color(0xFFF7F9FC)
-private val LcGreen = Color(0xFF067A46)
-private val SoftGreen = Color(0xFFEAF8EF)
-private val SoftBlue = Color(0xFFEAF4FF)
-private val SoftOrange = Color(0xFFFFF3E8)
+private val Ink = OnSurface
+private val Muted = OnSurfaceVariant
+private val FieldBg = Background
+private val LcGreen = Primary
+private val SoftGreen = PrimaryLight
+private val SoftBlue = SecondaryLight
+private val SoftOrange = AccentLight
 
 private fun BookingState.isRouteComplete(): Boolean {
     return pickupLocation != null && pickupAddress.isNotBlank() && destinationLocation != null && destinationAddress.isNotBlank()
@@ -130,6 +138,24 @@ private fun BookingState.isPackageReady(): Boolean {
 
 private fun BookingState.selectedService(): DeliveryServiceProduct? {
     return services.firstOrNull { it.code == selectedServiceCode }
+}
+
+private fun BookingState.selectedSizeTier(): ServiceSizeTier? {
+    return services
+        .flatMap { it.sizeTiers }
+        .firstOrNull { it.code == sizeTier }
+}
+
+private fun ServiceSizeTier.defaultDimensionsPayload(): DimensionsPayload {
+    val normalizedCode = code.lowercase(Locale.ROOT)
+    return when {
+        normalizedCode.contains("small") || normalizedCode.contains("kecil") || maxWeightKg <= 5.0 ->
+            DimensionsPayload(length = 30, width = 20, height = 15)
+        normalizedCode.contains("medium") || normalizedCode.contains("sedang") || maxWeightKg <= 10.0 ->
+            DimensionsPayload(length = 45, width = 35, height = 25)
+        else ->
+            DimensionsPayload(length = 60, width = 40, height = 30)
+    }
 }
 
 private fun PriceBreakdown.hasRoadRouteSnapshot(): Boolean {
@@ -260,13 +286,13 @@ fun BookingScreen(
             !uiState.isRouteComplete() -> Toast.makeText(context, "Pilih lokasi pickup dan tujuan dulu.", Toast.LENGTH_SHORT).show()
             !uiState.isPackageReady() -> Toast.makeText(context, "Pilih ukuran dan berat paket dulu.", Toast.LENGTH_SHORT).show()
             uiState.isCalculatingRoute -> Toast.makeText(context, "Sistem sedang menghitung rute jalan dan harga.", Toast.LENGTH_SHORT).show()
-            uiState.priceBreakdowns.isEmpty() -> Toast.makeText(context, "Rute jalan belum tersedia untuk alamat ini.", Toast.LENGTH_SHORT).show()
+            uiState.priceBreakdowns.isEmpty() -> Toast.makeText(context, "Rute jalan sedang dihitung untuk alamat ini.", Toast.LENGTH_SHORT).show()
             else -> showServiceSheet = true
         }
     }
 
     Scaffold(
-        containerColor = Color(0xFFF3F5F8),
+        containerColor = Background,
         bottomBar = {
             SelectedServiceBar(
                 state = uiState,
@@ -822,52 +848,15 @@ private fun PackageCard(
             .sortedBy { it.maxWeightKg }
     }
     var selectedTierCode by remember(state.sizeTier, tiers) {
-        mutableStateOf(state.sizeTier.ifBlank { tiers.firstOrNull()?.code ?: "" })
+        mutableStateOf(state.sizeTier)
     }
-    var weightText by remember(state.packageWeight) {
-        mutableStateOf(state.packageWeight.takeIf { it > 0.0 }?.toString()?.trimEnd('0')?.trimEnd('.') ?: "")
-    }
-    var lengthText by remember(state.packageLength) {
-        mutableStateOf(state.packageLength.takeIf { it > 0 }?.toString() ?: "")
-    }
-    var widthText by remember(state.packageWidth) {
-        mutableStateOf(state.packageWidth.takeIf { it > 0 }?.toString() ?: "")
-    }
-    var heightText by remember(state.packageHeight) {
-        mutableStateOf(state.packageHeight.takeIf { it > 0 }?.toString() ?: "")
-    }
-
-    fun commitPackageDetails(
-        tierCode: String = selectedTierCode,
-        weightValue: String = weightText,
-        lengthValue: String = lengthText,
-        widthValue: String = widthText,
-        heightValue: String = heightText
-    ) {
-        val weightKg = weightValue.toDoubleOrNull()
-        val lengthCm = lengthValue.toIntOrNull()
-        val widthCm = widthValue.toIntOrNull()
-        val heightCm = heightValue.toIntOrNull()
-        if (
-            tierCode.isNotBlank() &&
-            weightKg != null &&
-            weightKg > 0.0 &&
-            lengthCm != null &&
-            lengthCm > 0 &&
-            widthCm != null &&
-            widthCm > 0 &&
-            heightCm != null &&
-            heightCm > 0
-        ) {
-            onTierSelected(tierCode, weightKg, DimensionsPayload(lengthCm, widthCm, heightCm))
-        }
-    }
+    val selectedTier = tiers.firstOrNull { it.code == state.sizeTier }
 
     LcCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Ukuran & berat paket", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         }
-        Text("Pilih tier dari konfigurasi layanan, lalu isi berat dan dimensi aktual paket.", color = Muted, fontSize = 14.sp)
+        Text("Pilih tier paket. Berat dan dimensi teknis akan diisi otomatis untuk menghitung harga.", color = Muted, fontSize = 14.sp)
         Spacer(Modifier.height(16.dp))
         if (tiers.isEmpty()) {
             Row(
@@ -881,8 +870,8 @@ private fun PackageCard(
                 Icon(Icons.Default.Scale, null, tint = Muted)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Tier paket belum tersedia", fontWeight = FontWeight.Bold, color = Ink)
-                    Text("Admin perlu mengaktifkan size tier layanan sebelum order dihitung.", color = Muted, fontSize = 12.sp)
+                    Text("Pilihan paket sedang dimuat", fontWeight = FontWeight.Bold, color = Ink)
+                    Text("Pilihan ukuran layanan sedang disinkronkan sebelum order dihitung.", color = Muted, fontSize = 12.sp)
                 }
             }
         } else {
@@ -901,70 +890,20 @@ private fun PackageCard(
                             )
                             .clickable(enabled = availableForService) {
                                 selectedTierCode = tier.code
-                                commitPackageDetails(tierCode = tier.code)
+                                onTierSelected(
+                                    tier.code,
+                                    tier.maxWeightKg.coerceAtLeast(1.0),
+                                    tier.defaultDimensionsPayload()
+                                )
                             }
                             .padding(14.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(tier.name, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = if (availableForService) Ink else Muted)
                         Spacer(Modifier.height(6.dp))
-                        Text(if (availableForService) "Maks. ${tier.maxWeightKg.toInt()} kg" else "Tidak cocok", color = Muted, fontSize = 13.sp)
+                        Text(if (availableForService) "Maks. ${formatWeightKg(tier.maxWeightKg)} kg" else "Tidak cocok", color = Muted, fontSize = 13.sp)
                     }
                 }
-            }
-            Spacer(Modifier.height(14.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = weightText,
-                    onValueChange = { value ->
-                        weightText = value.filter { it.isDigit() || it == '.' }.take(6)
-                        commitPackageDetails(weightValue = weightText)
-                    },
-                    modifier = Modifier.weight(1f),
-                    label = { Text("Berat kg") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    shape = RoundedCornerShape(18.dp)
-                )
-                OutlinedTextField(
-                    value = lengthText,
-                    onValueChange = { value ->
-                        lengthText = value.filter { it.isDigit() }.take(4)
-                        commitPackageDetails(lengthValue = lengthText)
-                    },
-                    modifier = Modifier.weight(1f),
-                    label = { Text("P cm") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(18.dp)
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = widthText,
-                    onValueChange = { value ->
-                        widthText = value.filter { it.isDigit() }.take(4)
-                        commitPackageDetails(widthValue = widthText)
-                    },
-                    modifier = Modifier.weight(1f),
-                    label = { Text("L cm") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(18.dp)
-                )
-                OutlinedTextField(
-                    value = heightText,
-                    onValueChange = { value ->
-                        heightText = value.filter { it.isDigit() }.take(4)
-                        commitPackageDetails(heightValue = heightText)
-                    },
-                    modifier = Modifier.weight(1f),
-                    label = { Text("T cm") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    shape = RoundedCornerShape(18.dp)
-                )
             }
         }
         Spacer(Modifier.height(14.dp))
@@ -979,13 +918,15 @@ private fun PackageCard(
             ) {
                 Icon(Icons.Default.Scale, null, tint = Primary)
                 Spacer(Modifier.width(10.dp))
-                Text(
-                    "${state.packageWeight.toInt()} kg • ${state.packageLength}x${state.packageWidth}x${state.packageHeight} cm",
-                    fontWeight = FontWeight.Bold,
-                    color = Ink
-                )
-                Spacer(Modifier.weight(1f))
-                Text(if (state.dimensionsScanned) "Scan valid" else "Dipilih manual", color = LcGreen, fontWeight = FontWeight.Bold)
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "${selectedTier?.name ?: "Paket"} • maks. ${formatWeightKg(state.packageWeight)} kg",
+                        fontWeight = FontWeight.Bold,
+                        color = Ink
+                    )
+                    Text("Detail teknis otomatis mengikuti tier yang dipilih.", color = Muted, fontSize = 12.sp)
+                }
+                Text(if (state.dimensionsScanned) "Scan valid" else "Tier dipilih", color = LcGreen, fontWeight = FontWeight.Bold)
             }
         } else {
             Row(
@@ -999,8 +940,8 @@ private fun PackageCard(
                 Icon(Icons.Default.Scale, null, tint = Muted)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Belum memilih ukuran paket", fontWeight = FontWeight.Bold, color = Ink)
-                    Text("Pilih tier dari backend dan isi berat/dimensi aktual untuk menghitung harga.", color = Muted, fontSize = 12.sp)
+                    Text("Ukuran paket belum dipilih", fontWeight = FontWeight.Bold, color = Ink)
+                    Text("Pilih salah satu tier paket untuk menghitung harga.", color = Muted, fontSize = 12.sp)
                 }
             }
         }
@@ -1135,8 +1076,8 @@ private fun RoutePreviewCard(
                     mapToolbarEnabled = false
                 ),
                 routeColor = LcGreen,
-                fallbackTitle = "Rute belum tersedia",
-                fallbackMessage = "Harga baru tampil setelah rute jalan valid dari provider peta.",
+                fallbackTitle = "Rute sedang dihitung",
+                fallbackMessage = "Harga tampil setelah rute jalan valid.",
                 modifier = Modifier.fillMaxSize()
             )
             if (state.destinationLocation == null) {
@@ -1181,7 +1122,7 @@ private fun RoutePricingProgressCard() {
         Text("Menghitung rute & harga", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Sistem mengambil rute jalan dari provider peta aktif sebelum layanan bisa dipilih.",
+            "Sistem menghitung rute jalan sebelum layanan bisa dipilih.",
             color = Muted,
             lineHeight = 20.sp
         )
@@ -1196,7 +1137,7 @@ private fun RoutePricingProgressCard() {
 @Composable
 private fun RouteUnavailableCard() {
     LcCard {
-        Text("Rute belum tersedia", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
+        Text("Rute sedang dihitung", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
         Spacer(Modifier.height(8.dp))
         Text(
             "Pilih alamat yang lebih spesifik. Harga tidak akan ditampilkan jika sistem belum mendapat rute jalan yang valid.",
@@ -1349,7 +1290,7 @@ private fun SelectedServiceBar(
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
+            colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
         ) {
             Text(buttonLabel, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
             Spacer(Modifier.width(8.dp))
@@ -1378,7 +1319,7 @@ private fun ServicePickerSheet(
                 .background(Color(0xFFD2D8E2))
         )
         Text("Pilih layanan TEMBUS", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = Ink)
-        Text("Harga final dihitung dari pricing admin, jarak, berat, dan fitur tambahan.", color = Muted, lineHeight = 20.sp)
+        Text("Harga final dihitung dari jarak, berat, dan fitur tambahan.", color = Muted, lineHeight = 20.sp)
         if (state.isCalculatingRoute) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -1478,7 +1419,7 @@ private fun ServiceRow(
             }
             Text(
                 price?.let { "${"%.1f".format(Locale.US, it.distanceKm)} km • ${etaLabel(it.etaMinutes)}" }
-                    ?: "Belum tersedia untuk rute/berat ini",
+                    ?: "Hitung ulang untuk rute dan berat ini",
                 color = Muted,
                 fontSize = 14.sp
             )
@@ -1506,7 +1447,11 @@ private fun BookingReviewSheet(
     onSubmit: () -> Unit
 ) {
     val service = state.selectedService()
+    val selectedTier = state.selectedSizeTier()
     val price = state.selectedPrice()
+    val packageSummary = selectedTier
+        ?.let { "${it.name} • maks. ${formatWeightKg(it.maxWeightKg)} kg" }
+        ?: "${formatWeightKg(state.packageWeight)} kg"
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1526,7 +1471,7 @@ private fun BookingReviewSheet(
         ReviewRouteBlock(state)
         ReviewRouteSnapshotBlock(state = state, price = price)
         ReviewInfoRow("Penerima", state.recipientName, state.recipientPhone)
-        ReviewInfoRow("Isi paket", state.itemDescription, "${state.packageWeight.toInt()} kg • ${state.packageLength}x${state.packageWidth}x${state.packageHeight} cm")
+        ReviewInfoRow("Isi paket", state.itemDescription, packageSummary)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1539,7 +1484,7 @@ private fun BookingReviewSheet(
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(service?.name ?: "Layanan", color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-                Text(price?.let { "Estimasi ${etaLabel(it.etaMinutes)}" } ?: "Harga belum tersedia", color = Muted, fontSize = 13.sp)
+                Text(price?.let { "Estimasi ${etaLabel(it.etaMinutes)}" } ?: "Hitung harga untuk melihat estimasi", color = Muted, fontSize = 13.sp)
             }
             Text(formatRupiah(price?.totalPriceIdr ?: 0), color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
         }
@@ -1577,11 +1522,7 @@ private fun ReviewRouteSnapshotBlock(state: BookingState, price: PriceBreakdown?
     val etaText = snapshot?.eta?.takeIf { it.isNotBlank() }
         ?: snapshot?.etaMinutes?.takeIf { it > 0 }?.let { etaLabel(it) }
         ?: price?.etaMinutes?.takeIf { it > 0 }?.let { etaLabel(it) }
-        ?: "Estimasi sementara"
-    val provider = snapshot?.activeProvider?.takeIf { it.isNotBlank() }
-        ?: snapshot?.provider?.takeIf { it.isNotBlank() }
-        ?: state.mapsProviderConfig.activeProvider
-
+        ?: "Estimasi awal"
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1605,7 +1546,7 @@ private fun ReviewRouteSnapshotBlock(state: BookingState, price: PriceBreakdown?
             }
             Surface(color = SoftGreen, shape = RoundedCornerShape(12.dp)) {
                 Text(
-                    provider.uppercase(Locale.getDefault()),
+                    "RUTE AKTIF",
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                     color = LcGreen,
                     fontWeight = FontWeight.ExtraBold,
@@ -1636,13 +1577,13 @@ private fun ReviewRouteSnapshotBlock(state: BookingState, price: PriceBreakdown?
                 ),
                 routeColor = LcGreen,
                 fallbackTitle = "Rute sedang diperbarui",
-                fallbackMessage = "Estimasi sementara tetap aman dipakai untuk order ini.",
+                fallbackMessage = "Estimasi awal tetap aman dipakai untuk order ini.",
                 modifier = Modifier.fillMaxSize()
             )
         }
         if (snapshot?.fallbackReason?.isNotBlank() == true) {
             Text(
-                "Estimasi sementara. Rute akan diperbarui otomatis saat provider aktif.",
+                "Estimasi awal. Rute akan diperbarui otomatis saat sistem peta aktif.",
                 color = Muted,
                 fontSize = 12.sp
             )
@@ -2125,9 +2066,10 @@ private fun LcCard(content: @Composable ColumnScope.() -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = BorderStroke(1.dp, Outline),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(Modifier.padding(18.dp), content = content)
     }
@@ -2140,6 +2082,11 @@ private fun serviceIcon(service: DeliveryServiceProduct?): ImageVector {
 private fun etaLabel(minutes: Int): String {
     if (minutes <= 0) return "-"
     return if (minutes < 60) "$minutes menit" else "${minutes / 60}-${(minutes / 60) + 1} jam"
+}
+
+private fun formatWeightKg(value: Double): String {
+    if (value <= 0.0) return "0"
+    return if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(Locale.US, value)
 }
 
 private fun formatRupiah(value: Long): String {

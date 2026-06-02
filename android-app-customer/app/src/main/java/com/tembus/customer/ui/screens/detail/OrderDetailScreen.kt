@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.detail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,7 +18,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tembus.customer.ui.theme.Accent
+import com.tembus.customer.ui.theme.Background
+import com.tembus.customer.ui.theme.OnSurface
+import com.tembus.customer.ui.theme.OnSurfaceVariant
+import com.tembus.customer.ui.theme.Outline
 import com.tembus.customer.ui.theme.Primary
+import com.tembus.customer.ui.theme.Secondary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,14 +41,20 @@ fun OrderDetailScreen(
     }
 
     Scaffold(
+        containerColor = Background,
         topBar = {
             TopAppBar(
-                title = { Text("Detail Order", fontWeight = FontWeight.Bold) },
+                title = { Text("Detail Pengiriman", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Primary,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
             )
         }
     ) { padding ->
@@ -49,7 +62,7 @@ fun OrderDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f))
+                .background(Background)
         ) {
             when (val res = state) {
                 is OrderDetailUiState.Loading -> {
@@ -69,12 +82,11 @@ fun OrderDetailScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
-                            .padding(16.dp)
+                            .padding(20.dp)
                     ) {
-                        // Status Card
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(20.dp),
                             colors = CardDefaults.cardColors(containerColor = Primary)
                         ) {
                             Row(modifier = Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -92,18 +104,19 @@ fun OrderDetailScreen(
                         // Rute Card
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White)
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, Outline)
                         ) {
                             Column(Modifier.padding(20.dp)) {
-                                Text("Rute Pengiriman", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text("Rute Pengiriman", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OnSurface)
                                 Spacer(Modifier.height(16.dp))
                                 
                                 RoutePoint(icon = Icons.Default.LocationOn, color = Primary, label = "Penjemputan", value = order.pickupAddress)
                                 Spacer(Modifier.height(8.dp))
-                                Divider(modifier = Modifier.padding(start = 12.dp).height(20.dp).width(2.dp), color = Color.LightGray)
+                                Divider(modifier = Modifier.padding(start = 12.dp).height(20.dp).width(2.dp), color = Outline)
                                 Spacer(Modifier.height(8.dp))
-                                RoutePoint(icon = Icons.Default.Flag, color = Color.Red, label = "Tujuan", value = order.dropAddress)
+                                RoutePoint(icon = Icons.Default.Flag, color = Secondary, label = "Tujuan", value = order.dropAddress)
                             }
                         }
 
@@ -112,15 +125,16 @@ fun OrderDetailScreen(
                         // Info Pembayaran
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White)
+                            shape = RoundedCornerShape(20.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, Outline)
                         ) {
                             Column(Modifier.padding(20.dp)) {
-                                Text("Rincian Pembayaran", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text("Rincian Pembayaran", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OnSurface)
                                 Spacer(Modifier.height(12.dp))
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Ongkos Kirim", color = Color.Gray)
-                                    Text("Rp ${order.fee}", fontWeight = FontWeight.Bold)
+                                    Text("Ongkos Kirim", color = OnSurfaceVariant)
+                                    Text("Rp ${order.fee}", fontWeight = FontWeight.Bold, color = Primary)
                                 }
                             }
                         }
@@ -131,8 +145,8 @@ fun OrderDetailScreen(
                             Button(
                                 onClick = { onTrackClick(order.orderId) },
                                 modifier = Modifier.fillMaxWidth().height(52.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
                             ) {
                                 Icon(Icons.Default.MyLocation, contentDescription = null)
                                 Spacer(Modifier.width(8.dp))
@@ -150,11 +164,13 @@ fun OrderDetailScreen(
 @Composable
 fun RoutePoint(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, label: String, value: String) {
     Row(verticalAlignment = Alignment.Top) {
-        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+        Surface(color = color.copy(alpha = 0.12f), shape = RoundedCornerShape(14.dp)) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.padding(8.dp).size(20.dp))
+        }
         Spacer(Modifier.width(16.dp))
         Column {
-            Text(label, color = Color.Gray, fontSize = 12.sp)
-            Text(value, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+            Text(label, color = OnSurfaceVariant, fontSize = 12.sp)
+            Text(value, fontWeight = FontWeight.Medium, fontSize = 14.sp, color = OnSurface)
         }
     }
 }

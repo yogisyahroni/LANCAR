@@ -119,7 +119,7 @@ class ProofOfDeliveryViewModel @Inject constructor(
                 override fun onError(exception: ImageCaptureException) {
                     _uiState.value = _uiState.value.copy(
                         isCapturing = false,
-                        error = "Failed to capture image: ${exception.message}"
+                        error = "Foto belum dapat diambil. Periksa kamera lalu coba lagi."
                     )
                 }
             }
@@ -152,7 +152,7 @@ class ProofOfDeliveryViewModel @Inject constructor(
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
-                    error = "Compression failed: ${e.message}"
+                    error = "Foto belum dapat diproses. Coba ambil ulang."
                 )
             }
         }
@@ -312,7 +312,7 @@ class ProofOfDeliveryViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isUploading = false,
-                    error = "Failed compiling PoD documentation: ${e.localizedMessage}"
+                    error = "Bukti serah terima belum dapat diproses. Coba ambil ulang."
                 )
             }
         }

@@ -278,6 +278,12 @@ func main() {
 	mux.HandleFunc("/api/v1/auth/customer/register/start",
 		middleware.AuthRateLimitedChain(rdb, h.StartCustomerPasswordRegistration))
 
+	mux.HandleFunc("/api/v1/auth/password-reset/request",
+		middleware.AuthRateLimitedChain(rdb, h.RequestCustomerPasswordReset))
+
+	mux.HandleFunc("/api/v1/auth/password-reset/confirm",
+		middleware.AuthRateLimitedChain(rdb, h.ConfirmCustomerPasswordReset))
+
 	// ─────────────────────────────────────────────
 	// API v1 — Auth Endpoints (public + rate limited)
 	// 20 req / 60s per IP
@@ -335,16 +341,18 @@ func main() {
 	// Legacy routes (backward-compat: 301 redirect to v1)
 	// ─────────────────────────────────────────────
 	legacyRoutes := map[string]string{
-		"/auth/otp/send":      "/api/v1/auth/otp/send",
-		"/auth/otp/verify":    "/api/v1/auth/otp/verify",
-		"/auth/refresh":       "/api/v1/auth/refresh",
-		"/auth/logout":        "/api/v1/auth/logout",
-		"/auth/register":      "/api/v1/auth/register",
-		"/auth/pin/set":       "/api/v1/auth/pin/set",
-		"/users/me":           "/api/v1/users/me",
-		"/couriers/register":  "/api/v1/couriers/register",
-		"/couriers/documents": "/api/v1/couriers/documents",
-		"/couriers/me":        "/api/v1/couriers/me",
+		"/auth/otp/send":               "/api/v1/auth/otp/send",
+		"/auth/otp/verify":             "/api/v1/auth/otp/verify",
+		"/auth/password-reset/request": "/api/v1/auth/password-reset/request",
+		"/auth/password-reset/confirm": "/api/v1/auth/password-reset/confirm",
+		"/auth/refresh":                "/api/v1/auth/refresh",
+		"/auth/logout":                 "/api/v1/auth/logout",
+		"/auth/register":               "/api/v1/auth/register",
+		"/auth/pin/set":                "/api/v1/auth/pin/set",
+		"/users/me":                    "/api/v1/users/me",
+		"/couriers/register":           "/api/v1/couriers/register",
+		"/couriers/documents":          "/api/v1/couriers/documents",
+		"/couriers/me":                 "/api/v1/couriers/me",
 	}
 	for legacy, target := range legacyRoutes {
 		targetPath := target // capture for closure

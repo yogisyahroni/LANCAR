@@ -50,8 +50,8 @@ fun OrderScreen(
     if (showSyncDialog) {
         AlertDialog(
             onDismissRequest = { showSyncDialog = false },
-            title = { Text("Sync Orders") },
-            text = { Text("Syncing pending orders with backend...") },
+            title = { Text("Sinkronisasi Pesanan") },
+            text = { Text("Pesanan tertunda sedang disinkronkan.") },
             confirmButton = {
                 TextButton(onClick = { showSyncDialog = false }) {
                     Text("OK")
@@ -68,8 +68,8 @@ fun OrderScreen(
         ) {
             Column {
                 Text(roleTitle(selectedRole), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text(
-                    text = "${roleOrders.size} ${roleTabs.first { it.first == selectedRole }.second.lowercase()} tersedia",
+                    Text(
+                        text = "${roleOrders.size} pesanan ${roleTabs.first { it.first == selectedRole }.second.lowercase()}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -152,7 +152,7 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = order.customerName.ifBlank { "Nama pelanggan belum tersedia" },
+                        text = order.customerName.ifBlank { "Nama pelanggan sedang disinkronkan" },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
@@ -180,7 +180,7 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 CompactInfo(icon = Icons.Default.Payments, text = order.cleanPayoutIdr().toRupiahCompact())
-                CompactInfo(icon = Icons.Default.Route, text = order.distance.ifBlank { "Jarak belum tersedia" })
+                CompactInfo(icon = Icons.Default.Route, text = order.distance.ifBlank { "Jarak dihitung" })
                 val pickupTime = order.pickupTime.takeIf { it.isNotBlank() }?.take(16)
                 if (pickupTime != null) {
                     CompactInfo(icon = Icons.Default.Schedule, text = pickupTime)
@@ -199,7 +199,7 @@ private fun OrderCard(order: Order, onClick: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Pending sync",
+                        text = "Menunggu sinkronisasi",
                         style = MaterialTheme.typography.labelSmall,
                         color = Warning
                     )
