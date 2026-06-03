@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { 
   Map as MapIcon, 
@@ -15,6 +15,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
+import { GoogleMapCanvas, GoogleRuntimeUnavailable, isGoogleRuntimeReady, useMapsRuntimeConfig } from '../components/GoogleMapsRuntime'
 
 // Leaflet Imports
 import { MapContainer, TileLayer, Polygon, useMap } from 'react-leaflet'
@@ -84,6 +85,19 @@ export default function Zones() {
       return res.data;
     }
   });
+  const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('global');
+  const shouldRenderGoogleMap = isGoogleRuntimeReady(mapsRuntimeConfig) && !isDrawing;
+  const googleZonePolygons = useMemo(() => (zones || []).map((zone: any) => ({
+    id: String(zone.id),
+    path: WKTToCoords(zone.polygon || zone.polygon_wkt).map(([lat, lng]) => ({ lat, lng })),
+    selected: String(selectedZone?.id || '') === String(zone.id),
+    strokeColor: '#10b981',
+    fillColor: '#10b981'
+  })), [zones, selectedZone]);
+  const handleGooglePolygonClick = useCallback((zoneId: string) => {
+    const nextZone = zones?.find((zone: any) => String(zone.id) === zoneId);
+    if (nextZone) setSelectedZone(nextZone);
+  }, [zones]);
 
   const createMutation = useMutation({
     mutationFn: (newZone: any) => api.post('/admin/zones', newZone),
@@ -228,56 +242,72 @@ export default function Zones() {
 
         {/* Right: Map Area */}
         <div className="lg:col-span-8 glass-card rounded-[48px] border-white/5 overflow-hidden relative min-h-[700px] bg-zinc-950">
-           <MapContainer 
-             center={mapCenter} 
-             zoom={13} 
-             style={{ height: '100%', width: '100%' }}
-             zoomControl={false}
-           >
-              <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              />
-              
-              <GeomanControl 
-                isDrawing={isDrawing} 
-                onCreated={(wkt: string) => {
-                  setSelectedZone({ polygon_wkt: wkt });
-                  setIsModalOpen(true);
-                }} 
-              />
+           {shouldRenderGoogleMap ? (
+             <GoogleMapCanvas
+               apiKey={mapsRuntimeConfig?.google_maps?.browser_api_key || ''}
+               mapId={mapsRuntimeConfig?.google_maps?.map_id}
+               center={{ lat: mapCenter[0], lng: mapCenter[1] }}
+               zoom={13}
+               polygons={googleZonePolygons}
+               onPolygonClick={handleGooglePolygonClick}
+             />
+           ) : (
+             <>
+               <MapContainer
+                 center={mapCenter}
+                 zoom={13}
+                 style={{ height: '100%', width: '100%' }}
+                 zoomControl={false}
+               >
+                  <TileLayer
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                  />
 
-              {zones?.map((zone: any) => (
-                <Polygon
-                  key={zone.id}
-                  positions={WKTToCoords(zone.polygon || zone.polygon_wkt)}
-                  pathOptions={{
-                    color: '#10b981', // Premium bright emerald green outline
-                    fillColor: '#10b981',
-                    fillOpacity: selectedZone?.id === zone.id ? 0.35 : 0.08,
-                    weight: selectedZone?.id === zone.id ? 4 : 1.5
-                  }}
-                  eventHandlers={{
-                    click: () => setSelectedZone(zone)
-                  }}
-                />
-              ))}
+                  <GeomanControl
+                    isDrawing={isDrawing}
+                    onCreated={(wkt: string) => {
+                      setSelectedZone({ polygon_wkt: wkt });
+                      setIsModalOpen(true);
+                    }}
+                  />
 
-              {selectedZone && !selectedZone.id && selectedZone.polygon_wkt && (
-                <Polygon
-                  positions={WKTToCoords(selectedZone.polygon_wkt)}
-                  pathOptions={{
-                    color: '#10b981', // Translucent emerald preview outline
-                    fillColor: '#10b981',
-                    fillOpacity: 0.4,
-                    weight: 4,
-                    dashArray: '6, 6' // Premium dashed look for unsaved preview
-                  }}
-                />
-              )}
+                  {zones?.map((zone: any) => (
+                    <Polygon
+                      key={zone.id}
+                      positions={WKTToCoords(zone.polygon || zone.polygon_wkt)}
+                      pathOptions={{
+                        color: '#10b981', // Premium bright emerald green outline
+                        fillColor: '#10b981',
+                        fillOpacity: selectedZone?.id === zone.id ? 0.35 : 0.08,
+                        weight: selectedZone?.id === zone.id ? 4 : 1.5
+                      }}
+                      eventHandlers={{
+                        click: () => setSelectedZone(zone)
+                      }}
+                    />
+                  ))}
 
-              <MapEvents center={mapCenter} selectedZone={selectedZone} />
-           </MapContainer>
+                  {selectedZone && !selectedZone.id && selectedZone.polygon_wkt && (
+                    <Polygon
+                      positions={WKTToCoords(selectedZone.polygon_wkt)}
+                      pathOptions={{
+                        color: '#10b981', // Translucent emerald preview outline
+                        fillColor: '#10b981',
+                        fillOpacity: 0.4,
+                        weight: 4,
+                        dashArray: '6, 6' // Premium dashed look for unsaved preview
+                      }}
+                    />
+                  )}
+
+                  <MapEvents center={mapCenter} selectedZone={selectedZone} />
+               </MapContainer>
+               {mapsRuntimeConfig?.active_provider === 'google_maps' && !isDrawing && (
+                 <GoogleRuntimeUnavailable message="Google Maps aktif, tetapi browser key runtime belum tersedia. Zone viewer memakai fallback map sementara." />
+               )}
+             </>
+           )}
 
            {/* Toolbar Overlays */}
            <div className="absolute top-8 left-8 flex flex-col gap-3 z-[1000]">

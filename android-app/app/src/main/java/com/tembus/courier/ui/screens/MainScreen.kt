@@ -1136,53 +1136,131 @@ private fun OnDemandMapHome(
     onOpenDelivery: (Order) -> Unit,
     onViewOrders: () -> Unit
 ) {
-    val activeOrder = orders.firstOrNull {
-        it.status.lowercase() in setOf("accepted", "picked_up", "in_transit")
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val activeRouteNextStop = activeRoutePlan?.stops?.firstOrNull()
+    val activeRouteNextOrder = activeRouteNextStop?.let { nextStop ->
+        orders.firstOrNull { order ->
+            order.orderId == nextStop.orderId && order.status.lowercase() in ACTIVE_ON_DEMAND_STATUSES
+        }
     }
+    val activeOrder = activeRouteNextOrder ?: orders.firstOrNull {
+        it.status.lowercase() in ACTIVE_ON_DEMAND_STATUSES
+    }
+    var inAppNavigationOrderId by rememberSaveable { mutableStateOf<String?>(null) }
+    val inAppNavigationActive = activeOrder != null && inAppNavigationOrderId == activeOrder.orderId
     val leadingOffer = offers.firstOrNull()
     val focusOrder = activeOrder ?: leadingOffer
+    var courierLocation by remember { mutableStateOf<LatLng?>(null) }
+    var mapFocusOverride by remember { mutableStateOf<LatLng?>(null) }
+    var recenterInProgress by remember { mutableStateOf(false) }
+    var recenterMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(context) {
+        getLastKnownDutyLocation(context)
+            ?.toLatLng()
+            ?.takeIf { it.isValidNavigationPoint() }
+            ?.let { location ->
+                courierLocation = location
+                if (activeOrder == null && leadingOffer == null) {
+                    mapFocusOverride = location
+                }
+            }
+    }
+
+    LaunchedEffect(activeOrder?.orderId) {
+        if (activeOrder?.orderId != inAppNavigationOrderId) {
+            inAppNavigationOrderId = null
+        }
+    }
+
+    LaunchedEffect(inAppNavigationActive) {
+        while (inAppNavigationActive && isActive) {
+            getLastKnownDutyLocation(context)
+                ?.toLatLng()
+                ?.takeIf { it.isValidNavigationPoint() }
+                ?.let { latestLocation ->
+                    courierLocation = latestLocation
+                    mapFocusOverride = latestLocation
+                }
+            delay(5_000)
+        }
+    }
+
+    LaunchedEffect(recenterMessage) {
+        if (recenterMessage != null) {
+            delay(2_400)
+            recenterMessage = null
+        }
+    }
+
     val pickupPoint = focusOrder?.let { order ->
         val lat = order.pickupLatitude
         val lng = order.pickupLongitude
-        if (lat != null && lng != null) LatLng(lat, lng) else null
+        latLngOrNull(lat, lng)
     }
     val dropPoint = focusOrder?.let { order ->
         val lat = order.dropLatitude
         val lng = order.dropLongitude
-        if (lat != null && lng != null) LatLng(lat, lng) else null
+        latLngOrNull(lat, lng)
     }
     val plannedRoutePoints = remember(activeRoutePlan) {
         activeRoutePlan?.segments
             ?.flatMap { segment -> decodeRuntimeRoutePolyline(segment.routePolyline) }
             ?.takeIf { it.isNotEmpty() }
             ?: activeRoutePlan?.stops
-                ?.mapNotNull { stop ->
-                    val lat = stop.latitude
-                    val lng = stop.longitude
-                    if (lat != null && lng != null) LatLng(lat, lng) else null
-                }
+                ?.mapNotNull { stop -> latLngOrNull(stop.latitude, stop.longitude) }
             ?: emptyList()
     }
     val activeRoutePoints = plannedRoutePoints.ifEmpty {
         activeOrder?.let { order ->
-        val preview = routePreviews[order.orderId]
-        preview?.let {
-            decodeRuntimeRoutePolyline(it.routePolyline ?: it.routeSnapshot?.routePolyline)
-                .ifEmpty { it.polyline.map { point -> LatLng(point.latitude, point.longitude) } }
-        }
+            val preview = routePreviews[order.orderId]
+            preview?.let {
+                decodeRuntimeRoutePolyline(it.routePolyline ?: it.routeSnapshot?.routePolyline)
+                    .ifEmpty { it.polyline.map { point -> LatLng(point.latitude, point.longitude) } }
+            }
         }.orEmpty()
     }
+    val activeOrderStatus = activeOrder?.status?.lowercase().orEmpty()
+    val activeNextStopType = activeRouteNextStop
+        ?.takeIf { stop -> stop.orderId == activeOrder?.orderId }
+        ?.stopType
+        ?.lowercase()
+    val navigationTargetIsPickup = activeNextStopType?.let { it == "pickup" }
+        ?: (activeOrderStatus == "accepted" || activeOrderStatus == "assigned")
+    val navigationTargetPoint = if (navigationTargetIsPickup) {
+        pickupPoint ?: dropPoint
+    } else {
+        dropPoint ?: pickupPoint
+    }
+    val activeRoutePreview = activeOrder?.let { routePreviews[it.orderId] }
+    val leadingRoutePreview = leadingOffer?.let { routePreviews[it.orderId] }
+    val offerRoutePoints = if (activeOrder == null && leadingOffer != null) {
+        leadingRoutePreview?.let { preview ->
+            decodeRuntimeRoutePolyline(preview.routePolyline ?: preview.routeSnapshot?.routePolyline)
+                .ifEmpty { preview.polyline.map { point -> LatLng(point.latitude, point.longitude) } }
+        }.orEmpty().ifEmpty {
+            buildList {
+                courierLocation?.let { add(it) }
+                pickupPoint?.let { add(it) }
+                dropPoint?.let { add(it) }
+            }
+        }
+    } else {
+        emptyList()
+    }
     val mapMarkers = buildList {
+        courierLocation?.let { add(RuntimeMapMarker("courier-location", it, "Lokasi saya")) }
         pickupPoint?.let { add(RuntimeMapMarker("pickup", it, focusOrder.pickupAddress)) }
         dropPoint?.let { add(RuntimeMapMarker("dropoff", it, focusOrder.dropAddress)) }
         hotspots.take(8).forEach { hotspot ->
             val lat = hotspot.latitude
             val lng = hotspot.longitude
-            if (lat != null && lng != null) {
+            latLngOrNull(lat, lng)?.let { position ->
                 add(
                     RuntimeMapMarker(
                         id = "hotspot-${hotspot.code ?: hotspot.name}",
-                        position = LatLng(lat, lng),
+                        position = position,
                         title = hotspot.name,
                         snippet = "${hotspot.pendingOrders} order menunggu"
                     )
@@ -1191,10 +1269,30 @@ private fun OnDemandMapHome(
         }
     }
     val routePoints = activeRoutePoints.ifEmpty {
-        buildList {
-            pickupPoint?.let { add(it) }
-            dropPoint?.let { add(it) }
+        val inAppNavigationRoutePoints = if (inAppNavigationActive) {
+            buildList {
+                courierLocation?.let { add(it) }
+                navigationTargetPoint?.let { add(it) }
+            }
+        } else {
+            emptyList()
         }
+        inAppNavigationRoutePoints.ifEmpty {
+            offerRoutePoints.ifEmpty {
+                buildList {
+                    pickupPoint?.let { add(it) }
+                    dropPoint?.let { add(it) }
+                }
+            }
+        }
+    }
+    val mapFocusLocation = when {
+        inAppNavigationActive && courierLocation != null -> courierLocation
+        activeOrder != null -> navigationTargetPoint ?: pickupPoint ?: dropPoint
+        leadingOffer != null -> pickupPoint ?: dropPoint ?: courierLocation
+        mapFocusOverride != null -> mapFocusOverride
+        courierLocation != null -> courierLocation
+        else -> mapMarkers.firstOrNull()?.position
     }
     val vehicleGroup = normalizedVehicleGroup(courierVehicleType)
     val capabilityItems = capabilityProfile?.serviceCapabilities
@@ -1231,7 +1329,7 @@ private fun OnDemandMapHome(
             providerConfig = mapsProviderConfig,
             markers = mapMarkers,
             routePoints = routePoints,
-            followLocation = pickupPoint ?: mapMarkers.firstOrNull()?.position,
+            followLocation = mapFocusLocation,
             googleUiSettings = MapUiSettings(
                 zoomControlsEnabled = false,
                 myLocationButtonEnabled = false,
@@ -1284,40 +1382,156 @@ private fun OnDemandMapHome(
             Icon(Icons.Default.PowerSettingsNew, contentDescription = if (isOnline) "Nonaktifkan duty" else "Aktifkan duty")
         }
 
+        if (inAppNavigationActive) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(start = 86.dp, end = 86.dp, top = 102.dp),
+                color = CourierPanel.copy(alpha = 0.94f),
+                shape = RoundedCornerShape(18.dp),
+                shadowElevation = 8.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(color = LogisticsOrange, shape = RoundedCornerShape(10.dp)) {
+                        Icon(
+                            Icons.Default.Navigation,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.padding(8.dp).size(18.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Navigasi TEMBUS",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Black,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            "Ikuti rute dan stop aktif di aplikasi.",
+                            color = Color.White.copy(alpha = 0.70f),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+
+        if (activeOrder == null && leadingOffer == null) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 18.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AnimatedVisibility(
+                    visible = recenterMessage != null,
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    Surface(
+                        color = CourierPanel.copy(alpha = 0.92f),
+                        shape = RoundedCornerShape(14.dp),
+                        shadowElevation = 8.dp
+                    ) {
+                        Text(
+                            text = recenterMessage.orEmpty(),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+                SmallFloatingActionButton(
+                    onClick = {
+                        if (!recenterInProgress) {
+                            scope.launch {
+                                recenterInProgress = true
+                                val latestLocation = getLastKnownDutyLocation(context)
+                                    ?.toLatLng()
+                                    ?.takeIf { it.isValidNavigationPoint() }
+                                if (latestLocation != null) {
+                                    courierLocation = latestLocation
+                                    mapFocusOverride = latestLocation
+                                    recenterMessage = "Peta dipusatkan ke lokasi kamu."
+                                } else {
+                                    recenterMessage = "Izinkan lokasi untuk memusatkan peta."
+                                }
+                                recenterInProgress = false
+                            }
+                        }
+                    },
+                    containerColor = Color.White.copy(alpha = 0.96f),
+                    contentColor = Primary
+                ) {
+                    if (recenterInProgress) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = Primary
+                        )
+                    } else {
+                        Icon(Icons.Default.GpsFixed, contentDescription = "Lokasi saya")
+                    }
+                }
+            }
+        }
+
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 16.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            OnDemandServiceActivationCard(
-                serviceItems = serviceItems,
-                activeServiceCount = activeServiceItems.size,
-                capabilityByCode = capabilityByCode,
-                disabledServiceCodes = disabledServiceCodes,
-                vehicleGroup = vehicleGroup,
-                isServiceCatalogLoading = !serviceCatalogReady,
-                expanded = servicePanelExpanded,
-                onToggleExpanded = { servicePanelExpanded = !servicePanelExpanded },
-                onServiceEnabledChange = { service, checked ->
-                    val nextCodes = if (checked) {
-                        disabledServiceCodes - service.code
-                    } else {
-                        disabledServiceCodes + service.code
-                    }
-                    disabledServiceCodesText = nextCodes.sorted().joinToString(",")
-                }
-            )
-
-            if (activeRoutePlan != null && activeRoutePlan.stops.isNotEmpty()) {
-                ActiveRoutePlanCard(activeRoutePlan = activeRoutePlan, onViewOrders = onViewOrders)
-            }
-
             if (activeOrder != null) {
-                val order = activeOrder
-                OnDemandActiveOrderCard(order = order, onOpenDelivery = onOpenDelivery)
-            } else if (isOnline && offers.isEmpty()) {
-                OnDemandWaitingCard(onViewOrders = onViewOrders)
+                OnDemandNavigationModeCard(
+                    order = activeOrder,
+                    targetIsPickup = navigationTargetIsPickup,
+                    routePreview = activeRoutePreview,
+                    activeRoutePlan = activeRoutePlan,
+                    navigationModeActive = inAppNavigationActive,
+                    onStartNavigation = {
+                        inAppNavigationOrderId = activeOrder.orderId
+                        mapFocusOverride = courierLocation ?: navigationTargetPoint
+                    },
+                    onStopNavigation = { inAppNavigationOrderId = null },
+                    onOpenExternalMaps = { address, point -> openCourierMapNavigation(context, address, point) },
+                    onOpenDelivery = onOpenDelivery
+                )
+            } else {
+                OnDemandMapDispatchCockpit(
+                    isOnline = isOnline,
+                    offerCount = offers.size,
+                    activeServiceCount = activeServiceItems.size,
+                    serviceCount = serviceItems.size,
+                    vehicleLabel = vehicleGroup.toVehicleLabel(),
+                    leadingOffer = leadingOffer,
+                    serviceItems = serviceItems,
+                    capabilityByCode = capabilityByCode,
+                    disabledServiceCodes = disabledServiceCodes,
+                    isServiceCatalogLoading = !serviceCatalogReady,
+                    servicePanelExpanded = servicePanelExpanded,
+                    onToggleServicePanel = { servicePanelExpanded = !servicePanelExpanded },
+                    onServiceEnabledChange = { service, checked ->
+                        val nextCodes = if (checked) {
+                            disabledServiceCodes - service.code
+                        } else {
+                            disabledServiceCodes + service.code
+                        }
+                        disabledServiceCodesText = nextCodes.sorted().joinToString(",")
+                    },
+                    onViewOrders = onViewOrders
+                )
             }
         }
     }
@@ -1396,6 +1610,529 @@ private fun OnDemandServiceActivationCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun OnDemandMapDispatchCockpit(
+    isOnline: Boolean,
+    offerCount: Int,
+    activeServiceCount: Int,
+    serviceCount: Int,
+    vehicleLabel: String,
+    leadingOffer: Order?,
+    serviceItems: List<CourierServiceProduct>,
+    capabilityByCode: Map<String, CourierServiceCapability>,
+    disabledServiceCodes: Set<String>,
+    isServiceCatalogLoading: Boolean,
+    servicePanelExpanded: Boolean,
+    onToggleServicePanel: () -> Unit,
+    onServiceEnabledChange: (CourierServiceProduct, Boolean) -> Unit,
+    onViewOrders: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White.copy(alpha = 0.96f),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, Primary.copy(alpha = 0.12f)),
+        shadowElevation = 10.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(
+                    color = if (isOnline) Success.copy(alpha = 0.12f) else PrimaryLight.copy(alpha = 0.72f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isOnline) Icons.Default.NearMe else Icons.Default.Map,
+                        contentDescription = null,
+                        tint = if (isOnline) Success else Primary,
+                        modifier = Modifier.padding(10.dp).size(22.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        text = if (isOnline) "Siap menerima order" else "Belum aktif",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = DeepForest
+                    )
+                    Text(
+                        text = if (isOnline) {
+                            "Tawaran akan muncul otomatis saat ada order terdekat."
+                        } else {
+                            "Peta tetap menampilkan posisi kamu. Aktifkan duty saat siap bekerja."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                TextButton(onClick = onViewOrders) {
+                    Text("Order", color = Primary, fontWeight = FontWeight.Black)
+                }
+            }
+
+            if (leadingOffer != null) {
+                OnDemandIncomingOfferStrip(order = leadingOffer)
+            } else {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Color(0xFFF7F8FA),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, Primary.copy(alpha = 0.08f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Surface(color = Color.White, shape = RoundedCornerShape(8.dp)) {
+                            Icon(
+                                if (isOnline) Icons.Default.Radar else Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = Primary,
+                                modifier = Modifier.padding(8.dp).size(18.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                if (isOnline) "Menunggu order di sekitar kamu" else "Aktifkan duty untuk mulai",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Black,
+                                color = DeepForest
+                            )
+                            Text(
+                                if (isOnline) "Tidak perlu refresh manual." else "Tracking order aktif setelah duty menyala.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OnDemandCompactStatusItem(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.TwoWheeler,
+                    title = "Layanan",
+                    value = if (serviceCount <= 0) "$vehicleLabel tersinkron" else "$activeServiceCount/$serviceCount $vehicleLabel"
+                )
+                OnDemandCompactStatusItem(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.Bolt,
+                    title = "Tawaran",
+                    value = if (offerCount > 0) "$offerCount menunggu" else "Belum ada"
+                )
+                TextButton(onClick = onToggleServicePanel) {
+                    Text(if (servicePanelExpanded) "Tutup" else "Atur", color = Primary, fontWeight = FontWeight.Black)
+                }
+            }
+
+            AnimatedVisibility(visible = servicePanelExpanded) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = CourierPanel,
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (isServiceCatalogLoading) {
+                            Text(
+                                "Memuat layanan operasional...",
+                                color = Color.White.copy(alpha = 0.68f),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        } else if (serviceItems.isEmpty()) {
+                            Text(
+                                "Layanan akan muncul setelah profil kendaraan tersinkron.",
+                                color = Color.White.copy(alpha = 0.72f),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        } else {
+                            serviceItems.forEach { service ->
+                                val capability = capabilityByCode[service.code]
+                                val enabledByCapability = capability?.status?.equals("enabled", ignoreCase = true) ?: true
+                                val enabled = enabledByCapability && service.code !in disabledServiceCodes
+                                OnDemandServiceToggleRow(
+                                    service = service,
+                                    enabled = enabled,
+                                    lockedByAdmin = !enabledByCapability,
+                                    onEnabledChange = { checked ->
+                                        if (enabledByCapability) onServiceEnabledChange(service, checked)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnDemandMapMetricPill(
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String,
+    highlighted: Boolean
+) {
+    Surface(
+        modifier = modifier,
+        color = if (highlighted) LogisticsOrange.copy(alpha = 0.12f) else PrimaryLight.copy(alpha = 0.54f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, if (highlighted) LogisticsOrange.copy(alpha = 0.26f) else Primary.copy(alpha = 0.10f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Icon(icon, contentDescription = null, tint = if (highlighted) LogisticsOrange else Primary, modifier = Modifier.size(14.dp))
+                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black, color = DeepForest)
+        }
+    }
+}
+
+@Composable
+private fun OnDemandCompactStatusItem(
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    value: String
+) {
+    Surface(
+        modifier = modifier,
+        color = PrimaryLight.copy(alpha = 0.42f),
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, Primary.copy(alpha = 0.10f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(17.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(value, style = MaterialTheme.typography.labelMedium, color = DeepForest, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnDemandIncomingOfferStrip(order: Order) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = LogisticsOrange.copy(alpha = 0.12f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, LogisticsOrange.copy(alpha = 0.26f))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Surface(color = Color.White, shape = RoundedCornerShape(10.dp)) {
+                Icon(Icons.Default.Bolt, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(8.dp).size(18.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Tawaran masuk", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = DeepForest)
+                Text(
+                    "${order.displayServiceName()} • ${order.cleanPayoutIdr().toRupiahCompact()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = LogisticsOrange)
+        }
+    }
+}
+
+@Composable
+private fun OnDemandNavigationModeCard(
+    order: Order,
+    targetIsPickup: Boolean,
+    routePreview: CourierRoutePreview?,
+    activeRoutePlan: CourierActiveRoutePlan?,
+    navigationModeActive: Boolean,
+    onStartNavigation: () -> Unit,
+    onStopNavigation: () -> Unit,
+    onOpenExternalMaps: (String, LatLng?) -> Unit,
+    onOpenDelivery: (Order) -> Unit
+) {
+    val targetStopType = if (targetIsPickup) "pickup" else "dropoff"
+    val targetPoint = if (targetIsPickup) {
+        latLngOrNull(order.pickupLatitude, order.pickupLongitude)
+    } else {
+        latLngOrNull(order.dropLatitude, order.dropLongitude)
+    }
+    val targetAddressFallback = if (targetIsPickup) {
+        order.pickupAddress.ifBlank { "Alamat pickup sedang disinkronkan" }
+    } else {
+        order.dropAddress.ifBlank { "Alamat penerima sedang disinkronkan" }
+    }
+    val activeStops = activeRoutePlan?.stops.orEmpty()
+    val activeStopIndex = activeStops.indexOfFirst { stop ->
+        stop.orderId == order.orderId && stop.stopType.equals(targetStopType, ignoreCase = true)
+    }
+    val activeStop = activeStops.getOrNull(activeStopIndex)
+    val targetAddress = activeStop?.address?.takeIf { it.isNotBlank() } ?: targetAddressFallback
+    val targetNavigationPoint = activeStop
+        ?.let { stop -> latLngOrNull(stop.latitude, stop.longitude) }
+        ?: targetPoint
+    val hasMultiStopPlan = activeStops.size > 1 && activeStopIndex >= 0
+    val targetLabel = when {
+        hasMultiStopPlan -> "Stop ${activeStopIndex + 1}/${activeStops.size}"
+        targetIsPickup -> "Pickup"
+        else -> "Penerima"
+    }
+    val navigationTitle = when {
+        navigationModeActive -> "Navigasi TEMBUS aktif"
+        hasMultiStopPlan -> "Stop berikutnya"
+        targetIsPickup -> "Mode jemput paket"
+        else -> "Mode antar ke penerima"
+    }
+    val primaryActionText = when {
+        navigationModeActive && targetIsPickup -> "Saya di pickup"
+        navigationModeActive -> "Saya di tujuan"
+        hasMultiStopPlan -> "Mulai stop"
+        targetIsPickup -> "Mulai ke pickup"
+        else -> "Mulai ke penerima"
+    }
+    val supportCopy = if (navigationModeActive) {
+        "TEMBUS menjaga rute dan stop aktif di layar ini. Gunakan Maps hanya jika butuh panduan suara."
+    } else {
+        "Mulai navigasi di TEMBUS supaya pickup, pengantaran, dan bukti kerja tetap dalam satu alur."
+    }
+    val routeDistanceText = when {
+        activeRoutePlan != null && activeRoutePlan.totalDistanceKm > 0.0 -> String.format("%.1f km", activeRoutePlan.totalDistanceKm)
+        routePreview != null && routePreview.distanceKm > 0.0 -> String.format("%.1f km", routePreview.distanceKm)
+        order.distance.isNotBlank() -> order.distance
+        else -> "Jarak dihitung"
+    }
+    val etaText = when {
+        activeRoutePlan != null && activeRoutePlan.totalEtaMinutes > 0 -> "ETA ${activeRoutePlan.totalEtaMinutes} mnt"
+        routePreview != null && routePreview.etaMinutes > 0 -> "ETA ${routePreview.etaMinutes} mnt"
+        order.serviceMaxEtaMinutes > 0 -> "SLA ${order.serviceMaxEtaMinutes} mnt"
+        else -> "ETA sinkron"
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = CourierPanel.copy(alpha = 0.97f),
+        shape = RoundedCornerShape(18.dp),
+        shadowElevation = 12.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(color = LogisticsOrange, shape = RoundedCornerShape(12.dp)) {
+                    Icon(
+                        imageVector = if (targetIsPickup) Icons.Default.Storefront else Icons.Default.Navigation,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.padding(10.dp).size(22.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        navigationTitle,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.Black
+                    )
+                    Text(
+                        "${order.displayServiceName()} • ${order.packageCount.coerceAtLeast(1)} paket",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.68f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Surface(color = Color.White.copy(alpha = 0.12f), shape = RoundedCornerShape(10.dp)) {
+                    Text(
+                        order.cleanPayoutIdr().toRupiahCompact(),
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                        color = LogisticsOrange,
+                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(color = Color.White.copy(alpha = 0.12f), shape = RoundedCornerShape(10.dp)) {
+                        Icon(
+                            if (targetIsPickup) Icons.Default.Storefront else Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = LogisticsOrange,
+                            modifier = Modifier.padding(8.dp).size(18.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(targetLabel, color = Color.White.copy(alpha = 0.68f), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        Text(targetAddress, color = Color.White, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OnDemandNavigationStatusChip(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.Route,
+                    label = routeDistanceText
+                )
+                OnDemandNavigationStatusChip(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.Schedule,
+                    label = etaText
+                )
+                OnDemandNavigationStatusChip(
+                    modifier = Modifier.weight(1f),
+                    icon = if (activeRoutePlan?.trafficAware == true) Icons.Default.VerifiedUser else Icons.Default.Sync,
+                    label = if (activeRoutePlan?.trafficAware == true) "Traffic" else "Sync"
+                )
+            }
+
+            Text(
+                supportCopy,
+                color = Color.White.copy(alpha = 0.70f),
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = {
+                        if (navigationModeActive) {
+                            onOpenDelivery(order)
+                        } else {
+                            onStartNavigation()
+                        }
+                    },
+                    modifier = Modifier.weight(1.18f).height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.White),
+                    contentPadding = PaddingValues(horizontal = 10.dp)
+                ) {
+                    Icon(
+                        if (navigationModeActive) Icons.Default.TaskAlt else Icons.Default.NearMe,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(7.dp))
+                    Text(primaryActionText, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                OutlinedButton(
+                    onClick = { onOpenExternalMaps(targetAddress, targetNavigationPoint) },
+                    modifier = Modifier.weight(0.82f).height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.dp, LogisticsOrange.copy(alpha = 0.64f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = LogisticsOrange),
+                    contentPadding = PaddingValues(horizontal = 10.dp)
+                ) {
+                    Icon(Icons.Default.Map, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(7.dp))
+                    Text("Buka Maps", fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+
+            if (navigationModeActive) {
+                TextButton(
+                    onClick = onStopNavigation,
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Keluar mode navigasi", color = Color.White.copy(alpha = 0.76f), fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OnDemandNavigationStatusChip(
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String
+) {
+    Surface(
+        modifier = modifier,
+        color = Color.White.copy(alpha = 0.08f),
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.size(15.dp))
+            Text(label, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun OnDemandNavigationRequirement(
+    modifier: Modifier = Modifier,
+    done: Boolean,
+    label: String
+) {
+    Surface(
+        modifier = modifier,
+        color = if (done) Success.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.08f),
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, if (done) Success.copy(alpha = 0.38f) else Color.White.copy(alpha = 0.10f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                if (done) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                contentDescription = null,
+                tint = if (done) Success else Color.White.copy(alpha = 0.62f),
+                modifier = Modifier.size(15.dp)
+            )
+            Text(label, color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -4984,6 +5721,54 @@ private fun orderSyncHint(isOnline: Boolean, lastRemoteSyncAt: Long?): String {
     }
 }
 
+private fun openCourierMapNavigation(context: Context, address: String, point: LatLng? = null) {
+    val validPoint = point?.takeIf { it.isValidNavigationPoint() }
+    if (validPoint == null && address.isBlank()) return
+
+    val preferredIntent = if (validPoint != null) {
+        Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("google.navigation:q=${validPoint.latitude},${validPoint.longitude}")
+        ).apply {
+            setPackage("com.google.android.apps.maps")
+        }
+    } else {
+        Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(address)}"))
+    }
+
+    val launchIntent = if (preferredIntent.resolveActivity(context.packageManager) != null) {
+        preferredIntent
+    } else if (validPoint != null) {
+        Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("geo:${validPoint.latitude},${validPoint.longitude}?q=${validPoint.latitude},${validPoint.longitude}")
+        )
+    } else {
+        Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(address)}"))
+    }
+
+    if (launchIntent.resolveActivity(context.packageManager) != null) {
+        context.startActivity(launchIntent)
+    }
+}
+
+private fun DutyLocation.toLatLng(): LatLng = LatLng(latitude, longitude)
+
+private fun latLngOrNull(latitude: Double?, longitude: Double?): LatLng? {
+    if (latitude == null || longitude == null) return null
+    return LatLng(latitude, longitude).takeIf { it.isValidNavigationPoint() }
+}
+
+private fun LatLng.isValidNavigationPoint(): Boolean {
+    return !latitude.isNaN() &&
+        !longitude.isNaN() &&
+        !latitude.isInfinite() &&
+        !longitude.isInfinite() &&
+        latitude in -90.0..90.0 &&
+        longitude in -180.0..180.0 &&
+        !(latitude == 0.0 && longitude == 0.0)
+}
+
 private const val FOREGROUND_SYNC_INTERVAL_MS = 30_000L
 private const val FOREGROUND_SYNC_MIN_INTERVAL_MS = 20_000L
 private const val ON_DEMAND_FOREGROUND_SYNC_INTERVAL_MS = 5_000L
@@ -4991,7 +5776,7 @@ private const val ON_DEMAND_FOREGROUND_SYNC_MIN_INTERVAL_MS = 4_000L
 private const val FOREGROUND_SYNC_MAX_BACKOFF_MS = 120_000L
 private const val PUSH_SYNC_MIN_INTERVAL_MS = 2_000L
 private const val ON_DEMAND_OFFER_TTL_SECONDS = 15
-private val ACTIVE_ON_DEMAND_STATUSES = setOf("accepted", "picked_up", "in_transit")
+private val ACTIVE_ON_DEMAND_STATUSES = setOf("assigned", "accepted", "picked_up", "in_transit")
 
 private data class DutyLocation(
     val latitude: Double,

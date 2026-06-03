@@ -347,6 +347,55 @@ const pickupTimeOptions = Array.from({ length: 29 }, (_, index) => {
   return `${pad2(hour)}:${pad2(minute)}`;
 });
 
+declare global {
+  interface Window {
+    google?: any;
+    __tembusGoogleMapsLoaders?: Partial<Record<string, Promise<any>>>;
+  }
+}
+
+const loadGoogleMapsSdk = (apiKey: string) => {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("browser_runtime_required"));
+  }
+  if (window.google?.maps?.Map) {
+    return Promise.resolve(window.google.maps);
+  }
+
+  window.__tembusGoogleMapsLoaders = window.__tembusGoogleMapsLoaders || {};
+  if (window.__tembusGoogleMapsLoaders[apiKey]) {
+    return window.__tembusGoogleMapsLoaders[apiKey];
+  }
+
+  window.__tembusGoogleMapsLoaders[apiKey] = new Promise((resolve, reject) => {
+    const callbackName = `__tembusGoogleMapsReady_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script = document.createElement("script");
+    const searchParams = new URLSearchParams({
+      key: apiKey,
+      v: "weekly",
+      libraries: "marker",
+      auth_referrer_policy: "origin",
+      callback: callbackName
+    });
+
+    (window as any)[callbackName] = () => {
+      delete (window as any)[callbackName];
+      resolve(window.google?.maps);
+    };
+
+    script.src = `https://maps.googleapis.com/maps/api/js?${searchParams.toString()}`;
+    script.async = true;
+    script.defer = true;
+    script.onerror = () => {
+      delete (window as any)[callbackName];
+      reject(new Error("google_maps_script_failed"));
+    };
+    document.head.appendChild(script);
+  });
+
+  return window.__tembusGoogleMapsLoaders[apiKey];
+};
+
 async function getSavedAddresses(mode: AddressMode): Promise<AddressSuggestion[]> {
   const response = await api.get("/customer/addresses");
   const addresses = (response.data?.data || []) as SavedAddress[];
@@ -457,6 +506,107 @@ function MiniMapPicker({
   );
 }
 
+function GoogleMiniMapPicker({
+  location,
+  accentClass,
+  apiKey,
+  mapId,
+  onPick,
+}: {
+  location?: LocationValue;
+  accentClass: string;
+  apiKey: string;
+  mapId?: string | null;
+  onPick: (location: LocationValue) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "failed">("loading");
+  const center = useMemo(() => location || { lat: -6.2, lng: 106.816666 }, [location]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let clickListener: any = null;
+    setLoadState("loading");
+
+    loadGoogleMapsSdk(apiKey)
+      .then((maps) => {
+        if (cancelled || !containerRef.current || !maps?.Map) return;
+        const mapOptions: Record<string, any> = {
+          center,
+          zoom: 14,
+          disableDefaultUI: true,
+          clickableIcons: false,
+          gestureHandling: "greedy",
+          backgroundColor: "#101820",
+          styles: [
+            { featureType: "poi.business", stylers: [{ visibility: "off" }] },
+            { featureType: "transit", stylers: [{ visibility: "off" }] }
+          ]
+        };
+        if (mapId) {
+          mapOptions.mapId = mapId;
+        }
+
+        const map = new maps.Map(containerRef.current, mapOptions);
+        const marker = new maps.Marker({
+          map,
+          position: center,
+          title: "Titik lokasi"
+        });
+
+        clickListener = map.addListener("click", (event: any) => {
+          const lat = event?.latLng?.lat?.();
+          const lng = event?.latLng?.lng?.();
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            onPick({ lat, lng });
+          }
+        });
+
+        mapRef.current = map;
+        markerRef.current = marker;
+        setLoadState("ready");
+      })
+      .catch(() => {
+        if (!cancelled) setLoadState("failed");
+      });
+
+    return () => {
+      cancelled = true;
+      if (clickListener && window.google?.maps?.event) {
+        window.google.maps.event.removeListener(clickListener);
+      }
+    };
+  }, [apiKey, center, mapId, onPick]);
+
+  useEffect(() => {
+    if (!mapRef.current || !markerRef.current) return;
+    mapRef.current.setCenter(center);
+    markerRef.current.setPosition(center);
+  }, [center]);
+
+  return (
+    <div className="relative h-48 w-full overflow-hidden rounded-lg border border-white/10 bg-[#101820] shadow-inner">
+      <div ref={containerRef} className="absolute inset-0" aria-label="Google Maps picker" />
+      {loadState === "loading" && (
+        <div className="absolute inset-0 animate-pulse bg-muted/30" />
+      )}
+      {loadState === "failed" && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/90 px-5 text-center text-xs font-medium text-muted-foreground">
+          Google Maps belum bisa dimuat. Cek browser key, referrer restriction, dan billing Google Cloud.
+        </div>
+      )}
+      <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full">
+        <MapPin className={`h-9 w-9 drop-shadow-lg ${accentClass}`} />
+      </div>
+      <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-white/10 bg-background/85 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
+        Klik map untuk adjust pin
+      </div>
+    </div>
+  );
+}
+
 function AddressPicker({
   mode,
   address,
@@ -479,6 +629,12 @@ function AddressPicker({
   const [mapsConfig, setMapsConfig] = useState<{
     active_provider: string;
     openstreetmap?: { tile_url_template?: string | null };
+    google_maps?: {
+      browser_api_key?: string | null;
+      browser_key_configured?: boolean;
+      map_id?: string | null;
+      sdk_enabled?: boolean;
+    };
   }>({
     active_provider: "openstreetmap",
     openstreetmap: { tile_url_template: "https://tile.openstreetmap.org/{z}/{x}/{y}.png" }
@@ -635,6 +791,13 @@ function AddressPicker({
     }
   };
 
+  const handleMapPick = useCallback((nextLocation: LocationValue) => {
+    setValue(locationField, nextLocation, { shouldDirty: true, shouldValidate: true });
+    if (!address || address.length < 5) {
+      setValue(addressField, `Pin manual (${formatCoordinate(nextLocation)})`, { shouldDirty: true, shouldValidate: true });
+    }
+  }, [address, addressField, locationField, setValue]);
+
   return (
     <div className="space-y-3">
       <label className="text-sm font-medium text-muted-foreground">Alamat Lengkap</label>
@@ -703,21 +866,26 @@ function AddressPicker({
         </span>
       </div>
 
-      {mapsConfig.active_provider === "openstreetmap" && mapsConfig.openstreetmap?.tile_url_template ? (
+      {mapsConfig.active_provider === "google_maps" && mapsConfig.google_maps?.sdk_enabled && mapsConfig.google_maps.browser_api_key ? (
+        <GoogleMiniMapPicker
+          location={location}
+          accentClass={accentClass}
+          apiKey={mapsConfig.google_maps.browser_api_key}
+          mapId={mapsConfig.google_maps.map_id}
+          onPick={handleMapPick}
+        />
+      ) : mapsConfig.active_provider === "openstreetmap" && mapsConfig.openstreetmap?.tile_url_template ? (
         <MiniMapPicker
           location={location}
           accentClass={accentClass}
           tileUrlTemplate={mapsConfig.openstreetmap.tile_url_template}
-          onPick={(nextLocation) => {
-            setValue(locationField, nextLocation, { shouldDirty: true, shouldValidate: true });
-            if (!address || address.length < 5) {
-              setValue(addressField, `Pin manual (${formatCoordinate(nextLocation)})`, { shouldDirty: true, shouldValidate: true });
-            }
-          }}
+          onPick={handleMapPick}
         />
       ) : (
         <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-          Peta visual memakai mode {mapsConfig.active_provider === "google_maps" ? "Google Maps server-side" : "teks"}. Pilih alamat dari pencarian atau gunakan lokasi saat ini.
+          {mapsConfig.active_provider === "google_maps"
+            ? "Google Maps belum memiliki browser key runtime. Pilih alamat dari pencarian, lokasi saat ini, atau aktifkan browser key restricted di backend."
+            : "Peta visual memakai mode teks. Pilih alamat dari pencarian atau gunakan lokasi saat ini."}
         </div>
       )}
 

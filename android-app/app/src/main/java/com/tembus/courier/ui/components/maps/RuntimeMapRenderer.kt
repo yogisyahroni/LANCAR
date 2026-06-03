@@ -22,7 +22,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,6 +33,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -46,6 +50,7 @@ import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.tembus.courier.BuildConfig
 import com.tembus.courier.data.model.MapsProviderConfig
+import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.floor
@@ -95,6 +100,20 @@ fun RuntimeMapRenderer(
             val cameraPositionState = rememberCameraPositionState {
                 position = CameraPosition.fromLatLngZoom(center, if (validRoutePoints.size > 1) 13f else 15f)
             }
+            var googleMapLoaded by remember(providerConfig.activeProvider, center.latitude, center.longitude) {
+                mutableStateOf(false)
+            }
+            var googleMapTimedOut by remember(providerConfig.activeProvider, center.latitude, center.longitude) {
+                mutableStateOf(false)
+            }
+            LaunchedEffect(providerConfig.activeProvider, center.latitude, center.longitude) {
+                googleMapLoaded = false
+                googleMapTimedOut = false
+                delay(GoogleMapLoadTimeoutMs)
+                if (!googleMapLoaded) {
+                    googleMapTimedOut = true
+                }
+            }
             LaunchedEffect(center.latitude, center.longitude) {
                 cameraPositionState.animate(
                     CameraUpdateFactory.newCameraPosition(
@@ -103,21 +122,40 @@ fun RuntimeMapRenderer(
                     800
                 )
             }
-            GoogleMap(
-                modifier = modifier,
-                cameraPositionState = cameraPositionState,
-                properties = googleProperties,
-                uiSettings = googleUiSettings
-            ) {
-                validMarkers.forEach { marker ->
-                    Marker(
-                        state = MarkerState(marker.position),
-                        title = marker.title,
-                        snippet = marker.snippet
-                    )
-                }
-                if (validRoutePoints.size > 1) {
-                    Polyline(points = validRoutePoints, color = routeColor, width = 8f)
+            if (googleMapTimedOut && providerConfig.fallbackProvider == "openstreetmap") {
+                OpenStreetMapTileRenderer(
+                    providerConfig = providerConfig,
+                    markers = validMarkers,
+                    routePoints = validRoutePoints,
+                    center = center,
+                    modifier = modifier,
+                    routeColor = routeColor
+                )
+            } else if (googleMapTimedOut) {
+                RuntimeMapFallback(
+                    title = fallbackTitle,
+                    message = "Google Maps belum siap di perangkat ini. Cek billing, API key Android, dan package SHA-1.",
+                    center = center,
+                    modifier = modifier
+                )
+            } else {
+                GoogleMap(
+                    modifier = modifier,
+                    cameraPositionState = cameraPositionState,
+                    properties = googleProperties,
+                    uiSettings = googleUiSettings,
+                    onMapLoaded = { googleMapLoaded = true }
+                ) {
+                    validMarkers.forEach { marker ->
+                        Marker(
+                            state = MarkerState(marker.position),
+                            title = marker.title,
+                            snippet = marker.snippet
+                        )
+                    }
+                    if (validRoutePoints.size > 1) {
+                        Polyline(points = validRoutePoints, color = routeColor, width = 8f)
+                    }
                 }
             }
         }
@@ -166,26 +204,28 @@ private fun OpenStreetMapTileRenderer(
     BoxWithConstraints(
         modifier = modifier.background(Color(0xFFEAF3FF))
     ) {
+        val tileSizeDp = 256.dp
+        val tileSizePx = with(LocalDensity.current) { tileSizeDp.toPx() }
         val widthPx = constraints.maxWidth.toFloat()
         val heightPx = constraints.maxHeight.toFloat()
         val baseTileX = floor(centerTile.x).toInt()
         val baseTileY = floor(centerTile.y).toInt()
-        val tileSpanX = (widthPx / OsmTileSizePx).roundToInt().coerceAtLeast(2) + 3
-        val tileSpanY = (heightPx / OsmTileSizePx).roundToInt().coerceAtLeast(2) + 3
+        val tileSpanX = (widthPx / tileSizePx).roundToInt().coerceAtLeast(2) + 3
+        val tileSpanY = (heightPx / tileSizePx).roundToInt().coerceAtLeast(2) + 3
 
         for (dx in (-tileSpanX / 2)..(tileSpanX / 2)) {
             for (dy in (-tileSpanY / 2)..(tileSpanY / 2)) {
                 val tileX = baseTileX + dx
                 val tileY = baseTileY + dy
                 if (!isValidOsmTileY(tileY, zoom)) continue
-                val left = widthPx / 2f + (tileX - centerTile.x) * OsmTileSizePx
-                val top = heightPx / 2f + (tileY - centerTile.y) * OsmTileSizePx
+                val left = widthPx / 2f + (tileX - centerTile.x) * tileSizePx
+                val top = heightPx / 2f + (tileY - centerTile.y) * tileSizePx
                 AsyncImage(
                     model = tileTemplate.toOsmTileUrl(tileX, tileY, zoom),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(256.dp)
+                        .size(tileSizeDp)
                         .offset { IntOffset(left.roundToInt(), top.roundToInt()) }
                 )
             }
@@ -196,8 +236,8 @@ private fun OpenStreetMapTileRenderer(
                 val path = Path()
                 routePoints.forEachIndexed { index, point ->
                     val projected = point.toOsmTileCoordinate(zoom)
-                    val x = (widthPx / 2f + (projected.x - centerTile.x) * OsmTileSizePx).toFloat()
-                    val y = (heightPx / 2f + (projected.y - centerTile.y) * OsmTileSizePx).toFloat()
+                    val x = (widthPx / 2f + (projected.x - centerTile.x) * tileSizePx).toFloat()
+                    val y = (heightPx / 2f + (projected.y - centerTile.y) * tileSizePx).toFloat()
                     if (index == 0) {
                         path.moveTo(x, y)
                     } else {
@@ -214,8 +254,8 @@ private fun OpenStreetMapTileRenderer(
 
         markers.forEach { marker ->
             val projected = marker.position.toOsmTileCoordinate(zoom)
-            val left = widthPx / 2f + (projected.x - centerTile.x) * OsmTileSizePx
-            val top = heightPx / 2f + (projected.y - centerTile.y) * OsmTileSizePx
+            val left = widthPx / 2f + (projected.x - centerTile.x) * tileSizePx
+            val top = heightPx / 2f + (projected.y - centerTile.y) * tileSizePx
             Box(
                 modifier = Modifier
                     .offset { IntOffset(left.roundToInt() - 22, top.roundToInt() - 44) }
@@ -280,7 +320,7 @@ private fun LatLng.isValidLatLng(): Boolean {
     return latitude in -90.0..90.0 && longitude in -180.0..180.0 && !(latitude == 0.0 && longitude == 0.0)
 }
 
-private const val OsmTileSizePx = 256f
+private const val GoogleMapLoadTimeoutMs = 12_000L
 
 private data class OsmTileCoordinate(val x: Double, val y: Double)
 

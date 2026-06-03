@@ -56,6 +56,12 @@ export type PublicMapsProviderConfig = {
     tile_url_template: string | null;
     attribution: string | null;
   };
+  google_maps: {
+    browser_api_key: string | null;
+    browser_key_configured: boolean;
+    map_id: string | null;
+    sdk_enabled: boolean;
+  };
 };
 
 export type RouteEtaSnapshot = {
@@ -222,6 +228,14 @@ const googleServerApiKey = () => (
 );
 
 const googleServerKeyAvailable = () => Boolean(googleServerApiKey());
+
+const googleBrowserApiKey = () => (
+  envText('GOOGLE_MAPS_BROWSER_API_KEY') || envText('GOOGLE_MAPS_WEB_API_KEY') || envText('GOOGLE_MAPS_PUBLIC_API_KEY')
+);
+
+const googleBrowserMapId = () => (
+  envText('GOOGLE_MAPS_BROWSER_MAP_ID') || envText('GOOGLE_MAPS_WEB_MAP_ID') || null
+);
 
 const parseTileCoordinate = (value: string, name: string): number => {
   const parsed = Number(value);
@@ -946,6 +960,7 @@ export const resolvePublicMapsProviderConfig = (
   }
 
   const osm = normalized.providers.openstreetmap || DEFAULT_CONFIG.providers.openstreetmap;
+  const browserApiKey = activeProvider === 'google_maps' ? googleBrowserApiKey() : null;
   return {
     enabled: activeProvider !== 'disabled',
     requested_provider: requestedProvider,
@@ -962,6 +977,12 @@ export const resolvePublicMapsProviderConfig = (
     openstreetmap: {
       tile_url_template: activeProvider === 'openstreetmap' ? osm?.tile_url_template || null : null,
       attribution: activeProvider === 'openstreetmap' ? osm?.attribution || null : null,
+    },
+    google_maps: {
+      browser_api_key: browserApiKey,
+      browser_key_configured: Boolean(browserApiKey),
+      map_id: activeProvider === 'google_maps' ? googleBrowserMapId() : null,
+      sdk_enabled: activeProvider === 'google_maps' && Boolean(browserApiKey),
     },
   };
 };

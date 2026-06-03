@@ -157,7 +157,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = getConfigValue("GOOGLE_MAPS_API_KEY")
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = getConfigValue("GOOGLE_MAPS_ANDROID_API_KEY")
+            .ifBlank { getConfigValue("GOOGLE_MAPS_API_KEY") }
         
         buildConfigField("String", "API_CERT_SHA256_PIN_PRIMARY", quoteBuildConfigString(releaseCertificatePinPrimary))
         buildConfigField("String", "API_CERT_SHA256_PIN_BACKUP", quoteBuildConfigString(releaseCertificatePinBackup))

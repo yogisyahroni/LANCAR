@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import L from 'leaflet'
 import { api } from '../lib/api'
+import { GoogleMapCanvas, GoogleRuntimeUnavailable, isGoogleRuntimeReady, useMapsRuntimeConfig } from './GoogleMapsRuntime'
 
 // Fix for default marker icons in Leaflet + React
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -39,36 +40,63 @@ export default function LiveMap() {
     const firstPoint = courierPoints.find((point: any) => Number.isFinite(Number(point.lat)) && Number.isFinite(Number(point.lng)))
     return firstPoint ? [Number(firstPoint.lat), Number(firstPoint.lng)] : [-2.5489, 118.0149]
   }, [courierPoints])
+  const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('tracking')
+  const googleMarkers = useMemo(() => courierPoints
+    .map((point: any, index: number) => ({
+      id: `${point.id || index}`,
+      lat: Number(point.lat),
+      lng: Number(point.lng),
+      title: 'Lokasi kurir',
+      snippet: `Weight: ${Number(point.weight || 0).toFixed(1)}`
+    }))
+    .filter((point: any) => Number.isFinite(point.lat) && Number.isFinite(point.lng)), [courierPoints])
+  const shouldRenderGoogle = isGoogleRuntimeReady(mapsRuntimeConfig)
 
   return (
     <div className="h-full w-full rounded-2xl overflow-hidden relative border border-white/5 shadow-2xl">
-      <MapContainer 
-        center={center} 
-        zoom={13} 
-        scrollWheelZoom={false}
-        style={{ height: '100%', width: '100%', background: '#09090b' }}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      {shouldRenderGoogle ? (
+        <GoogleMapCanvas
+          apiKey={mapsRuntimeConfig?.google_maps?.browser_api_key || ''}
+          mapId={mapsRuntimeConfig?.google_maps?.map_id}
+          center={{ lat: center[0], lng: center[1] }}
+          zoom={13}
+          markers={googleMarkers}
         />
+      ) : (
+        <>
+          <MapContainer
+            center={center}
+            zoom={13}
+            scrollWheelZoom={false}
+            style={{ height: '100%', width: '100%', background: '#09090b' }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
 
-        {courierPoints.map((point: any, index: number) => {
-          const lat = Number(point.lat)
-          const lng = Number(point.lng)
-          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
-          return (
-            <Marker key={`${lat}:${lng}:${index}`} position={[lat, lng]} icon={courierIcon}>
-              <Popup>
-                <div className="text-zinc-900 font-sans">
-                  <p className="font-bold">Courier location</p>
-                  <p className="text-xs">Weight: {Number(point.weight || 0).toFixed(1)}</p>
-                </div>
-              </Popup>
-            </Marker>
-          )
-        })}
-      </MapContainer>
+            {courierPoints.map((point: any, index: number) => {
+              const lat = Number(point.lat)
+              const lng = Number(point.lng)
+              if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+              return (
+                <Marker key={`${lat}:${lng}:${index}`} position={[lat, lng]} icon={courierIcon}>
+                  <Popup>
+                    <div className="text-zinc-900 font-sans">
+                      <p className="font-bold">Courier location</p>
+                      <p className="text-xs">Weight: {Number(point.weight || 0).toFixed(1)}</p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )
+            })}
+          </MapContainer>
+
+          {mapsRuntimeConfig?.active_provider === 'google_maps' && (
+            <GoogleRuntimeUnavailable message="Google Maps aktif, tetapi browser key runtime belum tersedia. Admin memakai fallback map sementara." />
+          )}
+        </>
+      )}
 
       {!isLoading && !isError && courierPoints.length === 0 && (
         <div className="absolute inset-x-4 top-20 z-[1000] glass-card rounded-2xl border-white/10 p-4 text-sm text-zinc-300">

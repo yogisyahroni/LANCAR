@@ -1,3 +1,481 @@
+# TASK: Google Maps Demo API Key Enablement Plan
+
+Tanggal: 2026-06-03
+Area: Admin Maps Runtime, Backend Maps Gateway, Mobile Customer, Mobile Courier
+Status: P0 code wiring selesai untuk mobile/customer web/admin; Google native tile dan staging route masih blocked oleh billing/key restriction/staging env deploy
+Tujuan: membuat Google Maps demo berjalan untuk staging/demo tanpa melanggar standar keamanan API key, dan menyiapkan jalur production-grade setelah demo.
+
+## Prinsip Keamanan dan Standar Industri
+
+- API key demo dianggap sudah exposed karena terlihat di UI/screenshot/chat. Key ini hanya boleh dipakai untuk demo terbatas, bukan production.
+- Jangan commit API key ke Git, APK source, markdown task, log, issue, atau screenshot publik.
+- Jangan memakai satu API key untuk semua platform. Google merekomendasikan key terpisah per app/platform agar restriction, quota, audit, dan rotasi bisa dikontrol.
+- Native Android Maps SDK membutuhkan API key Android yang terpasang di APK dan dibatasi dengan package name + SHA-1 certificate fingerprint.
+- Server-side route/geocode/ETA wajib memakai key server-side yang tidak dikirim ke mobile/web.
+- Web/admin wajib memakai key web/referrer-restricted jika memakai Maps JavaScript API langsung.
+- Provider runtime dari admin boleh switch Google/OpenStreetMap/text-only tanpa rebuild app, tetapi perubahan native Android API key tetap membutuhkan build APK baru.
+- Untuk backend, target jangka panjang adalah secret/config runtime terenkripsi yang bisa divalidasi dan diaktifkan tanpa restart service. Env startup tetap boleh dipakai untuk bootstrap/fallback.
+
+Referensi:
+
+- Google Maps Platform security guidance: https://developers.google.com/maps/api-security-best-practices
+- Maps SDK for Android setup/API key: https://developers.google.com/maps/documentation/android-sdk/get-api-key
+- Google Cloud Secret Manager best practices: https://docs.cloud.google.com/secret-manager/docs/best-practices
+- Google Cloud Secret rotation recommendations: https://docs.cloud.google.com/secret-manager/docs/rotation-recommendations
+
+## Keputusan Arsitektur
+
+### Yang diterima
+
+- Gunakan API key demo hanya untuk membuktikan flow staging/demo.
+- Untuk demo Android, key harus di-authorize ke package dan SHA-1 debug/release yang dipakai APK.
+- Untuk demo backend route/geocode, pakai key server-side terpisah atau key demo sementara dengan quota ketat dan API restrictions yang sesuai.
+- Admin boleh menyediakan form "Maps Credential Test" untuk menguji key sebelum aktif.
+- Backend boleh membaca key aktif dari encrypted runtime config agar tidak perlu restart saat key server diganti.
+
+### Yang ditolak
+
+- Menaruh API key server di mobile app.
+- Mengirim API key Google dari admin/backend ke mobile app untuk dipakai native GoogleMap runtime.
+- Memakai satu unrestricted key untuk Android, web, dan server secara production.
+- Menganggap demo key aman hanya karena disebut demo.
+- Mengaktifkan Google provider saat test key gagal, karena itu akan menghasilkan blank map/fallback yang membingungkan.
+
+## P0 - Demo Google Maps Bisa Jalan Aman
+
+### [x] MAPS-DEMO-001: Inventaris package, SHA-1, dan surface yang memakai Google Maps
+
+Target:
+
+- Catat package mobile courier: `com.tembus.courier`.
+- Catat package mobile customer: `com.tembus.customer`.
+- Ambil SHA-1 debug dari `./gradlew signingReport` untuk courier dan customer.
+- Ambil SHA-1 release/staging signing key jika APK staging memakai signing berbeda.
+- Catat surface yang butuh native Google Maps: courier home/detail, customer booking/tracking.
+- Catat surface yang memakai server route/geocode: pricing, route preview, ETA, dispatch, tracking.
+
+Acceptance criteria:
+
+- Dokumen internal berisi package + SHA-1 debug/release untuk kedua app.
+- Tidak ada API key yang ditulis di dokumen.
+- Logcat blank map bisa dipetakan ke package/SHA-1 yang harus di-authorize.
+
+Verification:
+
+- `cd android-app && .\gradlew.bat :app:signingReport`
+- `cd android-app-customer && .\gradlew.bat :app:signingReport`
+- `adb logcat` tidak lagi menampilkan `Google Maps Android API Authorization failure` setelah key benar.
+
+Status 2026-06-03:
+
+- Selesai untuk debug/local evidence.
+- Evidence dicatat di `docs/google-maps-demo-readiness.md`.
+- Debug SHA-1 courier/customer: `8C:D0:8A:46:B2:A1:8C:DC:9A:E1:67:2D:A8:C6:A8:22:F6:25:46:33`.
+- Release/staging signing belum tersedia di Gradle lokal (`release Config: null`), sehingga SHA-1 release wajib diambil dari signing key staging/release yang benar.
+
+### [ ] MAPS-DEMO-002: Konfigurasi API key demo Android untuk courier/customer
+
+Target:
+
+- Aktifkan Maps SDK for Android di Google Cloud project demo.
+- Restrict key Android ke Android apps.
+- Tambahkan package + SHA-1 untuk:
+  - `com.tembus.courier`
+  - `com.tembus.customer`
+- API restrictions minimal: Maps SDK for Android.
+- Jika key demo Google-hosted tidak bisa diedit/restrict sesuai standar, buat key staging baru di project yang sama dan jangan pakai demo-hosted key untuk app.
+
+Acceptance criteria:
+
+- GoogleMap native render tile, marker, dan attribution tanpa blank beige map.
+- Key Android tidak bisa dipakai dari server/web.
+- Billing/quota demo dikunci sesuai kebutuhan demo.
+
+Verification:
+
+- Install APK debug/staging yang sudah membawa key Android valid.
+- Buka courier map dan customer tracking.
+- Logcat bersih dari `Authorization failure`.
+- Admin runtime scope `courier_mobile` dan `customer_mobile` tetap `google_maps`.
+
+Status 2026-06-03:
+
+- Belum selesai.
+- Current courier screen masih blank/neutral tile dengan Google attribution.
+- `gcloud services api-keys lookup` gagal `PERMISSION_DENIED` karena akun aktif tidak memiliki permission `apikeys.keys.lookup`.
+- Google Cloud owner perlu authorize package/SHA-1 Android atau memberi IAM permission yang diperlukan.
+
+Status 2026-06-04:
+
+- API `maps-android-backend.googleapis.com`, `routes.googleapis.com`, dan `geocoding-backend.googleapis.com` berhasil di-enable di project gcloud aktif.
+- Courier debug APK clean install, login seed staging, dan home map berhasil divalidasi di emulator.
+- Native GoogleMap masih tidak render tile jalan setelah lebih dari 30 detik; tidak ada crash dan tidak ada `Authorization failure` di logcat.
+- Direct Geocoding masih `REQUEST_DENIED` karena billing Google Cloud belum aktif.
+- Karena acceptance criteria menuntut Google tile render, item ini tetap belum selesai sampai billing/key restriction Android benar-benar sehat.
+
+### [ ] MAPS-DEMO-003: Konfigurasi server-side Google key untuk route/geocode/ETA
+
+Target:
+
+- Jangan gunakan Android-restricted key untuk backend.
+- Buat/pakai key server-side terpisah untuk staging/demo.
+- Enable API yang benar sesuai backend:
+  - Routes API jika memakai endpoint Routes.
+  - Directions API jika legacy fallback masih aktif.
+  - Geocoding API untuk address search/reverse geocode.
+- Restrict key dengan IP address backend/NAT staging jika memungkinkan.
+- API restrictions hanya untuk API server-side yang dipakai.
+- Set quota harian demo dan alert billing/quota.
+
+Acceptance criteria:
+
+- Endpoint route tidak lagi return `REQUEST_DENIED`.
+- Route response punya provider Google, distance/duration valid, dan polyline jika provider mendukung.
+- Key server tidak pernah dikirim ke mobile/web.
+
+Verification:
+
+- `GET /api/v1/maps/route?scope=courier_mobile&from_lat=...&from_lng=...&to_lat=...&to_lng=...&vehicle_type=motorcycle`
+- Expected: `requested_provider=google_maps`, `active_provider=google_maps`, `provider=google_maps` atau nama provider Google resmi, `has_polyline=true`, tanpa `fallback_reason=REQUEST_DENIED`.
+- Admin Maps Runtime tidak lagi menampilkan issue Google authorization.
+
+Status 2026-06-03:
+
+- Belum selesai untuk staging public API.
+- Direct Google Routes API test dengan demo key berhasil untuk `TWO_WHEELER` dan `DRIVE`, termasuk encoded polyline.
+- Direct Geocoding API gagal `REQUEST_DENIED` karena billing belum aktif.
+- Direct legacy Directions API gagal `REQUEST_DENIED` karena legacy API belum enabled.
+- Staging public route endpoint masih `provider=google_maps_fallback_haversine`, `fallback_reason=REQUEST_DENIED`, `has_polyline=false`.
+- Admin-service local tests untuk `mapsProviderConfig.test.ts` dan `npm run build` berhasil, jadi blocker kemungkinan berada di Google Cloud/staging env/deploy, bukan local source path Routes API.
+
+Status 2026-06-04:
+
+- Staging public route endpoint masih `provider=google_maps_fallback_haversine`, `fallback_reason=REQUEST_DENIED`, `has_polyline=false`.
+- Direct Geocoding tetap menolak request karena billing belum aktif.
+- P0 backend belum bisa ditandai selesai sampai staging memakai server-side key yang valid, billing aktif, dan route endpoint mengembalikan polyline Google tanpa fallback.
+
+### [ ] MAPS-DEMO-004: Build demo APK sekali dengan Android key valid
+
+Target:
+
+- Karena native Google Maps SDK membaca key dari manifest APK, courier/customer perlu build ulang sekali setelah key Android valid tersedia.
+- Key tetap disuplai via env/CI secret/local `.env`, bukan source code.
+- Pastikan APK yang dites memakai signing certificate yang sama dengan SHA-1 di Google Cloud.
+
+Acceptance criteria:
+
+- Courier APK dan Customer APK render Google Maps.
+- Blank map hilang.
+- Tidak ada hardcoded key di source.
+
+Verification:
+
+- `cd android-app && .\gradlew.bat :app:assembleDebug`
+- `cd android-app-customer && .\gradlew.bat :app:assembleDebug`
+- Install ke emulator/device.
+- Visual QA courier/customer map.
+- `rg -n "AIza" android-app android-app-customer backend admin-dashboard frontend` tidak menemukan key mentah.
+
+Status 2026-06-03:
+
+- Partial.
+- Courier debug APK build sukses.
+- Customer debug APK build sukses.
+- Generated manifest courier/customer sudah berisi Google Maps metadata dari env.
+- Customer APK install sukses.
+- Courier APK update gagal karena package yang sudah terpasang memakai signature berbeda: `INSTALL_FAILED_UPDATE_INCOMPATIBLE`.
+- Source scan menemukan hanya fixture palsu di `backend/admin-service/src/security/logRedaction.test.ts`; tidak ada key nyata di source/docs.
+
+Status 2026-06-04:
+
+- Courier debug clean install berhasil setelah uninstall package lama yang signed berbeda.
+- Login staging memakai akun seed on-demand berhasil tanpa OTP.
+- Build serial `.\gradlew.bat :app:assembleDebug --no-daemon` berhasil.
+- Unit test serial `.\gradlew.bat :app:testDebugUnitTest --no-daemon` berhasil.
+- Customer build serial `.\gradlew.bat :app:assembleDebug --no-daemon` berhasil.
+- Customer unit test serial `.\gradlew.bat :app:testDebugUnitTest --no-daemon` berhasil.
+- Gradle mobile sekarang membaca `GOOGLE_MAPS_ANDROID_API_KEY` terlebih dahulu, lalu fallback ke `GOOGLE_MAPS_API_KEY` untuk kompatibilitas lama.
+- Warning Gradle deprecation tidak berbahaya untuk P0, tetapi perlu masuk maintenance sebelum migrasi Gradle 9.
+- Build paralel sempat gagal `StreamCorruptedException: unexpected EOF in middle of data block` saat dua Gradle task berjalan bersamaan; retry serial sukses, jadi ini bukan regression kode.
+
+### [x] MAPS-DEMO-005: Mobile map tidak boleh blank saat Google native belum siap
+
+Target:
+
+- Jika runtime provider memilih Google Maps tetapi native GoogleMap tidak pernah `onMapLoaded`, app harus degrade gracefully.
+- Fallback visual memakai OpenStreetMap renderer yang sudah ada, bukan layar beige blank.
+- Fix renderer OSM agar tile memenuhi layar pada density Android normal.
+
+Acceptance criteria:
+
+- Courier home tidak lagi blank saat Google native gagal load.
+- UI tetap menampilkan map, marker, status duty, dan bottom sheet idle.
+- Tidak ada crash dan tidak ada secret/key di log.
+
+Verification:
+
+- `cd android-app && .\gradlew.bat :app:assembleDebug --no-daemon`
+- `cd android-app && .\gradlew.bat :app:testDebugUnitTest --no-daemon`
+- Install APK debug ke emulator, login seed courier, tunggu Google timeout.
+- Screenshot evidence: `android-app/build/google-maps-p0-qa/courier-debug-fallback-watchdog-fixed.png`.
+
+Status 2026-06-04:
+
+- Selesai.
+- `RuntimeMapRenderer` sekarang memakai watchdog `onMapLoaded` untuk Google Maps dan fallback ke OpenStreetMap jika Google tidak siap.
+- Kalkulasi tile OSM diperbaiki dari campuran pixel/dp sehingga map penuh layar.
+
+### [x] MAPS-DEMO-006: Customer web dan admin memakai Google Maps runtime saat provider Google aktif
+
+Target:
+
+- `/api/v1/maps/config` mengirim metadata Google browser runtime tanpa mengirim server key.
+- Customer web address mini-map render Google Maps JavaScript API saat `active_provider=google_maps` dan browser key tersedia.
+- Admin LiveMap, Zone viewer, dan Demand Density memakai Google Maps JavaScript API saat runtime Google siap.
+- OpenStreetMap hanya fallback saat browser key/billing/referrer belum siap atau saat fitur edit zona memakai editor Leaflet lama.
+
+Acceptance criteria:
+
+- Customer web tidak lagi menampilkan copy "Google Maps server-side" sebagai pengganti map visual.
+- Admin dashboard tidak tetap hardcoded OSM untuk surface utama saat provider Google siap.
+- Browser key berasal dari env public-restricted (`GOOGLE_MAPS_BROWSER_API_KEY`), bukan `GOOGLE_MAPS_API_KEY` server.
+- Tidak ada API key mentah di source, docs, atau task.
+
+Verification:
+
+- `cd backend/admin-service && npm run build`
+- `cd backend/admin-service && npm test -- src/services/mapsProviderConfig.test.ts`
+- `cd frontend && NEXT_PUBLIC_API_URL=https://api.bawain.my.id/api/v1 NEXT_PUBLIC_WS_URL=https://api.bawain.my.id NEXT_PUBLIC_SOCKET_URL=https://api.bawain.my.id npm run build`
+- `cd admin-dashboard && VITE_API_URL=https://api.bawain.my.id/api/v1 VITE_WS_URL=https://api.bawain.my.id VITE_SOCKET_URL=https://api.bawain.my.id npm run build`
+- `rg -n "AIza[0-9A-Za-z_-]{20,}" .env.example .env.production.example android-app android-app-customer frontend admin-dashboard backend docs task.md -S`
+
+Status 2026-06-04:
+
+- Selesai di source code.
+- Local `.env` sudah memiliki alias `GOOGLE_ROUTES_API_KEY`, `GOOGLE_MAPS_BROWSER_API_KEY`, dan `GOOGLE_MAPS_ANDROID_API_KEY` dari demo key tanpa mencetak secret ke log.
+- Staging masih perlu deploy env baru dan rebuild service/web container agar response `/maps/config` membawa `google_maps.browser_api_key`.
+- Production tetap wajib memisahkan key Android, browser, dan server dengan restriction masing-masing.
+
+## P1 - Runtime Credential Admin Tanpa Restart Backend
+
+### [ ] MAPS-RUNTIME-001: Tambahkan encrypted maps credential store
+
+Target:
+
+- Tambahkan tabel/config untuk menyimpan key server-side Google secara terenkripsi.
+- Jangan simpan plaintext di database.
+- Gunakan envelope encryption/KMS/Secret Manager jika tersedia.
+- Simpan metadata non-secret: provider, scope, key alias, enabled APIs, restriction type, created_by, created_at, last_validated_at, last_validation_status, last_error_code.
+
+Acceptance criteria:
+
+- Admin tidak pernah menerima kembali plaintext key setelah disimpan.
+- Audit log mencatat create/update/activate/deactivate tanpa membocorkan key.
+- Role admin dibatasi: hanya super admin/ops security yang bisa mengubah credential.
+
+Verification:
+
+- Migration up/down.
+- Unit test encryption/decryption.
+- API response admin mem-mask key.
+
+### [ ] MAPS-RUNTIME-002: Buat flow "Test Key Before Activate"
+
+Target:
+
+- Admin input key server-side.
+- Backend menjalankan test sebelum activation:
+  - Geocode sample Jakarta.
+  - Route sample pickup ke dropoff.
+  - Optional reverse geocode.
+  - Validasi status Google: OK vs REQUEST_DENIED / OVER_QUERY_LIMIT / billing disabled.
+- Key baru hanya bisa aktif jika semua test wajib lolos.
+- Jika gagal, simpan status gagal tanpa mengaktifkan provider.
+
+Acceptance criteria:
+
+- Tidak ada switch ke Google provider jika credential gagal.
+- Error admin jelas: API disabled, billing, restriction, quota, atau request denied.
+- Test tidak menulis key ke log.
+
+Verification:
+
+- Test dengan key valid.
+- Test dengan key invalid.
+- Test dengan key Android-restricted dipakai sebagai server key harus gagal.
+- Test dengan quota exceeded harus gagal dan tidak activate.
+
+### [ ] MAPS-RUNTIME-003: Buat dynamic server key resolver tanpa restart
+
+Target:
+
+- Backend maps gateway membaca active credential dari secure runtime store dengan cache TTL pendek.
+- Cache bisa di-invalidate saat admin activate/deactivate key.
+- Env key tetap boleh jadi bootstrap fallback, tetapi bukan satu-satunya sumber.
+- Jika runtime key gagal, fallback mengikuti maps runtime policy: OSM atau text-only, bukan crash.
+
+Acceptance criteria:
+
+- Ganti key server dari admin langsung memengaruhi route/geocode setelah cache invalidated.
+- Tidak perlu rebuild Docker image.
+- Tidak perlu restart backend.
+- Rollback ke previous valid key tersedia.
+
+Verification:
+
+- Activate key A, route sukses.
+- Activate key B, route memakai key B tanpa restart.
+- Disable key B, route kembali ke key A/OSM sesuai policy.
+- Observability mencatat key alias, bukan key value.
+
+## P2 - Production-Grade Google Maps Key Model
+
+### [ ] MAPS-PROD-001: Pisahkan key per platform dan environment
+
+Target:
+
+- `tembus-staging-android-courier-maps-key`
+- `tembus-staging-android-customer-maps-key`
+- `tembus-staging-server-maps-key`
+- `tembus-staging-web-maps-key`
+- Duplikat pattern untuk production.
+
+Acceptance criteria:
+
+- Tidak ada key lintas platform.
+- Production dan staging tidak berbagi key.
+- Setiap key punya application restrictions dan API restrictions.
+- Key lama demo dinonaktifkan setelah demo selesai.
+
+Verification:
+
+- Google Cloud credential inventory.
+- Admin readiness endpoint menampilkan status configured tanpa value secret.
+
+### [ ] MAPS-PROD-002: Quota, monitoring, alert, dan incident response
+
+Target:
+
+- Tambah quota harian dan per-minute untuk demo/staging.
+- Alert untuk:
+  - Authorization failure.
+  - Request denied.
+  - Quota near limit.
+  - Provider fallback high.
+  - Straight-line fallback high.
+  - Route latency high.
+- Runbook: jika Google gagal, switch admin ke OSM/text-only dan catat incident.
+
+Acceptance criteria:
+
+- Operator tahu apakah masalahnya key, quota, billing, API disabled, atau provider outage.
+- Emergency fallback tidak membutuhkan deploy.
+- Tidak ada biaya liar dari unrestricted key.
+
+Verification:
+
+- Simulasi key invalid.
+- Simulasi quota exceeded jika memungkinkan di staging.
+- Pastikan admin alert berubah sesuai error.
+
+### [ ] MAPS-PROD-003: Key rotation dan revocation policy
+
+Target:
+
+- Demo key direvoke setelah demo selesai.
+- Production key punya jadwal rotasi.
+- Server key bisa rotate via admin/secret manager tanpa downtime.
+- Android key rotation direncanakan lewat app release karena key APK tidak terganti sampai user update app.
+
+Acceptance criteria:
+
+- Ada runbook rotasi server key.
+- Ada runbook rotasi Android key.
+- Ada grace period untuk old key sampai app update tersebar.
+- Ada audit trail siapa yang rotate/activate/deactivate.
+
+Verification:
+
+- Dry-run rotation di staging.
+- Rollback key berhasil.
+- Key lama disabled setelah traffic pindah.
+
+## P3 - UX dan Fallback Saat Maps Bermasalah
+
+### [ ] MAPS-UX-001: Blank Google Map tidak boleh dibiarkan tanpa penjelasan
+
+Target:
+
+- App mendeteksi maps provider aktif tetapi tile/render gagal sejauh yang bisa dideteksi.
+- Jika GoogleMap blank karena authorization failure tidak bisa dideteksi langsung dari SDK, minimal backend/admin health menurunkan provider ke OSM/text-only atau app menampilkan fallback bila route/provider health critical.
+
+Acceptance criteria:
+
+- Kurir/customer tidak melihat layar beige kosong tanpa konteks operasional.
+- Ada copy tenang: `Peta sedang dipulihkan. Alamat dan navigasi tetap tersedia.`
+- Tombol fallback `Buka Maps` atau alamat tetap tersedia.
+
+Verification:
+
+- Key invalid di staging.
+- App tetap usable untuk order/navigasi text fallback.
+
+### [ ] MAPS-UX-002: Admin Maps Runtime menampilkan readiness yang actionable
+
+Target:
+
+- Admin tidak hanya menampilkan `Critical`, tetapi memberi langkah:
+  - Android key unauthorized.
+  - Server route key denied.
+  - API belum enabled.
+  - Billing/quota bermasalah.
+  - SHA/package mismatch.
+- Jangan tampilkan key value.
+
+Acceptance criteria:
+
+- Operator bisa tahu masalah dan tindakan berikutnya dari dashboard.
+- Status per scope: customer mobile, courier mobile, web, server route.
+
+Verification:
+
+- Inject error test.
+- Screenshot admin status.
+
+## Urutan Eksekusi Demo
+
+1. Ambil SHA-1 debug courier/customer.
+2. Restrict/authorize Android demo key untuk package + SHA-1.
+3. Enable Maps SDK for Android.
+4. Siapkan server key terpisah untuk route/geocode.
+5. Test route endpoint sampai tidak `REQUEST_DENIED`.
+6. Build/install APK demo sekali dengan Android key valid.
+7. Switch admin scope ke Google Maps.
+8. QA courier/customer map render.
+9. QA route/ETA/polyline.
+10. Catat demo key sebagai temporary dan jadwalkan revoke/replace.
+
+## Definition of Done
+
+- Courier map Google render tanpa blank.
+- Customer map Google render tanpa blank.
+- Route endpoint Google tidak `REQUEST_DENIED`.
+- Server key tidak berada di mobile APK.
+- Android key tidak bisa dipakai server/web.
+- Admin bisa melihat provider health dan fallback reason.
+- Tidak ada key mentah di Git/source/task docs.
+- Demo key punya quota/restriction dan rencana revoke.
+- Production plan memakai key terpisah per platform/environment.
+
+## Catatan Risiko
+
+- Jika tetap memakai satu demo key untuk Android + backend + web, itu hanya boleh untuk demo lokal sangat singkat dengan quota ketat, lalu segera revoke. Itu bukan standar industri dan tidak boleh dipromosikan ke staging bersama apalagi production.
+- Jika Google-hosted demo key tidak mengizinkan restriction package/SHA-1, maka key tersebut tidak cocok untuk validasi mobile enterprise. Buat staging key resmi yang restricted.
+- Jika app yang terinstall masih APK lama tanpa key/restriction benar, admin runtime sudah Google tetapi map tetap blank. Ini expected karena native SDK membutuhkan key valid di APK.
+- Jika backend masih hanya membaca `process.env`, perubahan key server butuh restart service. Runtime credential store P1 diperlukan agar benar-benar bisa tanpa restart.
+
+---
+
 # TASK: Perbaikan Flow Mobile Apps Kurir
 
 Tanggal audit: 2026-06-02

@@ -542,7 +542,7 @@ export default function Settings() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       {[
                         { id: 'openstreetmap', label: 'OpenStreetMap', hint: 'No API key required; safe fallback for staging.' },
-                        { id: 'google_maps', label: 'Google Maps', hint: 'Uses server-side key; never exposed to mobile clients.' },
+                        { id: 'google_maps', label: 'Google Maps', hint: 'Uses restricted server, Android, and browser keys per surface.' },
                         { id: 'disabled', label: 'Text Only', hint: 'No tiles. Coordinates, ETA fallback, and status still work.' },
                       ].map((provider) => {
                         const active = mapsProviderConfig?.value?.active_provider === provider.id
