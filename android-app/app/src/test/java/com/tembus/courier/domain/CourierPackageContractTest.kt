@@ -1,6 +1,7 @@
 package com.tembus.courier.domain
 
 import com.tembus.courier.data.db.Converters
+import com.tembus.courier.data.db.OrderDatabase
 import com.tembus.courier.data.model.CourierOrderPackage
 import com.tembus.courier.data.model.Order
 import org.junit.Assert.assertEquals
@@ -103,5 +104,16 @@ class CourierPackageContractTest {
         assertEquals("PKG-002", decoded[1].displayCode())
         assertEquals("medium", decoded[1].sizeTier)
         assertFalse(decoded[1].pickupScanDone())
+    }
+
+    @Test
+    fun `database migration registry covers legacy direct upgrade paths to version 13`() {
+        val paths = OrderDatabase.ALL_MIGRATIONS.map { it.startVersion to it.endVersion }.toSet()
+
+        assertTrue(paths.contains(10 to 11))
+        assertTrue(paths.contains(11 to 12))
+        assertTrue(paths.contains(12 to 13))
+        assertTrue(paths.contains(10 to 13))
+        assertTrue(paths.contains(11 to 13))
     }
 }

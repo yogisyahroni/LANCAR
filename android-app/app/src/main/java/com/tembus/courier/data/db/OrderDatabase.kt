@@ -32,6 +32,39 @@ abstract class OrderDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: OrderDatabase? = null
 
+        private fun addOrderColumnIfMissing(db: SupportSQLiteDatabase, columnName: String, alterSql: String) {
+            var exists = false
+            db.query("PRAGMA table_info(`orders`)").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                while (cursor.moveToNext() && !exists) {
+                    exists = cursor.getString(nameIndex) == columnName
+                }
+            }
+            if (!exists) {
+                db.execSQL(alterSql)
+            }
+        }
+
+        private fun addVersion11Columns(db: SupportSQLiteDatabase) {
+            addOrderColumnIfMissing(db, "pod_proof_type", "ALTER TABLE `orders` ADD COLUMN `pod_proof_type` TEXT")
+            addOrderColumnIfMissing(db, "proof_synced_at", "ALTER TABLE `orders` ADD COLUMN `proof_synced_at` INTEGER")
+            addOrderColumnIfMissing(db, "pickup_evidence_updated_at", "ALTER TABLE `orders` ADD COLUMN `pickup_evidence_updated_at` INTEGER")
+        }
+
+        private fun addVersion12Columns(db: SupportSQLiteDatabase) {
+            addOrderColumnIfMissing(db, "package_count", "ALTER TABLE `orders` ADD COLUMN `package_count` INTEGER NOT NULL DEFAULT 1")
+            addOrderColumnIfMissing(db, "service_max_packages_per_order", "ALTER TABLE `orders` ADD COLUMN `service_max_packages_per_order` INTEGER NOT NULL DEFAULT 1")
+            addOrderColumnIfMissing(db, "service_max_active_orders_on_demand", "ALTER TABLE `orders` ADD COLUMN `service_max_active_orders_on_demand` INTEGER NOT NULL DEFAULT 1")
+            addOrderColumnIfMissing(db, "service_face_verification_required", "ALTER TABLE `orders` ADD COLUMN `service_face_verification_required` INTEGER NOT NULL DEFAULT 1")
+            addOrderColumnIfMissing(db, "service_proof_geofence_radius_m", "ALTER TABLE `orders` ADD COLUMN `service_proof_geofence_radius_m` INTEGER NOT NULL DEFAULT 10")
+            addOrderColumnIfMissing(db, "service_failed_delivery_policy", "ALTER TABLE `orders` ADD COLUMN `service_failed_delivery_policy` TEXT NOT NULL DEFAULT 'must_deliver'")
+        }
+
+        private fun addVersion13Columns(db: SupportSQLiteDatabase) {
+            addOrderColumnIfMissing(db, "packages", "ALTER TABLE `orders` ADD COLUMN `packages` TEXT NOT NULL DEFAULT '[]'")
+            addOrderColumnIfMissing(db, "service_proof_min_accuracy_m", "ALTER TABLE `orders` ADD COLUMN `service_proof_min_accuracy_m` INTEGER NOT NULL DEFAULT 50")
+        }
+
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_orders_order_id` ON `orders` (`order_id`)")
@@ -105,29 +138,52 @@ abstract class OrderDatabase : RoomDatabase() {
 
         val MIGRATION_10_11 = object : Migration(10, 11) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE `orders` ADD COLUMN `pod_proof_type` TEXT")
-                db.execSQL("ALTER TABLE `orders` ADD COLUMN `proof_synced_at` INTEGER")
-                db.execSQL("ALTER TABLE `orders` ADD COLUMN `pickup_evidence_updated_at` INTEGER")
+                addVersion11Columns(db)
             }
         }
 
         val MIGRATION_11_12 = object : Migration(11, 12) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE `orders` ADD COLUMN `package_count` INTEGER NOT NULL DEFAULT 1")
-                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_max_packages_per_order` INTEGER NOT NULL DEFAULT 1")
-                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_max_active_orders_on_demand` INTEGER NOT NULL DEFAULT 1")
-                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_face_verification_required` INTEGER NOT NULL DEFAULT 1")
-                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_proof_geofence_radius_m` INTEGER NOT NULL DEFAULT 10")
-                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_failed_delivery_policy` TEXT NOT NULL DEFAULT 'must_deliver'")
+                addVersion12Columns(db)
             }
         }
 
         val MIGRATION_12_13 = object : Migration(12, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE `orders` ADD COLUMN `packages` TEXT NOT NULL DEFAULT '[]'")
-                db.execSQL("ALTER TABLE `orders` ADD COLUMN `service_proof_min_accuracy_m` INTEGER NOT NULL DEFAULT 50")
+                addVersion13Columns(db)
             }
         }
+
+        val MIGRATION_10_13 = object : Migration(10, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addVersion11Columns(db)
+                addVersion12Columns(db)
+                addVersion13Columns(db)
+            }
+        }
+
+        val MIGRATION_11_13 = object : Migration(11, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addVersion12Columns(db)
+                addVersion13Columns(db)
+            }
+        }
+
+        val ALL_MIGRATIONS = arrayOf(
+            MIGRATION_2_3,
+            MIGRATION_3_4,
+            MIGRATION_4_5,
+            MIGRATION_5_6,
+            MIGRATION_6_7,
+            MIGRATION_7_8,
+            MIGRATION_8_9,
+            MIGRATION_9_10,
+            MIGRATION_10_11,
+            MIGRATION_11_12,
+            MIGRATION_12_13,
+            MIGRATION_10_13,
+            MIGRATION_11_13
+        )
 
         fun getDatabase(context: Context): OrderDatabase {
             return INSTANCE ?: synchronized(this) {
@@ -145,7 +201,7 @@ abstract class OrderDatabase : RoomDatabase() {
                     "order_database"
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                    .addMigrations(*ALL_MIGRATIONS)
                     .build()
                 INSTANCE = instance
                 instance
