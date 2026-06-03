@@ -1,7 +1,10 @@
 package com.tembus.courier.util
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -118,17 +121,7 @@ class UpdateManager @Inject constructor(
                     tempFile.delete()
                 }
 
-                val apkUri = FileProvider.getUriForFile(
-                    context,
-                    "${context.packageName}.updateprovider",
-                    targetFile
-                )
-                val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(apkUri, APK_MIME_TYPE)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(installIntent)
+                openApkInstaller(targetFile)
             }
         }
     }
@@ -138,16 +131,28 @@ class UpdateManager @Inject constructor(
             context.packageManager.canRequestPackageInstalls()
     }
 
-    fun openInstallPermissionSettings(targetContext: Context = context) {
-        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                data = Uri.parse("package:${targetContext.packageName}")
+    fun openInstallPermissionSettings(targetContext: Context = context): Result<Unit> {
+        val intents = buildList {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                add(
+                    Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                        data = Uri.parse("package:${targetContext.packageName}")
+                    }
+                )
             }
-        } else {
-            Intent(Settings.ACTION_SECURITY_SETTINGS)
+            add(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:${targetContext.packageName}")
+                }
+            )
+            add(Intent(Settings.ACTION_SECURITY_SETTINGS))
         }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        targetContext.startActivity(intent)
+
+        return openFirstAvailableActivity(
+            targetContext = targetContext,
+            intents = intents,
+            errorMessage = "Halaman izin install tidak bisa dibuka di perangkat ini."
+        )
     }
 
     fun getCurrentVersionName(): String = BuildConfig.VERSION_NAME
@@ -230,11 +235,60 @@ class UpdateManager @Inject constructor(
         }
     }
 
-    private fun openExternalUpdatePage(url: String) {
+    private suspend fun openExternalUpdatePage(url: String) {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        context.startActivity(intent)
+        startActivitySafely(
+            intent = intent,
+            errorMessage = "Halaman update tidak bisa dibuka di perangkat ini."
+        )
+    }
+
+    private suspend fun openApkInstaller(apkFile: File) {
+        val apkUri = FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.updateprovider",
+            apkFile
+        )
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, APK_MIME_TYPE)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivitySafely(
+            intent = installIntent,
+            errorMessage = "Installer Android tidak bisa dibuka di perangkat ini."
+        )
+    }
+
+    private suspend fun startActivitySafely(intent: Intent, errorMessage: String) {
+        withContext(Dispatchers.Main) {
+            try {
+                context.startActivity(intent)
+            } catch (error: ActivityNotFoundException) {
+                throw IOException(errorMessage, error)
+            } catch (error: SecurityException) {
+                throw IOException(errorMessage, error)
+            }
+        }
+    }
+
+    private fun openFirstAvailableActivity(
+        targetContext: Context,
+        intents: List<Intent>,
+        errorMessage: String
+    ): Result<Unit> {
+        var lastError: Throwable? = null
+        intents.forEach { intent ->
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val result = runCatching { targetContext.startActivity(intent) }
+            if (result.isSuccess) {
+                return Result.success(Unit)
+            }
+            lastError = result.exceptionOrNull()
+        }
+        return Result.failure(IOException(errorMessage, lastError))
     }
 
     private fun GitHubReleaseAsset.sha256Digest(): String? {
@@ -260,12 +314,14 @@ class UpdateManager @Inject constructor(
     }
 
     private fun validateDownloadedApk(file: File, expectedVersionCode: Int) {
-        val packageInfo = context.packageManager.getPackageArchiveInfo(file.absolutePath, 0)
+        val packageInfo = getArchivePackageInfo(file)
             ?: throw IOException("File update tidak bisa dibaca sebagai APK.")
 
         if (packageInfo.packageName != context.packageName) {
             throw SecurityException("Paket update bukan untuk aplikasi ini.")
         }
+
+        validateDownloadedApkSignature(packageInfo)
 
         val downloadedVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             packageInfo.longVersionCode
@@ -283,6 +339,69 @@ class UpdateManager @Inject constructor(
         }
     }
 
+    private fun getArchivePackageInfo(file: File): PackageInfo? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            context.packageManager.getPackageArchiveInfo(
+                file.absolutePath,
+                PackageManager.GET_SIGNING_CERTIFICATES
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageArchiveInfo(
+                file.absolutePath,
+                PackageManager.GET_SIGNATURES
+            )
+        }
+    }
+
+    private fun validateDownloadedApkSignature(downloadedPackageInfo: PackageInfo) {
+        val installedPackageInfo = getInstalledPackageInfo()
+        val installedSignatures = signingCertificateSha256Digests(installedPackageInfo)
+        val downloadedSignatures = signingCertificateSha256Digests(downloadedPackageInfo)
+
+        if (installedSignatures.isEmpty() || downloadedSignatures.isEmpty()) {
+            throw SecurityException("Tanda tangan APK update tidak bisa diverifikasi.")
+        }
+
+        if (installedSignatures.intersect(downloadedSignatures).isEmpty()) {
+            throw SecurityException(
+                "Tanda tangan APK update berbeda dari aplikasi yang terpasang. " +
+                    "Gunakan APK release dengan signing key yang sama."
+            )
+        }
+    }
+
+    private fun getInstalledPackageInfo(): PackageInfo {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.GET_SIGNING_CERTIFICATES
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                PackageManager.GET_SIGNATURES
+            )
+        }
+    }
+
+    private fun signingCertificateSha256Digests(packageInfo: PackageInfo): Set<String> {
+        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val signingInfo = packageInfo.signingInfo ?: return emptySet()
+            if (signingInfo.hasMultipleSigners()) {
+                signingInfo.apkContentsSigners
+            } else {
+                signingInfo.signingCertificateHistory
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            packageInfo.signatures
+        } ?: return emptySet()
+
+        return signatures.map { signature -> sha256(signature.toByteArray()) }.toSet()
+    }
+
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
@@ -294,6 +413,12 @@ class UpdateManager @Inject constructor(
             }
         }
         return digest.digest().joinToString(separator = "") { byte -> "%02x".format(byte) }
+    }
+
+    private fun sha256(bytes: ByteArray): String {
+        return MessageDigest.getInstance("SHA-256")
+            .digest(bytes)
+            .joinToString(separator = "") { byte -> "%02x".format(byte) }
     }
 
     @Serializable

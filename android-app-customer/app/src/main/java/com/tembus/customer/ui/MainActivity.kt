@@ -94,6 +94,10 @@ class MainActivity : FragmentActivity() {
                                                 if (error is UpdateManager.InstallPermissionRequiredException) {
                                                     updateError = "Aktifkan izin instalasi update untuk TEMBUS, lalu tekan Update sekarang lagi."
                                                     updateManager.openInstallPermissionSettings(this@MainActivity)
+                                                        .onFailure { permissionError ->
+                                                            updateError = permissionError.message
+                                                                ?: "Halaman izin install tidak bisa dibuka."
+                                                        }
                                                 } else {
                                                     updateError = error.message ?: "Gagal menyiapkan update."
                                                 }
