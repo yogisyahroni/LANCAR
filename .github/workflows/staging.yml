@@ -365,6 +365,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker
 
       - name: Build local image for audit
         uses: docker/build-push-action@v5
@@ -380,8 +382,6 @@ jobs:
             VITE_API_URL=${{ env.STAGING_ADMIN_API_URL }}
             VITE_WS_URL=${{ env.STAGING_ADMIN_WS_URL }}
             VITE_SOCKET_URL=${{ env.STAGING_ADMIN_SOCKET_URL }}
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
       - name: Generate CycloneDX SBOM
         uses: aquasecurity/trivy-action@0.35.0
