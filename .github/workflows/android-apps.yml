@@ -347,10 +347,23 @@ jobs:
       # 3. Build Artifacts with Auto-Versioning
       - name: Build Debug APK
         run: |
-          ./gradlew assembleDebug \
+          ./gradlew clean assembleDebug \
+            --stacktrace \
+            --warning-mode all \
+            --no-build-cache \
             -PversionCode=${{ github.run_number }} \
             -PversionName="1.0.${{ github.run_number }}-staging"
         working-directory: ./${{ matrix.working_dir }}
+
+      - name: Upload Android build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-diagnostics-${{ matrix.app_slug }}
+          path: |
+            ${{ matrix.working_dir }}/build/reports/problems/
+            ${{ matrix.working_dir }}/app/build/reports/
+          if-no-files-found: ignore
 
       - name: Build Signed Release APK
         if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
