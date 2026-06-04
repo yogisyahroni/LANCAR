@@ -611,10 +611,13 @@ type OpenStreetMapRouteEngine = {
 
 type TomTomTravelMode = 'car' | 'motorcycle';
 type TomTomRoutingPreference = 'traffic_aware' | 'traffic_aware_optimal';
+type TomTomAvoidType = 'tollRoads';
 
 type TomTomRoutePolicy = {
   travelMode: TomTomTravelMode;
   routingPreference: TomTomRoutingPreference;
+  avoidTypes: TomTomAvoidType[];
+  disallowTollSections: boolean;
   provider: string;
   fallbackReason: string | null;
 };
@@ -753,15 +756,19 @@ const resolveOpenStreetMapRouteEngine = (context: ReturnType<typeof routeContext
 
 const resolveTomTomRoutePolicy = (context: ReturnType<typeof routeContext>, overrideTravelMode?: TomTomTravelMode): TomTomRoutePolicy => {
   const serviceCode = String(context.service_code || '').toUpperCase();
+  const isMotorcycleContext = context.route_profile === 'motorcycle' || context.vehicle_type === 'motorcycle';
   const trafficPreference: TomTomRoutingPreference =
     serviceCode.includes('PRIORITAS') || serviceCode.includes('PRIORITY') || serviceCode.includes('INSTANT')
       ? 'traffic_aware_optimal'
       : 'traffic_aware';
+  const motorcycleAvoidTypes: TomTomAvoidType[] = isMotorcycleContext ? ['tollRoads'] : [];
 
   if (overrideTravelMode) {
     return {
       travelMode: overrideTravelMode,
       routingPreference: trafficPreference,
+      avoidTypes: motorcycleAvoidTypes,
+      disallowTollSections: isMotorcycleContext,
       provider: `tomtom_routing_${overrideTravelMode.toLowerCase()}_${trafficPreference.toLowerCase()}`,
       fallbackReason: overrideTravelMode === 'car' && context.route_profile === 'motorcycle'
         ? 'tomtom_motorcycle_unavailable_defaulted_to_car'
@@ -773,6 +780,8 @@ const resolveTomTomRoutePolicy = (context: ReturnType<typeof routeContext>, over
     return {
       travelMode: 'motorcycle',
       routingPreference: trafficPreference,
+      avoidTypes: motorcycleAvoidTypes,
+      disallowTollSections: true,
       provider: `tomtom_routing_two_wheeler_${trafficPreference.toLowerCase()}`,
       fallbackReason: null,
     };
@@ -782,6 +791,8 @@ const resolveTomTomRoutePolicy = (context: ReturnType<typeof routeContext>, over
     return {
       travelMode: 'car',
       routingPreference: trafficPreference,
+      avoidTypes: [],
+      disallowTollSections: false,
       provider: `tomtom_routing_drive_${trafficPreference.toLowerCase()}`,
       fallbackReason: null,
     };
@@ -790,6 +801,8 @@ const resolveTomTomRoutePolicy = (context: ReturnType<typeof routeContext>, over
   return {
     travelMode: 'car',
     routingPreference: trafficPreference,
+    avoidTypes: [],
+    disallowTollSections: false,
     provider: `tomtom_routing_drive_${trafficPreference.toLowerCase()}_fallback`,
     fallbackReason: 'tomtom_route_profile_unknown_defaulted_to_drive',
   };
@@ -810,6 +823,7 @@ const TomTomRoutesErrorCode = (error: any): string => (
 
 const shouldRetryTomTomTwoWheelerAsDrive = (policy: TomTomRoutePolicy, error: any): boolean => {
   if (policy.travelMode !== 'motorcycle') return false;
+  if (TomTomRoutesErrorCode(error) === 'TOMTOM_ROUTING_TOLL_SECTION_FORBIDDEN') return false;
   const message = JSON.stringify(error?.response?.data || error?.message || '').toUpperCase();
   return ['TWO_WHEELER', 'MOTORCYCLE', 'INVALID_ARGUMENT', 'FAILED_PRECONDITION', 'UNIMPLEMENTED', 'NOT_FOUND'].some((marker) => message.includes(marker));
 };
@@ -1364,6 +1378,23 @@ const TomTomLegacyDirectionsMode = (policy: TomTomRoutePolicy) => (
   policy.travelMode === 'motorcycle' ? 'motorcycle' : 'car'
 );
 
+const TomTomPolicyCacheKey = (policy: TomTomRoutePolicy) => [
+  policy.provider,
+  policy.travelMode,
+  policy.routingPreference,
+  policy.avoidTypes.join(',') || 'none',
+  policy.disallowTollSections ? 'no_toll_sections' : 'toll_sections_allowed',
+].join('|');
+
+const routeContainsForbiddenTollSection = (route: any, policy: TomTomRoutePolicy): boolean => {
+  if (!policy.disallowTollSections) return false;
+  const sections = Array.isArray(route?.sections) ? route.sections : [];
+  return sections.some((section: any) => {
+    const sectionType = String(section?.sectionType || section?.type || '').toUpperCase();
+    return sectionType.includes('TOLL');
+  });
+};
+
 const encodePolyline = (points: MapPoint[]): string => {
   let previousLatitude = 0;
   let previousLongitude = 0;
@@ -1406,6 +1437,8 @@ const routeFromTomTomRoutesApi = async (
       key: apiKey,
       traffic: true,
       travelMode: policy.travelMode,
+      ...(policy.avoidTypes.length > 0 ? { avoid: policy.avoidTypes.join(',') } : {}),
+      ...(policy.disallowTollSections ? { sectionType: 'toll' } : {}),
       routeRepresentation: 'polyline',
       computeTravelTimeFor: 'all',
       instructionsType: 'text',
@@ -1414,6 +1447,9 @@ const routeFromTomTomRoutesApi = async (
     timeout: TomTomRoutesTimeoutMs(),
   });
   const route = response.data?.routes?.[0];
+  if (routeContainsForbiddenTollSection(route, policy)) {
+    throw new Error('TOMTOM_ROUTING_TOLL_SECTION_FORBIDDEN');
+  }
   const distanceMeters = Number(route?.summary?.lengthInMeters);
   const durationSeconds = Number(
     route?.summary?.trafficDelayInSeconds
@@ -1486,7 +1522,7 @@ const buildTomTomRoute = async (
   }
 
   const initialPolicy = resolveTomTomRoutePolicy(context);
-  const cacheKey = routeCacheKey(`${initialPolicy.provider}:${credential.cacheKey}`, from, to, context);
+  const cacheKey = routeCacheKey(`${TomTomPolicyCacheKey(initialPolicy)}:${credential.cacheKey}`, from, to, context);
   const cached = await getCachedRoute(cacheKey);
   if (cached) {
     return { ...cached, provider: `${cached.provider || initialPolicy.provider}_cache`, credential_alias: credential.keyAlias } as any;

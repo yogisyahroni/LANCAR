@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Clock, Package, MapPin, Route, ShieldCheck, Truck, Zap } from "lucide-react";
+import { api } from "@/lib/api";
 import { customerApiUrl } from "@/lib/runtimeConfig";
 
 interface RouteSnapshot {
@@ -19,6 +21,17 @@ interface RouteSnapshot {
 }
 
 type RoutePoint = { lat: number; lng: number };
+type RouteTileProvider = "tomtom" | "openstreetmap" | "none";
+
+interface PublicMapsRuntimeConfig {
+  active_provider?: string;
+  requested_provider?: string;
+  tomtom_maps?: {
+    browser_api_key?: string | null;
+    browser_key_configured?: boolean;
+    sdk_enabled?: boolean;
+  };
+}
 
 interface OrderSummaryProps {
   isLoading: boolean;
@@ -54,6 +67,42 @@ const modelLabel: Record<string, string> = {
 };
 
 const apiBaseUrl = customerApiUrl;
+
+const buildRouteTileUrl = (
+  provider: RouteTileProvider,
+  zoom: number,
+  x: number,
+  y: number,
+  tomTomApiKey?: string | null
+) => {
+  if (provider === "tomtom" && tomTomApiKey) {
+    const key = encodeURIComponent(tomTomApiKey);
+    return `https://api.tomtom.com/map/1/tile/basic/main/${zoom}/${x}/${y}.png?key=${key}&tileSize=256&language=id-ID`;
+  }
+  return `${apiBaseUrl}/maps/tiles/${zoom}/${x}/${y}.png`;
+};
+
+const resolveRouteTileProvider = (
+  routeSnapshot: RouteSnapshot | null,
+  mapsRuntimeConfig: PublicMapsRuntimeConfig | null
+): { provider: RouteTileProvider; tomTomApiKey: string | null } => {
+  const routeProvider = `${routeSnapshot?.active_provider || routeSnapshot?.provider || ""}`.toLowerCase();
+  const activeProvider = `${mapsRuntimeConfig?.active_provider || ""}`.toLowerCase();
+  const shouldPreferTomTom = routeProvider.includes("tomtom") || activeProvider === "tomtom_maps";
+  const tomTomApiKey = mapsRuntimeConfig?.tomtom_maps?.browser_api_key?.trim() || null;
+
+  if (shouldPreferTomTom) {
+    return {
+      provider: tomTomApiKey ? "tomtom" : "none",
+      tomTomApiKey
+    };
+  }
+
+  return {
+    provider: "openstreetmap",
+    tomTomApiKey: null
+  };
+};
 
 function decodePolyline(encoded?: string): RoutePoint[] {
   if (!encoded) return [];
@@ -177,14 +226,17 @@ function buildRouteMap(points: RoutePoint[]) {
 function RoadRoutePreview({
   routeSnapshot,
   isRouteLoading,
-  routeError
+  routeError,
+  mapsRuntimeConfig
 }: {
   routeSnapshot: RouteSnapshot | null;
   isRouteLoading?: boolean;
   routeError?: string | null;
+  mapsRuntimeConfig: PublicMapsRuntimeConfig | null;
 }) {
   const decodedPoints = decodePolyline(routeSnapshot?.route_polyline);
   const routeMap = buildRouteMap(decodedPoints);
+  const tileSource = resolveRouteTileProvider(routeSnapshot, mapsRuntimeConfig);
 
   if (isRouteLoading) {
     return (
@@ -215,22 +267,32 @@ function RoadRoutePreview({
           transform: "translate(-50%, -50%)"
         }}
       >
-        {routeMap.tiles.map((tile) => (
-          <img
-            key={tile.key}
-            alt=""
-            aria-hidden="true"
-            src={`${apiBaseUrl}/maps/tiles/${routeMap.zoom}/${tile.x}/${tile.y}.png`}
-            className="absolute max-w-none select-none"
-            draggable={false}
+        {tileSource.provider === "none" ? (
+          <div
+            className="absolute inset-0 bg-[#0f1a16]"
             style={{
-              left: tile.left,
-              top: tile.top,
-              width: routeCanvas.tileSize,
-              height: routeCanvas.tileSize
+              backgroundImage: "linear-gradient(rgba(16, 185, 129, 0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(16, 185, 129, 0.12) 1px, transparent 1px)",
+              backgroundSize: "24px 24px"
             }}
           />
-        ))}
+        ) : (
+          routeMap.tiles.map((tile) => (
+            <img
+              key={tile.key}
+              alt=""
+              aria-hidden="true"
+              src={buildRouteTileUrl(tileSource.provider, routeMap.zoom, tile.x, tile.y, tileSource.tomTomApiKey)}
+              className="absolute max-w-none select-none"
+              draggable={false}
+              style={{
+                left: tile.left,
+                top: tile.top,
+                width: routeCanvas.tileSize,
+                height: routeCanvas.tileSize
+              }}
+            />
+          ))
+        )}
         <div className="absolute inset-0 bg-black/20" />
         <svg
           viewBox={`0 0 ${routeCanvas.width} ${routeCanvas.height}`}
@@ -257,15 +319,22 @@ function RoadRoutePreview({
           <circle cx={routeMap.start.x} cy={routeMap.start.y} r="7" fill="#10b981" stroke="#ecfdf5" strokeWidth="3" />
           <circle cx={routeMap.end.x} cy={routeMap.end.y} r="7" fill="#f97316" stroke="#fff7ed" strokeWidth="3" />
         </svg>
-        <div className="absolute bottom-1 left-2 rounded bg-white/75 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
-          © OpenStreetMap contributors
-        </div>
+        {tileSource.provider === "none" ? (
+          <div className="absolute bottom-1 left-2 rounded bg-emerald-950/75 px-1.5 py-0.5 text-[10px] font-medium text-emerald-50">
+            Peta sedang disiapkan
+          </div>
+        ) : (
+          <div className="absolute bottom-1 left-2 rounded bg-white/75 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
+            {tileSource.provider === "tomtom" ? "© TomTom" : "© OpenStreetMap contributors"}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 export function OrderSummary({ isLoading, isRouteLoading, routePreview, routeError, pricing, isValid }: OrderSummaryProps) {
+  const [mapsRuntimeConfig, setMapsRuntimeConfig] = useState<PublicMapsRuntimeConfig | null>(null);
   const surgeAmount = pricing?.dynamic_price_idr || 0;
   const routeSnapshot = pricing?.route_snapshot || routePreview || null;
   const routeDistanceKm =
@@ -279,6 +348,26 @@ export function OrderSummary({ isLoading, isRouteLoading, routePreview, routeErr
   const routeProvider = routeSnapshot?.active_provider || routeSnapshot?.provider || "runtime";
   const hasRouteGeometry = Boolean(routeSnapshot?.route_polyline);
   const hasRouteEstimate = Boolean(routeSnapshot || pricing);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    api.get("/maps/config", { params: { scope: "web_customer" } })
+      .then((response) => {
+        if (isMounted) {
+          setMapsRuntimeConfig(response.data || null);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setMapsRuntimeConfig(null);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="sticky top-8 rounded-2xl border border-white/10 bg-background/50 p-6 shadow-xl backdrop-blur-md">
@@ -400,7 +489,12 @@ export function OrderSummary({ isLoading, isRouteLoading, routePreview, routeErr
               {routeProvider}
             </span>
           </div>
-          <RoadRoutePreview routeSnapshot={routeSnapshot} isRouteLoading={isRouteLoading} routeError={routeError} />
+          <RoadRoutePreview
+            routeSnapshot={routeSnapshot}
+            isRouteLoading={isRouteLoading}
+            routeError={routeError}
+            mapsRuntimeConfig={mapsRuntimeConfig}
+          />
           {!pricing && hasRouteEstimate && (!hasRouteGeometry || routeSnapshot?.fallback_reason) && (
             <p className="mt-3 text-xs text-muted-foreground">
               Preview rute ini untuk estimasi jarak. Harga final muncul setelah detail pengiriman lengkap.

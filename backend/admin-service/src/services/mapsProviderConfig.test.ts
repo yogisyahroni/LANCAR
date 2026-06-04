@@ -43,6 +43,7 @@ describe('mapsProviderConfig', () => {
     durationSeconds?: number;
     trafficDelaySeconds?: number;
     points?: Array<{ latitude: number; longitude: number }>;
+    sections?: Array<Record<string, unknown>>;
   } = {}) => ({
     data: {
       routes: [
@@ -57,6 +58,7 @@ describe('mapsProviderConfig', () => {
               points: overrides.points ?? sampleTomTomPoints,
             },
           ],
+          sections: overrides.sections,
         },
       ],
     },
@@ -390,6 +392,8 @@ describe('mapsProviderConfig', () => {
         params: expect.objectContaining({
           travelMode: 'motorcycle',
           traffic: true,
+          avoid: 'tollRoads',
+          sectionType: 'toll',
         }),
       })
     );
@@ -398,6 +402,50 @@ describe('mapsProviderConfig', () => {
     expect(route.vehicle_type).toBe('motorcycle');
     expect(route.confidence).toBe('high');
     expect(route.fallback_reason).toBeNull();
+  });
+
+  it('rejects TomTom motorcycle routes that still contain toll road sections', async () => {
+    process.env.TOMTOM_SERVER_API_KEY = 'test-TomTom-key';
+    process.env.TOMTOM_LEGACY_FALLBACK_DISABLED = 'true';
+    readDb.query.mockResolvedValue({
+      rows: [
+        {
+          value: normalizeMapsProviderConfig({
+            ...baseConfig,
+            active_provider: 'tomtom_maps',
+            tomtom_maps_enabled: true,
+            scopes: {
+              ...baseConfig.scopes,
+              customer_mobile: { enabled: true, provider: 'tomtom_maps' },
+            },
+          }),
+        },
+      ],
+    });
+    axios.get.mockResolvedValue(tomTomRouteResponse({
+      sections: [{ sectionType: 'TOLL_ROAD', startPointIndex: 0, endPointIndex: 1 }],
+    }));
+
+    await expect(buildMapsRouteEtaSnapshot(
+      { latitude: -6.2088, longitude: 106.8456 },
+      { latitude: -6.1754, longitude: 106.8272 },
+      'customer_mobile',
+      { vehicleType: 'motorcycle', serviceCode: 'TEMBUS_INSTANT', requireRoadRoute: true }
+    )).rejects.toMatchObject({
+      code: 'ERR_ROAD_ROUTE_REQUIRED',
+      fallbackReason: 'TOMTOM_ROUTING_TOLL_SECTION_FORBIDDEN',
+    });
+
+    expect(axios.get).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        params: expect.objectContaining({
+          travelMode: 'motorcycle',
+          avoid: 'tollRoads',
+          sectionType: 'toll',
+        }),
+      })
+    );
   });
 
   it('falls back explicitly from TomTom two-wheeler to drive when the mode is unavailable', async () => {
