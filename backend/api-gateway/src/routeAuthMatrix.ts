@@ -116,6 +116,12 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: authWebPublic,
   },
   {
+    id: 'mobile-update-version-public',
+    requirement: 'public',
+    publicReason: 'Mobile apps need latest-version metadata before a user can complete an app update.',
+    matches: exact('/api/v1/system/latest-version', ['GET']),
+  },
+  {
     id: 'maps-public-runtime',
     requirement: 'public',
     publicReason: 'Customer and courier clients need maps runtime config before order placement.',

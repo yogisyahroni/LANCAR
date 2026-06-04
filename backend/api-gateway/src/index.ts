@@ -107,7 +107,7 @@ const httpLatencyHistogram = new Histogram({
 
 const publicEndpointAbuseCounter = new Counter({
   name: 'public_endpoint_abuse_events_total',
-  help: 'Public maps and pricing abuse-protection events',
+  help: 'Public endpoint abuse-protection events',
   labelNames: ['endpoint', 'reason', 'action'],
   registers: [register],
 });
@@ -257,6 +257,7 @@ const generalLimiter = rateLimit({
 
 const publicMapsLimiter = createPublicEndpointRateLimiter('maps', { recordEvent: recordPublicAbuseEvent });
 const publicPricingLimiter = createPublicEndpointRateLimiter('pricing', { recordEvent: recordPublicAbuseEvent });
+const publicSystemLimiter = createPublicEndpointRateLimiter('system', { recordEvent: recordPublicAbuseEvent });
 const publicMapsAbuseGuard = createMapsAbuseGuard({ recordEvent: recordPublicAbuseEvent });
 const publicPricingAbuseGuard = createPricingAbuseGuard({ recordEvent: recordPublicAbuseEvent });
 
@@ -511,6 +512,37 @@ app.use(createProxyMiddleware({
 
 // Auth Service - General Routes
 app.use('/api/v1/auth', proxyWithResilience(AUTH_SERVICE_URL, authBreaker));
+
+// Public Mobile Update Metadata
+app.use('/api/v1/system/latest-version', publicSystemLimiter);
+app.use(createProxyMiddleware({
+  pathFilter: (pathname: string, req: Request) =>
+    req.method === 'GET' && pathname === '/api/v1/system/latest-version',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('system_update', req, ADMIN_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) {
+        adminBreaker.fire(null);
+      }
+    },
+    error: (err: Error, req: any, res: any) => {
+      adminBreaker.fire(null);
+      logProxyError('system_update', ADMIN_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({
+          status: 'error',
+          code: 'ERR_BAD_GATEWAY',
+          message: 'Mobile update service is currently unavailable',
+        });
+      }
+    }
+  }
+}));
 
 // Orders Service
 app.use(createProxyMiddleware({

@@ -16,6 +16,7 @@ assertPolicy('POST', '/api/v1/auth/otp/send', 'public', 'auth-service-public');
 assertPolicy('POST', '/api/v1/auth/password-reset/request', 'public', 'auth-service-public');
 assertPolicy('POST', '/api/v1/auth/password-reset/confirm', 'public', 'auth-service-public');
 assertPolicy('POST', '/api/v1/auth/courier/login', 'public', 'courier-auth-public');
+assertPolicy('GET', '/api/v1/system/latest-version', 'public', 'mobile-update-version-public');
 assertPolicy('GET', '/api/v1/maps/config', 'public', 'maps-public-runtime');
 assertPolicy('POST', '/api/v1/public/location-requests/token-1', 'public', 'customer-public-handoff');
 assertPolicy('POST', '/api/v1/pricing/estimate', 'public', 'pricing-estimate-public');
@@ -115,6 +116,10 @@ result = invokeGuard({
 assert.strictEqual(result.nextCalled, true);
 
 result = invokeGuard({ method: 'GET', path: '/api/v1/maps/config' });
+assert.strictEqual(result.jwtCalled, false);
+assert.strictEqual(result.nextCalled, true);
+
+result = invokeGuard({ method: 'GET', path: '/api/v1/system/latest-version' });
 assert.strictEqual(result.jwtCalled, false);
 assert.strictEqual(result.nextCalled, true);
 

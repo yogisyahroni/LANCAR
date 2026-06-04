@@ -19,6 +19,7 @@ import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
@@ -62,16 +63,16 @@ class UpdateManager @Inject constructor(
 
     suspend fun downloadAndOpenInstaller(version: AppVersion): Result<Unit> {
         return withContext(Dispatchers.IO) {
-            runCatching {
+            try {
                 val updateUri = Uri.parse(version.updateUrl)
                 val isApkUrl = version.updateUrl.contains(".apk", ignoreCase = true)
 
                 if (!BuildConfig.GITHUB_RELEASE_UPDATES_ENABLED || !isApkUrl) {
                     openExternalUpdatePage(version.updateUrl)
-                    return@runCatching
+                    return@withContext Result.success(Unit)
                 }
 
-                if (updateUri.scheme != "https") {
+                if (updateUri.scheme != "https" || updateUri.host.isNullOrBlank()) {
                     throw IOException("URL update harus menggunakan HTTPS.")
                 }
 
@@ -122,13 +123,17 @@ class UpdateManager @Inject constructor(
                 }
 
                 openApkInstaller(targetFile)
+                Result.success(Unit)
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+                Result.failure(normalizeUpdateFailure(error))
             }
         }
     }
 
     fun canRequestPackageInstalls(): Boolean {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
-            context.packageManager.canRequestPackageInstalls()
+            runCatching { context.packageManager.canRequestPackageInstalls() }.getOrDefault(false)
     }
 
     fun openInstallPermissionSettings(targetContext: Context = context): Result<Unit> {
@@ -245,21 +250,43 @@ class UpdateManager @Inject constructor(
         )
     }
 
+    @Suppress("DEPRECATION")
     private suspend fun openApkInstaller(apkFile: File) {
-        val apkUri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.updateprovider",
-            apkFile
-        )
-        val installIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(apkUri, APK_MIME_TYPE)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (!apkFile.exists() || apkFile.length() < MIN_APK_BYTES) {
+            throw IOException("File update tidak ditemukan atau tidak valid.")
         }
-        startActivitySafely(
-            intent = installIntent,
-            errorMessage = "Installer Android tidak bisa dibuka di perangkat ini."
+
+        val apkUri = runCatching {
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.updateprovider",
+                apkFile
+            )
+        }.getOrElse { error ->
+            throw IOException("File update tidak bisa dibuka untuk installer Android.", error)
+        }
+
+        val installIntents = listOf(
+            Intent(Intent.ACTION_INSTALL_PACKAGE).apply {
+                data = apkUri
+                putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+                putExtra(Intent.EXTRA_RETURN_RESULT, false)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(apkUri, APK_MIME_TYPE)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
         )
+
+        openFirstAvailableActivity(
+            targetContext = context,
+            intents = installIntents,
+            grantReadUri = apkUri,
+            errorMessage = "Installer Android tidak bisa dibuka di perangkat ini."
+        ).getOrThrow()
     }
 
     private suspend fun startActivitySafely(intent: Intent, errorMessage: String) {
@@ -270,6 +297,12 @@ class UpdateManager @Inject constructor(
                 throw IOException(errorMessage, error)
             } catch (error: SecurityException) {
                 throw IOException(errorMessage, error)
+            } catch (error: IllegalArgumentException) {
+                throw IOException(errorMessage, error)
+            } catch (error: IllegalStateException) {
+                throw IOException(errorMessage, error)
+            } catch (error: RuntimeException) {
+                throw IOException(errorMessage, error)
             }
         }
     }
@@ -277,18 +310,51 @@ class UpdateManager @Inject constructor(
     private fun openFirstAvailableActivity(
         targetContext: Context,
         intents: List<Intent>,
-        errorMessage: String
+        errorMessage: String,
+        grantReadUri: Uri? = null
     ): Result<Unit> {
         var lastError: Throwable? = null
         intents.forEach { intent ->
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            val result = runCatching { targetContext.startActivity(intent) }
-            if (result.isSuccess) {
+            grantReadUri?.let { uri -> grantReadPermissionToResolvedInstallers(intent, uri) }
+            try {
+                targetContext.startActivity(intent)
                 return Result.success(Unit)
+            } catch (error: ActivityNotFoundException) {
+                lastError = error
+            } catch (error: SecurityException) {
+                lastError = error
+            } catch (error: IllegalArgumentException) {
+                lastError = error
+            } catch (error: IllegalStateException) {
+                lastError = error
+            } catch (error: RuntimeException) {
+                lastError = error
             }
-            lastError = result.exceptionOrNull()
         }
         return Result.failure(IOException(errorMessage, lastError))
+    }
+
+    private fun grantReadPermissionToResolvedInstallers(intent: Intent, uri: Uri) {
+        val handlers = runCatching {
+            context.packageManager.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+        }.getOrDefault(emptyList())
+
+        handlers.forEach { resolveInfo ->
+            val packageName = resolveInfo.activityInfo?.packageName ?: return@forEach
+            runCatching {
+                context.grantUriPermission(packageName, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        }
+    }
+
+    private fun normalizeUpdateFailure(error: Throwable): Throwable {
+        return when (error) {
+            is InstallPermissionRequiredException,
+            is IOException,
+            is SecurityException -> error
+            else -> IOException("Gagal menyiapkan update dengan aman.", error)
+        }
     }
 
     private fun GitHubReleaseAsset.sha256Digest(): String? {

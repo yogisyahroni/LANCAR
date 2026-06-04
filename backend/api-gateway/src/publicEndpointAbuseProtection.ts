@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { ipKeyGenerator, rateLimit } from 'express-rate-limit';
 
-type PublicEndpoint = 'maps' | 'pricing';
+type PublicEndpoint = 'maps' | 'pricing' | 'system';
 type AbuseAction = 'blocked' | 'rate_limited' | 'observed';
 type AbuseEvent = {
   endpoint: PublicEndpoint;
