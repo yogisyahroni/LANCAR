@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent } from "react";
 import { useForm, UseFormSetValue } from "react-hook-form";
 import * as z from "zod";
 import { api } from "@/lib/api";
@@ -84,14 +83,14 @@ export const orderSchema = z.object({
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["pickup_location"],
-      message: "Pilih titik pickup dari hasil pencarian, lokasi saat ini, atau mini map"
+      message: "Pilih titik pickup dari hasil pencarian, lokasi saat ini, atau Buku Alamat"
     });
   }
   if (!data.dropoff_location) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["dropoff_location"],
-      message: "Pilih titik tujuan dari hasil pencarian, lokasi saat ini, atau mini map"
+      message: "Pilih titik tujuan dari hasil pencarian, lokasi saat ini, atau Buku Alamat"
     });
   }
   if (data.has_insurance && !data.item_value) {
@@ -300,13 +299,6 @@ const mergeDraftWithCurrentValues = (
   }
 });
 
-const jakartaBounds = {
-  north: -6.08,
-  south: -6.36,
-  west: 106.68,
-  east: 106.98
-};
-
 const formatCoordinate = (location?: LocationValue) => {
   if (!location) return "Titik belum dipilih";
   return `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`;
@@ -347,55 +339,6 @@ const pickupTimeOptions = Array.from({ length: 29 }, (_, index) => {
   return `${pad2(hour)}:${pad2(minute)}`;
 });
 
-declare global {
-  interface Window {
-    google?: any;
-    __tembusGoogleMapsLoaders?: Partial<Record<string, Promise<any>>>;
-  }
-}
-
-const loadGoogleMapsSdk = (apiKey: string) => {
-  if (typeof window === "undefined") {
-    return Promise.reject(new Error("browser_runtime_required"));
-  }
-  if (window.google?.maps?.Map) {
-    return Promise.resolve(window.google.maps);
-  }
-
-  window.__tembusGoogleMapsLoaders = window.__tembusGoogleMapsLoaders || {};
-  if (window.__tembusGoogleMapsLoaders[apiKey]) {
-    return window.__tembusGoogleMapsLoaders[apiKey];
-  }
-
-  window.__tembusGoogleMapsLoaders[apiKey] = new Promise((resolve, reject) => {
-    const callbackName = `__tembusGoogleMapsReady_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-    const script = document.createElement("script");
-    const searchParams = new URLSearchParams({
-      key: apiKey,
-      v: "weekly",
-      libraries: "marker",
-      auth_referrer_policy: "origin",
-      callback: callbackName
-    });
-
-    (window as any)[callbackName] = () => {
-      delete (window as any)[callbackName];
-      resolve(window.google?.maps);
-    };
-
-    script.src = `https://maps.googleapis.com/maps/api/js?${searchParams.toString()}`;
-    script.async = true;
-    script.defer = true;
-    script.onerror = () => {
-      delete (window as any)[callbackName];
-      reject(new Error("google_maps_script_failed"));
-    };
-    document.head.appendChild(script);
-  });
-
-  return window.__tembusGoogleMapsLoaders[apiKey];
-};
-
 async function getSavedAddresses(mode: AddressMode): Promise<AddressSuggestion[]> {
   const response = await api.get("/customer/addresses");
   const addresses = (response.data?.data || []) as SavedAddress[];
@@ -413,198 +356,6 @@ async function getSavedAddresses(mode: AddressMode): Promise<AddressSuggestion[]
       recipient_name: item.contact_name,
       phone: item.contact_phone_masked
     }));
-}
-
-function MiniMapPicker({
-  location,
-  accentClass,
-  tileUrlTemplate,
-  onPick,
-}: {
-  location?: LocationValue;
-  accentClass: string;
-  tileUrlTemplate: string;
-  onPick: (location: LocationValue) => void;
-}) {
-  const zoom = 14;
-  const center = location || { lat: -6.2, lng: 106.816666 };
-
-  const lonToTileX = (lng: number, z: number) => ((lng + 180) / 360) * Math.pow(2, z);
-  const latToTileY = (lat: number, z: number) => {
-    const latRad = lat * Math.PI / 180;
-    return (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * Math.pow(2, z);
-  };
-  const tileXToLon = (x: number, z: number) => x / Math.pow(2, z) * 360 - 180;
-  const tileYToLat = (y: number, z: number) => {
-    const n = Math.PI - 2 * Math.PI * y / Math.pow(2, z);
-    return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
-  };
-
-  const mapTiles = useMemo(() => {
-    const centerX = lonToTileX(center.lng, zoom);
-    const centerY = latToTileY(center.lat, zoom);
-    const baseX = Math.floor(centerX);
-    const baseY = Math.floor(centerY);
-    const offsetX = (centerX - baseX) * 256;
-    const offsetY = (centerY - baseY) * 256;
-
-    return [-1, 0, 1].flatMap((dy) =>
-      [-1, 0, 1].map((dx) => ({
-        key: `${baseX + dx}-${baseY + dy}`,
-        url: tileUrlTemplate
-          .replace("{z}", String(zoom))
-          .replace("{x}", String(baseX + dx))
-          .replace("{y}", String(baseY + dy)),
-        left: `calc(50% + ${(dx * 256) - offsetX}px)`,
-        top: `calc(50% + ${(dy * 256) - offsetY}px)`,
-      }))
-    );
-  }, [center.lat, center.lng, tileUrlTemplate]);
-
-  const handlePick = (event: MouseEvent<HTMLButtonElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const centerX = lonToTileX(center.lng, zoom);
-    const centerY = latToTileY(center.lat, zoom);
-    const clickedX = centerX + ((event.clientX - rect.left) - rect.width / 2) / 256;
-    const clickedY = centerY + ((event.clientY - rect.top) - rect.height / 2) / 256;
-    onPick({ lat: tileYToLat(clickedY, zoom), lng: tileXToLon(clickedX, zoom) });
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handlePick}
-      className="group relative h-48 w-full overflow-hidden rounded-lg border border-white/10 bg-[#101820] text-left shadow-inner outline-none focus:ring-2 focus:ring-primary/60"
-      aria-label="Klik untuk menyesuaikan titik koordinat"
-    >
-      <div className="absolute inset-0 opacity-95 grayscale-[.15] saturate-[.75]">
-        {mapTiles.map((tile) => (
-          <img
-            key={tile.key}
-            src={tile.url}
-            alt=""
-            draggable={false}
-            className="absolute h-64 w-64 max-w-none select-none"
-            style={{
-              left: tile.left,
-              top: tile.top,
-              transform: "translate(-50%, -50%)"
-            }}
-          />
-        ))}
-      </div>
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,.42),rgba(2,6,23,.16)),radial-gradient(circle_at_50%_50%,rgba(16,185,129,.14),transparent_42%)]" />
-      <div
-        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full transition-all duration-200"
-      >
-        <MapPin className={`h-9 w-9 drop-shadow-lg ${accentClass}`} />
-      </div>
-      <div className="absolute bottom-3 left-3 rounded-md border border-white/10 bg-background/80 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
-        Klik map untuk adjust pin
-      </div>
-    </button>
-  );
-}
-
-function GoogleMiniMapPicker({
-  location,
-  accentClass,
-  apiKey,
-  mapId,
-  onPick,
-}: {
-  location?: LocationValue;
-  accentClass: string;
-  apiKey: string;
-  mapId?: string | null;
-  onPick: (location: LocationValue) => void;
-}) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "failed">("loading");
-  const center = useMemo(() => location || { lat: -6.2, lng: 106.816666 }, [location]);
-
-  useEffect(() => {
-    let cancelled = false;
-    let clickListener: any = null;
-    setLoadState("loading");
-
-    loadGoogleMapsSdk(apiKey)
-      .then((maps) => {
-        if (cancelled || !containerRef.current || !maps?.Map) return;
-        const mapOptions: Record<string, any> = {
-          center,
-          zoom: 14,
-          disableDefaultUI: true,
-          clickableIcons: false,
-          gestureHandling: "greedy",
-          backgroundColor: "#101820",
-          styles: [
-            { featureType: "poi.business", stylers: [{ visibility: "off" }] },
-            { featureType: "transit", stylers: [{ visibility: "off" }] }
-          ]
-        };
-        if (mapId) {
-          mapOptions.mapId = mapId;
-        }
-
-        const map = new maps.Map(containerRef.current, mapOptions);
-        const marker = new maps.Marker({
-          map,
-          position: center,
-          title: "Titik lokasi"
-        });
-
-        clickListener = map.addListener("click", (event: any) => {
-          const lat = event?.latLng?.lat?.();
-          const lng = event?.latLng?.lng?.();
-          if (Number.isFinite(lat) && Number.isFinite(lng)) {
-            onPick({ lat, lng });
-          }
-        });
-
-        mapRef.current = map;
-        markerRef.current = marker;
-        setLoadState("ready");
-      })
-      .catch(() => {
-        if (!cancelled) setLoadState("failed");
-      });
-
-    return () => {
-      cancelled = true;
-      if (clickListener && window.google?.maps?.event) {
-        window.google.maps.event.removeListener(clickListener);
-      }
-    };
-  }, [apiKey, center, mapId, onPick]);
-
-  useEffect(() => {
-    if (!mapRef.current || !markerRef.current) return;
-    mapRef.current.setCenter(center);
-    markerRef.current.setPosition(center);
-  }, [center]);
-
-  return (
-    <div className="relative h-48 w-full overflow-hidden rounded-lg border border-white/10 bg-[#101820] shadow-inner">
-      <div ref={containerRef} className="absolute inset-0" aria-label="Google Maps picker" />
-      {loadState === "loading" && (
-        <div className="absolute inset-0 animate-pulse bg-muted/30" />
-      )}
-      {loadState === "failed" && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/90 px-5 text-center text-xs font-medium text-muted-foreground">
-          Google Maps belum bisa dimuat. Cek browser key, referrer restriction, dan billing Google Cloud.
-        </div>
-      )}
-      <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full">
-        <MapPin className={`h-9 w-9 drop-shadow-lg ${accentClass}`} />
-      </div>
-      <div className="pointer-events-none absolute bottom-3 left-3 rounded-md border border-white/10 bg-background/85 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
-        Klik map untuk adjust pin
-      </div>
-    </div>
-  );
 }
 
 function AddressPicker({
@@ -626,19 +377,6 @@ function AddressPicker({
   const [savedSuggestions, setSavedSuggestions] = useState<AddressSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
-  const [mapsConfig, setMapsConfig] = useState<{
-    active_provider: string;
-    openstreetmap?: { tile_url_template?: string | null };
-    google_maps?: {
-      browser_api_key?: string | null;
-      browser_key_configured?: boolean;
-      map_id?: string | null;
-      sdk_enabled?: boolean;
-    };
-  }>({
-    active_provider: "openstreetmap",
-    openstreetmap: { tile_url_template: "https://tile.openstreetmap.org/{z}/{x}/{y}.png" }
-  });
   const [message, setMessage] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -649,16 +387,6 @@ function AddressPicker({
 
   useEffect(() => {
     let isMounted = true;
-
-    api.get("/maps/config", { params: { scope: "web_customer" } })
-      .then((response) => {
-        if (isMounted) setMapsConfig(response.data);
-      })
-      .catch(() => {
-        if (isMounted) {
-          setMapsConfig({ active_provider: "disabled", openstreetmap: { tile_url_template: null } });
-        }
-      });
 
     getSavedAddresses(mode)
       .then((items) => {
@@ -723,7 +451,7 @@ function AddressPicker({
           setMessage(
             localMatches.length > 0
               ? "Pencarian online tidak tersedia. Menampilkan alamat tersimpan dari database."
-              : "Pencarian online tidak tersedia. Pilih titik lewat map atau gunakan alamat tersimpan."
+              : "Pencarian online tidak tersedia. Gunakan Lokasi Saya atau alamat tersimpan."
           );
         }
       } finally {
@@ -756,7 +484,7 @@ function AddressPicker({
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setMessage("Browser tidak mendukung geolocation. Klik mini map untuk memilih titik.");
+      setMessage("Browser tidak mendukung geolocation. Pilih alamat dari hasil pencarian atau Buku Alamat.");
       return;
     }
 
@@ -775,7 +503,7 @@ function AddressPicker({
         setIsLocating(false);
       },
       () => {
-        setMessage("Izin lokasi ditolak. Pakai hasil pencarian atau klik mini map.");
+        setMessage("Izin lokasi ditolak. Pakai hasil pencarian atau Buku Alamat.");
         setIsLocating(false);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
@@ -790,13 +518,6 @@ function AddressPicker({
       setMessage("Belum ada alamat tersimpan. Tambahkan di menu Buku Alamat.");
     }
   };
-
-  const handleMapPick = useCallback((nextLocation: LocationValue) => {
-    setValue(locationField, nextLocation, { shouldDirty: true, shouldValidate: true });
-    if (!address || address.length < 5) {
-      setValue(addressField, `Pin manual (${formatCoordinate(nextLocation)})`, { shouldDirty: true, shouldValidate: true });
-    }
-  }, [address, addressField, locationField, setValue]);
 
   return (
     <div className="space-y-3">
@@ -862,36 +583,25 @@ function AddressPicker({
           Buku Alamat
         </button>
         <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-200">
-          Pilih hasil pencarian, alamat tersimpan, lokasi saat ini, atau titik map.
+          Pilih hasil pencarian, alamat tersimpan, atau gunakan lokasi saat ini.
         </span>
       </div>
 
-      {mapsConfig.active_provider === "google_maps" && mapsConfig.google_maps?.sdk_enabled && mapsConfig.google_maps.browser_api_key ? (
-        <GoogleMiniMapPicker
-          location={location}
-          accentClass={accentClass}
-          apiKey={mapsConfig.google_maps.browser_api_key}
-          mapId={mapsConfig.google_maps.map_id}
-          onPick={handleMapPick}
-        />
-      ) : mapsConfig.active_provider === "openstreetmap" && mapsConfig.openstreetmap?.tile_url_template ? (
-        <MiniMapPicker
-          location={location}
-          accentClass={accentClass}
-          tileUrlTemplate={mapsConfig.openstreetmap.tile_url_template}
-          onPick={handleMapPick}
-        />
-      ) : (
-        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-          {mapsConfig.active_provider === "google_maps"
-            ? "Google Maps belum memiliki browser key runtime. Pilih alamat dari pencarian, lokasi saat ini, atau aktifkan browser key restricted di backend."
-            : "Peta visual memakai mode teks. Pilih alamat dari pencarian atau gunakan lokasi saat ini."}
+      <div className={[
+        "flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-xs",
+        location
+          ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
+          : "border-white/10 bg-white/[0.03] text-muted-foreground"
+      ].join(" ")}>
+        <div className="min-w-0">
+          <p className="font-medium text-foreground">
+            {location ? "Titik lokasi siap" : "Titik lokasi belum dipilih"}
+          </p>
+          <span data-testid={`${mode}-coordinate-label`} className="mt-1 block truncate">
+            {formatCoordinate(location)}
+          </span>
         </div>
-      )}
-
-      <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground">
-        <span data-testid={`${mode}-coordinate-label`}>{formatCoordinate(location)}</span>
-        {location ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Info className="h-3.5 w-3.5" />}
+        {location ? <Check className="h-4 w-4 shrink-0 text-emerald-500" /> : <Info className="h-4 w-4 shrink-0" />}
       </div>
 
       {message && (
