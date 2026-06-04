@@ -11,3 +11,5 @@ da2ef4eb81a5fd1f7d038cf0a3f5f7720c5af88c:frontend/src/components/PushNotificatio
 da2ef4eb81a5fd1f7d038cf0a3f5f7720c5af88c:frontend/src/components/PushNotificationPrompt.tsx:generic-api-key:62
 98c4884611855e86947cd475b2162729d7803606:.agent/skills/code-documentation-doc-generate/SKILL.md:curl-auth-header:536
 98c4884611855e86947cd475b2162729d7803606:.agent/skills/documentation-generation-doc-generate/SKILL.md:curl-auth-header:536
+# Known redaction test fixture, now split in source so new commits do not add a JWT-looking literal.
+12d696cb5bdf4e14c2250d60b28328d42a8ae2c8:backend/admin-service/src/security/logRedaction.test.ts:jwt:6

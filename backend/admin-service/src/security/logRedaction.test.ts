@@ -2,8 +2,13 @@ import { redactForLog, redactString } from './logRedaction';
 
 describe('log redaction', () => {
   it('redacts sensitive object keys and common credential patterns', () => {
+    const testJwt = [
+      'eyJhbGciOiJIUzI1NiJ9',
+      'eyJzdWIiOiIxMjM0In0',
+      'signaturepart',
+    ].join('.');
     const redacted = redactForLog({
-      authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.signaturepart',
+      authorization: `Bearer ${testJwt}`,
       fcmToken: 'fcm-token-value',
       customerEmail: 'andri.pratama@tembus.id',
       customerPhone: '6281211112222',
