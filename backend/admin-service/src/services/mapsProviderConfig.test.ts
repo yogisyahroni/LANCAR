@@ -9,6 +9,7 @@ import {
   reverseGeocodePoint,
   updateMapsProviderConfigValue,
 } from './mapsProviderConfig';
+import { resetMapsRuntimeCredentialCacheForTests } from './mapsRuntimeCredentials';
 
 jest.mock('../db', () => ({
   db: { query: jest.fn() },
@@ -73,6 +74,7 @@ describe('mapsProviderConfig', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetMapsProviderOpsForTests();
+    resetMapsRuntimeCredentialCacheForTests();
     delete process.env.TOMTOM_SERVER_API_KEY;
     delete process.env.TOMTOM_ROUTING_API_URL;
     delete process.env.TOMTOM_ROUTING_ALLOWED_HOSTS;
@@ -82,6 +84,8 @@ describe('mapsProviderConfig', () => {
     delete process.env.TOMTOM_LEGACY_DIRECTIONS_API_KEY;
     delete process.env.TOMTOM_QUOTA_REMAINING_PERCENT;
     delete process.env.MAPS_GEOCODE_CACHE_TTL_SECONDS;
+    delete process.env.OSM_GEOCODING_BASE_URL;
+    delete process.env.OSM_GEOCODING_ALLOWED_HOSTS;
     delete process.env.OSM_ROUTING_BASE_URL;
     delete process.env.OSM_ROUTING_ALLOWED_HOSTS;
     delete process.env.OSM_ROUTING_PROFILE;
@@ -202,6 +206,60 @@ describe('mapsProviderConfig', () => {
     expect(results[0].label).toBe('Cached Jakarta address');
     expect(axios.get).not.toHaveBeenCalled();
     expect((await getMapsProviderOpsSnapshot()).cache.hits).toBeGreaterThan(0);
+  });
+
+  it('falls back to OpenStreetMap geocode when TomTom Search rejects the server key', async () => {
+    process.env.TOMTOM_SERVER_API_KEY = 'test-TomTom-key';
+    readDb.query.mockResolvedValue({
+      rows: [
+        {
+          value: normalizeMapsProviderConfig({
+            ...baseConfig,
+            active_provider: 'tomtom_maps',
+            fallback_provider: 'openstreetmap',
+            tomtom_maps_enabled: true,
+            openstreetmap_enabled: true,
+            scopes: {
+              ...baseConfig.scopes,
+              web_customer: { enabled: true, provider: 'tomtom_maps' },
+            },
+          }),
+        },
+      ],
+    });
+    axios.get.mockImplementation(async (url: string) => {
+      if (String(url).includes('api.tomtom.com')) {
+        throw new Error('Unauthorized');
+      }
+      return {
+        data: [
+          {
+            display_name: 'Monumen Nasional, Gambir, Jakarta Pusat, Indonesia',
+            lat: '-6.17539',
+            lon: '106.82715',
+            importance: 0.91,
+          },
+        ],
+      };
+    });
+
+    const results = await geocodeAddress('monas', 'web_customer');
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toEqual(expect.objectContaining({
+      provider: 'openstreetmap_nominatim',
+      latitude: -6.17539,
+      longitude: 106.82715,
+    }));
+    expect(axios.get).toHaveBeenCalledWith(
+      expect.stringContaining('api.tomtom.com'),
+      expect.objectContaining({ params: expect.objectContaining({ key: 'test-TomTom-key' }) })
+    );
+    expect(axios.get).toHaveBeenCalledWith(
+      expect.stringContaining('nominatim.openstreetmap.org/search'),
+      expect.objectContaining({ params: expect.objectContaining({ q: 'monas' }) })
+    );
+    expect((await getMapsProviderOpsSnapshot()).fallback.total).toBeGreaterThan(0);
   });
 
   it('caches reverse geocode provider results for repeated public lookups', async () => {

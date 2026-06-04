@@ -658,6 +658,31 @@ const assertAllowlistedOsmRoutingBaseUrl = (baseUrl: string): string => {
   return normalized;
 };
 
+const assertAllowlistedOsmGeocodingBaseUrl = (baseUrl: string): string => {
+  const normalized = baseUrl.replace(/\/$/, '');
+  const parsed = new URL(normalized);
+  if (!['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('OSM geocoding protocol is not allowed');
+  }
+  const allowedHosts = new Set(
+    (process.env.OSM_GEOCODING_ALLOWED_HOSTS || [
+      'nominatim.openstreetmap.org',
+      'localhost',
+      '127.0.0.1',
+      'host.docker.internal',
+      'nominatim',
+      'maps-geocoder',
+    ].join(','))
+      .split(',')
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  if (!allowedHosts.has(parsed.hostname.toLowerCase())) {
+    throw new Error('OSM geocoding host is not allowlisted');
+  }
+  return normalized;
+};
+
 const assertAllowlistedTomTomRoutesUrl = (endpoint: string): string => {
   const parsed = new URL(endpoint);
   if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
@@ -1714,6 +1739,61 @@ export const buildMapsRouteEtaSnapshot = async (
   }
 };
 
+const canUseOpenStreetMapFallback = (providerConfig: PublicMapsProviderConfig) =>
+  providerConfig.active_provider === 'tomtom_maps' && providerConfig.fallback_provider === 'openstreetmap';
+
+const fetchOpenStreetMapGeocode = async (normalizedQuery: string): Promise<MapsGeocodeResult[]> => {
+  const baseUrl = assertAllowlistedOsmGeocodingBaseUrl(
+    process.env.OSM_GEOCODING_BASE_URL || 'https://nominatim.openstreetmap.org'
+  );
+  const response = await axios.get(`${baseUrl}/search`, {
+    params: {
+      q: normalizedQuery,
+      format: 'jsonv2',
+      limit: 8,
+      addressdetails: 1,
+    },
+    headers: {
+      'User-Agent': process.env.OSM_USER_AGENT || 'TEMBUS-Logistics/1.0 maps-runtime',
+    },
+    timeout: 2500,
+  });
+  return (response.data || []).map((item: any) => ({
+    label: item.display_name,
+    latitude: Number(item.lat),
+    longitude: Number(item.lon),
+    provider: 'openstreetmap_nominatim',
+    confidence: item.importance ? Number(item.importance) : null,
+  })).filter((item: MapsGeocodeResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
+};
+
+const fetchOpenStreetMapReverseGeocode = async (point: MapPoint): Promise<MapsGeocodeResult | null> => {
+  const baseUrl = assertAllowlistedOsmGeocodingBaseUrl(
+    process.env.OSM_GEOCODING_BASE_URL || 'https://nominatim.openstreetmap.org'
+  );
+  const response = await axios.get(`${baseUrl}/reverse`, {
+    params: {
+      lat: point.latitude,
+      lon: point.longitude,
+      format: 'jsonv2',
+      zoom: 18,
+      addressdetails: 1,
+    },
+    headers: {
+      'User-Agent': process.env.OSM_USER_AGENT || 'TEMBUS-Logistics/1.0 maps-runtime',
+    },
+    timeout: 2500,
+  });
+  if (!response.data?.display_name) return null;
+  return {
+    label: response.data.display_name,
+    latitude: point.latitude,
+    longitude: point.longitude,
+    provider: 'openstreetmap_reverse_nominatim',
+    confidence: response.data.importance ? Number(response.data.importance) : null,
+  };
+};
+
 export const geocodeAddress = async (query: string, scope: MapProviderScope = 'web_customer'): Promise<MapsGeocodeResult[]> => {
   const startedAt = Date.now();
   const normalizedQuery = query.trim();
@@ -1781,26 +1861,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
         confidence: typeof item.score === 'number' ? item.score : null,
       })).filter((item: MapsGeocodeResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
     } else {
-      const baseUrl = process.env.OSM_GEOCODING_BASE_URL || 'https://nominatim.openstreetmap.org';
-      const response = await axios.get(`${baseUrl.replace(/\/$/, '')}/search`, {
-        params: {
-          q: normalizedQuery,
-          format: 'jsonv2',
-          limit: 8,
-          addressdetails: 1,
-        },
-        headers: {
-          'User-Agent': process.env.OSM_USER_AGENT || 'TEMBUS-Logistics/1.0 maps-runtime',
-        },
-        timeout: 2500,
-      });
-      results = (response.data || []).map((item: any) => ({
-        label: item.display_name,
-        latitude: Number(item.lat),
-        longitude: Number(item.lon),
-        provider: 'openstreetmap_nominatim',
-        confidence: item.importance ? Number(item.importance) : null,
-      })).filter((item: MapsGeocodeResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
+      results = await fetchOpenStreetMapGeocode(normalizedQuery);
     }
     recordMapsProviderObservation({
       operation: 'geocode',
@@ -1817,6 +1878,42 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
     await setCachedGeocodeResults(cacheKey, results);
     return results;
   } catch (error) {
+    if (canUseOpenStreetMapFallback(providerConfig)) {
+      try {
+        const fallbackResults = await fetchOpenStreetMapGeocode(normalizedQuery);
+        recordMapsProviderObservation({
+          operation: 'geocode',
+          scope,
+          requested_provider: providerConfig.requested_provider,
+          active_provider: providerConfig.active_provider,
+          provider: 'openstreetmap_nominatim',
+          credential_alias: TomTomCredential?.keyAlias || null,
+          status: 'fallback',
+          latency_ms: Date.now() - startedAt,
+          cache_hit: false,
+          fallback_reason: 'tomtom_geocode_provider_failed',
+          error_message: error,
+          result_count: fallbackResults.length,
+        });
+        await setCachedGeocodeResults(cacheKey, fallbackResults);
+        return fallbackResults;
+      } catch (fallbackError) {
+        recordMapsProviderObservation({
+          operation: 'geocode',
+          scope,
+          requested_provider: providerConfig.requested_provider,
+          active_provider: 'openstreetmap',
+          provider: 'openstreetmap_nominatim_failed',
+          credential_alias: TomTomCredential?.keyAlias || null,
+          status: 'failure',
+          latency_ms: Date.now() - startedAt,
+          cache_hit: false,
+          fallback_reason: 'geocode_fallback_provider_failed',
+          error_message: fallbackError,
+          result_count: 0,
+        });
+      }
+    }
     recordMapsProviderObservation({
       operation: 'geocode',
       scope,
@@ -1902,28 +1999,8 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
         confidence: null,
       };
     } else {
-      const baseUrl = process.env.OSM_GEOCODING_BASE_URL || 'https://nominatim.openstreetmap.org';
-      const response = await axios.get(`${baseUrl.replace(/\/$/, '')}/reverse`, {
-        params: {
-          lat: point.latitude,
-          lon: point.longitude,
-          format: 'jsonv2',
-          zoom: 18,
-          addressdetails: 1,
-        },
-        headers: {
-          'User-Agent': process.env.OSM_USER_AGENT || 'TEMBUS-Logistics/1.0 maps-runtime',
-        },
-        timeout: 2500,
-      });
-      if (!response.data?.display_name) return null;
-      result = {
-        label: response.data.display_name,
-        latitude: point.latitude,
-        longitude: point.longitude,
-        provider: 'openstreetmap_reverse_nominatim',
-        confidence: response.data.importance ? Number(response.data.importance) : null,
-      };
+      result = await fetchOpenStreetMapReverseGeocode(point);
+      if (!result) return null;
     }
     recordMapsProviderObservation({
       operation: 'reverse_geocode',
@@ -1940,6 +2017,44 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
     await setCachedReverseGeocodeResult(cacheKey, result);
     return result;
   } catch (error) {
+    if (canUseOpenStreetMapFallback(providerConfig)) {
+      try {
+        const fallbackResult = await fetchOpenStreetMapReverseGeocode(point);
+        if (fallbackResult) {
+          recordMapsProviderObservation({
+            operation: 'reverse_geocode',
+            scope,
+            requested_provider: providerConfig.requested_provider,
+            active_provider: providerConfig.active_provider,
+            provider: fallbackResult.provider,
+            credential_alias: TomTomCredential?.keyAlias || null,
+            status: 'fallback',
+            latency_ms: Date.now() - startedAt,
+            cache_hit: false,
+            fallback_reason: 'tomtom_reverse_geocode_provider_failed',
+            error_message: error,
+            result_count: 1,
+          });
+          await setCachedReverseGeocodeResult(cacheKey, fallbackResult);
+          return fallbackResult;
+        }
+      } catch (fallbackError) {
+        recordMapsProviderObservation({
+          operation: 'reverse_geocode',
+          scope,
+          requested_provider: providerConfig.requested_provider,
+          active_provider: 'openstreetmap',
+          provider: 'openstreetmap_reverse_nominatim_failed',
+          credential_alias: TomTomCredential?.keyAlias || null,
+          status: 'failure',
+          latency_ms: Date.now() - startedAt,
+          cache_hit: false,
+          fallback_reason: 'reverse_geocode_fallback_provider_failed',
+          error_message: fallbackError,
+          result_count: 0,
+        });
+      }
+    }
     recordMapsProviderObservation({
       operation: 'reverse_geocode',
       scope,

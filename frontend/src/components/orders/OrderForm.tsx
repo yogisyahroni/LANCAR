@@ -132,7 +132,7 @@ interface AddressSuggestion {
   detail: string;
   lat: number;
   lng: number;
-  source: "osm" | "google" | "saved";
+  source: "tomtom" | "osm" | "saved";
   recipient_name?: string;
   phone?: string;
 }
@@ -304,6 +304,12 @@ const formatCoordinate = (location?: LocationValue) => {
   return `${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`;
 };
 
+const addressSuggestionSourceLabel: Record<AddressSuggestion["source"], string> = {
+  tomtom: "TomTom",
+  osm: "OSM",
+  saved: "Tersimpan"
+};
+
 const pad2 = (value: number) => String(value).padStart(2, "0");
 
 const formatDateValue = (date: Date) => `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
@@ -432,19 +438,20 @@ function AddressPicker({
         });
 
         const data = (response.data?.results || []) as Array<{ label: string; latitude: number; longitude: number; provider: string }>;
-        const osmSuggestions = data.map((item, index) => {
+        const providerSuggestions = data.map((item, index) => {
           const [label, ...rest] = item.label.split(",");
+          const normalizedProvider = String(item.provider || "").toLowerCase();
           return {
             id: `${item.provider}-${index}-${item.latitude}-${item.longitude}`,
             label: label.trim(),
             detail: rest.join(",").trim(),
             lat: Number(item.latitude),
             lng: Number(item.longitude),
-            source: item.provider.includes("google") ? "google" as const : "osm" as const
+            source: normalizedProvider.includes("tomtom") ? "tomtom" as const : "osm" as const
           };
         });
 
-        setSuggestions([...localMatches, ...osmSuggestions].slice(0, 6));
+        setSuggestions([...localMatches, ...providerSuggestions].slice(0, 6));
       } catch (err: any) {
         if (err.name !== "AbortError") {
           setSuggestions(localMatches);
@@ -557,7 +564,7 @@ function AddressPicker({
                 <span className="block line-clamp-1 text-xs text-muted-foreground">{suggestion.detail}</span>
               </span>
               <span className="ml-auto rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase text-muted-foreground">
-                {suggestion.source}
+                {addressSuggestionSourceLabel[suggestion.source]}
               </span>
             </button>
           ))}
