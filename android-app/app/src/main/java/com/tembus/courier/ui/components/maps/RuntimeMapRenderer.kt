@@ -46,19 +46,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.Polyline
-import com.google.maps.android.compose.rememberCameraPositionState
+import com.tembus.courier.ui.components.maps.MapProperties
+import com.tembus.courier.ui.components.maps.MapUiSettings
+import com.tembus.courier.ui.components.maps.LatLng
 import com.tembus.courier.BuildConfig
 import com.tembus.courier.data.model.MapsProviderConfig
-import kotlinx.coroutines.delay
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.floor
@@ -83,8 +75,8 @@ fun RuntimeMapRenderer(
     routePoints: List<LatLng>,
     modifier: Modifier = Modifier,
     followLocation: LatLng? = markers.firstOrNull()?.position,
-    googleProperties: MapProperties = MapProperties(),
-    googleUiSettings: MapUiSettings = MapUiSettings(
+    mapProperties: MapProperties = MapProperties(),
+    mapUiSettings: MapUiSettings = MapUiSettings(
         zoomControlsEnabled = false,
         myLocationButtonEnabled = false,
         mapToolbarEnabled = false
@@ -105,69 +97,16 @@ fun RuntimeMapRenderer(
     }
 
     when {
-        providerConfig.activeProvider == "google_maps" -> {
-            val cameraPositionState = rememberCameraPositionState {
-                position = CameraPosition.fromLatLngZoom(center, if (validRoutePoints.size > 1) 13f else 15f)
-            }
-            var googleMapLoaded by remember(providerConfig.activeProvider, center.latitude, center.longitude) {
-                mutableStateOf(false)
-            }
-            var googleMapTimedOut by remember(providerConfig.activeProvider, center.latitude, center.longitude) {
-                mutableStateOf(false)
-            }
-            LaunchedEffect(providerConfig.activeProvider, center.latitude, center.longitude) {
-                googleMapLoaded = false
-                googleMapTimedOut = false
-                delay(GoogleMapLoadTimeoutMs)
-                if (!googleMapLoaded) {
-                    googleMapTimedOut = true
-                }
-            }
-            LaunchedEffect(center.latitude, center.longitude) {
-                cameraPositionState.animate(
-                    CameraUpdateFactory.newCameraPosition(
-                        CameraPosition.fromLatLngZoom(center, cameraPositionState.position.zoom.coerceIn(12f, 17f))
-                    ),
-                    800
-                )
-            }
-            if (googleMapTimedOut && providerConfig.fallbackProvider == "openstreetmap") {
-                OpenStreetMapTileRenderer(
-                    providerConfig = providerConfig,
-                    markers = validMarkers,
-                    routePoints = validRoutePoints,
-                    center = center,
-                    modifier = modifier,
-                    routeColor = routeColor,
-                    statusMessage = MapRecoveryMessage
-                )
-            } else if (googleMapTimedOut) {
-                RuntimeMapFallback(
-                    title = MapRecoveryTitle,
-                    message = MapRecoveryMessage,
-                    center = center,
-                    modifier = modifier
-                )
-            } else {
-                GoogleMap(
-                    modifier = modifier,
-                    cameraPositionState = cameraPositionState,
-                    properties = googleProperties,
-                    uiSettings = googleUiSettings,
-                    onMapLoaded = { googleMapLoaded = true }
-                ) {
-                    validMarkers.forEach { marker ->
-                        Marker(
-                            state = MarkerState(marker.position),
-                            title = marker.title,
-                            snippet = marker.snippet
-                        )
-                    }
-                    if (validRoutePoints.size > 1) {
-                        Polyline(points = validRoutePoints, color = routeColor, width = 8f)
-                    }
-                }
-            }
+        providerConfig.activeProvider == "tomtom_maps" -> {
+            OpenStreetMapTileRenderer(
+                providerConfig = providerConfig,
+                markers = validMarkers,
+                routePoints = validRoutePoints,
+                center = center,
+                modifier = modifier,
+                routeColor = routeColor,
+                statusMessage = null
+            )
         }
 
         providerConfig.activeProvider == "openstreetmap" && providerConfig.enabled -> {
@@ -203,11 +142,17 @@ private fun OpenStreetMapTileRenderer(
     routeColor: Color,
     statusMessage: String? = null
 ) {
-    val tileTemplate = remember(providerConfig.openStreetMap.tileUrlTemplate) {
-        normalizeOpenStreetMapTileTemplate(providerConfig.openStreetMap.tileUrlTemplate)
+    val tileTemplate = remember(
+        providerConfig.activeProvider,
+        providerConfig.openStreetMap.tileUrlTemplate,
+        BuildConfig.TOMTOM_API_KEY
+    ) {
+        normalizeRuntimeTileTemplate(providerConfig)
     }
-    val attribution = providerConfig.openStreetMap.attribution
-        ?: "© OpenStreetMap contributors"
+    val attribution = when {
+        providerConfig.activeProvider == "tomtom_maps" && BuildConfig.TOMTOM_API_KEY.isNotBlank() -> "© TomTom"
+        else -> providerConfig.openStreetMap.attribution ?: "© OpenStreetMap contributors"
+    }
     val zoom = if (routePoints.size > 1) 12 else 15
     val centerTile = remember(center.latitude, center.longitude, zoom) {
         center.toOsmTileCoordinate(zoom)
@@ -359,12 +304,12 @@ private fun RuntimeMapFallback(
 
 private fun MapsProviderConfig.recoveryMessageOrNull(): String? {
     val normalizedReason = reason?.trim()?.lowercase(Locale.US).orEmpty()
-    val googleDowngraded = requestedProvider == "google_maps" && activeProvider == "openstreetmap"
+    val providerDowngraded = requestedProvider == "tomtom_maps" && activeProvider == "openstreetmap"
     return if (
-        googleDowngraded ||
+        providerDowngraded ||
         normalizedReason == "maps_provider_health_critical" ||
-        normalizedReason == "google_maps_quota_near_limit" ||
-        normalizedReason == "google_maps_server_key_missing"
+        normalizedReason == "tomtom_quota_near_limit" ||
+        normalizedReason == "tomtom_server_key_missing"
     ) {
         MapRecoveryMessage
     } else {
@@ -397,7 +342,6 @@ private fun LatLng.isValidLatLng(): Boolean {
     return latitude in -90.0..90.0 && longitude in -180.0..180.0 && !(latitude == 0.0 && longitude == 0.0)
 }
 
-private const val GoogleMapLoadTimeoutMs = 12_000L
 private const val MapRecoveryTitle = "Peta sedang dipulihkan"
 private const val MapRecoveryMessage = "Peta sedang dipulihkan. Alamat dan navigasi tetap tersedia."
 
@@ -425,12 +369,17 @@ private fun String.toOsmTileUrl(tileX: Int, tileY: Int, zoom: Int): String {
         .replace("{y}", tileY.toString())
 }
 
-private fun normalizeOpenStreetMapTileTemplate(rawTemplate: String?): String {
+private fun normalizeRuntimeTileTemplate(providerConfig: MapsProviderConfig): String {
     val gatewayBase = BuildConfig.BASE_URL
         .substringBefore("/api/v1")
         .trimEnd('/')
     val gatewayProxyTemplate = "$gatewayBase/api/v1/maps/tiles/{z}/{x}/{y}.png"
-    val candidate = rawTemplate?.trim().orEmpty()
+    val tomTomApiKey = BuildConfig.TOMTOM_API_KEY.trim()
+    if (providerConfig.activeProvider == "tomtom_maps" && tomTomApiKey.isNotBlank()) {
+        return "https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?tileSize=256&key=$tomTomApiKey"
+    }
+
+    val candidate = providerConfig.openStreetMap.tileUrlTemplate?.trim().orEmpty()
     return when {
         candidate.isBlank() -> gatewayProxyTemplate
         candidate.startsWith("/") -> "$gatewayBase$candidate"

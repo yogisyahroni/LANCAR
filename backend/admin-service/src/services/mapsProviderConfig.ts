@@ -3,12 +3,12 @@ import crypto from 'crypto';
 import { db, readDb } from '../db';
 import { redis } from '../redis';
 import {
-  getActiveGoogleMapsServerCredential,
-  hasGoogleMapsServerCredential,
+  getActiveTomTomMapsServerCredential,
+  hasTomTomMapsServerCredential,
   resetMapsRuntimeCredentialCacheForTests,
 } from './mapsRuntimeCredentials';
 
-export type MapProviderId = 'google_maps' | 'openstreetmap' | 'disabled';
+export type MapProviderId = 'tomtom_maps' | 'openstreetmap' | 'disabled';
 export type MapProviderScope = 'global' | 'customer_mobile' | 'courier_mobile' | 'web_customer' | 'tracking';
 export type RouteVehicleType = 'motorcycle' | 'car' | 'unknown';
 export type RouteProfile = 'motorcycle' | 'car' | 'fallback';
@@ -22,17 +22,21 @@ export type MapsProviderConfigValue = {
   enabled: boolean;
   active_provider: MapProviderId;
   fallback_provider: MapProviderId;
-  google_maps_enabled: boolean;
+  tomtom_maps_enabled: boolean;
   openstreetmap_enabled: boolean;
   disabled_mode_enabled: boolean;
   config_ttl_seconds: number;
   scopes: Record<string, { enabled: boolean; provider: MapProviderId }>;
   providers: {
-    google_maps?: {
+    tomtom_maps?: {
       requires_server_key?: boolean;
       tiles_enabled?: boolean;
       routing_enabled?: boolean;
       geocoding_enabled?: boolean;
+      traffic_enabled?: boolean;
+      web_sdk_enabled?: boolean;
+      mobile_sdk_enabled?: boolean;
+      navigation_enabled?: boolean;
     };
     openstreetmap?: {
       requires_server_key?: boolean;
@@ -61,7 +65,7 @@ export type PublicMapsProviderConfig = {
     tile_url_template: string | null;
     attribution: string | null;
   };
-  google_maps: {
+  tomtom_maps: {
     browser_api_key: string | null;
     browser_key_configured: boolean;
     map_id: string | null;
@@ -152,7 +156,7 @@ export type MapsProviderOpsSnapshot = {
     enabled: boolean;
     active_provider: MapProviderId;
     fallback_provider: MapProviderId;
-    google_maps_enabled: boolean;
+    tomtom_maps_enabled: boolean;
     openstreetmap_enabled: boolean;
   };
   counters: Record<string, number>;
@@ -180,32 +184,36 @@ export type MapsProviderOpsSnapshot = {
   last_error: MapsProviderObservation | null;
   recent_events: MapsProviderObservation[];
   quota: {
-    google_remaining_percent: number | null;
+    tomtom_remaining_percent: number | null;
     status: 'not_configured' | 'healthy' | 'near_limit';
   };
 };
 
 const DEFAULT_CONFIG: MapsProviderConfigValue = {
   enabled: true,
-  active_provider: 'openstreetmap',
+  active_provider: 'tomtom_maps',
   fallback_provider: 'openstreetmap',
-  google_maps_enabled: false,
+  tomtom_maps_enabled: true,
   openstreetmap_enabled: true,
   disabled_mode_enabled: true,
   config_ttl_seconds: 300,
   scopes: {
-    global: { enabled: true, provider: 'openstreetmap' },
-    customer_mobile: { enabled: true, provider: 'openstreetmap' },
-    courier_mobile: { enabled: true, provider: 'openstreetmap' },
-    web_customer: { enabled: true, provider: 'openstreetmap' },
-    tracking: { enabled: true, provider: 'openstreetmap' },
+    global: { enabled: true, provider: 'tomtom_maps' },
+    customer_mobile: { enabled: true, provider: 'tomtom_maps' },
+    courier_mobile: { enabled: true, provider: 'tomtom_maps' },
+    web_customer: { enabled: true, provider: 'tomtom_maps' },
+    tracking: { enabled: true, provider: 'tomtom_maps' },
   },
   providers: {
-    google_maps: {
+    tomtom_maps: {
       requires_server_key: true,
       tiles_enabled: true,
       routing_enabled: true,
       geocoding_enabled: true,
+      traffic_enabled: true,
+      web_sdk_enabled: true,
+      mobile_sdk_enabled: true,
+      navigation_enabled: true,
     },
     openstreetmap: {
       requires_server_key: false,
@@ -217,7 +225,7 @@ const DEFAULT_CONFIG: MapsProviderConfigValue = {
   },
 };
 
-const VALID_PROVIDERS = new Set<MapProviderId>(['google_maps', 'openstreetmap', 'disabled']);
+const VALID_PROVIDERS = new Set<MapProviderId>(['tomtom_maps', 'openstreetmap', 'disabled']);
 const VALID_SCOPES = new Set<MapProviderScope>(['global', 'customer_mobile', 'courier_mobile', 'web_customer', 'tracking']);
 const VALID_ROUTE_PROFILES = new Set<RouteProfile>(['motorcycle', 'car', 'fallback']);
 const VALID_VEHICLE_TYPES = new Set<RouteVehicleType>(['motorcycle', 'car', 'unknown']);
@@ -229,18 +237,18 @@ const mapsProviderOpsState = {
   recentEvents: [] as MapsProviderObservation[],
 };
 
-const googleEnvironmentServerApiKey = () => (
-  envText('GOOGLE_ROUTES_API_KEY') || envText('GOOGLE_MAPS_API_KEY') || envText('GOOGLE_DIRECTIONS_API_KEY')
+const TomTomEnvironmentServerApiKey = () => (
+  envText('TOMTOM_SERVER_API_KEY') || envText('TOMTOM_API_KEY') || envText('TOMTOM_LEGACY_DIRECTIONS_API_KEY')
 );
 
-const googleEnvironmentServerKeyAvailable = () => Boolean(googleEnvironmentServerApiKey());
+const TomTomEnvironmentServerKeyAvailable = () => Boolean(TomTomEnvironmentServerApiKey());
 
-const googleBrowserApiKey = () => (
-  envText('GOOGLE_MAPS_BROWSER_API_KEY') || envText('GOOGLE_MAPS_WEB_API_KEY') || envText('GOOGLE_MAPS_PUBLIC_API_KEY')
+const TomTomBrowserApiKey = () => (
+  envText('TOMTOM_WEB_API_KEY') || envText('TOMTOM_PUBLIC_API_KEY')
 );
 
-const googleBrowserMapId = () => (
-  envText('GOOGLE_MAPS_BROWSER_MAP_ID') || envText('GOOGLE_MAPS_WEB_MAP_ID') || null
+const TomTomBrowserMapId = () => (
+  envText('TOMTOM_MAP_STYLE') || envText('TOMTOM_WEB_MAP_STYLE') || null
 );
 
 const parseTileCoordinate = (value: string, name: string): number => {
@@ -498,6 +506,27 @@ const geocodeCacheKey = (kind: 'geocode' | 'reverse_geocode', provider: string, 
   return `maps:${kind}:${crypto.createHash('sha1').update(raw).digest('hex')}`;
 };
 
+const assertAllowlistedTomTomSearchUrl = (endpoint: string): string => {
+  const parsed = new URL(endpoint);
+  if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
+    throw new Error('TomTom Search endpoint protocol is not allowed');
+  }
+  const allowedHosts = new Set(
+    (process.env.TOMTOM_SEARCH_ALLOWED_HOSTS || 'api.tomtom.com,localhost,127.0.0.1,host.docker.internal')
+      .split(',')
+      .map((host) => host.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  if (!allowedHosts.has(parsed.hostname.toLowerCase())) {
+    throw new Error('TomTom Search host is not allowlisted');
+  }
+  return parsed.toString().replace(/\/$/, '');
+};
+
+const tomTomSearchBaseUrl = () => assertAllowlistedTomTomSearchUrl(
+  envText('TOMTOM_SEARCH_API_URL') || 'https://api.tomtom.com/search/2'
+);
+
 const getCachedGeocodeResults = async (cacheKey: string) => parseCachedGeocodeResults(await safeRedisGet(cacheKey));
 
 const getCachedReverseGeocodeResult = async (cacheKey: string) => parseCachedReverseGeocodeResult(await safeRedisGet(cacheKey));
@@ -563,12 +592,12 @@ const recordProviderFailure = async (provider: string) => {
   }
 };
 
-const assertGoogleQuotaHealthy = () => {
-  const remainingValue = process.env.GOOGLE_MAPS_QUOTA_REMAINING_PERCENT || process.env.MAPS_PROVIDER_QUOTA_REMAINING_PERCENT;
+const assertTomTomQuotaHealthy = () => {
+  const remainingValue = process.env.TOMTOM_QUOTA_REMAINING_PERCENT || process.env.MAPS_PROVIDER_QUOTA_REMAINING_PERCENT;
   if (remainingValue === undefined) return;
   const remaining = Number(remainingValue);
   if (Number.isFinite(remaining) && remaining <= 1) {
-    throw new Error('GOOGLE_MAPS_QUOTA_GUARD_OPEN');
+    throw new Error('TOMTOM_QUOTA_GUARD_OPEN');
   }
 };
 
@@ -580,12 +609,12 @@ type OpenStreetMapRouteEngine = {
   fallbackReason: string | null;
 };
 
-type GoogleTravelMode = 'DRIVE' | 'TWO_WHEELER';
-type GoogleRoutingPreference = 'TRAFFIC_AWARE' | 'TRAFFIC_AWARE_OPTIMAL';
+type TomTomTravelMode = 'car' | 'motorcycle';
+type TomTomRoutingPreference = 'traffic_aware' | 'traffic_aware_optimal';
 
-type GoogleRoutePolicy = {
-  travelMode: GoogleTravelMode;
-  routingPreference: GoogleRoutingPreference;
+type TomTomRoutePolicy = {
+  travelMode: TomTomTravelMode;
+  routingPreference: TomTomRoutingPreference;
   provider: string;
   fallbackReason: string | null;
 };
@@ -629,22 +658,26 @@ const assertAllowlistedOsmRoutingBaseUrl = (baseUrl: string): string => {
   return normalized;
 };
 
-const assertAllowlistedGoogleRoutesUrl = (endpoint: string): string => {
+const assertAllowlistedTomTomRoutesUrl = (endpoint: string): string => {
   const parsed = new URL(endpoint);
   if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
-    throw new Error('Google Routes endpoint protocol is not allowed');
+    throw new Error('TomTom Routes endpoint protocol is not allowed');
   }
   const allowedHosts = new Set(
-    (process.env.GOOGLE_ROUTES_ALLOWED_HOSTS || 'routes.googleapis.com,localhost,127.0.0.1,host.docker.internal')
+    (process.env.TOMTOM_ROUTING_ALLOWED_HOSTS || 'api.tomtom.com,localhost,127.0.0.1,host.docker.internal')
       .split(',')
       .map((host) => host.trim().toLowerCase())
       .filter(Boolean)
   );
   if (!allowedHosts.has(parsed.hostname.toLowerCase())) {
-    throw new Error('Google Routes host is not allowlisted');
+    throw new Error('TomTom Routes host is not allowlisted');
   }
   return parsed.toString();
 };
+
+const tomTomRoutingBaseUrl = () => assertAllowlistedTomTomRoutesUrl(
+  envText('TOMTOM_ROUTING_API_URL') || 'https://api.tomtom.com/routing/1'
+).replace(/\/$/, '');
 
 const resolveOpenStreetMapRouteEngine = (context: ReturnType<typeof routeContext>): OpenStreetMapRouteEngine => {
   const genericBaseUrl = envText('OSM_ROUTING_BASE_URL') || 'https://router.project-osrm.org';
@@ -693,51 +726,51 @@ const resolveOpenStreetMapRouteEngine = (context: ReturnType<typeof routeContext
   };
 };
 
-const resolveGoogleRoutePolicy = (context: ReturnType<typeof routeContext>, overrideTravelMode?: GoogleTravelMode): GoogleRoutePolicy => {
+const resolveTomTomRoutePolicy = (context: ReturnType<typeof routeContext>, overrideTravelMode?: TomTomTravelMode): TomTomRoutePolicy => {
   const serviceCode = String(context.service_code || '').toUpperCase();
-  const trafficPreference: GoogleRoutingPreference =
+  const trafficPreference: TomTomRoutingPreference =
     serviceCode.includes('PRIORITAS') || serviceCode.includes('PRIORITY') || serviceCode.includes('INSTANT')
-      ? 'TRAFFIC_AWARE_OPTIMAL'
-      : 'TRAFFIC_AWARE';
+      ? 'traffic_aware_optimal'
+      : 'traffic_aware';
 
   if (overrideTravelMode) {
     return {
       travelMode: overrideTravelMode,
       routingPreference: trafficPreference,
-      provider: `google_routes_${overrideTravelMode.toLowerCase()}_${trafficPreference.toLowerCase()}`,
-      fallbackReason: overrideTravelMode === 'DRIVE' && context.route_profile === 'motorcycle'
-        ? 'google_two_wheeler_unavailable_defaulted_to_drive'
+      provider: `tomtom_routing_${overrideTravelMode.toLowerCase()}_${trafficPreference.toLowerCase()}`,
+      fallbackReason: overrideTravelMode === 'car' && context.route_profile === 'motorcycle'
+        ? 'tomtom_motorcycle_unavailable_defaulted_to_car'
         : null,
     };
   }
 
   if (context.route_profile === 'motorcycle' || context.vehicle_type === 'motorcycle') {
     return {
-      travelMode: 'TWO_WHEELER',
+      travelMode: 'motorcycle',
       routingPreference: trafficPreference,
-      provider: `google_routes_two_wheeler_${trafficPreference.toLowerCase()}`,
+      provider: `tomtom_routing_two_wheeler_${trafficPreference.toLowerCase()}`,
       fallbackReason: null,
     };
   }
 
   if (context.route_profile === 'car' || context.vehicle_type === 'car' || serviceCode.includes('MOBIL')) {
     return {
-      travelMode: 'DRIVE',
+      travelMode: 'car',
       routingPreference: trafficPreference,
-      provider: `google_routes_drive_${trafficPreference.toLowerCase()}`,
+      provider: `tomtom_routing_drive_${trafficPreference.toLowerCase()}`,
       fallbackReason: null,
     };
   }
 
   return {
-    travelMode: 'DRIVE',
+    travelMode: 'car',
     routingPreference: trafficPreference,
-    provider: `google_routes_drive_${trafficPreference.toLowerCase()}_fallback`,
-    fallbackReason: 'google_route_profile_unknown_defaulted_to_drive',
+    provider: `tomtom_routing_drive_${trafficPreference.toLowerCase()}_fallback`,
+    fallbackReason: 'tomtom_route_profile_unknown_defaulted_to_drive',
   };
 };
 
-const parseGoogleDurationSeconds = (value: unknown, fallbackSeconds: number): number => {
+const parseTomTomDurationSeconds = (value: unknown, fallbackSeconds: number): number => {
   if (typeof value === 'string') {
     const match = value.match(/^([0-9]+(?:\.[0-9]+)?)s$/);
     if (match) return Math.max(1, Math.ceil(Number(match[1])));
@@ -746,14 +779,14 @@ const parseGoogleDurationSeconds = (value: unknown, fallbackSeconds: number): nu
   return Number.isFinite(parsed) && parsed > 0 ? Math.ceil(parsed) : fallbackSeconds;
 };
 
-const googleRoutesErrorCode = (error: any): string => (
-  String(error?.response?.data?.error?.status || error?.response?.data?.status || error?.code || error?.message || 'GOOGLE_ROUTES_ERROR')
+const TomTomRoutesErrorCode = (error: any): string => (
+  String(error?.response?.data?.error?.status || error?.response?.data?.status || error?.code || error?.message || 'TOMTOM_ROUTING_ERROR')
 );
 
-const shouldRetryGoogleTwoWheelerAsDrive = (policy: GoogleRoutePolicy, error: any): boolean => {
-  if (policy.travelMode !== 'TWO_WHEELER') return false;
+const shouldRetryTomTomTwoWheelerAsDrive = (policy: TomTomRoutePolicy, error: any): boolean => {
+  if (policy.travelMode !== 'motorcycle') return false;
   const message = JSON.stringify(error?.response?.data || error?.message || '').toUpperCase();
-  return ['TWO_WHEELER', 'INVALID_ARGUMENT', 'FAILED_PRECONDITION', 'UNIMPLEMENTED', 'NOT_FOUND'].some((marker) => message.includes(marker));
+  return ['TWO_WHEELER', 'MOTORCYCLE', 'INVALID_ARGUMENT', 'FAILED_PRECONDITION', 'UNIMPLEMENTED', 'NOT_FOUND'].some((marker) => message.includes(marker));
 };
 
 const parseProvider = (value: unknown, fallback: MapProviderId): MapProviderId => {
@@ -766,7 +799,7 @@ const redactErrorMessage = (value: unknown) => {
   const message = value instanceof Error ? value.message : String(value || 'provider_error');
   return message
     .replace(/key=([^&\s]+)/gi, 'key=[redacted]')
-    .replace(/AIza[0-9A-Za-z_-]{20,}/g, '[redacted_google_key]')
+    .replace(/\b[A-Za-z0-9_-]{16,128}\b/g, '[redacted_tomtom_key]')
     .slice(0, 280);
 };
 
@@ -918,9 +951,9 @@ export const normalizeMapsProviderConfig = (value?: Partial<MapsProviderConfigVa
       ...(value?.scopes || {}),
     },
     providers: {
-      google_maps: {
-        ...DEFAULT_CONFIG.providers.google_maps,
-        ...(value?.providers?.google_maps || {}),
+      tomtom_maps: {
+        ...DEFAULT_CONFIG.providers.tomtom_maps,
+        ...(value?.providers?.tomtom_maps || {}),
       },
       openstreetmap: {
         ...DEFAULT_CONFIG.providers.openstreetmap,
@@ -943,23 +976,23 @@ export const normalizeMapsProviderConfig = (value?: Partial<MapsProviderConfigVa
 export const resolvePublicMapsProviderConfig = (
   rawConfig: MapsProviderConfigValue,
   requestedScope: string | undefined,
-  options: { googleKeyAvailable?: boolean; forceFallbackReason?: string | null } = {}
+  options: { TomTomKeyAvailable?: boolean; forceFallbackReason?: string | null } = {}
 ): PublicMapsProviderConfig => {
   const normalized = normalizeMapsProviderConfig(rawConfig);
   const scope = VALID_SCOPES.has(requestedScope as MapProviderScope) ? (requestedScope as MapProviderScope) : 'global';
   const scopedConfig = normalized.scopes[scope] || normalized.scopes.global;
   const requestedProvider = scopedConfig?.provider || normalized.active_provider;
-  const googleAvailable = options.googleKeyAvailable ?? googleEnvironmentServerKeyAvailable();
+  const TomTomAvailable = options.TomTomKeyAvailable ?? TomTomEnvironmentServerKeyAvailable();
 
   let activeProvider: MapProviderId = normalized.enabled && scopedConfig?.enabled !== false ? requestedProvider : 'disabled';
   let reason: string | null = null;
 
-  if (activeProvider === 'google_maps' && (!normalized.google_maps_enabled || !googleAvailable)) {
+  if (activeProvider === 'tomtom_maps' && (!normalized.tomtom_maps_enabled || !TomTomAvailable)) {
     activeProvider = normalized.openstreetmap_enabled ? 'openstreetmap' : 'disabled';
-    reason = googleAvailable ? 'google_maps_disabled_by_admin' : 'google_maps_server_key_missing';
+    reason = TomTomAvailable ? 'TOMTOM_disabled_by_admin' : 'TOMTOM_server_key_missing';
   }
 
-  if (activeProvider === 'google_maps' && options.forceFallbackReason) {
+  if (activeProvider === 'tomtom_maps' && options.forceFallbackReason) {
     activeProvider = normalized.openstreetmap_enabled ? 'openstreetmap' : 'disabled';
     reason = options.forceFallbackReason;
   }
@@ -975,7 +1008,7 @@ export const resolvePublicMapsProviderConfig = (
   }
 
   const osm = normalized.providers.openstreetmap || DEFAULT_CONFIG.providers.openstreetmap;
-  const browserApiKey = activeProvider === 'google_maps' ? googleBrowserApiKey() : null;
+  const browserApiKey = activeProvider === 'tomtom_maps' ? TomTomBrowserApiKey() : null;
   return {
     enabled: activeProvider !== 'disabled',
     requested_provider: requestedProvider,
@@ -985,40 +1018,40 @@ export const resolvePublicMapsProviderConfig = (
     ttl_seconds: normalized.config_ttl_seconds,
     reason,
     capabilities: {
-      tiles: activeProvider === 'google_maps' || (activeProvider === 'openstreetmap' && Boolean(osm?.tile_url_template)),
-      routing: activeProvider === 'google_maps' || (activeProvider === 'openstreetmap' && osm?.routing_enabled !== false),
-      geocoding: activeProvider === 'google_maps' || (activeProvider === 'openstreetmap' && osm?.geocoding_enabled !== false),
+      tiles: activeProvider === 'tomtom_maps' || (activeProvider === 'openstreetmap' && Boolean(osm?.tile_url_template)),
+      routing: activeProvider === 'tomtom_maps' || (activeProvider === 'openstreetmap' && osm?.routing_enabled !== false),
+      geocoding: activeProvider === 'tomtom_maps' || (activeProvider === 'openstreetmap' && osm?.geocoding_enabled !== false),
     },
     openstreetmap: {
       tile_url_template: activeProvider === 'openstreetmap' ? osm?.tile_url_template || null : null,
       attribution: activeProvider === 'openstreetmap' ? osm?.attribution || null : null,
     },
-    google_maps: {
+    tomtom_maps: {
       browser_api_key: browserApiKey,
       browser_key_configured: Boolean(browserApiKey),
-      map_id: activeProvider === 'google_maps' ? googleBrowserMapId() : null,
-      sdk_enabled: activeProvider === 'google_maps' && Boolean(browserApiKey),
+      map_id: activeProvider === 'tomtom_maps' ? TomTomBrowserMapId() : null,
+      sdk_enabled: activeProvider === 'tomtom_maps' && Boolean(browserApiKey),
     },
   };
 };
 
 export const getMapsProviderConfigValue = async (): Promise<MapsProviderConfigValue> => {
   const queryClient = readDb;
-  const googleAvailable = await hasGoogleMapsServerCredential();
+  const TomTomAvailable = await hasTomTomMapsServerCredential();
   if (!queryClient?.query) {
     return normalizeMapsProviderConfig({
       ...DEFAULT_CONFIG,
-      active_provider: 'google_maps',
-      fallback_provider: 'disabled',
-      google_maps_enabled: googleAvailable,
-      openstreetmap_enabled: false,
+      active_provider: 'tomtom_maps',
+      fallback_provider: 'openstreetmap',
+      tomtom_maps_enabled: TomTomAvailable,
+      openstreetmap_enabled: true,
       scopes: {
         ...DEFAULT_CONFIG.scopes,
-        global: { enabled: true, provider: 'google_maps' },
-        customer_mobile: { enabled: true, provider: 'google_maps' },
-        courier_mobile: { enabled: true, provider: 'google_maps' },
-        web_customer: { enabled: true, provider: 'google_maps' },
-        tracking: { enabled: true, provider: 'google_maps' },
+        global: { enabled: true, provider: 'tomtom_maps' },
+        customer_mobile: { enabled: true, provider: 'tomtom_maps' },
+        courier_mobile: { enabled: true, provider: 'tomtom_maps' },
+        web_customer: { enabled: true, provider: 'tomtom_maps' },
+        tracking: { enabled: true, provider: 'tomtom_maps' },
       },
     });
   }
@@ -1028,17 +1061,17 @@ export const getMapsProviderConfigValue = async (): Promise<MapsProviderConfigVa
   }
   return normalizeMapsProviderConfig({
     ...DEFAULT_CONFIG,
-    active_provider: 'google_maps',
-    fallback_provider: 'disabled',
-    google_maps_enabled: googleAvailable,
-    openstreetmap_enabled: false,
+    active_provider: 'tomtom_maps',
+    fallback_provider: 'openstreetmap',
+    tomtom_maps_enabled: TomTomAvailable,
+    openstreetmap_enabled: true,
     scopes: {
       ...DEFAULT_CONFIG.scopes,
-      global: { enabled: true, provider: 'google_maps' },
-      customer_mobile: { enabled: true, provider: 'google_maps' },
-      courier_mobile: { enabled: true, provider: 'google_maps' },
-      web_customer: { enabled: true, provider: 'google_maps' },
-      tracking: { enabled: true, provider: 'google_maps' },
+      global: { enabled: true, provider: 'tomtom_maps' },
+      customer_mobile: { enabled: true, provider: 'tomtom_maps' },
+      courier_mobile: { enabled: true, provider: 'tomtom_maps' },
+      web_customer: { enabled: true, provider: 'tomtom_maps' },
+      tracking: { enabled: true, provider: 'tomtom_maps' },
     },
   });
 };
@@ -1047,15 +1080,15 @@ export const getPublicMapsProviderConfig = async (scope?: string): Promise<Publi
   const config = await getMapsProviderConfigValue();
   const ops = await getMapsProviderOpsSnapshot().catch(() => null);
   return resolvePublicMapsProviderConfig(config, scope, {
-    googleKeyAvailable: await hasGoogleMapsServerCredential(),
+    TomTomKeyAvailable: await hasTomTomMapsServerCredential(),
     forceFallbackReason: mapsProviderHealthFallbackReason(ops),
   });
 };
 
 const mapsProviderHealthFallbackReason = (ops: MapsProviderOpsSnapshot | null): string | null => {
   if (!ops || ops.status !== 'critical') return null;
-  if (ops.active_alerts.some((alert) => alert.code === 'google_maps_quota_near_limit')) {
-    return 'google_maps_quota_near_limit';
+  if (ops.active_alerts.some((alert) => alert.code === 'tomtom_quota_near_limit')) {
+    return 'tomtom_quota_near_limit';
   }
   if (ops.active_alerts.some((alert) => alert.code === 'maps_provider_failure_high')) {
     return 'maps_provider_health_critical';
@@ -1085,9 +1118,9 @@ export const getMapsProviderOpsSnapshot = async (): Promise<MapsProviderOpsSnaps
     ? 0
     : Math.round(mapsProviderOpsState.latencySamples.reduce((sum, item) => sum + item, 0) / mapsProviderOpsState.latencySamples.length);
   const p95Ms = percentile(mapsProviderOpsState.latencySamples, 95);
-  const quotaValue = process.env.GOOGLE_MAPS_QUOTA_REMAINING_PERCENT || process.env.MAPS_PROVIDER_QUOTA_REMAINING_PERCENT;
+  const quotaValue = process.env.TOMTOM_QUOTA_REMAINING_PERCENT || process.env.MAPS_PROVIDER_QUOTA_REMAINING_PERCENT;
   const quotaRemaining = quotaValue === undefined ? null : Number(quotaValue);
-  const googleQuotaPercent = Number.isFinite(quotaRemaining) ? Number(quotaRemaining) : null;
+  const TomTomQuotaPercent = Number.isFinite(quotaRemaining) ? Number(quotaRemaining) : null;
   const cacheHits = counters['cache.hit'] || 0;
   const cacheMisses = counters['cache.miss'] || 0;
   const cacheTotal = cacheHits + cacheMisses;
@@ -1112,7 +1145,7 @@ export const getMapsProviderOpsSnapshot = async (): Promise<MapsProviderOpsSnaps
     activeAlerts.push({
       code: 'maps_fallback_rate_high',
       severity: 'warning',
-      message: 'Fallback maps terlalu sering. Google/OSM mungkin tidak stabil atau policy provider salah.',
+      message: 'Fallback maps terlalu sering. TomTom/OSM mungkin tidak stabil atau policy provider salah.',
     });
   }
   if (routeEvents >= 3 && straightLineFallbacks / routeEvents >= 0.5) {
@@ -1136,11 +1169,11 @@ export const getMapsProviderOpsSnapshot = async (): Promise<MapsProviderOpsSnaps
       message: 'Latency provider maps tinggi. Mobile/web bisa terasa lambat saat memuat route atau geocode.',
     });
   }
-  if (googleQuotaPercent !== null && googleQuotaPercent <= 10) {
+  if (TomTomQuotaPercent !== null && TomTomQuotaPercent <= 10) {
     activeAlerts.push({
-      code: 'google_maps_quota_near_limit',
+      code: 'tomtom_quota_near_limit',
       severity: 'critical',
-      message: 'Quota Google Maps mendekati limit. Pertimbangkan fallback OSM atau tambah quota sebelum traffic nasional.',
+      message: 'Quota TomTom Maps mendekati limit. Pertimbangkan fallback OSM atau tambah quota sebelum traffic nasional.',
     });
   }
 
@@ -1162,7 +1195,7 @@ export const getMapsProviderOpsSnapshot = async (): Promise<MapsProviderOpsSnaps
       enabled: normalized.enabled,
       active_provider: normalized.active_provider,
       fallback_provider: normalized.fallback_provider,
-      google_maps_enabled: normalized.google_maps_enabled,
+      tomtom_maps_enabled: normalized.tomtom_maps_enabled,
       openstreetmap_enabled: normalized.openstreetmap_enabled,
     },
     counters,
@@ -1190,8 +1223,8 @@ export const getMapsProviderOpsSnapshot = async (): Promise<MapsProviderOpsSnaps
     last_error: mapsProviderOpsState.recentEvents.find((event) => event.status === 'failure' || event.status === 'fallback') || null,
     recent_events: mapsProviderOpsState.recentEvents.slice(0, 20),
     quota: {
-      google_remaining_percent: googleQuotaPercent,
-      status: googleQuotaPercent === null ? 'not_configured' : googleQuotaPercent <= 10 ? 'near_limit' : 'healthy',
+      tomtom_remaining_percent: TomTomQuotaPercent,
+      status: TomTomQuotaPercent === null ? 'not_configured' : TomTomQuotaPercent <= 10 ? 'near_limit' : 'healthy',
     },
   };
 };
@@ -1275,12 +1308,8 @@ const enrichRouteSnapshot = (
   };
 };
 
-const googleRoutesEndpoint = () => assertAllowlistedGoogleRoutesUrl(
-  envText('GOOGLE_ROUTES_API_URL') || 'https://routes.googleapis.com/directions/v2:computeRoutes'
-);
-
-const googleRoutesTimeoutMs = () => {
-  const parsed = Number(process.env.GOOGLE_ROUTES_TIMEOUT_MS || process.env.GOOGLE_DIRECTIONS_TIMEOUT_MS || 2800);
+const TomTomRoutesTimeoutMs = () => {
+  const parsed = Number(process.env.TOMTOM_ROUTING_TIMEOUT_MS || process.env.TOMTOM_DIRECTIONS_TIMEOUT_MS || 2800);
   return Number.isFinite(parsed) && parsed >= 500 && parsed <= 15000 ? parsed : 2800;
 };
 
@@ -1304,80 +1333,87 @@ const buildRoadRouteRequiredError = (reason?: string | null) => {
   return error;
 };
 
-const googleRouteFieldMask = [
-  'routes.duration',
-  'routes.staticDuration',
-  'routes.distanceMeters',
-  'routes.polyline.encodedPolyline',
-  'routes.travelAdvisory',
-  'routes.routeLabels',
-  'routes.warnings',
-].join(',');
-
-const googleLegacyDirectionsMode = (policy: GoogleRoutePolicy) => (
-  policy.travelMode === 'TWO_WHEELER' ? 'two-wheeler' : 'driving'
+const TomTomLegacyDirectionsMode = (policy: TomTomRoutePolicy) => (
+  policy.travelMode === 'motorcycle' ? 'motorcycle' : 'car'
 );
 
-const buildGoogleRoutesPayload = (from: MapPoint, to: MapPoint, policy: GoogleRoutePolicy) => ({
-  origin: {
-    location: {
-      latLng: {
-        latitude: from.latitude,
-        longitude: from.longitude,
-      },
-    },
-  },
-  destination: {
-    location: {
-      latLng: {
-        latitude: to.latitude,
-        longitude: to.longitude,
-      },
-    },
-  },
-  travelMode: policy.travelMode,
-  routingPreference: policy.routingPreference,
-  computeAlternativeRoutes: false,
-  polylineQuality: 'OVERVIEW',
-  polylineEncoding: 'ENCODED_POLYLINE',
-  languageCode: 'id-ID',
-  units: 'METRIC',
-});
+const encodePolyline = (points: MapPoint[]): string => {
+  let previousLatitude = 0;
+  let previousLongitude = 0;
+  let encoded = '';
 
-const routeFromGoogleRoutesApi = async (
+  const encodeValue = (value: number) => {
+    let shifted = value < 0 ? ~(value << 1) : value << 1;
+    let chunk = '';
+    while (shifted >= 0x20) {
+      chunk += String.fromCharCode((0x20 | (shifted & 0x1f)) + 63);
+      shifted >>= 5;
+    }
+    return chunk + String.fromCharCode(shifted + 63);
+  };
+
+  for (const point of points) {
+    const latitude = Math.round(point.latitude * 1e5);
+    const longitude = Math.round(point.longitude * 1e5);
+    encoded += encodeValue(latitude - previousLatitude);
+    encoded += encodeValue(longitude - previousLongitude);
+    previousLatitude = latitude;
+    previousLongitude = longitude;
+  }
+
+  return encoded;
+};
+
+const routeFromTomTomRoutesApi = async (
   from: MapPoint,
   to: MapPoint,
   fallback: RouteEtaSnapshot,
   providerConfig: PublicMapsProviderConfig,
   context: ReturnType<typeof routeContext>,
   apiKey: string,
-  policy: GoogleRoutePolicy
+  policy: TomTomRoutePolicy
 ): Promise<RouteEtaSnapshot> => {
-  const response = await axios.post(googleRoutesEndpoint(), buildGoogleRoutesPayload(from, to, policy), {
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': googleRouteFieldMask,
+  const coordinates = `${from.latitude},${from.longitude}:${to.latitude},${to.longitude}`;
+  const response = await axios.get(`${tomTomRoutingBaseUrl()}/calculateRoute/${coordinates}/json`, {
+    params: {
+      key: apiKey,
+      traffic: true,
+      travelMode: policy.travelMode,
+      routeRepresentation: 'polyline',
+      computeTravelTimeFor: 'all',
+      instructionsType: 'text',
+      language: 'id-ID',
     },
-    timeout: googleRoutesTimeoutMs(),
+    timeout: TomTomRoutesTimeoutMs(),
   });
   const route = response.data?.routes?.[0];
-  const distanceMeters = Number(route?.distanceMeters);
-  const routePolyline = String(route?.polyline?.encodedPolyline || '').trim();
-  if (!route) throw new Error('GOOGLE_ROUTES_NO_ROUTE');
-  if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) throw new Error('GOOGLE_ROUTES_DISTANCE_INVALID');
-  if (!routePolyline) throw new Error('GOOGLE_ROUTES_POLYLINE_MISSING');
-
-  const durationSeconds = parseGoogleDurationSeconds(
-    route.duration,
-    parseGoogleDurationSeconds(route.staticDuration, (fallback.eta_minutes || 3) * 60)
+  const distanceMeters = Number(route?.summary?.lengthInMeters);
+  const durationSeconds = Number(
+    route?.summary?.trafficDelayInSeconds
+      ? route.summary.travelTimeInSeconds
+      : route?.summary?.travelTimeInSeconds
   );
+  const points = (route?.legs || [])
+    .flatMap((leg: any) => Array.isArray(leg?.points) ? leg.points : [])
+    .map((point: any) => ({
+      latitude: Number(point.latitude),
+      longitude: Number(point.longitude),
+    }))
+    .filter((point: MapPoint) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
+  const routePolyline = encodePolyline(points);
+  if (!route) throw new Error('TOMTOM_ROUTING_NO_ROUTE');
+  if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) throw new Error('TOMTOM_ROUTING_DISTANCE_INVALID');
+  if (!routePolyline) throw new Error('TOMTOM_ROUTING_POLYLINE_MISSING');
+
+  const normalizedDurationSeconds = Number.isFinite(durationSeconds) && durationSeconds > 0
+    ? Math.ceil(durationSeconds)
+    : (fallback.eta_minutes || 3) * 60;
   return enrichRouteSnapshot({
-    eta: `${Math.max(1, Math.ceil(durationSeconds / 60))} menit`,
-    eta_minutes: Math.max(1, Math.ceil(durationSeconds / 60)),
+    eta: `${Math.max(1, Math.ceil(normalizedDurationSeconds / 60))} menit`,
+    eta_minutes: Math.max(1, Math.ceil(normalizedDurationSeconds / 60)),
     distance_km: Number((distanceMeters / 1000).toFixed(2)),
     distance_meters: distanceMeters,
-    duration_seconds: durationSeconds,
+    duration_seconds: normalizedDurationSeconds,
     route_polyline: routePolyline,
     route_geometry: routePolyline,
     provider: policy.provider,
@@ -1386,61 +1422,35 @@ const routeFromGoogleRoutesApi = async (
   }, fallback, providerConfig, context, policy.fallbackReason ? 'medium' : 'high');
 };
 
-const routeFromGoogleLegacyDirections = async (
+const routeFromTomTomLegacyDirections = async (
   from: MapPoint,
   to: MapPoint,
   fallback: RouteEtaSnapshot,
   providerConfig: PublicMapsProviderConfig,
   context: ReturnType<typeof routeContext>,
   apiKey: string,
-  policy: GoogleRoutePolicy,
+  policy: TomTomRoutePolicy,
   fallbackReason: string | null
 ): Promise<RouteEtaSnapshot> => {
-  const response = await axios.get('https://maps.googleapis.com/maps/api/directions/json', {
-    params: {
-      origin: `${from.latitude},${from.longitude}`,
-      destination: `${to.latitude},${to.longitude}`,
-      mode: googleLegacyDirectionsMode(policy),
-      departure_time: 'now',
-      traffic_model: policy.routingPreference === 'TRAFFIC_AWARE_OPTIMAL' ? 'best_guess' : 'optimistic',
-      key: apiKey,
-    },
-    timeout: googleRoutesTimeoutMs(),
+  const drivePolicy = { ...policy, travelMode: 'car' as TomTomTravelMode };
+  return routeFromTomTomRoutesApi(from, to, fallback, providerConfig, context, apiKey, {
+    ...drivePolicy,
+    provider: `tomtom_routing_${TomTomLegacyDirectionsMode(drivePolicy)}_fallback`,
+    fallbackReason,
   });
-  const route = response.data?.routes?.[0];
-  const leg = route?.legs?.[0];
-  const distanceMeters = Number(leg?.distance?.value);
-  const routePolyline = String(route?.overview_polyline?.points || '').trim();
-  if (!route || !leg) throw new Error(response.data?.status || 'GOOGLE_DIRECTIONS_NO_ROUTE');
-  if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) throw new Error('GOOGLE_DIRECTIONS_DISTANCE_INVALID');
-  if (!routePolyline) throw new Error('GOOGLE_DIRECTIONS_POLYLINE_MISSING');
-
-  const durationSeconds = Number(leg.duration_in_traffic?.value || leg.duration?.value || (fallback.eta_minutes || 3) * 60);
-  return enrichRouteSnapshot({
-    eta: leg.duration_in_traffic?.text || leg.duration?.text || `${Math.max(1, Math.ceil(durationSeconds / 60))} menit`,
-    eta_minutes: Math.max(1, Math.ceil(durationSeconds / 60)),
-    distance_km: Number((distanceMeters / 1000).toFixed(2)),
-    distance_meters: distanceMeters,
-    duration_seconds: durationSeconds,
-    route_polyline: routePolyline,
-    route_geometry: routePolyline,
-    provider: `google_directions_${googleLegacyDirectionsMode(policy)}_legacy`,
-    traffic_aware: Boolean(leg.duration_in_traffic?.value || policy.routingPreference),
-    fallback_reason: fallbackReason,
-  }, fallback, providerConfig, context, fallbackReason ? 'medium' : 'high');
 };
 
-const buildGoogleRoute = async (
+const buildTomTomRoute = async (
   from: MapPoint,
   to: MapPoint,
   fallback: RouteEtaSnapshot,
   providerConfig: PublicMapsProviderConfig,
   context: ReturnType<typeof routeContext>
 ): Promise<RouteEtaSnapshot> => {
-  const credential = await getActiveGoogleMapsServerCredential();
+  const credential = await getActiveTomTomMapsServerCredential();
   if (!credential) {
     return enrichRouteSnapshot(
-      { ...fallback, provider: 'fallback_haversine', fallback_reason: 'google_maps_server_key_missing' },
+      { ...fallback, provider: 'fallback_haversine', fallback_reason: 'TOMTOM_server_key_missing' },
       fallback,
       providerConfig,
       context,
@@ -1448,7 +1458,7 @@ const buildGoogleRoute = async (
     );
   }
 
-  const initialPolicy = resolveGoogleRoutePolicy(context);
+  const initialPolicy = resolveTomTomRoutePolicy(context);
   const cacheKey = routeCacheKey(`${initialPolicy.provider}:${credential.cacheKey}`, from, to, context);
   const cached = await getCachedRoute(cacheKey);
   if (cached) {
@@ -1457,24 +1467,24 @@ const buildGoogleRoute = async (
 
   let payload: RouteEtaSnapshot;
   try {
-    assertGoogleQuotaHealthy();
+    assertTomTomQuotaHealthy();
     await assertProviderCircuitClosed(initialPolicy.provider);
-    payload = await routeFromGoogleRoutesApi(from, to, fallback, providerConfig, context, credential.apiKey, initialPolicy);
+    payload = await routeFromTomTomRoutesApi(from, to, fallback, providerConfig, context, credential.apiKey, initialPolicy);
   } catch (routesError: any) {
-    if (shouldRetryGoogleTwoWheelerAsDrive(initialPolicy, routesError)) {
-      const drivePolicy = resolveGoogleRoutePolicy(context, 'DRIVE');
+    if (shouldRetryTomTomTwoWheelerAsDrive(initialPolicy, routesError)) {
+      const drivePolicy = resolveTomTomRoutePolicy(context, 'car');
       try {
         await assertProviderCircuitClosed(drivePolicy.provider);
-        payload = await routeFromGoogleRoutesApi(from, to, fallback, providerConfig, context, credential.apiKey, drivePolicy);
+        payload = await routeFromTomTomRoutesApi(from, to, fallback, providerConfig, context, credential.apiKey, drivePolicy);
       } catch (driveRoutesError: any) {
-        if (String(process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED || '').toLowerCase() === 'true') {
+        if (String(process.env.TOMTOM_LEGACY_FALLBACK_DISABLED || '').toLowerCase() === 'true') {
           await recordProviderFailure(drivePolicy.provider);
-          const stale = await getStaleCachedRoute(cacheKey, drivePolicy.provider, googleRoutesErrorCode(driveRoutesError));
+          const stale = await getStaleCachedRoute(cacheKey, drivePolicy.provider, TomTomRoutesErrorCode(driveRoutesError));
           if (stale) return stale;
           throw driveRoutesError;
         }
-        const fallbackReason = `google_two_wheeler_unavailable_drive_legacy_used:${googleRoutesErrorCode(driveRoutesError)}`;
-        payload = await routeFromGoogleLegacyDirections(
+        const fallbackReason = `TOMTOM_two_wheeler_unavailable_drive_legacy_used:${TomTomRoutesErrorCode(driveRoutesError)}`;
+        payload = await routeFromTomTomLegacyDirections(
           from,
           to,
           fallback,
@@ -1485,14 +1495,14 @@ const buildGoogleRoute = async (
           fallbackReason
         );
       }
-    } else if (String(process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED || '').toLowerCase() === 'true') {
+    } else if (String(process.env.TOMTOM_LEGACY_FALLBACK_DISABLED || '').toLowerCase() === 'true') {
       await recordProviderFailure(initialPolicy.provider);
-      const stale = await getStaleCachedRoute(cacheKey, initialPolicy.provider, googleRoutesErrorCode(routesError));
+      const stale = await getStaleCachedRoute(cacheKey, initialPolicy.provider, TomTomRoutesErrorCode(routesError));
       if (stale) return stale;
       throw routesError;
     } else {
-      const fallbackReason = `google_routes_api_unavailable_legacy_directions_used:${googleRoutesErrorCode(routesError)}`;
-      payload = await routeFromGoogleLegacyDirections(
+      const fallbackReason = `TOMTOM_ROUTING_api_unavailable_legacy_directions_used:${TomTomRoutesErrorCode(routesError)}`;
+      payload = await routeFromTomTomLegacyDirections(
           from,
           to,
           fallback,
@@ -1647,8 +1657,8 @@ export const buildMapsRouteEtaSnapshot = async (
 
   try {
     let route = fallback;
-    if (providerConfig.active_provider === 'google_maps') {
-      route = await buildGoogleRoute(from, to, fallback, providerConfig, context);
+    if (providerConfig.active_provider === 'tomtom_maps') {
+      route = await buildTomTomRoute(from, to, fallback, providerConfig, context);
     } else if (providerConfig.active_provider === 'openstreetmap') {
       route = await buildOpenStreetMapRoute(from, to, fallback, providerConfig, context);
     }
@@ -1724,11 +1734,11 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
     return [];
   }
 
-  const googleCredential = providerConfig.active_provider === 'google_maps'
-    ? await getActiveGoogleMapsServerCredential()
+  const TomTomCredential = providerConfig.active_provider === 'tomtom_maps'
+    ? await getActiveTomTomMapsServerCredential()
     : null;
-  const cacheProviderKey = googleCredential
-    ? `${providerConfig.active_provider}:${googleCredential.cacheKey}`
+  const cacheProviderKey = TomTomCredential
+    ? `${providerConfig.active_provider}:${TomTomCredential.cacheKey}`
     : providerConfig.active_provider;
   const cacheKey = geocodeCacheKey('geocode', cacheProviderKey, scope, normalizedQuery);
   const cachedResults = await getCachedGeocodeResults(cacheKey);
@@ -1739,7 +1749,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
       requested_provider: providerConfig.requested_provider,
       active_provider: providerConfig.active_provider,
       provider: `${providerConfig.active_provider}_geocode_cache`,
-      credential_alias: googleCredential?.keyAlias || null,
+      credential_alias: TomTomCredential?.keyAlias || null,
       status: 'cache_hit',
       latency_ms: Date.now() - startedAt,
       cache_hit: true,
@@ -1750,21 +1760,23 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
 
   try {
     let results: MapsGeocodeResult[] = [];
-    if (providerConfig.active_provider === 'google_maps') {
-      if (!googleCredential) throw new Error('google_maps_server_key_missing');
-      const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+    if (providerConfig.active_provider === 'tomtom_maps') {
+      if (!TomTomCredential) throw new Error('TOMTOM_server_key_missing');
+      const response = await axios.get(`${tomTomSearchBaseUrl()}/search/${encodeURIComponent(normalizedQuery)}.json`, {
         params: {
-          address: normalizedQuery,
-          key: googleCredential.apiKey,
+          key: TomTomCredential.apiKey,
+          limit: 8,
+          countrySet: 'ID',
+          language: 'id-ID',
         },
         timeout: 2500,
       });
       results = (response.data?.results || []).slice(0, 8).map((item: any) => ({
-        label: item.formatted_address,
-        latitude: Number(item.geometry?.location?.lat),
-        longitude: Number(item.geometry?.location?.lng),
-        provider: 'google_geocoding',
-        confidence: null,
+        label: item.address?.freeformAddress || item.poi?.name || normalizedQuery,
+        latitude: Number(item.position?.lat),
+        longitude: Number(item.position?.lon),
+        provider: 'tomtom_search',
+        confidence: typeof item.score === 'number' ? item.score : null,
       })).filter((item: MapsGeocodeResult) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
     } else {
       const baseUrl = process.env.OSM_GEOCODING_BASE_URL || 'https://nominatim.openstreetmap.org';
@@ -1793,8 +1805,8 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
       scope,
       requested_provider: providerConfig.requested_provider,
       active_provider: providerConfig.active_provider,
-      provider: providerConfig.active_provider === 'google_maps' ? 'google_geocoding' : 'openstreetmap_nominatim',
-      credential_alias: googleCredential?.keyAlias || null,
+      provider: providerConfig.active_provider === 'tomtom_maps' ? 'tomtom_search' : 'openstreetmap_nominatim',
+      credential_alias: TomTomCredential?.keyAlias || null,
       status: 'success',
       latency_ms: Date.now() - startedAt,
       cache_hit: false,
@@ -1809,7 +1821,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
       requested_provider: providerConfig.requested_provider,
       active_provider: providerConfig.active_provider,
       provider: `${providerConfig.active_provider}_geocode_failed`,
-      credential_alias: googleCredential?.keyAlias || null,
+      credential_alias: TomTomCredential?.keyAlias || null,
       status: 'failure',
       latency_ms: Date.now() - startedAt,
       cache_hit: false,
@@ -1843,11 +1855,11 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
   }
 
   const normalizedPoint = `${point.latitude.toFixed(5)},${point.longitude.toFixed(5)}`;
-  const googleCredential = providerConfig.active_provider === 'google_maps'
-    ? await getActiveGoogleMapsServerCredential()
+  const TomTomCredential = providerConfig.active_provider === 'tomtom_maps'
+    ? await getActiveTomTomMapsServerCredential()
     : null;
-  const cacheProviderKey = googleCredential
-    ? `${providerConfig.active_provider}:${googleCredential.cacheKey}`
+  const cacheProviderKey = TomTomCredential
+    ? `${providerConfig.active_provider}:${TomTomCredential.cacheKey}`
     : providerConfig.active_provider;
   const cacheKey = geocodeCacheKey('reverse_geocode', cacheProviderKey, scope, normalizedPoint);
   const cachedResult = await getCachedReverseGeocodeResult(cacheKey);
@@ -1858,7 +1870,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       requested_provider: providerConfig.requested_provider,
       active_provider: providerConfig.active_provider,
       provider: `${providerConfig.active_provider}_reverse_geocode_cache`,
-      credential_alias: googleCredential?.keyAlias || null,
+      credential_alias: TomTomCredential?.keyAlias || null,
       status: 'cache_hit',
       latency_ms: Date.now() - startedAt,
       cache_hit: true,
@@ -1869,22 +1881,22 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
 
   try {
     let result: MapsGeocodeResult | null = null;
-    if (providerConfig.active_provider === 'google_maps') {
-      if (!googleCredential) throw new Error('google_maps_server_key_missing');
-      const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+    if (providerConfig.active_provider === 'tomtom_maps') {
+      if (!TomTomCredential) throw new Error('TOMTOM_server_key_missing');
+      const response = await axios.get(`${tomTomSearchBaseUrl()}/reverseGeocode/${point.latitude},${point.longitude}.json`, {
         params: {
-          latlng: `${point.latitude},${point.longitude}`,
-          key: googleCredential.apiKey,
+          key: TomTomCredential.apiKey,
+          language: 'id-ID',
         },
         timeout: 2500,
       });
-      const item = response.data?.results?.[0];
+      const item = response.data?.addresses?.[0];
       if (!item) return null;
       result = {
-        label: item.formatted_address,
+        label: item.address?.freeformAddress || `${point.latitude.toFixed(5)}, ${point.longitude.toFixed(5)}`,
         latitude: point.latitude,
         longitude: point.longitude,
-        provider: 'google_reverse_geocoding',
+        provider: 'tomtom_reverse_geocoding',
         confidence: null,
       };
     } else {
@@ -1917,7 +1929,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       requested_provider: providerConfig.requested_provider,
       active_provider: providerConfig.active_provider,
       provider: result.provider,
-      credential_alias: googleCredential?.keyAlias || null,
+      credential_alias: TomTomCredential?.keyAlias || null,
       status: 'success',
       latency_ms: Date.now() - startedAt,
       cache_hit: false,
@@ -1932,7 +1944,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       requested_provider: providerConfig.requested_provider,
       active_provider: providerConfig.active_provider,
       provider: `${providerConfig.active_provider}_reverse_geocode_failed`,
-      credential_alias: googleCredential?.keyAlias || null,
+      credential_alias: TomTomCredential?.keyAlias || null,
       status: 'failure',
       latency_ms: Date.now() - startedAt,
       cache_hit: false,

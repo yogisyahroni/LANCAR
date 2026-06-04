@@ -25,7 +25,7 @@ import {
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
 
-type MapProviderId = 'google_maps' | 'openstreetmap' | 'disabled'
+type MapProviderId = 'tomtom_maps' | 'openstreetmap' | 'disabled'
 type MapScopeId = 'global' | 'customer_mobile' | 'courier_mobile' | 'web_customer' | 'tracking'
 type OpsStatus = 'operational' | 'degraded' | 'disabled' | 'critical'
 
@@ -38,13 +38,13 @@ interface MapsProviderValue {
   enabled: boolean
   active_provider: MapProviderId
   fallback_provider: MapProviderId
-  google_maps_enabled: boolean
+  tomtom_maps_enabled: boolean
   openstreetmap_enabled: boolean
   disabled_mode_enabled: boolean
   config_ttl_seconds: number
   scopes: Record<string, ScopePolicy>
   providers: {
-    google_maps?: {
+    tomtom_maps?: {
       requires_server_key?: boolean
       tiles_enabled?: boolean
       routing_enabled?: boolean
@@ -110,7 +110,7 @@ interface MapsOpsSnapshot {
     enabled: boolean
     active_provider: MapProviderId
     fallback_provider: MapProviderId
-    google_maps_enabled: boolean
+    tomtom_maps_enabled: boolean
     openstreetmap_enabled: boolean
   }
   counters: Record<string, number>
@@ -138,7 +138,7 @@ interface MapsOpsSnapshot {
   last_error: MapsProviderObservation | null
   recent_events: MapsProviderObservation[]
   quota: {
-    google_remaining_percent: number | null
+    tomtom_remaining_percent: number | null
     status: 'not_configured' | 'healthy' | 'near_limit'
   }
 }
@@ -151,7 +151,7 @@ interface MapsProviderResponse {
 
 interface MapsCredentialSummary {
   id: string
-  provider: 'google_maps'
+  provider: 'tomtom_maps'
   scope: string
   key_alias: string
   key_mask: string
@@ -251,8 +251,8 @@ const providerOptions: Array<{
     icon: Globe2,
   },
   {
-    id: 'google_maps',
-    title: 'Google Maps',
+    id: 'tomtom_maps',
+    title: 'TomTom Maps',
     description: 'Provider premium untuk geocode, route, dan ETA produksi.',
     icon: Navigation,
   },
@@ -303,7 +303,7 @@ const scopeOptions: Array<{
 ]
 
 const providerLabel: Record<MapProviderId, string> = {
-  google_maps: 'Google Maps',
+  tomtom_maps: 'TomTom Maps',
   openstreetmap: 'OpenStreetMap',
   disabled: 'Text Only',
 }
@@ -361,10 +361,10 @@ const mapsOpsAlertAction = (
     .toLowerCase()
 
   if (text.includes('api_not_activated') || text.includes('not enabled') || text.includes('api is not enabled')) {
-    return 'Enable API yang sesuai di Google Cloud: Routes/Geocoding untuk server, Maps SDK Android untuk mobile, atau Maps JavaScript untuk web.'
+    return 'Enable API yang sesuai di TomTom Cloud: Routes/Geocoding untuk server, Maps SDK Android untuk mobile, atau Maps JavaScript untuk web.'
   }
   if (text.includes('billing')) {
-    return 'Cek Billing Account Google Cloud dan payment method, lalu gunakan fallback OSM sampai billing sehat.'
+    return 'Cek Billing Account TomTom Cloud dan payment method, lalu gunakan fallback OSM sampai billing sehat.'
   }
   if (text.includes('quota') || text.includes('over_query_limit') || text.includes('resource_exhausted')) {
     return 'Switch sementara ke OpenStreetMap/Text Only, tambah quota pada key restricted, lalu pantau fallback rate.'
@@ -373,10 +373,10 @@ const mapsOpsAlertAction = (
     return 'Test server key di panel Secure Credential, cek API enablement, billing, dan restriction server IP VPS.'
   }
   if (text.includes('sha') || text.includes('package')) {
-    return 'Cek package name dan signing SHA Android courier/customer, lalu update Android key restriction di Google Cloud.'
+    return 'Cek package name dan signing SHA Android courier/customer, lalu update Android key restriction di TomTom Cloud.'
   }
   if (text.includes('circuit')) {
-    return 'Tahan traffic di fallback, tunggu circuit cool-down, lalu validasi route/geocode sebelum mengaktifkan Google lagi.'
+    return 'Tahan traffic di fallback, tunggu circuit cool-down, lalu validasi route/geocode sebelum mengaktifkan TomTom lagi.'
   }
   if (alert.code === 'maps_provider_failure_high') {
     return 'Gunakan Restore OpenStreetMap jika mobile/web mulai blank, lalu audit credential, timeout, dan konektivitas provider.'
@@ -388,7 +388,7 @@ const mapsOpsAlertAction = (
 }
 
 const ProviderPill = ({ provider }: { provider: MapProviderId }) => {
-  const className = provider === 'google_maps'
+  const className = provider === 'tomtom_maps'
     ? 'border-blue-400/30 bg-blue-500/10 text-blue-200'
     : provider === 'openstreetmap'
       ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
@@ -515,7 +515,7 @@ const MapsRuntimeSkeleton = () => (
 export default function MapsRuntime() {
   const queryClient = useQueryClient()
   const [credentialForm, setCredentialForm] = useState({
-    key_alias: 'staging-google-server',
+    key_alias: 'staging-TomTom-server',
     api_key: '',
     restriction_type: 'server_ip',
     activate: true,
@@ -577,20 +577,20 @@ export default function MapsRuntime() {
     onSuccess: (validation) => {
       setCredentialValidation(validation)
       if (validation.status === 'valid') {
-        toast.success('Google Maps key valid untuk server-side route dan geocode')
+        toast.success('TomTom Maps key valid untuk server-side route dan geocode')
         return
       }
-      toast.error(validation.message || 'Google Maps key belum valid')
+      toast.error(validation.message || 'TomTom Maps key belum valid')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.error || 'Gagal mengetes Google Maps key')
+      toast.error(error?.response?.data?.error || 'Gagal mengetes TomTom Maps key')
     },
   })
 
   const createCredentialMutation = useMutation({
     mutationFn: async () => {
       const response = await api.post('/admin/maps-provider-credentials', {
-        provider: 'google_maps',
+        provider: 'tomtom_maps',
         scope: 'server',
         key_alias: credentialForm.key_alias,
         api_key: credentialForm.api_key,
@@ -681,8 +681,8 @@ export default function MapsRuntime() {
     const next: Partial<MapsProviderValue> = {
       enabled: provider !== 'disabled',
       active_provider: provider,
-      fallback_provider: provider === 'google_maps' ? 'openstreetmap' : provider,
-      google_maps_enabled: provider === 'google_maps' ? true : value.google_maps_enabled,
+      fallback_provider: provider === 'tomtom_maps' ? 'openstreetmap' : provider,
+      tomtom_maps_enabled: provider === 'tomtom_maps' ? true : value.tomtom_maps_enabled,
       openstreetmap_enabled: provider === 'disabled' ? value.openstreetmap_enabled : true,
       disabled_mode_enabled: true,
       scopes: {
@@ -733,7 +733,7 @@ export default function MapsRuntime() {
       enabled: true,
       active_provider: 'openstreetmap',
       fallback_provider: 'openstreetmap',
-      google_maps_enabled: value.google_maps_enabled,
+      tomtom_maps_enabled: value.tomtom_maps_enabled,
       openstreetmap_enabled: true,
       disabled_mode_enabled: true,
       scopes,
@@ -798,7 +798,7 @@ export default function MapsRuntime() {
                 Maps Provider Operations
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-400">
-                Switch Google Maps, OpenStreetMap, atau text-only secara runtime untuk customer app,
+                Switch TomTom Maps, OpenStreetMap, atau text-only secara runtime untuk customer app,
                 courier app, web tracking, dan ETA tanpa rebuild aplikasi mobile.
               </p>
             </div>
@@ -907,14 +907,14 @@ export default function MapsRuntime() {
                   </div>
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.3em] text-zinc-500">Secure Credential</p>
-                    <h2 className="mt-1 text-2xl font-black tracking-tight text-white">Google server key</h2>
+                    <h2 className="mt-1 text-2xl font-black tracking-tight text-white">TomTom server key</h2>
                   </div>
                 </div>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-zinc-500">
                   Key diuji ke Geocoding dan Routes API sebelum bisa aktif. Plaintext key tidak pernah dikembalikan oleh backend.
                 </p>
               </div>
-              <ProviderPill provider="google_maps" />
+              <ProviderPill provider="tomtom_maps" />
             </div>
 
             {!canManageCredentials ? (
@@ -1349,10 +1349,10 @@ export default function MapsRuntime() {
                 <div className="mt-1 text-sm font-bold text-zinc-300">{formatDateTime(ops.generated_at)}</div>
               </div>
               <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                <div className="text-xs font-black uppercase tracking-[0.2em] text-zinc-600">Google quota</div>
+                <div className="text-xs font-black uppercase tracking-[0.2em] text-zinc-600">TomTom quota</div>
                 <div className="mt-1 text-sm font-bold capitalize text-zinc-300">
                   {ops.quota.status.replace('_', ' ')}
-                  {ops.quota.google_remaining_percent !== null ? ` · ${ops.quota.google_remaining_percent}%` : ''}
+                  {ops.quota.tomtom_remaining_percent !== null ? ` · ${ops.quota.tomtom_remaining_percent}%` : ''}
                 </div>
               </div>
               {ops.last_error && (

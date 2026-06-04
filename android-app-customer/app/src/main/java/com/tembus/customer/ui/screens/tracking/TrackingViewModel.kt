@@ -2,7 +2,7 @@ package com.tembus.customer.ui.screens.tracking
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.android.gms.maps.model.LatLng
+import com.tembus.customer.ui.components.maps.LatLng
 import com.tembus.customer.data.model.MapsProviderConfig
 import com.tembus.customer.data.model.OrderTrackingDetail
 import com.tembus.customer.data.repository.OrderRepository

@@ -34,7 +34,7 @@
 
     <!-- Modern Android 11+ (API 30) Package Visibility Permissions (CRITICAL GAP-1) -->
     <queries>
-        <!-- Geo URI Intent resolution support for Google Maps/Waze -->
+        <!-- Geo URI Intent resolution support for installed navigation apps. -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="geo" />
@@ -151,11 +151,6 @@
                 <action android:name="com.tembus.courier.ACTION_ACCEPT" />
             </intent-filter>
         </receiver>
-
-        <!-- Google Maps Infrastructure (Loaded dynamically from root .env) -->
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="${GOOGLE_MAPS_API_KEY}" />
 
     </application>
 

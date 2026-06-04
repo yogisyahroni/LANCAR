@@ -32,12 +32,40 @@ describe('mapsProviderConfig', () => {
   const { readDb } = jest.requireMock('../db');
   const { redis } = jest.requireMock('../redis');
   const axios = jest.requireMock('axios');
+  const sampleTomTomPoints = [
+    { latitude: -6.2088, longitude: 106.8456 },
+    { latitude: -6.1911, longitude: 106.8364 },
+    { latitude: -6.1754, longitude: 106.8272 },
+  ];
+  const tomTomRouteResponse = (overrides: {
+    distanceMeters?: number;
+    durationSeconds?: number;
+    trafficDelaySeconds?: number;
+    points?: Array<{ latitude: number; longitude: number }>;
+  } = {}) => ({
+    data: {
+      routes: [
+        {
+          summary: {
+            lengthInMeters: overrides.distanceMeters ?? 5400,
+            travelTimeInSeconds: overrides.durationSeconds ?? 720,
+            trafficDelayInSeconds: overrides.trafficDelaySeconds ?? 0,
+          },
+          legs: [
+            {
+              points: overrides.points ?? sampleTomTomPoints,
+            },
+          ],
+        },
+      ],
+    },
+  });
 
   const baseConfig = normalizeMapsProviderConfig({
     enabled: true,
     active_provider: 'openstreetmap',
     fallback_provider: 'openstreetmap',
-    google_maps_enabled: false,
+    tomtom_maps_enabled: false,
     openstreetmap_enabled: true,
     disabled_mode_enabled: true,
   });
@@ -45,14 +73,14 @@ describe('mapsProviderConfig', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     resetMapsProviderOpsForTests();
-    delete process.env.GOOGLE_ROUTES_API_KEY;
-    delete process.env.GOOGLE_ROUTES_API_URL;
-    delete process.env.GOOGLE_ROUTES_ALLOWED_HOSTS;
-    delete process.env.GOOGLE_ROUTES_TIMEOUT_MS;
-    delete process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED;
-    delete process.env.GOOGLE_MAPS_API_KEY;
-    delete process.env.GOOGLE_DIRECTIONS_API_KEY;
-    delete process.env.GOOGLE_MAPS_QUOTA_REMAINING_PERCENT;
+    delete process.env.TOMTOM_SERVER_API_KEY;
+    delete process.env.TOMTOM_ROUTING_API_URL;
+    delete process.env.TOMTOM_ROUTING_ALLOWED_HOSTS;
+    delete process.env.TOMTOM_ROUTING_TIMEOUT_MS;
+    delete process.env.TOMTOM_LEGACY_FALLBACK_DISABLED;
+    delete process.env.TOMTOM_API_KEY;
+    delete process.env.TOMTOM_LEGACY_DIRECTIONS_API_KEY;
+    delete process.env.TOMTOM_QUOTA_REMAINING_PERCENT;
     delete process.env.MAPS_GEOCODE_CACHE_TTL_SECONDS;
     delete process.env.OSM_ROUTING_BASE_URL;
     delete process.env.OSM_ROUTING_ALLOWED_HOSTS;
@@ -75,58 +103,58 @@ describe('mapsProviderConfig', () => {
   });
 
   it('resolves OpenStreetMap as the default public provider without exposing secrets', () => {
-    const config = resolvePublicMapsProviderConfig(baseConfig, 'customer_mobile', { googleKeyAvailable: false });
+    const config = resolvePublicMapsProviderConfig(baseConfig, 'customer_mobile', { TomTomKeyAvailable: false });
 
     expect(config.active_provider).toBe('openstreetmap');
     expect(config.enabled).toBe(true);
     expect(config.openstreetmap.tile_url_template).toContain('openstreetmap.org');
-    expect(JSON.stringify(config)).not.toContain('GOOGLE');
+    expect(JSON.stringify(config)).not.toContain('TomTom');
   });
 
-  it('falls back from Google Maps to OpenStreetMap when server key is missing', () => {
+  it('falls back from TomTom Maps to OpenStreetMap when server key is missing', () => {
     const config = resolvePublicMapsProviderConfig(
       normalizeMapsProviderConfig({
         ...baseConfig,
-        google_maps_enabled: true,
+        tomtom_maps_enabled: true,
         scopes: {
           ...baseConfig.scopes,
-          customer_mobile: { enabled: true, provider: 'google_maps' },
+          customer_mobile: { enabled: true, provider: 'tomtom_maps' },
         },
       }),
       'customer_mobile',
-      { googleKeyAvailable: false }
+      { TomTomKeyAvailable: false }
     );
 
-    expect(config.requested_provider).toBe('google_maps');
+    expect(config.requested_provider).toBe('tomtom_maps');
     expect(config.active_provider).toBe('openstreetmap');
-    expect(config.reason).toBe('google_maps_server_key_missing');
+    expect(config.reason).toBe('TOMTOM_server_key_missing');
   });
 
-  it('degrades public Google Maps runtime to OpenStreetMap when provider health is critical', () => {
+  it('degrades public TomTom Maps runtime to OpenStreetMap when provider health is critical', () => {
     const config = resolvePublicMapsProviderConfig(
       normalizeMapsProviderConfig({
         ...baseConfig,
-        active_provider: 'google_maps',
+        active_provider: 'tomtom_maps',
         fallback_provider: 'openstreetmap',
-        google_maps_enabled: true,
+        tomtom_maps_enabled: true,
         openstreetmap_enabled: true,
         scopes: {
           ...baseConfig.scopes,
-          courier_mobile: { enabled: true, provider: 'google_maps' },
+          courier_mobile: { enabled: true, provider: 'tomtom_maps' },
         },
       }),
       'courier_mobile',
       {
-        googleKeyAvailable: true,
+        TomTomKeyAvailable: true,
         forceFallbackReason: 'maps_provider_health_critical',
       }
     );
 
-    expect(config.requested_provider).toBe('google_maps');
+    expect(config.requested_provider).toBe('tomtom_maps');
     expect(config.active_provider).toBe('openstreetmap');
     expect(config.reason).toBe('maps_provider_health_critical');
     expect(config.openstreetmap.tile_url_template).toContain('openstreetmap.org');
-    expect(JSON.stringify(config)).not.toContain('test-google-key');
+    expect(JSON.stringify(config)).not.toContain('test-TomTom-key');
   });
 
   it('serves geocode results from cache before calling an external provider', async () => {
@@ -197,37 +225,26 @@ describe('mapsProviderConfig', () => {
     expect(route.route_polyline).toBeNull();
   });
 
-  it('uses Google Routes API server-side when Google is enabled and a server key exists', async () => {
-    process.env.GOOGLE_ROUTES_API_KEY = 'test-google-key';
+  it('uses TomTom Routes API server-side when TomTom is enabled and a server key exists', async () => {
+    process.env.TOMTOM_SERVER_API_KEY = 'test-TomTom-key';
     readDb.query.mockResolvedValue({
       rows: [
         {
           value: normalizeMapsProviderConfig({
             ...baseConfig,
-            active_provider: 'google_maps',
+            active_provider: 'tomtom_maps',
             fallback_provider: 'openstreetmap',
-            google_maps_enabled: true,
+            tomtom_maps_enabled: true,
             openstreetmap_enabled: true,
             scopes: {
               ...baseConfig.scopes,
-              tracking: { enabled: true, provider: 'google_maps' },
+              tracking: { enabled: true, provider: 'tomtom_maps' },
             },
           }),
         },
       ],
     });
-    axios.post.mockResolvedValue({
-      data: {
-        routes: [
-          {
-            duration: '720s',
-            staticDuration: '760s',
-            distanceMeters: 5400,
-            polyline: { encodedPolyline: 'encoded-google-routes-polyline' },
-          },
-        ],
-      },
-    });
+    axios.get.mockResolvedValue(tomTomRouteResponse());
 
     const route = await buildMapsRouteEtaSnapshot(
       { latitude: -6.2088, longitude: 106.8456 },
@@ -236,58 +253,48 @@ describe('mapsProviderConfig', () => {
       { vehicleType: 'car', serviceCode: 'TEMBUS_MOBIL' }
     );
 
-    expect(axios.post).toHaveBeenCalledWith(
-      expect.stringContaining('https://routes.googleapis.com/directions/v2:computeRoutes'),
+    expect(axios.get).toHaveBeenCalledWith(
+      expect.stringContaining('https://api.tomtom.com/routing/1/calculateRoute/-6.2088,106.8456:-6.1754,106.8272/json'),
       expect.objectContaining({
-        travelMode: 'DRIVE',
-        routingPreference: 'TRAFFIC_AWARE',
-      }),
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          'X-Goog-Api-Key': 'test-google-key',
-          'X-Goog-FieldMask': expect.stringContaining('routes.distanceMeters'),
+        params: expect.objectContaining({
+          key: 'test-TomTom-key',
+          traffic: true,
+          travelMode: 'car',
+          routeRepresentation: 'polyline',
+          computeTravelTimeFor: 'all',
         }),
       })
     );
-    expect(route.provider).toBe('google_routes_drive_traffic_aware');
-    expect(route.route_polyline).toBe('encoded-google-routes-polyline');
+    expect(route.provider).toBe('tomtom_routing_drive_traffic_aware');
+    expect(route.route_polyline).toEqual(expect.any(String));
+    expect(route.route_polyline?.length).toBeGreaterThan(0);
     expect(route.distance_meters).toBe(5400);
     expect(route.duration_seconds).toBe(720);
     expect(route.route_profile).toBe('car');
     expect(route.vehicle_type).toBe('car');
     expect(route.traffic_aware).toBe(true);
-    expect(JSON.stringify(route)).not.toContain('test-google-key');
+    expect(JSON.stringify(route)).not.toContain('test-TomTom-key');
     expect(redis.set).toHaveBeenCalled();
   });
 
-  it('uses Google two-wheeler traffic-aware optimal policy for urgent motorcycle services', async () => {
-    process.env.GOOGLE_ROUTES_API_KEY = 'test-google-key';
+  it('uses TomTom two-wheeler traffic-aware optimal policy for urgent motorcycle services', async () => {
+    process.env.TOMTOM_SERVER_API_KEY = 'test-TomTom-key';
     readDb.query.mockResolvedValue({
       rows: [
         {
           value: normalizeMapsProviderConfig({
             ...baseConfig,
-            active_provider: 'google_maps',
-            google_maps_enabled: true,
+            active_provider: 'tomtom_maps',
+            tomtom_maps_enabled: true,
             scopes: {
               ...baseConfig.scopes,
-              customer_mobile: { enabled: true, provider: 'google_maps' },
+              customer_mobile: { enabled: true, provider: 'tomtom_maps' },
             },
           }),
         },
       ],
     });
-    axios.post.mockResolvedValue({
-      data: {
-        routes: [
-          {
-            duration: '540s',
-            distanceMeters: 3600,
-            polyline: { encodedPolyline: 'encoded-google-two-wheeler-polyline' },
-          },
-        ],
-      },
-    });
+    axios.get.mockResolvedValue(tomTomRouteResponse({ distanceMeters: 3600, durationSeconds: 540 }));
 
     const route = await buildMapsRouteEtaSnapshot(
       { latitude: -6.2088, longitude: 106.8456 },
@@ -296,60 +303,51 @@ describe('mapsProviderConfig', () => {
       { vehicleType: 'motorcycle', serviceCode: 'TEMBUS_INSTANT' }
     );
 
-    expect(axios.post).toHaveBeenCalledWith(
+    expect(axios.get).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
-        travelMode: 'TWO_WHEELER',
-        routingPreference: 'TRAFFIC_AWARE_OPTIMAL',
-      }),
-      expect.any(Object)
+        params: expect.objectContaining({
+          travelMode: 'motorcycle',
+          traffic: true,
+        }),
+      })
     );
-    expect(route.provider).toBe('google_routes_two_wheeler_traffic_aware_optimal');
+    expect(route.provider).toBe('tomtom_routing_two_wheeler_traffic_aware_optimal');
     expect(route.route_profile).toBe('motorcycle');
     expect(route.vehicle_type).toBe('motorcycle');
     expect(route.confidence).toBe('high');
     expect(route.fallback_reason).toBeNull();
   });
 
-  it('falls back explicitly from Google two-wheeler to drive when the mode is unavailable', async () => {
-    process.env.GOOGLE_ROUTES_API_KEY = 'test-google-key';
+  it('falls back explicitly from TomTom two-wheeler to drive when the mode is unavailable', async () => {
+    process.env.TOMTOM_SERVER_API_KEY = 'test-TomTom-key';
     readDb.query.mockResolvedValue({
       rows: [
         {
           value: normalizeMapsProviderConfig({
             ...baseConfig,
-            active_provider: 'google_maps',
-            google_maps_enabled: true,
+            active_provider: 'tomtom_maps',
+            tomtom_maps_enabled: true,
             scopes: {
               ...baseConfig.scopes,
-              tracking: { enabled: true, provider: 'google_maps' },
+              tracking: { enabled: true, provider: 'tomtom_maps' },
             },
           }),
         },
       ],
     });
-    axios.post
+    axios.get
       .mockRejectedValueOnce({
         response: {
           data: {
             error: {
               status: 'INVALID_ARGUMENT',
-              message: 'TWO_WHEELER is not supported for this request.',
+              message: 'motorcycle is not supported for this request.',
             },
           },
         },
       })
-      .mockResolvedValueOnce({
-        data: {
-          routes: [
-            {
-              duration: '660s',
-              distanceMeters: 4700,
-              polyline: { encodedPolyline: 'encoded-google-drive-fallback-polyline' },
-            },
-          ],
-        },
-      });
+      .mockResolvedValueOnce(tomTomRouteResponse({ distanceMeters: 4700, durationSeconds: 660 }));
 
     const route = await buildMapsRouteEtaSnapshot(
       { latitude: -6.2088, longitude: 106.8456 },
@@ -358,70 +356,56 @@ describe('mapsProviderConfig', () => {
       { routeProfile: 'motorcycle', serviceCode: 'TEMBUS_PRIORITAS' }
     );
 
-    expect(axios.post).toHaveBeenNthCalledWith(
+    expect(axios.get).toHaveBeenNthCalledWith(
       1,
       expect.any(String),
-      expect.objectContaining({ travelMode: 'TWO_WHEELER' }),
-      expect.any(Object)
+      expect.objectContaining({
+        params: expect.objectContaining({ travelMode: 'motorcycle' }),
+      })
     );
-    expect(axios.post).toHaveBeenNthCalledWith(
+    expect(axios.get).toHaveBeenNthCalledWith(
       2,
       expect.any(String),
-      expect.objectContaining({ travelMode: 'DRIVE' }),
-      expect.any(Object)
+      expect.objectContaining({
+        params: expect.objectContaining({ travelMode: 'car' }),
+      })
     );
-    expect(route.provider).toBe('google_routes_drive_traffic_aware_optimal');
-    expect(route.route_polyline).toBe('encoded-google-drive-fallback-polyline');
-    expect(route.fallback_reason).toBe('google_two_wheeler_unavailable_defaulted_to_drive');
+    expect(route.provider).toBe('tomtom_routing_car_traffic_aware_optimal');
+    expect(route.route_polyline).toEqual(expect.any(String));
+    expect(route.fallback_reason).toBe('tomtom_motorcycle_unavailable_defaulted_to_car');
     expect(route.confidence).toBe('medium');
   });
 
-  it('falls back to legacy driving directions when two-wheeler and drive Routes calls both fail', async () => {
-    process.env.GOOGLE_ROUTES_API_KEY = 'test-google-key';
+  it('falls back to TomTom car routing when motorcycle and primary car routing both fail', async () => {
+    process.env.TOMTOM_SERVER_API_KEY = 'test-TomTom-key';
     readDb.query.mockResolvedValue({
       rows: [
         {
           value: normalizeMapsProviderConfig({
             ...baseConfig,
-            active_provider: 'google_maps',
-            google_maps_enabled: true,
+            active_provider: 'tomtom_maps',
+            tomtom_maps_enabled: true,
             scopes: {
               ...baseConfig.scopes,
-              tracking: { enabled: true, provider: 'google_maps' },
+              tracking: { enabled: true, provider: 'tomtom_maps' },
             },
           }),
         },
       ],
     });
-    axios.post
+    axios.get
       .mockRejectedValueOnce({
         response: {
           data: {
             error: {
               status: 'INVALID_ARGUMENT',
-              message: 'TWO_WHEELER is not supported for this request.',
+              message: 'motorcycle is not supported for this request.',
             },
           },
         },
       })
-      .mockRejectedValueOnce(new Error('GOOGLE_ROUTES_TIMEOUT'));
-    axios.get.mockResolvedValue({
-      data: {
-        status: 'OK',
-        routes: [
-          {
-            overview_polyline: { points: 'encoded-google-drive-legacy-after-two-wheeler-polyline' },
-            legs: [
-              {
-                duration: { text: '12 mins', value: 720 },
-                duration_in_traffic: { text: '11 mins', value: 660 },
-                distance: { value: 4900 },
-              },
-            ],
-          },
-        ],
-      },
-    });
+      .mockRejectedValueOnce(new Error('TOMTOM_ROUTING_TIMEOUT'))
+      .mockResolvedValueOnce(tomTomRouteResponse({ distanceMeters: 4900, durationSeconds: 660 }));
 
     const route = await buildMapsRouteEtaSnapshot(
       { latitude: -6.2088, longitude: 106.8456 },
@@ -430,57 +414,43 @@ describe('mapsProviderConfig', () => {
       { routeProfile: 'motorcycle', serviceCode: 'TEMBUS_INSTANT' }
     );
 
-    expect(axios.post).toHaveBeenCalledTimes(2);
-    expect(axios.get).toHaveBeenCalledWith(
-      'https://maps.googleapis.com/maps/api/directions/json',
+    expect(axios.get).toHaveBeenCalledTimes(3);
+    expect(axios.get).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining('https://api.tomtom.com/routing/1/calculateRoute/'),
       expect.objectContaining({
         params: expect.objectContaining({
-          mode: 'driving',
-          traffic_model: 'best_guess',
+          travelMode: 'car',
+          traffic: true,
         }),
       })
     );
-    expect(route.provider).toBe('google_directions_driving_legacy');
-    expect(route.route_polyline).toBe('encoded-google-drive-legacy-after-two-wheeler-polyline');
-    expect(route.fallback_reason).toContain('google_two_wheeler_unavailable_drive_legacy_used');
+    expect(route.provider).toBe('tomtom_routing_car_fallback');
+    expect(route.route_polyline).toEqual(expect.any(String));
+    expect(route.fallback_reason).toContain('TOMTOM_two_wheeler_unavailable_drive_legacy_used');
     expect(route.confidence).toBe('medium');
   });
 
-  it('uses legacy Google Directions as a controlled backend fallback when Routes API is unavailable', async () => {
-    process.env.GOOGLE_ROUTES_API_KEY = 'test-google-key';
+  it('uses TomTom car routing as a controlled backend fallback when primary routing is unavailable', async () => {
+    process.env.TOMTOM_SERVER_API_KEY = 'test-TomTom-key';
     readDb.query.mockResolvedValue({
       rows: [
         {
           value: normalizeMapsProviderConfig({
             ...baseConfig,
-            active_provider: 'google_maps',
-            google_maps_enabled: true,
+            active_provider: 'tomtom_maps',
+            tomtom_maps_enabled: true,
             scopes: {
               ...baseConfig.scopes,
-              tracking: { enabled: true, provider: 'google_maps' },
+              tracking: { enabled: true, provider: 'tomtom_maps' },
             },
           }),
         },
       ],
     });
-    axios.post.mockRejectedValue(new Error('GOOGLE_ROUTES_QUOTA_EXHAUSTED'));
-    axios.get.mockResolvedValue({
-      data: {
-        status: 'OK',
-        routes: [
-          {
-            overview_polyline: { points: 'encoded-google-legacy-polyline' },
-            legs: [
-              {
-                duration: { text: '15 mins', value: 900 },
-                duration_in_traffic: { text: '14 mins', value: 840 },
-                distance: { value: 6000 },
-              },
-            ],
-          },
-        ],
-      },
-    });
+    axios.get
+      .mockRejectedValueOnce(new Error('TOMTOM_ROUTING_QUOTA_EXHAUSTED'))
+      .mockResolvedValueOnce(tomTomRouteResponse({ distanceMeters: 6000, durationSeconds: 840 }));
 
     const route = await buildMapsRouteEtaSnapshot(
       { latitude: -6.2088, longitude: 106.8456 },
@@ -489,36 +459,37 @@ describe('mapsProviderConfig', () => {
       { vehicleType: 'car', serviceCode: 'TEMBUS_MOBIL' }
     );
 
-    expect(axios.get).toHaveBeenCalledWith(
-      'https://maps.googleapis.com/maps/api/directions/json',
+    expect(axios.get).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('https://api.tomtom.com/routing/1/calculateRoute/'),
       expect.objectContaining({
         params: expect.objectContaining({
-          mode: 'driving',
-          departure_time: 'now',
-          key: 'test-google-key',
+          travelMode: 'car',
+          traffic: true,
+          key: 'test-TomTom-key',
         }),
       })
     );
-    expect(route.provider).toBe('google_directions_driving_legacy');
-    expect(route.route_polyline).toBe('encoded-google-legacy-polyline');
-    expect(route.fallback_reason).toContain('google_routes_api_unavailable_legacy_directions_used');
+    expect(route.provider).toBe('tomtom_routing_car_fallback');
+    expect(route.route_polyline).toEqual(expect.any(String));
+    expect(route.fallback_reason).toContain('TOMTOM_ROUTING_api_unavailable_legacy_directions_used');
     expect(route.traffic_aware).toBe(true);
   });
 
-  it('rejects non-allowlisted Google Routes hosts without leaking the API key', async () => {
-    process.env.GOOGLE_ROUTES_API_KEY = 'test-google-key';
-    process.env.GOOGLE_ROUTES_API_URL = 'https://evil.example.test/directions/v2:computeRoutes';
-    process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED = 'true';
+  it('rejects non-allowlisted TomTom Routes hosts without leaking the API key', async () => {
+    process.env.TOMTOM_SERVER_API_KEY = 'test-TomTom-key';
+    process.env.TOMTOM_ROUTING_API_URL = 'https://evil.example.test/directions/v2:computeRoutes';
+    process.env.TOMTOM_LEGACY_FALLBACK_DISABLED = 'true';
     readDb.query.mockResolvedValue({
       rows: [
         {
           value: normalizeMapsProviderConfig({
             ...baseConfig,
-            active_provider: 'google_maps',
-            google_maps_enabled: true,
+            active_provider: 'tomtom_maps',
+            tomtom_maps_enabled: true,
             scopes: {
               ...baseConfig.scopes,
-              tracking: { enabled: true, provider: 'google_maps' },
+              tracking: { enabled: true, provider: 'tomtom_maps' },
             },
           }),
         },
@@ -532,10 +503,10 @@ describe('mapsProviderConfig', () => {
       { vehicleType: 'car', serviceCode: 'TEMBUS_MOBIL' }
     );
 
-    expect(axios.post).not.toHaveBeenCalled();
-    expect(route.provider).toBe('google_maps_fallback_haversine');
-    expect(route.fallback_reason).toBe('Google Routes host is not allowlisted');
-    expect(JSON.stringify(route)).not.toContain('test-google-key');
+    expect(axios.get).not.toHaveBeenCalled();
+    expect(route.provider).toBe('tomtom_maps_fallback_haversine');
+    expect(route.fallback_reason).toBe('TomTom Routes host is not allowlisted');
+    expect(JSON.stringify(route)).not.toContain('test-TomTom-key');
   });
 
   it('uses OpenStreetMap OSRM road geometry when OSM is enabled', async () => {
@@ -727,18 +698,18 @@ describe('mapsProviderConfig', () => {
     expect(route.fallback_reason).toBe('OSM routing host is not allowlisted');
   });
 
-  it('falls back to OpenStreetMap when Google is selected but disabled by policy', async () => {
+  it('falls back to OpenStreetMap when TomTom is selected but disabled by policy', async () => {
     readDb.query.mockResolvedValue({
       rows: [
         {
           value: normalizeMapsProviderConfig({
             ...baseConfig,
-            active_provider: 'google_maps',
-            google_maps_enabled: false,
+            active_provider: 'tomtom_maps',
+            tomtom_maps_enabled: false,
             openstreetmap_enabled: true,
             scopes: {
               ...baseConfig.scopes,
-              tracking: { enabled: true, provider: 'google_maps' },
+              tracking: { enabled: true, provider: 'tomtom_maps' },
             },
           }),
         },
@@ -784,13 +755,13 @@ describe('mapsProviderConfig', () => {
     expect(ops.route_quality.straight_line_fallbacks).toBeGreaterThan(0);
   });
 
-  it('alerts when Google quota is near limit', async () => {
-    process.env.GOOGLE_MAPS_QUOTA_REMAINING_PERCENT = '9';
+  it('alerts when TomTom quota is near limit', async () => {
+    process.env.TOMTOM_QUOTA_REMAINING_PERCENT = '9';
 
     const ops = await getMapsProviderOpsSnapshot();
 
     expect(ops.quota.status).toBe('near_limit');
-    expect(ops.active_alerts.some((alert) => alert.code === 'google_maps_quota_near_limit')).toBe(true);
+    expect(ops.active_alerts.some((alert) => alert.code === 'tomtom_quota_near_limit')).toBe(true);
   });
 
   it('records structured route context for audit-grade ops visibility', async () => {
@@ -864,20 +835,20 @@ describe('mapsProviderConfig', () => {
     db.query.mockResolvedValue({ rows: [] });
 
     const updated = await updateMapsProviderConfigValue({
-      active_provider: 'google_maps',
+      active_provider: 'tomtom_maps',
       fallback_provider: 'openstreetmap',
-      google_maps_enabled: true,
+      tomtom_maps_enabled: true,
       openstreetmap_enabled: true,
       scopes: {
         ...baseConfig.scopes,
-        customer_mobile: { enabled: true, provider: 'google_maps' },
+        customer_mobile: { enabled: true, provider: 'tomtom_maps' },
         courier_mobile: { enabled: true, provider: 'openstreetmap' },
-        tracking: { enabled: true, provider: 'google_maps' },
+        tracking: { enabled: true, provider: 'tomtom_maps' },
       },
     });
 
-    expect(updated.active_provider).toBe('google_maps');
-    expect(updated.scopes.customer_mobile.provider).toBe('google_maps');
+    expect(updated.active_provider).toBe('tomtom_maps');
+    expect(updated.scopes.customer_mobile.provider).toBe('tomtom_maps');
     expect(updated.scopes.courier_mobile.provider).toBe('openstreetmap');
     expect(db.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO system_configs'),
@@ -888,7 +859,7 @@ describe('mapsProviderConfig', () => {
     expect(ops.recent_events[0]).toEqual(expect.objectContaining({
       operation: 'config',
       scope: 'global',
-      provider: 'google_maps',
+      provider: 'tomtom_maps',
       status: 'success',
     }));
   });

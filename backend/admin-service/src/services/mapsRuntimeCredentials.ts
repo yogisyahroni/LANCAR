@@ -17,7 +17,7 @@ export type MapsCredentialAction = 'created' | 'validated' | 'activated' | 'deac
 
 export type MapsCredentialSummary = {
   id: string;
-  provider: 'google_maps';
+  provider: 'tomtom_maps';
   scope: string;
   key_alias: string;
   key_mask: string;
@@ -36,7 +36,7 @@ export type MapsCredentialSummary = {
   deactivated_at: string | null;
 };
 
-export type GoogleServerCredential = {
+export type TomTomServerCredential = {
   source: 'runtime_store' | 'environment';
   apiKey: string;
   keyAlias: string;
@@ -81,12 +81,12 @@ export class MapsCredentialError extends Error {
   }
 }
 
-const VALID_ENABLED_APIS = new Set(['geocoding', 'routes', 'directions']);
+const VALID_ENABLED_APIS = new Set(['geocoding', 'routes', 'search', 'routing']);
 const VALID_RESTRICTION_TYPES = new Set(['server_ip', 'http_referrer', 'android', 'ios', 'unrestricted', 'unknown']);
-const API_KEY_PATTERN = /^AIza[0-9A-Za-z_-]{20,}$/;
+const API_KEY_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 const LOCAL_DEV_ENCRYPTION_SEED = 'tembus-local-maps-runtime-credential-key';
 
-let activeCredentialCache: { expiresAt: number; credential: GoogleServerCredential | null } | null = null;
+let activeCredentialCache: { expiresAt: number; credential: TomTomServerCredential | null } | null = null;
 
 export const resetMapsRuntimeCredentialCacheForTests = () => {
   activeCredentialCache = null;
@@ -111,9 +111,9 @@ const normalizeText = (value: unknown, fallback = '') => (
 );
 
 const sanitizeAlias = (value: unknown) => {
-  const normalized = normalizeText(value, 'google-maps-runtime').replace(/\s+/g, '-').toLowerCase();
+  const normalized = normalizeText(value, 'TomTom-maps-runtime').replace(/\s+/g, '-').toLowerCase();
   const safe = normalized.replace(/[^a-z0-9._:-]/g, '').slice(0, 80);
-  return safe || `google-maps-${Date.now().toString(36)}`;
+  return safe || `TomTom-maps-${Date.now().toString(36)}`;
 };
 
 const normalizeScope = (value: unknown) => {
@@ -139,15 +139,15 @@ const normalizeActivateFlag = (value: unknown) => value === true || value === 't
 const normalizeApiKey = (value: unknown) => {
   const apiKey = normalizeText(value);
   if (!apiKey) {
-    throw new MapsCredentialError('api_key_required', 'Google Maps API key is required.');
+    throw new MapsCredentialError('api_key_required', 'TomTom Maps API key is required.');
   }
   if (!API_KEY_PATTERN.test(apiKey)) {
-    throw new MapsCredentialError('api_key_format_invalid', 'Google Maps API key format is invalid.');
+    throw new MapsCredentialError('api_key_format_invalid', 'TomTom Maps API key format is invalid.');
   }
   return apiKey;
 };
 
-export const maskGoogleApiKey = (apiKey: string) => {
+export const maskTomTomApiKey = (apiKey: string) => {
   const trimmed = apiKey.trim();
   if (trimmed.length <= 10) return '****';
   return `${trimmed.slice(0, 6)}...${trimmed.slice(-4)}`;
@@ -224,9 +224,9 @@ export const decryptMapsCredentialSecret = (encryptedSecret: string) => {
 
 const toCredentialSummary = (row: any): MapsCredentialSummary => ({
   id: String(row.id),
-  provider: 'google_maps',
+  provider: 'tomtom_maps',
   scope: String(row.scope || 'server'),
-  key_alias: String(row.key_alias || 'google-maps-runtime'),
+  key_alias: String(row.key_alias || 'TomTom-maps-runtime'),
   key_mask: String(row.key_mask || 'stored-secret'),
   secret_fingerprint: String(row.secret_fingerprint || '').slice(0, 16),
   enabled_apis: Array.isArray(row.enabled_apis) ? row.enabled_apis.map(String) : [],
@@ -245,14 +245,14 @@ const toCredentialSummary = (row: any): MapsCredentialSummary => ({
   deactivated_at: row.deactivated_at || null,
 });
 
-const classifyGoogleErrorCode = (error: any) => {
+const classifyTomTomErrorCode = (error: any) => {
   const raw = String(
     error?.response?.data?.error?.status ||
     error?.response?.data?.error?.message ||
     error?.response?.data?.status ||
     error?.code ||
     error?.message ||
-    'GOOGLE_MAPS_VALIDATION_FAILED'
+    'TOMTOM_VALIDATION_FAILED'
   );
   const upper = raw.toUpperCase();
   if (upper.includes('BILLING')) return 'BILLING_DISABLED';
@@ -262,25 +262,25 @@ const classifyGoogleErrorCode = (error: any) => {
   if (upper.includes('API_KEY_INVALID') || upper.includes('INVALID_KEY')) return 'API_KEY_INVALID';
   if (upper.includes('API_NOT_ACTIVATED') || upper.includes('SERVICE_DISABLED')) return 'API_DISABLED';
   if (upper.includes('REFERER') || upper.includes('ANDROID') || upper.includes('IP')) return 'KEY_RESTRICTION_MISMATCH';
-  return upper.replace(/[^A-Z0-9_:-]/g, '_').slice(0, 80) || 'GOOGLE_MAPS_VALIDATION_FAILED';
+  return upper.replace(/[^A-Z0-9_:-]/g, '_').slice(0, 80) || 'TOMTOM_VALIDATION_FAILED';
 };
 
 const validationMessage = (errorCode: string | null) => {
   if (!errorCode) return 'Credential validation passed.';
   if (errorCode === 'REQUEST_DENIED' || errorCode === 'PERMISSION_DENIED') {
-    return 'Google rejected the key. Check API enablement, billing, and key restrictions.';
+    return 'TomTom rejected the key. Check API enablement, billing, and key restrictions.';
   }
-  if (errorCode === 'BILLING_DISABLED') return 'Google Cloud billing is not active for this key project.';
-  if (errorCode === 'OVER_QUERY_LIMIT') return 'Google Maps quota is exhausted or too low.';
+  if (errorCode === 'BILLING_DISABLED') return 'TomTom Cloud billing is not active for this key project.';
+  if (errorCode === 'OVER_QUERY_LIMIT') return 'TomTom Maps quota is exhausted or too low.';
   if (errorCode === 'KEY_RESTRICTION_MISMATCH') return 'The key restriction does not match server-side usage.';
-  if (errorCode === 'API_DISABLED') return 'Required Google Maps APIs are not enabled.';
-  return 'Google Maps credential validation failed.';
+  if (errorCode === 'API_DISABLED') return 'Required TomTom Maps APIs are not enabled.';
+  return 'TomTom Maps credential validation failed.';
 };
 
-const assertAllowlistedGoogleEndpoint = (endpoint: string, allowedHostsEnv: string, defaultHosts: string) => {
+const assertAllowlistedTomTomEndpoint = (endpoint: string, allowedHostsEnv: string, defaultHosts: string) => {
   const parsed = new URL(endpoint);
   if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
-    throw new MapsCredentialError('google_endpoint_protocol_not_allowed', 'Google validation endpoint protocol is not allowed.', 500);
+    throw new MapsCredentialError('TOMTOM_endpoint_protocol_not_allowed', 'TomTom validation endpoint protocol is not allowed.', 500);
   }
   const allowedHosts = new Set(
     (envText(allowedHostsEnv) || defaultHosts)
@@ -289,50 +289,51 @@ const assertAllowlistedGoogleEndpoint = (endpoint: string, allowedHostsEnv: stri
       .filter(Boolean)
   );
   if (!allowedHosts.has(parsed.hostname.toLowerCase())) {
-    throw new MapsCredentialError('google_endpoint_host_not_allowed', 'Google validation endpoint host is not allowlisted.', 500);
+    throw new MapsCredentialError('TOMTOM_endpoint_host_not_allowed', 'TomTom validation endpoint host is not allowlisted.', 500);
   }
   return parsed.toString();
 };
 
-const googleGeocodeEndpoint = () => assertAllowlistedGoogleEndpoint(
-  envText('GOOGLE_GEOCODING_API_URL') || 'https://maps.googleapis.com/maps/api/geocode/json',
-  'GOOGLE_GEOCODING_ALLOWED_HOSTS',
-  'maps.googleapis.com,localhost,127.0.0.1,host.docker.internal'
-);
+const tomTomSearchBaseUrl = () => assertAllowlistedTomTomEndpoint(
+  envText('TOMTOM_SEARCH_API_URL') || 'https://api.tomtom.com/search/2',
+  'TOMTOM_SEARCH_ALLOWED_HOSTS',
+  'api.tomtom.com,localhost,127.0.0.1,host.docker.internal'
+).replace(/\/$/, '');
 
-const googleRoutesEndpoint = () => assertAllowlistedGoogleEndpoint(
-  envText('GOOGLE_ROUTES_API_URL') || 'https://routes.googleapis.com/directions/v2:computeRoutes',
-  'GOOGLE_ROUTES_ALLOWED_HOSTS',
-  'routes.googleapis.com,localhost,127.0.0.1,host.docker.internal'
-);
+const tomTomRoutingBaseUrl = () => assertAllowlistedTomTomEndpoint(
+  envText('TOMTOM_ROUTING_API_URL') || 'https://api.tomtom.com/routing/1',
+  'TOMTOM_ROUTING_ALLOWED_HOSTS',
+  'api.tomtom.com,localhost,127.0.0.1,host.docker.internal'
+).replace(/\/$/, '');
 
 const validationTimeoutMs = () => {
-  const parsed = Number(envText('GOOGLE_MAPS_CREDENTIAL_TEST_TIMEOUT_MS') || 4500);
+  const parsed = Number(envText('TOMTOM_CREDENTIAL_TEST_TIMEOUT_MS') || 4500);
   return Number.isFinite(parsed) && parsed >= 1000 && parsed <= 15000 ? parsed : 4500;
 };
 
-const runGoogleGeocodeValidation = async (apiKey: string): Promise<MapsCredentialValidationCheck> => {
+const runTomTomGeocodeValidation = async (apiKey: string): Promise<MapsCredentialValidationCheck> => {
   const startedAt = Date.now();
   try {
-    const response = await axios.get(googleGeocodeEndpoint(), {
+    const response = await axios.get(`${tomTomSearchBaseUrl()}/search/${encodeURIComponent('Jakarta, Indonesia')}.json`, {
       params: {
-        address: 'Jakarta, Indonesia',
         key: apiKey,
+        limit: 1,
+        countrySet: 'ID',
       },
       timeout: validationTimeoutMs(),
     });
-    const providerStatus = String(response.data?.status || '');
-    if (providerStatus !== 'OK') {
-      throw new MapsCredentialError(providerStatus || 'GOOGLE_GEOCODING_NOT_OK', 'Google geocode validation failed.');
+    const providerStatus = String(response.status || '');
+    if (!Array.isArray(response.data?.results) || response.data.results.length === 0) {
+      throw new MapsCredentialError('TOMTOM_SEARCH_EMPTY', 'TomTom search validation returned no results.');
     }
     return {
       name: 'geocode',
       status: 'passed',
-      provider_status: providerStatus,
+      provider_status: providerStatus || 'OK',
       latency_ms: Date.now() - startedAt,
     };
   } catch (error: any) {
-    const errorCode = error instanceof MapsCredentialError ? error.code : classifyGoogleErrorCode(error);
+    const errorCode = error instanceof MapsCredentialError ? error.code : classifyTomTomErrorCode(error);
     return {
       name: 'geocode',
       status: 'failed',
@@ -343,32 +344,25 @@ const runGoogleGeocodeValidation = async (apiKey: string): Promise<MapsCredentia
   }
 };
 
-const runGoogleRouteValidation = async (apiKey: string): Promise<MapsCredentialValidationCheck> => {
+const runTomTomRouteValidation = async (apiKey: string): Promise<MapsCredentialValidationCheck> => {
   const startedAt = Date.now();
   try {
-    const response = await axios.post(
-      googleRoutesEndpoint(),
+    const response = await axios.get(
+      `${tomTomRoutingBaseUrl()}/calculateRoute/-6.2088,106.8456:-6.1754,106.8272/json`,
       {
-        origin: { location: { latLng: { latitude: -6.2088, longitude: 106.8456 } } },
-        destination: { location: { latLng: { latitude: -6.1754, longitude: 106.8272 } } },
-        travelMode: 'DRIVE',
-        routingPreference: 'TRAFFIC_AWARE',
-        computeAlternativeRoutes: false,
-        languageCode: 'id-ID',
-        units: 'METRIC',
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': apiKey,
-          'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters,routes.polyline.encodedPolyline',
+        params: {
+          key: apiKey,
+          traffic: true,
+          travelMode: 'car',
+          routeRepresentation: 'polyline',
+          computeTravelTimeFor: 'all',
         },
         timeout: validationTimeoutMs(),
       }
     );
     const route = response.data?.routes?.[0];
-    if (!route || !route.distanceMeters || !route.polyline?.encodedPolyline) {
-      throw new MapsCredentialError('GOOGLE_ROUTES_SAMPLE_INVALID', 'Google route validation did not return route geometry.');
+    if (!route || !route.summary?.lengthInMeters || !route.legs?.[0]?.points?.length) {
+      throw new MapsCredentialError('TOMTOM_ROUTING_SAMPLE_INVALID', 'TomTom route validation did not return route geometry.');
     }
     return {
       name: 'route',
@@ -377,7 +371,7 @@ const runGoogleRouteValidation = async (apiKey: string): Promise<MapsCredentialV
       latency_ms: Date.now() - startedAt,
     };
   } catch (error: any) {
-    const errorCode = error instanceof MapsCredentialError ? error.code : classifyGoogleErrorCode(error);
+    const errorCode = error instanceof MapsCredentialError ? error.code : classifyTomTomErrorCode(error);
     return {
       name: 'route',
       status: 'failed',
@@ -388,10 +382,10 @@ const runGoogleRouteValidation = async (apiKey: string): Promise<MapsCredentialV
   }
 };
 
-export const validateGoogleMapsServerKey = async (apiKey: string): Promise<MapsCredentialValidationResult> => {
+export const validateTomTomMapsServerKey = async (apiKey: string): Promise<MapsCredentialValidationResult> => {
   const checks = [
-    await runGoogleGeocodeValidation(apiKey),
-    await runGoogleRouteValidation(apiKey),
+    await runTomTomGeocodeValidation(apiKey),
+    await runTomTomRouteValidation(apiKey),
   ];
   const failed = checks.find((check) => check.status === 'failed');
   const errorCode = failed?.error_code || null;
@@ -411,7 +405,7 @@ const writeCredentialAudit = async (
   metadata: Record<string, unknown>
 ) => {
   const safeMetadata = {
-    provider: 'google_maps',
+    provider: 'tomtom_maps',
     key_alias: metadata.key_alias,
     validation_status: metadata.validation_status,
     error_code: metadata.error_code,
@@ -454,7 +448,7 @@ const invalidateMapsCredentialCache = async () => {
   activeCredentialCache = null;
   try {
     if (typeof (redis as any).del === 'function') {
-      await (redis as any).del('maps:runtime:active-google-credential');
+      await (redis as any).del('maps:runtime:active-tomtom-credential');
     }
   } catch (error) {
     securityLog.warn('Failed to invalidate maps credential redis cache', { error });
@@ -484,16 +478,16 @@ export const testMapsRuntimeCredentialInput = async (
   input: Pick<CreateMapsCredentialInput, 'api_key'>
 ): Promise<MapsCredentialValidationResult> => {
   const apiKey = normalizeApiKey(input.api_key);
-  return validateGoogleMapsServerKey(apiKey);
+  return validateTomTomMapsServerKey(apiKey);
 };
 
 export const createMapsRuntimeCredential = async (
   input: CreateMapsCredentialInput,
   actorId: string | null
 ): Promise<{ credential: MapsCredentialSummary; validation: MapsCredentialValidationResult }> => {
-  const provider = normalizeText(input.provider, 'google_maps');
-  if (provider !== 'google_maps') {
-    throw new MapsCredentialError('provider_not_supported', 'Only Google Maps runtime credentials are supported.');
+  const provider = normalizeText(input.provider, 'tomtom_maps');
+  if (provider !== 'tomtom_maps') {
+    throw new MapsCredentialError('provider_not_supported', 'Only TomTom Maps runtime credentials are supported.');
   }
   const apiKey = normalizeApiKey(input.api_key);
   const keyAlias = sanitizeAlias(input.key_alias);
@@ -501,7 +495,7 @@ export const createMapsRuntimeCredential = async (
   const enabledApis = normalizeEnabledApis(input.enabled_apis);
   const restrictionType = normalizeRestrictionType(input.restriction_type);
   const activate = normalizeActivateFlag(input.activate);
-  const validation = await validateGoogleMapsServerKey(apiKey);
+  const validation = await validateTomTomMapsServerKey(apiKey);
   const encrypted = encryptMapsCredentialSecret(apiKey);
   const fingerprint = fingerprintSecret(apiKey);
 
@@ -520,10 +514,10 @@ export const createMapsRuntimeCredential = async (
                  last_validated_at, created_by, activated_by, created_at, updated_at,
                  activated_at, deactivated_at`,
       [
-        'google_maps',
+        'tomtom_maps',
         scope,
         keyAlias,
-        maskGoogleApiKey(apiKey),
+        maskTomTomApiKey(apiKey),
         encrypted.encryptedSecret,
         encrypted.encryptionKid,
         fingerprint,
@@ -549,7 +543,7 @@ export const createMapsRuntimeCredential = async (
       await client.query(
         `UPDATE maps_provider_credentials
          SET is_active = false, deactivated_at = NOW(), updated_at = NOW()
-         WHERE provider = 'google_maps'
+         WHERE provider = 'tomtom_maps'
            AND is_active = true
            AND id <> $1`,
         [credentialRow.id]
@@ -591,7 +585,7 @@ const loadCredentialForUpdate = async (client: Queryable, credentialId: string) 
     `SELECT id, encrypted_secret, key_alias, last_validation_status
      FROM maps_provider_credentials
      WHERE id = $1
-       AND provider = 'google_maps'
+       AND provider = 'tomtom_maps'
        AND deleted_at IS NULL
      LIMIT 1`,
     [credentialId]
@@ -608,7 +602,7 @@ export const validateStoredMapsRuntimeCredential = async (
 ): Promise<{ credential: MapsCredentialSummary; validation: MapsCredentialValidationResult }> => {
   const existing = await loadCredentialForUpdate(readDb, credentialId);
   const apiKey = decryptMapsCredentialSecret(existing.encrypted_secret);
-  const validation = await validateGoogleMapsServerKey(apiKey);
+  const validation = await validateTomTomMapsServerKey(apiKey);
   const result = await db.query(
     `UPDATE maps_provider_credentials
      SET last_validation_status = $2, last_error_code = $3, last_validated_at = NOW(),
@@ -649,7 +643,7 @@ export const activateMapsRuntimeCredential = async (
     await client.query('BEGIN');
     const existing = await loadCredentialForUpdate(client, credentialId);
     const apiKey = decryptMapsCredentialSecret(existing.encrypted_secret);
-    const validation = await validateGoogleMapsServerKey(apiKey);
+    const validation = await validateTomTomMapsServerKey(apiKey);
     if (validation.status !== 'valid') {
       await client.query(
         `UPDATE maps_provider_credentials
@@ -673,7 +667,7 @@ export const activateMapsRuntimeCredential = async (
     await client.query(
       `UPDATE maps_provider_credentials
        SET is_active = false, deactivated_at = NOW(), updated_at = NOW()
-       WHERE provider = 'google_maps'
+       WHERE provider = 'tomtom_maps'
          AND is_active = true
          AND id <> $1`,
       [credentialId]
@@ -732,7 +726,7 @@ export const deactivateMapsRuntimeCredential = async (
       const previous = await client.query(
         `SELECT id
          FROM maps_provider_credentials
-         WHERE provider = 'google_maps'
+         WHERE provider = 'tomtom_maps'
            AND id <> $1
            AND deleted_at IS NULL
            AND last_validation_status = 'valid'
@@ -744,7 +738,7 @@ export const deactivateMapsRuntimeCredential = async (
         await client.query(
           `UPDATE maps_provider_credentials
            SET is_active = false, deactivated_at = NOW(), updated_at = NOW()
-           WHERE provider = 'google_maps'
+           WHERE provider = 'tomtom_maps'
              AND is_active = true`,
         );
         const activated = await client.query(
@@ -779,13 +773,13 @@ export const deactivateMapsRuntimeCredential = async (
   }
 };
 
-const environmentGoogleServerCredential = (): GoogleServerCredential | null => {
-  const apiKey = envText('GOOGLE_ROUTES_API_KEY') || envText('GOOGLE_MAPS_API_KEY') || envText('GOOGLE_DIRECTIONS_API_KEY');
+const environmentTomTomServerCredential = (): TomTomServerCredential | null => {
+  const apiKey = envText('TOMTOM_SERVER_API_KEY') || envText('TOMTOM_API_KEY') || envText('TOMTOM_LEGACY_DIRECTIONS_API_KEY');
   if (!apiKey) return null;
   return {
     source: 'environment',
     apiKey,
-    keyAlias: envText('GOOGLE_MAPS_SERVER_KEY_ALIAS') || 'env-google-maps',
+    keyAlias: envText('TOMTOM_SERVER_KEY_ALIAS') || 'env-tomtom-maps',
     credentialId: null,
     cacheKey: `env:${fingerprintSecret(apiKey).slice(0, 16)}`,
   };
@@ -797,7 +791,7 @@ const credentialCacheTtlMs = () => {
   return seconds * 1000;
 };
 
-export const getActiveGoogleMapsServerCredential = async (): Promise<GoogleServerCredential | null> => {
+export const getActiveTomTomMapsServerCredential = async (): Promise<TomTomServerCredential | null> => {
   const now = Date.now();
   if (activeCredentialCache && activeCredentialCache.expiresAt > now) {
     return activeCredentialCache.credential;
@@ -807,7 +801,7 @@ export const getActiveGoogleMapsServerCredential = async (): Promise<GoogleServe
     const result = await readDb.query(
       `SELECT id, key_alias, encrypted_secret, secret_fingerprint
        FROM maps_provider_credentials
-       WHERE provider = 'google_maps'
+       WHERE provider = 'tomtom_maps'
          AND is_active = true
          AND deleted_at IS NULL
          AND last_validation_status = 'valid'
@@ -820,27 +814,27 @@ export const getActiveGoogleMapsServerCredential = async (): Promise<GoogleServe
       const credential = {
         source: 'runtime_store',
         apiKey,
-        keyAlias: String(row.key_alias || 'google-maps-runtime'),
+        keyAlias: String(row.key_alias || 'TomTom-maps-runtime'),
         credentialId: String(row.id),
         cacheKey: `runtime:${String(row.id)}:${String(row.secret_fingerprint || '').slice(0, 16)}`,
-      } satisfies GoogleServerCredential;
+      } satisfies TomTomServerCredential;
       activeCredentialCache = { credential, expiresAt: now + credentialCacheTtlMs() };
       return credential;
     }
     if (row?.id) {
-      securityLog.warn('Runtime Google Maps credential row is missing encrypted secret, falling back to environment', {
+      securityLog.warn('Runtime TomTom Maps credential row is missing encrypted secret, falling back to environment', {
         credentialId: row.id,
       });
     }
   } catch (error) {
     if (!isMissingCredentialTableError(error)) {
-      securityLog.warn('Runtime Google Maps credential lookup failed, falling back to environment', { error });
+      securityLog.warn('Runtime TomTom Maps credential lookup failed, falling back to environment', { error });
     }
   }
 
-  const fallback = environmentGoogleServerCredential();
+  const fallback = environmentTomTomServerCredential();
   activeCredentialCache = { credential: fallback, expiresAt: now + credentialCacheTtlMs() };
   return fallback;
 };
 
-export const hasGoogleMapsServerCredential = async () => Boolean(await getActiveGoogleMapsServerCredential());
+export const hasTomTomMapsServerCredential = async () => Boolean(await getActiveTomTomMapsServerCredential());

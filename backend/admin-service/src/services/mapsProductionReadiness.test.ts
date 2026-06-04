@@ -1,9 +1,9 @@
-const mockGetActiveGoogleMapsServerCredential = jest.fn();
+const mockgetActiveTomTomMapsServerCredential = jest.fn();
 const mockListMapsRuntimeCredentials = jest.fn();
 const mockGetMapsProviderOpsSnapshot = jest.fn();
 
 jest.mock('./mapsRuntimeCredentials', () => ({
-  getActiveGoogleMapsServerCredential: mockGetActiveGoogleMapsServerCredential,
+  getActiveTomTomMapsServerCredential: mockgetActiveTomTomMapsServerCredential,
   listMapsRuntimeCredentials: mockListMapsRuntimeCredentials,
 }));
 
@@ -14,7 +14,7 @@ jest.mock('./mapsProviderConfig', () => ({
 const { getMapsProductionReadiness } = require('./mapsProductionReadiness') as typeof import('./mapsProductionReadiness');
 
 describe('mapsProductionReadiness', () => {
-  const key = (suffix: string) => `AI${'za'}${suffix.padEnd(32, 'a')}`;
+  const key = (suffix: string) => `tt_${suffix.padEnd(32, 'a')}`;
   const now = new Date('2026-06-04T00:00:00.000Z');
 
   const baseOpsSnapshot = {
@@ -23,9 +23,9 @@ describe('mapsProductionReadiness', () => {
     active_alerts: [],
     active_config: {
       enabled: true,
-      active_provider: 'google_maps',
+      active_provider: 'tomtom_maps',
       fallback_provider: 'openstreetmap',
-      google_maps_enabled: true,
+      tomtom_maps_enabled: true,
       openstreetmap_enabled: true,
     },
     counters: {},
@@ -41,12 +41,12 @@ describe('mapsProductionReadiness', () => {
     },
     last_error: null,
     recent_events: [],
-    quota: { google_remaining_percent: 80, status: 'healthy' },
+    quota: { tomtom_remaining_percent: 80, status: 'healthy' },
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetActiveGoogleMapsServerCredential.mockResolvedValue(null);
+    mockgetActiveTomTomMapsServerCredential.mockResolvedValue(null);
     mockListMapsRuntimeCredentials.mockResolvedValue([]);
     mockGetMapsProviderOpsSnapshot.mockResolvedValue(baseOpsSnapshot);
   });
@@ -66,7 +66,7 @@ describe('mapsProductionReadiness', () => {
 
   it('passes when every surface is separated, restricted, and rotation metadata is current', async () => {
     const serverKey = key('server12345678901234567890123456');
-    mockGetActiveGoogleMapsServerCredential.mockResolvedValue({
+    mockgetActiveTomTomMapsServerCredential.mockResolvedValue({
       source: 'runtime_store',
       apiKey: serverKey,
       keyAlias: 'tembus-staging-server-maps-key',
@@ -77,7 +77,7 @@ describe('mapsProductionReadiness', () => {
       {
         id: 'credential-1',
         key_alias: 'tembus-staging-server-maps-key',
-        enabled_apis: ['geocoding', 'routes'],
+        enabled_apis: ['search', 'routing', 'geocoding', 'reverse_geocoding'],
         restriction_type: 'server_ip',
         activated_at: '2026-05-01T00:00:00.000Z',
       },
@@ -86,18 +86,18 @@ describe('mapsProductionReadiness', () => {
     const readiness = await getMapsProductionReadiness(
       {
         ENVIRONMENT: 'staging',
-        GOOGLE_MAPS_ANDROID_COURIER_API_KEY: key('courier123456789012345678901234'),
-        GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY: key('customer12345678901234567890123'),
-        GOOGLE_MAPS_BROWSER_API_KEY: key('browser123456789012345678901234'),
-        GOOGLE_MAPS_ANDROID_COURIER_KEY_RESTRICTION: 'android_package_sha1',
-        GOOGLE_MAPS_ANDROID_CUSTOMER_KEY_RESTRICTION: 'android_package_sha1',
-        GOOGLE_MAPS_WEB_KEY_RESTRICTION: 'http_referrer',
-        GOOGLE_MAPS_ANDROID_COURIER_KEY_APIS: 'maps_sdk_android',
-        GOOGLE_MAPS_ANDROID_CUSTOMER_KEY_APIS: 'maps_sdk_android',
-        GOOGLE_MAPS_WEB_KEY_APIS: 'maps_javascript_api',
-        GOOGLE_MAPS_ANDROID_COURIER_KEY_ROTATED_AT: '2026-05-01',
-        GOOGLE_MAPS_ANDROID_CUSTOMER_KEY_ROTATED_AT: '2026-05-01',
-        GOOGLE_MAPS_WEB_KEY_ROTATED_AT: '2026-05-01',
+        TOMTOM_ANDROID_COURIER_API_KEY: key('courier123456789012345678901234'),
+        TOMTOM_ANDROID_CUSTOMER_API_KEY: key('customer12345678901234567890123'),
+        TOMTOM_WEB_API_KEY: key('browser123456789012345678901234'),
+        TOMTOM_ANDROID_COURIER_KEY_RESTRICTION: 'android_package_sha1',
+        TOMTOM_ANDROID_CUSTOMER_KEY_RESTRICTION: 'android_package_sha1',
+        TOMTOM_WEB_KEY_RESTRICTION: 'http_referrer',
+        TOMTOM_ANDROID_COURIER_KEY_APIS: 'maps_sdk_android,navigation_sdk_android',
+        TOMTOM_ANDROID_CUSTOMER_KEY_APIS: 'maps_sdk_android',
+        TOMTOM_WEB_KEY_APIS: 'maps_sdk_web',
+        TOMTOM_ANDROID_COURIER_KEY_ROTATED_AT: '2026-05-01',
+        TOMTOM_ANDROID_CUSTOMER_KEY_ROTATED_AT: '2026-05-01',
+        TOMTOM_WEB_KEY_ROTATED_AT: '2026-05-01',
       } as NodeJS.ProcessEnv,
       now
     );
@@ -115,14 +115,14 @@ describe('mapsProductionReadiness', () => {
     const readiness = await getMapsProductionReadiness(
       {
         ENVIRONMENT: 'staging',
-        GOOGLE_MAPS_ANDROID_COURIER_API_KEY: shared,
-        GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY: shared,
-        GOOGLE_MAPS_ANDROID_COURIER_KEY_RESTRICTION: 'android_package_sha1',
-        GOOGLE_MAPS_ANDROID_CUSTOMER_KEY_RESTRICTION: 'android_package_sha1',
-        GOOGLE_MAPS_ANDROID_COURIER_KEY_APIS: 'maps_sdk_android',
-        GOOGLE_MAPS_ANDROID_CUSTOMER_KEY_APIS: 'maps_sdk_android',
-        GOOGLE_MAPS_ANDROID_COURIER_KEY_ROTATED_AT: '2026-05-01',
-        GOOGLE_MAPS_ANDROID_CUSTOMER_KEY_ROTATED_AT: '2026-05-01',
+        TOMTOM_ANDROID_COURIER_API_KEY: shared,
+        TOMTOM_ANDROID_CUSTOMER_API_KEY: shared,
+        TOMTOM_ANDROID_COURIER_KEY_RESTRICTION: 'android_package_sha1',
+        TOMTOM_ANDROID_CUSTOMER_KEY_RESTRICTION: 'android_package_sha1',
+        TOMTOM_ANDROID_COURIER_KEY_APIS: 'maps_sdk_android,navigation_sdk_android',
+        TOMTOM_ANDROID_CUSTOMER_KEY_APIS: 'maps_sdk_android',
+        TOMTOM_ANDROID_COURIER_KEY_ROTATED_AT: '2026-05-01',
+        TOMTOM_ANDROID_CUSTOMER_KEY_ROTATED_AT: '2026-05-01',
       } as NodeJS.ProcessEnv,
       now
     );
@@ -136,10 +136,10 @@ describe('mapsProductionReadiness', () => {
     const readiness = await getMapsProductionReadiness(
       {
         ENVIRONMENT: 'staging',
-        GOOGLE_MAPS_ANDROID_COURIER_API_KEY: key('courier123456789012345678901234'),
-        GOOGLE_MAPS_ANDROID_COURIER_KEY_RESTRICTION: 'android_package_sha1',
-        GOOGLE_MAPS_ANDROID_COURIER_KEY_APIS: 'maps_sdk_android',
-        GOOGLE_MAPS_ANDROID_COURIER_KEY_ROTATED_AT: '2025-01-01',
+        TOMTOM_ANDROID_COURIER_API_KEY: key('courier123456789012345678901234'),
+        TOMTOM_ANDROID_COURIER_KEY_RESTRICTION: 'android_package_sha1',
+        TOMTOM_ANDROID_COURIER_KEY_APIS: 'maps_sdk_android,navigation_sdk_android',
+        TOMTOM_ANDROID_COURIER_KEY_ROTATED_AT: '2025-01-01',
       } as NodeJS.ProcessEnv,
       now
     );
@@ -149,7 +149,7 @@ describe('mapsProductionReadiness', () => {
     expect(courier?.issues.some((item) => item.code === 'maps_key_rotation_overdue')).toBe(true);
   });
 
-  it('adds actionable diagnostics for denied Google provider errors', async () => {
+  it('adds actionable diagnostics for denied TomTom provider errors', async () => {
     mockGetMapsProviderOpsSnapshot.mockResolvedValue({
       ...baseOpsSnapshot,
       status: 'critical',
@@ -164,9 +164,9 @@ describe('mapsProductionReadiness', () => {
         recorded_at: now.toISOString(),
         operation: 'route',
         scope: 'tracking',
-        requested_provider: 'google_maps',
-        active_provider: 'google_maps',
-        provider: 'google_routes_drive_traffic_aware',
+        requested_provider: 'tomtom_maps',
+        active_provider: 'tomtom_maps',
+        provider: 'TOMTOM_ROUTING_drive_traffic_aware',
         status: 'failure',
         latency_ms: 250,
         cache_hit: false,
@@ -181,9 +181,9 @@ describe('mapsProductionReadiness', () => {
       now
     );
 
-    const deniedIssue = readiness.active_alerts.find((item) => item.code === 'google_maps_request_denied');
+    const deniedIssue = readiness.active_alerts.find((item) => item.code === 'tomtom_request_denied');
     expect(deniedIssue?.severity).toBe('critical');
     expect(deniedIssue?.action).toContain('Admin Maps Runtime');
-    expect(JSON.stringify(readiness)).not.toContain('AIza');
+    expect(JSON.stringify(readiness)).not.toContain('tt_');
   });
 });

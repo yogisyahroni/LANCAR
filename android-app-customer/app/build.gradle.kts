@@ -73,29 +73,29 @@ fun isEnabledFlag(value: String): Boolean {
     return value.trim().lowercase() in setOf("1", "true", "yes", "on", "required")
 }
 
-fun isValidGoogleMapsApiKey(value: String): Boolean {
-    return Regex("^AIza[0-9A-Za-z_-]{20,}$").matches(value.trim())
+fun isValidTomTomApiKey(value: String): Boolean {
+    return Regex("^[A-Za-z0-9_-]{16,128}$").matches(value.trim())
 }
 
 fun isValidSha256CertificatePin(value: String): Boolean {
     return Regex("^sha256/[A-Za-z0-9+/]{43}=$").matches(value.trim())
 }
 
-fun validateReleaseGoogleMapsKeyConfig(
+fun validateReleaseTomTomKeyConfig(
     appLabel: String,
     specificKey: String,
     requiredEnvDescription: String
 ) {
     if (specificKey.isBlank()) {
         throw GradleException(
-            "Release $appLabel build requires a platform-specific Google Maps Android key. " +
-                "Set $requiredEnvDescription. GOOGLE_MAPS_ANDROID_API_KEY is debug-only fallback."
+            "Release $appLabel build requires a platform-specific TomTom Android key. " +
+                "Set $requiredEnvDescription."
         )
     }
 
-    if (!isValidGoogleMapsApiKey(specificKey)) {
+    if (!isValidTomTomApiKey(specificKey)) {
         throw GradleException(
-            "Release $appLabel Google Maps Android key must use a valid Google Maps API key format."
+            "Release $appLabel TomTom Android key must use a valid TomTom Maps API key format."
         )
     }
 }
@@ -142,12 +142,11 @@ val releaseCertificatePinPrimary = getConfigValue("API_CERT_SHA256_PIN_PRIMARY")
 val releaseCertificatePinBackup = getConfigValue("API_CERT_SHA256_PIN_BACKUP").trim()
 val releaseCertificatePinningRequired = isEnabledFlag(getConfigValue("API_CERT_PINNING_REQUIRED"))
 val githubReleaseUpdatesEnabled = isEnabledFlag(getConfigValue("GITHUB_RELEASE_UPDATES_ENABLED").ifBlank { "true" })
-val customerGoogleMapsAndroidApiKey = getFirstConfigValue(
-    "GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY",
-    "CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY"
+val customerTomTomAndroidApiKey = getFirstConfigValue(
+    "TOMTOM_ANDROID_CUSTOMER_API_KEY",
+    "CUSTOMER_TOMTOM_ANDROID_API_KEY"
 )
-val legacyGoogleMapsAndroidApiKey = getConfigValue("GOOGLE_MAPS_ANDROID_API_KEY")
-val effectiveGoogleMapsAndroidApiKey = customerGoogleMapsAndroidApiKey.ifBlank { legacyGoogleMapsAndroidApiKey }
+val effectiveTomTomAndroidApiKey = customerTomTomAndroidApiKey
 val hasReleaseSigning = listOf(
     releaseKeystorePath,
     releaseKeystorePassword,
@@ -177,17 +176,17 @@ gradle.taskGraph.whenReady {
             releaseCertificatePinPrimary,
             releaseCertificatePinBackup
         )
-        validateReleaseGoogleMapsKeyConfig(
+        validateReleaseTomTomKeyConfig(
             "customer",
-            customerGoogleMapsAndroidApiKey,
-            "GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY or CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY"
+            customerTomTomAndroidApiKey,
+            "TOMTOM_ANDROID_CUSTOMER_API_KEY or CUSTOMER_TOMTOM_ANDROID_API_KEY"
         )
     }
 }
 
 android {
     namespace = "com.tembus.customer"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.tembus.customer"
@@ -199,8 +198,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = effectiveGoogleMapsAndroidApiKey
-            .ifBlank { getConfigValue("GOOGLE_MAPS_API_KEY") }
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+
+        buildConfigField("String", "TOMTOM_API_KEY", quoteBuildConfigString(effectiveTomTomAndroidApiKey))
         buildConfigField("String", "API_CERT_SHA256_PIN_PRIMARY", quoteBuildConfigString(releaseCertificatePinPrimary))
         buildConfigField("String", "API_CERT_SHA256_PIN_BACKUP", quoteBuildConfigString(releaseCertificatePinBackup))
         buildConfigField("boolean", "API_CERT_PINNING_REQUIRED", releaseCertificatePinningRequired.toString())
@@ -267,7 +269,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
     implementation("androidx.activity:activity-compose:1.8.1")
 
-    val composeBom = platform("androidx.compose:compose-bom:2023.10.01")
+    val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
@@ -338,9 +340,9 @@ dependencies {
     // Accompanist for runtime permissions in Compose
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
 
-    // Google Maps & Location Engine
-    implementation("com.google.maps.android:maps-compose:4.3.3")
-    implementation("com.google.android.gms:play-services-maps:18.2.0")
+    // TomTom Maps SDK. Keep Play Services Location for device GPS only, not map rendering.
+    val tomTomMapsSdkVersion = "1.25.11"
+    implementation("com.tomtom.sdk.maps:map-display:$tomTomMapsSdkVersion")
     implementation("com.google.android.gms:play-services-location:21.1.0")
     implementation("org.maplibre.gl:android-sdk:13.0.2")
 

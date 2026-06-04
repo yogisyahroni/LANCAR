@@ -28,26 +28,58 @@ const {
   createMapsRuntimeCredential,
   decryptMapsCredentialSecret,
   encryptMapsCredentialSecret,
-  getActiveGoogleMapsServerCredential,
+  getActiveTomTomMapsServerCredential,
   listMapsRuntimeCredentials,
   resetMapsRuntimeCredentialCacheForTests,
-  validateGoogleMapsServerKey,
+  validateTomTomMapsServerKey,
 } = require('./mapsRuntimeCredentials') as typeof import('./mapsRuntimeCredentials');
 
 describe('mapsRuntimeCredentials', () => {
   const axios = jest.requireMock('axios');
-  const validApiKey = `AI${'za'}abcdefghijklmnopqrstuvwxyz1234567890`;
+  const validApiKey = 'tt_demo_server_key_1234567890abcdef';
+  const tomTomSearchValidationResponse = {
+    status: 200,
+    data: {
+      results: [
+        {
+          address: {
+            freeformAddress: 'Jakarta, Indonesia',
+          },
+        },
+      ],
+    },
+  };
+  const tomTomRouteValidationResponse = {
+    data: {
+      routes: [
+        {
+          summary: {
+            lengthInMeters: 4200,
+            travelTimeInSeconds: 720,
+          },
+          legs: [
+            {
+              points: [
+                { latitude: -6.2088, longitude: 106.8456 },
+                { latitude: -6.1754, longitude: 106.8272 },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.MAPS_CREDENTIAL_ENCRYPTION_KEY = Buffer.from('12345678901234567890123456789012').toString('base64');
-    delete process.env.GOOGLE_MAPS_API_KEY;
-    delete process.env.GOOGLE_ROUTES_API_KEY;
-    delete process.env.GOOGLE_DIRECTIONS_API_KEY;
+    delete process.env.TOMTOM_API_KEY;
+    delete process.env.TOMTOM_SERVER_API_KEY;
+    delete process.env.TOMTOM_LEGACY_DIRECTIONS_API_KEY;
     resetMapsRuntimeCredentialCacheForTests();
   });
 
-  it('encrypts and decrypts Google Maps credentials without storing plaintext', () => {
+  it('encrypts and decrypts TomTom Maps credentials without storing plaintext', () => {
     const encrypted = encryptMapsCredentialSecret(validApiKey);
 
     expect(encrypted.encryptedSecret).not.toContain(validApiKey);
@@ -56,49 +88,31 @@ describe('mapsRuntimeCredentials', () => {
   });
 
   it('validates a server key through mandatory geocode and route checks', async () => {
-    axios.get.mockResolvedValue({
-      data: {
-        status: 'OK',
-        results: [{ formatted_address: 'Jakarta, Indonesia' }],
-      },
-    });
-    axios.post.mockResolvedValue({
-      data: {
-        routes: [
-          {
-            distanceMeters: 4200,
-            polyline: { encodedPolyline: 'encoded-route' },
-          },
-        ],
-      },
-    });
+    axios.get
+      .mockResolvedValueOnce(tomTomSearchValidationResponse)
+      .mockResolvedValueOnce(tomTomRouteValidationResponse);
 
-    const validation = await validateGoogleMapsServerKey(validApiKey);
+    const validation = await validateTomTomMapsServerKey(validApiKey);
 
     expect(validation.status).toBe('valid');
     expect(validation.error_code).toBeNull();
     expect(validation.checks.every((check) => check.status === 'passed')).toBe(true);
   });
 
-  it('classifies rejected Google keys without leaking the key', async () => {
-    axios.get.mockResolvedValue({
-      data: {
-        status: 'REQUEST_DENIED',
-        error_message: 'API key is not authorized',
-      },
-    });
-    axios.post.mockRejectedValue({
+  it('classifies rejected TomTom keys without leaking the key', async () => {
+    axios.get.mockRejectedValue({
       response: {
+        status: 403,
         data: {
           error: {
-            status: 'PERMISSION_DENIED',
+            status: 'REQUEST_DENIED',
             message: 'API key rejected',
           },
         },
       },
     });
 
-    const validation = await validateGoogleMapsServerKey(validApiKey);
+    const validation = await validateTomTomMapsServerKey(validApiKey);
 
     expect(validation.status).toBe('invalid');
     expect(['REQUEST_DENIED', 'PERMISSION_DENIED']).toContain(validation.error_code);
@@ -110,12 +124,12 @@ describe('mapsRuntimeCredentials', () => {
       rows: [
         {
           id: '11111111-1111-1111-1111-111111111111',
-          provider: 'google_maps',
+          provider: 'tomtom_maps',
           scope: 'server',
-          key_alias: 'staging-google',
-          key_mask: 'AIzaab...7890',
+          key_alias: 'staging-TomTom',
+          key_mask: 'tt_dem...cdef',
           secret_fingerprint: 'f'.repeat(64),
-          enabled_apis: ['geocoding', 'routes'],
+          enabled_apis: ['search', 'routing', 'geocoding', 'reverse_geocoding'],
           restriction_type: 'server_ip',
           is_active: true,
           last_validation_status: 'valid',
@@ -135,8 +149,8 @@ describe('mapsRuntimeCredentials', () => {
     const credentials = await listMapsRuntimeCredentials();
 
     expect(credentials[0]).toEqual(expect.objectContaining({
-      key_alias: 'staging-google',
-      key_mask: 'AIzaab...7890',
+      key_alias: 'staging-TomTom',
+      key_mask: 'tt_dem...cdef',
       is_active: true,
     }));
     expect(JSON.stringify(credentials)).not.toContain('ciphertext-must-not-return');
@@ -149,28 +163,28 @@ describe('mapsRuntimeCredentials', () => {
       rows: [
         {
           id: '22222222-2222-2222-2222-222222222222',
-          key_alias: 'runtime-google',
+          key_alias: 'runtime-TomTom',
           encrypted_secret: encrypted.encryptedSecret,
           secret_fingerprint: 'a'.repeat(64),
         },
       ],
     });
 
-    const credential = await getActiveGoogleMapsServerCredential();
+    const credential = await getActiveTomTomMapsServerCredential();
 
     expect(credential).toEqual(expect.objectContaining({
       source: 'runtime_store',
       apiKey: validApiKey,
-      keyAlias: 'runtime-google',
+      keyAlias: 'runtime-TomTom',
     }));
   });
 
   it('stores invalid credentials encrypted and inactive without writing plaintext to database', async () => {
-    axios.get.mockResolvedValue({ data: { status: 'REQUEST_DENIED' } });
-    axios.post.mockRejectedValue({
+    axios.get.mockRejectedValue({
       response: {
+        status: 403,
         data: {
-          error: { status: 'PERMISSION_DENIED' },
+          error: { status: 'REQUEST_DENIED' },
         },
       },
     });
@@ -186,12 +200,12 @@ describe('mapsRuntimeCredentials', () => {
           rows: [
             {
               id: '33333333-3333-3333-3333-333333333333',
-              provider: 'google_maps',
+              provider: 'tomtom_maps',
               scope: 'server',
               key_alias: 'bad-key',
-              key_mask: 'AIzaab...7890',
+              key_mask: 'tt_dem...cdef',
               secret_fingerprint: 'b'.repeat(64),
-              enabled_apis: ['geocoding', 'routes'],
+              enabled_apis: ['search', 'routing', 'geocoding', 'reverse_geocoding'],
               restriction_type: 'server_ip',
               is_active: false,
               last_validation_status: 'invalid',

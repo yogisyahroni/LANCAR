@@ -1,7 +1,7 @@
 import {
   getOnDemandExternalReadiness,
   hasFirebaseAdminConfig,
-  hasGoogleDirectionsConfig,
+  hastomtomDirectionsConfig,
   parseFirebaseServiceAccount
 } from './onDemandExternalReadiness';
 
@@ -13,11 +13,11 @@ describe('onDemandExternalReadiness', () => {
       private_key: '-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----\\n'
     });
 
-  it('marks Google routing ready when routes, maps, or directions key is configured', () => {
-    expect(hasGoogleDirectionsConfig({ GOOGLE_ROUTES_API_KEY: 'routes-real-key' })).toBe(true);
-    expect(hasGoogleDirectionsConfig({ GOOGLE_MAPS_API_KEY: 'AIza-real-key' })).toBe(true);
-    expect(hasGoogleDirectionsConfig({ GOOGLE_DIRECTIONS_API_KEY: 'directions-real-key' })).toBe(true);
-    expect(hasGoogleDirectionsConfig({ GOOGLE_MAPS_API_KEY: 'your_google_maps_api_key' })).toBe(false);
+  it('marks tomtom routing ready when routes, maps, or directions key is configured', () => {
+    expect(hastomtomDirectionsConfig({ TOMTOM_SERVER_API_KEY: 'routes-real-key' })).toBe(true);
+    expect(hastomtomDirectionsConfig({ TOMTOM_API_KEY: 'AIza-real-key' })).toBe(true);
+    expect(hastomtomDirectionsConfig({ TOMTOM_LEGACY_DIRECTIONS_API_KEY: 'directions-real-key' })).toBe(true);
+    expect(hastomtomDirectionsConfig({ TOMTOM_API_KEY: 'your_TOMTOM_api_key' })).toBe(false);
   });
 
   it('validates Firebase service account shape without exposing the secret', () => {
@@ -50,13 +50,13 @@ describe('onDemandExternalReadiness', () => {
     const readiness = getOnDemandExternalReadiness({});
 
     expect(readiness.overall_status).toBe('waiting_for_configuration');
-    expect(readiness.checks.find((check) => check.key === 'google_directions')?.status).toBe('waiting_for_secret');
+    expect(readiness.checks.find((check) => check.key === 'TOMTOM_directions')?.status).toBe('waiting_for_secret');
     expect(readiness.checks.find((check) => check.key === 'firebase_admin')?.status).toBe('waiting_for_secret');
   });
 
-  it('returns ready for staging validation after Google and Firebase config exist', () => {
+  it('returns ready for staging validation after tomtom and Firebase config exist', () => {
     const readiness = getOnDemandExternalReadiness({
-      GOOGLE_ROUTES_API_KEY: 'routes-real-key',
+      TOMTOM_SERVER_API_KEY: 'routes-real-key',
       FIREBASE_SERVICE_ACCOUNT: makeServiceAccount('tembus-staging')
     });
 
@@ -70,7 +70,7 @@ describe('onDemandExternalReadiness', () => {
 
   it('returns ready when customer and courier Firebase projects are configured separately', () => {
     const readiness = getOnDemandExternalReadiness({
-      GOOGLE_ROUTES_API_KEY: 'routes-real-key',
+      TOMTOM_SERVER_API_KEY: 'routes-real-key',
       FIREBASE_CUSTOMER_SERVICE_ACCOUNT_B64: Buffer.from(
         makeServiceAccount('android-customer-c2872'),
         'utf8'

@@ -1,8 +1,8 @@
 -- +goose Up
 -- ============================================================
--- Runtime Maps Provider Configuration
--- Allows admin to switch TomTom Maps / OpenStreetMap / disabled
--- without rebuilding customer or courier mobile apps.
+-- TomTom Maps Runtime Cutover
+-- Makes TomTom the primary maps provider while keeping
+-- OpenStreetMap/Text Only as emergency fallbacks.
 -- ============================================================
 
 INSERT INTO system_configs (key, value, description, category)
@@ -52,5 +52,29 @@ ON CONFLICT (key) DO UPDATE SET
   category = EXCLUDED.category,
   updated_at = NOW();
 
+UPDATE maps_provider_credentials
+   SET is_active = false,
+       deactivated_at = COALESCE(deactivated_at, NOW()),
+       deleted_at = COALESCE(deleted_at, NOW()),
+       updated_at = NOW(),
+       metadata = COALESCE(metadata, '{}'::jsonb) || '{"retired_reason":"google_maps_provider_removed"}'::jsonb
+ WHERE provider = 'google_maps';
+
+ALTER TABLE maps_provider_credentials
+  DROP CONSTRAINT IF EXISTS maps_provider_credentials_provider_check;
+
+ALTER TABLE maps_provider_credentials
+  ADD CONSTRAINT maps_provider_credentials_provider_check
+  CHECK (provider IN ('tomtom_maps'));
+
 -- +goose Down
-DELETE FROM system_configs WHERE key = 'maps_provider_config';
+UPDATE system_configs
+   SET value = jsonb_set(
+     jsonb_set(
+       jsonb_set(value, '{active_provider}', '"openstreetmap"'::jsonb, true),
+       '{tomtom_maps_enabled}', 'false'::jsonb, true
+     ),
+     '{fallback_provider}', '"openstreetmap"'::jsonb, true
+   ),
+   updated_at = NOW()
+ WHERE key = 'maps_provider_config';

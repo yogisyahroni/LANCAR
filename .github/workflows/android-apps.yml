@@ -48,6 +48,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Guard against Google Maps SDK residue
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if grep -RInE 'google_maps|GOOGLE_MAPS|maps\.googleapis\.com|routes\.googleapis\.com|GoogleMapCanvas|play-services-maps|com\.google\.maps\.android|com\.google\.android\.gms\.maps|google\.navigation' \
+            --exclude-dir=build \
+            --exclude-dir=.gradle \
+            android-app android-app-customer scripts/mobile; then
+            echo "Google Maps runtime or SDK residue detected. Firebase google-services and Play Services Location are allowed; Google Maps is not." >&2
+            exit 1
+          fi
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -242,10 +255,10 @@ jobs:
         shell: bash
         env:
           WORKING_DIR: ${{ matrix.working_dir }}
-          GOOGLE_MAPS_ANDROID_COURIER_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_COURIER_API_KEY }}
-          COURIER_GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.COURIER_GOOGLE_MAPS_ANDROID_API_KEY }}
-          GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY }}
-          CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY }}
+          TOMTOM_ANDROID_COURIER_API_KEY: ${{ secrets.TOMTOM_ANDROID_COURIER_API_KEY }}
+          COURIER_TOMTOM_ANDROID_API_KEY: ${{ secrets.COURIER_TOMTOM_ANDROID_API_KEY }}
+          TOMTOM_ANDROID_CUSTOMER_API_KEY: ${{ secrets.TOMTOM_ANDROID_CUSTOMER_API_KEY }}
+          CUSTOMER_TOMTOM_ANDROID_API_KEY: ${{ secrets.CUSTOMER_TOMTOM_ANDROID_API_KEY }}
         run: |
           set -euo pipefail
 
@@ -254,7 +267,7 @@ jobs:
           import re
           import sys
 
-          api_key_pattern = re.compile(r"^AIza[0-9A-Za-z_-]{20,}$")
+          api_key_pattern = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 
           def write_output(name, value):
               with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as github_output:
@@ -270,13 +283,13 @@ jobs:
           configs = {
               "android-app": {
                   "label": "courier",
-                  "required": ["GOOGLE_MAPS_ANDROID_COURIER_API_KEY", "COURIER_GOOGLE_MAPS_ANDROID_API_KEY"],
-                  "exports": ["GOOGLE_MAPS_ANDROID_COURIER_API_KEY", "COURIER_GOOGLE_MAPS_ANDROID_API_KEY"],
+                  "required": ["TOMTOM_ANDROID_COURIER_API_KEY", "COURIER_TOMTOM_ANDROID_API_KEY"],
+                  "exports": ["TOMTOM_ANDROID_COURIER_API_KEY", "COURIER_TOMTOM_ANDROID_API_KEY"],
               },
               "android-app-customer": {
                   "label": "customer",
-                  "required": ["GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY", "CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY"],
-                  "exports": ["GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY", "CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY"],
+                  "required": ["TOMTOM_ANDROID_CUSTOMER_API_KEY", "CUSTOMER_TOMTOM_ANDROID_API_KEY"],
+                  "exports": ["TOMTOM_ANDROID_CUSTOMER_API_KEY", "CUSTOMER_TOMTOM_ANDROID_API_KEY"],
               },
           }
 
@@ -285,8 +298,8 @@ jobs:
               print(f"Unknown Android app directory: {working_dir}", file=sys.stderr)
               sys.exit(1)
 
-          courier_name, courier_key = first_value(["GOOGLE_MAPS_ANDROID_COURIER_API_KEY", "COURIER_GOOGLE_MAPS_ANDROID_API_KEY"])
-          customer_name, customer_key = first_value(["GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY", "CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY"])
+          courier_name, courier_key = first_value(["TOMTOM_ANDROID_COURIER_API_KEY", "COURIER_TOMTOM_ANDROID_API_KEY"])
+          customer_name, customer_key = first_value(["TOMTOM_ANDROID_CUSTOMER_API_KEY", "CUSTOMER_TOMTOM_ANDROID_API_KEY"])
           shared_demo_key = bool(courier_key and customer_key and courier_key == customer_key)
 
           config = configs[working_dir]
@@ -294,14 +307,14 @@ jobs:
           if not selected_key:
               print(
                   f"::warning::Missing {config['label']} Android Maps key secret. "
-                  f"Debug CI will continue without Google Maps SDK rendering, and signed release artifacts will be skipped. "
+                  f"Debug CI will continue without TomTom Maps SDK rendering, and signed release artifacts will be skipped. "
                   f"Set one of: {', '.join(config['required'])}"
               )
               write_output("release_artifacts_enabled", "false")
               sys.exit(0)
 
           if not api_key_pattern.match(selected_key):
-              print(f"{source_name} does not look like a valid Google Maps API key.", file=sys.stderr)
+              print(f"{source_name} does not look like a valid TomTom Maps API key.", file=sys.stderr)
               sys.exit(1)
 
           print(f"::add-mask::{selected_key}")

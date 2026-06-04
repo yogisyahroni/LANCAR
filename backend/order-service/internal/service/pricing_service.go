@@ -58,7 +58,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		return nil, domain.ErrLocationNotCovered
 	}
 
-	// 1. Get Distance and Duration from Google Maps
+	// 1. Get traffic-aware distance and duration from the configured maps provider
 	distKM, durMin, originAddr, destAddr, err := s.mapsRepo.GetDistanceMatrix(ctx, req.PickupLat, req.PickupLng, req.DropoffLat, req.DropoffLng)
 	if err != nil {
 		return nil, fmt.Errorf("maps error: %w", err)

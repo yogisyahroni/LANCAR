@@ -2,8 +2,8 @@ import axios from 'axios';
 import { redis } from '../redis';
 import { buildRouteEtaSnapshot, evaluateLocationQuality, resolveTrackingStage } from './onDemandTracking';
 import {
-  getActiveGoogleMapsServerCredential,
-  hasGoogleMapsServerCredential,
+  getActiveTomTomMapsServerCredential,
+  hasTomTomMapsServerCredential,
 } from './mapsRuntimeCredentials';
 
 jest.mock('axios');
@@ -18,36 +18,58 @@ jest.mock('../redis', () => ({
   },
 }));
 jest.mock('./mapsRuntimeCredentials', () => ({
-  getActiveGoogleMapsServerCredential: jest.fn(),
-  hasGoogleMapsServerCredential: jest.fn(),
+  getActiveTomTomMapsServerCredential: jest.fn(),
+  hasTomTomMapsServerCredential: jest.fn(),
   resetMapsRuntimeCredentialCacheForTests: jest.fn(),
 }));
 
 describe('on-demand tracking policy', () => {
   const originalEnv = process.env;
-  const googleCredential = {
+  const TomTomCredential = {
     source: 'runtime_store',
-    apiKey: 'AIzaTestRoutesKeyForJestOnly0000',
-    keyAlias: 'jest-google-routes',
+    apiKey: 'tt_jest_route_key_1234567890abcdef',
+    keyAlias: 'jest-TomTom-routes',
     credentialId: 'credential-jest',
-    cacheKey: 'jest-google-routes',
+    cacheKey: 'jest-TomTom-routes',
   };
-  const enableGoogleRouteProvider = () => {
-    (hasGoogleMapsServerCredential as jest.Mock).mockResolvedValue(true);
-    (getActiveGoogleMapsServerCredential as jest.Mock).mockResolvedValue(googleCredential);
+  const tomTomRouteResponse = {
+    data: {
+      routes: [
+        {
+          summary: {
+            lengthInMeters: 5100,
+            travelTimeInSeconds: 540,
+            trafficDelayInSeconds: 0,
+          },
+          legs: [
+            {
+              points: [
+                { latitude: -6.175392, longitude: 106.827153 },
+                { latitude: -6.1961, longitude: 106.8164 },
+                { latitude: -6.218285, longitude: 106.802433 },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  };
+  const enableTomTomRouteProvider = () => {
+    (hasTomTomMapsServerCredential as jest.Mock).mockResolvedValue(true);
+    (getActiveTomTomMapsServerCredential as jest.Mock).mockResolvedValue(TomTomCredential);
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     process.env = { ...originalEnv };
-    delete process.env.GOOGLE_ROUTES_API_KEY;
-    delete process.env.GOOGLE_ROUTES_API_URL;
-    delete process.env.GOOGLE_ROUTES_ALLOWED_HOSTS;
-    delete process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED;
-    delete process.env.GOOGLE_MAPS_API_KEY;
-    delete process.env.GOOGLE_DIRECTIONS_API_KEY;
-    (hasGoogleMapsServerCredential as jest.Mock).mockResolvedValue(false);
-    (getActiveGoogleMapsServerCredential as jest.Mock).mockResolvedValue(null);
+    delete process.env.TOMTOM_SERVER_API_KEY;
+    delete process.env.TOMTOM_ROUTING_API_URL;
+    delete process.env.TOMTOM_ROUTING_ALLOWED_HOSTS;
+    delete process.env.TOMTOM_LEGACY_FALLBACK_DISABLED;
+    delete process.env.TOMTOM_API_KEY;
+    delete process.env.TOMTOM_LEGACY_DIRECTIONS_API_KEY;
+    (hasTomTomMapsServerCredential as jest.Mock).mockResolvedValue(false);
+    (getActiveTomTomMapsServerCredential as jest.Mock).mockResolvedValue(null);
   });
 
   afterAll(() => {
@@ -126,18 +148,18 @@ describe('on-demand tracking policy', () => {
       { latitude: -6.218285, longitude: 106.802433 }
     );
 
-    expect(route.provider).toBe('fallback_haversine');
+    expect(route.provider).toBe('openstreetmap_fallback_haversine');
     expect(route.eta_minutes).toEqual(expect.any(Number));
     expect(route.route_polyline).toBeNull();
   });
 
-  it('uses cached Google route when available without exposing the API key', async () => {
-    enableGoogleRouteProvider();
+  it('uses cached TomTom route when available without exposing the API key', async () => {
+    enableTomTomRouteProvider();
     (redis.get as jest.Mock).mockResolvedValueOnce(JSON.stringify({
       eta: '12 mins',
       eta_minutes: 12,
       route_polyline: 'cached-polyline',
-      provider: 'google_directions',
+      provider: 'tomtom_routing_drive_traffic_aware',
     }));
 
     const route = await buildRouteEtaSnapshot(
@@ -145,24 +167,16 @@ describe('on-demand tracking policy', () => {
       { latitude: -6.218285, longitude: 106.802433 }
     );
 
-    expect(route.provider).toBe('google_directions_cache');
+    expect(route.provider).toBe('tomtom_routing_drive_traffic_aware_cache');
     expect(route.route_polyline).toBe('cached-polyline');
     expect(axios.get).not.toHaveBeenCalled();
-    expect(JSON.stringify(route)).not.toContain(googleCredential.apiKey);
+    expect(JSON.stringify(route)).not.toContain(TomTomCredential.apiKey);
   });
 
-  it('caches successful Google route and falls back safely on provider errors', async () => {
-    enableGoogleRouteProvider();
+  it('caches successful TomTom route and falls back safely on provider errors', async () => {
+    enableTomTomRouteProvider();
     (redis.get as jest.Mock).mockResolvedValueOnce(null);
-    (axios.post as jest.Mock).mockResolvedValueOnce({
-      data: {
-        routes: [{
-          duration: '540s',
-          distanceMeters: 5100,
-          polyline: { encodedPolyline: 'fresh-polyline' },
-        }],
-      },
-    });
+    (axios.get as jest.Mock).mockResolvedValueOnce(tomTomRouteResponse);
 
     const route = await buildRouteEtaSnapshot(
       { latitude: -6.175392, longitude: 106.827153 },
@@ -170,9 +184,9 @@ describe('on-demand tracking policy', () => {
     );
 
     expect(route).toEqual(expect.objectContaining({
-      provider: 'google_routes_drive_traffic_aware_fallback',
+      provider: 'tomtom_routing_drive_traffic_aware_fallback',
       eta_minutes: 9,
-      route_polyline: 'fresh-polyline',
+      route_polyline: expect.any(String),
       distance_meters: 5100,
       traffic_aware: true,
     }));
@@ -186,9 +200,9 @@ describe('on-demand tracking policy', () => {
       ])
     );
 
-    process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED = 'true';
+    process.env.TOMTOM_LEGACY_FALLBACK_DISABLED = 'true';
     (redis.get as jest.Mock).mockResolvedValueOnce(null);
-    (axios.post as jest.Mock).mockRejectedValueOnce(new Error('provider down'));
+    (axios.get as jest.Mock).mockRejectedValueOnce(new Error('provider down'));
 
     const fallback = await buildRouteEtaSnapshot(
       { latitude: -6.175392, longitude: 106.827153 },

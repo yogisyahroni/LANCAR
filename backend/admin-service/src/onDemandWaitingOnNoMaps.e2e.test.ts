@@ -8,15 +8,15 @@ const makeServiceAccountBase64 = (projectId: string) =>
     'utf8'
   ).toString('base64');
 
-describe('waiting-on automation without Google Maps keys', () => {
+describe('waiting-on automation without TomTom Maps keys', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
     jest.resetModules();
     process.env = {
       ...originalEnv,
-      GOOGLE_MAPS_API_KEY: '',
-      GOOGLE_DIRECTIONS_API_KEY: '',
+      TOMTOM_API_KEY: '',
+      TOMTOM_LEGACY_DIRECTIONS_API_KEY: '',
       FIREBASE_CUSTOMER_PROJECT_ID: 'android-customer-c2872',
       FIREBASE_CUSTOMER_SERVICE_ACCOUNT_B64: makeServiceAccountBase64('android-customer-c2872'),
       FIREBASE_COURIER_PROJECT_ID: 'android-kurir',
@@ -89,7 +89,7 @@ describe('waiting-on automation without Google Maps keys', () => {
     }));
 
     const readiness = await import('./services/onDemandExternalReadiness');
-    expect(readiness.hasGoogleDirectionsConfig()).toBe(false);
+    expect(readiness.hastomtomDirectionsConfig()).toBe(false);
     expect(readiness.hasFirebaseAdminConfig()).toBe(true);
 
     const notifications = await import('./notifications');

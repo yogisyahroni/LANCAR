@@ -48,14 +48,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.google.android.gms.location.Priority
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.tasks.CancellationTokenSource
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.Polyline
-import com.google.maps.android.compose.rememberCameraPositionState
+import com.tembus.courier.ui.components.maps.CameraPosition
+import com.tembus.courier.ui.components.maps.LatLng
+import com.tembus.courier.ui.components.maps.RuntimeMap
+import com.tembus.courier.ui.components.maps.MapUiSettings
+import com.tembus.courier.ui.components.maps.MapMarker
+import com.tembus.courier.ui.components.maps.MarkerState
+import com.tembus.courier.ui.components.maps.MapPolyline
+import com.tembus.courier.ui.components.maps.rememberCameraPositionState
 import com.tembus.courier.data.model.CourierServiceProduct
 import com.tembus.courier.data.model.CourierHotspot
 import com.tembus.courier.data.model.CourierCapabilityProfile
@@ -1330,7 +1330,7 @@ private fun OnDemandMapHome(
             markers = mapMarkers,
             routePoints = routePoints,
             followLocation = mapFocusLocation,
-            googleUiSettings = MapUiSettings(
+            mapUiSettings = MapUiSettings(
                 zoomControlsEnabled = false,
                 myLocationButtonEnabled = false,
                 mapToolbarEnabled = false
@@ -2854,7 +2854,7 @@ private fun OnDemandHomeHubEnterprise(
                             },
                             routePoints = activeRoutePoints,
                             followLocation = pickupPoint,
-                            googleUiSettings = MapUiSettings(
+                            mapUiSettings = MapUiSettings(
                                 zoomControlsEnabled = false,
                                 myLocationButtonEnabled = false,
                                 mapToolbarEnabled = false,
@@ -3118,7 +3118,7 @@ private fun OnDemandHomeHub(
                     },
                     routePoints = emptyList(),
                     followLocation = pickup,
-                    googleUiSettings = MapUiSettings(
+                    mapUiSettings = MapUiSettings(
                         zoomControlsEnabled = false,
                         myLocationButtonEnabled = false,
                         mapToolbarEnabled = false
@@ -3767,7 +3767,7 @@ private fun OnDemandOfferQueueItem(
                             dropPoint?.let { add(it) }
                         },
                         followLocation = pickupPoint ?: dropPoint,
-                        googleUiSettings = MapUiSettings(
+                        mapUiSettings = MapUiSettings(
                             zoomControlsEnabled = false,
                             myLocationButtonEnabled = false,
                             mapToolbarEnabled = false,
@@ -3955,7 +3955,7 @@ private fun OnDemandOfferDialog(
                                 dropPoint?.let { add(it) }
                             },
                             followLocation = pickupPoint ?: dropPoint,
-                            googleUiSettings = MapUiSettings(
+                            mapUiSettings = MapUiSettings(
                                 zoomControlsEnabled = false,
                                 myLocationButtonEnabled = false,
                                 mapToolbarEnabled = false,
@@ -5728,10 +5728,8 @@ private fun openCourierMapNavigation(context: Context, address: String, point: L
     val preferredIntent = if (validPoint != null) {
         Intent(
             Intent.ACTION_VIEW,
-            Uri.parse("google.navigation:q=${validPoint.latitude},${validPoint.longitude}")
-        ).apply {
-            setPackage("com.google.android.apps.maps")
-        }
+            Uri.parse("geo:${validPoint.latitude},${validPoint.longitude}?q=${validPoint.latitude},${validPoint.longitude}")
+        )
     } else {
         Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=${Uri.encode(address)}"))
     }

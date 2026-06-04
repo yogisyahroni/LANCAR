@@ -38,11 +38,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.*
+import com.tembus.customer.ui.components.maps.CameraUpdateFactory
+import com.tembus.customer.ui.components.maps.BitmapDescriptorFactory
+import com.tembus.customer.ui.components.maps.CameraPosition
+import com.tembus.customer.ui.components.maps.LatLng
+import com.tembus.customer.ui.components.maps.*
 import com.tembus.customer.BuildConfig
 import com.tembus.customer.R
 import com.tembus.customer.data.model.OrderTrackingDetail
@@ -86,8 +86,8 @@ fun TrackingScreen(
             markers = mapMarkers,
             routePoints = uiState.routePoints,
             followLocation = uiState.courierLocation,
-            googleProperties = MapProperties(isMyLocationEnabled = true),
-            googleUiSettings = MapUiSettings(
+            mapProperties = MapProperties(isMyLocationEnabled = true),
+            mapUiSettings = MapUiSettings(
                 zoomControlsEnabled = false,
                 myLocationButtonEnabled = false,
                 compassEnabled = true
@@ -566,13 +566,13 @@ private fun SafeAreaWrapper(content: @Composable () -> Unit) {
     }
 }
 
-// Helper function to convert Vector Drawable to Bitmap for Google Maps
+// Helper function to convert Vector Drawable to Bitmap for map markers.
 private fun bitmapDescriptorFromVector(
     context: android.content.Context,
     @DrawableRes vectorResId: Int,
     width: Int,
     height: Int
-): com.google.android.gms.maps.model.BitmapDescriptor {
+): com.tembus.customer.ui.components.maps.BitmapDescriptor {
     return try {
         val vectorDrawable = ContextCompat.getDrawable(context, vectorResId) ?: return BitmapDescriptorFactory.defaultMarker()
         vectorDrawable.setBounds(0, 0, width, height)

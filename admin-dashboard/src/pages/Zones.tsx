@@ -15,7 +15,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
-import { GoogleMapCanvas, GoogleRuntimeUnavailable, isGoogleRuntimeReady, useMapsRuntimeConfig } from '../components/GoogleMapsRuntime'
+import { TomTomMapCanvas, TomTomRuntimeUnavailable, isTomTomRuntimeReady, useMapsRuntimeConfig } from '../components/TomTomMapsRuntime'
 
 // Leaflet Imports
 import { MapContainer, TileLayer, Polygon, useMap } from 'react-leaflet'
@@ -86,15 +86,15 @@ export default function Zones() {
     }
   });
   const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('global');
-  const shouldRenderGoogleMap = isGoogleRuntimeReady(mapsRuntimeConfig) && !isDrawing;
-  const googleZonePolygons = useMemo(() => (zones || []).map((zone: any) => ({
+  const shouldRenderTomTomMap = isTomTomRuntimeReady(mapsRuntimeConfig) && !isDrawing;
+  const TomTomZonePolygons = useMemo(() => (zones || []).map((zone: any) => ({
     id: String(zone.id),
     path: WKTToCoords(zone.polygon || zone.polygon_wkt).map(([lat, lng]) => ({ lat, lng })),
     selected: String(selectedZone?.id || '') === String(zone.id),
     strokeColor: '#10b981',
     fillColor: '#10b981'
   })), [zones, selectedZone]);
-  const handleGooglePolygonClick = useCallback((zoneId: string) => {
+  const handleTomTomPolygonClick = useCallback((zoneId: string) => {
     const nextZone = zones?.find((zone: any) => String(zone.id) === zoneId);
     if (nextZone) setSelectedZone(nextZone);
   }, [zones]);
@@ -242,14 +242,14 @@ export default function Zones() {
 
         {/* Right: Map Area */}
         <div className="lg:col-span-8 glass-card rounded-[48px] border-white/5 overflow-hidden relative min-h-[700px] bg-zinc-950">
-           {shouldRenderGoogleMap ? (
-             <GoogleMapCanvas
-               apiKey={mapsRuntimeConfig?.google_maps?.browser_api_key || ''}
-               mapId={mapsRuntimeConfig?.google_maps?.map_id}
+           {shouldRenderTomTomMap ? (
+             <TomTomMapCanvas
+               apiKey={mapsRuntimeConfig?.tomtom_maps?.browser_api_key || ''}
+               mapId={mapsRuntimeConfig?.tomtom_maps?.map_id}
                center={{ lat: mapCenter[0], lng: mapCenter[1] }}
                zoom={13}
-               polygons={googleZonePolygons}
-               onPolygonClick={handleGooglePolygonClick}
+               polygons={TomTomZonePolygons}
+               onPolygonClick={handleTomTomPolygonClick}
              />
            ) : (
              <>
@@ -303,8 +303,8 @@ export default function Zones() {
 
                   <MapEvents center={mapCenter} selectedZone={selectedZone} />
                </MapContainer>
-               {mapsRuntimeConfig?.active_provider === 'google_maps' && !isDrawing && (
-                 <GoogleRuntimeUnavailable message="Google Maps aktif, tetapi browser key runtime belum tersedia. Zone viewer memakai fallback map sementara." />
+               {mapsRuntimeConfig?.active_provider === 'tomtom_maps' && !isDrawing && (
+                 <TomTomRuntimeUnavailable message="TomTom Maps aktif, tetapi browser key runtime belum tersedia. Zone viewer memakai fallback map sementara." />
                )}
              </>
            )}

@@ -166,7 +166,10 @@ func main() {
 	defer rdb.Close()
 
 	// Maps API Key
-	mapsKey := os.Getenv("GOOGLE_MAPS_API_KEY")
+	mapsKey := os.Getenv("TOMTOM_SERVER_API_KEY")
+	if mapsKey == "" {
+		mapsKey = os.Getenv("TOMTOM_API_KEY")
+	}
 
 	// Repositories
 	pgRepo := repository.NewPostgresRepository(db, readDB)

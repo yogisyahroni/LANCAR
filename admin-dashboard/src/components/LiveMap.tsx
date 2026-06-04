@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import L from 'leaflet'
 import { api } from '../lib/api'
-import { GoogleMapCanvas, GoogleRuntimeUnavailable, isGoogleRuntimeReady, useMapsRuntimeConfig } from './GoogleMapsRuntime'
+import { TomTomMapCanvas, TomTomRuntimeUnavailable, isTomTomRuntimeReady, useMapsRuntimeConfig } from './TomTomMapsRuntime'
 
 // Fix for default marker icons in Leaflet + React
 import icon from 'leaflet/dist/images/marker-icon.png'
@@ -41,7 +41,7 @@ export default function LiveMap() {
     return firstPoint ? [Number(firstPoint.lat), Number(firstPoint.lng)] : [-2.5489, 118.0149]
   }, [courierPoints])
   const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('tracking')
-  const googleMarkers = useMemo(() => courierPoints
+  const TomTomMarkers = useMemo(() => courierPoints
     .map((point: any, index: number) => ({
       id: `${point.id || index}`,
       lat: Number(point.lat),
@@ -50,17 +50,17 @@ export default function LiveMap() {
       snippet: `Weight: ${Number(point.weight || 0).toFixed(1)}`
     }))
     .filter((point: any) => Number.isFinite(point.lat) && Number.isFinite(point.lng)), [courierPoints])
-  const shouldRenderGoogle = isGoogleRuntimeReady(mapsRuntimeConfig)
+  const shouldRenderTomTom = isTomTomRuntimeReady(mapsRuntimeConfig)
 
   return (
     <div className="h-full w-full rounded-2xl overflow-hidden relative border border-white/5 shadow-2xl">
-      {shouldRenderGoogle ? (
-        <GoogleMapCanvas
-          apiKey={mapsRuntimeConfig?.google_maps?.browser_api_key || ''}
-          mapId={mapsRuntimeConfig?.google_maps?.map_id}
+      {shouldRenderTomTom ? (
+        <TomTomMapCanvas
+          apiKey={mapsRuntimeConfig?.tomtom_maps?.browser_api_key || ''}
+          mapId={mapsRuntimeConfig?.tomtom_maps?.map_id}
           center={{ lat: center[0], lng: center[1] }}
           zoom={13}
-          markers={googleMarkers}
+          markers={TomTomMarkers}
         />
       ) : (
         <>
@@ -92,8 +92,8 @@ export default function LiveMap() {
             })}
           </MapContainer>
 
-          {mapsRuntimeConfig?.active_provider === 'google_maps' && (
-            <GoogleRuntimeUnavailable message="Google Maps aktif, tetapi browser key runtime belum tersedia. Admin memakai fallback map sementara." />
+          {mapsRuntimeConfig?.active_provider === 'tomtom_maps' && (
+            <TomTomRuntimeUnavailable message="TomTom Maps aktif, tetapi browser key runtime belum tersedia. Admin memakai fallback map sementara." />
           )}
         </>
       )}

@@ -2,7 +2,7 @@ package com.tembus.customer.ui.screens.booking
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.android.gms.maps.model.LatLng
+import com.tembus.customer.ui.components.maps.LatLng
 import com.tembus.customer.data.model.CustomerOrderCreateRequest
 import com.tembus.customer.data.model.CustomerAddress
 import com.tembus.customer.data.model.CustomerAddressRequest

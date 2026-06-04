@@ -125,8 +125,10 @@ JWT_SECRET=
 JWT_REFRESH_SECRET=
 MIDTRANS_SERVER_KEY=
 MIDTRANS_CLIENT_KEY=
-GOOGLE_MAPS_API_KEY=
-GOOGLE_DIRECTIONS_API_KEY=
+TOMTOM_SERVER_API_KEY=
+TOMTOM_WEB_API_KEY=
+TOMTOM_ANDROID_COURIER_API_KEY=
+TOMTOM_ANDROID_CUSTOMER_API_KEY=
 FIREBASE_PROJECT_ID=
 FIREBASE_SERVICE_ACCOUNT=
 AWS_ACCESS_KEY_ID=
@@ -294,7 +296,7 @@ Staging commonly checks frontend build, service tests, migration test, security 
 ## Operational Docs
 
 - `docs/on-demand-incident-runbook.md`: incident response untuk tracking, push, chat, POD, dan ledger.
-- `docs/on-demand-external-keys-setup.md`: setup Google Maps/Directions dan Firebase Admin/FCM.
+- `docs/on-demand-external-keys-setup.md`: setup TomTom Maps Platform dan Firebase Admin/FCM.
 - `docs/on-demand-fcm-staging-checklist.md`: checklist device test FCM foreground/background/killed app.
 
 ## Important API Surfaces
@@ -344,14 +346,14 @@ Finance:
 - Use TOTP for admin finance actions.
 - Keep payout operations append-only through ledger entries.
 - Public tracking tokens must remain hashed in database.
-- Restrict Google Maps API keys by API and environment.
+- Restrict TomTom API keys by surface, API, and environment.
 - Firebase Admin key should live in secret manager or CI/CD encrypted secrets.
 
 ## Current Manual Waiting Items
 
 These are environment/device tasks, not missing code:
 
-- Insert staging/production Google Maps and Firebase secrets.
+- Insert staging/production TomTom and Firebase secrets.
 - Run device/emulator staging login for customer and courier.
 - Validate FCM real token delivery in foreground, background, and killed app.
 - Validate GPS tracking and geofence behavior on real device.
@@ -364,9 +366,8 @@ If Docker migration fails with `ghcr.io/pressly/goose:latest denied`, use local 
 
 If tracking has no ETA/polyline, check:
 
-- `GOOGLE_MAPS_API_KEY`
-- `GOOGLE_DIRECTIONS_API_KEY`
-- Directions API enabled in Google Cloud.
+- `TOMTOM_SERVER_API_KEY`
+- TomTom Routing/Search access, quota, and key restrictions.
 - `GET /api/v1/system/on-demand-readiness`
 
 If FCM push does not arrive, check:

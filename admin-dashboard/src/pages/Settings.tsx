@@ -428,7 +428,7 @@ export default function Settings() {
                       Runtime Maps Provider
                     </h3>
                     <p className="text-zinc-500 mt-2 max-w-2xl">
-                      Switch Google Maps, OpenStreetMap, or text-only fallback for customer mobile, courier mobile, and web without rebuilding apps.
+                      Switch TomTom Maps, OpenStreetMap, or text-only fallback for customer mobile, courier mobile, and web without rebuilding apps.
                     </p>
                   </div>
                   <button
@@ -542,7 +542,7 @@ export default function Settings() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       {[
                         { id: 'openstreetmap', label: 'OpenStreetMap', hint: 'No API key required; safe fallback for staging.' },
-                        { id: 'google_maps', label: 'Google Maps', hint: 'Uses restricted server, Android, and browser keys per surface.' },
+                        { id: 'tomtom_maps', label: 'TomTom Maps', hint: 'Uses restricted server, Android, and browser keys per surface.' },
                         { id: 'disabled', label: 'Text Only', hint: 'No tiles. Coordinates, ETA fallback, and status still work.' },
                       ].map((provider) => {
                         const active = mapsProviderConfig?.value?.active_provider === provider.id
@@ -609,7 +609,7 @@ export default function Settings() {
                                 </button>
                               </div>
                               <div className="grid grid-cols-3 gap-2">
-                                {['openstreetmap', 'google_maps', 'disabled'].map((provider) => (
+                                {['openstreetmap', 'tomtom_maps', 'disabled'].map((provider) => (
                                   <button
                                     key={provider}
                                     onClick={() => updateMapsProviderMutation.mutate({
@@ -627,7 +627,7 @@ export default function Settings() {
                                         : "bg-white/5 text-zinc-500 hover:text-zinc-200"
                                     )}
                                   >
-                                    {provider === 'openstreetmap' ? 'OSM' : provider === 'google_maps' ? 'Google' : 'Text'}
+                                    {provider === 'openstreetmap' ? 'OSM' : provider === 'tomtom_maps' ? 'TomTom' : 'Text'}
                                   </button>
                                 ))}
                               </div>

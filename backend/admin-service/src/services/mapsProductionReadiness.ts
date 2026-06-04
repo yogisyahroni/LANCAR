@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { getMapsProviderOpsSnapshot, MapsProviderOpsSnapshot } from './mapsProviderConfig';
 import {
-  getActiveGoogleMapsServerCredential,
+  getActiveTomTomMapsServerCredential,
   listMapsRuntimeCredentials,
   MapsCredentialSummary,
 } from './mapsRuntimeCredentials';
@@ -85,7 +85,7 @@ type SurfaceDefinition = {
   legacyEnv?: string[];
 };
 
-const API_KEY_PATTERN = /^AIza[0-9A-Za-z_-]{20,}$/;
+const API_KEY_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 const PLACEHOLDER_MARKERS = ['your_', 'changeme', 'change_me', 'placeholder', 'example', '<', '>'];
 const ROTATION_MAX_AGE_DAYS = 90;
 const ROTATION_DUE_SOON_DAYS = 14;
@@ -96,61 +96,61 @@ const SURFACE_DEFINITIONS: SurfaceDefinition[] = [
     label: 'Courier Android',
     expectedAliasSuffix: 'android-courier-maps-key',
     packageName: 'com.tembus.courier',
-    actualEnv: ['GOOGLE_MAPS_ANDROID_COURIER_API_KEY', 'COURIER_GOOGLE_MAPS_ANDROID_API_KEY'],
-    configuredEnv: 'GOOGLE_MAPS_ANDROID_COURIER_KEY_CONFIGURED',
-    aliasEnv: 'GOOGLE_MAPS_ANDROID_COURIER_KEY_ALIAS',
-    restrictionEnv: 'GOOGLE_MAPS_ANDROID_COURIER_KEY_RESTRICTION',
-    apiEnv: 'GOOGLE_MAPS_ANDROID_COURIER_KEY_APIS',
-    rotatedAtEnv: 'GOOGLE_MAPS_ANDROID_COURIER_KEY_ROTATED_AT',
+    actualEnv: ['TOMTOM_ANDROID_COURIER_API_KEY', 'COURIER_TOMTOM_ANDROID_API_KEY'],
+    configuredEnv: 'TOMTOM_ANDROID_COURIER_KEY_CONFIGURED',
+    aliasEnv: 'TOMTOM_ANDROID_COURIER_KEY_ALIAS',
+    restrictionEnv: 'TOMTOM_ANDROID_COURIER_KEY_RESTRICTION',
+    apiEnv: 'TOMTOM_ANDROID_COURIER_KEY_APIS',
+    rotatedAtEnv: 'TOMTOM_ANDROID_COURIER_KEY_ROTATED_AT',
     expectedApplicationRestriction: 'android_package_sha1',
     acceptedApplicationRestrictions: ['android_package_sha1', 'android_app', 'android_apps'],
-    expectedApiRestrictions: ['maps_sdk_android'],
-    legacyEnv: ['GOOGLE_MAPS_ANDROID_API_KEY'],
+    expectedApiRestrictions: ['maps_sdk_android', 'navigation_sdk_android'],
+    legacyEnv: ['TOMTOM_ANDROID_API_KEY'],
   },
   {
     id: 'android_customer',
     label: 'Customer Android',
     expectedAliasSuffix: 'android-customer-maps-key',
     packageName: 'com.tembus.customer',
-    actualEnv: ['GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY', 'CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY'],
-    configuredEnv: 'GOOGLE_MAPS_ANDROID_CUSTOMER_KEY_CONFIGURED',
-    aliasEnv: 'GOOGLE_MAPS_ANDROID_CUSTOMER_KEY_ALIAS',
-    restrictionEnv: 'GOOGLE_MAPS_ANDROID_CUSTOMER_KEY_RESTRICTION',
-    apiEnv: 'GOOGLE_MAPS_ANDROID_CUSTOMER_KEY_APIS',
-    rotatedAtEnv: 'GOOGLE_MAPS_ANDROID_CUSTOMER_KEY_ROTATED_AT',
+    actualEnv: ['TOMTOM_ANDROID_CUSTOMER_API_KEY', 'CUSTOMER_TOMTOM_ANDROID_API_KEY'],
+    configuredEnv: 'TOMTOM_ANDROID_CUSTOMER_KEY_CONFIGURED',
+    aliasEnv: 'TOMTOM_ANDROID_CUSTOMER_KEY_ALIAS',
+    restrictionEnv: 'TOMTOM_ANDROID_CUSTOMER_KEY_RESTRICTION',
+    apiEnv: 'TOMTOM_ANDROID_CUSTOMER_KEY_APIS',
+    rotatedAtEnv: 'TOMTOM_ANDROID_CUSTOMER_KEY_ROTATED_AT',
     expectedApplicationRestriction: 'android_package_sha1',
     acceptedApplicationRestrictions: ['android_package_sha1', 'android_app', 'android_apps'],
     expectedApiRestrictions: ['maps_sdk_android'],
-    legacyEnv: ['GOOGLE_MAPS_ANDROID_API_KEY'],
+    legacyEnv: ['TOMTOM_ANDROID_API_KEY'],
   },
   {
     id: 'web_browser',
     label: 'Web Browser',
     expectedAliasSuffix: 'web-maps-key',
-    actualEnv: ['GOOGLE_MAPS_BROWSER_API_KEY', 'GOOGLE_MAPS_WEB_API_KEY', 'GOOGLE_MAPS_PUBLIC_API_KEY'],
-    configuredEnv: 'GOOGLE_MAPS_WEB_KEY_CONFIGURED',
-    aliasEnv: 'GOOGLE_MAPS_WEB_KEY_ALIAS',
-    restrictionEnv: 'GOOGLE_MAPS_WEB_KEY_RESTRICTION',
-    apiEnv: 'GOOGLE_MAPS_WEB_KEY_APIS',
-    rotatedAtEnv: 'GOOGLE_MAPS_WEB_KEY_ROTATED_AT',
+    actualEnv: ['TOMTOM_WEB_API_KEY', 'TOMTOM_PUBLIC_API_KEY'],
+    configuredEnv: 'TOMTOM_WEB_KEY_CONFIGURED',
+    aliasEnv: 'TOMTOM_WEB_KEY_ALIAS',
+    restrictionEnv: 'TOMTOM_WEB_KEY_RESTRICTION',
+    apiEnv: 'TOMTOM_WEB_KEY_APIS',
+    rotatedAtEnv: 'TOMTOM_WEB_KEY_ROTATED_AT',
     expectedApplicationRestriction: 'http_referrer',
     acceptedApplicationRestrictions: ['http_referrer', 'http_referrers', 'website'],
-    expectedApiRestrictions: ['maps_javascript_api'],
+    expectedApiRestrictions: ['maps_sdk_web'],
   },
   {
     id: 'server',
     label: 'Server Routes / Geocoding',
     expectedAliasSuffix: 'server-maps-key',
-    actualEnv: ['GOOGLE_ROUTES_API_KEY', 'GOOGLE_MAPS_SERVER_API_KEY'],
-    configuredEnv: 'GOOGLE_MAPS_SERVER_KEY_CONFIGURED',
-    aliasEnv: 'GOOGLE_MAPS_SERVER_KEY_ALIAS',
-    restrictionEnv: 'GOOGLE_MAPS_SERVER_KEY_RESTRICTION',
-    apiEnv: 'GOOGLE_MAPS_SERVER_KEY_APIS',
-    rotatedAtEnv: 'GOOGLE_MAPS_SERVER_KEY_ROTATED_AT',
+    actualEnv: ['TOMTOM_SERVER_API_KEY'],
+    configuredEnv: 'TOMTOM_SERVER_KEY_CONFIGURED',
+    aliasEnv: 'TOMTOM_SERVER_KEY_ALIAS',
+    restrictionEnv: 'TOMTOM_SERVER_KEY_RESTRICTION',
+    apiEnv: 'TOMTOM_SERVER_KEY_APIS',
+    rotatedAtEnv: 'TOMTOM_SERVER_KEY_ROTATED_AT',
     expectedApplicationRestriction: 'server_ip',
     acceptedApplicationRestrictions: ['server_ip', 'ip_address', 'ip_addresses'],
-    expectedApiRestrictions: ['routes', 'geocoding'],
-    legacyEnv: ['GOOGLE_MAPS_API_KEY', 'GOOGLE_DIRECTIONS_API_KEY'],
+    expectedApiRestrictions: ['routing', 'search', 'geocoding', 'reverse_geocoding'],
+    legacyEnv: ['TOMTOM_API_KEY', 'TOMTOM_LEGACY_DIRECTIONS_API_KEY'],
   },
 ];
 
@@ -262,7 +262,7 @@ const restrictionIssue = (
       'maps_key_restriction_metadata_missing',
       'warning',
       `${definition.label} belum punya deklarasi restriction di env metadata.`,
-      `Set ${definition.restrictionEnv}=${definition.expectedApplicationRestriction} setelah restriction dikonfirmasi di Google Cloud.`
+      `Set ${definition.restrictionEnv}=${definition.expectedApplicationRestriction} setelah restriction dikonfirmasi di TomTom Cloud.`
     );
   }
 
@@ -307,7 +307,7 @@ const apiRestrictionIssues = (declaredApis: string[], definition: SurfaceDefinit
       'maps_key_api_restriction_incomplete',
       'critical',
       `${definition.label} belum mendeklarasikan API restriction wajib: ${missing.join(', ')}.`,
-      `Update API restrictions di Google Cloud lalu set ${definition.apiEnv}.`
+      `Update API restrictions di TomTom Cloud lalu set ${definition.apiEnv}.`
     ),
   ];
 };
@@ -351,8 +351,8 @@ const buildEnvSurfaceCheck = (
     issues.push(issue(
       'maps_key_format_invalid',
       'critical',
-      `${definition.label} key tidak sesuai format Google Maps API key.`,
-      'Ganti dengan API key Google Maps Platform yang valid dari Google Cloud Credentials.'
+      `${definition.label} key tidak sesuai format TomTom Maps API key.`,
+      'Ganti dengan API key TomTom Maps Platform yang valid dari TomTom Cloud Credentials.'
     ));
   }
 
@@ -413,7 +413,7 @@ const buildServerCheck = async (
   env: NodeJS.ProcessEnv,
   now: Date
 ): Promise<{ check: MapsProductionKeyCheck; fingerprint: string | null }> => {
-  const activeCredential = await getActiveGoogleMapsServerCredential();
+  const activeCredential = await getActiveTomTomMapsServerCredential();
   const credentials = await listMapsRuntimeCredentials().catch(() => [] as MapsCredentialSummary[]);
   const activeSummary = activeCredential?.credentialId
     ? credentials.find((credential) => credential.id === activeCredential.credentialId)
@@ -495,7 +495,7 @@ const addSharedKeyFindings = (
       key_identity: publicFingerprint(fingerprint),
       surfaces,
       severity: 'critical' as const,
-      message: 'Satu Google Maps API key terdeteksi dipakai oleh lebih dari satu surface.',
+      message: 'Satu TomTom Maps API key terdeteksi dipakai oleh lebih dari satu surface.',
       action: 'Buat key terpisah per platform/environment, update secret, lalu revoke key lama setelah traffic sehat.',
     };
     findings.push(finding);
@@ -529,46 +529,46 @@ const diagnoseProviderIssue = (ops: MapsProviderOpsSnapshot): MapsProductionIssu
 
   if (rawText.includes('api_not_activated') || rawText.includes('not enabled') || rawText.includes('api is not enabled')) {
     return issue(
-      'google_maps_api_not_enabled',
+      'tomtom_api_not_enabled',
       'critical',
-      'Google Maps API yang dibutuhkan belum aktif untuk project/key ini.',
+      'TomTom Maps API yang dibutuhkan belum aktif untuk project/key ini.',
       'Enable Routes API dan Geocoding API untuk server key, atau Maps JavaScript/Maps SDK Android sesuai surface yang gagal.'
     );
   }
 
   if (rawText.includes('billing')) {
     return issue(
-      'google_maps_billing_problem',
+      'tomtom_billing_problem',
       'critical',
-      'Google Maps menolak request karena billing project belum sehat.',
-      'Cek Billing Account Google Cloud, payment method, dan budget alert sebelum mengaktifkan Google Maps lagi.'
+      'TomTom Maps menolak request karena billing project belum sehat.',
+      'Cek Billing Account TomTom Cloud, payment method, dan budget alert sebelum mengaktifkan TomTom Maps lagi.'
     );
   }
 
   if (rawText.includes('request_denied') || rawText.includes('permission_denied') || rawText.includes('forbidden')) {
     return issue(
-      'google_maps_request_denied',
+      'tomtom_request_denied',
       'critical',
-      'Google Maps menolak request server route/geocode.',
+      'TomTom Maps menolak request server route/geocode.',
       'Test server key di Admin Maps Runtime, cek Routes/Geocoding API, billing, dan pastikan restriction server IP sesuai VPS.'
     );
   }
 
   if (rawText.includes('quota') || rawText.includes('over_query_limit') || rawText.includes('resource_exhausted')) {
     return issue(
-      'google_maps_quota_exhausted',
+      'tomtom_quota_exhausted',
       'critical',
-      'Google Maps quota habis atau mendekati limit operasional.',
+      'TomTom Maps quota habis atau mendekati limit operasional.',
       'Switch sementara ke OpenStreetMap/Text Only, naikkan quota pada key restricted yang benar, lalu pantau fallback rate.'
     );
   }
 
   if (rawText.includes('sha') || rawText.includes('package')) {
     return issue(
-      'google_maps_android_authorization_failure',
+      'tomtom_android_authorization_failure',
       'critical',
       'Android Maps SDK kemungkinan ditolak karena package name atau SHA-1/SHA-256 tidak cocok.',
-      'Cek package com.tembus.courier/com.tembus.customer, signing certificate SHA, lalu update Android key restriction di Google Cloud.'
+      'Cek package com.tembus.courier/com.tembus.customer, signing certificate SHA, lalu update Android key restriction di TomTom Cloud.'
     );
   }
 
@@ -596,7 +596,7 @@ const uniqueIssues = (items: MapsProductionIssue[]): MapsProductionIssue[] => {
 
 const opsAlertsToIssues = (ops: MapsProviderOpsSnapshot): MapsProductionIssue[] => {
   const alertIssues = ops.active_alerts.map((alert) => {
-    const action = alert.code === 'google_maps_quota_near_limit'
+    const action = alert.code === 'tomtom_quota_near_limit'
       ? 'Naikkan quota/billing guard atau switch sementara ke OpenStreetMap/Text Only dari admin.'
       : alert.code === 'maps_provider_failure_high'
         ? 'Cek credential, API enablement, billing, dan konektivitas provider. Gunakan emergency fallback jika perlu.'
@@ -651,7 +651,7 @@ export const getMapsProductionReadiness = async (
         'Catat incident dan provider issue sebelum menaikkan traffic lagi.',
       ],
       quota_steps: [
-        'Cek billing dan quota Google Maps Platform.',
+        'Cek billing dan quota TomTom Maps Platform.',
         'Jika remaining quota <= 10%, switch sementara ke OpenStreetMap/Text Only.',
         'Naikkan quota hanya untuk key restricted yang benar, bukan unrestricted key.',
       ],
@@ -663,8 +663,8 @@ export const getMapsProductionReadiness = async (
       ],
     },
     docs: [
-      'docs/google-maps-production-key-runbook.md',
-      'docs/google-maps-demo-readiness.md',
+      'docs/TomTom-maps-production-key-runbook.md',
+      'docs/TomTom-maps-demo-readiness.md',
       'docs/VPS_SECURITY_RUNBOOK.md',
     ],
   };

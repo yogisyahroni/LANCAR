@@ -58,6 +58,28 @@ jobs:
           NEXT_PUBLIC_SOCKET_URL: ${{ env.STAGING_FRONTEND_SOCKET_URL }}
           SERVER_API_URL: ${{ env.STAGING_SERVER_API_URL }}
 
+  maps-runtime-guard:
+    name: Maps Runtime Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail on Google Maps runtime residue
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if grep -RInE 'google_maps|GOOGLE_MAPS|GOOGLE_ROUTES|GOOGLE_DIRECTIONS|maps\.googleapis\.com|routes\.googleapis\.com|GoogleMapCanvas|play-services-maps|com\.google\.maps\.android|com\.google\.android\.gms\.maps|google\.navigation' \
+            --exclude-dir=node_modules \
+            --exclude-dir=build \
+            --exclude-dir=dist \
+            --exclude-dir=.gradle \
+            backend admin-dashboard frontend android-app android-app-customer docker-compose.yml docker-compose.prod.yml .env.example; then
+            echo "Google Maps runtime residue detected. Firebase google-services and Play Services Location are allowed; Google Maps is not." >&2
+            exit 1
+          fi
+
   # ───────────────────────────────────────────────
   admin-service:
     name: Admin Service Test
@@ -247,7 +269,7 @@ jobs:
     name: Observability Guard
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [frontend, admin-service, auth-service, routing-service, migration-test]
+    needs: [frontend, maps-runtime-guard, admin-service, auth-service, routing-service, migration-test]
     steps:
       - uses: actions/checkout@v4
 

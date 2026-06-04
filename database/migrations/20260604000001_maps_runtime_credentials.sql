@@ -1,7 +1,7 @@
 -- +goose Up
 -- ============================================================
 -- Runtime Maps Credentials
--- Stores Google Maps server-side credentials encrypted at rest.
+-- Stores TomTom Maps server-side credentials encrypted at rest.
 -- Plaintext keys must never be stored or returned by the API.
 -- ============================================================
 
@@ -40,7 +40,7 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS maps_provider_credentials (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  provider VARCHAR(40) NOT NULL CHECK (provider IN ('google_maps')),
+  provider VARCHAR(40) NOT NULL CHECK (provider IN ('tomtom_maps')),
   scope VARCHAR(40) NOT NULL DEFAULT 'server',
   key_alias VARCHAR(100) NOT NULL,
   key_mask VARCHAR(32) NOT NULL,
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS maps_provider_credentials (
   deleted_at TIMESTAMPTZ
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_maps_provider_credentials_active_google
+CREATE UNIQUE INDEX IF NOT EXISTS idx_maps_provider_credentials_active_tomtom
   ON maps_provider_credentials (provider)
   WHERE is_active = true AND deleted_at IS NULL;
 
@@ -119,7 +119,7 @@ DROP FUNCTION IF EXISTS prevent_maps_provider_credential_event_mutation;
 DROP TABLE IF EXISTS maps_provider_credential_events;
 DROP INDEX IF EXISTS idx_maps_provider_credentials_created_by;
 DROP INDEX IF EXISTS idx_maps_provider_credentials_status;
-DROP INDEX IF EXISTS idx_maps_provider_credentials_active_google;
+DROP INDEX IF EXISTS idx_maps_provider_credentials_active_tomtom;
 DROP TABLE IF EXISTS maps_provider_credentials;
 
 UPDATE users SET role = 'ops_admin' WHERE role = 'ops_security';

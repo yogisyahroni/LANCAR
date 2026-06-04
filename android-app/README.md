@@ -6,7 +6,7 @@ Native Android application for TEMBUS logistics courier drivers, built with Kotl
 
 - **Push Notifications (FCM)**: Real-time order assignment alerts with Accept/Dismiss actions
 - **Order Acceptance**: Accept orders directly from notification with full order data
-- **View Map**: Open delivery location in Google Maps
+- **View Map**: Open delivery location in the installed navigation app
 - **Call Customer**: Initiate phone call to customer from order detail
 - **Proof of Delivery**: Camera capture with order info overlay
 - **Foreground & Background Handling**: Notification states handled for all app states

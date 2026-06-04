@@ -90,9 +90,9 @@ import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
+import com.tembus.customer.ui.components.maps.LatLng
+import com.tembus.customer.ui.components.maps.MapProperties
+import com.tembus.customer.ui.components.maps.MapUiSettings
 import com.tembus.customer.data.model.CustomerAddress
 import com.tembus.customer.data.model.DeliveryServiceProduct
 import com.tembus.customer.data.model.DimensionsPayload
@@ -1066,8 +1066,8 @@ private fun RoutePreviewCard(
                 markers = markers,
                 routePoints = routePoints,
                 followLocation = null,
-                googleProperties = MapProperties(isMyLocationEnabled = locationEnabled),
-                googleUiSettings = MapUiSettings(
+                mapProperties = MapProperties(isMyLocationEnabled = locationEnabled),
+                mapUiSettings = MapUiSettings(
                     zoomControlsEnabled = false,
                     compassEnabled = false,
                     myLocationButtonEnabled = false,
@@ -1566,8 +1566,8 @@ private fun ReviewRouteSnapshotBlock(state: BookingState, price: PriceBreakdown?
                 markers = markers,
                 routePoints = routePoints,
                 followLocation = null,
-                googleProperties = MapProperties(isMyLocationEnabled = false),
-                googleUiSettings = MapUiSettings(
+                mapProperties = MapProperties(isMyLocationEnabled = false),
+                mapUiSettings = MapUiSettings(
                     zoomControlsEnabled = false,
                     compassEnabled = false,
                     myLocationButtonEnabled = false,

@@ -1,34 +1,32 @@
 # On-Demand External Keys Setup
 
-Dokumen ini memastikan infra on-demand sudah siap dan deployment berikutnya hanya perlu mengisi secret/API key.
+Dokumen ini memastikan infra on-demand siap dan deployment berikutnya hanya perlu mengisi secret/API key. Jangan commit value asli ke Git, issue, screenshot, log, atau markdown.
 
 ## Required Env
 
 Set env ini di staging dan production:
 
-- `GOOGLE_MAPS_API_KEY`: Google Maps key utama.
-- `GOOGLE_ROUTES_API_KEY`: key backend untuk Google Routes API. Jika kosong, backend memakai `GOOGLE_MAPS_API_KEY`.
-- `GOOGLE_DIRECTIONS_API_KEY`: opsional untuk fallback legacy Directions API.
-- `GOOGLE_ROUTES_API_URL`: opsional untuk test/staging mock. Default `https://routes.googleapis.com/directions/v2:computeRoutes`.
-- `GOOGLE_ROUTES_ALLOWED_HOSTS`: allowlist host endpoint Routes API. Default hanya `routes.googleapis.com`, localhost, dan host Docker lokal.
-- `GOOGLE_ROUTES_TIMEOUT_MS`: timeout route provider. Default 2800 ms.
-- `GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED`: set `true` jika staging ingin mematikan fallback Directions legacy.
+- `TOMTOM_SERVER_API_KEY`: key backend untuk Routing API, Search API, geocode, dan reverse geocode. Key ini tidak boleh dikirim ke web/mobile.
+- `TOMTOM_WEB_API_KEY`: key Web SDK yang dibatasi HTTP referrer untuk admin web, customer web, dan tracking web.
+- `TOMTOM_ANDROID_COURIER_API_KEY`: key Android Maps/Navigation SDK khusus package courier.
+- `TOMTOM_ANDROID_CUSTOMER_API_KEY`: key Android Maps SDK khusus package customer.
+- `TOMTOM_ROUTING_API_URL`: opsional untuk test/staging mock. Default `https://api.tomtom.com/routing/1`.
+- `TOMTOM_ROUTING_ALLOWED_HOSTS`: allowlist host routing. Default hanya `api.tomtom.com`, localhost, dan host Docker lokal.
+- `TOMTOM_SEARCH_API_URL`: opsional untuk test/staging mock. Default `https://api.tomtom.com/search/2`.
+- `TOMTOM_SEARCH_ALLOWED_HOSTS`: allowlist host search. Default hanya `api.tomtom.com`, localhost, dan host Docker lokal.
+- `TOMTOM_ROUTING_TIMEOUT_MS`: timeout route provider. Default 2800 ms.
+- `TOMTOM_CREDENTIAL_TEST_TIMEOUT_MS`: timeout validasi credential. Default 4500 ms.
 - `FIREBASE_SERVICE_ACCOUNT`: JSON service account Firebase Admin SDK dalam format satu baris.
 - `FIREBASE_PROJECT_ID`: metadata project Firebase.
 
-Jangan commit value asli ke Git. Simpan di GitHub Actions secrets, server env, atau secret manager.
+## TomTom Maps Platform
 
-## Google Maps Routes / Directions
-
-1. Buka Google Cloud Console untuk project TEMBUS.
-2. Aktifkan Routes API.
-3. Aktifkan billing dan quota alert.
-4. Buat API key khusus backend staging/production.
-5. Restrict key untuk API yang diperlukan, minimal Routes API. Aktifkan Directions API hanya jika fallback legacy masih dipakai.
-6. Isi `GOOGLE_ROUTES_API_KEY` atau `GOOGLE_MAPS_API_KEY`.
-7. Untuk layanan motor, backend memakai travel mode `TWO_WHEELER` saat provider aktif Google. Jika mode ini tidak tersedia pada region/request tertentu, backend retry ke `DRIVE` dan mencatat `fallback_reason`.
-8. Untuk TEMBUS Mobil, backend memakai travel mode `DRIVE`.
-9. Prioritas dan Instant memakai preference traffic-aware optimal; layanan lain memakai traffic-aware standar.
+1. Buat key terpisah untuk server, web, Android courier, dan Android customer.
+2. Restrict key sesuai surface: server/IP untuk backend, HTTP referrer untuk web, package + certificate fingerprint untuk Android.
+3. Aktifkan Routing, Search, reverse geocode, Maps SDK Web, Maps SDK Android, dan Navigation SDK Android sesuai kebutuhan surface.
+4. Isi credential server lewat Admin > Maps Runtime agar bisa divalidasi dan diaktifkan tanpa restart service.
+5. Isi key web/mobile melalui secret manager atau CI/CD encrypted secrets.
+6. Rotasi key demo/staging sebelum production jika pernah terlihat di chat, log, screenshot, atau local terminal.
 
 Backend on-demand tracking akan mengirim:
 
@@ -43,7 +41,7 @@ Backend on-demand tracking akan mengirim:
 - `traffic_aware`
 - `fallback_reason`
 
-Jika key belum ada atau provider down, backend tetap memakai fallback ETA haversine terlabel agar customer tracking tidak mati. Fallback ini bukan sumber pricing final kecuali emergency policy diaktifkan.
+Jika TomTom key belum ada, quota habis, provider timeout, atau circuit breaker terbuka, backend tetap memakai OpenStreetMap/haversine fallback terlabel agar customer tracking tidak mati. Fallback garis lurus bukan sumber pricing final kecuali emergency policy diaktifkan.
 
 ## Firebase / FCM
 
@@ -77,17 +75,3 @@ Status ideal sebelum test device:
   "overall_status": "ready_for_staging_validation"
 }
 ```
-
-## Device Validation
-
-Setelah readiness sudah `ready_for_staging_validation`, jalankan checklist:
-
-- `docs/on-demand-fcm-staging-checklist.md`
-
-Validasi wajib:
-
-- customer login dan register FCM token.
-- courier login dan register FCM token.
-- order on-demand dibuat customer.
-- offer masuk ke courier foreground/background/killed app.
-- customer tracking update dari offer accepted sampai POD.

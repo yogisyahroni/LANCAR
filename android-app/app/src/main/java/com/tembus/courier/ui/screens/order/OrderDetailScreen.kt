@@ -35,14 +35,14 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.Polyline
-import com.google.maps.android.compose.rememberCameraPositionState
+import com.tembus.courier.ui.components.maps.CameraPosition
+import com.tembus.courier.ui.components.maps.LatLng
+import com.tembus.courier.ui.components.maps.RuntimeMap
+import com.tembus.courier.ui.components.maps.MapUiSettings
+import com.tembus.courier.ui.components.maps.MapMarker
+import com.tembus.courier.ui.components.maps.MarkerState
+import com.tembus.courier.ui.components.maps.MapPolyline
+import com.tembus.courier.ui.components.maps.rememberCameraPositionState
 import com.tembus.courier.data.model.Order
 import com.tembus.courier.data.model.CourierRoutePreview
 import com.tembus.courier.data.model.MapsProviderConfig
@@ -352,7 +352,7 @@ private fun DeliveryMapCard(
                         providerConfig = mapsProviderConfig,
                         markers = markers,
                         routePoints = routePoints,
-                        googleUiSettings = MapUiSettings(
+                        mapUiSettings = MapUiSettings(
                             zoomControlsEnabled = false,
                             myLocationButtonEnabled = false,
                             mapToolbarEnabled = false

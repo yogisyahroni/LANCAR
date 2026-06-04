@@ -25,10 +25,10 @@ const hasUsableSecret = (value?: string): boolean => {
   return !PLACEHOLDER_MARKERS.some((marker) => normalized.includes(marker));
 };
 
-export const hasGoogleDirectionsConfig = (env: NodeJS.ProcessEnv = process.env): boolean =>
-  hasUsableSecret(env.GOOGLE_ROUTES_API_KEY) ||
-  hasUsableSecret(env.GOOGLE_DIRECTIONS_API_KEY) ||
-  hasUsableSecret(env.GOOGLE_MAPS_API_KEY);
+export const hastomtomDirectionsConfig = (env: NodeJS.ProcessEnv = process.env): boolean =>
+  hasUsableSecret(env.TOMTOM_SERVER_API_KEY) ||
+  hasUsableSecret(env.TOMTOM_LEGACY_DIRECTIONS_API_KEY) ||
+  hasUsableSecret(env.TOMTOM_API_KEY);
 
 const decodeBase64 = (encoded?: string): string | undefined => {
   if (!encoded || !encoded.trim()) return undefined;
@@ -90,19 +90,19 @@ export const hasFirebaseAdminConfig = (env: NodeJS.ProcessEnv = process.env): bo
 export const getOnDemandExternalReadiness = (
   env: NodeJS.ProcessEnv = process.env
 ): OnDemandExternalReadiness => {
-  const googleReady = hasGoogleDirectionsConfig(env);
+  const tomtomReady = hastomtomDirectionsConfig(env);
   const firebaseReady = hasFirebaseAdminConfig(env);
 
   const checks: OnDemandExternalReadinessCheck[] = [
     {
-      key: 'google_directions',
-      label: 'Google Maps Routes / Directions',
-      status: googleReady ? 'ready' : 'waiting_for_secret',
-      configured: googleReady,
-      required_env: ['GOOGLE_ROUTES_API_KEY', 'GOOGLE_MAPS_API_KEY', 'GOOGLE_DIRECTIONS_API_KEY'],
-      message: googleReady
+      key: 'TOMTOM_directions',
+      label: 'TomTom Maps Routes / Directions',
+      status: tomtomReady ? 'ready' : 'waiting_for_secret',
+      configured: tomtomReady,
+      required_env: ['TOMTOM_SERVER_API_KEY', 'TOMTOM_API_KEY', 'TOMTOM_LEGACY_DIRECTIONS_API_KEY'],
+      message: tomtomReady
         ? 'Route polyline, ETA, dan traffic-aware policy siap memakai provider eksternal.'
-        : 'Isi GOOGLE_ROUTES_API_KEY atau GOOGLE_MAPS_API_KEY dengan key yang sudah mengaktifkan Routes API. GOOGLE_DIRECTIONS_API_KEY tetap bisa dipakai sebagai fallback legacy.'
+        : 'Isi TOMTOM_SERVER_API_KEY atau TOMTOM_API_KEY dengan key yang sudah mengaktifkan Routes API. TOMTOM_LEGACY_DIRECTIONS_API_KEY tetap bisa dipakai sebagai fallback legacy.'
     },
     {
       key: 'firebase_admin',
@@ -123,13 +123,13 @@ export const getOnDemandExternalReadiness = (
     {
       key: 'device_validation',
       label: 'Device / Emulator Staging',
-      status: googleReady && firebaseReady ? 'needs_device_validation' : 'waiting_for_secret',
+      status: tomtomReady && firebaseReady ? 'needs_device_validation' : 'waiting_for_secret',
       configured: false,
       required_env: [],
       message:
-        googleReady && firebaseReady
+        tomtomReady && firebaseReady
           ? 'Infra sudah siap. Lanjutkan login customer dan kurir di device/emulator untuk validasi FCM foreground/background/killed app.'
-          : 'Device validation bisa dijalankan setelah Google Maps dan Firebase secret terisi.'
+          : 'Device validation bisa dijalankan setelah TomTom Maps dan Firebase secret terisi.'
     }
   ];
 
