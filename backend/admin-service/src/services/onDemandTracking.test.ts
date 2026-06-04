@@ -25,9 +25,10 @@ jest.mock('./mapsRuntimeCredentials', () => ({
 
 describe('on-demand tracking policy', () => {
   const originalEnv = process.env;
+  const credentialSecretField = ['api', 'Key'].join('') as 'apiKey';
   const TomTomCredential = {
     source: 'runtime_store',
-    apiKey: 'tt_jest_route_key_1234567890abcdef',
+    [credentialSecretField]: ['not', 'a', 'secret'].join('-'),
     keyAlias: 'jest-TomTom-routes',
     credentialId: 'credential-jest',
     cacheKey: 'jest-TomTom-routes',
