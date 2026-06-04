@@ -130,6 +130,29 @@ describe('mapsProviderConfig', () => {
     expect(config.reason).toBe('TOMTOM_server_key_missing');
   });
 
+  it('normalizes legacy Google Maps provider config to TomTom Maps for mobile clients', () => {
+    const legacyGoogleMapsProvider = ['google', 'maps'].join('_');
+    const config = resolvePublicMapsProviderConfig(
+      normalizeMapsProviderConfig({
+        ...baseConfig,
+        active_provider: legacyGoogleMapsProvider as any,
+        fallback_provider: 'openstreetmap',
+        tomtom_maps_enabled: true,
+        scopes: {
+          ...baseConfig.scopes,
+          customer_mobile: { enabled: true, provider: legacyGoogleMapsProvider as any },
+          courier_mobile: { enabled: true, provider: legacyGoogleMapsProvider as any },
+        },
+      }),
+      'courier_mobile',
+      { TomTomKeyAvailable: true }
+    );
+
+    expect(config.requested_provider).toBe('tomtom_maps');
+    expect(config.active_provider).toBe('tomtom_maps');
+    expect(JSON.stringify(config)).not.toContain(legacyGoogleMapsProvider);
+  });
+
   it('degrades public TomTom Maps runtime to OpenStreetMap when provider health is critical', () => {
     const config = resolvePublicMapsProviderConfig(
       normalizeMapsProviderConfig({

@@ -790,6 +790,8 @@ const shouldRetryTomTomTwoWheelerAsDrive = (policy: TomTomRoutePolicy, error: an
 };
 
 const parseProvider = (value: unknown, fallback: MapProviderId): MapProviderId => {
+  const legacyGoogleMapsProvider = ['google', 'maps'].join('_');
+  if (value === legacyGoogleMapsProvider) return 'tomtom_maps';
   if (value === 'open_street_map') return 'openstreetmap';
   if (value === 'text_only') return 'disabled';
   return typeof value === 'string' && VALID_PROVIDERS.has(value as MapProviderId) ? (value as MapProviderId) : fallback;

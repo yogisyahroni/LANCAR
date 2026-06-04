@@ -9,10 +9,10 @@ data class MapsProviderConfig(
     val enabled: Boolean = true,
 
     @SerialName("requested_provider")
-    val requestedProvider: String = "openstreetmap",
+    val requestedProvider: String = "tomtom_maps",
 
     @SerialName("active_provider")
-    val activeProvider: String = "openstreetmap",
+    val activeProvider: String = "tomtom_maps",
 
     @SerialName("fallback_provider")
     val fallbackProvider: String = "openstreetmap",
