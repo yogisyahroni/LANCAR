@@ -237,6 +237,7 @@ jobs:
           PY
 
       - name: Prepare Android Maps key
+        id: android_maps_key
         if: github.event_name != 'pull_request'
         shell: bash
         env:
@@ -254,6 +255,10 @@ jobs:
           import sys
 
           api_key_pattern = re.compile(r"^AIza[0-9A-Za-z_-]{20,}$")
+
+          def write_output(name, value):
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as github_output:
+                  github_output.write(f"{name}={value}\n")
 
           def first_value(names):
               for name in names:
@@ -289,8 +294,13 @@ jobs:
           config = configs[working_dir]
           source_name, selected_key = first_value(config["required"])
           if not selected_key:
-              print(f"Missing {config['label']} Android Maps key secret. Set one of: {', '.join(config['required'])}", file=sys.stderr)
-              sys.exit(1)
+              print(
+                  f"::warning::Missing {config['label']} Android Maps key secret. "
+                  f"Debug CI will continue without Google Maps SDK rendering, and signed release artifacts will be skipped. "
+                  f"Set one of: {', '.join(config['required'])}"
+              )
+              write_output("release_artifacts_enabled", "false")
+              sys.exit(0)
 
           if not api_key_pattern.match(selected_key):
               print(f"{source_name} does not look like a valid Google Maps API key.", file=sys.stderr)
@@ -301,6 +311,7 @@ jobs:
               for export_name in config["exports"]:
                   github_env.write(f"{export_name}={selected_key}\n")
 
+          write_output("release_artifacts_enabled", "true")
           print(f"Validated {config['label']} Android Maps key secret without printing its value.")
           PY
 
@@ -324,7 +335,7 @@ jobs:
         working-directory: ./${{ matrix.working_dir }}
 
       - name: Build Signed Release APK
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
         run: |
           ./gradlew assembleRelease \
             -PversionCode=${{ github.run_number }} \
@@ -332,7 +343,7 @@ jobs:
         working-directory: ./${{ matrix.working_dir }}
 
       - name: Build Signed Release AAB
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
         run: |
           ./gradlew bundleRelease \
             -PversionCode=${{ github.run_number }} \
@@ -340,7 +351,7 @@ jobs:
         working-directory: ./${{ matrix.working_dir }}
 
       - name: Verify Release AAB
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
         run: |
           python scripts/mobile/verify_release_aab.py \
             --working-dir "${{ matrix.working_dir }}" \
@@ -348,7 +359,7 @@ jobs:
             --min-size-mb 1
 
       - name: Prepare named release assets
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -387,7 +398,7 @@ jobs:
           ls -lh "${asset_dir}"
 
       - name: Upload named release assets
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_prefix }}-android-${{ github.run_number }}
@@ -402,7 +413,7 @@ jobs:
       # 5. Create GitHub Release & Upload APK
       - name: Create Release
         uses: softprops/action-gh-release@v2
-        if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/staging' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
         with:
           tag_name: "v1.0.${{ github.run_number }}-${{ matrix.app_slug }}"
           name: "Release v1.0.${{ github.run_number }} - ${{ matrix.app_name }}"
