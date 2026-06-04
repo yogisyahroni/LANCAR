@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { db } from '../db';
 import { securityLog } from '../security/logRedaction';
 
-const ADMIN_ROLES = ['super_admin', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'] as const;
+const ADMIN_ROLES = ['super_admin', 'ops_security', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'] as const;
 type AdminRole = (typeof ADMIN_ROLES)[number];
 
 const ROLE_ALIASES: Record<string, AdminRole> = {

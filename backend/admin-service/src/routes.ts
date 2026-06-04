@@ -145,7 +145,7 @@ routes.post('/payments/midtrans/notification', (req, res) => controllers.custome
 routes.post('/webhooks/courier-payout-provider', (req, res) => controllers.handleCourierPayoutProviderWebhook(req, res));
 
 // Admin routes - Protected by Admin Auth and Role requirement
-routes.use('/admin', requireAuth, requireRole(['super_admin', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager']));
+routes.use('/admin', requireAuth, requireRole(['super_admin', 'ops_security', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager']));
 routes.get('/admin/courier-safety-events', (req, res) => controllers.listAdminCourierSafetyEvents(req, res));
 routes.get('/admin/courier-growth-configs', (req, res) => controllers.listAdminCourierGrowthConfigs(req, res));
 routes.patch('/admin/courier-tier-configs/:id', (req, res) => controllers.updateAdminCourierTierConfig(req, res));
@@ -170,6 +170,13 @@ routes.get('/admin/settings', (req, res) => controllers.getSystemConfigs(req, re
 routes.patch('/admin/settings/:key', requireTotp, (req, res) => controllers.updateSystemConfig(req, res));
 routes.get('/admin/maps-provider-config', (req, res) => controllers.getAdminMapsProviderRuntimeConfig(req, res));
 routes.patch('/admin/maps-provider-config', requireTotp, (req, res) => controllers.updateAdminMapsProviderRuntimeConfig(req, res));
+routes.get('/admin/maps-production-readiness', (req, res) => controllers.getAdminMapsProductionReadiness(req, res));
+routes.get('/admin/maps-provider-credentials', requireRole(['super_admin', 'ops_security']), (req, res) => controllers.listAdminMapsProviderCredentials(req, res));
+routes.post('/admin/maps-provider-credentials/test', requireRole(['super_admin', 'ops_security']), requireTotp, (req, res) => controllers.testAdminMapsProviderCredential(req, res));
+routes.post('/admin/maps-provider-credentials', requireRole(['super_admin', 'ops_security']), requireTotp, (req, res) => controllers.createAdminMapsProviderCredential(req, res));
+routes.post('/admin/maps-provider-credentials/:id/validate', requireRole(['super_admin', 'ops_security']), requireTotp, (req, res) => controllers.validateAdminMapsProviderCredential(req, res));
+routes.post('/admin/maps-provider-credentials/:id/activate', requireRole(['super_admin', 'ops_security']), requireTotp, (req, res) => controllers.activateAdminMapsProviderCredential(req, res));
+routes.post('/admin/maps-provider-credentials/:id/deactivate', requireRole(['super_admin', 'ops_security']), requireTotp, (req, res) => controllers.deactivateAdminMapsProviderCredential(req, res));
 routes.get('/admin/admins', (req, res) => controllers.getAllAdmins(req, res));
 routes.post('/admin/admins', (req, res) => controllers.inviteAdmin(req, res));
 routes.delete('/admin/admins/:id', (req, res) => controllers.deleteAdmin(req, res));

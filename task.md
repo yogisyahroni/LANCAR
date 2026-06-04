@@ -194,7 +194,7 @@ Status 2026-06-04:
 - Unit test serial `.\gradlew.bat :app:testDebugUnitTest --no-daemon` berhasil.
 - Customer build serial `.\gradlew.bat :app:assembleDebug --no-daemon` berhasil.
 - Customer unit test serial `.\gradlew.bat :app:testDebugUnitTest --no-daemon` berhasil.
-- Gradle mobile sekarang membaca `GOOGLE_MAPS_ANDROID_API_KEY` terlebih dahulu, lalu fallback ke `GOOGLE_MAPS_API_KEY` untuk kompatibilitas lama.
+- Gradle mobile debug sekarang membaca key spesifik app terlebih dahulu, lalu fallback ke `GOOGLE_MAPS_ANDROID_API_KEY` / `GOOGLE_MAPS_API_KEY` untuk kompatibilitas demo. Release build wajib memakai key spesifik courier/customer.
 - Warning Gradle deprecation tidak berbahaya untuk P0, tetapi perlu masuk maintenance sebelum migrasi Gradle 9.
 - Build paralel sempat gagal `StreamCorruptedException: unexpected EOF in middle of data block` saat dua Gradle task berjalan bersamaan; retry serial sukses, jadi ini bukan regression kode.
 
@@ -252,13 +252,28 @@ Verification:
 Status 2026-06-04:
 
 - Selesai di source code.
-- Local `.env` sudah memiliki alias `GOOGLE_ROUTES_API_KEY`, `GOOGLE_MAPS_BROWSER_API_KEY`, dan `GOOGLE_MAPS_ANDROID_API_KEY` dari demo key tanpa mencetak secret ke log.
+- Local `.env` sudah memiliki alias server/browser dari demo key tanpa mencetak secret ke log. Untuk release mobile, key Android harus dipisah menjadi `GOOGLE_MAPS_ANDROID_COURIER_API_KEY` dan `GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY`.
 - Staging masih perlu deploy env baru dan rebuild service/web container agar response `/maps/config` membawa `google_maps.browser_api_key`.
 - Production tetap wajib memisahkan key Android, browser, dan server dengan restriction masing-masing.
 
 ## P1 - Runtime Credential Admin Tanpa Restart Backend
 
-### [ ] MAPS-RUNTIME-001: Tambahkan encrypted maps credential store
+Status 2026-06-04:
+
+- Selesai di source code.
+- Admin sekarang punya flow secure credential untuk server-side Google Maps key: test, simpan terenkripsi, activate, deactivate, dan rollback ke previous valid.
+- Backend maps provider membaca active runtime credential dengan cache TTL pendek dan invalidasi saat activate/deactivate, jadi ganti server key tidak butuh rebuild image atau restart backend.
+- Secret tidak dikirim balik ke admin setelah disimpan; UI hanya menampilkan masked key, status validasi, alias, dan fingerprint pendek.
+- Production/staging wajib mengisi `MAPS_CREDENTIAL_ENCRYPTION_KEY` sebelum deploy. Tanpa env ini, production admin-service sengaja gagal start agar credential tidak tersimpan dengan encryption key fallback.
+
+Verification 2026-06-04:
+
+- `npm test -- src/services/mapsRuntimeCredentials.test.ts src/services/mapsProviderConfig.test.ts src/security/logRedaction.test.ts` -> 34 passed.
+- `npm run build` di `backend/admin-service` -> passed.
+- `VITE_API_URL=https://admin.bawain.my.id/api/v1 VITE_SOCKET_URL=https://admin.bawain.my.id npm run build` di `admin-dashboard` -> passed.
+- `rg "AIza[0-9A-Za-z_-]{20,}"` di repo -> no matches.
+
+### [x] MAPS-RUNTIME-001: Tambahkan encrypted maps credential store
 
 Target:
 
@@ -279,7 +294,7 @@ Verification:
 - Unit test encryption/decryption.
 - API response admin mem-mask key.
 
-### [ ] MAPS-RUNTIME-002: Buat flow "Test Key Before Activate"
+### [x] MAPS-RUNTIME-002: Buat flow "Test Key Before Activate"
 
 Target:
 
@@ -305,7 +320,7 @@ Verification:
 - Test dengan key Android-restricted dipakai sebagai server key harus gagal.
 - Test dengan quota exceeded harus gagal dan tidak activate.
 
-### [ ] MAPS-RUNTIME-003: Buat dynamic server key resolver tanpa restart
+### [x] MAPS-RUNTIME-003: Buat dynamic server key resolver tanpa restart
 
 Target:
 
@@ -330,7 +345,23 @@ Verification:
 
 ## P2 - Production-Grade Google Maps Key Model
 
-### [ ] MAPS-PROD-001: Pisahkan key per platform dan environment
+Status 2026-06-04:
+
+- Selesai di source code.
+- Admin Maps Runtime sekarang memiliki endpoint/UI Production Key Model untuk inventory key Android courier, Android customer, web browser, dan server tanpa mengekspos value secret.
+- Release build Android courier/customer sekarang wajib memakai key spesifik app. Generic `GOOGLE_MAPS_ANDROID_API_KEY` hanya boleh menjadi fallback debug.
+- Production admin-service menolak env `GOOGLE_MAPS_ANDROID_API_KEY` generic agar key lama tidak terbawa ke runtime production.
+- Runbook rotasi, revocation, quota, dan incident response tersedia di `docs/google-maps-production-key-runbook.md`.
+
+Verification 2026-06-04:
+
+- `npm test -- src/services/mapsProductionReadiness.test.ts src/services/mapsRuntimeCredentials.test.ts src/services/mapsProviderConfig.test.ts src/security/logRedaction.test.ts` -> 38 passed.
+- `npm run build` di `backend/admin-service` -> passed.
+- `VITE_API_URL=https://admin.bawain.my.id/api/v1 VITE_SOCKET_URL=https://admin.bawain.my.id npm run build` di `admin-dashboard` -> passed.
+- `.\gradlew.bat :app:assembleDebug --no-daemon` di `android-app` -> passed.
+- `.\gradlew.bat :app:assembleDebug --no-daemon` di `android-app-customer` -> passed.
+
+### [x] MAPS-PROD-001: Pisahkan key per platform dan environment
 
 Target:
 
@@ -352,7 +383,7 @@ Verification:
 - Google Cloud credential inventory.
 - Admin readiness endpoint menampilkan status configured tanpa value secret.
 
-### [ ] MAPS-PROD-002: Quota, monitoring, alert, dan incident response
+### [x] MAPS-PROD-002: Quota, monitoring, alert, dan incident response
 
 Target:
 
@@ -378,7 +409,7 @@ Verification:
 - Simulasi quota exceeded jika memungkinkan di staging.
 - Pastikan admin alert berubah sesuai error.
 
-### [ ] MAPS-PROD-003: Key rotation dan revocation policy
+### [x] MAPS-PROD-003: Key rotation dan revocation policy
 
 Target:
 
@@ -402,7 +433,7 @@ Verification:
 
 ## P3 - UX dan Fallback Saat Maps Bermasalah
 
-### [ ] MAPS-UX-001: Blank Google Map tidak boleh dibiarkan tanpa penjelasan
+### [x] MAPS-UX-001: Blank Google Map tidak boleh dibiarkan tanpa penjelasan
 
 Target:
 
@@ -420,7 +451,15 @@ Verification:
 - Key invalid di staging.
 - App tetap usable untuk order/navigasi text fallback.
 
-### [ ] MAPS-UX-002: Admin Maps Runtime menampilkan readiness yang actionable
+Status 2026-06-04:
+
+- Backend `/api/v1/maps/config` sekarang degrade Google ke OpenStreetMap/Text Only saat provider health critical.
+- Courier/customer `RuntimeMapRenderer` menampilkan copy `Peta sedang dipulihkan. Alamat dan navigasi tetap tersedia.` saat Google blank/timeout atau runtime fallback.
+- Fallback map menyediakan tombol `Buka Maps` berbasis geo URI koordinat, tanpa membuka atau menyimpan API key.
+- Courier debug build `.\gradlew.bat :app:assembleDebug --no-daemon` berhasil.
+- Customer debug build `.\gradlew.bat :app:assembleDebug --no-daemon` berhasil.
+
+### [x] MAPS-UX-002: Admin Maps Runtime menampilkan readiness yang actionable
 
 Target:
 
@@ -441,6 +480,14 @@ Verification:
 
 - Inject error test.
 - Screenshot admin status.
+
+Status 2026-06-04:
+
+- Admin Maps Runtime menampilkan tindakan pada key inventory issue, last provider issue, dan active alert.
+- Readiness backend menambahkan diagnosis actionable untuk `REQUEST_DENIED`, API belum enabled, billing, quota, SHA/package mismatch, dan circuit breaker.
+- Unit test maps P3 berhasil: `npm test -- src/services/mapsProviderConfig.test.ts src/services/mapsProductionReadiness.test.ts src/services/mapsRuntimeCredentials.test.ts src/security/logRedaction.test.ts`.
+- Backend build `npm run build` berhasil.
+- Admin dashboard build dengan env staging berhasil.
 
 ## Urutan Eksekusi Demo
 

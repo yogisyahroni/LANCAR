@@ -252,14 +252,30 @@ Maps runtime source status:
 - `/api/v1/maps/config` now supports a `google_maps` browser runtime block for web/admin.
 - Customer web mini-map renders Google Maps JavaScript API when `active_provider=google_maps` and `GOOGLE_MAPS_BROWSER_API_KEY` is deployed.
 - Admin LiveMap, Zone viewer, and Demand Density use Google Maps JavaScript API when browser runtime is ready.
-- Mobile courier and customer build scripts now prefer `GOOGLE_MAPS_ANDROID_API_KEY` and fallback to the legacy `GOOGLE_MAPS_API_KEY`.
+- Mobile courier and customer debug builds can still use the legacy `GOOGLE_MAPS_ANDROID_API_KEY` fallback, but release builds now require app-specific `GOOGLE_MAPS_ANDROID_COURIER_API_KEY` / `GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY`.
 - Customer mobile now has the same Google `onMapLoaded` watchdog and OSM fallback behavior as courier mobile.
 
 Env status:
 
-- Local `.env` contains demo aliases for `GOOGLE_ROUTES_API_KEY`, `GOOGLE_MAPS_BROWSER_API_KEY`, and `GOOGLE_MAPS_ANDROID_API_KEY` without printing the key in logs.
+- Local `.env` contains demo aliases for server/browser maps without printing the key in logs. The generic Android key is debug/demo fallback only; release builds must use app-specific courier/customer Android keys.
 - Staging/VPS must receive the same env split through secrets before browser/admin Google maps can render after deploy.
 - Production must not reuse the demo key across Android, browser, and server. Use separate restricted keys.
+- P2 production key model is documented in `docs/google-maps-production-key-runbook.md`.
+
+Runtime credential admin status:
+
+- Server-side Google Maps key can now be tested, stored encrypted, activated, deactivated, and rolled back from admin Maps Runtime.
+- `MAPS_CREDENTIAL_ENCRYPTION_KEY` is required in production/staging deployments that use runtime credential storage. Use a 32-byte base64 key, 64-character hex key, or strong passphrase sourced from secret management.
+- Backend route/geocode calls resolve the active server key from `maps_provider_credentials` with a short cache TTL and fall back to env bootstrap keys only when no valid runtime key exists.
+- Admin responses expose only masked key metadata, validation status, alias, and fingerprint. Plaintext keys are never returned after save.
+- Mobile APKs and browser clients must still use their own restricted Android/browser keys; the runtime credential store is only for server-side Maps APIs.
+
+P1 verification:
+
+- `npm test -- src/services/mapsRuntimeCredentials.test.ts src/services/mapsProviderConfig.test.ts src/security/logRedaction.test.ts`: passed.
+- `npm run build` in `backend/admin-service`: passed.
+- `VITE_API_URL=https://admin.bawain.my.id/api/v1 VITE_SOCKET_URL=https://admin.bawain.my.id npm run build` in `admin-dashboard`: passed.
+- Static Google key pattern scan with `rg "AIza[0-9A-Za-z_-]{20,}"`: no matches.
 
 Catatan:
 

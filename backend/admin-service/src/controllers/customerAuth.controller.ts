@@ -78,7 +78,7 @@ export const loginWeb = async (req: Request, res: Response) => {
       ipAddress,
     });
 
-    const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
+    const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_security', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
     const result = await db.query(
       `SELECT id, full_name as name, email, role, pin_hash
        FROM users
@@ -229,7 +229,7 @@ export const refreshToken = async (req: Request, res: Response) => {
   }
 
   try {
-    const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
+    const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_security', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
     const adminResult = portal === 'customer'
       ? { rows: [] }
       : await db.query(
@@ -263,7 +263,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       res.status(401).json({ error: 'Unauthorized: Session expired' });
       return;
     }
-    const isAdmin = ['super_admin', 'admin', 'manager', 'finance', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'].includes(user.role);
+    const isAdmin = ['super_admin', 'admin', 'manager', 'finance', 'ops_security', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'].includes(user.role);
     const cookieName = isAdmin ? 'admin_session' : 'customer_session';
 
     // Refresh expiry: Add another 7 days from now

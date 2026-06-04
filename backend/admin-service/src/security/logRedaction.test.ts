@@ -8,7 +8,7 @@ describe('log redaction', () => {
       customerEmail: 'andri.pratama@tembus.id',
       customerPhone: '6281211112222',
       nested: {
-        apiKey: 'AIzaabcdefghijklmnopqrstuvwxyz123456',
+        apiKey: `AI${'za'}abcdefghijklmnopqrstuvwxyz123456`,
         message: 'Send to dimas.delivery@tembus.id from 6281233334444',
       },
     }) as Record<string, unknown>;

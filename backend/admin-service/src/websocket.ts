@@ -14,6 +14,7 @@ const ADMIN_SOCKET_ROLES = [
   'admin',
   'manager',
   'finance',
+  'ops_security',
   'ops_admin',
   'finance_admin',
   'cs_agent',

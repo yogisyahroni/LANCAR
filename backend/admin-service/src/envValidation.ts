@@ -153,7 +153,15 @@ export const validateProductionEnv = () => {
   }
 
   rejectWeakOptionalValue('GOOGLE_MAPS_API_KEY', failures);
+  rejectWeakOptionalValue('GOOGLE_ROUTES_API_KEY', failures);
   rejectWeakOptionalValue('GOOGLE_DIRECTIONS_API_KEY', failures);
+  rejectWeakOptionalValue('GOOGLE_MAPS_BROWSER_API_KEY', failures);
+  rejectWeakOptionalValue('GOOGLE_MAPS_ANDROID_COURIER_API_KEY', failures);
+  rejectWeakOptionalValue('GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY', failures);
+  if (!isBlank(process.env.GOOGLE_MAPS_ANDROID_API_KEY)) {
+    failures.push('GOOGLE_MAPS_ANDROID_API_KEY is legacy/debug-only; production Android release builds must use courier/customer-specific keys');
+  }
+  requireStrongSecret('MAPS_CREDENTIAL_ENCRYPTION_KEY', failures, 32);
   rejectWeakOptionalValue('PAYMENT_WEBHOOK_SECRET', failures);
   rejectWeakOptionalValue('PAYOUT_WEBHOOK_SECRET', failures);
   rejectWeakOptionalValue('COURIER_PAYOUT_WEBHOOK_SECRET', failures);

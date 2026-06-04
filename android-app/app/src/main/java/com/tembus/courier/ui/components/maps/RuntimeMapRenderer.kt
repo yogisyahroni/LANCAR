@@ -1,5 +1,10 @@
 package com.tembus.courier.ui.components.maps
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -15,6 +20,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -33,6 +40,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
@@ -59,6 +67,7 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sinh
 import kotlin.math.tan
+import java.util.Locale
 
 data class RuntimeMapMarker(
     val id: String,
@@ -129,12 +138,13 @@ fun RuntimeMapRenderer(
                     routePoints = validRoutePoints,
                     center = center,
                     modifier = modifier,
-                    routeColor = routeColor
+                    routeColor = routeColor,
+                    statusMessage = MapRecoveryMessage
                 )
             } else if (googleMapTimedOut) {
                 RuntimeMapFallback(
-                    title = fallbackTitle,
-                    message = "Google Maps belum siap di perangkat ini. Cek billing, API key Android, dan package SHA-1.",
+                    title = MapRecoveryTitle,
+                    message = MapRecoveryMessage,
                     center = center,
                     modifier = modifier
                 )
@@ -167,14 +177,15 @@ fun RuntimeMapRenderer(
                 routePoints = validRoutePoints,
                 center = center,
                 modifier = modifier,
-                routeColor = routeColor
+                routeColor = routeColor,
+                statusMessage = providerConfig.recoveryMessageOrNull()
             )
         }
 
         else -> {
             RuntimeMapFallback(
-                title = fallbackTitle,
-                message = providerConfig.reason?.replace("_", " ") ?: fallbackMessage,
+                title = providerConfig.fallbackTitleOrDefault(fallbackTitle),
+                message = providerConfig.fallbackMessageOrDefault(fallbackMessage),
                 center = center,
                 modifier = modifier
             )
@@ -189,7 +200,8 @@ private fun OpenStreetMapTileRenderer(
     routePoints: List<LatLng>,
     center: LatLng,
     modifier: Modifier,
-    routeColor: Color
+    routeColor: Color,
+    statusMessage: String? = null
 ) {
     val tileTemplate = remember(providerConfig.openStreetMap.tileUrlTemplate) {
         normalizeOpenStreetMapTileTemplate(providerConfig.openStreetMap.tileUrlTemplate)
@@ -280,6 +292,26 @@ private fun OpenStreetMapTileRenderer(
             color = Color(0xFF4B5563),
             style = MaterialTheme.typography.labelSmall
         )
+
+        if (!statusMessage.isNullOrBlank()) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(14.dp)
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                Text(
+                    text = statusMessage,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF0B3D2E)
+                )
+            }
+        }
     }
 }
 
@@ -290,6 +322,7 @@ private fun RuntimeMapFallback(
     center: LatLng,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     Box(
         modifier = modifier.background(Color(0xFFEFF6FF)),
         contentAlignment = Alignment.Center
@@ -307,12 +340,56 @@ private fun RuntimeMapFallback(
                 Text(message, style = MaterialTheme.typography.bodyMedium, color = Color(0xFF4B5563))
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "Koordinat referensi: ${"%.5f".format(center.latitude)}, ${"%.5f".format(center.longitude)}",
+                    "Koordinat referensi: ${String.format(Locale.US, "%.5f, %.5f", center.latitude, center.longitude)}",
                     style = MaterialTheme.typography.labelMedium,
                     color = Color(0xFF6B7280)
                 )
+                Spacer(modifier = Modifier.height(14.dp))
+                Button(
+                    onClick = { openExternalMap(context, center) },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0B7A53)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("Buka Maps", fontWeight = FontWeight.Bold)
+                }
             }
         }
+    }
+}
+
+private fun MapsProviderConfig.recoveryMessageOrNull(): String? {
+    val normalizedReason = reason?.trim()?.lowercase(Locale.US).orEmpty()
+    val googleDowngraded = requestedProvider == "google_maps" && activeProvider == "openstreetmap"
+    return if (
+        googleDowngraded ||
+        normalizedReason == "maps_provider_health_critical" ||
+        normalizedReason == "google_maps_quota_near_limit" ||
+        normalizedReason == "google_maps_server_key_missing"
+    ) {
+        MapRecoveryMessage
+    } else {
+        null
+    }
+}
+
+private fun MapsProviderConfig.fallbackTitleOrDefault(defaultTitle: String): String =
+    if (recoveryMessageOrNull() != null) MapRecoveryTitle else defaultTitle
+
+private fun MapsProviderConfig.fallbackMessageOrDefault(defaultMessage: String): String =
+    recoveryMessageOrNull() ?: defaultMessage
+
+private fun openExternalMap(context: Context, center: LatLng) {
+    val latitude = String.format(Locale.US, "%.6f", center.latitude)
+    val longitude = String.format(Locale.US, "%.6f", center.longitude)
+    val intent = Intent(
+        Intent.ACTION_VIEW,
+        Uri.parse("geo:$latitude,$longitude?q=$latitude,$longitude")
+    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    try {
+        context.startActivity(Intent.createChooser(intent, "Buka Maps"))
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, "Aplikasi Maps tidak tersedia di perangkat ini.", Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -321,6 +398,8 @@ private fun LatLng.isValidLatLng(): Boolean {
 }
 
 private const val GoogleMapLoadTimeoutMs = 12_000L
+private const val MapRecoveryTitle = "Peta sedang dipulihkan"
+private const val MapRecoveryMessage = "Peta sedang dipulihkan. Alamat dan navigasi tetap tersedia."
 
 private data class OsmTileCoordinate(val x: Double, val y: Double)
 

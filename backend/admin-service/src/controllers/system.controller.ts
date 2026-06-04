@@ -6,6 +6,7 @@ import { db, readDb } from '../db';
 import { redis } from '../redis';
 import { getIO } from '../websocket';
 import { getOnDemandExternalReadiness } from '../services/onDemandExternalReadiness';
+import { getMapsProductionReadiness } from '../services/mapsProductionReadiness';
 import {
   buildMapsRouteEtaSnapshot,
   fetchOpenStreetMapTile,
@@ -16,6 +17,15 @@ import {
   reverseGeocodePoint,
   updateMapsProviderConfigValue,
 } from '../services/mapsProviderConfig';
+import {
+  activateMapsRuntimeCredential,
+  createMapsRuntimeCredential,
+  deactivateMapsRuntimeCredential,
+  listMapsRuntimeCredentials,
+  MapsCredentialError,
+  testMapsRuntimeCredentialInput,
+  validateStoredMapsRuntimeCredential,
+} from '../services/mapsRuntimeCredentials';
 
 export const getSystemConfigs = async (req: Request, res: Response) => {
   try {
@@ -189,6 +199,14 @@ export const getAdminMapsProviderRuntimeConfig = async (req: Request, res: Respo
   }
 };
 
+export const getAdminMapsProductionReadiness = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    res.json(await getMapsProductionReadiness());
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Maps production readiness failed' });
+  }
+};
+
 export const updateAdminMapsProviderRuntimeConfig = async (req: Request, res: Response): Promise<void> => {
   try {
     const next = await updateMapsProviderConfigValue(req.body || {});
@@ -205,6 +223,83 @@ export const updateAdminMapsProviderRuntimeConfig = async (req: Request, res: Re
     });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+const sendMapsCredentialError = (res: Response, error: unknown) => {
+  if (error instanceof MapsCredentialError) {
+    res.status(error.statusCode).json({ error: error.message, code: error.code });
+    return;
+  }
+  res.status(500).json({ error: 'Maps credential operation failed', code: 'maps_credential_operation_failed' });
+};
+
+const requireMapsCredentialIdParam = (value: string | string[] | undefined): string => {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  throw new MapsCredentialError('credential_id_invalid', 'Credential id is required.', 400);
+};
+
+export const listAdminMapsProviderCredentials = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    res.json({ credentials: await listMapsRuntimeCredentials() });
+  } catch (error) {
+    sendMapsCredentialError(res, error);
+  }
+};
+
+export const testAdminMapsProviderCredential = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const validation = await testMapsRuntimeCredentialInput({ api_key: req.body?.api_key });
+    res.status(validation.status === 'valid' ? 200 : 422).json({ validation });
+  } catch (error) {
+    sendMapsCredentialError(res, error);
+  }
+};
+
+export const createAdminMapsProviderCredential = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const result = await createMapsRuntimeCredential(req.body || {}, req.user?.id || null);
+    res.status(201).json(result);
+  } catch (error) {
+    sendMapsCredentialError(res, error);
+  }
+};
+
+export const validateAdminMapsProviderCredential = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const credentialId = requireMapsCredentialIdParam(req.params.id);
+    const result = await validateStoredMapsRuntimeCredential(credentialId, req.user?.id || null);
+    res.status(result.validation.status === 'valid' ? 200 : 422).json(result);
+  } catch (error) {
+    sendMapsCredentialError(res, error);
+  }
+};
+
+export const activateAdminMapsProviderCredential = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const credentialId = requireMapsCredentialIdParam(req.params.id);
+    const result = await activateMapsRuntimeCredential(credentialId, req.user?.id || null);
+    getIO().emit('config:changed', { key: 'maps_provider_credential', action: 'activated', updated_at: new Date() });
+    res.json(result);
+  } catch (error) {
+    sendMapsCredentialError(res, error);
+  }
+};
+
+export const deactivateAdminMapsProviderCredential = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const credentialId = requireMapsCredentialIdParam(req.params.id);
+    const result = await deactivateMapsRuntimeCredential(
+      credentialId,
+      req.user?.id || null,
+      req.body?.reactivate_previous !== false
+    );
+    getIO().emit('config:changed', { key: 'maps_provider_credential', action: 'deactivated', updated_at: new Date() });
+    res.json(result);
+  } catch (error) {
+    sendMapsCredentialError(res, error);
   }
 };
 

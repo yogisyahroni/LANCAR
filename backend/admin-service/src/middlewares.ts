@@ -198,7 +198,7 @@ export const verifyAdminSession = async (req: Request, res: Response, next: Next
   }
 
   try {
-    const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
+    const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_security', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
     const result = await db.query(
       `SELECT s.user_id, u.role, u.full_name 
        FROM web_sessions s
@@ -245,7 +245,7 @@ export const verifySession = async (req: Request, res: Response, next: NextFunct
       if (!adminToken) {
         return res.status(401).json({ error: 'Unauthorized: No admin session' });
       }
-      const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
+      const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_security', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
       const adminResult = await db.query(
         `SELECT s.user_id, u.role, u.full_name
          FROM web_sessions s

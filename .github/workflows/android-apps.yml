@@ -236,6 +236,74 @@ jobs:
           print("Validated MOBILE_API_BASE_URL for mobile debug and release builds.")
           PY
 
+      - name: Prepare Android Maps key
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          WORKING_DIR: ${{ matrix.working_dir }}
+          GOOGLE_MAPS_ANDROID_COURIER_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_COURIER_API_KEY }}
+          COURIER_GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.COURIER_GOOGLE_MAPS_ANDROID_API_KEY }}
+          GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY }}
+          CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY: ${{ secrets.CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          python - <<'PY'
+          import os
+          import re
+          import sys
+
+          api_key_pattern = re.compile(r"^AIza[0-9A-Za-z_-]{20,}$")
+
+          def first_value(names):
+              for name in names:
+                  value = os.environ.get(name, "").strip()
+                  if value:
+                      return name, value
+              return None, ""
+
+          configs = {
+              "android-app": {
+                  "label": "courier",
+                  "required": ["GOOGLE_MAPS_ANDROID_COURIER_API_KEY", "COURIER_GOOGLE_MAPS_ANDROID_API_KEY"],
+                  "exports": ["GOOGLE_MAPS_ANDROID_COURIER_API_KEY", "COURIER_GOOGLE_MAPS_ANDROID_API_KEY"],
+              },
+              "android-app-customer": {
+                  "label": "customer",
+                  "required": ["GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY", "CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY"],
+                  "exports": ["GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY", "CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY"],
+              },
+          }
+
+          working_dir = os.environ["WORKING_DIR"]
+          if working_dir not in configs:
+              print(f"Unknown Android app directory: {working_dir}", file=sys.stderr)
+              sys.exit(1)
+
+          courier_name, courier_key = first_value(["GOOGLE_MAPS_ANDROID_COURIER_API_KEY", "COURIER_GOOGLE_MAPS_ANDROID_API_KEY"])
+          customer_name, customer_key = first_value(["GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY", "CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY"])
+          if courier_key and customer_key and courier_key == customer_key:
+              print("Courier and customer Android Maps keys must be different.", file=sys.stderr)
+              sys.exit(1)
+
+          config = configs[working_dir]
+          source_name, selected_key = first_value(config["required"])
+          if not selected_key:
+              print(f"Missing {config['label']} Android Maps key secret. Set one of: {', '.join(config['required'])}", file=sys.stderr)
+              sys.exit(1)
+
+          if not api_key_pattern.match(selected_key):
+              print(f"{source_name} does not look like a valid Google Maps API key.", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"::add-mask::{selected_key}")
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as github_env:
+              for export_name in config["exports"]:
+                  github_env.write(f"{export_name}={selected_key}\n")
+
+          print(f"Validated {config['label']} Android Maps key secret without printing its value.")
+          PY
+
       # 1. Quality Gate: Linting
       - name: Run Lint
         run: ./gradlew lintDebug

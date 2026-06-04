@@ -30,6 +30,14 @@ fun getConfigValue(key: String): String {
     return ""
 }
 
+fun getFirstConfigValue(vararg keys: String): String {
+    keys.forEach { key ->
+        val value = getConfigValue(key)
+        if (value.isNotBlank()) return value
+    }
+    return ""
+}
+
 fun getVersionCode(): Int {
     return (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
 }
@@ -65,8 +73,31 @@ fun isEnabledFlag(value: String): Boolean {
     return value.trim().lowercase() in setOf("1", "true", "yes", "on", "required")
 }
 
+fun isValidGoogleMapsApiKey(value: String): Boolean {
+    return Regex("^AIza[0-9A-Za-z_-]{20,}$").matches(value.trim())
+}
+
 fun isValidSha256CertificatePin(value: String): Boolean {
     return Regex("^sha256/[A-Za-z0-9+/]{43}=$").matches(value.trim())
+}
+
+fun validateReleaseGoogleMapsKeyConfig(
+    appLabel: String,
+    specificKey: String,
+    requiredEnvDescription: String
+) {
+    if (specificKey.isBlank()) {
+        throw GradleException(
+            "Release $appLabel build requires a platform-specific Google Maps Android key. " +
+                "Set $requiredEnvDescription. GOOGLE_MAPS_ANDROID_API_KEY is debug-only fallback."
+        )
+    }
+
+    if (!isValidGoogleMapsApiKey(specificKey)) {
+        throw GradleException(
+            "Release $appLabel Google Maps Android key must use a valid Google Maps API key format."
+        )
+    }
 }
 
 fun validateReleaseCertificatePinConfig(
@@ -111,6 +142,12 @@ val releaseCertificatePinPrimary = getConfigValue("API_CERT_SHA256_PIN_PRIMARY")
 val releaseCertificatePinBackup = getConfigValue("API_CERT_SHA256_PIN_BACKUP").trim()
 val releaseCertificatePinningRequired = isEnabledFlag(getConfigValue("API_CERT_PINNING_REQUIRED"))
 val githubReleaseUpdatesEnabled = isEnabledFlag(getConfigValue("GITHUB_RELEASE_UPDATES_ENABLED").ifBlank { "true" })
+val courierGoogleMapsAndroidApiKey = getFirstConfigValue(
+    "GOOGLE_MAPS_ANDROID_COURIER_API_KEY",
+    "COURIER_GOOGLE_MAPS_ANDROID_API_KEY"
+)
+val legacyGoogleMapsAndroidApiKey = getConfigValue("GOOGLE_MAPS_ANDROID_API_KEY")
+val effectiveGoogleMapsAndroidApiKey = courierGoogleMapsAndroidApiKey.ifBlank { legacyGoogleMapsAndroidApiKey }
 val hasReleaseSigning = listOf(
     releaseKeystorePath,
     releaseKeystorePassword,
@@ -140,6 +177,11 @@ gradle.taskGraph.whenReady {
             releaseCertificatePinPrimary,
             releaseCertificatePinBackup
         )
+        validateReleaseGoogleMapsKeyConfig(
+            "courier",
+            courierGoogleMapsAndroidApiKey,
+            "GOOGLE_MAPS_ANDROID_COURIER_API_KEY or COURIER_GOOGLE_MAPS_ANDROID_API_KEY"
+        )
     }
 }
 
@@ -157,7 +199,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
 
-        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = getConfigValue("GOOGLE_MAPS_ANDROID_API_KEY")
+        manifestPlaceholders["GOOGLE_MAPS_API_KEY"] = effectiveGoogleMapsAndroidApiKey
             .ifBlank { getConfigValue("GOOGLE_MAPS_API_KEY") }
         
         buildConfigField("String", "API_CERT_SHA256_PIN_PRIMARY", quoteBuildConfigString(releaseCertificatePinPrimary))

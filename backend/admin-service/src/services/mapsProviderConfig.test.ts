@@ -102,6 +102,33 @@ describe('mapsProviderConfig', () => {
     expect(config.reason).toBe('google_maps_server_key_missing');
   });
 
+  it('degrades public Google Maps runtime to OpenStreetMap when provider health is critical', () => {
+    const config = resolvePublicMapsProviderConfig(
+      normalizeMapsProviderConfig({
+        ...baseConfig,
+        active_provider: 'google_maps',
+        fallback_provider: 'openstreetmap',
+        google_maps_enabled: true,
+        openstreetmap_enabled: true,
+        scopes: {
+          ...baseConfig.scopes,
+          courier_mobile: { enabled: true, provider: 'google_maps' },
+        },
+      }),
+      'courier_mobile',
+      {
+        googleKeyAvailable: true,
+        forceFallbackReason: 'maps_provider_health_critical',
+      }
+    );
+
+    expect(config.requested_provider).toBe('google_maps');
+    expect(config.active_provider).toBe('openstreetmap');
+    expect(config.reason).toBe('maps_provider_health_critical');
+    expect(config.openstreetmap.tile_url_template).toContain('openstreetmap.org');
+    expect(JSON.stringify(config)).not.toContain('test-google-key');
+  });
+
   it('serves geocode results from cache before calling an external provider', async () => {
     redis.get.mockImplementation(async (key: string) => {
       if (key.startsWith('maps:geocode:')) {

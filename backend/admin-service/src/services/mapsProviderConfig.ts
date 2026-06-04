@@ -2,6 +2,11 @@ import axios from 'axios';
 import crypto from 'crypto';
 import { db, readDb } from '../db';
 import { redis } from '../redis';
+import {
+  getActiveGoogleMapsServerCredential,
+  hasGoogleMapsServerCredential,
+  resetMapsRuntimeCredentialCacheForTests,
+} from './mapsRuntimeCredentials';
 
 export type MapProviderId = 'google_maps' | 'openstreetmap' | 'disabled';
 export type MapProviderScope = 'global' | 'customer_mobile' | 'courier_mobile' | 'web_customer' | 'tracking';
@@ -117,6 +122,7 @@ export type MapsProviderObservation = {
   requested_provider: MapProviderId;
   active_provider: MapProviderId;
   provider: string;
+  credential_alias?: string | null;
   status: MapsProviderObservationStatus;
   latency_ms: number;
   cache_hit: boolean;
@@ -223,11 +229,11 @@ const mapsProviderOpsState = {
   recentEvents: [] as MapsProviderObservation[],
 };
 
-const googleServerApiKey = () => (
+const googleEnvironmentServerApiKey = () => (
   envText('GOOGLE_ROUTES_API_KEY') || envText('GOOGLE_MAPS_API_KEY') || envText('GOOGLE_DIRECTIONS_API_KEY')
 );
 
-const googleServerKeyAvailable = () => Boolean(googleServerApiKey());
+const googleEnvironmentServerKeyAvailable = () => Boolean(googleEnvironmentServerApiKey());
 
 const googleBrowserApiKey = () => (
   envText('GOOGLE_MAPS_BROWSER_API_KEY') || envText('GOOGLE_MAPS_WEB_API_KEY') || envText('GOOGLE_MAPS_PUBLIC_API_KEY')
@@ -788,6 +794,7 @@ const routeObservationFields = (
   const etaMinutes = normalizeObservationNumber(route?.eta_minutes);
   return {
     request_id: requestId,
+    credential_alias: sanitizeObservationText((route as any)?.credential_alias, 80),
     service_code: context.service_code,
     route_profile: context.route_profile,
     vehicle_type: context.vehicle_type,
@@ -819,6 +826,7 @@ export const resetMapsProviderOpsForTests = () => {
   mapsProviderOpsState.counters.clear();
   mapsProviderOpsState.latencySamples = [];
   mapsProviderOpsState.recentEvents = [];
+  resetMapsRuntimeCredentialCacheForTests();
 };
 
 export const recordMapsProviderObservation = (event: Omit<MapsProviderObservation, 'recorded_at' | 'error_message'> & { error_message?: unknown }) => {
@@ -826,6 +834,7 @@ export const recordMapsProviderObservation = (event: Omit<MapsProviderObservatio
     ...event,
     recorded_at: new Date().toISOString(),
     request_id: sanitizeObservationText(event.request_id, 128),
+    credential_alias: sanitizeObservationText(event.credential_alias, 80),
     latency_ms: Math.max(0, Math.round(event.latency_ms || 0)),
     cache_hit: Boolean(event.cache_hit),
     fallback_reason: sanitizeObservationText(event.fallback_reason, 220),
@@ -874,6 +883,7 @@ export const recordMapsProviderObservation = (event: Omit<MapsProviderObservatio
     operation: normalized.operation,
     scope: normalized.scope,
     provider: normalized.provider,
+    credential_alias: normalized.credential_alias,
     status: normalized.status,
     latency_ms: normalized.latency_ms,
     cache_hit: normalized.cache_hit,
@@ -933,13 +943,13 @@ export const normalizeMapsProviderConfig = (value?: Partial<MapsProviderConfigVa
 export const resolvePublicMapsProviderConfig = (
   rawConfig: MapsProviderConfigValue,
   requestedScope: string | undefined,
-  options: { googleKeyAvailable?: boolean } = {}
+  options: { googleKeyAvailable?: boolean; forceFallbackReason?: string | null } = {}
 ): PublicMapsProviderConfig => {
   const normalized = normalizeMapsProviderConfig(rawConfig);
   const scope = VALID_SCOPES.has(requestedScope as MapProviderScope) ? (requestedScope as MapProviderScope) : 'global';
   const scopedConfig = normalized.scopes[scope] || normalized.scopes.global;
   const requestedProvider = scopedConfig?.provider || normalized.active_provider;
-  const googleAvailable = options.googleKeyAvailable ?? googleServerKeyAvailable();
+  const googleAvailable = options.googleKeyAvailable ?? googleEnvironmentServerKeyAvailable();
 
   let activeProvider: MapProviderId = normalized.enabled && scopedConfig?.enabled !== false ? requestedProvider : 'disabled';
   let reason: string | null = null;
@@ -947,6 +957,11 @@ export const resolvePublicMapsProviderConfig = (
   if (activeProvider === 'google_maps' && (!normalized.google_maps_enabled || !googleAvailable)) {
     activeProvider = normalized.openstreetmap_enabled ? 'openstreetmap' : 'disabled';
     reason = googleAvailable ? 'google_maps_disabled_by_admin' : 'google_maps_server_key_missing';
+  }
+
+  if (activeProvider === 'google_maps' && options.forceFallbackReason) {
+    activeProvider = normalized.openstreetmap_enabled ? 'openstreetmap' : 'disabled';
+    reason = options.forceFallbackReason;
   }
 
   if (activeProvider === 'openstreetmap' && !normalized.openstreetmap_enabled) {
@@ -989,12 +1004,13 @@ export const resolvePublicMapsProviderConfig = (
 
 export const getMapsProviderConfigValue = async (): Promise<MapsProviderConfigValue> => {
   const queryClient = readDb;
+  const googleAvailable = await hasGoogleMapsServerCredential();
   if (!queryClient?.query) {
     return normalizeMapsProviderConfig({
       ...DEFAULT_CONFIG,
       active_provider: 'google_maps',
       fallback_provider: 'disabled',
-      google_maps_enabled: googleServerKeyAvailable(),
+      google_maps_enabled: googleAvailable,
       openstreetmap_enabled: false,
       scopes: {
         ...DEFAULT_CONFIG.scopes,
@@ -1014,7 +1030,7 @@ export const getMapsProviderConfigValue = async (): Promise<MapsProviderConfigVa
     ...DEFAULT_CONFIG,
     active_provider: 'google_maps',
     fallback_provider: 'disabled',
-    google_maps_enabled: googleServerKeyAvailable(),
+    google_maps_enabled: googleAvailable,
     openstreetmap_enabled: false,
     scopes: {
       ...DEFAULT_CONFIG.scopes,
@@ -1029,7 +1045,22 @@ export const getMapsProviderConfigValue = async (): Promise<MapsProviderConfigVa
 
 export const getPublicMapsProviderConfig = async (scope?: string): Promise<PublicMapsProviderConfig> => {
   const config = await getMapsProviderConfigValue();
-  return resolvePublicMapsProviderConfig(config, scope);
+  const ops = await getMapsProviderOpsSnapshot().catch(() => null);
+  return resolvePublicMapsProviderConfig(config, scope, {
+    googleKeyAvailable: await hasGoogleMapsServerCredential(),
+    forceFallbackReason: mapsProviderHealthFallbackReason(ops),
+  });
+};
+
+const mapsProviderHealthFallbackReason = (ops: MapsProviderOpsSnapshot | null): string | null => {
+  if (!ops || ops.status !== 'critical') return null;
+  if (ops.active_alerts.some((alert) => alert.code === 'google_maps_quota_near_limit')) {
+    return 'google_maps_quota_near_limit';
+  }
+  if (ops.active_alerts.some((alert) => alert.code === 'maps_provider_failure_high')) {
+    return 'maps_provider_health_critical';
+  }
+  return 'maps_provider_health_critical';
 };
 
 export const getMapsProviderOpsSnapshot = async (): Promise<MapsProviderOpsSnapshot> => {
@@ -1406,8 +1437,8 @@ const buildGoogleRoute = async (
   providerConfig: PublicMapsProviderConfig,
   context: ReturnType<typeof routeContext>
 ): Promise<RouteEtaSnapshot> => {
-  const apiKey = googleServerApiKey();
-  if (!apiKey) {
+  const credential = await getActiveGoogleMapsServerCredential();
+  if (!credential) {
     return enrichRouteSnapshot(
       { ...fallback, provider: 'fallback_haversine', fallback_reason: 'google_maps_server_key_missing' },
       fallback,
@@ -1418,23 +1449,23 @@ const buildGoogleRoute = async (
   }
 
   const initialPolicy = resolveGoogleRoutePolicy(context);
-  const cacheKey = routeCacheKey(initialPolicy.provider, from, to, context);
+  const cacheKey = routeCacheKey(`${initialPolicy.provider}:${credential.cacheKey}`, from, to, context);
   const cached = await getCachedRoute(cacheKey);
   if (cached) {
-    return { ...cached, provider: `${cached.provider || initialPolicy.provider}_cache` };
+    return { ...cached, provider: `${cached.provider || initialPolicy.provider}_cache`, credential_alias: credential.keyAlias } as any;
   }
 
   let payload: RouteEtaSnapshot;
   try {
     assertGoogleQuotaHealthy();
     await assertProviderCircuitClosed(initialPolicy.provider);
-    payload = await routeFromGoogleRoutesApi(from, to, fallback, providerConfig, context, apiKey, initialPolicy);
+    payload = await routeFromGoogleRoutesApi(from, to, fallback, providerConfig, context, credential.apiKey, initialPolicy);
   } catch (routesError: any) {
     if (shouldRetryGoogleTwoWheelerAsDrive(initialPolicy, routesError)) {
       const drivePolicy = resolveGoogleRoutePolicy(context, 'DRIVE');
       try {
         await assertProviderCircuitClosed(drivePolicy.provider);
-        payload = await routeFromGoogleRoutesApi(from, to, fallback, providerConfig, context, apiKey, drivePolicy);
+        payload = await routeFromGoogleRoutesApi(from, to, fallback, providerConfig, context, credential.apiKey, drivePolicy);
       } catch (driveRoutesError: any) {
         if (String(process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED || '').toLowerCase() === 'true') {
           await recordProviderFailure(drivePolicy.provider);
@@ -1449,7 +1480,7 @@ const buildGoogleRoute = async (
           fallback,
           providerConfig,
           context,
-          apiKey,
+          credential.apiKey,
           drivePolicy,
           fallbackReason
         );
@@ -1462,17 +1493,18 @@ const buildGoogleRoute = async (
     } else {
       const fallbackReason = `google_routes_api_unavailable_legacy_directions_used:${googleRoutesErrorCode(routesError)}`;
       payload = await routeFromGoogleLegacyDirections(
-        from,
-        to,
-        fallback,
-        providerConfig,
-        context,
-        apiKey,
-        initialPolicy,
-        fallbackReason
-      );
+          from,
+          to,
+          fallback,
+          providerConfig,
+          context,
+          credential.apiKey,
+          initialPolicy,
+          fallbackReason
+        );
     }
   }
+  payload = { ...payload, credential_alias: credential.keyAlias } as any;
   await recordProviderSuccess(initialPolicy.provider);
   await setCachedRoute(cacheKey, payload);
   return payload;
@@ -1692,7 +1724,13 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
     return [];
   }
 
-  const cacheKey = geocodeCacheKey('geocode', providerConfig.active_provider, scope, normalizedQuery);
+  const googleCredential = providerConfig.active_provider === 'google_maps'
+    ? await getActiveGoogleMapsServerCredential()
+    : null;
+  const cacheProviderKey = googleCredential
+    ? `${providerConfig.active_provider}:${googleCredential.cacheKey}`
+    : providerConfig.active_provider;
+  const cacheKey = geocodeCacheKey('geocode', cacheProviderKey, scope, normalizedQuery);
   const cachedResults = await getCachedGeocodeResults(cacheKey);
   if (cachedResults) {
     recordMapsProviderObservation({
@@ -1701,6 +1739,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
       requested_provider: providerConfig.requested_provider,
       active_provider: providerConfig.active_provider,
       provider: `${providerConfig.active_provider}_geocode_cache`,
+      credential_alias: googleCredential?.keyAlias || null,
       status: 'cache_hit',
       latency_ms: Date.now() - startedAt,
       cache_hit: true,
@@ -1712,12 +1751,11 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
   try {
     let results: MapsGeocodeResult[] = [];
     if (providerConfig.active_provider === 'google_maps') {
-      const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_DIRECTIONS_API_KEY;
-      if (!apiKey) throw new Error('google_maps_server_key_missing');
+      if (!googleCredential) throw new Error('google_maps_server_key_missing');
       const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
         params: {
           address: normalizedQuery,
-          key: apiKey,
+          key: googleCredential.apiKey,
         },
         timeout: 2500,
       });
@@ -1756,6 +1794,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
       requested_provider: providerConfig.requested_provider,
       active_provider: providerConfig.active_provider,
       provider: providerConfig.active_provider === 'google_maps' ? 'google_geocoding' : 'openstreetmap_nominatim',
+      credential_alias: googleCredential?.keyAlias || null,
       status: 'success',
       latency_ms: Date.now() - startedAt,
       cache_hit: false,
@@ -1770,6 +1809,7 @@ export const geocodeAddress = async (query: string, scope: MapProviderScope = 'w
       requested_provider: providerConfig.requested_provider,
       active_provider: providerConfig.active_provider,
       provider: `${providerConfig.active_provider}_geocode_failed`,
+      credential_alias: googleCredential?.keyAlias || null,
       status: 'failure',
       latency_ms: Date.now() - startedAt,
       cache_hit: false,
@@ -1803,7 +1843,13 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
   }
 
   const normalizedPoint = `${point.latitude.toFixed(5)},${point.longitude.toFixed(5)}`;
-  const cacheKey = geocodeCacheKey('reverse_geocode', providerConfig.active_provider, scope, normalizedPoint);
+  const googleCredential = providerConfig.active_provider === 'google_maps'
+    ? await getActiveGoogleMapsServerCredential()
+    : null;
+  const cacheProviderKey = googleCredential
+    ? `${providerConfig.active_provider}:${googleCredential.cacheKey}`
+    : providerConfig.active_provider;
+  const cacheKey = geocodeCacheKey('reverse_geocode', cacheProviderKey, scope, normalizedPoint);
   const cachedResult = await getCachedReverseGeocodeResult(cacheKey);
   if (cachedResult) {
     recordMapsProviderObservation({
@@ -1812,6 +1858,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       requested_provider: providerConfig.requested_provider,
       active_provider: providerConfig.active_provider,
       provider: `${providerConfig.active_provider}_reverse_geocode_cache`,
+      credential_alias: googleCredential?.keyAlias || null,
       status: 'cache_hit',
       latency_ms: Date.now() - startedAt,
       cache_hit: true,
@@ -1823,12 +1870,11 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
   try {
     let result: MapsGeocodeResult | null = null;
     if (providerConfig.active_provider === 'google_maps') {
-      const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_DIRECTIONS_API_KEY;
-      if (!apiKey) throw new Error('google_maps_server_key_missing');
+      if (!googleCredential) throw new Error('google_maps_server_key_missing');
       const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
         params: {
           latlng: `${point.latitude},${point.longitude}`,
-          key: apiKey,
+          key: googleCredential.apiKey,
         },
         timeout: 2500,
       });
@@ -1871,6 +1917,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       requested_provider: providerConfig.requested_provider,
       active_provider: providerConfig.active_provider,
       provider: result.provider,
+      credential_alias: googleCredential?.keyAlias || null,
       status: 'success',
       latency_ms: Date.now() - startedAt,
       cache_hit: false,
@@ -1885,6 +1932,7 @@ export const reverseGeocodePoint = async (point: MapPoint, scope: MapProviderSco
       requested_provider: providerConfig.requested_provider,
       active_provider: providerConfig.active_provider,
       provider: `${providerConfig.active_provider}_reverse_geocode_failed`,
+      credential_alias: googleCredential?.keyAlias || null,
       status: 'failure',
       latency_ms: Date.now() - startedAt,
       cache_hit: false,

@@ -69,7 +69,7 @@ export function isGoogleRuntimeReady(config?: MapsRuntimeConfig | null) {
 export function GoogleRuntimeUnavailable({ message }: { message?: string }) {
   return (
     <div className="absolute inset-x-4 top-20 z-[1000] rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-100 shadow-lg shadow-black/20 backdrop-blur-xl">
-      {message || 'Google Maps belum siap. Cek browser key, referrer restriction, dan billing Google Cloud.'}
+      {message || 'Peta sedang dipulihkan. Data koordinat dan kontrol operasional tetap tersedia.'}
     </div>
   )
 }
