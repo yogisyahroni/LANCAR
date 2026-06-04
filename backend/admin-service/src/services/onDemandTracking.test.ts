@@ -1,6 +1,10 @@
 import axios from 'axios';
 import { redis } from '../redis';
 import { buildRouteEtaSnapshot, evaluateLocationQuality, resolveTrackingStage } from './onDemandTracking';
+import {
+  getActiveGoogleMapsServerCredential,
+  hasGoogleMapsServerCredential,
+} from './mapsRuntimeCredentials';
 
 jest.mock('axios');
 jest.mock('../db', () => ({
@@ -13,9 +17,25 @@ jest.mock('../redis', () => ({
     set: jest.fn(),
   },
 }));
+jest.mock('./mapsRuntimeCredentials', () => ({
+  getActiveGoogleMapsServerCredential: jest.fn(),
+  hasGoogleMapsServerCredential: jest.fn(),
+  resetMapsRuntimeCredentialCacheForTests: jest.fn(),
+}));
 
 describe('on-demand tracking policy', () => {
   const originalEnv = process.env;
+  const googleCredential = {
+    source: 'runtime_store',
+    apiKey: 'AIzaTestRoutesKeyForJestOnly0000',
+    keyAlias: 'jest-google-routes',
+    credentialId: 'credential-jest',
+    cacheKey: 'jest-google-routes',
+  };
+  const enableGoogleRouteProvider = () => {
+    (hasGoogleMapsServerCredential as jest.Mock).mockResolvedValue(true);
+    (getActiveGoogleMapsServerCredential as jest.Mock).mockResolvedValue(googleCredential);
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -26,6 +46,8 @@ describe('on-demand tracking policy', () => {
     delete process.env.GOOGLE_DIRECTIONS_LEGACY_FALLBACK_DISABLED;
     delete process.env.GOOGLE_MAPS_API_KEY;
     delete process.env.GOOGLE_DIRECTIONS_API_KEY;
+    (hasGoogleMapsServerCredential as jest.Mock).mockResolvedValue(false);
+    (getActiveGoogleMapsServerCredential as jest.Mock).mockResolvedValue(null);
   });
 
   afterAll(() => {
@@ -110,7 +132,7 @@ describe('on-demand tracking policy', () => {
   });
 
   it('uses cached Google route when available without exposing the API key', async () => {
-    process.env.GOOGLE_MAPS_API_KEY = 'AIza-real-staging-key';
+    enableGoogleRouteProvider();
     (redis.get as jest.Mock).mockResolvedValueOnce(JSON.stringify({
       eta: '12 mins',
       eta_minutes: 12,
@@ -126,11 +148,11 @@ describe('on-demand tracking policy', () => {
     expect(route.provider).toBe('google_directions_cache');
     expect(route.route_polyline).toBe('cached-polyline');
     expect(axios.get).not.toHaveBeenCalled();
-    expect(JSON.stringify(route)).not.toContain('AIza-real-staging-key');
+    expect(JSON.stringify(route)).not.toContain(googleCredential.apiKey);
   });
 
   it('caches successful Google route and falls back safely on provider errors', async () => {
-    process.env.GOOGLE_ROUTES_API_KEY = 'routes-real-key';
+    enableGoogleRouteProvider();
     (redis.get as jest.Mock).mockResolvedValueOnce(null);
     (axios.post as jest.Mock).mockResolvedValueOnce({
       data: {

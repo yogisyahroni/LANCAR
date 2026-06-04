@@ -287,9 +287,7 @@ jobs:
 
           courier_name, courier_key = first_value(["GOOGLE_MAPS_ANDROID_COURIER_API_KEY", "COURIER_GOOGLE_MAPS_ANDROID_API_KEY"])
           customer_name, customer_key = first_value(["GOOGLE_MAPS_ANDROID_CUSTOMER_API_KEY", "CUSTOMER_GOOGLE_MAPS_ANDROID_API_KEY"])
-          if courier_key and customer_key and courier_key == customer_key:
-              print("Courier and customer Android Maps keys must be different.", file=sys.stderr)
-              sys.exit(1)
+          shared_demo_key = bool(courier_key and customer_key and courier_key == customer_key)
 
           config = configs[working_dir]
           source_name, selected_key = first_value(config["required"])
@@ -311,7 +309,14 @@ jobs:
               for export_name in config["exports"]:
                   github_env.write(f"{export_name}={selected_key}\n")
 
-          write_output("release_artifacts_enabled", "true")
+          if shared_demo_key:
+              print(
+                  "::warning::Courier and customer Android Maps secrets are identical. "
+                  "Debug CI will use the demo key, but signed release artifacts are disabled until each app has a separate restricted key."
+              )
+              write_output("release_artifacts_enabled", "false")
+          else:
+              write_output("release_artifacts_enabled", "true")
           print(f"Validated {config['label']} Android Maps key secret without printing its value.")
           PY
 

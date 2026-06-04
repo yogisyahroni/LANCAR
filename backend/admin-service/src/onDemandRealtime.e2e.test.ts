@@ -10,6 +10,9 @@ jest.mock('./db', () => ({
     connect: jest.fn(),
     query: jest.fn(),
   },
+  readDb: {
+    query: jest.fn().mockResolvedValue({ rows: [] }),
+  },
 }));
 
 jest.mock('./notifications', () => ({

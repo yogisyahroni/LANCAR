@@ -19,6 +19,7 @@ ALTER TABLE users
     'super_admin'
   ));
 
+-- +goose StatementBegin
 DO $$
 BEGIN
   IF to_regclass('public.staff') IS NOT NULL THEN
@@ -35,6 +36,7 @@ BEGIN
       ));
   END IF;
 END $$;
+-- +goose StatementEnd
 
 CREATE TABLE IF NOT EXISTS maps_provider_credentials (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -134,6 +136,7 @@ ALTER TABLE users
     'super_admin'
   ));
 
+-- +goose StatementBegin
 DO $$
 BEGIN
   IF to_regclass('public.staff') IS NOT NULL THEN
@@ -150,3 +153,4 @@ BEGIN
       ));
   END IF;
 END $$;
+-- +goose StatementEnd
