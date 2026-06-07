@@ -57,7 +57,7 @@ jobs:
       # Go Services
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.10'
+          go-version: '1.25.11'
       - run: |
           cd backend/auth-service && go mod tidy && go test -v -timeout 5m ./...
           cd ../routing-service && go mod tidy && go test -v -timeout 5m ./...
@@ -120,6 +120,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
+          pull: true
           push: false
           load: true
           tags: tembus-local/${{ matrix.image }}:${{ github.sha }}
@@ -197,6 +198,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./backend/auth-service
+          pull: true
           push: true
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/auth-service:latest
@@ -206,6 +208,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./backend/routing-service
+          pull: true
           push: true
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/routing-service:latest
@@ -215,6 +218,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./backend/admin-service
+          pull: true
           push: true
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/admin-service:latest
