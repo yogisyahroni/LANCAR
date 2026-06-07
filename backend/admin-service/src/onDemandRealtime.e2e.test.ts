@@ -273,8 +273,18 @@ describe('on-demand realtime lifecycle contract', () => {
     }));
     expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({
       user_id: '33333333-3333-4333-8333-333333333333',
-      type: 'chat',
+      type: 'order_group_chat_message',
+      category: 'message',
+      priority: 'high',
       order_id: '11111111-1111-4111-8111-111111111111',
+      conversation_id: 'conversation-1',
+      deep_link: 'tembus://orders/11111111-1111-4111-8111-111111111111/chat',
+      metadata: expect.objectContaining({
+        chat_id: 'chat-1',
+        conversation_id: 'conversation-1',
+        order_number: 'LCR-OD-1',
+        sender_name: 'Andri Pratama',
+      }),
     }));
     expect(getIO).toHaveBeenCalled();
   });
