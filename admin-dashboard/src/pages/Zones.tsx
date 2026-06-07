@@ -1,24 +1,33 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { 
   Map as MapIcon, 
   Plus, 
-  Layers as LayersIcon,
   ChevronRight,
   Search,
   Loader2,
   X,
   Maximize2,
-  Save
+  Moon,
+  Save,
+  Sun
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
-import { TomTomMapCanvas, TomTomRuntimeUnavailable, isTomTomRuntimeReady, useMapsRuntimeConfig } from '../components/TomTomMapsRuntime'
+import {
+  CARTO_DARK_ATTRIBUTION,
+  CARTO_DARK_TILE_URL,
+  TOMTOM_RASTER_ATTRIBUTION,
+  TomTomRuntimeUnavailable,
+  isTomTomRuntimeReady,
+  tomTomRasterTileUrl,
+  useMapsRuntimeConfig
+} from '../components/TomTomMapsRuntime'
 
 // Leaflet Imports
-import { MapContainer, TileLayer, Polygon, useMap } from 'react-leaflet'
+import { AttributionControl, MapContainer, TileLayer, Polygon, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import "@geoman-io/leaflet-geoman-free";
@@ -77,6 +86,7 @@ export default function Zones() {
   const [mapCenter] = useState<[number, number]>([-6.2088, 106.8456]) // Jakarta
   const [isDrawing, setIsDrawing] = useState(false)
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false)
+  const [mapTheme, setMapTheme] = useState<'dark' | 'light'>('dark')
   
   const { data: zones, isLoading } = useQuery({
     queryKey: ['zones'],
@@ -86,18 +96,13 @@ export default function Zones() {
     }
   });
   const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('global');
-  const shouldRenderTomTomMap = isTomTomRuntimeReady(mapsRuntimeConfig) && !isDrawing;
-  const TomTomZonePolygons = useMemo(() => (zones || []).map((zone: any) => ({
-    id: String(zone.id),
-    path: WKTToCoords(zone.polygon || zone.polygon_wkt).map(([lat, lng]) => ({ lat, lng })),
-    selected: String(selectedZone?.id || '') === String(zone.id),
-    strokeColor: '#10b981',
-    fillColor: '#10b981'
-  })), [zones, selectedZone]);
-  const handleTomTomPolygonClick = useCallback((zoneId: string) => {
-    const nextZone = zones?.find((zone: any) => String(zone.id) === zoneId);
-    if (nextZone) setSelectedZone(nextZone);
-  }, [zones]);
+  const shouldRenderTomTomMap = isTomTomRuntimeReady(mapsRuntimeConfig);
+  const tileUrl = shouldRenderTomTomMap
+    ? tomTomRasterTileUrl(mapsRuntimeConfig?.tomtom_maps?.browser_api_key || '', mapTheme === 'dark' ? 'night' : 'main')
+    : CARTO_DARK_TILE_URL;
+  const tileAttribution = shouldRenderTomTomMap
+    ? TOMTOM_RASTER_ATTRIBUTION
+    : CARTO_DARK_ATTRIBUTION;
 
   const createMutation = useMutation({
     mutationFn: (newZone: any) => api.post('/admin/zones', newZone),
@@ -241,73 +246,62 @@ export default function Zones() {
         </div>
 
         {/* Right: Map Area */}
-        <div className="lg:col-span-8 glass-card rounded-[48px] border-white/5 overflow-hidden relative min-h-[700px] bg-zinc-950">
-           {shouldRenderTomTomMap ? (
-             <TomTomMapCanvas
-               apiKey={mapsRuntimeConfig?.tomtom_maps?.browser_api_key || ''}
-               mapId={mapsRuntimeConfig?.tomtom_maps?.map_id}
-               center={{ lat: mapCenter[0], lng: mapCenter[1] }}
-               zoom={13}
-               polygons={TomTomZonePolygons}
-               onPolygonClick={handleTomTomPolygonClick}
-             />
-           ) : (
-             <>
-               <MapContainer
-                 center={mapCenter}
-                 zoom={13}
-                 style={{ height: '100%', width: '100%' }}
-                 zoomControl={false}
-               >
-                  <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                  />
+        <div className="lg:col-span-8 glass-card rounded-[48px] border-white/5 overflow-hidden relative h-[700px] min-h-[700px] bg-zinc-950">
+          <MapContainer
+            center={mapCenter}
+            zoom={13}
+            style={{ height: '100%', width: '100%' }}
+            zoomControl={false}
+            attributionControl={false}
+          >
+            <AttributionControl prefix={false} />
+            <TileLayer
+              url={tileUrl}
+              attribution={tileAttribution}
+            />
 
-                  <GeomanControl
-                    isDrawing={isDrawing}
-                    onCreated={(wkt: string) => {
-                      setSelectedZone({ polygon_wkt: wkt });
-                      setIsModalOpen(true);
-                    }}
-                  />
+            <GeomanControl
+              isDrawing={isDrawing}
+              onCreated={(wkt: string) => {
+                setSelectedZone({ polygon_wkt: wkt });
+                setIsModalOpen(true);
+              }}
+            />
 
-                  {zones?.map((zone: any) => (
-                    <Polygon
-                      key={zone.id}
-                      positions={WKTToCoords(zone.polygon || zone.polygon_wkt)}
-                      pathOptions={{
-                        color: '#10b981', // Premium bright emerald green outline
-                        fillColor: '#10b981',
-                        fillOpacity: selectedZone?.id === zone.id ? 0.35 : 0.08,
-                        weight: selectedZone?.id === zone.id ? 4 : 1.5
-                      }}
-                      eventHandlers={{
-                        click: () => setSelectedZone(zone)
-                      }}
-                    />
-                  ))}
+            {zones?.map((zone: any) => (
+              <Polygon
+                key={zone.id}
+                positions={WKTToCoords(zone.polygon || zone.polygon_wkt)}
+                pathOptions={{
+                  color: '#10b981', // Premium bright emerald green outline
+                  fillColor: '#10b981',
+                  fillOpacity: selectedZone?.id === zone.id ? 0.35 : 0.08,
+                  weight: selectedZone?.id === zone.id ? 4 : 1.5
+                }}
+                eventHandlers={{
+                  click: () => setSelectedZone(zone)
+                }}
+              />
+            ))}
 
-                  {selectedZone && !selectedZone.id && selectedZone.polygon_wkt && (
-                    <Polygon
-                      positions={WKTToCoords(selectedZone.polygon_wkt)}
-                      pathOptions={{
-                        color: '#10b981', // Translucent emerald preview outline
-                        fillColor: '#10b981',
-                        fillOpacity: 0.4,
-                        weight: 4,
-                        dashArray: '6, 6' // Premium dashed look for unsaved preview
-                      }}
-                    />
-                  )}
+            {selectedZone && !selectedZone.id && selectedZone.polygon_wkt && (
+              <Polygon
+                positions={WKTToCoords(selectedZone.polygon_wkt)}
+                pathOptions={{
+                  color: '#10b981', // Translucent emerald preview outline
+                  fillColor: '#10b981',
+                  fillOpacity: 0.4,
+                  weight: 4,
+                  dashArray: '6, 6' // Premium dashed look for unsaved preview
+                }}
+              />
+            )}
 
-                  <MapEvents center={mapCenter} selectedZone={selectedZone} />
-               </MapContainer>
-               {mapsRuntimeConfig?.active_provider === 'tomtom_maps' && !isDrawing && (
-                 <TomTomRuntimeUnavailable message="TomTom Maps aktif, tetapi browser key runtime belum tersedia. Zone viewer memakai fallback map sementara." />
-               )}
-             </>
-           )}
+            <MapEvents center={mapCenter} selectedZone={selectedZone} />
+          </MapContainer>
+          {mapsRuntimeConfig?.active_provider === 'tomtom_maps' && !shouldRenderTomTomMap && !isDrawing && (
+            <TomTomRuntimeUnavailable message="TomTom Maps aktif, tetapi browser key runtime belum tersedia. Zone viewer memakai fallback map sementara." />
+          )}
 
            {/* Toolbar Overlays */}
            <div className="absolute top-8 left-8 flex flex-col gap-3 z-[1000]">
@@ -315,8 +309,13 @@ export default function Zones() {
                 <button className="p-4 text-white hover:text-primary-light transition-all rounded-xl">
                    <Maximize2 size={18} />
                 </button>
-                <button className="p-4 text-white hover:text-primary-light transition-all rounded-xl">
-                   <LayersIcon size={18} />
+                <button
+                  type="button"
+                  onClick={() => setMapTheme((current) => current === 'dark' ? 'light' : 'dark')}
+                  className="p-4 text-white hover:text-primary-light transition-all rounded-xl active:scale-[0.98]"
+                  aria-label={mapTheme === 'dark' ? 'Switch to light map' : 'Switch to dark map'}
+                >
+                   {mapTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
                 </button>
               </div>
            </div>
@@ -326,8 +325,8 @@ export default function Zones() {
                  <div className="flex items-center gap-6">
                     <div className="flex items-center gap-3">
                        <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                       <p className="text-xs font-black text-zinc-300 uppercase tracking-widest">
-                         {selectedZone ? selectedZone.name : 'Satellite View'}
+                    <p className="text-xs font-black text-zinc-300 uppercase tracking-widest">
+                         {selectedZone ? selectedZone.name : mapTheme === 'dark' ? 'Dark Ops View' : 'Light Street View'}
                        </p>
                     </div>
                     <div className="h-4 w-px bg-white/10" />

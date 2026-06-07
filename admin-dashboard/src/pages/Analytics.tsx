@@ -38,8 +38,16 @@ import { api } from '../lib/api'
 import { clientLog } from '../lib/clientLogger'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
-import { TomTomMapCanvas, TomTomRuntimeUnavailable, isTomTomRuntimeReady, useMapsRuntimeConfig } from '../components/TomTomMapsRuntime'
-import { MapContainer, TileLayer, useMap } from 'react-leaflet'
+import {
+  CARTO_DARK_ATTRIBUTION,
+  CARTO_DARK_TILE_URL,
+  TOMTOM_RASTER_ATTRIBUTION,
+  TomTomRuntimeUnavailable,
+  isTomTomRuntimeReady,
+  tomTomRasterTileUrl,
+  useMapsRuntimeConfig
+} from '../components/TomTomMapsRuntime'
+import { AttributionControl, MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import 'leaflet.heat'
@@ -338,15 +346,12 @@ export default function Analytics() {
   })
   const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('tracking')
   const shouldRenderTomTomMap = isTomTomRuntimeReady(mapsRuntimeConfig)
-  const TomTomHeatMarkers = useMemo(() => (Array.isArray(heatData) ? heatData : [])
-    .map((point: any, index: number) => ({
-      id: `${point.id || index}`,
-      lat: Number(point.lat),
-      lng: Number(point.lng),
-      title: 'Demand point',
-      snippet: `Weight: ${Number(point.weight || 0).toFixed(1)}`
-    }))
-    .filter((point: any) => Number.isFinite(point.lat) && Number.isFinite(point.lng)), [heatData])
+  const heatmapTileUrl = shouldRenderTomTomMap
+    ? tomTomRasterTileUrl(mapsRuntimeConfig?.tomtom_maps?.browser_api_key || '', 'night')
+    : CARTO_DARK_TILE_URL
+  const heatmapTileAttribution = shouldRenderTomTomMap
+    ? TOMTOM_RASTER_ATTRIBUTION
+    : CARTO_DARK_ATTRIBUTION
 
 
   const { data: reports, isLoading: reportsLoading, isError: reportsError, error: reportsQueryError, refetch: refetchReports } = useQuery({
@@ -543,33 +548,23 @@ export default function Analytics() {
         <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8 relative overflow-hidden">
             <h3 className="text-xl font-black text-zinc-100 italic uppercase">Demand Density</h3>
             <div className="h-[400px] w-full bg-zinc-900 rounded-[32px] border border-white/5 relative overflow-hidden">
-               {shouldRenderTomTomMap ? (
-                 <TomTomMapCanvas
-                   apiKey={mapsRuntimeConfig?.tomtom_maps?.browser_api_key || ''}
-                   mapId={mapsRuntimeConfig?.tomtom_maps?.map_id}
-                   center={{ lat: -6.2088, lng: 106.8456 }}
-                   zoom={12}
-                   markers={TomTomHeatMarkers}
-                 />
-               ) : (
-                 <>
-                   <MapContainer
-                    center={[-6.2088, 106.8456]}
-                    zoom={12}
-                    className="h-full w-full z-0"
-                    zoomControl={false}
-                  >
-                    <TileLayer
-                      url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                      attribution='&copy; OpenStreetMap contributors &copy; CARTO'
-                    />
-                    {hasRows(heatData) && <HeatLayer points={heatData} />}
-                  </MapContainer>
-                  {mapsRuntimeConfig?.active_provider === 'tomtom_maps' && (
-                    <TomTomRuntimeUnavailable message="TomTom Maps aktif, tetapi browser key runtime belum tersedia. Demand density memakai fallback map sementara." />
-                  )}
-                 </>
-               )}
+              <MapContainer
+                center={[-6.2088, 106.8456]}
+                zoom={12}
+                className="h-full w-full z-0"
+                zoomControl={false}
+                attributionControl={false}
+              >
+                <AttributionControl prefix={false} />
+                <TileLayer
+                  url={heatmapTileUrl}
+                  attribution={heatmapTileAttribution}
+                />
+                {hasRows(heatData) && <HeatLayer points={heatData} />}
+              </MapContainer>
+              {mapsRuntimeConfig?.active_provider === 'tomtom_maps' && !shouldRenderTomTomMap && (
+                <TomTomRuntimeUnavailable message="TomTom Maps aktif, tetapi browser key runtime belum tersedia. Demand density memakai fallback map sementara." />
+              )}
               {(heatError || !hasRows(heatData)) && (
                 <div className="absolute inset-4 z-10 rounded-[28px] bg-black/70 backdrop-blur-md border border-white/10 flex items-center justify-center p-6">
                   <DataState

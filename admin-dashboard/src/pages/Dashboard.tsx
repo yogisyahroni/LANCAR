@@ -110,6 +110,9 @@ export default function Dashboard() {
     }
   })
 
+  const activeCourierCount = Number(stats?.active_couriers ?? 0)
+  const hasActiveCourier = activeCourierCount > 0
+
   return (
     <div className="space-y-8 animate-in max-w-[1600px] mx-auto">
       {/* Header Section */}
@@ -177,8 +180,13 @@ export default function Dashboard() {
           <div className="glass-card rounded-3xl overflow-hidden h-[500px] relative">
             <div className="absolute top-6 left-6 z-[1000] flex items-center gap-2">
               <div className="glass-card px-4 py-2 rounded-xl border-white/10 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary-light animate-ping" />
-                <span className="text-xs font-bold tracking-wider uppercase">Live Tracking</span>
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  hasActiveCourier ? "bg-primary-light animate-ping" : "bg-zinc-500"
+                )} />
+                <span className="text-xs font-bold tracking-wider uppercase">
+                  {hasActiveCourier ? 'Live Tracking' : 'Tracking Standby'}
+                </span>
               </div>
             </div>
             <LiveMap />

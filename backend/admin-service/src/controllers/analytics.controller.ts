@@ -12,6 +12,20 @@ const percentageGrowth = (current: number, previous: number): number | null => {
   return Number(((current - previous) / previous * 100).toFixed(1));
 };
 
+const liveCourierPredicate = `
+  verification_status = 'approved'
+  AND is_online = TRUE
+  AND current_location IS NOT NULL
+  AND last_location_at >= NOW() - INTERVAL '10 minutes'
+`;
+
+const liveCourierPredicateForAlias = (alias: string): string => `
+  ${alias}.verification_status = 'approved'
+  AND ${alias}.is_online = TRUE
+  AND ${alias}.current_location IS NOT NULL
+  AND ${alias}.last_location_at >= NOW() - INTERVAL '10 minutes'
+`;
+
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
     const ordersResult = await readDb.query(`
@@ -34,8 +48,8 @@ export const getDashboardStats = async (req: Request, res: Response) => {
 
     const couriersResult = await readDb.query(`
       SELECT
-        COUNT(*) FILTER (WHERE verification_status = 'approved') as total_approved,
-        COUNT(*) FILTER (WHERE verification_status = 'approved' AND is_online = TRUE) as active_online
+        COUNT(DISTINCT user_id) FILTER (WHERE verification_status = 'approved') as total_approved,
+        COUNT(DISTINCT user_id) FILTER (WHERE ${liveCourierPredicate}) as active_online
       FROM courier_profiles
     `);
 
@@ -113,10 +127,10 @@ export const getAnalyticsKPIs = async (req: Request, res: Response) => {
       WITH stats AS (
         SELECT 
           (SELECT COUNT(*) FROM orders WHERE status = 'pending') as pending_orders,
-          (SELECT COUNT(*) FROM courier_profiles WHERE verification_status = 'approved' AND is_online = TRUE) as online_couriers
+          (SELECT COUNT(DISTINCT user_id) FROM courier_profiles WHERE ${liveCourierPredicate}) as online_couriers
       )
       SELECT 
-        CASE 
+        CASE
           WHEN online_couriers = 0 THEN pending_orders * 100 
           ELSE (pending_orders::float / online_couriers) * 10 
         END as gap_score
@@ -124,7 +138,7 @@ export const getAnalyticsKPIs = async (req: Request, res: Response) => {
     `);
 
     const courierRes = await readDb.query(`
-      SELECT COUNT(*) as total FROM courier_profiles WHERE verification_status = 'approved'
+      SELECT COUNT(DISTINCT user_id) as total FROM courier_profiles WHERE verification_status = 'approved'
     `);
 
     const avgDeliveryRes = await readDb.query(`
@@ -282,16 +296,46 @@ export const getAnalyticsRetention = async (req: Request, res: Response) => {
 
 export const getHeatData = async (req: Request, res: Response) => {
   try {
+    const qualifiedLiveCourierPredicate = liveCourierPredicateForAlias('cp');
     const result = await readDb.query(`
-      SELECT 
-        ST_Y(current_location::geometry) as lat,
-        ST_X(current_location::geometry) as lng,
-        CASE 
-          WHEN is_online = TRUE THEN 1.0
-          ELSE 0.5
-        END as weight
-      FROM courier_profiles
-      WHERE verification_status = 'approved' AND current_location IS NOT NULL
+      WITH ranked_courier_points AS (
+        SELECT
+          cp.id AS courier_profile_id,
+          cp.user_id AS account_id,
+          ST_Y(cp.current_location::geometry) AS lat,
+          ST_X(cp.current_location::geometry) AS lng,
+          cp.is_online,
+          cp.last_location_at,
+          CASE
+            WHEN ${qualifiedLiveCourierPredicate} THEN 'online'
+            ELSE 'offline'
+          END AS status,
+          CASE
+            WHEN ${qualifiedLiveCourierPredicate} THEN 1.0
+            ELSE 0.15
+          END AS weight,
+          ROW_NUMBER() OVER (
+            PARTITION BY cp.user_id
+            ORDER BY
+              CASE WHEN ${qualifiedLiveCourierPredicate} THEN 0 ELSE 1 END,
+              cp.last_location_at DESC NULLS LAST,
+              cp.updated_at DESC NULLS LAST,
+              cp.id DESC
+          ) AS account_rank
+        FROM courier_profiles cp
+        WHERE cp.verification_status = 'approved' AND cp.current_location IS NOT NULL
+      )
+      SELECT
+        courier_profile_id,
+        account_id,
+        lat,
+        lng,
+        is_online,
+        last_location_at,
+        status,
+        weight
+      FROM ranked_courier_points
+      WHERE account_rank = 1
     `);
     res.json(result.rows);
   } catch (error: any) {
