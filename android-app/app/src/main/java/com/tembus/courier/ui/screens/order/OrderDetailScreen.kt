@@ -128,6 +128,7 @@ fun OrderDetailScreen(
     onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
     onChatClick: () -> Unit,
+    onCallClick: () -> Unit,
     routePreview: CourierRoutePreview? = null,
     mapsProviderConfig: MapsProviderConfig = MapsProviderConfig(),
     cancelPickupReasons: List<CancelPickupReason> = emptyList(),
@@ -251,6 +252,7 @@ fun OrderDetailScreen(
                     onCapturePod = onCapturePod,
                     onUpdateStatus = onUpdateStatus,
                     onChatClick = onChatClick,
+                    onCallClick = onCallClick,
                     onSosClick = onSosClick,
                     onReportIssue = onReportIssue,
                     onCancelPickup = onCancelPickup
@@ -265,6 +267,7 @@ fun OrderDetailScreen(
                     onCapturePickupProof = onCapturePickupProof,
                     onCapturePod = onCapturePod,
                     onChatClick = onChatClick,
+                    onCallClick = onCallClick,
                     onSosClick = onSosClick
                 )
             }
@@ -407,6 +410,7 @@ private fun OnDemandTaskActions(
     onCapturePod: () -> Unit,
     onUpdateStatus: (String) -> Unit,
     onChatClick: () -> Unit,
+    onCallClick: () -> Unit,
     onSosClick: () -> Unit,
     onReportIssue: (eventType: String, severity: String, message: String, photoFile: File?) -> Unit,
     onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit
@@ -482,9 +486,9 @@ private fun OnDemandTaskActions(
             }
 
             OnDemandSupportActions(
-                order = order,
                 pickupDone = flowState.pickupDone,
                 onChatClick = onChatClick,
+                onCallClick = onCallClick,
                 onSosClick = onSosClick,
                 onIssueClick = { showIssueDialog = true },
                 onCancelPickupClick = { showCancelPickupDialog = true }
@@ -1025,24 +1029,18 @@ private fun VerificationRequirementRow(
 
 @Composable
 private fun OnDemandSupportActions(
-    order: Order,
     pickupDone: Boolean,
     onChatClick: () -> Unit,
+    onCallClick: () -> Unit,
     onSosClick: () -> Unit,
     onIssueClick: () -> Unit,
     onCancelPickupClick: () -> Unit,
     showCancelPickup: Boolean = true
 ) {
-    val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                CompactActionButton(icon = Icons.AutoMirrored.Filled.Chat, label = "Chat", onClick = onChatClick, modifier = Modifier.weight(1f))
-            CompactActionButton(icon = Icons.Default.Phone, label = "Telepon", onClick = {
-                val phone = order.phoneNumber.orEmpty()
-                if (phone.isNotBlank()) {
-                    context.startActivity(Intent(Intent.ACTION_DIAL).apply { data = Uri.parse("tel:$phone") })
-                }
-            }, modifier = Modifier.weight(1f))
+            CompactActionButton(icon = Icons.AutoMirrored.Filled.Chat, label = "Chat", onClick = onChatClick, modifier = Modifier.weight(1f))
+            CompactActionButton(icon = Icons.Default.Phone, label = "Telepon", onClick = onCallClick, modifier = Modifier.weight(1f))
         }
         if (showCancelPickup && !pickupDone) {
             OutlinedButton(
@@ -1544,6 +1542,7 @@ private fun OrderActions(
     onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
     onChatClick: () -> Unit,
+    onCallClick: () -> Unit,
     onSosClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -1607,9 +1606,9 @@ private fun OrderActions(
             }
 
             OnDemandSupportActions(
-                order = order,
                 pickupDone = flowState.pickupDone,
                 onChatClick = onChatClick,
+                onCallClick = onCallClick,
                 onSosClick = onSosClick,
                 onIssueClick = onChatClick,
                 onCancelPickupClick = {},

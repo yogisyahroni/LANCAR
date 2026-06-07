@@ -136,7 +136,7 @@ class UpdateManager @Inject constructor(
             runCatching { context.packageManager.canRequestPackageInstalls() }.getOrDefault(false)
     }
 
-    fun openInstallPermissionSettings(targetContext: Context = context): Result<Unit> {
+    suspend fun openInstallPermissionSettings(targetContext: Context = context): Result<Unit> {
         val intents = buildList {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 add(
@@ -307,32 +307,39 @@ class UpdateManager @Inject constructor(
         }
     }
 
-    private fun openFirstAvailableActivity(
+    private suspend fun openFirstAvailableActivity(
         targetContext: Context,
         intents: List<Intent>,
         errorMessage: String,
         grantReadUri: Uri? = null
     ): Result<Unit> {
-        var lastError: Throwable? = null
-        intents.forEach { intent ->
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            grantReadUri?.let { uri -> grantReadPermissionToResolvedInstallers(intent, uri) }
-            try {
-                targetContext.startActivity(intent)
-                return Result.success(Unit)
-            } catch (error: ActivityNotFoundException) {
-                lastError = error
-            } catch (error: SecurityException) {
-                lastError = error
-            } catch (error: IllegalArgumentException) {
-                lastError = error
-            } catch (error: IllegalStateException) {
-                lastError = error
-            } catch (error: RuntimeException) {
-                lastError = error
+        val preparedIntents = withContext(Dispatchers.IO) {
+            intents.onEach { intent ->
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                grantReadUri?.let { uri -> grantReadPermissionToResolvedInstallers(intent, uri) }
             }
         }
-        return Result.failure(IOException(errorMessage, lastError))
+
+        return withContext(Dispatchers.Main) {
+            var lastError: Throwable? = null
+            preparedIntents.forEach { intent ->
+                try {
+                    targetContext.startActivity(intent)
+                    return@withContext Result.success(Unit)
+                } catch (error: ActivityNotFoundException) {
+                    lastError = error
+                } catch (error: SecurityException) {
+                    lastError = error
+                } catch (error: IllegalArgumentException) {
+                    lastError = error
+                } catch (error: IllegalStateException) {
+                    lastError = error
+                } catch (error: RuntimeException) {
+                    lastError = error
+                }
+            }
+            Result.failure(IOException(errorMessage, lastError))
+        }
     }
 
     private fun grantReadPermissionToResolvedInstallers(intent: Intent, uri: Uri) {

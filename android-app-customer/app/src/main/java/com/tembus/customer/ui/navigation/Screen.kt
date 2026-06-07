@@ -4,13 +4,21 @@ sealed class Screen(val route: String) {
     object Onboarding : Screen("onboarding")
     object AuthGraph : Screen("auth_graph")
     object Dashboard : Screen("dashboard")
-    object Booking : Screen("booking?open={open}") {
-        fun createRoute(open: String? = null): String {
-            return if (open.isNullOrBlank()) "booking" else "booking?open=$open"
+    object Booking : Screen("booking?open={open}&promo={promo}") {
+        fun createRoute(open: String? = null, promoCode: String? = null): String {
+            val query = mutableListOf<String>()
+            if (!open.isNullOrBlank()) {
+                query += "open=${java.net.URLEncoder.encode(open, "UTF-8")}"
+            }
+            if (!promoCode.isNullOrBlank()) {
+                query += "promo=${java.net.URLEncoder.encode(promoCode, "UTF-8")}"
+            }
+            return if (query.isEmpty()) "booking" else "booking?${query.joinToString("&")}"
         }
     }
     object History : Screen("history")
     object Profile : Screen("profile")
+    object Notifications : Screen("notifications")
     
     // Details
     object Tracking : Screen("tracking/{orderId}") {
@@ -22,11 +30,18 @@ sealed class Screen(val route: String) {
     object Payment : Screen("payment/{orderId}") {
         fun createRoute(orderId: String) = "payment/$orderId"
     }
-    object Chat : Screen("chat/{orderId}?name={name}&phone={phone}") {
-        fun createRoute(orderId: String, name: String?, phone: String?): String {
+    object Chat : Screen("chat/{orderId}?name={name}") {
+        fun createRoute(orderId: String, name: String?): String {
             val encName = if (name != null) java.net.URLEncoder.encode(name, "UTF-8") else ""
-            val encPhone = if (phone != null) java.net.URLEncoder.encode(phone, "UTF-8") else ""
-            return "chat/$orderId?name=$encName&phone=$encPhone"
+            return "chat/$orderId?name=$encName"
+        }
+    }
+    object InAppCall : Screen("call/{orderId}?name={name}&state={state}&callId={callId}") {
+        fun createRoute(orderId: String, name: String?, state: String = "outgoing", callId: String? = null): String {
+            val encName = if (name != null) java.net.URLEncoder.encode(name, "UTF-8") else ""
+            val encState = java.net.URLEncoder.encode(state, "UTF-8")
+            val encCallId = if (callId != null) java.net.URLEncoder.encode(callId, "UTF-8") else ""
+            return "call/$orderId?name=$encName&state=$encState&callId=$encCallId"
         }
     }
 }

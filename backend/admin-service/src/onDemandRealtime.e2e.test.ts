@@ -19,6 +19,33 @@ jest.mock('./notifications', () => ({
   createNotification: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('./services/mapsProviderConfig', () => {
+  const actual = jest.requireActual('./services/mapsProviderConfig');
+  return {
+    ...actual,
+    buildMapsRouteEtaSnapshot: jest.fn().mockResolvedValue({
+      generated_at: '2026-05-18T04:00:30.000Z',
+      eta: '10 menit',
+      eta_minutes: 10,
+      distance_km: 3.4,
+      distance_meters: 3400,
+      duration_seconds: 600,
+      route_polyline: null,
+      route_geometry: null,
+      provider: 'test_route_snapshot',
+      requested_provider: 'tomtom_maps',
+      active_provider: 'tomtom_maps',
+      scope: 'tracking',
+      route_profile: 'motorcycle',
+      vehicle_type: 'motorcycle',
+      service_code: null,
+      traffic_aware: false,
+      confidence: 'high',
+      fallback_reason: null,
+    }),
+  };
+});
+
 const emit = jest.fn();
 let socketChain: any;
 const to: jest.Mock = jest.fn(() => socketChain);
@@ -38,6 +65,8 @@ const makeResponse = () => {
 describe('on-demand realtime lifecycle contract', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (db.query as jest.Mock).mockReset();
+    (db.query as jest.Mock).mockResolvedValue({ rows: [] });
     to.mockReturnValue(socketChain);
   });
 
@@ -50,20 +79,20 @@ describe('on-demand realtime lifecycle contract', () => {
     (db.connect as jest.Mock).mockResolvedValue(client);
     client.query
       .mockResolvedValueOnce({ rows: [] }) // BEGIN
-      .mockResolvedValueOnce({ rows: [{ id: 'courier-profile-1', user_id: 'courier-user-1' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'courier-profile-1', user_id: '44444444-4444-4444-8444-444444444444' }] })
       .mockResolvedValueOnce({ rows: [] }) // previous valid location
-      .mockResolvedValueOnce({ rows: [{ customer_id: 'customer-user-1', courier_id: 'courier-user-1' }] })
+      .mockResolvedValueOnce({ rows: [{ customer_id: '33333333-3333-4333-8333-333333333333', courier_id: '44444444-4444-4444-8444-444444444444' }] })
       .mockResolvedValueOnce({ rows: [] }) // INSERT courier_locations
       .mockResolvedValueOnce({ rows: [] }) // UPDATE courier_profiles
       .mockResolvedValueOnce({ rows: [] }); // COMMIT
 
     const syncReq: any = {
-      user: { id: 'courier-user-1', role: 'courier' },
+      user: { id: '44444444-4444-4444-8444-444444444444', role: 'courier' },
       body: {
-        courier_id: 'courier-user-1',
+        courier_id: '44444444-4444-4444-8444-444444444444',
         device_id: 'device-1',
         locations: [{
-          order_id: 'order-1',
+          order_id: '11111111-1111-4111-8111-111111111111',
           latitude: -6.175392,
           longitude: 106.827153,
           heading: 92,
@@ -82,12 +111,12 @@ describe('on-demand realtime lifecycle contract', () => {
       data: expect.objectContaining({ syncedCount: 1 }),
     }));
     expect(client.query.mock.calls.some(([sql]: [string]) => sql.includes('INSERT INTO courier_locations'))).toBe(true);
-    expect(to).toHaveBeenCalledWith('order:order-1');
+    expect(to).toHaveBeenCalledWith('order:11111111-1111-4111-8111-111111111111');
     expect(emit).toHaveBeenCalledWith('on_demand_event', expect.objectContaining({
       event: ON_DEMAND_REALTIME_EVENTS.TRACKING_UPDATED,
-      order_id: 'order-1',
-      customer_id: 'customer-user-1',
-      courier_user_id: 'courier-user-1',
+      order_id: '11111111-1111-4111-8111-111111111111',
+      customer_id: '33333333-3333-4333-8333-333333333333',
+      courier_user_id: '44444444-4444-4444-8444-444444444444',
       location: expect.objectContaining({
         latitude: -6.175392,
         longitude: 106.827153,
@@ -96,22 +125,22 @@ describe('on-demand realtime lifecycle contract', () => {
     }));
     expect(emit).toHaveBeenCalledWith(ON_DEMAND_REALTIME_EVENTS.TRACKING_UPDATED, expect.objectContaining({
       event: ON_DEMAND_REALTIME_EVENTS.TRACKING_UPDATED,
-      order_id: 'order-1',
+      order_id: '11111111-1111-4111-8111-111111111111',
     }));
     expect(emit).toHaveBeenCalledWith('order_tracking_updated', expect.objectContaining({
-      order_id: 'order-1',
-      customer_id: 'customer-user-1',
-      courier_user_id: 'courier-user-1',
+      order_id: '11111111-1111-4111-8111-111111111111',
+      customer_id: '33333333-3333-4333-8333-333333333333',
+      courier_user_id: '44444444-4444-4444-8444-444444444444',
     }));
 
     (db.query as jest.Mock)
       .mockResolvedValueOnce({
         rows: [{
-          id: 'order-1',
+          id: '11111111-1111-4111-8111-111111111111',
           order_number: 'LCR-OD-1',
           status: 'accepted',
-          customer_id: 'customer-user-1',
-          courier_id: 'courier-user-1',
+          customer_id: '33333333-3333-4333-8333-333333333333',
+          courier_id: '44444444-4444-4444-8444-444444444444',
           courier_profile_id: 'courier-profile-1',
           pickup_address: 'Monas, Jakarta Pusat',
           dropoff_address: 'GBK, Jakarta Pusat',
@@ -139,11 +168,12 @@ describe('on-demand realtime lifecycle contract', () => {
           accuracy_m: '8',
           recorded_at: '2026-05-18T04:00:00.000Z',
         }],
-      });
+      })
+      .mockResolvedValueOnce({ rows: [] });
 
     const trackingReq: any = {
-      user: { id: 'customer-user-1', role: 'customer' },
-      query: { order_id: 'order-1' },
+      user: { id: '33333333-3333-4333-8333-333333333333', role: 'customer' },
+      query: { order_id: '11111111-1111-4111-8111-111111111111' },
     };
     const trackingRes = makeResponse();
 
@@ -169,27 +199,46 @@ describe('on-demand realtime lifecycle contract', () => {
     (db.query as jest.Mock)
       .mockResolvedValueOnce({
         rows: [{
-          id: 'order-1',
+          id: '11111111-1111-4111-8111-111111111111',
           order_number: 'LCR-OD-1',
-          customer_id: 'customer-user-1',
-          courier_id: 'courier-user-1',
+          customer_id: '33333333-3333-4333-8333-333333333333',
+          status: 'accepted',
+          recipient_name: 'Dewi Lestari',
+          recipient_phone_hash: null,
+          actor_phone_number: null,
+          courier_id: '44444444-4444-4444-8444-444444444444',
+          courier_has_access: true,
         }],
       })
       .mockResolvedValueOnce({
+        rows: [{ id: 'conversation-1', order_id: '11111111-1111-4111-8111-111111111111', phase: 'customer_courier', status: 'active' }],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({
         rows: [{
           id: 'chat-1',
-          order_id: 'order-1',
-          sender_id: 'courier-user-1',
+          order_id: '11111111-1111-4111-8111-111111111111',
+          conversation_id: 'conversation-1',
+          sender_id: '44444444-4444-4444-8444-444444444444',
           message: 'Saya sudah di titik pickup.',
           message_type: 'text',
+          client_message_id: 'e2e-chat-message-1',
+          sender_role_snapshot: 'courier',
           created_at: '2026-05-18T04:01:00.000Z',
         }],
-      });
+      })
+      .mockResolvedValueOnce({
+        rows: [{ member_id: '33333333-3333-4333-8333-333333333333' }],
+      })
+      .mockResolvedValueOnce({ rows: [] });
 
     const chatReq: any = {
-      user: { id: 'courier-user-1', role: 'courier', full_name: 'Andri Pratama' },
-      params: { id: 'order-1' },
-      body: { message: 'Saya sudah di titik pickup.' },
+      user: { id: '44444444-4444-4444-8444-444444444444', role: 'courier', full_name: 'Andri Pratama' },
+      params: { id: '11111111-1111-4111-8111-111111111111' },
+      body: { message: 'Saya sudah di titik pickup.', client_message_id: 'e2e-chat-message-1' },
     };
     const chatRes = makeResponse();
 
@@ -199,33 +248,33 @@ describe('on-demand realtime lifecycle contract', () => {
     expect(chatRes.json).toHaveBeenCalledWith(expect.objectContaining({
       success: true,
       chat: expect.objectContaining({
-        order_id: 'order-1',
+        order_id: '11111111-1111-4111-8111-111111111111',
         sender_role: 'courier',
       }),
     }));
-    expect(to).toHaveBeenCalledWith('order:order-1');
+    expect(to).toHaveBeenCalledWith('order:11111111-1111-4111-8111-111111111111');
     expect(emit).toHaveBeenCalledWith('on_demand_event', expect.objectContaining({
       event: ON_DEMAND_REALTIME_EVENTS.CHAT_MESSAGE,
-      order_id: 'order-1',
-      customer_id: 'customer-user-1',
-      courier_user_id: 'courier-user-1',
+      order_id: '11111111-1111-4111-8111-111111111111',
+      customer_id: '33333333-3333-4333-8333-333333333333',
+      courier_user_id: '44444444-4444-4444-8444-444444444444',
       chat: expect.objectContaining({
-        order_id: 'order-1',
+        order_id: '11111111-1111-4111-8111-111111111111',
         sender_name: 'Andri Pratama',
       }),
     }));
     expect(emit).toHaveBeenCalledWith(ON_DEMAND_REALTIME_EVENTS.CHAT_MESSAGE, expect.objectContaining({
       event: ON_DEMAND_REALTIME_EVENTS.CHAT_MESSAGE,
-      order_id: 'order-1',
+      order_id: '11111111-1111-4111-8111-111111111111',
     }));
     expect(emit).toHaveBeenCalledWith('new_chat_message', expect.objectContaining({
-      order_id: 'order-1',
+      order_id: '11111111-1111-4111-8111-111111111111',
       sender_name: 'Andri Pratama',
     }));
     expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({
-      user_id: 'customer-user-1',
+      user_id: '33333333-3333-4333-8333-333333333333',
       type: 'chat',
-      order_id: 'order-1',
+      order_id: '11111111-1111-4111-8111-111111111111',
     }));
     expect(getIO).toHaveBeenCalled();
   });
@@ -233,8 +282,8 @@ describe('on-demand realtime lifecycle contract', () => {
   it('broadcasts a stable offer_created payload before FCM notification', async () => {
     await notifyOnDemandOffers([{
       dispatch_id: 'dispatch-1',
-      order_id: 'order-2',
-      courier_id: 'courier-user-2',
+      order_id: '22222222-2222-4222-8222-222222222222',
+      courier_id: '55555555-5555-4555-8555-555555555555',
       pickup_address: 'Monas, Jakarta Pusat',
       dropoff_address: null,
       distance: '2.4',
@@ -255,12 +304,12 @@ describe('on-demand realtime lifecycle contract', () => {
       courier_payout_estimate_idr: 12000,
     }]);
 
-    expect(to).toHaveBeenCalledWith('order:order-2');
-    expect(to).toHaveBeenCalledWith('courier-user-2');
+    expect(to).toHaveBeenCalledWith('order:22222222-2222-4222-8222-222222222222');
+    expect(to).toHaveBeenCalledWith('55555555-5555-4555-8555-555555555555');
     expect(emit).toHaveBeenCalledWith('on_demand_event', expect.objectContaining({
       event: ON_DEMAND_REALTIME_EVENTS.OFFER_CREATED,
-      order_id: 'order-2',
-      courier_user_id: 'courier-user-2',
+      order_id: '22222222-2222-4222-8222-222222222222',
+      courier_user_id: '55555555-5555-4555-8555-555555555555',
       status: 'offered',
       stage: 'offer_created',
       metadata: expect.objectContaining({
@@ -275,12 +324,12 @@ describe('on-demand realtime lifecycle contract', () => {
     }));
     expect(emit).toHaveBeenCalledWith(ON_DEMAND_REALTIME_EVENTS.OFFER_CREATED, expect.objectContaining({
       event: ON_DEMAND_REALTIME_EVENTS.OFFER_CREATED,
-      order_id: 'order-2',
+      order_id: '22222222-2222-4222-8222-222222222222',
     }));
     expect(createNotification).toHaveBeenCalledWith(expect.objectContaining({
-      user_id: 'courier-user-2',
+      user_id: '55555555-5555-4555-8555-555555555555',
       type: 'on_demand_offer',
-      order_id: 'order-2',
+      order_id: '22222222-2222-4222-8222-222222222222',
       metadata: expect.objectContaining({
         dispatch_id: 'dispatch-1',
         offer_ttl_seconds: '15',
@@ -316,7 +365,7 @@ describe('on-demand realtime lifecycle contract', () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({
         rows: [{
-          courier_id: 'courier-user-2',
+          courier_id: '55555555-5555-4555-8555-555555555555',
           zone_id: 'zone-1',
           distance_m: 125,
           rating_snapshot: '4.90',
@@ -351,12 +400,12 @@ describe('on-demand realtime lifecycle contract', () => {
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
 
-    const offer = await dispatchNextOnDemandCourier(client, 'order-2');
+    const offer = await dispatchNextOnDemandCourier(client, '22222222-2222-4222-8222-222222222222');
 
     expect(offer).toEqual(expect.objectContaining({
       dispatch_id: 'dispatch-1',
-      order_id: 'order-2',
-      courier_id: 'courier-user-2',
+      order_id: '22222222-2222-4222-8222-222222222222',
+      courier_id: '55555555-5555-4555-8555-555555555555',
       distance: '2.4',
       fee: '12000',
       eta_minutes: 15,

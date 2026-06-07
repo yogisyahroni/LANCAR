@@ -895,6 +895,9 @@ private fun NoticeBox(message: String) {
 
 @Composable
 private fun authTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    disabledContainerColor = Color(0xFFF5F7FA),
     focusedBorderColor = Primary,
     unfocusedBorderColor = Line,
     focusedPlaceholderColor = Muted,

@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.customer.data.model.ChatMessage
+import com.tembus.customer.data.model.ConversationInfo
 import com.tembus.customer.data.repository.ChatRepository
 import com.tembus.customer.data.session.AuthSessionManager
 import com.tembus.customer.util.SocketManager
@@ -15,14 +16,22 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+import java.util.UUID
 import javax.inject.Inject
 
 data class ChatUiState(
     val isLoading: Boolean = false,
+    val isSending: Boolean = false,
     val messages: List<ChatMessage> = emptyList(),
     val error: String? = null,
     val orderId: String = "",
-    val currentUserId: String = ""
+    val currentUserId: String = "",
+    val conversation: ConversationInfo? = null,
+    val failedDraft: String? = null
 )
 
 @HiltViewModel
@@ -60,13 +69,16 @@ class ChatViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
             chatRepository.getOrderChats(orderId).collectLatest { result ->
-                result.onSuccess { loadedMessages ->
+                result.onSuccess { history ->
+                    val loadedMessages = history.messages
                     _uiState.update { 
                         it.copy(
                             isLoading = false, 
-                            messages = loadedMessages.distinctBy { msg -> msg.id ?: msg.createdAt }
+                            messages = loadedMessages.distinctBy { msg -> msg.id ?: msg.createdAt },
+                            conversation = history.conversation
                         ) 
                     }
+                    markLastMessageRead(loadedMessages)
                 }.onFailure { exception ->
                     _uiState.update { it.copy(isLoading = false, error = exception.message) }
                 }
@@ -86,9 +98,9 @@ class ChatViewModel @Inject constructor(
                     if (isDuplicate) {
                         currentState
                     } else {
-                        currentState.copy(
-                            messages = currentState.messages + newMessage
-                        )
+                        val updatedMessages = currentState.messages + newMessage
+                        markLastMessageRead(updatedMessages)
+                        currentState.copy(messages = updatedMessages)
                     }
                 }
             }
@@ -96,18 +108,69 @@ class ChatViewModel @Inject constructor(
     }
 
     fun sendMessage(messageText: String) {
-        if (messageText.isBlank()) return
+        val cleanedMessage = messageText.trim()
+        if (cleanedMessage.isBlank()) return
+        if (cleanedMessage.length > MAX_MESSAGE_LENGTH) {
+            _uiState.update { it.copy(error = "Pesan maksimal $MAX_MESSAGE_LENGTH karakter.") }
+            return
+        }
+
+        val clientMessageId = UUID.randomUUID().toString()
+        val localMessageId = "local-$clientMessageId"
+        val localMessage = ChatMessage(
+            id = localMessageId,
+            orderId = orderId,
+            senderId = _uiState.value.currentUserId,
+            senderName = "Anda",
+            senderRole = _uiState.value.conversation?.memberType ?: "customer",
+            message = cleanedMessage,
+            createdAt = utcNow()
+        )
+
+        _uiState.update { state ->
+            state.copy(
+                isSending = true,
+                failedDraft = null,
+                error = null,
+                messages = state.messages + localMessage
+            )
+        }
         
         viewModelScope.launch {
-            chatRepository.sendOrderChat(orderId, messageText).collectLatest { result ->
-                result.onFailure { exception ->
-                    Log.e("ChatViewModel", "Failed to dispatch chat via REST", exception)
-                    _uiState.update { it.copy(error = "Gagal mengirim pesan. Sinyal lemah?") }
+            chatRepository.sendOrderChat(orderId, cleanedMessage, clientMessageId).collectLatest { result ->
+                result.onSuccess { sentMessage ->
+                    _uiState.update { state ->
+                        val withoutLocal = state.messages.filterNot { it.id == localMessageId }
+                        val hasSentMessage = withoutLocal.any { it.id == sentMessage.id && sentMessage.id != null }
+                        state.copy(
+                            isSending = false,
+                            messages = if (hasSentMessage) withoutLocal else withoutLocal + sentMessage
+                        )
+                    }
                 }
-                // Note: onSuccess is handled seamlessly because the backend Socket emit 
-                // transmits the new message to us as well, auto-updating the UI via flow!
+                result.onFailure { exception ->
+                    Log.e("ChatViewModel", "Failed to dispatch chat via REST: ${exception.javaClass.simpleName}")
+                    _uiState.update { state ->
+                        state.copy(
+                            isSending = false,
+                            messages = state.messages.filterNot { it.id == localMessageId },
+                            failedDraft = cleanedMessage,
+                            error = "Pesan belum terkirim. Coba lagi saat koneksi stabil."
+                        )
+                    }
+                }
             }
         }
+    }
+
+    fun retryFailedDraft() {
+        val draft = _uiState.value.failedDraft ?: return
+        _uiState.update { it.copy(failedDraft = null) }
+        sendMessage(draft)
+    }
+
+    fun dismissFailedDraft() {
+        _uiState.update { it.copy(failedDraft = null) }
     }
 
     fun clearError() {
@@ -120,5 +183,23 @@ class ChatViewModel @Inject constructor(
         // Keep socket connected in background or disconnect based on app policy.
         // For granular memory handling, disconnect socket when leaving the active screen.
         socketManager.disconnect()
+    }
+
+    private fun utcNow(): String {
+        val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+        return formatter.format(Date())
+    }
+
+    private fun markLastMessageRead(messages: List<ChatMessage>) {
+        val lastMessageId = messages.lastOrNull { !it.id.isNullOrBlank() }?.id
+        viewModelScope.launch {
+            chatRepository.markOrderChatRead(orderId, lastMessageId)
+        }
+    }
+
+    companion object {
+        private const val MAX_MESSAGE_LENGTH = 1000
     }
 }

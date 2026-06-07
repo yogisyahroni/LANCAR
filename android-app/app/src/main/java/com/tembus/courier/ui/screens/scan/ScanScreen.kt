@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.camera.core.CameraSelector
-import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
@@ -36,8 +35,13 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.common.InputImage
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
+import com.google.zxing.LuminanceSource
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.PlanarYUVLuminanceSource
+import com.google.zxing.common.HybridBinarizer
 import com.tembus.courier.domain.CourierProofTypes
 import com.tembus.courier.ui.theme.Primary
 import kotlinx.coroutines.launch
@@ -45,6 +49,24 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+
+private val barcodeDecodeHints = mapOf(
+    DecodeHintType.POSSIBLE_FORMATS to listOf(
+        BarcodeFormat.QR_CODE,
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+        BarcodeFormat.CODE_93,
+        BarcodeFormat.CODABAR,
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.ITF,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E,
+        BarcodeFormat.DATA_MATRIX,
+        BarcodeFormat.PDF_417
+    ),
+    DecodeHintType.TRY_HARDER to true
+)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -242,7 +264,6 @@ fun ScanScreen(
     }
 }
 
-@androidx.annotation.OptIn(ExperimentalGetImage::class)
 @Composable
 private fun BarcodeCameraPreview(
     enabled: Boolean,
@@ -277,7 +298,6 @@ private fun BarcodeCameraPreview(
     )
 }
 
-@ExperimentalGetImage
 private fun bindBarcodeCamera(
     context: Context,
     previewView: PreviewView,
@@ -287,7 +307,9 @@ private fun bindBarcodeCamera(
     onBarcodeDetected: (String) -> Unit
 ) {
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
-    val scanner = BarcodeScanning.getClient()
+    val barcodeReader = MultiFormatReader().apply {
+        setHints(barcodeDecodeHints)
+    }
 
     cameraProviderFuture.addListener({
         val cameraProvider = cameraProviderFuture.get()
@@ -302,7 +324,7 @@ private fun bindBarcodeCamera(
                     processBarcodeFrame(
                         imageProxy = imageProxy,
                         enabled = enabled,
-                        scanner = scanner,
+                        barcodeReader = barcodeReader,
                         onBarcodeDetected = onBarcodeDetected
                     )
                 }
@@ -322,30 +344,75 @@ private fun bindBarcodeCamera(
     }, ContextCompat.getMainExecutor(context))
 }
 
-@ExperimentalGetImage
 private fun processBarcodeFrame(
     imageProxy: ImageProxy,
     enabled: Boolean,
-    scanner: com.google.mlkit.vision.barcode.BarcodeScanner,
+    barcodeReader: MultiFormatReader,
     onBarcodeDetected: (String) -> Unit
 ) {
-    if (!enabled) {
-        imageProxy.close()
-        return
-    }
-    val mediaImage = imageProxy.image
-    if (mediaImage == null) {
-        imageProxy.close()
-        return
-    }
-    val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
-    scanner.process(image)
-        .addOnSuccessListener { barcodes ->
-            barcodes.firstOrNull()?.rawValue?.takeIf { it.isNotBlank() }?.let(onBarcodeDetected)
+    try {
+        if (!enabled) {
+            return
         }
-        .addOnCompleteListener {
-            imageProxy.close()
+
+        decodeBarcodeFromFrame(imageProxy, barcodeReader)
+            ?.takeIf { it.isNotBlank() }
+            ?.let(onBarcodeDetected)
+    } finally {
+        barcodeReader.reset()
+        imageProxy.close()
+    }
+}
+
+private fun decodeBarcodeFromFrame(
+    imageProxy: ImageProxy,
+    barcodeReader: MultiFormatReader
+): String? {
+    val yPlane = imageProxy.planes.firstOrNull() ?: return null
+    val width = imageProxy.width
+    val height = imageProxy.height
+    if (width <= 0 || height <= 0) return null
+
+    val buffer = yPlane.buffer.duplicate()
+    val rowStride = yPlane.rowStride
+    val pixelStride = yPlane.pixelStride
+    val luminance = ByteArray(width * height)
+
+    for (row in 0 until height) {
+        val rowOffset = row * rowStride
+        val outputOffset = row * width
+        for (column in 0 until width) {
+            luminance[outputOffset + column] = buffer.get(rowOffset + column * pixelStride)
         }
+    }
+
+    val source = PlanarYUVLuminanceSource(
+        luminance,
+        width,
+        height,
+        0,
+        0,
+        width,
+        height,
+        false
+    )
+
+    return decodeWithSource(barcodeReader, source)
+        ?: if (source.isRotateSupported) {
+            barcodeReader.reset()
+            decodeWithSource(barcodeReader, source.rotateCounterClockwise())
+        } else {
+            null
+        }
+}
+
+private fun decodeWithSource(
+    barcodeReader: MultiFormatReader,
+    source: LuminanceSource
+): String? {
+    return runCatching {
+        barcodeReader.decodeWithState(BinaryBitmap(HybridBinarizer(source))).text
+    }.getOrNull()
 }
 
 private suspend fun getCurrentVerificationLocation(context: Context): android.location.Location? {

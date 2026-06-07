@@ -152,7 +152,8 @@ data class CustomerOrderCreateRequest(
     @SerialName("schedule_type") val scheduleType: String = "now",
     @SerialName("customer_notes") val customerNotes: String = "",
     @SerialName("price_breakdown") val priceBreakdown: PriceBreakdown,
-    @SerialName("service_code") val serviceCode: String
+    @SerialName("service_code") val serviceCode: String,
+    @SerialName("promo_code") val promoCode: String? = null
 )
 
 @Serializable

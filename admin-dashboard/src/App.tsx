@@ -15,6 +15,7 @@ import Customers from './pages/Customers'
 import Analytics from './pages/Analytics'
 import Zones from './pages/Zones'
 import Vouchers from './pages/Vouchers'
+import Promos from './pages/Promos'
 import Notifications from './pages/Notifications'
 import Finance from './pages/Finance'
 import Settings from './pages/Settings'
@@ -168,6 +169,14 @@ function App() {
                 <Vouchers />
               </ProtectedRoute>
             } 
+          />
+          <Route
+            path="/promos"
+            element={
+              <ProtectedRoute>
+                <Promos />
+              </ProtectedRoute>
+            }
           />
           <Route 
             path="/notifications" 

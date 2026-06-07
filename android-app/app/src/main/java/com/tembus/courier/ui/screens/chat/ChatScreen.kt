@@ -1,6 +1,7 @@
 package com.tembus.courier.ui.screens.chat
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +39,11 @@ import java.util.*
 @Composable
 fun ChatScreen(
     orderId: String,
+    conversationTitle: String = "Hubungi Pelanggan",
+    conversationSubtitle: String = "Kirim pesan jika Anda butuh arahan jalan atau konfirmasi paket.",
+    inputPlaceholder: String = "Tulis pesan untuk pelanggan...",
+    isDeliveryGroup: Boolean = false,
+    onCallClick: () -> Unit = {},
     onBackClick: () -> Unit,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
@@ -45,9 +52,24 @@ fun ChatScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val courierId by viewModel.currentCourierId.collectAsState()
+    val conversation by viewModel.conversation.collectAsState()
 
     var textInput by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val showDeliveryGroupContext = isDeliveryGroup ||
+        conversation?.isGroup == true ||
+        conversation?.phase in setOf("delivery_group", "delivered")
+    val effectiveTitle = if (showDeliveryGroupContext) "Percakapan Pengantaran" else conversationTitle
+    val effectiveSubtitle = if (showDeliveryGroupContext) {
+        "Customer, kurir, dan penerima berada dalam satu ruang koordinasi."
+    } else {
+        conversationSubtitle
+    }
+    val effectivePlaceholder = if (showDeliveryGroupContext) {
+        "Tulis pesan di grup pengantaran..."
+    } else {
+        inputPlaceholder
+    }
 
     // Dynamic Side-Effects: Load chat history on mounting
     LaunchedEffect(orderId) {
@@ -74,13 +96,13 @@ fun ChatScreen(
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = "Hubungi Pelanggan",
+                            text = effectiveTitle,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                             color = Color.White
                         )
                         Text(
-                            text = "ID Pesanan: #$orderId",
+                            text = effectiveSubtitle,
                             fontSize = 12.sp,
                             color = Color.LightGray
                         )
@@ -91,6 +113,15 @@ fun ChatScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Kembali",
+                            tint = Color.White
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onCallClick) {
+                        Icon(
+                            imageVector = Icons.Default.Phone,
+                            contentDescription = "Telepon dalam aplikasi",
                             tint = Color.White
                         )
                     }
@@ -107,6 +138,13 @@ fun ChatScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            if (showDeliveryGroupContext) {
+                DeliveryGroupContextBanner(
+                    notice = conversation?.visibilityNotice,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+            }
+
             // ── MESSAGE STREAM CONTAINER ────────────────────────────────────
             Box(
                 modifier = Modifier
@@ -131,7 +169,7 @@ fun ChatScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Kirim pesan ke pelanggan jika Anda butuh arahan jalan atau konfirmasi paket.",
+                            text = effectiveSubtitle,
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.DarkGray,
                             textAlign = TextAlign.Center
@@ -178,7 +216,7 @@ fun ChatScreen(
                     OutlinedTextField(
                         value = textInput,
                         onValueChange = { textInput = it },
-                        placeholder = { Text("Tulis pesan untuk pelanggan...") },
+                        placeholder = { Text(effectivePlaceholder) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(24.dp),
                         maxLines = 4,
@@ -232,6 +270,11 @@ private fun ChatBubble(
     message: ChatMessage,
     isFromMe: Boolean
 ) {
+    if (message.messageType.lowercase(Locale.getDefault()) == "system") {
+        SystemMessageBubble(message = message.messageText)
+        return
+    }
+
     val timeFormatted = remember(message.createdAt) {
         try {
             if (message.createdAt.isNullOrBlank()) return@remember ""
@@ -294,6 +337,63 @@ private fun ChatBubble(
                     modifier = Modifier.align(Alignment.End)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun DeliveryGroupContextBanner(
+    notice: String?,
+    modifier: Modifier = Modifier
+) {
+    val caption = notice ?: "Penerima dapat bergabung setelah paket diambil. Semua koordinasi tetap berada di percakapan order ini."
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = Color(0xFFE8F5EE),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, Primary.copy(alpha = 0.18f))
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "Grup pengantaran aktif",
+                color = Color(0xFF0B3D2A),
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+            Text(
+                text = caption,
+                color = Color(0xFF526173),
+                fontSize = 12.sp,
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun SystemMessageBubble(message: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            color = Color(0xFFE8F5EE),
+            shape = RoundedCornerShape(999.dp),
+            border = BorderStroke(1.dp, Primary.copy(alpha = 0.14f))
+        ) {
+            Text(
+                text = message,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                color = Color(0xFF0B3D2A),
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                lineHeight = 16.sp
+            )
         }
     }
 }

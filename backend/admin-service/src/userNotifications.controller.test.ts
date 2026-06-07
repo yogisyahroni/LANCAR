@@ -1,8 +1,11 @@
 import {
+  getNotificationUnreadCount,
+  getUserNotifications,
+  markNotificationRead,
   registerDeviceToken,
   validateDeviceTokenRegistrationInput
 } from './controllers/userNotifications.controller';
-import { db } from './db';
+import { db, readDb } from './db';
 import { ensureUserDevicesTable } from './notifications';
 
 jest.mock('./db', () => ({
@@ -109,5 +112,100 @@ describe('mobile notification device token registration', () => {
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(db.query).not.toHaveBeenCalled();
+  });
+
+  it('lists notification deep links with category filter', async () => {
+    (readDb.query as jest.Mock).mockResolvedValue({
+      rows: [{
+        id: '11111111-1111-4111-8111-111111111111',
+        title: 'Pesan baru',
+        body: 'Kurir mengirim pesan.',
+        type: 'chat_message',
+        category: 'message',
+        priority: 'high',
+        is_read: false,
+        created_at: '2026-06-07T01:00:00.000Z',
+        order_id: '22222222-2222-4222-8222-222222222222',
+        deep_link: 'tembus://orders/22222222-2222-4222-8222-222222222222/chat',
+      }],
+    });
+
+    const req: any = {
+      user: { id: 'customer-user-1', role: 'customer' },
+      query: { category: 'message', limit: '20' },
+    };
+    const res = makeResponse();
+
+    await getUserNotifications(req, res);
+
+    expect(readDb.query).toHaveBeenCalledWith(expect.stringContaining('FROM notifications'), [
+      'customer-user-1',
+      'message',
+      20,
+    ]);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      success: true,
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          category: 'message',
+          deep_link: 'tembus://orders/22222222-2222-4222-8222-222222222222/chat',
+        }),
+      ]),
+    }));
+  });
+
+  it('marks a notification read only for the authenticated owner', async () => {
+    const notificationId = '11111111-1111-4111-8111-111111111111';
+    (db.query as jest.Mock).mockResolvedValue({
+      rowCount: 1,
+      rows: [{ id: notificationId, is_read: true, read_at: '2026-06-07T01:01:00.000Z' }],
+    });
+
+    const req: any = {
+      user: { id: 'customer-user-1', role: 'customer' },
+      params: { id: notificationId },
+    };
+    const res = makeResponse();
+
+    await markNotificationRead(req, res);
+
+    expect(db.query).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1 AND user_id = $2'), [
+      notificationId,
+      'customer-user-1',
+    ]);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+      success: true,
+      data: expect.objectContaining({ is_read: true }),
+    }));
+  });
+
+  it('returns unread counts grouped by notification category', async () => {
+    (readDb.query as jest.Mock).mockResolvedValue({
+      rows: [
+        { category: 'message', count: 2 },
+        { category: 'promo', count: 1 },
+      ],
+    });
+
+    const req: any = {
+      user: { id: 'customer-user-1', role: 'customer' },
+    };
+    const res = makeResponse();
+
+    await getNotificationUnreadCount(req, res);
+
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      data: {
+        total: 3,
+        by_category: expect.objectContaining({
+          message: 2,
+          promo: 1,
+          activity: 0,
+          support: 0,
+          system: 0,
+        }),
+      },
+    });
   });
 });

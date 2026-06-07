@@ -6,6 +6,30 @@ import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } fro
 import { calculateServiceSettlement, customerFacingService, DeliveryServiceProduct, findDeliveryServiceByCode } from './deliveryServices.controller';
 import { buildMapsRouteEtaSnapshot, RouteEtaSnapshot } from '../services/mapsProviderConfig';
 
+const normalizePhoneForPrivateLookup = (value: any) => {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('0')) {
+    digits = `62${digits.slice(1)}`;
+  } else if (digits.startsWith('8')) {
+    digits = `62${digits}`;
+  }
+  if (digits.length < 8 || digits.length > 18) return null;
+  return digits;
+};
+
+const phoneHashSecret = () => {
+  const configured = process.env.PHONE_HASH_SECRET || process.env.JWT_SECRET || process.env.JWT_REFRESH_SECRET || '';
+  if (configured) return configured;
+  return process.env.NODE_ENV === 'production' ? '' : 'development-only-recipient-phone-hash-secret';
+};
+
+const hashPhoneForPrivateLookup = (value: any) => {
+  const phone = normalizePhoneForPrivateLookup(value);
+  const secret = phoneHashSecret();
+  if (!phone || !secret) return null;
+  return crypto.createHmac('sha256', secret).update(phone).digest('hex');
+};
+
 type BulkPricingResult = {
   price: Record<string, number | string | null>;
   errors: string[];
@@ -523,6 +547,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
           dropoff_location,
           recipient_name,
           recipient_phone_masked,
+          recipient_phone_hash,
           model, 
           service_code,
           service_snapshot,
@@ -547,7 +572,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         ) VALUES (
           $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
           $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
-          $11, $12, $13, 'pending_payment', $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, 'now', NOW()
+          $11, $12, $13, $14, 'pending_payment', $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, 'now', NOW()
         ) RETURNING id, order_number
       `;
 
@@ -562,6 +587,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         row.dropoff_location.lat,
         row.recipient_name,
         row.recipient_phone.replace(/\d(?=\d{4})/g, "*"),
+        hashPhoneForPrivateLookup(row.recipient_phone),
         bulkService.route_model,
         bulkService.code,
         JSON.stringify(customerFacingService(bulkService)),

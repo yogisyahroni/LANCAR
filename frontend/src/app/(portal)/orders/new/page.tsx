@@ -24,6 +24,24 @@ interface RoutePreviewSnapshot {
   fallback_reason?: string | null;
 }
 
+interface PromoQuote {
+  eligible: boolean;
+  reason?: string | null;
+  discount_idr?: number;
+  campaign?: {
+    id?: string;
+    code?: string;
+    name?: string;
+  } | null;
+}
+
+interface EligiblePromo {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+}
+
 const deriveRouteVehicleType = (service?: DeliveryService) => {
   const vehicleTypes = service?.vehicle_types?.map((vehicleType) => vehicleType.toLowerCase()) || [];
   if (vehicleTypes.some((vehicleType) => vehicleType.includes("car") || vehicleType.includes("mobil"))) {
@@ -44,6 +62,12 @@ export default function NewOrderPage() {
   const [coverageError, setCoverageError] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<DeliveryService | undefined>();
   const [scanRequired, setScanRequired] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoQuote, setPromoQuote] = useState<PromoQuote | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [isPromoChecking, setIsPromoChecking] = useState(false);
+  const [eligiblePromos, setEligiblePromos] = useState<EligiblePromo[]>([]);
+  const [isEligiblePromoLoading, setIsEligiblePromoLoading] = useState(false);
   
   const [showPayment, setShowPayment] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
@@ -52,6 +76,7 @@ export default function NewOrderPage() {
   const router = useRouter();
   const { addNotification } = useNotificationStore();
   const routePreviewRequestRef = useRef(0);
+  const promoRequestRef = useRef(0);
 
   const calculateRoutePreview = useCallback(async (data: Partial<OrderFormValues>, service?: DeliveryService) => {
     const pickup = data.pickup_location;
@@ -196,6 +221,53 @@ export default function NewOrderPage() {
     calculatePricing
   ]);
 
+  useEffect(() => {
+    setPromoQuote(null);
+    setPromoError(null);
+  }, [
+    pricing?.total_price_idr,
+    pricing?.insurance_premium_idr,
+    formData.service_code,
+    selectedService?.code
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const serviceCode = formData.service_code;
+    if (!serviceCode) {
+      setEligiblePromos([]);
+      setIsEligiblePromoLoading(false);
+      return;
+    }
+
+    setIsEligiblePromoLoading(true);
+    api.get("/customer/promos/eligible", {
+      params: {
+        service_code: serviceCode,
+        limit: 6
+      }
+    })
+      .then((response) => {
+        if (cancelled) return;
+        setEligiblePromos(Array.isArray(response.data?.data) ? response.data.data : []);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        clientLog.warn("Eligible promo list unavailable", {
+          status: error.response?.status,
+          code: error.response?.data?.code
+        });
+        setEligiblePromos([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsEligiblePromoLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.service_code]);
+
   const handleFormChange = useCallback((data: Partial<OrderFormValues>, valid: boolean, context?: { selectedService?: DeliveryService; scanRequired: boolean }) => {
     setFormData(data);
     setIsValid(valid);
@@ -203,13 +275,57 @@ export default function NewOrderPage() {
     setScanRequired(Boolean(context?.scanRequired));
   }, []);
 
+  const handleValidatePromo = useCallback(async () => {
+    const code = promoCode.trim().toUpperCase();
+    if (!code || !pricing || !formData.service_code) {
+      setPromoQuote(null);
+      setPromoError("Lengkapi layanan dan harga sebelum memakai promo.");
+      return;
+    }
+
+    const requestId = promoRequestRef.current + 1;
+    promoRequestRef.current = requestId;
+    setIsPromoChecking(true);
+    setPromoError(null);
+
+    try {
+      const response = await api.post("/auth/web/promos/validate", {
+        code,
+        service_code: formData.service_code,
+        vehicle_type: deriveRouteVehicleType(selectedService),
+        gross_amount_idr: pricing.total_price_idr,
+        insurance_amount_idr: pricing.insurance_premium_idr || 0
+      });
+
+      if (promoRequestRef.current !== requestId) return;
+
+      const quote = response.data?.data as PromoQuote;
+      setPromoQuote(quote);
+      setPromoError(quote?.eligible ? null : quote?.reason || "Promo tidak dapat digunakan.");
+    } catch (error: any) {
+      if (promoRequestRef.current !== requestId) return;
+      setPromoQuote(null);
+      setPromoError(
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        "Promo belum bisa diverifikasi."
+      );
+    } finally {
+      if (promoRequestRef.current === requestId) {
+        setIsPromoChecking(false);
+      }
+    }
+  }, [formData.service_code, pricing, promoCode, selectedService]);
+
   const handleSubmit = async (data: OrderFormValues) => {
     if (!pricing) return;
     setIsSubmitting(true);
     try {
+      const appliedPromoCode = promoQuote?.eligible ? promoCode.trim().toUpperCase() : undefined;
       const payload = {
         ...data,
-        price_breakdown: pricing
+        price_breakdown: pricing,
+        promo_code: appliedPromoCode
       };
       
       const res = await api.post('/auth/web/orders', payload);
@@ -277,6 +393,14 @@ export default function NewOrderPage() {
             routeError={routePreviewError}
             pricing={pricing}
             isValid={isValid}
+            promoCode={promoCode}
+            promoQuote={promoQuote}
+            promoError={promoError}
+            isPromoChecking={isPromoChecking}
+            eligiblePromos={eligiblePromos}
+            isEligiblePromoLoading={isEligiblePromoLoading}
+            onPromoCodeChange={setPromoCode}
+            onValidatePromo={handleValidatePromo}
           />
         </div>
       </div>
@@ -290,7 +414,7 @@ export default function NewOrderPage() {
           snapJsUrl={paymentData.snap_js_url}
           clientKey={paymentData.client_key}
           redirectUrl={paymentData.redirect_url}
-          amount={pricing?.total_price_idr || 0}
+          amount={orderData?.total_price_idr || pricing?.total_price_idr || 0}
           onSuccess={handlePaymentSuccess}
         />
       )}

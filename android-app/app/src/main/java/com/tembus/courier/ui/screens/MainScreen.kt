@@ -82,6 +82,9 @@ import com.tembus.courier.data.session.AuthSessionManager
 import com.tembus.courier.service.LocationTrackerService
 import com.tembus.courier.ui.components.maps.RuntimeMapMarker
 import com.tembus.courier.ui.components.maps.RuntimeMapRenderer
+import com.tembus.courier.ui.screens.call.CallEventsViewModel
+import com.tembus.courier.ui.screens.call.InAppCallScreen
+import com.tembus.courier.ui.screens.call.InAppCallState
 import com.tembus.courier.ui.screens.order.OrderDetailScreen
 import com.tembus.courier.ui.screens.order.OrderScreen
 import com.tembus.courier.ui.screens.order.OrderViewModel
@@ -124,8 +127,10 @@ private val CourierRouteStateSaver = Saver<CourierRouteState, List<String>>(
         listOf(
             state.screen.name,
             state.orderId.orEmpty(),
+            state.callId.orEmpty(),
             state.scanType,
-            state.proofMode
+            state.proofMode,
+            state.callTargetType
         )
     },
     restore = { raw ->
@@ -135,8 +140,10 @@ private val CourierRouteStateSaver = Saver<CourierRouteState, List<String>>(
         CourierRouteState(
             screen = screen,
             orderId = raw.getOrNull(1)?.takeIf { it.isNotBlank() },
-            scanType = raw.getOrNull(2) ?: CourierProofTypes.PICKUP_SCAN,
-            proofMode = raw.getOrNull(3) ?: CourierProofTypes.DELIVERY_POD_PHOTO
+            callId = raw.getOrNull(2)?.takeIf { it.isNotBlank() },
+            scanType = raw.getOrNull(3) ?: CourierProofTypes.PICKUP_SCAN,
+            proofMode = raw.getOrNull(4) ?: CourierProofTypes.DELIVERY_POD_PHOTO,
+            callTargetType = raw.getOrNull(5)?.takeIf { it.isNotBlank() } ?: "customer"
         )
     }
 )
@@ -166,6 +173,7 @@ fun MainScreen(
 
     // Real ViewModel backed by Hilt/Room DB
     val orderViewModel: OrderViewModel = hiltViewModel()
+    val callEventsViewModel: CallEventsViewModel = hiltViewModel()
 
     val allOrders by orderViewModel.allOrders.collectAsState()
     val pendingOrders by orderViewModel.pendingOrders.collectAsState()
@@ -226,6 +234,7 @@ fun MainScreen(
     val showOrderDetail = routeState.screen == CourierRouteScreen.ORDER_DETAIL
     val showScanScreen = routeState.screen == CourierRouteScreen.SCAN
     val showChatScreen = routeState.screen == CourierRouteScreen.CHAT
+    val showCallScreen = routeState.screen == CourierRouteScreen.CALL
     val activeScanType = routeState.scanType
     val activeProofMode = routeState.proofMode
     var pickupScanVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -253,7 +262,8 @@ fun MainScreen(
         showPodScreen ||
         showOrderDetail ||
         showScanScreen ||
-        showChatScreen
+        showChatScreen ||
+        showCallScreen
 
     SecureScreenEffect(enabled = secureScreenRequired)
 
@@ -394,6 +404,11 @@ fun MainScreen(
         routeState = CourierRouteReducer.chat(order.orderId)
     }
 
+    fun openCall(order: Order, callId: String? = null) {
+        selectedOrder = order
+        routeState = CourierRouteReducer.call(order.orderId, callId, order.communicationCallTargetType())
+    }
+
     fun openScan(order: Order?, scanType: String = CourierProofTypes.PICKUP_SCAN) {
         selectedOrder = order
         routeState = CourierRouteReducer.scan(order?.orderId, scanType)
@@ -424,6 +439,20 @@ fun MainScreen(
             ?: orderViewModel.getOrderById(orderId)
         if (cachedOrder != null) {
             selectedOrder = cachedOrder
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        callEventsViewModel.incomingCallInvites.collect { invite ->
+            val order = orderViewModel.getOrderById(invite.orderId)
+                ?: roleOrders.firstOrNull { it.orderId == invite.orderId }
+                ?: onDemandOffers.firstOrNull { it.orderId == invite.orderId }
+            if (order != null) {
+                selectedOrder = order
+                routeState = CourierRouteReducer.call(invite.orderId, invite.callId, order.communicationCallTargetType())
+            } else {
+                snackbarHostState.showSnackbar("Panggilan masuk diterima, tetapi order belum tersinkron.")
+            }
         }
     }
 
@@ -604,6 +633,9 @@ fun MainScreen(
             onChatClick = {
                 openChat(order)
             },
+            onCallClick = {
+                openCall(order)
+            },
             onSosClick = {
                 scope.launch {
                     sendSafetyEvent(order, "sos", "critical", "Kurir membutuhkan bantuan segera di pekerjaan aktif.")
@@ -642,8 +674,31 @@ fun MainScreen(
     selectedOrder?.takeIf { showChatScreen }?.let { order ->
         ChatScreen(
             orderId = order.orderId,
+            conversationTitle = order.communicationChatTitle(),
+            conversationSubtitle = order.communicationChatSubtitle(),
+            inputPlaceholder = order.communicationChatPlaceholder(),
+            isDeliveryGroup = order.communicationIsDeliveryGroup(),
+            onCallClick = {
+                openCall(order)
+            },
             onBackClick = {
                 backToOrderOrHome()
+            }
+        )
+        return
+    }
+
+    // ── In-app Call Screen ─────────────────────────────────────
+    selectedOrder?.takeIf { showCallScreen }?.let { order ->
+        InAppCallScreen(
+            orderId = order.orderId,
+            targetName = order.communicationCallTargetLabel(),
+            targetType = routeState.callTargetType,
+            initialState = if (routeState.callId.isNullOrBlank()) InAppCallState.OUTGOING else InAppCallState.INCOMING,
+            routeCallId = routeState.callId,
+            onBackClick = { backToOrderOrHome() },
+            onOpenChat = {
+                routeState = CourierRouteReducer.chat(order.orderId)
             }
         )
         return
@@ -5707,6 +5762,63 @@ private fun courierCurrentTaskTitle(courierRole: String): String = when (normali
 private fun courierEmptyTaskTitle(courierRole: String): String = when (normalizeCourierMode(courierRole)) {
     "regular" -> "Belum ada order regular aktif"
     else -> "Belum ada tugas aktif"
+}
+
+private fun Order.communicationCallTargetType(): String {
+    return if (communicationShouldCallRecipient()) {
+        "recipient"
+    } else {
+        "customer"
+    }
+}
+
+private fun Order.communicationIsDeliveryGroup(): Boolean {
+    return status.trim().lowercase() in setOf(
+        "picked_up",
+        "in_transit",
+        "delivering",
+        "delivered",
+        "completed"
+    )
+}
+
+private fun Order.communicationShouldCallRecipient(): Boolean {
+    return status.trim().lowercase() in setOf(
+        "picked_up",
+        "in_transit",
+        "delivering"
+    )
+}
+
+private fun Order.communicationCallTargetLabel(): String {
+    return when (communicationCallTargetType()) {
+        "recipient" -> "Penerima"
+        else -> customerName.takeIf { it.isNotBlank() } ?: "Pelanggan"
+    }
+}
+
+private fun Order.communicationChatTitle(): String {
+    return if (communicationIsDeliveryGroup()) {
+        "Percakapan Pengantaran"
+    } else {
+        "Hubungi Pelanggan"
+    }
+}
+
+private fun Order.communicationChatSubtitle(): String {
+    return if (communicationIsDeliveryGroup()) {
+        "Koordinasi customer, kurir, dan penerima tetap di satu percakapan order."
+    } else {
+        "Kirim pesan jika Anda butuh arahan pickup atau konfirmasi paket."
+    }
+}
+
+private fun Order.communicationChatPlaceholder(): String {
+    return if (communicationIsDeliveryGroup()) {
+        "Tulis pesan di grup pengantaran..."
+    } else {
+        "Tulis pesan untuk pelanggan..."
+    }
 }
 
 private fun orderSyncHint(isOnline: Boolean, lastRemoteSyncAt: Long?): String {

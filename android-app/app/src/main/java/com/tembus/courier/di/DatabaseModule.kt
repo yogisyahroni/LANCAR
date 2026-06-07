@@ -12,9 +12,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import net.sqlcipher.database.SQLiteDatabase
-import net.sqlcipher.database.SupportFactory
-import java.io.File
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import java.util.UUID
 import javax.inject.Singleton
 
@@ -53,7 +51,7 @@ object DatabaseModule {
             prefs.edit().putString("db_passphrase", passphraseStr).apply()
         }
         
-        return SQLiteDatabase.getBytes(passphraseStr.toCharArray())
+        return passphraseStr.toByteArray(Charsets.UTF_8)
     }
 
     @Provides
@@ -62,7 +60,7 @@ object DatabaseModule {
         @ApplicationContext context: Context
     ): OrderDatabase {
         val passphrase = getOrCreateDatabasePassphrase(context)
-        val factory = SupportFactory(passphrase)
+        val factory = SupportOpenHelperFactory(passphrase)
 
         return Room.databaseBuilder(
             context,

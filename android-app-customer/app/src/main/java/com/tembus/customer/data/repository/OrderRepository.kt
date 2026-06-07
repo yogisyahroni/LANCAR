@@ -27,6 +27,20 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    fun getIncomingPackages(): Flow<Result<List<Order>>> = flow {
+        try {
+            val response = apiService.getIncomingPackages()
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                emit(Result.success(body.data ?: emptyList()))
+            } else {
+                emit(Result.failure(Exception(response.readErrorMessage(body?.message ?: "Paket masuk belum dapat dimuat"))))
+            }
+        } catch (e: Exception) {
+            emit(Result.failure(e))
+        }
+    }
+
     fun getCustomerDeliveryServices(): Flow<Result<List<DeliveryServiceProduct>>> = flow {
         try {
             val response = apiService.getCustomerDeliveryServices()
@@ -187,6 +201,21 @@ class OrderRepository @Inject constructor(
                 Result.success(link)
             } else {
                 Result.failure(Exception(response.readErrorMessage(body?.message ?: "Lokasi penerima belum tersedia")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun revokeReceiverLocationRequest(id: String): Result<ReceiverLocationLink> {
+        return try {
+            val response = apiService.revokeReceiverLocationRequest(id)
+            val body = response.body()
+            val link = body?.data
+            if (response.isSuccessful && body?.success == true && link != null) {
+                Result.success(link)
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal membatalkan link lokasi penerima")))
             }
         } catch (e: Exception) {
             Result.failure(e)

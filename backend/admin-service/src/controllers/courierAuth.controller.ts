@@ -801,7 +801,20 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          COALESCE(ol.status, o.status) AS status,
          (EXTRACT(EPOCH FROM o.created_at) * 1000)::bigint AS created_at,
          (EXTRACT(EPOCH FROM GREATEST(o.updated_at, ol.updated_at)) * 1000)::bigint AS updated_at,
-         o.recipient_phone_masked AS customer_phone,
+         NULL::text AS customer_phone,
+         CASE
+           WHEN LOWER(COALESCE(ol.status, o.status)) IN ('picked_up', 'in_transit') THEN 'recipient'
+           ELSE 'customer'
+         END AS primary_contact_target,
+         jsonb_build_object(
+           'customer', jsonb_build_object('label', 'Customer', 'available', o.customer_id IS NOT NULL),
+           'recipient', jsonb_build_object(
+             'label', 'Penerima',
+             'available', LOWER(COALESCE(ol.status, o.status)) IN ('picked_up', 'in_transit')
+           ),
+           'support', jsonb_build_object('label', 'Support', 'available', TRUE),
+           'raw_phone_exposed', FALSE
+         ) AS communication_targets,
          EXISTS (
            SELECT 1 FROM package_scans ps
            WHERE ps.order_id = o.id
@@ -928,7 +941,20 @@ const mobileOrderSelect = `
   COALESCE(ol.status, o.status) AS status,
   (EXTRACT(EPOCH FROM o.created_at) * 1000)::bigint AS created_at,
   (EXTRACT(EPOCH FROM GREATEST(o.updated_at, COALESCE(ol.updated_at, o.updated_at))) * 1000)::bigint AS updated_at,
-  o.recipient_phone_masked AS customer_phone,
+  NULL::text AS customer_phone,
+  CASE
+    WHEN LOWER(COALESCE(ol.status, o.status)) IN ('picked_up', 'in_transit') THEN 'recipient'
+    ELSE 'customer'
+  END AS primary_contact_target,
+  jsonb_build_object(
+    'customer', jsonb_build_object('label', 'Customer', 'available', o.customer_id IS NOT NULL),
+    'recipient', jsonb_build_object(
+      'label', 'Penerima',
+      'available', LOWER(COALESCE(ol.status, o.status)) IN ('picked_up', 'in_transit')
+    ),
+    'support', jsonb_build_object('label', 'Support', 'available', TRUE),
+    'raw_phone_exposed', FALSE
+  ) AS communication_targets,
   EXISTS (
     SELECT 1 FROM package_scans ps
     WHERE ps.order_id = o.id

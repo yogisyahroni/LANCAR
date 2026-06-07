@@ -23,7 +23,8 @@ import {
   ChevronRight,
   Layers,
   ShieldAlert,
-  TrendingUp
+  TrendingUp,
+  BadgePercent
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -171,6 +172,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: Map, label: "Zones", path: "/zones" },
     { icon: Map, label: "Maps Runtime", path: "/maps-runtime" },
     { icon: Ticket, label: "Vouchers", path: "/vouchers" },
+    { icon: BadgePercent, label: "Promos", path: "/promos" },
     { icon: Bell, label: "Notifications", path: "/notifications" },
     { icon: Package, label: "Orders", path: "/orders" },
     { icon: Layers, label: "Warehouse Ops", path: "/warehouse-operations" },

@@ -38,6 +38,12 @@ import com.tembus.courier.data.model.ScanRequest
 import com.tembus.courier.data.model.ScanResponse
 import com.tembus.courier.data.model.StatusUpdateRequest
 import com.tembus.courier.data.model.ChatResponse
+import com.tembus.courier.data.model.CallResponse
+import com.tembus.courier.data.model.CreateCallRequest
+import com.tembus.courier.data.model.EndCallRequest
+import com.tembus.courier.data.model.JoinCallRequest
+import com.tembus.courier.data.model.ReadReceiptRequest
+import com.tembus.courier.data.model.ReadReceiptResponse
 import com.tembus.courier.data.model.SendMessageRequest
 import com.tembus.courier.data.model.SendMessageResponse
 import com.tembus.courier.data.model.TripShareData
@@ -320,4 +326,35 @@ interface TEMBUSApiService {
         @Path("id") id: String,
         @Body request: SendMessageRequest
     ): Response<SendMessageResponse>
+
+    @GET("api/v1/mobile/orders/{id}/conversation")
+    suspend fun getOrderConversation(
+        @Path("id") id: String
+    ): Response<ChatResponse>
+
+    @PATCH("api/v1/mobile/orders/{id}/conversation/read")
+    suspend fun markOrderConversationRead(
+        @Path("id") id: String,
+        @Body request: ReadReceiptRequest
+    ): Response<ReadReceiptResponse>
+
+    @POST("api/v1/mobile/orders/{id}/calls")
+    suspend fun createOrderCall(
+        @Path("id") id: String,
+        @Body request: CreateCallRequest
+    ): Response<CallResponse>
+
+    @POST("api/v1/mobile/orders/{id}/calls/{callId}/join")
+    suspend fun joinOrderCall(
+        @Path("id") id: String,
+        @Path("callId") callId: String,
+        @Body request: JoinCallRequest
+    ): Response<CallResponse>
+
+    @POST("api/v1/mobile/orders/{id}/calls/{callId}/end")
+    suspend fun endOrderCall(
+        @Path("id") id: String,
+        @Path("callId") callId: String,
+        @Body request: EndCallRequest
+    ): Response<CallResponse>
 }

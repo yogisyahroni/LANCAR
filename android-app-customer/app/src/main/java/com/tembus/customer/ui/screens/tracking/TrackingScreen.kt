@@ -5,9 +5,6 @@ import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
-import android.content.Intent
-import android.net.Uri
-import android.widget.Toast
 import coil.compose.AsyncImage
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -33,7 +30,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -55,10 +51,10 @@ fun TrackingScreen(
     orderId: String,
     viewModel: TrackingViewModel,
     onBackClick: () -> Unit,
-    onChatClick: (String, String?, String?) -> Unit
+    onChatClick: (String, String?) -> Unit,
+    onCallClick: (String, String?) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
 
     // Initialize polling when screen opens
     LaunchedEffect(orderId) {
@@ -139,26 +135,16 @@ fun TrackingScreen(
                 staleTrackingReason = uiState.staleTrackingReason,
                 lastLiveTrackingAt = uiState.lastLiveTrackingAt,
                 onCallClick = {
-                    val phone = uiState.detail?.order?.courierPhone
-                    if (!phone.isNullOrBlank()) {
-                        try {
-                            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Gagal membuka dialer telepon", Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        Toast.makeText(context, "Nomor telepon kurir tidak tersedia", Toast.LENGTH_SHORT).show()
-                    }
+                    onCallClick(orderId, uiState.detail?.order?.courierName)
                 },
                 onChatClick = {
                     // Seamless navigation into real-time full duplex chat screen passing the courier metadata
                     onChatClick(
                         orderId,
-                        uiState.detail?.order?.courierName,
-                        uiState.detail?.order?.courierPhone
+                        uiState.detail?.order?.courierName
                     )
                 },
+                hasUnreadMessage = uiState.hasUnreadMessage,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp)
             )
         }
@@ -240,6 +226,7 @@ fun CourierStatusCard(
     lastLiveTrackingAt: Long?,
     onCallClick: () -> Unit,
     onChatClick: () -> Unit,
+    hasUnreadMessage: Boolean,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -358,20 +345,31 @@ fun CourierStatusCard(
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    FilledIconButton(
-                        onClick = onChatClick,
-                        modifier = Modifier.size(42.dp),
-                        shape = CircleShape,
-                        colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = Primary
-                        )
-                    ) {
-                        Icon(
-            imageVector = Icons.Default.ChatBubbleOutline,
-                            contentDescription = "Pesan",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    Box {
+                        FilledIconButton(
+                            onClick = onChatClick,
+                            modifier = Modifier.size(42.dp),
+                            shape = CircleShape,
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = Primary
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ChatBubbleOutline,
+                                contentDescription = "Pesan",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        if (hasUnreadMessage) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(11.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFF7A00))
+                            )
+                        }
                     }
                 }
             }

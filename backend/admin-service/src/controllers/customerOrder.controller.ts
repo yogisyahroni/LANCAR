@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import type { PoolClient } from 'pg';
 import { db } from '../db';
 import { createNotification } from '../notifications';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../midtrans';
@@ -11,8 +12,19 @@ import { buildOnDemandTrackingSnapshot, evaluateLocationQuality, writeLocationSa
 import { evaluateOnDemandRealtimeAlerts } from '../services/realtimeObservability';
 import { buildMapsRouteEtaSnapshot, RouteEtaSnapshot } from '../services/mapsProviderConfig';
 import { enqueueOutboxEvent } from '../services/eventOutbox';
+import {
+  createOrderCallSession,
+  endOrderCallSession,
+  errorStatusCode,
+  joinOrderCallSession,
+  listConversationChats,
+  markConversationRead,
+  revokeReceiverLocationInvite,
+  sendConversationChat,
+} from '../services/orderCommunication';
 import crypto from 'crypto';
 import { saveSecureUploadBuffer } from '../security/uploadSecurity';
+import { releasePromoReservation, validatePromoForCheckout } from '../services/promoEngine';
 import {
   insertWebhookAuditEvent,
   resolveRawBody,
@@ -70,6 +82,132 @@ const publicBaseUrl = () =>
 
 const sha256 = (value: string) =>
   crypto.createHash('sha256').update(value).digest('hex');
+
+const normalizePromoCode = (value: unknown) => {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (!normalized) return null;
+  return /^[A-Z0-9_-]{3,40}$/.test(normalized) ? normalized : null;
+};
+
+const buildPromoReservationKey = (orderIdempotencyKey: unknown, customerId: string, promoCode: string) =>
+  sha256(`customer-order-promo:${customerId}:${String(orderIdempotencyKey || '')}:${promoCode}`);
+
+const redeemReservedPromosForPaidOrder = async (client: PoolClient, customerId: string, orderId: string) => {
+  const { rows } = await client.query(
+    `SELECT campaign_id, discount_idr, idempotency_key
+       FROM promo_redemptions
+      WHERE order_id = $1
+        AND user_id = $2
+        AND status = 'reserved'
+      FOR UPDATE`,
+    [orderId, customerId]
+  );
+
+  for (const redemption of rows) {
+    const discountIdr = Number(redemption.discount_idr || 0);
+    if (!Number.isInteger(discountIdr) || discountIdr <= 0) continue;
+
+    await client.query(
+      `UPDATE promo_redemptions
+          SET status = 'redeemed',
+              redeemed_at = NOW()
+        WHERE campaign_id = $1
+          AND user_id = $2
+          AND order_id = $3
+          AND idempotency_key = $4
+          AND status = 'reserved'`,
+      [redemption.campaign_id, customerId, orderId, redemption.idempotency_key]
+    );
+
+    await client.query(
+      `UPDATE promo_budget_ledger
+          SET status = 'redeemed'
+        WHERE campaign_id = $1
+          AND user_id = $2
+          AND order_id = $3
+          AND idempotency_key = $4
+          AND ledger_type = 'reserve'
+          AND status = 'active'`,
+      [redemption.campaign_id, customerId, orderId, redemption.idempotency_key]
+    );
+
+    await client.query(
+      `INSERT INTO promo_budget_ledger (
+         campaign_id, user_id, order_id, ledger_type, amount_idr, idempotency_key, status, metadata
+       )
+       VALUES ($1, $2, $3, 'redeem', $4, $5, 'redeemed', $6::jsonb)
+       ON CONFLICT (campaign_id, idempotency_key, ledger_type) DO NOTHING`,
+      [
+        redemption.campaign_id,
+        customerId,
+        orderId,
+        discountIdr,
+        redemption.idempotency_key,
+        JSON.stringify({ source: 'payment_confirmed' })
+      ]
+    );
+
+    await client.query(
+      `UPDATE promo_campaigns
+          SET reserved_budget_idr = GREATEST(0, reserved_budget_idr - $2),
+              redeemed_budget_idr = redeemed_budget_idr + $2,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [redemption.campaign_id, discountIdr]
+    );
+  }
+};
+
+const releaseReservedPromosForOrders = async (client: PoolClient, orderIds: string[]) => {
+  if (orderIds.length === 0) return;
+
+  const { rows } = await client.query(
+    `SELECT campaign_id, user_id, order_id, discount_idr, idempotency_key
+       FROM promo_redemptions
+      WHERE order_id = ANY($1::uuid[])
+        AND status = 'reserved'
+      FOR UPDATE`,
+    [orderIds]
+  );
+
+  for (const redemption of rows) {
+    const discountIdr = Number(redemption.discount_idr || 0);
+    if (!Number.isInteger(discountIdr) || discountIdr <= 0) continue;
+
+    await client.query(
+      `UPDATE promo_redemptions
+          SET status = 'released',
+              released_at = NOW()
+        WHERE campaign_id = $1
+          AND user_id = $2
+          AND order_id = $3
+          AND idempotency_key = $4
+          AND status = 'reserved'`,
+      [redemption.campaign_id, redemption.user_id, redemption.order_id, redemption.idempotency_key]
+    );
+
+    await client.query(
+      `UPDATE promo_budget_ledger
+          SET status = 'released',
+              released_at = NOW()
+        WHERE campaign_id = $1
+          AND user_id = $2
+          AND order_id = $3
+          AND idempotency_key = $4
+          AND ledger_type = 'reserve'
+          AND status = 'active'`,
+      [redemption.campaign_id, redemption.user_id, redemption.order_id, redemption.idempotency_key]
+    );
+
+    await client.query(
+      `UPDATE promo_campaigns
+          SET reserved_budget_idr = GREATEST(0, reserved_budget_idr - $2),
+              updated_at = NOW()
+        WHERE id = $1`,
+      [redemption.campaign_id, discountIdr]
+    );
+  }
+};
 
 const receiverLocationBaseUrl = () =>
   process.env.RECEIVER_LOCATION_PUBLIC_URL || publicBaseUrl();
@@ -138,6 +276,30 @@ const normalizeCustomerProfilePhone = (value: any) => {
   const normalized = raw.replace(/[^\d+]/g, '');
   if (normalized.length < 8 || normalized.length > 20) return null;
   return normalized;
+};
+
+const normalizePhoneForPrivateLookup = (value: any) => {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('0')) {
+    digits = `62${digits.slice(1)}`;
+  } else if (digits.startsWith('8')) {
+    digits = `62${digits}`;
+  }
+  if (digits.length < 8 || digits.length > 18) return null;
+  return digits;
+};
+
+const phoneHashSecret = () => {
+  const configured = process.env.PHONE_HASH_SECRET || process.env.JWT_SECRET || process.env.JWT_REFRESH_SECRET || '';
+  if (configured) return configured;
+  return process.env.NODE_ENV === 'production' ? '' : 'development-only-recipient-phone-hash-secret';
+};
+
+const hashPhoneForPrivateLookup = (value: any) => {
+  const phone = normalizePhoneForPrivateLookup(value);
+  const secret = phoneHashSecret();
+  if (!phone || !secret) return null;
+  return crypto.createHmac('sha256', secret).update(phone).digest('hex');
 };
 
 const normalizeCoordinatePayload = (value: any): CoordinatePayload | null => {
@@ -422,6 +584,32 @@ const publicRouteSnapshot = (route: RouteEtaSnapshot) => {
     source: 'maps_provider_gateway',
   };
 };
+
+const publicConversationContext = (access: {
+  conversationId: string;
+  orderId: string;
+  memberType: string;
+  conversationPhase: string;
+  isGroup: boolean;
+  participantCount: number;
+  recipientJoined: boolean;
+  canCallCustomer: boolean;
+  canCallCourier: boolean;
+  canCallRecipient: boolean;
+  visibilityNotice: string | null;
+}) => ({
+  id: access.conversationId,
+  order_id: access.orderId,
+  member_type: access.memberType,
+  phase: access.conversationPhase,
+  is_group: access.isGroup,
+  participant_count: access.participantCount,
+  recipient_joined: access.recipientJoined,
+  can_call_customer: access.canCallCustomer,
+  can_call_courier: access.canCallCourier,
+  can_call_recipient: access.canCallRecipient,
+  visibility_notice: access.visibilityNotice,
+});
 
 type CustomerPriceCalculationInput = {
   service: DeliveryServiceProduct;
@@ -760,6 +948,8 @@ export const calculatePrices = async (req: Request, res: Response): Promise<void
 
 export const createCustomerOrder = async (req: Request, res: Response): Promise<void> => {
   const client = await db.connect();
+  let reservedPromoKey: string | null = null;
+  let reservedPromoCustomerId: string | null = null;
   try {
     const customer_id = req.user?.id;
     if (!customer_id) {
@@ -783,7 +973,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       scheduled_at,
       customer_notes,
       price_breakdown,
-      service_code
+      service_code,
+      promo_code
     } = req.body;
 
     const service = await findDeliveryServiceByCode(price_breakdown?.service_code || service_code);
@@ -846,6 +1037,73 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     });
     const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
 
+    const grossTotalPrice = trustedPriceBreakdown.total_price_idr || 0;
+    const grossSettlement = calculateServiceSettlement(
+      service,
+      grossTotalPrice,
+      trustedPriceBreakdown.insurance_premium_idr || 0
+    );
+    const requestedPromoCode = promo_code ?? price_breakdown?.promo_code ?? price_breakdown?.promo?.code;
+    const normalizedPromoCode = normalizePromoCode(requestedPromoCode);
+    if (requestedPromoCode && !normalizedPromoCode) {
+      client.release();
+      res.status(400).json({
+        code: 'ERR_PROMO_CODE_INVALID',
+        error: 'Kode promo tidak valid.'
+      });
+      return;
+    }
+
+    let promoDiscountIdr = 0;
+    let promoCampaignId: string | null = null;
+    let appliedPromoCode: string | null = null;
+    if (normalizedPromoCode) {
+      const reservationKey = buildPromoReservationKey(res.locals.idempotencyKey, customer_id, normalizedPromoCode);
+      const promoResult = await validatePromoForCheckout(
+        customer_id,
+        {
+          code: normalizedPromoCode,
+          service_code: service.code,
+          vehicle_type: trustedRouteSnapshot.vehicle_type || trustedRouteSnapshot.route_profile || service.vehicle_types?.[0],
+          gross_amount_idr: grossTotalPrice,
+          insurance_amount_idr: trustedPriceBreakdown.insurance_premium_idr || 0,
+          payment_fee_idr: grossSettlement.mdr_idr,
+          tax_amount_idr: grossSettlement.ppn_idr,
+          idempotency_key: reservationKey,
+        },
+        'reserve'
+      );
+
+      if (!promoResult.eligible) {
+        client.release();
+        res.status(409).json({
+          code: 'ERR_PROMO_NOT_ELIGIBLE',
+          error: promoResult.reason || 'Promo tidak dapat digunakan untuk order ini.'
+        });
+        return;
+      }
+
+      reservedPromoKey = reservationKey;
+      reservedPromoCustomerId = customer_id;
+      promoDiscountIdr = Math.max(0, Math.min(Number(promoResult.discount_idr || 0), grossTotalPrice));
+      promoCampaignId = promoResult.campaign?.id || null;
+      appliedPromoCode = promoResult.campaign?.code || normalizedPromoCode;
+    }
+
+    const totalPrice = Math.max(0, grossTotalPrice - promoDiscountIdr);
+    const settlement = {
+      ...grossSettlement,
+      platform_commission_idr: Math.max(0, grossSettlement.platform_commission_idr - promoDiscountIdr),
+      settlement_snapshot: {
+        ...grossSettlement.settlement_snapshot,
+        gross_total_price_idr: grossTotalPrice,
+        final_total_price_idr: totalPrice,
+        promo_discount_idr: promoDiscountIdr,
+        promo_campaign_id: promoCampaignId,
+        promo_code: appliedPromoCode,
+      }
+    };
+
     await client.query('BEGIN');
 
     // Generate simple order number
@@ -870,6 +1128,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         volumetric_surcharge_idr,
         insurance_premium_idr,
         dynamic_price_idr,
+        loyalty_discount_idr,
         total_price_idr,
         ppn_idr,
         mdr_idr,
@@ -889,21 +1148,15 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         route_duration_seconds,
         route_polyline,
         route_fallback_reason,
+        recipient_phone_hash,
         created_at
       ) VALUES (
         $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
         $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
         $11, $12, $13, 'pending_payment', $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-        $31, $32, $33, $34, $35, $36, $37, NOW()
-      ) RETURNING id, order_number, total_price_idr, route_snapshot
+        $31, $32, $33, $34, $35, $36, $37, $38, $39, NOW()
+      ) RETURNING id, order_number, total_price_idr, loyalty_discount_idr, route_snapshot
     `;
-
-    const totalPrice = trustedPriceBreakdown.total_price_idr || 0;
-    const settlement = calculateServiceSettlement(
-      service,
-      totalPrice,
-      trustedPriceBreakdown.insurance_premium_idr || 0
-    );
 
     const values = [
       customer_id,
@@ -924,6 +1177,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       trustedPriceBreakdown.volumetric_surcharge_idr || 0,
       trustedPriceBreakdown.insurance_premium_idr || 0,
       trustedPriceBreakdown.dynamic_price_idr || 0,
+      promoDiscountIdr,
       totalPrice,
       settlement.ppn_idr,
       settlement.mdr_idr,
@@ -942,11 +1196,34 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       trustedRouteSnapshot.distance_meters,
       trustedRouteSnapshot.duration_seconds,
       trustedRouteSnapshot.route_polyline,
-      trustedRouteSnapshot.fallback_reason
+      trustedRouteSnapshot.fallback_reason,
+      hashPhoneForPrivateLookup(recipient_phone)
     ];
 
     const result = await client.query(insertQuery, values);
     const newOrder = result.rows[0];
+
+    if (reservedPromoKey && promoCampaignId) {
+      await client.query(
+        `UPDATE promo_redemptions
+            SET order_id = $3
+          WHERE campaign_id = $1
+            AND idempotency_key = $2
+            AND user_id = $4
+            AND status = 'reserved'`,
+        [promoCampaignId, reservedPromoKey, newOrder.id, customer_id]
+      );
+      await client.query(
+        `UPDATE promo_budget_ledger
+            SET order_id = $3
+          WHERE campaign_id = $1
+            AND idempotency_key = $2
+            AND user_id = $4
+            AND ledger_type = 'reserve'
+            AND status = 'active'`,
+        [promoCampaignId, reservedPromoKey, newOrder.id, customer_id]
+      );
+    }
 
     for (const item of normalizedPackages) {
       await client.query(
@@ -1027,6 +1304,10 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         service_code: service.code,
         status: 'pending_payment',
         total_price_idr: totalPrice,
+        gross_total_price_idr: grossTotalPrice,
+        promo_discount_idr: promoDiscountIdr,
+        promo_campaign_id: promoCampaignId,
+        promo_code: appliedPromoCode,
         distance_km: trustedPriceBreakdown.distance_km || 0,
         route_snapshot_hash: trustedRouteSnapshot.snapshot_hash || null,
         route_provider: trustedRouteSnapshot.provider || null,
@@ -1044,7 +1325,10 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     });
 
   } catch (error: any) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => undefined);
+    if (reservedPromoKey && reservedPromoCustomerId) {
+      await releasePromoReservation(reservedPromoCustomerId, reservedPromoKey).catch(() => undefined);
+    }
     client.release();
     res.status(500).json({ error: error.message });
   }
@@ -1269,6 +1553,8 @@ const completeCustomerLapayPayment = async (customerId: string, orderId: string)
       `UPDATE orders SET status = 'pending', updated_at = NOW() WHERE id = $1 AND status = 'pending_payment'`,
       [orderId]
     );
+
+    await redeemReservedPromosForPaidOrder(client, customerId, orderId);
 
     await client.query(
       `INSERT INTO order_events (order_id, user_id, event_type, description)
@@ -1508,6 +1794,7 @@ export const confirmCustomerOrderPayment = async (req: Request, res: Response): 
           [id]
         );
       }
+      await redeemReservedPromosForPaidOrder(client, customer_id, id);
       await client.query(
         `INSERT INTO order_events (order_id, user_id, event_type, description)
          VALUES ($1, $2, 'payment_confirmed', $3)`,
@@ -1604,11 +1891,17 @@ const toMobileCustomerOrderDto = (row: any) => {
     status: row.status || 'pending',
     created_at: Number.isFinite(createdAtMs) ? createdAtMs : Date.now(),
     updated_at: Number.isFinite(updatedAtMs) ? updatedAtMs : Date.now(),
-    customer_phone: row.recipient_phone_masked || row.customer_phone || null,
+    customer_phone: null,
     courier_name: row.courier_name || null,
     courier_vehicle: row.courier_vehicle || null,
     courier_plate: row.courier_plate || null,
-    courier_phone: row.courier_phone || null,
+    courier_phone: null,
+    communication: {
+      primary_target: row.courier_name ? 'courier' : 'support',
+      can_chat_courier: Boolean(row.courier_name),
+      can_call_courier: Boolean(row.courier_name),
+      raw_phone_exposed: false,
+    },
     route_snapshot: row.route_snapshot || null,
     route_provider: row.route_provider || row.route_snapshot?.provider || null,
     route_profile: row.route_profile || row.route_snapshot?.route_profile || null,
@@ -1921,7 +2214,7 @@ export const getMobileCustomerOrders = async (req: Request, res: Response): Prom
              u.full_name AS courier_name,
              cp.vehicle_type AS courier_vehicle,
              cp.vehicle_plate AS courier_plate,
-             u.phone_number AS courier_phone
+             NULL::text AS courier_phone
       FROM orders o
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
@@ -1944,6 +2237,94 @@ export const getMobileCustomerOrders = async (req: Request, res: Response): Prom
       data: null,
       message: 'Gagal memuat riwayat pesanan.',
       code: 'CUSTOMER_ORDER_HISTORY_FAILED'
+    });
+  }
+};
+
+export const getMobileCustomerIncomingPackages = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const customer_id = req.user?.id;
+    if (!customer_id) {
+      res.status(401).json({
+        success: false,
+        data: null,
+        message: 'Sesi tidak valid. Silakan masuk kembali.',
+        code: 'UNAUTHORIZED'
+      });
+      return;
+    }
+
+    const userResult = await db.query(
+      `SELECT phone_number
+       FROM users
+       WHERE id = $1
+         AND deleted_at IS NULL
+       LIMIT 1`,
+      [customer_id]
+    );
+    const recipientPhoneHash = hashPhoneForPrivateLookup(userResult.rows[0]?.phone_number);
+    if (!recipientPhoneHash) {
+      res.json({
+        success: true,
+        data: [],
+        message: 'Belum ada paket masuk.'
+      });
+      return;
+    }
+
+    await db.query(
+      `UPDATE users
+       SET phone_number_hash = $2
+       WHERE id = $1
+         AND (phone_number_hash IS NULL OR phone_number_hash <> $2)`,
+      [customer_id, recipientPhoneHash]
+    );
+
+    const limitVal = Math.min(Math.max(parseInt(req.query.limit as string, 10) || 20, 1), 50);
+    const { rows } = await db.query(
+      `SELECT o.id,
+              o.order_number,
+              o.pickup_address,
+              o.dropoff_address,
+              o.recipient_name,
+              o.recipient_phone_masked,
+              o.model,
+              o.status,
+              o.distance_km,
+              o.route_snapshot,
+              o.route_provider,
+              o.route_profile,
+              o.route_polyline,
+              o.total_price_idr,
+              o.scheduled_at,
+              o.created_at,
+              o.updated_at,
+              u.full_name AS courier_name,
+              cp.vehicle_type AS courier_vehicle,
+              cp.vehicle_plate AS courier_plate,
+              NULL::text AS courier_phone
+       FROM orders o
+       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
+       LEFT JOIN users u ON ol.courier_id = u.id
+       LEFT JOIN courier_profiles cp ON u.id = cp.user_id
+       WHERE o.recipient_phone_hash = $1
+         AND o.status NOT IN ('cancelled', 'payment_failed')
+       ORDER BY o.created_at DESC
+       LIMIT $2`,
+      [recipientPhoneHash, limitVal]
+    );
+
+    res.json({
+      success: true,
+      data: rows.map(toMobileCustomerOrderDto),
+      message: rows.length > 0 ? 'Paket masuk berhasil dimuat.' : 'Belum ada paket masuk.'
+    });
+  } catch {
+    res.status(500).json({
+      success: false,
+      data: null,
+      message: 'Gagal memuat paket masuk.',
+      code: 'CUSTOMER_INCOMING_PACKAGES_FAILED'
     });
   }
 };
@@ -1983,7 +2364,7 @@ export const getMobileCustomerOrder = async (req: Request, res: Response): Promi
              u.full_name AS courier_name,
              cp.vehicle_type AS courier_vehicle,
              cp.vehicle_plate AS courier_plate,
-             u.phone_number AS courier_phone
+             NULL::text AS courier_phone
       FROM orders o
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
@@ -2032,7 +2413,7 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
              o.base_price_idr, o.volumetric_surcharge_idr, o.insurance_premium_idr, o.total_price_idr, o.has_insurance, o.insured_value_idr, 
              o.package_details, o.customer_notes, o.schedule_type, o.scheduled_at, o.created_at,
              u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate, cp.avg_partner_rating as courier_rating,
-             u.phone_number as courier_phone
+             NULL::text as courier_phone
       FROM orders o
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
@@ -2120,7 +2501,7 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
              o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              o.package_details, o.customer_notes, o.created_at, o.updated_at,
              u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate,
-             cp.avg_partner_rating as courier_rating, u.phone_number as courier_phone
+             cp.avg_partner_rating as courier_rating, NULL::text as courier_phone
       FROM orders o
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
@@ -2885,83 +3266,40 @@ export const getCustomerUmkmReport = async (req: Request, res: Response): Promis
 
 export const getOrderChats = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
-    const { id } = req.params;
-    
-    // Check if order belongs to customer or is assigned to the courier
-    const orderCheckQuery = `
-      SELECT o.id FROM orders o
-      LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
-      WHERE o.id = $1 AND (o.customer_id = $2 OR ol.courier_id = $2)
-    `;
-    const orderCheck = await db.query(orderCheckQuery, [id, userId]);
-    if (orderCheck.rows.length === 0) {
-      res.status(404).json({ error: 'Order not found or access denied' });
+    if (!req.user?.id) {
+      res.status(401).json({ success: false, chats: [], error: 'Unauthorized' });
       return;
     }
 
-    const { rows } = await db.query(`
-      SELECT c.id, c.sender_id, u.full_name as sender_name, u.role as sender_role, c.message, c.message_type, c.created_at
-      FROM order_chats c
-      JOIN users u ON c.sender_id = u.id
-      WHERE c.order_id = $1
-      ORDER BY c.created_at ASC
-    `, [id]);
-
-    res.json({ success: true, chats: rows });
+    const result = await listConversationChats(String(req.params.id || ''), req.user);
+    res.json({
+      success: true,
+      chats: result.chats,
+      read_receipts: result.read_receipts,
+      conversation: publicConversationContext(result.access),
+    });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(errorStatusCode(error)).json({ success: false, chats: [], error: error.message });
   }
 };
 
 export const sendOrderChat = async (req: Request, res: Response): Promise<void> => {
   try {
-    const sender_id = req.user?.id;
-    const id = req.params.id as string;
-    const { message, message_type = 'text' } = req.body;
-
-    if (!message) {
-      res.status(400).json({ error: 'Message is required' });
+    if (!req.user?.id) {
+      res.status(401).json({ success: false, chat: null, error: 'Unauthorized' });
       return;
     }
 
-    // Check if order belongs to customer and find assigned courier
-    const orderQuery = `
-      SELECT o.id, o.order_number, o.customer_id, ol.courier_id
-      FROM orders o
-      LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
-      WHERE o.id = $1 AND (o.customer_id = $2 OR ol.courier_id = $2)
-    `;
-    const orderRes = await db.query(orderQuery, [id, sender_id]);
-    
-    if (orderRes.rows.length === 0) {
-      res.status(404).json({ error: 'Order not found or access denied' });
-      return;
-    }
-
-    const order = orderRes.rows[0];
-    const isCustomerSender = order.customer_id === sender_id;
-    const recipient_id = isCustomerSender ? order.courier_id : order.customer_id;
-
-    const { rows } = await db.query(`
-      INSERT INTO order_chats (order_id, sender_id, message, message_type)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *
-    `, [id, sender_id, message, message_type]);
-
-    const senderRole = req.user?.role || (isCustomerSender ? 'customer' : 'courier');
-    const chatMessage = {
-      ...rows[0],
-      sender_name: req.user?.full_name || 'User',
-      sender_role: senderRole,
-      order_number: order.order_number,
-    };
+    const result = await sendConversationChat(String(req.params.id || ''), req.user, req.body || {});
+    const chatMessage = result.chat;
+    const order = result.order;
+    const notificationTargetIds = result.notificationTargetIds;
 
     // Emit chat message to both sender and recipient rooms for real-time UI update
-    if (sender_id && recipient_id) {
+    if (result.created) {
       try {
         emitOnDemandRealtime(ON_DEMAND_REALTIME_EVENTS.CHAT_MESSAGE, {
-          order_id: id,
+          order_id: order.id,
           customer_id: order.customer_id,
           courier_user_id: order.courier_id,
           stage: 'chat',
@@ -2969,30 +3307,162 @@ export const sendOrderChat = async (req: Request, res: Response): Promise<void> 
           metadata: { order_number: order.order_number },
         });
       } catch (wsError) {
-        console.warn('[WebSocket] Could not emit chat message:', wsError);
+        console.warn('[WebSocket] Could not emit chat message');
       }
     }
 
     // Create notification for recipient if they are not the sender
-    if (recipient_id) {
-      const notificationBody = message_type === 'image' ? '📸 [Gambar]' : (message.length > 50 ? message.substring(0, 47) + '...' : message);
-      await createNotification({
-        user_id: recipient_id,
-        title: `Pesan Baru - ${order.order_number}`,
-        body: notificationBody,
-        type: 'chat',
-        order_id: id,
-        metadata: {
-          chat_id: chatMessage.id,
-          sender_name: req.user?.full_name || 'User'
-        },
-        deep_link: `/orders/${id}`
-      });
+    if (result.created && notificationTargetIds.length > 0) {
+      await Promise.all(
+        notificationTargetIds.map((targetId) =>
+          createNotification({
+            user_id: targetId,
+            title: `Pesan Baru - ${order.order_number}`,
+            body: 'Ada pesan baru di percakapan order.',
+            type: 'order_group_chat_message',
+            category: 'message',
+            priority: 'high',
+            order_id: order.id,
+            conversation_id: result.access.conversationId,
+            metadata: {
+              chat_id: chatMessage.id,
+              sender_name: req.user?.full_name || 'User',
+              conversation_id: result.access.conversationId,
+              order_number: order.order_number
+            },
+            deep_link: `tembus://orders/${order.id}/chat`
+          })
+        )
+      );
     }
 
-    res.status(201).json({ success: true, chat: chatMessage });
+    res.status(result.created ? 201 : 200).json({ success: true, chat: chatMessage, idempotent: !result.created });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(errorStatusCode(error)).json({ success: false, chat: null, error: error.message });
+  }
+};
+
+export const markOrderChatRead = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.id) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const result = await markConversationRead(String(req.params.id || ''), req.user, req.body?.last_message_id);
+    res.json({
+      success: true,
+      receipt: result.receipt,
+      conversation: publicConversationContext(result.access),
+    });
+  } catch (error: any) {
+    res.status(errorStatusCode(error)).json({ success: false, error: error.message });
+  }
+};
+
+export const createOrderCall = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.id) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const result = await createOrderCallSession(String(req.params.id || ''), req.user, req.body?.target_type);
+    try {
+      const { getIO } = await import('../websocket');
+      const io = getIO();
+      const callEvent = {
+        order_id: result.access.orderId,
+        call_id: result.call.id,
+        caller_id: req.user.id,
+        caller_name: req.user.full_name || 'TEMBUS',
+        target_type: result.call.target_type,
+        status: result.call.status,
+        expires_at: result.call.expires_at,
+      };
+      if (result.call.target_id) {
+        io.to(String(result.call.target_id)).emit('call:incoming', {
+          ...callEvent,
+          call_token: result.call.call_token,
+        });
+      }
+    } catch {
+      console.warn('[WebSocket] Could not emit call incoming event');
+    }
+
+    res.status(201).json({
+      success: true,
+      call: result.call,
+      conversation: publicConversationContext(result.access),
+    });
+  } catch (error: any) {
+    res.status(errorStatusCode(error)).json({ success: false, error: error.message });
+  }
+};
+
+export const joinOrderCall = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.id) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const result = await joinOrderCallSession(
+      String(req.params.id || ''),
+      String(req.params.callId || ''),
+      req.user,
+      req.body?.call_token
+    );
+    try {
+      const { getIO } = await import('../websocket');
+      getIO().to(`call:${result.call.id}`).emit('call:accepted', {
+        order_id: result.access.orderId,
+        call_id: result.call.id,
+        accepted_by: req.user.id,
+        status: result.call.status,
+      });
+    } catch {
+      console.warn('[WebSocket] Could not emit call accepted event');
+    }
+
+    res.json({
+      success: true,
+      call: result.call,
+      conversation: publicConversationContext(result.access),
+    });
+  } catch (error: any) {
+    res.status(errorStatusCode(error)).json({ success: false, error: error.message });
+  }
+};
+
+export const endOrderCall = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.id) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const result = await endOrderCallSession(
+      String(req.params.id || ''),
+      String(req.params.callId || ''),
+      req.user,
+      req.body?.status
+    );
+    try {
+      const { getIO } = await import('../websocket');
+      getIO().to(`call:${result.call.id}`).emit('call:ended', {
+        order_id: result.access.orderId,
+        call_id: result.call.id,
+        ended_by: req.user.id,
+        status: result.call.status,
+      });
+    } catch {
+      console.warn('[WebSocket] Could not emit call ended event');
+    }
+
+    res.json({ success: true, call: result.call });
+  } catch (error: any) {
+    res.status(errorStatusCode(error)).json({ success: false, error: error.message });
   }
 };
 
@@ -3323,6 +3793,11 @@ export const getReceiverLocationRequestPublic = async (req: Request, res: Respon
       return;
     }
 
+    if (['revoked', 'cancelled'].includes(String(request.status))) {
+      res.status(410).json({ success: false, message: 'Link lokasi sudah tidak aktif.' });
+      return;
+    }
+
     res.json({
       success: true,
       data: request
@@ -3363,6 +3838,24 @@ export const getReceiverLocationRequestForCustomer = async (req: Request, res: R
   }
 };
 
+export const revokeReceiverLocationRequest = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.id) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const revoked = await revokeReceiverLocationInvite(req.params.id, req.user);
+    res.json({
+      success: true,
+      data: revoked,
+      message: 'Link lokasi penerima sudah dibatalkan.',
+    });
+  } catch (error: any) {
+    res.status(errorStatusCode(error)).json({ success: false, message: error.message });
+  }
+};
+
 export const submitReceiverLocationRequestPublic = async (req: Request, res: Response): Promise<void> => {
   try {
     const token = String(req.params.token || '');
@@ -3390,7 +3883,8 @@ export const submitReceiverLocationRequestPublic = async (req: Request, res: Res
            submitted_location = ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography,
            submitted_contact_name = NULLIF($5, ''),
            submitted_contact_phone_masked = $6,
-           submitted_notes = NULLIF($7, ''),
+           submitted_contact_phone_hash = $7,
+           submitted_notes = NULLIF($8, ''),
            submitted_at = NOW(),
            updated_at = NOW()
        WHERE token_hash = $1
@@ -3406,6 +3900,7 @@ export const submitReceiverLocationRequestPublic = async (req: Request, res: Res
         dropoffPoint.lat,
         typeof contact_name === 'string' ? contact_name.trim() : '',
         maskPhone(contact_phone),
+        hashPhoneForPrivateLookup(contact_phone),
         typeof notes === 'string' ? notes.trim() : ''
       ]
     );
@@ -3545,6 +4040,7 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
         [orderIds]
       );
       for (const orderId of orderIds) {
+        await redeemReservedPromosForPaidOrder(client, customerId, orderId);
         await client.query(
           `INSERT INTO order_events (order_id, user_id, event_type, description)
            VALUES ($1, $2, 'payment_confirmed', 'Midtrans confirmed payment')`,
@@ -3563,6 +4059,7 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
         `UPDATE orders SET status = 'payment_failed', updated_at = NOW() WHERE id = ANY($1::uuid[]) AND status = 'pending_payment'`,
         [orderIds]
       );
+      await releaseReservedPromosForOrders(client, orderIds);
     } else {
       await client.query(
         `UPDATE payments SET webhook_payload = $2, updated_at = NOW() WHERE provider_reference = $1`,

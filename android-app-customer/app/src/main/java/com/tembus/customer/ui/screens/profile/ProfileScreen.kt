@@ -48,6 +48,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -87,6 +88,25 @@ import java.util.Locale
 private val ProfileBackground = Color(0xFFF4F7FB)
 private val SuccessGreen = Color(0xFF008C5A)
 private val DangerRed = Color(0xFFC62828)
+
+@Composable
+private fun profileTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color(0xFF17202A),
+    unfocusedTextColor = Color(0xFF17202A),
+    disabledTextColor = Color(0xFF6B7280),
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    disabledContainerColor = Color(0xFFF5F7FA),
+    cursorColor = SuccessGreen,
+    focusedBorderColor = SuccessGreen,
+    unfocusedBorderColor = Color(0xFFDCE3EE),
+    disabledBorderColor = Color(0xFFE5EAF2),
+    focusedLabelColor = SuccessGreen,
+    unfocusedLabelColor = Color(0xFF6B7280),
+    disabledLabelColor = Color(0xFF6B7280),
+    focusedPlaceholderColor = Color(0xFF6B7280),
+    unfocusedPlaceholderColor = Color(0xFF6B7280)
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -463,14 +483,16 @@ private fun EditProfileDialog(
                     onValueChange = { name = it },
                     label = { Text("Nama lengkap") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = profileTextFieldColors()
                 )
                 OutlinedTextField(
                     value = phone,
                     onValueChange = { phone = it },
                     label = { Text("Nomor handphone") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = profileTextFieldColors()
                 )
                 Text(
                     text = "Perubahan disimpan ke database TEMBUS dan tersinkron ke sesi aplikasi.",

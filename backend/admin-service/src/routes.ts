@@ -1,7 +1,17 @@
 import { Router } from 'express';
 import * as controllers from './controllers/index';
 import { requireAuth, requireRole, requireTotp, verifyWebSession, verifySession, requireMobileOrWebAuth } from './middlewares';
-import { courierFaceRateLimiter, courierOfferRateLimiter, courierProofRateLimiter, toggleRateLimiter } from './rateLimit';
+import {
+  communicationCallRateLimiter,
+  communicationMessageRateLimiter,
+  communicationReadRateLimiter,
+  courierFaceRateLimiter,
+  courierOfferRateLimiter,
+  courierProofRateLimiter,
+  promoMutationRateLimiter,
+  promoReadRateLimiter,
+  toggleRateLimiter,
+} from './rateLimit';
 import { requireIdempotencyKey } from './middleware/idempotencyRequirement';
 import { requireCookieCsrfProtection } from './middleware/csrfProtection';
 import { secureUploadSingle } from './security/uploadSecurity';
@@ -55,12 +65,24 @@ routes.post('/api/v1/orders/pod/upload', requireMobileOrWebAuth, courierProofRat
 
 routes.get('/auth/web/me', verifySession, (req, res) => controllers.me(req, res));
 routes.get('/auth/web/notifications', verifySession, (req, res) => controllers.getUserNotifications(req, res));
+routes.get('/auth/web/notifications/unread-count', verifyWebSession, (req, res) => controllers.getNotificationUnreadCount(req, res));
 routes.patch('/auth/web/notifications/:id/read', verifyWebSession, (req, res) => controllers.markNotificationRead(req, res));
+routes.patch('/auth/web/notifications/read-all', verifyWebSession, communicationReadRateLimiter, (req, res) => controllers.markAllNotificationsRead(req, res));
+routes.patch('/auth/web/notifications/:id/archive', verifyWebSession, communicationReadRateLimiter, (req, res) => controllers.archiveNotification(req, res));
 routes.delete('/auth/web/notifications', verifyWebSession, (req, res) => controllers.clearNotifications(req, res));
+routes.get('/auth/web/notifications/preferences', verifyWebSession, (req, res) => controllers.getNotificationPreferences(req, res));
+routes.patch('/auth/web/notifications/preferences', verifyWebSession, communicationReadRateLimiter, (req, res) => controllers.updateNotificationPreferences(req, res));
 routes.post('/auth/web/notifications/subscribe', verifyWebSession, (req, res) => controllers.subscribePush(req, res));
 routes.delete('/auth/web/notifications/subscribe', verifyWebSession, (req, res) => controllers.unsubscribePush(req, res));
 
 // Mobile App Notification Routes
+routes.get('/api/v1/mobile/notifications', requireMobileOrWebAuth, (req, res) => controllers.getUserNotifications(req, res));
+routes.get('/api/v1/mobile/notifications/unread-count', requireMobileOrWebAuth, (req, res) => controllers.getNotificationUnreadCount(req, res));
+routes.patch('/api/v1/mobile/notifications/read-all', requireMobileOrWebAuth, communicationReadRateLimiter, (req, res) => controllers.markAllNotificationsRead(req, res));
+routes.patch('/api/v1/mobile/notifications/:id/read', requireMobileOrWebAuth, communicationReadRateLimiter, (req, res) => controllers.markNotificationRead(req, res));
+routes.patch('/api/v1/mobile/notifications/:id/archive', requireMobileOrWebAuth, communicationReadRateLimiter, (req, res) => controllers.archiveNotification(req, res));
+routes.get('/api/v1/mobile/notifications/preferences', requireMobileOrWebAuth, (req, res) => controllers.getNotificationPreferences(req, res));
+routes.patch('/api/v1/mobile/notifications/preferences', requireMobileOrWebAuth, communicationReadRateLimiter, (req, res) => controllers.updateNotificationPreferences(req, res));
 routes.post('/api/v1/mobile/notifications/register-token', requireMobileOrWebAuth, (req, res) => controllers.registerDeviceToken(req, res));
 routes.post('/api/v1/mobile/notifications/unregister-token', requireMobileOrWebAuth, (req, res) => controllers.unregisterDeviceToken(req, res));
 
@@ -74,6 +96,7 @@ routes.post('/auth/web/wallet/withdraw', verifyWebSession, (req, res) => control
 routes.get('/auth/web/delivery-services', (req, res) => controllers.deliveryServices.listCustomerDeliveryServices(req, res));
 routes.get('/auth/web/dashboard/stats', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerDashboardStats(req, res));
 routes.get('/auth/web/reports/umkm', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerUmkmReport(req, res));
+routes.post('/auth/web/promos/validate', verifyWebSession, promoReadRateLimiter, (req, res) => controllers.validateCustomerPromo(req, res));
 
 // Web Portal Order Routes
 routes.post('/auth/web/orders/calculate', verifyWebSession, (req, res) => controllers.customerOrder.calculatePrice(req, res));
@@ -84,9 +107,14 @@ routes.post('/auth/web/orders/:id/payment/check', verifyWebSession, requireIdemp
 routes.get('/auth/web/orders/:id', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderById(req, res));
 routes.post('/auth/web/orders/:id/public-tracking-link', verifyWebSession, (req, res) => controllers.customerOrder.createCustomerPublicTrackingLink(req, res));
 routes.get('/auth/web/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));
-routes.post('/auth/web/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
+routes.post('/auth/web/orders/:id/chats', requireMobileOrWebAuth, communicationMessageRateLimiter, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
 routes.get('/api/v1/mobile/chats/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));
-routes.post('/api/v1/mobile/chats/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
+routes.post('/api/v1/mobile/chats/orders/:id/chats', requireMobileOrWebAuth, communicationMessageRateLimiter, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
+routes.get('/api/v1/mobile/orders/:id/conversation', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));
+routes.patch('/api/v1/mobile/orders/:id/conversation/read', requireMobileOrWebAuth, communicationReadRateLimiter, (req, res) => controllers.customerOrder.markOrderChatRead(req, res));
+routes.post('/api/v1/mobile/orders/:id/calls', requireMobileOrWebAuth, communicationCallRateLimiter, (req, res) => controllers.customerOrder.createOrderCall(req, res));
+routes.post('/api/v1/mobile/orders/:id/calls/:callId/join', requireMobileOrWebAuth, communicationCallRateLimiter, (req, res) => controllers.customerOrder.joinOrderCall(req, res));
+routes.post('/api/v1/mobile/orders/:id/calls/:callId/end', requireMobileOrWebAuth, communicationCallRateLimiter, (req, res) => controllers.customerOrder.endOrderCall(req, res));
 routes.post('/auth/web/orders/:id/upload', verifyWebSession, ...secureUploadSingle('file', 'customerAttachment'), (req, res) => controllers.customerOrder.uploadOrderFile(req, res));
 routes.get('/auth/web/disputes', verifyWebSession, (req, res) => controllers.getCustomerDisputes(req, res));
 routes.post('/auth/web/disputes', verifyWebSession, (req, res) => controllers.createDispute(req, res));
@@ -100,6 +128,7 @@ routes.put('/api/v1/customer/profile', requireMobileOrWebAuth, (req, res) => con
 routes.post('/api/v1/customer/profile/photo', requireMobileOrWebAuth, ...secureUploadSingle('photo', 'profileImage'), (req, res) => controllers.customerOrder.uploadMobileCustomerProfilePhoto(req, res));
 routes.get('/api/v1/customer/dashboard/stats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getCustomerDashboardStats(req, res));
 routes.get('/api/v1/customer/orders', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrders(req, res));
+routes.get('/api/v1/customer/incoming-packages', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerIncomingPackages(req, res));
 routes.get('/api/v1/customer/orders/:id/tracking-detail', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrderTrackingDetail(req, res));
 routes.get('/api/v1/customer/delivery-services', requireMobileOrWebAuth, (req, res) => controllers.deliveryServices.listCustomerDeliveryServices(req, res));
 routes.post('/api/v1/customer/orders/calculate', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.calculatePrice(req, res));
@@ -115,7 +144,13 @@ routes.patch('/api/v1/customer/addresses/:id', requireMobileOrWebAuth, (req, res
 routes.delete('/api/v1/customer/addresses/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.deleteCustomerAddress(req, res));
 routes.post('/api/v1/customer/location-requests', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createReceiverLocationRequest(req, res));
 routes.get('/api/v1/customer/location-requests/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getReceiverLocationRequestForCustomer(req, res));
+routes.delete('/api/v1/customer/location-requests/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.revokeReceiverLocationRequest(req, res));
 routes.post('/api/v1/customer/notifications/register-token', requireMobileOrWebAuth, (req, res) => controllers.registerDeviceToken(req, res));
+routes.get('/api/v1/customer/promos/eligible', requireMobileOrWebAuth, promoReadRateLimiter, (req, res) => controllers.listCustomerEligiblePromos(req, res));
+routes.post('/api/v1/customer/promos/validate', requireMobileOrWebAuth, promoReadRateLimiter, (req, res) => controllers.validateCustomerPromo(req, res));
+routes.post('/api/v1/customer/promos/reserve', requireMobileOrWebAuth, promoMutationRateLimiter, requireIdempotencyKey('customer.promo.reserve'), (req, res) => controllers.reserveCustomerPromo(req, res));
+routes.post('/api/v1/customer/promos/redeem', requireMobileOrWebAuth, promoMutationRateLimiter, requireIdempotencyKey('customer.promo.redeem'), (req, res) => controllers.redeemCustomerPromo(req, res));
+routes.post('/api/v1/customer/promos/release', requireMobileOrWebAuth, promoMutationRateLimiter, (req, res) => controllers.releaseCustomerPromoReservation(req, res));
 
 // Bulk Order Routes
 routes.post('/auth/web/orders/bulk/upload', verifyWebSession, ...secureUploadSingle('file', 'bulkCsv'), (req, res) => controllers.bulkOrder.uploadBulkExcel(req, res));
@@ -293,6 +328,21 @@ routes.post('/admin/vouchers', (req, res) => controllers.createVoucher(req, res)
 routes.patch('/admin/vouchers/:id', (req, res) => controllers.updateVoucher(req, res));
 routes.delete('/admin/vouchers/:id', (req, res) => controllers.deleteVoucher(req, res));
 
+// Promo Engine
+routes.get('/admin/promos', requireRole(['super_admin', 'ops_admin', 'finance_admin']), (req, res) => controllers.listAdminPromoCampaigns(req, res));
+routes.get('/admin/promos/margin-policies', requireRole(['super_admin', 'ops_admin', 'finance_admin']), (req, res) => controllers.getAdminPromoMarginPolicies(req, res));
+routes.get('/admin/promos/:id', requireRole(['super_admin', 'ops_admin', 'finance_admin']), (req, res) => controllers.getAdminPromoCampaign(req, res));
+routes.get('/admin/promos/:id/analytics', requireRole(['super_admin', 'ops_admin', 'finance_admin']), promoReadRateLimiter, (req, res) => controllers.getAdminPromoCampaignAnalytics(req, res));
+routes.post('/admin/promos', requireRole(['super_admin', 'finance_admin']), requireTotp, promoMutationRateLimiter, (req, res) => controllers.createAdminPromoCampaign(req, res));
+routes.patch('/admin/promos/:id', requireRole(['super_admin', 'finance_admin']), requireTotp, promoMutationRateLimiter, (req, res) => controllers.updateAdminPromoCampaign(req, res));
+routes.post('/admin/promos/:id/simulate', requireRole(['super_admin', 'ops_admin', 'finance_admin']), promoReadRateLimiter, (req, res) => controllers.simulateAdminPromoCampaign(req, res));
+routes.post('/admin/promos/:id/audience-preview', requireRole(['super_admin', 'ops_admin', 'finance_admin']), promoReadRateLimiter, (req, res) => controllers.previewAdminPromoNotificationAudience(req, res));
+routes.post('/admin/promos/:id/submit', requireRole(['super_admin', 'finance_admin']), requireTotp, promoMutationRateLimiter, (req, res) => controllers.submitAdminPromoCampaign(req, res));
+routes.post('/admin/promos/:id/submit-approval', requireRole(['super_admin', 'finance_admin']), requireTotp, promoMutationRateLimiter, (req, res) => controllers.submitAdminPromoCampaign(req, res));
+routes.post('/admin/promos/:id/approve', requireRole(['super_admin']), requireTotp, promoMutationRateLimiter, (req, res) => controllers.approveAdminPromoCampaign(req, res));
+routes.post('/admin/promos/:id/publish', requireRole(['super_admin', 'finance_admin']), requireTotp, promoMutationRateLimiter, (req, res) => controllers.publishAdminPromoCampaign(req, res));
+routes.post('/admin/promos/:id/pause', requireRole(['super_admin', 'finance_admin', 'ops_admin']), requireTotp, promoMutationRateLimiter, (req, res) => controllers.pauseAdminPromoCampaign(req, res));
+routes.post('/admin/promos/:id/notify', requireRole(['super_admin', 'finance_admin']), requireTotp, promoMutationRateLimiter, (req, res) => controllers.notifyAdminPromoCampaign(req, res));
 
 // Pricing Configuration
 routes.get('/admin/pricing', (req, res) => controllers.getPricingConfig(req, res));

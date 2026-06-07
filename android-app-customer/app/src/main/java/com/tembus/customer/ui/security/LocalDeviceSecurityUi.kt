@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -53,6 +54,25 @@ import com.tembus.customer.data.security.LocalDeviceSecurityManager
 
 private val SecureBlue = Color(0xFF1565C0)
 private val SecureGreen = Color(0xFF07884A)
+
+@Composable
+private fun secureTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color(0xFF17202A),
+    unfocusedTextColor = Color(0xFF17202A),
+    disabledTextColor = Color(0xFF667085),
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    disabledContainerColor = Color(0xFFF5F7FA),
+    cursorColor = SecureGreen,
+    focusedBorderColor = SecureGreen,
+    unfocusedBorderColor = Color(0xFFDCE3EE),
+    disabledBorderColor = Color(0xFFE5EAF2),
+    focusedLabelColor = SecureGreen,
+    unfocusedLabelColor = Color(0xFF667085),
+    disabledLabelColor = Color(0xFF667085),
+    focusedPlaceholderColor = Color(0xFF667085),
+    unfocusedPlaceholderColor = Color(0xFF667085)
+)
 
 @Composable
 fun LocalSecuritySettingsPanel(
@@ -229,7 +249,8 @@ fun LocalSecurityChallengeDialog(
                     label = { Text("PIN 6 digit") },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    colors = secureTextFieldColors()
                 )
                 errorMessage?.let {
                     Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -308,7 +329,8 @@ private fun SecurePinField(
         label = { Text(label) },
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword)
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+        colors = secureTextFieldColors()
     )
 }
 

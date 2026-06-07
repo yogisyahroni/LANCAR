@@ -3,6 +3,7 @@ import { Server as HttpServer } from 'http';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { db } from './db';
 import { redis } from './redis';
+import { authorizeCallSocketRoom, getConversationAccess } from './services/orderCommunication';
 import { recordRealtimeMetric, realtimeStructuredLog } from './services/realtimeObservability';
 
 let io: SocketIOServer;
@@ -40,6 +41,55 @@ const DEFAULT_DEVELOPMENT_SOCKET_ORIGINS = [
   'http://127.0.0.1:5175',
   'http://127.0.0.1:5176',
 ];
+
+const CALL_SIGNAL_EVENTS = new Set([
+  'call:offer',
+  'call:answer',
+  'call:ice_candidate',
+  'call:ringing',
+  'call:accepted',
+  'call:rejected',
+  'call:missed',
+  'call:ended',
+  'call:failed',
+]);
+
+const MAX_SDP_LENGTH = 128_000;
+const MAX_ICE_CANDIDATE_LENGTH = 8_000;
+
+const compactString = (value: unknown, maxLength: number) => {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, maxLength);
+};
+
+const sanitizeCallSignalPayload = (event: string, payload: any, senderId: string) => {
+  const basePayload: Record<string, unknown> = {
+    order_id: compactString(payload?.order_id || payload?.orderId, 80),
+    call_id: compactString(payload?.call_id || payload?.callId, 80),
+    sender_id: senderId,
+    sent_at: new Date().toISOString(),
+  };
+
+  if (event === 'call:offer' || event === 'call:answer') {
+    basePayload.sdp = compactString(payload?.sdp, MAX_SDP_LENGTH);
+    basePayload.type = event === 'call:offer' ? 'offer' : 'answer';
+  }
+
+  if (event === 'call:ice_candidate') {
+    basePayload.sdp_mid = compactString(payload?.sdp_mid || payload?.sdpMid, 64);
+    basePayload.sdp_m_line_index = Number.isInteger(Number(payload?.sdp_m_line_index ?? payload?.sdpMLineIndex))
+      ? Number(payload?.sdp_m_line_index ?? payload?.sdpMLineIndex)
+      : 0;
+    basePayload.candidate = compactString(payload?.candidate, MAX_ICE_CANDIDATE_LENGTH);
+  }
+
+  if (['call:ringing', 'call:accepted', 'call:rejected', 'call:missed', 'call:ended', 'call:failed'].includes(event)) {
+    basePayload.status = event.replace('call:', '');
+    basePayload.reason = compactString(payload?.reason, 120);
+  }
+
+  return basePayload;
+};
 
 const getSocketAllowedOrigins = () => {
   const configuredOrigins = process.env.ALLOWED_ORIGINS
@@ -274,35 +324,20 @@ export const initWebSocket = (server: HttpServer) => {
       }
 
       try {
-        const access = await db.query(
-          `SELECT o.id
-           FROM orders o
-           LEFT JOIN order_legs ol ON ol.order_id = o.id AND ol.leg_number = 1
-           WHERE o.id = $1
-             AND (
-               o.customer_id = $2
-               OR ol.courier_id = $2
-               OR $3::text = ANY(ARRAY['admin', 'super_admin', 'ops'])
-             )
-           LIMIT 1`,
-          [targetOrderId, userId, role]
-        );
-
-        if (access.rows.length === 0) {
-          void recordRealtimeMetric('order_room_join_failed', { reason: 'access_denied', role: role || 'unknown' });
-          realtimeStructuredLog('warn', 'order_room_join_denied', {
-            role: role || null,
-            has_order: true,
-            has_user: true,
-          });
-          ack?.({ success: false, message: 'Order access denied' });
-          return;
-        }
-
-        const room = `order:${targetOrderId}`;
+        const access = await getConversationAccess(targetOrderId, {
+          id: String(userId),
+          role: role || undefined,
+          full_name: user?.full_name,
+        });
+        const room = `order:${access.orderId}`;
         socket.join(room);
         void recordRealtimeMetric('order_room_joined', { role: role || 'unknown' });
-        ack?.({ success: true, room });
+        ack?.({
+          success: true,
+          room,
+          conversation_id: access.conversationId,
+          member_type: access.memberType,
+        });
         realtimeStructuredLog('info', 'socket_order_room_joined', {
           role: role || 'unknown',
           has_order: true,
@@ -317,6 +352,71 @@ export const initWebSocket = (server: HttpServer) => {
         void recordRealtimeMetric('order_room_join_failed', { reason: 'internal_error', role: role || 'unknown' });
         ack?.({ success: false, message: 'Internal server error' });
       }
+    });
+
+    socket.on('join_call_room', async ({ order_id, orderId, call_id, callId }, ack) => {
+      const targetOrderId = order_id || orderId;
+      const targetCallId = call_id || callId;
+      if (!targetOrderId || !targetCallId) {
+        void recordRealtimeMetric('call_room_join_failed', { reason: 'missing_payload', role: role || 'unknown' });
+        ack?.({ success: false, message: 'order_id and call_id are required' });
+        return;
+      }
+
+      try {
+        const access = await authorizeCallSocketRoom(targetOrderId, targetCallId, {
+          id: String(userId),
+          role: role || undefined,
+          full_name: user?.full_name,
+        });
+        socket.join(access.room);
+        socket.join(`order:${access.access.orderId}`);
+        void recordRealtimeMetric('call_room_joined', { role: role || 'unknown' });
+        ack?.({ success: true, room: access.room, member_type: access.access.memberType });
+        realtimeStructuredLog('info', 'socket_call_room_joined', {
+          role: role || 'unknown',
+          has_order: true,
+          has_user: true,
+        });
+      } catch (error) {
+        realtimeStructuredLog('warn', 'socket_call_room_join_denied', {
+          role: role || 'unknown',
+          error_name: error instanceof Error ? error.name : 'Error',
+        });
+        void recordRealtimeMetric('call_room_join_failed', { reason: 'access_denied', role: role || 'unknown' });
+        ack?.({ success: false, message: 'Call access denied' });
+      }
+    });
+
+    CALL_SIGNAL_EVENTS.forEach((event) => {
+      socket.on(event, async (payload, ack) => {
+        const targetOrderId = payload?.order_id || payload?.orderId;
+        const targetCallId = payload?.call_id || payload?.callId;
+        if (!targetOrderId || !targetCallId) {
+          ack?.({ success: false, message: 'order_id and call_id are required' });
+          return;
+        }
+
+        try {
+          const access = await authorizeCallSocketRoom(targetOrderId, targetCallId, {
+            id: String(userId),
+            role: role || undefined,
+            full_name: user?.full_name,
+          });
+          const safePayload = sanitizeCallSignalPayload(event, payload, String(userId));
+          socket.to(access.room).emit(event, safePayload);
+          void recordRealtimeMetric('call_signal_forwarded', { role: role || 'unknown', event });
+          ack?.({ success: true });
+        } catch (error) {
+          realtimeStructuredLog('warn', 'socket_call_signal_denied', {
+            role: role || 'unknown',
+            event,
+            error_name: error instanceof Error ? error.name : 'Error',
+          });
+          void recordRealtimeMetric('call_signal_failed', { reason: 'access_denied', role: role || 'unknown', event });
+          ack?.({ success: false, message: 'Call signal denied' });
+        }
+      });
     });
 
     socket.on('leave_order_room', ({ order_id, orderId }) => {

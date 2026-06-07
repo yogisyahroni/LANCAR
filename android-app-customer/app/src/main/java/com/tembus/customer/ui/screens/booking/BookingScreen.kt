@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.booking
 
 import android.Manifest
+import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Map
@@ -53,14 +55,16 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Surface
@@ -122,6 +126,30 @@ private val LcGreen = Primary
 private val SoftGreen = PrimaryLight
 private val SoftBlue = SecondaryLight
 private val SoftOrange = AccentLight
+
+@Composable
+private fun tembusLightTextFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Ink,
+    unfocusedTextColor = Ink,
+    disabledTextColor = Muted,
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    disabledContainerColor = Color(0xFFF5F7FA),
+    cursorColor = Primary,
+    focusedBorderColor = Primary,
+    unfocusedBorderColor = Color(0xFFDCE3EE),
+    disabledBorderColor = Color(0xFFE5EAF2),
+    focusedLabelColor = Primary,
+    unfocusedLabelColor = Muted,
+    disabledLabelColor = Muted,
+    focusedPlaceholderColor = Muted,
+    unfocusedPlaceholderColor = Muted,
+    disabledPlaceholderColor = Muted,
+    focusedLeadingIconColor = Primary,
+    unfocusedLeadingIconColor = Muted,
+    focusedTrailingIconColor = Primary,
+    unfocusedTrailingIconColor = Muted
+)
 
 private fun BookingState.isRouteComplete(): Boolean {
     return pickupLocation != null && pickupAddress.isNotBlank() && destinationLocation != null && destinationAddress.isNotBlank()
@@ -216,6 +244,7 @@ private fun decodeRoutePolyline(encoded: String?): List<LatLng> {
 fun BookingScreen(
     viewModel: BookingViewModel,
     initialOpen: String? = null,
+    initialPromoCode: String? = null,
     onBackClick: () -> Unit,
     onBookingSuccess: (String) -> Unit
 ) {
@@ -248,6 +277,13 @@ fun BookingScreen(
         when (initialOpen) {
             "pickup" -> showPickupSheet = true
             "dropoff" -> showDestinationSheet = true
+        }
+    }
+
+    LaunchedEffect(initialPromoCode) {
+        if (!initialPromoCode.isNullOrBlank()) {
+            viewModel.setPromoCode(initialPromoCode)
+            Toast.makeText(context, "Promo ${initialPromoCode.uppercase()} disiapkan untuk order ini.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -327,6 +363,14 @@ fun BookingScreen(
                     onDestinationClick = { showDestinationSheet = true },
                     onRequestLocationClick = { showLocationRequestSheet = true }
                 )
+            }
+            if (uiState.promoCode.isNotBlank()) {
+                item {
+                    PreselectedPromoCard(
+                        promoCode = uiState.promoCode,
+                        onClear = viewModel::clearPromoCode
+                    )
+                }
             }
             item {
                 BookingProgressPills(state = uiState)
@@ -516,11 +560,25 @@ fun BookingScreen(
                 isLoading = uiState.isCreatingLocationLink,
                 onCreateLink = viewModel::createReceiverLocationLink,
                 onRefresh = viewModel::refreshReceiverLocationLink,
+                onRevoke = viewModel::revokeReceiverLocationLink,
                 onCopy = {
                     val link = uiState.receiverLocationLink?.url.orEmpty()
                     if (link.isNotBlank()) {
                         clipboardManager.setText(AnnotatedString(link))
                         Toast.makeText(context, "Link lokasi disalin", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onShare = {
+                    val link = uiState.receiverLocationLink?.url.orEmpty()
+                    if (link.isNotBlank()) {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(
+                                Intent.EXTRA_TEXT,
+                                "Halo, bantu isi titik tujuan pengiriman TEMBUS melalui link aman ini:\n$link"
+                            )
+                        }
+                        context.startActivity(Intent.createChooser(shareIntent, "Bagikan link lokasi"))
                     }
                 }
             )
@@ -559,6 +617,49 @@ fun BookingScreen(
                     fontWeight = FontWeight.Bold,
                     color = Ink
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreselectedPromoCard(
+    promoCode: String,
+    onClear: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = AccentLight),
+        border = BorderStroke(1.dp, Accent.copy(alpha = 0.28f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.LocalOffer, contentDescription = null, tint = Accent)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Promo disiapkan", color = OnSurface, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                Text(
+                    promoCode,
+                    color = Accent,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 14.sp
+                )
+            }
+            TextButton(onClick = onClear) {
+                Text("Lepas", color = Primary, fontWeight = FontWeight.ExtraBold)
             }
         }
     }
@@ -809,7 +910,8 @@ private fun RecipientCard(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Nama penerima") },
             singleLine = true,
-            shape = RoundedCornerShape(18.dp)
+            shape = RoundedCornerShape(18.dp),
+            colors = tembusLightTextFieldColors()
         )
         Spacer(Modifier.height(10.dp))
         OutlinedTextField(
@@ -819,7 +921,8 @@ private fun RecipientCard(
             label = { Text("Nomor handphone penerima") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-            shape = RoundedCornerShape(18.dp)
+            shape = RoundedCornerShape(18.dp),
+            colors = tembusLightTextFieldColors()
         )
         Spacer(Modifier.height(10.dp))
         OutlinedTextField(
@@ -828,7 +931,8 @@ private fun RecipientCard(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Isi paket / catatan barang") },
             singleLine = true,
-            shape = RoundedCornerShape(18.dp)
+            shape = RoundedCornerShape(18.dp),
+            colors = tembusLightTextFieldColors()
         )
     }
 }
@@ -977,7 +1081,7 @@ private fun AddOnCard(
             checked = deliveryCodeEnabled,
             onCheckedChange = onDeliveryCodeChange
         )
-        Divider(color = Color(0xFFE7EAF0))
+        HorizontalDivider(color = Color(0xFFE7EAF0))
         AddOnRow(
             icon = Icons.Default.Shield,
             title = "Perlindungan paket",
@@ -1740,7 +1844,8 @@ private fun LocationInputSheet(
             modifier = Modifier.fillMaxWidth(),
             label = { Text(if (addressKind == "pickup") "Cari alamat pickup" else "Cari alamat tujuan") },
             minLines = 2,
-            shape = RoundedCornerShape(18.dp)
+            shape = RoundedCornerShape(18.dp),
+            colors = tembusLightTextFieldColors()
         )
         Button(
             onClick = { onSearch(address) },
@@ -1802,7 +1907,8 @@ private fun LocationInputSheet(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Nama alamat") },
                 singleLine = true,
-                shape = RoundedCornerShape(18.dp)
+                shape = RoundedCornerShape(18.dp),
+                colors = tembusLightTextFieldColors()
             )
         }
         Button(
@@ -1855,10 +1961,7 @@ private fun GeocodeResultRow(
         Column(Modifier.weight(1f)) {
             Text(result.label, color = Ink, fontWeight = FontWeight.ExtraBold, maxLines = 2)
             Text(
-                text = listOfNotNull(
-                    result.provider.takeIf { it.isNotBlank() }?.uppercase(Locale.getDefault()),
-                    result.confidence?.let { "Akurasi ${"%.0f".format(Locale.US, it * 100)}%" }
-                ).joinToString(" • "),
+                text = "Ketuk untuk memilih titik ini",
                 color = Muted,
                 fontSize = 12.sp,
                 maxLines = 1
@@ -1915,8 +2018,13 @@ private fun RequestReceiverLocationSheet(
     isLoading: Boolean,
     onCreateLink: () -> Unit,
     onRefresh: () -> Unit,
-    onCopy: () -> Unit
+    onRevoke: () -> Unit,
+    onCopy: () -> Unit,
+    onShare: () -> Unit
 ) {
+    val isRevoked = status == "revoked"
+    val canUseLink = link.isNotBlank() && !isRevoked
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1967,6 +2075,7 @@ private fun RequestReceiverLocationSheet(
                         when (status) {
                             "submitted" -> "Lokasi sudah diisi"
                             "expired" -> "Link kedaluwarsa"
+                            "revoked" -> "Link dibatalkan"
                             else -> "Menunggu penerima"
                         },
                         color = Ink,
@@ -2013,34 +2122,63 @@ private fun RequestReceiverLocationSheet(
             Icon(Icons.Default.Lock, null, tint = Muted)
             Spacer(Modifier.width(10.dp))
             Text(
-                link.ifBlank { "Link belum dibuat" },
+                if (isRevoked) "Link sudah dibatalkan" else link.ifBlank { "Link belum dibuat" },
                 color = Ink,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
                 maxLines = 2
             )
-            TextButton(onClick = onCopy, enabled = link.isNotBlank()) {
+            TextButton(onClick = onCopy, enabled = canUseLink) {
                 Text("Salin", color = LcGreen, fontWeight = FontWeight.ExtraBold)
             }
         }
         Spacer(Modifier.height(18.dp))
-        if (link.isNotBlank()) {
-            Button(
-                onClick = onRefresh,
-                enabled = !isLoading,
+        if (canUseLink) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onShare,
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = LcGreen)
+                ) {
+                    Text("Bagikan", fontWeight = FontWeight.ExtraBold)
+                }
+                Button(
+                    onClick = onRefresh,
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                ) {
+                    Text(if (isLoading) "Mengecek..." else "Cek status", fontWeight = FontWeight.ExtraBold)
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedButton(
+                onClick = onRevoke,
+                enabled = !isLoading && status == "pending",
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                    .height(48.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, Color(0xFFE8294D).copy(alpha = 0.45f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE8294D))
             ) {
-                Text(if (isLoading) "Mengecek..." else "Cek jawaban penerima", fontWeight = FontWeight.ExtraBold)
+                Text("Batalkan link", fontWeight = FontWeight.ExtraBold)
             }
             Spacer(Modifier.height(10.dp))
         }
         Button(
             onClick = if (link.isBlank()) onCreateLink else onCopy,
-            enabled = !isLoading,
+            enabled = !isLoading && !isRevoked,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp),
@@ -2051,6 +2189,7 @@ private fun RequestReceiverLocationSheet(
                 when {
                     isLoading -> "Membuat link..."
                     link.isBlank() -> "Buat link lokasi"
+                    isRevoked -> "Link dibatalkan"
                     else -> "Salin link"
                 },
                 fontWeight = FontWeight.ExtraBold
@@ -2091,6 +2230,6 @@ private fun formatWeightKg(value: Double): String {
 
 private fun formatRupiah(value: Long): String {
     if (value <= 0) return "Rp0"
-    val formatter = NumberFormat.getNumberInstance(Locale("id", "ID"))
+    val formatter = NumberFormat.getNumberInstance(Locale.forLanguageTag("id-ID"))
     return "Rp${formatter.format(value)}"
 }

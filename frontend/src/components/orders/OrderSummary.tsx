@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Clock, Package, MapPin, Route, ShieldCheck, Truck, Zap } from "lucide-react";
+import { BadgePercent, Clock, Loader2, Package, MapPin, Route, ShieldCheck, Truck, Zap } from "lucide-react";
 import { api } from "@/lib/api";
 import { customerApiUrl } from "@/lib/runtimeConfig";
 
@@ -53,6 +53,28 @@ interface OrderSummaryProps {
     total_price_idr: number;
   } | null;
   isValid: boolean;
+  promoCode: string;
+  promoQuote: {
+    eligible: boolean;
+    reason?: string | null;
+    discount_idr?: number;
+    campaign?: {
+      id?: string;
+      code?: string;
+      name?: string;
+    } | null;
+  } | null;
+  promoError?: string | null;
+  isPromoChecking?: boolean;
+  eligiblePromos?: Array<{
+    id: string;
+    code: string;
+    name: string;
+    description?: string | null;
+  }>;
+  isEligiblePromoLoading?: boolean;
+  onPromoCodeChange: (value: string) => void;
+  onValidatePromo: () => void;
 }
 
 const routeCanvas = {
@@ -333,9 +355,28 @@ function RoadRoutePreview({
   );
 }
 
-export function OrderSummary({ isLoading, isRouteLoading, routePreview, routeError, pricing, isValid }: OrderSummaryProps) {
+export function OrderSummary({
+  isLoading,
+  isRouteLoading,
+  routePreview,
+  routeError,
+  pricing,
+  isValid,
+  promoCode,
+  promoQuote,
+  promoError,
+  isPromoChecking,
+  eligiblePromos = [],
+  isEligiblePromoLoading,
+  onPromoCodeChange,
+  onValidatePromo
+}: OrderSummaryProps) {
   const [mapsRuntimeConfig, setMapsRuntimeConfig] = useState<PublicMapsRuntimeConfig | null>(null);
   const surgeAmount = pricing?.dynamic_price_idr || 0;
+  const promoDiscountIdr = promoQuote?.eligible ? Math.max(0, Number(promoQuote.discount_idr || 0)) : 0;
+  const payableTotalIdr = pricing ? Math.max(0, pricing.total_price_idr - promoDiscountIdr) : 0;
+  const promoRequiresValidation = promoCode.trim().length > 0 && !promoQuote?.eligible;
+  const submitDisabled = !isValid || isLoading || !pricing || promoRequiresValidation || isPromoChecking;
   const routeSnapshot = pricing?.route_snapshot || routePreview || null;
   const routeDistanceKm =
     routeSnapshot?.distance_km ||
@@ -443,6 +484,77 @@ export function OrderSummary({ isLoading, isRouteLoading, routePreview, routeErr
         </div>
 
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <div className="mb-3 flex items-start gap-2">
+            <BadgePercent className="mt-0.5 h-4 w-4 text-emerald-400" />
+            <div>
+              <p className="text-sm font-semibold tracking-tight text-foreground">Kode promo</p>
+              <p className="text-xs text-muted-foreground">Promo diverifikasi server sebelum checkout.</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={promoCode}
+              onChange={(event) => onPromoCodeChange(event.target.value.toUpperCase())}
+              placeholder="TEMBUSHEMAT"
+              disabled={!pricing || isLoading}
+              className="min-w-0 flex-1 rounded-xl border border-white/10 bg-background px-3 py-2 text-sm font-semibold uppercase tracking-wide text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+              maxLength={40}
+            />
+            <button
+              type="button"
+              onClick={onValidatePromo}
+              disabled={!pricing || !promoCode.trim() || isLoading || isPromoChecking}
+              className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-sm font-bold text-emerald-200 transition-all hover:bg-emerald-500/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
+            >
+              {isPromoChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cek"}
+            </button>
+          </div>
+          {promoQuote?.eligible && (
+            <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">
+              Promo aktif: hemat Rp {promoDiscountIdr.toLocaleString("id-ID")}
+            </div>
+          )}
+          {promoError && (
+            <p className="mt-3 text-xs font-medium text-amber-200">{promoError}</p>
+          )}
+          {isEligiblePromoLoading && (
+            <div className="mt-3 flex gap-2">
+              <span className="h-8 flex-1 animate-pulse rounded-full bg-white/10" />
+              <span className="h-8 flex-1 animate-pulse rounded-full bg-white/10" />
+            </div>
+          )}
+          {!isEligiblePromoLoading && eligiblePromos.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {eligiblePromos.map((promo) => (
+                <button
+                  key={promo.id}
+                  type="button"
+                  onClick={() => onPromoCodeChange(promo.code)}
+                  disabled={!pricing || isLoading || isPromoChecking}
+                  className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-100 transition-all hover:bg-emerald-500/15 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
+                  title={promo.name}
+                >
+                  {promo.code}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {promoDiscountIdr > 0 && (
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2 text-emerald-300">
+              <BadgePercent className="h-4 w-4" />
+              <span>Potongan Promo</span>
+            </div>
+            <span className="font-semibold text-emerald-300">
+              - Rp {promoDiscountIdr.toLocaleString("id-ID")}
+            </span>
+          </div>
+        )}
+
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-3 flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-muted-foreground">
               <Package className="h-4 w-4" />
@@ -528,7 +640,7 @@ export function OrderSummary({ isLoading, isRouteLoading, routePreview, routeErr
             {isLoading ? (
               <span className="inline-block h-8 w-24 animate-pulse rounded bg-emerald-500/20"></span>
             ) : pricing ? (
-              `Rp ${pricing.total_price_idr.toLocaleString('id-ID')}`
+              `Rp ${payableTotalIdr.toLocaleString('id-ID')}`
             ) : (
               "Rp 0"
             )}
@@ -540,9 +652,9 @@ export function OrderSummary({ isLoading, isRouteLoading, routePreview, routeErr
         type="submit"
         form="order-form"
         data-testid="order-submit-button"
-        disabled={!isValid || isLoading || !pricing}
+        disabled={submitDisabled}
         className="mt-8 w-full rounded-xl bg-primary px-4 py-4 text-sm font-semibold text-primary-foreground shadow-lg transition-all hover:bg-primary/90 hover:shadow-primary/25 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]"
-        whileTap={isValid && !isLoading && pricing ? { scale: 0.98 } : {}}
+        whileTap={!submitDisabled ? { scale: 0.98 } : {}}
       >
         {isLoading ? "Menghitung..." : "Bayar Sekarang"}
       </motion.button>

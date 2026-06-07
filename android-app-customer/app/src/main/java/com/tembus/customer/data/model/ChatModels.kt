@@ -6,7 +6,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class ChatResponse(
     @SerialName("success") val success: Boolean,
-    @SerialName("chats") val chats: List<ChatMessage> = emptyList()
+    @SerialName("chats") val chats: List<ChatMessage> = emptyList(),
+    @SerialName("conversation") val conversation: ConversationInfo? = null,
+    @SerialName("read_receipts") val readReceipts: List<ReadReceipt> = emptyList()
 )
 
 @Serializable
@@ -24,7 +26,8 @@ data class ChatMessage(
 @Serializable
 data class SendMessageRequest(
     @SerialName("message") val message: String,
-    @SerialName("message_type") val messageType: String = "text"
+    @SerialName("message_type") val messageType: String = "text",
+    @SerialName("client_message_id") val clientMessageId: String? = null
 )
 
 @Serializable

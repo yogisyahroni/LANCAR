@@ -83,6 +83,21 @@ interface ChatMessage {
   order_id?: string;
 }
 
+let clientMessageFallbackCounter = 0;
+
+const createClientMessageId = () => {
+  if (typeof window !== 'undefined' && window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  if (typeof window !== 'undefined' && window.crypto?.getRandomValues) {
+    const entropy = new Uint32Array(2);
+    window.crypto.getRandomValues(entropy);
+    return `web-${Date.now()}-${entropy[0].toString(36)}${entropy[1].toString(36)}`;
+  }
+  clientMessageFallbackCounter += 1;
+  return `web-${Date.now()}-${clientMessageFallbackCounter}`;
+};
+
 interface TrackingData {
   courier_id: string;
   location?: {
@@ -471,9 +486,10 @@ export default function OrderDetailPage() {
 
   const sendMessage = async (text: string, type: string = 'text') => {
     try {
-      const res = await api.post(`/auth/web/orders/${id}/chats`, { 
-        message: text, 
-        message_type: type 
+      const res = await api.post(`/auth/web/orders/${id}/chats`, {
+        message: text,
+        message_type: type,
+        client_message_id: createClientMessageId(),
       });
       if (res.data && res.data.success) {
         setChatMessages(prev => [...prev, res.data.chat]);
@@ -781,12 +797,15 @@ export default function OrderDetailPage() {
                       </p>
                     </div>
                   </div>
-                  <a
-                    href={`tel:${order.recipient_phone_masked}`}
+                  <button
+                    type="button"
+                    onClick={() => chatScrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                     className="p-3 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-xl transition duration-200 select-none shadow-sm"
+                    aria-label="Buka obrolan dalam aplikasi"
+                    title="Buka obrolan dalam aplikasi"
                   >
                     <Phone className="h-4 w-4" />
-                  </a>
+                  </button>
                 </>
               ) : (
                 <div className="flex items-center gap-3 text-muted-foreground">

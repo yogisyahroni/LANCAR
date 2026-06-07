@@ -4,10 +4,12 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -28,7 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,22 +41,40 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage
 import com.tembus.courier.ui.components.maps.MapProperties
 import com.tembus.courier.ui.components.maps.MapUiSettings
 import com.tembus.courier.ui.components.maps.LatLng
 import com.tembus.courier.BuildConfig
+import com.tembus.courier.R
 import com.tembus.courier.data.model.MapsProviderConfig
+import com.tomtom.sdk.location.GeoPoint
+import com.tomtom.sdk.map.display.MapOptions
+import com.tomtom.sdk.map.display.TomTomMap
+import com.tomtom.sdk.map.display.camera.CameraOptions
+import com.tomtom.sdk.map.display.common.WidthByZoom
+import com.tomtom.sdk.map.display.image.ImageFactory
+import com.tomtom.sdk.map.display.marker.MarkerOptions
+import com.tomtom.sdk.map.display.polyline.PolylineOptions
+import com.tomtom.sdk.map.display.ui.MapReadyCallback
+import com.tomtom.sdk.map.display.ui.MapView
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.floor
 import kotlin.math.ln
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sinh
@@ -66,6 +86,11 @@ data class RuntimeMapMarker(
     val position: LatLng,
     val title: String,
     val snippet: String? = null
+)
+
+private data class RuntimeMapViewport(
+    val center: LatLng,
+    val zoom: Int
 )
 
 @Composable
@@ -87,25 +112,32 @@ fun RuntimeMapRenderer(
 ) {
     val validMarkers = remember(markers) { markers.filter { it.position.isValidLatLng() } }
     val validRoutePoints = remember(routePoints) { routePoints.filter { it.isValidLatLng() } }
-    val center = remember(validMarkers, validRoutePoints, followLocation) {
-        when {
-            followLocation?.isValidLatLng() == true -> followLocation
-            validRoutePoints.isNotEmpty() -> validRoutePoints[validRoutePoints.lastIndex / 2]
-            validMarkers.isNotEmpty() -> validMarkers.first().position
-            else -> LatLng(-6.2088, 106.8456)
-        }
+    val viewport = remember(validMarkers, validRoutePoints, followLocation) {
+        resolveViewport(
+            markers = validMarkers,
+            routePoints = validRoutePoints,
+            followLocation = followLocation
+        )
     }
 
     when {
-        providerConfig.activeProvider == "tomtom_maps" -> {
-            OpenStreetMapTileRenderer(
-                providerConfig = providerConfig,
+        providerConfig.activeProvider == "tomtom_maps" && hasTomTomSdkKey() -> {
+            TomTomSdkMapRenderer(
                 markers = validMarkers,
                 routePoints = validRoutePoints,
-                center = center,
+                viewport = viewport,
                 modifier = modifier,
                 routeColor = routeColor,
                 statusMessage = null
+            )
+        }
+
+        providerConfig.activeProvider == "tomtom_maps" -> {
+            RuntimeMapFallback(
+                title = "Peta sedang disiapkan",
+                message = "Visual peta belum tersedia di versi aplikasi ini. Navigasi order tetap memakai koordinat dan alamat.",
+                center = viewport.center,
+                modifier = modifier
             )
         }
 
@@ -114,7 +146,7 @@ fun RuntimeMapRenderer(
                 providerConfig = providerConfig,
                 markers = validMarkers,
                 routePoints = validRoutePoints,
-                center = center,
+                viewport = viewport,
                 modifier = modifier,
                 routeColor = routeColor,
                 statusMessage = providerConfig.recoveryMessageOrNull()
@@ -125,9 +157,108 @@ fun RuntimeMapRenderer(
             RuntimeMapFallback(
                 title = providerConfig.fallbackTitleOrDefault(fallbackTitle),
                 message = providerConfig.fallbackMessageOrDefault(fallbackMessage),
-                center = center,
+                center = viewport.center,
                 modifier = modifier
             )
+        }
+    }
+}
+
+@Composable
+private fun TomTomSdkMapRenderer(
+    markers: List<RuntimeMapMarker>,
+    routePoints: List<LatLng>,
+    viewport: RuntimeMapViewport,
+    modifier: Modifier,
+    routeColor: Color,
+    statusMessage: String? = null
+) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var mapView by remember { mutableStateOf<MapView?>(null) }
+    val mapKey = remember { BuildConfig.TOMTOM_API_KEY.trim() }
+    val routeColorArgb = routeColor.toArgb()
+
+    Box(modifier = modifier.background(Color(0xFFEAF3FF))) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { viewContext ->
+                MapView(
+                    viewContext,
+                    MapOptions(
+                        mapKey = mapKey,
+                        cameraOptions = CameraOptions(
+                            viewport.center.toGeoPoint(),
+                            viewport.zoom.toDouble(),
+                            null,
+                            null,
+                            null
+                        )
+                    )
+                ).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    onCreate(null)
+                    getMapAsync(object : MapReadyCallback {
+                        override fun onMapReady(map: TomTomMap) {
+                            renderTomTomMapContent(
+                                tomTomMap = map,
+                                markers = markers,
+                                routePoints = routePoints,
+                                viewport = viewport,
+                                routeColorArgb = routeColorArgb
+                            )
+                        }
+                    })
+                    mapView = this
+                }
+            },
+            update = { view ->
+                view.getMapAsync(object : MapReadyCallback {
+                    override fun onMapReady(map: TomTomMap) {
+                        renderTomTomMapContent(
+                            tomTomMap = map,
+                            markers = markers,
+                            routePoints = routePoints,
+                            viewport = viewport,
+                            routeColorArgb = routeColorArgb
+                        )
+                    }
+                })
+            }
+        )
+
+        if (!statusMessage.isNullOrBlank()) {
+            MapStatusCard(statusMessage = statusMessage)
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, mapView) {
+        val currentMapView = mapView ?: return@DisposableEffect onDispose {}
+        val lifecycle = lifecycleOwner.lifecycle
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            currentMapView.onStart()
+        }
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            currentMapView.onResume()
+        }
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> currentMapView.onStart()
+                Lifecycle.Event.ON_RESUME -> currentMapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> currentMapView.onPause()
+                Lifecycle.Event.ON_STOP -> currentMapView.onStop()
+                Lifecycle.Event.ON_DESTROY -> currentMapView.onDestroy()
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose {
+            lifecycle.removeObserver(observer)
+            currentMapView.onPause()
+            currentMapView.onStop()
+            currentMapView.onDestroy()
         }
     }
 }
@@ -137,25 +268,21 @@ private fun OpenStreetMapTileRenderer(
     providerConfig: MapsProviderConfig,
     markers: List<RuntimeMapMarker>,
     routePoints: List<LatLng>,
-    center: LatLng,
+    viewport: RuntimeMapViewport,
     modifier: Modifier,
     routeColor: Color,
     statusMessage: String? = null
 ) {
     val tileTemplate = remember(
         providerConfig.activeProvider,
-        providerConfig.openStreetMap.tileUrlTemplate,
-        BuildConfig.TOMTOM_API_KEY
+        providerConfig.openStreetMap.tileUrlTemplate
     ) {
         normalizeRuntimeTileTemplate(providerConfig)
     }
-    val attribution = when {
-        providerConfig.activeProvider == "tomtom_maps" && BuildConfig.TOMTOM_API_KEY.isNotBlank() -> "© TomTom"
-        else -> providerConfig.openStreetMap.attribution ?: "© OpenStreetMap contributors"
-    }
-    val zoom = if (routePoints.size > 1) 12 else 15
-    val centerTile = remember(center.latitude, center.longitude, zoom) {
-        center.toOsmTileCoordinate(zoom)
+    val attribution = providerConfig.openStreetMap.attribution ?: "© OpenStreetMap contributors"
+    val zoom = viewport.zoom
+    val centerTile = remember(viewport.center.latitude, viewport.center.longitude, zoom) {
+        viewport.center.toOsmTileCoordinate(zoom)
     }
 
     BoxWithConstraints(
@@ -239,24 +366,73 @@ private fun OpenStreetMapTileRenderer(
         )
 
         if (!statusMessage.isNullOrBlank()) {
-            Card(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(14.dp)
-                    .fillMaxWidth(),
-                shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Text(
-                    text = statusMessage,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF0B3D2E)
-                )
-            }
+            MapStatusCard(statusMessage = statusMessage)
         }
+    }
+}
+
+private fun renderTomTomMapContent(
+    tomTomMap: TomTomMap,
+    markers: List<RuntimeMapMarker>,
+    routePoints: List<LatLng>,
+    viewport: RuntimeMapViewport,
+    routeColorArgb: Int
+) {
+    tomTomMap.clear()
+    tomTomMap.moveCamera(
+        CameraOptions(
+            viewport.center.toGeoPoint(),
+            viewport.zoom.toDouble(),
+            null,
+            null,
+            null
+        )
+    )
+
+    if (routePoints.size > 1) {
+        tomTomMap.addPolyline(
+            PolylineOptions(
+                coordinates = routePoints.map { it.toGeoPoint() },
+                lineColor = routeColorArgb,
+                lineWidths = listOf(WidthByZoom(7.0, 0.0)),
+                outlineColor = Color.White.copy(alpha = 0.88f).toArgb(),
+                outlineWidths = listOf(WidthByZoom(10.0, 0.0)),
+                tag = "runtime-route"
+            )
+        )
+    }
+
+    val markerImage = ImageFactory.fromResource(R.drawable.ic_tomtom_runtime_marker)
+    markers.forEach { marker ->
+        tomTomMap.addMarker(
+            MarkerOptions(
+                coordinate = marker.position.toGeoPoint(),
+                pinImage = markerImage,
+                tag = marker.id,
+                balloonText = marker.title
+            )
+        )
+    }
+}
+
+@Composable
+private fun BoxScope.MapStatusCard(statusMessage: String) {
+    Card(
+        modifier = Modifier
+            .align(Alignment.TopCenter)
+            .padding(14.dp)
+            .fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.94f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Text(
+            text = statusMessage,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF0B3D2E)
+        )
     }
 }
 
@@ -342,6 +518,65 @@ private fun LatLng.isValidLatLng(): Boolean {
     return latitude in -90.0..90.0 && longitude in -180.0..180.0 && !(latitude == 0.0 && longitude == 0.0)
 }
 
+private fun hasTomTomSdkKey(): Boolean = BuildConfig.TOMTOM_API_KEY.trim().isNotBlank()
+
+private fun LatLng.toGeoPoint(): GeoPoint = GeoPoint(latitude, longitude)
+
+private fun resolveViewport(
+    markers: List<RuntimeMapMarker>,
+    routePoints: List<LatLng>,
+    followLocation: LatLng?
+): RuntimeMapViewport {
+    val allPoints = (routePoints + markers.map { it.position })
+        .filter { it.isValidLatLng() }
+        .distinctBy { point -> "${"%.6f".format(point.latitude)}:${"%.6f".format(point.longitude)}" }
+
+    if (allPoints.size >= 2) {
+        var minLatitude = allPoints.first().latitude
+        var maxLatitude = allPoints.first().latitude
+        var minLongitude = allPoints.first().longitude
+        var maxLongitude = allPoints.first().longitude
+
+        allPoints.forEach { point ->
+            minLatitude = min(minLatitude, point.latitude)
+            maxLatitude = max(maxLatitude, point.latitude)
+            minLongitude = min(minLongitude, point.longitude)
+            maxLongitude = max(maxLongitude, point.longitude)
+        }
+
+        val latitudeSpan = maxLatitude - minLatitude
+        val longitudeSpan = maxLongitude - minLongitude
+        val largestSpan = max(latitudeSpan, longitudeSpan)
+        val zoom = when {
+            largestSpan > 2.0 -> 8
+            largestSpan > 1.0 -> 9
+            largestSpan > 0.5 -> 10
+            largestSpan > 0.25 -> 11
+            largestSpan > 0.04 -> 12
+            largestSpan > 0.02 -> 13
+            largestSpan > 0.01 -> 14
+            else -> 15
+        }
+
+        return RuntimeMapViewport(
+            center = LatLng(
+                (minLatitude + maxLatitude) / 2.0,
+                (minLongitude + maxLongitude) / 2.0
+            ),
+            zoom = zoom
+        )
+    }
+
+    return RuntimeMapViewport(
+        center = when {
+            followLocation?.isValidLatLng() == true -> followLocation
+            allPoints.isNotEmpty() -> allPoints.first()
+            else -> LatLng(-6.2088, 106.8456)
+        },
+        zoom = 15
+    )
+}
+
 private const val MapRecoveryTitle = "Peta sedang dipulihkan"
 private const val MapRecoveryMessage = "Peta sedang dipulihkan. Alamat dan navigasi tetap tersedia."
 
@@ -374,11 +609,6 @@ private fun normalizeRuntimeTileTemplate(providerConfig: MapsProviderConfig): St
         .substringBefore("/api/v1")
         .trimEnd('/')
     val gatewayProxyTemplate = "$gatewayBase/api/v1/maps/tiles/{z}/{x}/{y}.png"
-    val tomTomApiKey = BuildConfig.TOMTOM_API_KEY.trim()
-    if (providerConfig.activeProvider == "tomtom_maps" && tomTomApiKey.isNotBlank()) {
-        return "https://api.tomtom.com/map/1/tile/basic/main/{z}/{x}/{y}.png?tileSize=256&key=$tomTomApiKey"
-    }
-
     val candidate = providerConfig.openStreetMap.tileUrlTemplate?.trim().orEmpty()
     return when {
         candidate.isBlank() -> gatewayProxyTemplate

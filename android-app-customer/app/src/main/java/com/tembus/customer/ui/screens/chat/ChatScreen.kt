@@ -1,11 +1,9 @@
 package com.tembus.customer.ui.screens.chat
 
-import android.content.Intent
-import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -39,7 +36,7 @@ import java.util.*
 fun ChatScreen(
     orderId: String,
     courierName: String?,
-    courierPhone: String?,
+    onInAppCallClick: () -> Unit,
     onBackClick: () -> Unit,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
@@ -47,6 +44,24 @@ fun ChatScreen(
     val context = LocalContext.current
     var textInput by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
+    val conversation = uiState.conversation
+    val showDeliveryGroupContext = conversation?.isGroup == true ||
+        conversation?.phase in setOf("delivery_group", "delivered")
+    val conversationTitle = when {
+        showDeliveryGroupContext -> "Percakapan pengantaran"
+        !courierName.isNullOrBlank() -> courierName
+        else -> "Kurir Anda"
+    }
+    val conversationSubtitle = when {
+        showDeliveryGroupContext && conversation?.memberType == "recipient" -> "Anda bergabung sebagai penerima"
+        showDeliveryGroupContext -> "Customer, kurir, dan penerima"
+        else -> "Aktif Pengiriman"
+    }
+    val composerPlaceholder = if (showDeliveryGroupContext) {
+        "Ketik pesan di grup pengantaran..."
+    } else {
+        "Ketik pesan ke kurir..."
+    }
 
     LaunchedEffect(orderId) {
         if (orderId.isBlank()) {
@@ -75,7 +90,7 @@ fun ChatScreen(
                 title = {
                     Column {
                         Text(
-                            text = courierName ?: "Kurir Anda",
+                            text = conversationTitle,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
                         )
@@ -88,7 +103,7 @@ fun ChatScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Aktif Pengiriman",
+                                text = conversationSubtitle,
                                 color = Color.Gray,
                                 fontSize = 12.sp
                             )
@@ -101,33 +116,12 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    // Real-Time Fallback Shortcut: Open Native WhatsApp if in-app chat has delays
-                    if (!courierPhone.isNullOrBlank()) {
-                        IconButton(
-                            onClick = {
-                                try {
-                                    // Normalize Indonesian phone standard prefix
-                                    var formattedPhone = courierPhone.replace(" ", "").replace("-", "")
-                                    if (formattedPhone.startsWith("0")) {
-                                        formattedPhone = "62" + formattedPhone.substring(1)
-                                    } else if (!formattedPhone.startsWith("+") && !formattedPhone.startsWith("62")) {
-                                        formattedPhone = "62$formattedPhone"
-                                    }
-                                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                                        data = Uri.parse("https://wa.me/$formattedPhone")
-                                    }
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Gagal membuka WhatsApp", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Call,
-                                contentDescription = "WhatsApp Fallback",
-                                tint = Color(0xFF25D366) // WhatsApp official green color hex
-                            )
-                        }
+                    IconButton(onClick = onInAppCallClick) {
+                        Icon(
+                            imageVector = Icons.Default.Call,
+                            contentDescription = "Panggilan dalam aplikasi",
+                            tint = Primary
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -143,17 +137,30 @@ fun ChatScreen(
                 .padding(paddingValues)
                 .background(Color(0xFFF2F2F7)) // Soft subtle gray background
         ) {
+            AnimatedVisibility(visible = uiState.isSending) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Primary,
+                    trackColor = Primary.copy(alpha = 0.12f)
+                )
+            }
+
+            AnimatedVisibility(visible = showDeliveryGroupContext) {
+                DeliveryGroupContextBanner(
+                    memberType = conversation?.memberType,
+                    notice = conversation?.visibilityNotice
+                )
+            }
+
             // Layer 1: Main Chat Area
             Box(modifier = Modifier.weight(1f)) {
                 if (uiState.isLoading && uiState.messages.isEmpty()) {
-                    Text(
-                        text = "Memuat percakapan...",
-                        modifier = Modifier.align(Alignment.Center),
-                        color = Primary,
-                        fontWeight = FontWeight.Bold
-                    )
+                    ChatLoadingSkeleton(modifier = Modifier.fillMaxSize())
                 } else if (uiState.messages.isEmpty()) {
-                    EmptyChatScreen(modifier = Modifier.fillMaxSize())
+                    EmptyChatScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        isDeliveryGroup = showDeliveryGroupContext
+                    )
                 } else {
                     LazyColumn(
                         state = listState,
@@ -178,50 +185,169 @@ fun ChatScreen(
                 color = MaterialTheme.colorScheme.surface,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
+                Column(
                     modifier = Modifier
                         .navigationBarsPadding()
                         .imePadding()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    OutlinedTextField(
-                        value = textInput,
-                        onValueChange = { textInput = it },
-                        placeholder = { Text("Ketik pesan ke kurir...") },
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(vertical = 4.dp),
-                        shape = RoundedCornerShape(24.dp),
-                        maxLines = 4,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Primary,
-                            unfocusedBorderColor = Color.LightGray
+                    uiState.failedDraft?.let { failedDraft ->
+                        FailedMessageBanner(
+                            message = failedDraft,
+                            onRetry = viewModel::retryFailedDraft,
+                            onDismiss = viewModel::dismissFailedDraft
                         )
-                    )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = textInput,
+                            onValueChange = { textInput = it.take(1000) },
+                            placeholder = { Text(composerPlaceholder) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(vertical = 4.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            maxLines = 4,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color(0xFF111827),
+                                unfocusedTextColor = Color(0xFF111827),
+                                disabledTextColor = Color(0xFF6B7280),
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                disabledContainerColor = Color(0xFFF5F7FA),
+                                focusedBorderColor = Primary,
+                                unfocusedBorderColor = Color.LightGray,
+                                focusedPlaceholderColor = Color(0xFF6B7280),
+                                unfocusedPlaceholderColor = Color(0xFF6B7280),
+                                cursorColor = Primary
+                            )
+                        )
 
-                    FloatingActionButton(
-                        onClick = {
-                            if (textInput.isNotBlank()) {
-                                viewModel.sendMessage(textInput)
-                                textInput = ""
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        FloatingActionButton(
+                            onClick = {
+                                if (textInput.isNotBlank() && !uiState.isSending) {
+                                    viewModel.sendMessage(textInput)
+                                    textInput = ""
+                                }
+                            },
+                            containerColor = if (textInput.isBlank() || uiState.isSending) Color(0xFF9CA3AF) else Primary,
+                            contentColor = Color.White,
+                            shape = CircleShape,
+                            modifier = Modifier.size(48.dp),
+                            elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp)
+                        ) {
+                            if (uiState.isSending) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Send,
+                                    contentDescription = "Kirim",
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
-                        },
-                        containerColor = Primary,
-                        contentColor = Color.White,
-                        shape = CircleShape,
-                        modifier = Modifier.size(48.dp),
-                        elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Kirim",
-                            modifier = Modifier.size(20.dp)
-                        )
+                        }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeliveryGroupContextBanner(
+    memberType: String?,
+    notice: String?
+) {
+    val caption = notice ?: if (memberType == "recipient") {
+        "Anda dapat berkoordinasi dengan customer dan kurir di percakapan ini."
+    } else {
+        "Penerima dapat bergabung di percakapan ini setelah paket diambil."
+    }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        color = Color(0xFFE8F5EE),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, Primary.copy(alpha = 0.18f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ChatBubbleOutline,
+                    contentDescription = null,
+                    tint = Primary,
+                    modifier = Modifier.size(21.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Grup pengantaran aktif",
+                    color = Color(0xFF0B3D2A),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                Text(
+                    text = caption,
+                    color = Color(0xFF526173),
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FailedMessageBanner(
+    message: String,
+    onRetry: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFFFFBEB),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.28f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color(0xFFD97706))
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Pesan belum terkirim", color = Color(0xFF92400E), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(
+                    message,
+                    color = Color(0xFF6B4E16),
+                    fontSize = 12.sp,
+                    maxLines = 1
+                )
+            }
+            TextButton(onClick = onRetry) {
+                Text("Coba", color = Primary, fontWeight = FontWeight.Bold)
+            }
+            IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color(0xFF92400E), modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -232,6 +358,11 @@ fun ChatBubble(
     message: ChatMessage,
     isCurrentUser: Boolean
 ) {
+    if (message.messageType.lowercase(Locale.getDefault()) == "system") {
+        SystemMessageBubble(message = message.message)
+        return
+    }
+
     val alignment = if (isCurrentUser) Alignment.End else Alignment.Start
     val bubbleColor = if (isCurrentUser) Primary else Color.White
     val contentColor = if (isCurrentUser) Color.White else Color.Black
@@ -282,6 +413,15 @@ fun ChatBubble(
                     .padding(horizontal = 12.dp, vertical = 8.dp)
                     .widthIn(max = 280.dp)
             ) {
+                if (!isCurrentUser && !message.senderName.isNullOrBlank()) {
+                    Text(
+                        text = message.senderName,
+                        color = Primary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    )
+                }
                 Text(
                     text = message.message,
                     color = contentColor,
@@ -304,7 +444,35 @@ fun ChatBubble(
 }
 
 @Composable
-fun EmptyChatScreen(modifier: Modifier = Modifier) {
+private fun SystemMessageBubble(message: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            color = Color(0xFFE8F5EE),
+            shape = RoundedCornerShape(999.dp),
+            border = BorderStroke(1.dp, Primary.copy(alpha = 0.14f))
+        ) {
+            Text(
+                text = message,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                color = Color(0xFF0B3D2A),
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
+@Composable
+fun EmptyChatScreen(
+    modifier: Modifier = Modifier,
+    isDeliveryGroup: Boolean = false
+) {
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.Center,
@@ -318,18 +486,41 @@ fun EmptyChatScreen(modifier: Modifier = Modifier) {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Belum ada percakapan",
+            text = if (isDeliveryGroup) "Grup pengantaran siap" else "Belum ada percakapan",
             fontWeight = FontWeight.Bold,
             fontSize = 16.sp,
             color = Color.DarkGray
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Mulai mengobrol dengan kurir Anda mengenai paket ini",
+            text = if (isDeliveryGroup) {
+                "Koordinasi dengan kurir, customer, dan penerima tetap tercatat aman di aplikasi."
+            } else {
+                "Percakapan akan tersedia setelah kurir menerima order ini."
+            },
             fontSize = 13.sp,
             color = Color.Gray,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 40.dp)
         )
+    }
+}
+
+@Composable
+private fun ChatLoadingSkeleton(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        repeat(6) { index ->
+            Box(
+                modifier = Modifier
+                    .align(if (index % 2 == 0) Alignment.Start else Alignment.End)
+                    .width(if (index % 2 == 0) 220.dp else 180.dp)
+                    .height(if (index % 3 == 0) 58.dp else 44.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFFE5E7EB))
+            )
+        }
     }
 }

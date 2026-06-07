@@ -151,19 +151,106 @@ export interface NotificationPayload {
   order_id?: string;
   metadata?: any;
   deep_link?: string;
+  category?: 'message' | 'activity' | 'promo' | 'support' | 'system';
+  priority?: 'low' | 'normal' | 'high' | 'urgent';
+  conversation_id?: string;
+  promo_id?: string;
+  expires_at?: string | Date;
 }
+
+const notificationCategories = new Set(['message', 'activity', 'promo', 'support', 'system']);
+const notificationPriorities = new Set(['low', 'normal', 'high', 'urgent']);
+
+type NotificationCategory = NonNullable<NotificationPayload['category']>;
+type NotificationPriority = NonNullable<NotificationPayload['priority']>;
+
+const inferNotificationCategory = (type: string): NotificationCategory => {
+  const normalizedType = type.toLowerCase();
+  if (normalizedType.includes('chat') || normalizedType.includes('call') || normalizedType.includes('message')) {
+    return 'message';
+  }
+  if (normalizedType.includes('promo') || normalizedType.includes('voucher') || normalizedType.includes('campaign')) {
+    return 'promo';
+  }
+  if (normalizedType.includes('support') || normalizedType.includes('dispute') || normalizedType.includes('help')) {
+    return 'support';
+  }
+  if (normalizedType.includes('system') || normalizedType.includes('security')) {
+    return 'system';
+  }
+  return 'activity';
+};
+
+const normalizeNotificationCategory = (category: unknown, type: string): NotificationCategory => {
+  const normalized = typeof category === 'string' ? category.trim().toLowerCase() : '';
+  return notificationCategories.has(normalized) ? normalized as NotificationCategory : inferNotificationCategory(type);
+};
+
+const normalizeNotificationPriority = (priority: unknown): NotificationPriority => {
+  const normalized = typeof priority === 'string' ? priority.trim().toLowerCase() : '';
+  return notificationPriorities.has(normalized) ? normalized as NotificationPriority : 'normal';
+};
+
+const toSafeFcmData = (metadata: unknown): Record<string, string> => {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return {};
+  return Object.fromEntries(
+    Object.entries(metadata as Record<string, unknown>)
+      .filter(([key]) => /^[A-Za-z0-9_.:-]{1,64}$/.test(key))
+      .map(([key, value]) => [key, value == null ? '' : String(value).slice(0, 512)])
+  );
+};
 
 export const createNotification = async (payload: NotificationPayload) => {
   try {
-    const { user_id, title, body, type, order_id, metadata, deep_link } = payload;
+    const {
+      user_id,
+      title,
+      body,
+      type,
+      order_id,
+      metadata,
+      deep_link,
+      conversation_id,
+      promo_id,
+      expires_at,
+    } = payload;
+    const category = normalizeNotificationCategory(payload.category, type);
+    const priority = normalizeNotificationPriority(payload.priority);
     
     // 1. Save to Database
     const query = `
-      INSERT INTO notifications (user_id, title, body, type, order_id, metadata, deep_link, channel)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, 'in_app')
+      INSERT INTO notifications (
+        user_id,
+        title,
+        body,
+        type,
+        order_id,
+        metadata,
+        deep_link,
+        channel,
+        category,
+        priority,
+        conversation_id,
+        promo_id,
+        expires_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'in_app', $8, $9, $10, $11, $12)
       RETURNING *
     `;
-    const values = [user_id, title, body, type, order_id, metadata ? JSON.stringify(metadata) : null, deep_link];
+    const values = [
+      user_id,
+      title,
+      body,
+      type,
+      order_id,
+      metadata ? JSON.stringify(metadata) : null,
+      deep_link,
+      category,
+      priority,
+      conversation_id || null,
+      promo_id || null,
+      expires_at || null,
+    ];
     
     const result = await db.query(query, values);
     const notification = result.rows[0];
@@ -172,11 +259,11 @@ export const createNotification = async (payload: NotificationPayload) => {
     try {
       const io = getIO();
       io.to(user_id).emit('new_notification', notification);
-      void recordRealtimeMetric('notification_socket_emitted', { type, has_order: Boolean(order_id) });
-      securityLog.info('Notification emitted over WebSocket', { type, has_order: Boolean(order_id) });
+      void recordRealtimeMetric('notification_socket_emitted', { type, category, has_order: Boolean(order_id) });
+      securityLog.info('Notification emitted over WebSocket', { type, category, has_order: Boolean(order_id) });
     } catch (wsError) {
-      void recordRealtimeMetric('notification_socket_failed', { type, has_order: Boolean(order_id) });
-      securityLog.warn('Notification WebSocket emit failed', { type, has_order: Boolean(order_id), error: wsError });
+      void recordRealtimeMetric('notification_socket_failed', { type, category, has_order: Boolean(order_id) });
+      securityLog.warn('Notification WebSocket emit failed', { type, category, has_order: Boolean(order_id), error: wsError });
     }
 
     // 3. Send via FCM (Push Notifications)
@@ -204,9 +291,7 @@ export const createNotification = async (payload: NotificationPayload) => {
         const devices = deviceResult.rows;
         
         if (devices.length > 0) {
-          const metadataData = Object.fromEntries(
-            Object.entries(metadata || {}).map(([key, value]) => [key, value == null ? '' : String(value)])
-          );
+          const metadataData = toSafeFcmData(metadata);
 
           const baseMessage = {
             notification: {
@@ -216,14 +301,19 @@ export const createNotification = async (payload: NotificationPayload) => {
             data: {
               ...metadataData,
               type: type,
+              category,
+              priority,
               order_id: order_id || '',
               notification_id: String(notification.id),
-              deep_link: deep_link || ''
+              deep_link: deep_link || '',
+              conversation_id: conversation_id || '',
+              promo_id: promo_id || ''
             },
             android: {
               priority: 'high' as const,
               notification: {
-                clickAction: 'FLUTTER_NOTIFICATION_CLICK', // For common framework compatibility
+                channelId: category === 'message' ? 'tembus_customer_messages' : 'tembus_customer_updates',
+                clickAction: 'TEMBUS_NOTIFICATION_OPEN',
                 sound: 'default'
               }
             }
@@ -274,6 +364,7 @@ export const createNotification = async (payload: NotificationPayload) => {
           });
           securityLog.info('FCM notification dispatch completed', {
             type,
+            category,
             has_order: Boolean(order_id),
             device_count: devices.length,
             success_count: totalSuccessCount,

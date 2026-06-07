@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.tembus.customer.ui.components.maps.LatLng
 import com.tembus.customer.data.model.MapsProviderConfig
 import com.tembus.customer.data.model.OrderTrackingDetail
+import com.tembus.customer.data.repository.NotificationRepository
 import com.tembus.customer.data.repository.OrderRepository
 import com.tembus.customer.data.repository.TrackingRepository
 import com.tembus.customer.util.SocketManager
@@ -31,13 +32,15 @@ data class TrackingUiState(
     val mapsProviderConfig: MapsProviderConfig = MapsProviderConfig(),
     val mapsProviderError: String? = null,
     val lastLiveTrackingAt: Long? = null,
-    val staleTrackingReason: String? = null
+    val staleTrackingReason: String? = null,
+    val hasUnreadMessage: Boolean = false
 )
 
 @HiltViewModel
 class TrackingViewModel @Inject constructor(
     private val repository: TrackingRepository,
     private val orderRepository: OrderRepository,
+    private val notificationRepository: NotificationRepository,
     private val socketManager: SocketManager
 ) : ViewModel() {
 
@@ -63,6 +66,7 @@ class TrackingViewModel @Inject constructor(
                 fetchMapsProviderConfig()
                 fetchLatestOrder(orderId)
                 fetchLatestTracking(orderId)
+                fetchUnreadMessageState()
                 val ttlMs = (_uiState.value.mapsProviderConfig.ttlSeconds.coerceIn(30, 3600) * 1000L).coerceAtMost(5000L)
                 delay(ttlMs)
             }
@@ -74,6 +78,7 @@ class TrackingViewModel @Inject constructor(
                 if (updatedOrderId == orderId) {
                     fetchLatestOrder(orderId)
                     fetchLatestTracking(orderId)
+                    fetchUnreadMessageState()
                 }
             }
         }
@@ -160,6 +165,13 @@ class TrackingViewModel @Inject constructor(
                     eta = currentState.eta ?: etaFromOrder
                 )
             }
+        }
+    }
+
+    private suspend fun fetchUnreadMessageState() {
+        notificationRepository.getUnreadCount().onSuccess { count ->
+            val unreadMessages = count.byCategory["message"] ?: count.byCategory["MESSAGE"] ?: 0
+            _uiState.update { it.copy(hasUnreadMessage = unreadMessages > 0) }
         }
     }
 

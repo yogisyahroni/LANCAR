@@ -199,7 +199,7 @@ android {
         vectorDrawables { useSupportLibrary = true }
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            abiFilters += listOf("arm64-v8a", "x86_64")
         }
 
         buildConfigField("String", "TOMTOM_API_KEY", quoteBuildConfigString(effectiveTomTomAndroidApiKey))
@@ -340,11 +340,14 @@ dependencies {
     // Accompanist for runtime permissions in Compose
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
 
-    // TomTom Maps SDK. Keep Play Services Location for device GPS only, not map rendering.
-    val tomTomMapsSdkVersion = "1.25.11"
+    // TomTom native map rendering for booking and live tracking surfaces.
+    val tomTomMapsSdkVersion = "1.26.6"
     implementation("com.tomtom.sdk.maps:map-display:$tomTomMapsSdkVersion")
     implementation("com.google.android.gms:play-services-location:21.1.0")
-    implementation("org.maplibre.gl:android-sdk:13.0.2")
+
+    // WebRTC audio for secure in-app customer-courier calls.
+    val streamWebRtcVersion = "1.3.9"
+    implementation("io.getstream:stream-webrtc-android:$streamWebRtcVersion")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

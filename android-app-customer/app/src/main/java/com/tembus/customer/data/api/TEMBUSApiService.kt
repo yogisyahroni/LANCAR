@@ -69,6 +69,11 @@ interface TEMBUSApiService {
     @GET("api/v1/customer/orders")
     suspend fun getOrderHistory(): Response<ApiResponse<List<Order>>>
 
+    @GET("api/v1/customer/incoming-packages")
+    suspend fun getIncomingPackages(
+        @Query("limit") limit: Int = 20
+    ): Response<ApiResponse<List<Order>>>
+
     @GET("api/v1/customer/orders/{id}")
     suspend fun getOrderDetail(
         @Path("id") id: String
@@ -123,6 +128,11 @@ interface TEMBUSApiService {
         @Path("id") id: String
     ): Response<ReceiverLocationRequestResponse>
 
+    @DELETE("api/v1/customer/location-requests/{id}")
+    suspend fun revokeReceiverLocationRequest(
+        @Path("id") id: String
+    ): Response<ReceiverLocationRequestResponse>
+
     // Payment Endpoints
     @POST("api/v1/customer/orders/{id}/payment")
     suspend fun createCustomerPaymentSession(
@@ -161,7 +171,62 @@ interface TEMBUSApiService {
         @Body request: SendMessageRequest
     ): Response<SendMessageResponse>
 
+    @GET("api/v1/mobile/orders/{id}/conversation")
+    suspend fun getOrderConversation(
+        @Path("id") id: String
+    ): Response<ChatResponse>
+
+    @PATCH("api/v1/mobile/orders/{id}/conversation/read")
+    suspend fun markOrderConversationRead(
+        @Path("id") id: String,
+        @Body request: ReadReceiptRequest
+    ): Response<ReadReceiptResponse>
+
+    @POST("api/v1/mobile/orders/{id}/calls")
+    suspend fun createOrderCall(
+        @Path("id") id: String,
+        @Body request: CreateCallRequest
+    ): Response<CallResponse>
+
+    @POST("api/v1/mobile/orders/{id}/calls/{callId}/join")
+    suspend fun joinOrderCall(
+        @Path("id") id: String,
+        @Path("callId") callId: String,
+        @Body request: JoinCallRequest
+    ): Response<CallResponse>
+
+    @POST("api/v1/mobile/orders/{id}/calls/{callId}/end")
+    suspend fun endOrderCall(
+        @Path("id") id: String,
+        @Path("callId") callId: String,
+        @Body request: EndCallRequest
+    ): Response<CallResponse>
+
     // Notification Endpoints
+    @GET("api/v1/mobile/notifications")
+    suspend fun getNotifications(
+        @Query("category") category: String? = null,
+        @Query("limit") limit: Int = 50
+    ): Response<NotificationListResponse>
+
+    @GET("api/v1/mobile/notifications/unread-count")
+    suspend fun getNotificationUnreadCount(): Response<NotificationUnreadCountResponse>
+
+    @PATCH("api/v1/mobile/notifications/{id}/read")
+    suspend fun markNotificationRead(
+        @Path("id") id: String
+    ): Response<NotificationUpdateResponse>
+
+    @PATCH("api/v1/mobile/notifications/read-all")
+    suspend fun markAllNotificationsRead(
+        @Body body: Map<String, String?> = emptyMap()
+    ): Response<NotificationUpdateResponse>
+
+    @PATCH("api/v1/mobile/notifications/{id}/archive")
+    suspend fun archiveNotification(
+        @Path("id") id: String
+    ): Response<NotificationUpdateResponse>
+
     @POST("api/v1/customer/notifications/register-token")
     suspend fun registerDeviceToken(
         @Body request: RegisterTokenRequest

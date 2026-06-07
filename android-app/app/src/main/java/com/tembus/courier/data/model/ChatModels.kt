@@ -11,6 +11,10 @@ data class ChatResponse(
     val chats: List<ChatMessage> = emptyList(),
     @SerialName("data")
     val data: List<ChatMessage>? = null,
+    @SerialName("conversation")
+    val conversation: ConversationInfo? = null,
+    @SerialName("read_receipts")
+    val readReceipts: List<ReadReceipt> = emptyList(),
     @SerialName("message")
     val message: String? = null
 )
@@ -40,7 +44,9 @@ data class SendMessageRequest(
     @SerialName("message")
     val message: String,
     @SerialName("message_type")
-    val messageType: String = "text"
+    val messageType: String = "text",
+    @SerialName("client_message_id")
+    val clientMessageId: String? = null
 )
 
 @Serializable

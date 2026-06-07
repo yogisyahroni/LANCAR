@@ -156,9 +156,18 @@ fun CompleteProfileScreen(
                         ),
                         shape = RoundedCornerShape(16.dp),
                         colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color(0xFF111827),
+                            unfocusedTextColor = Color(0xFF111827),
+                            disabledTextColor = Color(0xFF667085),
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            disabledContainerColor = Color(0xFFF5F7FA),
                             focusedBorderColor = Primary,
                             unfocusedBorderColor = Color(0xFFE1E7EF),
                             focusedLabelColor = Primary,
+                            unfocusedLabelColor = Color(0xFF667085),
+                            focusedPlaceholderColor = Color(0xFF667085),
+                            unfocusedPlaceholderColor = Color(0xFF667085),
                             cursorColor = Primary
                         )
                     )

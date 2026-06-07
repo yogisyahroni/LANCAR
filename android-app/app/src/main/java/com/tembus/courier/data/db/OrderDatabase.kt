@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import net.sqlcipher.database.SupportFactory
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import com.tembus.courier.data.model.CourierOrderPackage
 import com.tembus.courier.data.model.Location
 import com.tembus.courier.data.model.Order
@@ -193,7 +193,7 @@ abstract class OrderDatabase : RoomDatabase() {
                     context.contentResolver,
                     android.provider.Settings.Secure.ANDROID_ID
                 ).toByteArray()
-                val factory = SupportFactory(passkey)
+                val factory = SupportOpenHelperFactory(passkey)
 
                 val instance = Room.databaseBuilder(
                     context.applicationContext,

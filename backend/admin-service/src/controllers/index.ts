@@ -29,6 +29,7 @@ export * from './notifications.controller';
 
 // Vouchers
 export * from './vouchers.controller';
+export * from './promos.controller';
 
 // Logistics (Zones, Pricing, SLA Configs)
 export * from './logistics.controller';

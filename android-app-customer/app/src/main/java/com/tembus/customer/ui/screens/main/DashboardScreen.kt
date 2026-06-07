@@ -1,6 +1,9 @@
 package com.tembus.customer.ui.screens.main
 
+import android.Manifest
+import android.os.Build
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,13 +28,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Shield
@@ -53,18 +57,28 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.tembus.customer.R
 import com.tembus.customer.data.model.DeliveryServiceProduct
+import com.tembus.customer.data.model.Order
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentLight
 import com.tembus.customer.ui.theme.Background
@@ -88,19 +102,34 @@ private val SoftBlue = SecondaryLight
 private val SoftOrange = AccentLight
 private val SurfaceLine = Outline
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
-    onLogout: () -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
     onBookingClick: (String?) -> Unit = {},
     onTrackingClick: (String) -> Unit = {},
+    onChatClick: (String) -> Unit = {},
     onHistoryClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
 ) {
     val customerName by viewModel.customerName.collectAsState()
     val activeOrder by viewModel.activeOrder.collectAsState()
+    val incomingPackages by viewModel.incomingPackages.collectAsState()
     val services by viewModel.services.collectAsState()
     val dataError by viewModel.dataError.collectAsState()
+    val notificationUnreadCount by viewModel.notificationUnreadCount.collectAsState()
+    val notificationUnreadByCategory by viewModel.notificationUnreadByCategory.collectAsState()
+    val hasUnreadMessages = (notificationUnreadByCategory["message"] ?: 0) > 0
+    val notificationPermissionState = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        rememberPermissionState(Manifest.permission.POST_NOTIFICATIONS)
+    } else {
+        null
+    }
+    var showNotificationPermissionPrompt by rememberSaveable { mutableStateOf(true) }
+    val shouldShowNotificationPermissionPrompt = notificationPermissionState != null &&
+        !notificationPermissionState.status.isGranted &&
+        showNotificationPermissionPrompt
 
     Scaffold(
         containerColor = Background,
@@ -140,11 +169,20 @@ fun DashboardScreen(
             item {
                 HomeHero(
                     customerName = customerName.orEmpty().ifBlank { "Pelanggan" },
-                    onLogout = onLogout,
+                    notificationUnreadCount = notificationUnreadCount,
+                    onNotificationsClick = onNotificationsClick,
                     onCreateOrderClick = { onBookingClick(null) },
                     onPickupClick = { onBookingClick("pickup") },
                     onDestinationClick = { onBookingClick("dropoff") }
                 )
+            }
+            if (shouldShowNotificationPermissionPrompt) {
+                item {
+                    NotificationPermissionPromptCard(
+                        onEnable = { notificationPermissionState?.launchPermissionRequest() },
+                        onDismiss = { showNotificationPermissionPrompt = false }
+                    )
+                }
             }
             activeOrder?.let { order ->
                 item {
@@ -152,7 +190,19 @@ fun DashboardScreen(
                         title = "Pengiriman aktif",
                         subtitle = order.dropAddress.ifBlank { order.pickupAddress.ifBlank { order.orderId } },
                         status = order.status,
-                        onClick = { onTrackingClick(order.orderId) }
+                        hasUnreadMessage = hasUnreadMessages,
+                        onClick = { onTrackingClick(order.orderId) },
+                        onChatClick = { onChatClick(order.orderId) }
+                    )
+                }
+            }
+            if (incomingPackages.isNotEmpty()) {
+                item {
+                    IncomingPackagesSection(
+                        packages = incomingPackages,
+                        hasUnreadMessage = hasUnreadMessages,
+                        onTrackingClick = onTrackingClick,
+                        onChatClick = onChatClick
                     )
                 }
             }
@@ -187,40 +237,23 @@ private fun tembusNavigationColors() = NavigationBarItemDefaults.colors(
 )
 
 @Composable
+private fun UnreadDot(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(9.dp)
+            .clip(CircleShape)
+            .background(Accent)
+    )
+}
+
+@Composable
 private fun TembusBrandMark(modifier: Modifier = Modifier) {
-    Row(
+    Image(
+        painter = painterResource(id = R.drawable.tembus_home_logo),
+        contentDescription = "TEMBUS",
+        contentScale = ContentScale.Fit,
         modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(width = 56.dp, height = 38.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color.White),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    repeat(3) {
-                        Box(
-                            modifier = Modifier
-                                .width(18.dp)
-                                .height(4.dp)
-                                .clip(CircleShape)
-                                .background(Accent)
-                        )
-                    }
-                }
-                Spacer(Modifier.width(5.dp))
-                Text("T", color = PrimaryDark, fontSize = 28.sp, fontWeight = FontWeight.Black)
-            }
-        }
-        Spacer(Modifier.width(10.dp))
-        Column {
-            Text("TEMBUS", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
-            Text("KIRIMAN AMAN", color = Color.White.copy(alpha = 0.8f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-        }
-    }
+    )
 }
 
 @Composable
@@ -231,18 +264,18 @@ private fun TrustMiniPill(
 ) {
     Surface(
         modifier = modifier,
-        color = Color.White.copy(alpha = 0.11f),
+        color = SoftGreen.copy(alpha = 0.88f),
         shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
+        border = BorderStroke(1.dp, SurfaceLine)
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
-            Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text(label, color = PrimaryDark, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -278,9 +311,63 @@ private fun DashboardDataErrorCard(
 }
 
 @Composable
+private fun NotificationPermissionPromptCard(
+    onEnable: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, SurfaceLine),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(17.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(SoftGreen),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = LcGreen)
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Aktifkan notifikasi order", color = Ink, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                Text(
+                    "Chat kurir, status pengiriman, bantuan, dan promo yang kamu izinkan akan muncul tepat waktu.",
+                    color = Muted,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Nanti", color = Muted, fontWeight = FontWeight.ExtraBold)
+                    }
+                    Button(
+                        onClick = onEnable,
+                        colors = ButtonDefaults.buttonColors(containerColor = LcGreen, contentColor = Color.White),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("Aktifkan", fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun HomeHero(
     customerName: String,
-    onLogout: () -> Unit,
+    notificationUnreadCount: Int,
+    onNotificationsClick: () -> Unit,
     onCreateOrderClick: () -> Unit,
     onPickupClick: () -> Unit,
     onDestinationClick: () -> Unit
@@ -288,14 +375,13 @@ private fun HomeHero(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(500.dp)
             .background(Background)
             .statusBarsPadding()
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(342.dp)
+                .height(426.dp)
                 .background(
                     Brush.verticalGradient(
                         listOf(PrimaryDark, CustomerHeroStart, CustomerHeroEnd),
@@ -308,20 +394,39 @@ private fun HomeHero(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 22.dp, vertical = 18.dp)
+                .padding(horizontal = 20.dp)
+                .padding(top = 18.dp, bottom = 18.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TembusBrandMark(modifier = Modifier.size(width = 150.dp, height = 54.dp))
                 Spacer(Modifier.weight(1f))
-                IconButton(
-                    onClick = onLogout,
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.14f))
-                        .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)), CircleShape)
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Keluar", tint = Color.White)
+                Box(contentAlignment = Alignment.TopEnd) {
+                    IconButton(
+                        onClick = onNotificationsClick,
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.14f))
+                            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)), CircleShape)
+                    ) {
+                        Icon(Icons.Default.NotificationsActive, contentDescription = "Notifikasi", tint = Color.White)
+                    }
+                    if (notificationUnreadCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(Accent),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                notificationUnreadCount.coerceAtMost(99).toString(),
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
                 }
             }
 
@@ -338,9 +443,88 @@ private fun HomeHero(
                 "Atur pickup, tujuan, dan pantau pengiriman dalam satu aplikasi.",
                 color = Color.White.copy(alpha = 0.86f),
                 fontSize = 14.sp,
-                lineHeight = 20.sp
+                lineHeight = 20.sp,
+                modifier = Modifier.padding(end = 12.dp)
             )
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(18.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, SurfaceLine),
+                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+            ) {
+                Column(Modifier.padding(22.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "Halo, $customerName",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text("Mulai pengiriman baru atau lanjut pantau order aktif.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(58.dp)
+                                .clip(RoundedCornerShape(21.dp))
+                                .background(SoftBlue),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Primary, modifier = Modifier.size(33.dp))
+                        }
+                    }
+
+                    Spacer(Modifier.height(18.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Background)
+                            .padding(14.dp)
+                    ) {
+                        RouteLine(
+                            icon = Icons.Default.Place,
+                            color = LcGreen,
+                            label = "Ambil paket di",
+                            value = "Cari lokasi pickup",
+                            onClick = onPickupClick
+                        )
+                        Row(Modifier.padding(start = 19.dp)) {
+                            Box(
+                                Modifier
+                                    .height(18.dp)
+                                    .width(1.dp)
+                                    .background(SurfaceLine)
+                            )
+                            Spacer(Modifier.weight(1f))
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                                    .border(BorderStroke(1.dp, SurfaceLine), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.SwapVert, contentDescription = null, tint = Muted, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        RouteLine(
+                            icon = Icons.Default.Navigation,
+                            color = Secondary,
+                            label = "Tujuan pengiriman",
+                            value = "Tambah alamat tujuan",
+                            onClick = onDestinationClick
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
             Button(
                 onClick = onCreateOrderClick,
                 modifier = Modifier
@@ -355,90 +539,11 @@ private fun HomeHero(
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null)
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 TrustMiniPill(Icons.Default.LocalShipping, "Cepat", Modifier.weight(1f))
                 TrustMiniPill(Icons.Default.Shield, "Aman", Modifier.weight(1f))
                 TrustMiniPill(Icons.Default.VerifiedUser, "Terpercaya", Modifier.weight(1f))
-            }
-        }
-
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .align(Alignment.BottomCenter),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, SurfaceLine),
-            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
-        ) {
-            Column(Modifier.padding(22.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            "Halo, $customerName",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Ink,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text("Mulai pengiriman baru atau lanjut pantau order aktif.", color = Muted, fontSize = 13.sp, lineHeight = 18.sp)
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(58.dp)
-                            .clip(RoundedCornerShape(21.dp))
-                            .background(SoftBlue),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Primary, modifier = Modifier.size(33.dp))
-                    }
-                }
-
-                Spacer(Modifier.height(18.dp))
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(Background)
-                        .padding(14.dp)
-                ) {
-                    RouteLine(
-                        icon = Icons.Default.Place,
-                        color = LcGreen,
-                        label = "Ambil paket di",
-                        value = "Cari lokasi pickup",
-                        onClick = onPickupClick
-                    )
-                    Row(Modifier.padding(start = 19.dp)) {
-                        Box(
-                            Modifier
-                                .height(18.dp)
-                                .width(1.dp)
-                                .background(SurfaceLine)
-                        )
-                        Spacer(Modifier.weight(1f))
-                        Box(
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(CircleShape)
-                                .background(Color.White)
-                                .border(BorderStroke(1.dp, SurfaceLine), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.SwapVert, contentDescription = null, tint = Muted, modifier = Modifier.size(20.dp))
-                        }
-                    }
-                    RouteLine(
-                        icon = Icons.Default.Navigation,
-                        color = Secondary,
-                        label = "Tujuan pengiriman",
-                        value = "Tambah alamat tujuan",
-                        onClick = onDestinationClick
-                    )
-                }
             }
         }
     }
@@ -490,8 +595,18 @@ private fun ActiveOrderCard(
     title: String,
     subtitle: String,
     status: String,
-    onClick: () -> Unit
+    hasUnreadMessage: Boolean,
+    onClick: () -> Unit,
+    onChatClick: () -> Unit
 ) {
+    val canOpenChat = status.lowercase() in setOf(
+        "assigned",
+        "accepted",
+        "picking_up",
+        "picked_up",
+        "in_transit",
+        "delivering"
+    )
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -523,7 +638,195 @@ private fun ActiveOrderCard(
                 )
                 Text(status.replace("_", " ").uppercase(), color = LcGreen, fontWeight = FontWeight.Bold, fontSize = 11.sp)
             }
-            Text("Lacak", color = LcGreen, fontWeight = FontWeight.ExtraBold)
+            Column(horizontalAlignment = Alignment.End) {
+                Text("Lacak", color = LcGreen, fontWeight = FontWeight.ExtraBold)
+                if (canOpenChat) {
+                    Spacer(Modifier.height(8.dp))
+                    Surface(
+                        modifier = Modifier.clickable { onChatClick() },
+                        color = Color.White,
+                        shape = RoundedCornerShape(999.dp),
+                        border = BorderStroke(1.dp, LcGreen.copy(alpha = 0.24f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = LcGreen, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Chat", color = LcGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                            if (hasUnreadMessage) {
+                                Spacer(Modifier.width(5.dp))
+                                UnreadDot()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun IncomingPackagesSection(
+    packages: List<Order>,
+    hasUnreadMessage: Boolean,
+    onTrackingClick: (String) -> Unit,
+    onChatClick: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Paket Masuk", color = Ink, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Pantau paket yang dikirim ke nomor akun ini.", color = Muted, fontSize = 13.sp)
+            }
+            if (hasUnreadMessage) {
+                UnreadDot(modifier = Modifier.padding(end = 8.dp))
+            }
+            Surface(
+                color = SoftGreen,
+                shape = RoundedCornerShape(999.dp),
+                border = BorderStroke(1.dp, LcGreen.copy(alpha = 0.18f))
+            ) {
+                Text(
+                    text = "${packages.size}",
+                    color = LcGreen,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            packages.take(3).forEach { order ->
+                IncomingPackageCard(
+                    order = order,
+                    hasUnreadMessage = hasUnreadMessage,
+                    onTrackingClick = { onTrackingClick(order.orderId) },
+                    onChatClick = { onChatClick(order.orderId) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun IncomingPackageCard(
+    order: Order,
+    hasUnreadMessage: Boolean,
+    onTrackingClick: () -> Unit,
+    onChatClick: () -> Unit
+) {
+    val normalizedStatus = order.status.lowercase()
+    val canOpenChat = normalizedStatus in setOf(
+        "picked_up",
+        "in_transit",
+        "delivering",
+        "delivered",
+        "completed"
+    )
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onTrackingClick() },
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, SurfaceLine),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(SoftGreen),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.LocalShipping, contentDescription = null, tint = LcGreen)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = order.dropAddress.ifBlank { "Tujuan pengiriman" },
+                        color = Ink,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = order.courierName?.takeIf { it.isNotBlank() } ?: "Menunggu proses pengiriman",
+                        color = Muted,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Text(
+                    text = order.status.replace("_", " ").uppercase(),
+                    color = LcGreen,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+            Spacer(Modifier.height(13.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onTrackingClick() },
+                    color = SoftBlue,
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(Icons.Default.Navigation, contentDescription = null, tint = Primary, modifier = Modifier.size(17.dp))
+                        Spacer(Modifier.width(7.dp))
+                        Text("Pantau", color = PrimaryDark, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(enabled = canOpenChat) { onChatClick() },
+                    color = if (canOpenChat) SoftGreen else Background,
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, if (canOpenChat) LcGreen.copy(alpha = 0.2f) else SurfaceLine)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            Icons.Default.ChatBubbleOutline,
+                            contentDescription = null,
+                            tint = if (canOpenChat) LcGreen else Muted,
+                            modifier = Modifier.size(17.dp)
+                        )
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            if (canOpenChat) "Chat" else "Menunggu",
+                            color = if (canOpenChat) LcGreen else Muted,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        if (canOpenChat && hasUnreadMessage) {
+                            Spacer(Modifier.width(5.dp))
+                            UnreadDot()
+                        }
+                    }
+                }
+            }
         }
     }
 }

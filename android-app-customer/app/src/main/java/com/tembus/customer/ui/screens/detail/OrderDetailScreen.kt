@@ -32,7 +32,8 @@ fun OrderDetailScreen(
     orderId: String,
     viewModel: OrderDetailViewModel = hiltViewModel(),
     onBackClick: () -> Unit,
-    onTrackClick: (String) -> Unit
+    onTrackClick: (String) -> Unit,
+    onChatClick: (String, String?) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -114,7 +115,13 @@ fun OrderDetailScreen(
                                 
                                 RoutePoint(icon = Icons.Default.LocationOn, color = Primary, label = "Penjemputan", value = order.pickupAddress)
                                 Spacer(Modifier.height(8.dp))
-                                Divider(modifier = Modifier.padding(start = 12.dp).height(20.dp).width(2.dp), color = Outline)
+                                HorizontalDivider(
+                                    modifier = Modifier
+                                        .padding(start = 12.dp)
+                                        .height(20.dp)
+                                        .width(2.dp),
+                                    color = Outline
+                                )
                                 Spacer(Modifier.height(8.dp))
                                 RoutePoint(icon = Icons.Default.Flag, color = Secondary, label = "Tujuan", value = order.dropAddress)
                             }
@@ -142,15 +149,30 @@ fun OrderDetailScreen(
                         Spacer(Modifier.height(24.dp))
 
                         if (order.status.lowercase() != "delivered" && order.status.lowercase() != "cancelled") {
-                            Button(
-                                onClick = { onTrackClick(order.orderId) },
-                                modifier = Modifier.fillMaxWidth().height(52.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
-                            ) {
-                                Icon(Icons.Default.MyLocation, contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text("Lacak Posisi Kurir", fontWeight = FontWeight.Bold)
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Button(
+                                    onClick = { onTrackClick(order.orderId) },
+                                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Accent, contentColor = Color.White)
+                                ) {
+                                    Icon(Icons.Default.MyLocation, contentDescription = null)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Lacak Posisi Kurir", fontWeight = FontWeight.Bold)
+                                }
+
+                                if (canOpenConversation(order.status)) {
+                                    OutlinedButton(
+                                        onClick = { onChatClick(order.orderId, order.courierName) },
+                                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        border = BorderStroke(1.dp, Primary)
+                                    ) {
+                                        Icon(Icons.Default.ChatBubbleOutline, contentDescription = null, tint = Primary)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Chat Kurir", color = Primary, fontWeight = FontWeight.Bold)
+                                    }
+                                }
                             }
                         }
                     }
@@ -159,6 +181,17 @@ fun OrderDetailScreen(
             }
         }
     }
+}
+
+private fun canOpenConversation(status: String): Boolean {
+    return status.lowercase() in setOf(
+        "assigned",
+        "accepted",
+        "picking_up",
+        "picked_up",
+        "in_transit",
+        "delivering"
+    )
 }
 
 @Composable

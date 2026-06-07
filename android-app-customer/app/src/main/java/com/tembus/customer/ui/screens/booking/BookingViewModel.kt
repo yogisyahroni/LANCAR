@@ -63,7 +63,8 @@ data class BookingState(
     val mapPickerAddress: String = "",
     val isResolvingMapPoint: Boolean = false,
     val mapsProviderConfig: MapsProviderConfig = MapsProviderConfig(),
-    val mapsProviderError: String? = null
+    val mapsProviderError: String? = null,
+    val promoCode: String = ""
 )
 
 @HiltViewModel
@@ -355,6 +356,20 @@ class BookingViewModel @Inject constructor(
         _bookingState.value = _bookingState.value.copy(itemDescription = value)
     }
 
+    fun setPromoCode(value: String?) {
+        val normalized = value
+            ?.trim()
+            ?.uppercase()
+            ?.filter { it.isLetterOrDigit() || it == '_' || it == '-' }
+            ?.take(32)
+            .orEmpty()
+        _bookingState.value = _bookingState.value.copy(promoCode = normalized)
+    }
+
+    fun clearPromoCode() {
+        _bookingState.value = _bookingState.value.copy(promoCode = "")
+    }
+
     fun toggleDeliveryCode(enabled: Boolean) {
         _bookingState.value = _bookingState.value.copy(deliveryCodeEnabled = enabled)
     }
@@ -498,7 +513,8 @@ class BookingViewModel @Inject constructor(
                 itemValue = state.itemValue,
                 customerNotes = state.itemDescription,
                 priceBreakdown = priceBreakdown,
-                serviceCode = state.selectedServiceCode
+                serviceCode = state.selectedServiceCode,
+                promoCode = state.promoCode.ifBlank { null }
             )
 
             orderRepository.createCustomerOnDemandOrder(req).collectLatest { result ->
@@ -585,6 +601,32 @@ class BookingViewModel @Inject constructor(
                 _bookingState.value = _bookingState.value.copy(
                     isCreatingLocationLink = false,
                     error = e.localizedMessage ?: "Gagal mengecek lokasi penerima"
+                )
+            }
+        }
+    }
+
+    fun revokeReceiverLocationLink() {
+        val linkId = _bookingState.value.receiverLocationLink?.id
+        if (linkId.isNullOrBlank()) {
+            _bookingState.value = _bookingState.value.copy(error = "Belum ada link lokasi yang bisa dibatalkan.")
+            return
+        }
+
+        viewModelScope.launch {
+            _bookingState.value = _bookingState.value.copy(isCreatingLocationLink = true, error = null)
+            val result = orderRepository.revokeReceiverLocationRequest(linkId)
+            result.onSuccess { link ->
+                _bookingState.value = _bookingState.value.copy(
+                    receiverLocationLink = link,
+                    isCreatingLocationLink = false,
+                    error = "Link lokasi penerima sudah dibatalkan."
+                )
+            }
+            result.onFailure { e ->
+                _bookingState.value = _bookingState.value.copy(
+                    isCreatingLocationLink = false,
+                    error = e.localizedMessage ?: "Gagal membatalkan link lokasi penerima"
                 )
             }
         }

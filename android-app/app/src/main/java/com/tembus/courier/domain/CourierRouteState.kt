@@ -5,12 +5,15 @@ enum class CourierRouteScreen {
     ORDER_DETAIL,
     SCAN,
     PROOF,
-    CHAT
+    CHAT,
+    CALL
 }
 
 data class CourierRouteState(
     val screen: CourierRouteScreen = CourierRouteScreen.HOME,
     val orderId: String? = null,
+    val callId: String? = null,
+    val callTargetType: String = "customer",
     val scanType: String = CourierProofTypes.PICKUP_SCAN,
     val proofMode: String = CourierProofTypes.DELIVERY_POD_PHOTO
 ) {
@@ -44,11 +47,25 @@ object CourierRouteReducer {
     fun chat(orderId: String): CourierRouteState =
         CourierRouteState(screen = CourierRouteScreen.CHAT, orderId = orderId)
 
+    fun call(orderId: String, callId: String? = null, targetType: String = "customer"): CourierRouteState =
+        CourierRouteState(
+            screen = CourierRouteScreen.CALL,
+            orderId = orderId,
+            callId = callId?.takeIf { it.isNotBlank() },
+            callTargetType = normalizeCallTargetType(targetType)
+        )
+
     fun backFromChild(state: CourierRouteState): CourierRouteState {
-        return if (state.hasOrderContext && state.screen in setOf(CourierRouteScreen.SCAN, CourierRouteScreen.PROOF, CourierRouteScreen.CHAT)) {
+        return if (state.hasOrderContext && state.screen in setOf(CourierRouteScreen.SCAN, CourierRouteScreen.PROOF, CourierRouteScreen.CHAT, CourierRouteScreen.CALL)) {
             state.copy(screen = CourierRouteScreen.ORDER_DETAIL)
         } else {
             home()
         }
+    }
+
+    private fun normalizeCallTargetType(value: String): String = when (value.trim().lowercase()) {
+        "recipient" -> "recipient"
+        "support" -> "support"
+        else -> "customer"
     }
 }

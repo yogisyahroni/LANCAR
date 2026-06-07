@@ -3,6 +3,7 @@ package com.tembus.courier.ui.screens.chat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.model.ChatMessage
+import com.tembus.courier.data.model.ConversationInfo
 import com.tembus.courier.data.repository.ChatRepository
 import com.tembus.courier.data.session.AuthSessionManager
 import com.tembus.courier.util.SocketManager
@@ -26,6 +27,9 @@ class ChatViewModel @Inject constructor(
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private val _conversation = MutableStateFlow<ConversationInfo?>(null)
+    val conversation: StateFlow<ConversationInfo?> = _conversation.asStateFlow()
 
     private var currentOrderId: String? = null
 
@@ -56,7 +60,9 @@ class ChatViewModel @Inject constructor(
                 }
                 .collect { result ->
                     result.onSuccess { history ->
-                        _messages.value = history
+                        _conversation.value = history.conversation
+                        _messages.value = history.messages
+                        markLastMessageRead(history.messages)
                     }.onFailure { e ->
                         _errorMessage.value = e.localizedMessage ?: "Gagal sinkronisasi data."
                     }
@@ -101,9 +107,21 @@ class ChatViewModel @Inject constructor(
                     val isDuplicate = messages.value.any { it.id == incoming.id || (it.messageText == incoming.messageText && it.createdAt == incoming.createdAt) }
                     
                     if (!isDuplicate && incoming.senderId != courierId) {
-                        _messages.update { it + incoming }
+                        _messages.update { current ->
+                            val updatedMessages = current + incoming
+                            markLastMessageRead(updatedMessages)
+                            updatedMessages
+                        }
                     }
                 }
+        }
+    }
+
+    private fun markLastMessageRead(messages: List<ChatMessage>) {
+        val orderId = currentOrderId ?: return
+        val lastMessageId = messages.lastOrNull { !it.id.isNullOrBlank() }?.id
+        viewModelScope.launch {
+            chatRepository.markOrderChatRead(orderId, lastMessageId)
         }
     }
 

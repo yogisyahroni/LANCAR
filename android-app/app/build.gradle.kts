@@ -199,7 +199,7 @@ android {
         vectorDrawables { useSupportLibrary = true }
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            abiFilters += listOf("arm64-v8a", "x86_64")
         }
 
         missingDimensionStrategy("tomtom-sdk-version", "complete")
@@ -300,7 +300,6 @@ dependencies {
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("androidx.fragment:fragment-ktx:1.6.2")
-    implementation("com.scottyab:rootbeer-lib:0.1.0")
 
     // Room Database for offline order queue (PTLAAA-45)
     val roomVersion = "2.6.1"
@@ -309,7 +308,9 @@ dependencies {
     ksp("androidx.room:room-compiler:$roomVersion")
     // 🔒 Security Enhancement: SQLCipher for on-disk Room DB encryption
     implementation("androidx.sqlite:sqlite-ktx:2.4.0")
-    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
+    // Use the modern artifact because the legacy android-database-sqlcipher package
+    // ships native libraries that are not compatible with Android 15+ 16 KB pages.
+    implementation("net.zetetic:sqlcipher-android:4.10.0")
 
     // Networking & Serialization (Modern Data Stack)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
@@ -337,22 +338,26 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // CameraX for Proof of Delivery feature (PTLAAA-53)
-    val cameraxVersion = "1.3.0"
+    val cameraxVersion = "1.4.2"
     implementation("androidx.camera:camera-core:$cameraxVersion")
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
-    implementation("com.google.mlkit:barcode-scanning:17.2.0")
+    implementation("com.google.zxing:core:3.5.4")
     
     // TomTom Maps & Navigation Engine for courier operations.
     // Play Services Location remains only for device GPS, not map rendering.
-    val tomTomNavigationSdkVersion = "2.2.0"
+    val tomTomNavigationSdkVersion = "2.3.0"
+    implementation("com.tomtom.sdk.maps:map-display-common-android-complete:$tomTomNavigationSdkVersion")
     implementation("com.tomtom.sdk:init:$tomTomNavigationSdkVersion")
     implementation("com.tomtom.sdk.location:provider-simulation:$tomTomNavigationSdkVersion")
     implementation("com.tomtom.sdk.routing:route-planner:$tomTomNavigationSdkVersion")
     implementation("com.tomtom.sdk.navigation:navigation:$tomTomNavigationSdkVersion")
     implementation("com.google.android.gms:play-services-location:21.1.0")
-    implementation("org.maplibre.gl:android-sdk:13.0.2")
+
+    // WebRTC audio for secure in-app courier-customer calls.
+    val streamWebRtcVersion = "1.3.9"
+    implementation("io.getstream:stream-webrtc-android:$streamWebRtcVersion")
 
     // ExifInterface for image rotation correction
     implementation("androidx.exifinterface:exifinterface:1.3.6")
