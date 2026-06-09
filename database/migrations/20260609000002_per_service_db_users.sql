@@ -34,6 +34,7 @@
 -- ============================================================
 
 -- [UP]
+-- +goose Up
 
 -- ── 1. CREATE ROLES ──────────────────────────────────────────────────────────
 -- Passwords MUST be passed via --variable, never hardcoded.
@@ -224,8 +225,9 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 -- [DOWN] — Rollback: revoke grants and drop roles
 -- Run this ONLY if reverting to shared postgres user.
 -- ============================================================
--- REVOKE ALL ON ALL TABLES IN SCHEMA public FROM tembus_auth, tembus_admin, tembus_order, tembus_payment, tembus_routing, tembus_readonly;
--- REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM tembus_auth, tembus_admin, tembus_order, tembus_payment, tembus_routing, tembus_readonly;
--- REVOKE USAGE ON SCHEMA public FROM tembus_auth, tembus_admin, tembus_order, tembus_payment, tembus_routing, tembus_readonly;
--- DROP ROLE IF EXISTS tembus_auth, tembus_admin, tembus_order, tembus_payment, tembus_routing, tembus_readonly;
--- GRANT CREATE ON SCHEMA public TO PUBLIC;  -- restore default if needed
+-- +goose Down
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM tembus_auth, tembus_admin, tembus_order, tembus_payment, tembus_routing, tembus_readonly;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM tembus_auth, tembus_admin, tembus_order, tembus_payment, tembus_routing, tembus_readonly;
+REVOKE USAGE ON SCHEMA public FROM tembus_auth, tembus_admin, tembus_order, tembus_payment, tembus_routing, tembus_readonly;
+DROP ROLE IF EXISTS tembus_auth, tembus_admin, tembus_order, tembus_payment, tembus_routing, tembus_readonly;
+GRANT CREATE ON SCHEMA public TO PUBLIC;
