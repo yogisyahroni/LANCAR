@@ -41,6 +41,7 @@
 -- In local dev, if you omit the -v flags, the role is created without a password
 -- (NOLOGIN until you set one). This forces conscious configuration.
 
+-- +goose StatementBegin
 DO $$
 BEGIN
   -- auth-service: manages users, OTP, sessions, trusted_devices, auth_identifiers
@@ -73,6 +74,7 @@ BEGIN
     CREATE ROLE tembus_readonly WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE;
   END IF;
 END $$;
+-- +goose StatementEnd
 
 -- ── 2. REVOKE public SCHEMA defaults (defense-in-depth) ─────────────────────
 -- Prevent service roles from creating objects in public schema
