@@ -32,6 +32,10 @@ var (
 
 type structuredLogEvent map[string]interface{}
 
+// StructuredFields is the exported alias used by external packages (handlers)
+// that need to pass fields to LogJSON without importing an internal type.
+type StructuredFields = structuredLogEvent
+
 func CorrelationIDMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		correlationID := r.Header.Get(correlationIDHeader)

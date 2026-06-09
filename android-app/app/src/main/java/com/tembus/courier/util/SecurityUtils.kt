@@ -54,7 +54,11 @@ object SecurityUtils {
                 hasKnownRootManagementPackage(context) ||
                 hasSuspiciousRootBinary()
         } catch (e: Exception) {
-            false
+            // S2-MA-01 Fix: Fail-CLOSED — if root detection throws (which can happen on
+            // tampered environments that interfere with system APIs), treat the device as
+            // rooted. Returning false on exception would allow an attacker to bypass
+            // detection by causing a controlled crash.
+            true
         }
     }
 

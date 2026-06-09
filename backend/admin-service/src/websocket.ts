@@ -271,11 +271,14 @@ export const initWebSocket = (server: HttpServer) => {
   });
 
   io.on('connection', (socket) => {
-    // Extract userId from verified JWT payload, fallback to query for backward compatibility during transition if needed
-    // However, for strict security, we should ONLY use the decoded token.
+    // S3-CW-01 Fix: userId and role MUST come from the verified JWT/session payload
+    // set by the io.use() middleware above — NEVER from client-supplied query parameters.
+    // The client sends query: { userId, role } only as hints for legacy compatibility,
+    // but they are never trusted for authorization decisions.
     const user = (socket as any).user;
     const userId = user?.id || user?.user_id;
-    const role = user?.role || socket.handshake.query.role as string;
+    // role is ONLY taken from verified token — do NOT fall back to socket.handshake.query.role
+    const role = user?.role;
     
     if (userId) {
       socket.join(String(userId));

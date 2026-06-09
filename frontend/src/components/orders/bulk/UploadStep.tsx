@@ -23,7 +23,24 @@ export function UploadStep({ onComplete }: UploadStepProps) {
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      setFile(acceptedFiles[0]);
+      const droppedFile = acceptedFiles[0];
+
+      // S3-CW-04: Double-check MIME type — react-dropzone filters by extension
+      // but we verify actual file.type to reject disguised executables.
+      // Some browsers report 'application/octet-stream' for .csv which we also allow.
+      const allowedMimes = new Set(['text/csv', 'text/plain', 'application/csv', 'application/octet-stream']);
+      if (droppedFile.type && !allowedMimes.has(droppedFile.type)) {
+        setError(`Format file tidak diizinkan (${droppedFile.type}). Hanya file .csv yang diterima.`);
+        return;
+      }
+
+      // S3-CW-04: Block filenames containing path traversal characters
+      if (droppedFile.name.includes('..') || droppedFile.name.includes('/') || droppedFile.name.includes('\\')) {
+        setError('Nama file tidak valid.');
+        return;
+      }
+
+      setFile(droppedFile);
       setError(null);
     }
   }, []);
@@ -44,6 +61,15 @@ export function UploadStep({ onComplete }: UploadStepProps) {
     }
     if (!pickupAddress) {
       setError('Alamat pickup wajib diisi');
+      return;
+    }
+
+    // S3-CW-04: Sanitize pickup_address to strip CSV injection prefixes.
+    // Cells starting with =, +, -, @ are CSV injection vectors when exported.
+    const csvInjectionPrefixes = /^[=+\-@\t\r]/;
+    const sanitizedAddress = pickupAddress.trim();
+    if (csvInjectionPrefixes.test(sanitizedAddress)) {
+      setError('Alamat pickup mengandung karakter tidak valid di awal. Harap mulai dengan huruf atau angka.');
       return;
     }
 

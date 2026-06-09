@@ -10,6 +10,45 @@ import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
 import { useNotificationStore } from '@/store/useNotificationStore';
 
+// S3-CW-02: Maximum image file size allowed for dispute uploads (5 MB).
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
+/**
+ * S3-CW-02: Sanitizes a dispute-chat image URL before rendering.
+ *
+ * Accepts ONLY relative paths from our API that:
+ * - Do NOT contain path-traversal sequences (..)
+ * - Start with a known safe path prefix (/uploads/ or /media/)
+ *
+ * External URLs or traversal paths are blocked, returning null (image not rendered).
+ */
+function buildSafeImageSrc(rawPath: string, baseUrl: string | undefined): string | null {
+  if (!rawPath || !baseUrl) return null;
+
+  // Reject path traversal attempts
+  if (rawPath.includes('..') || rawPath.includes('%2e%2e') || rawPath.includes('%2E%2E')) {
+    return null;
+  }
+
+  // If it's already an absolute URL, verify it points to our own domain
+  try {
+    const parsed = new URL(rawPath);
+    const base = new URL(baseUrl);
+    if (parsed.hostname !== base.hostname) return null;
+    return rawPath; // same-origin absolute URL
+  } catch {
+    // Not an absolute URL — treat as a relative path (expected case)
+  }
+
+  // Accept only /uploads/ and /media/ relative paths
+  const allowedPrefixes = ['/uploads/', '/media/', '/dispute-attachments/'];
+  const isAllowed = allowedPrefixes.some((prefix) => rawPath.startsWith(prefix));
+  if (!isAllowed) return null;
+
+  return `${baseUrl.replace(/\/$/, '')}${rawPath}`;
+}
+
 interface Message {
   id: string;
   sender_id: string;
@@ -89,6 +128,15 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
   }, [currentUserId, disputeId, queryClient]);
 
   const handleFileUpload = async (file: File) => {
+    // S3-CW-02: Validate MIME type and file size before uploading.
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      addNotification({ title: 'Format tidak didukung', message: 'Hanya JPEG, PNG, WebP, atau GIF yang diizinkan.', type: 'error' });
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      addNotification({ title: 'File terlalu besar', message: 'Ukuran gambar maksimal 5 MB.', type: 'error' });
+      return;
+    }
     setUploading(true);
     try {
       const formData = new FormData();
@@ -114,6 +162,11 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
       if (items[i].type.indexOf('image') !== -1) {
         const file = items[i].getAsFile();
         if (file) {
+          // S3-CW-02: Validate pasted image MIME type
+          if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+            addNotification({ title: 'Format tidak didukung', message: 'Hanya JPEG, PNG, WebP, atau GIF yang diizinkan.', type: 'error' });
+            return;
+          }
           setSelectedFile(file);
           setPreviewImage(URL.createObjectURL(file));
         }
@@ -209,14 +262,25 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
                     : "bg-muted text-foreground rounded-tl-none border border-border",
                   !isImage && "px-4 py-2.5"
                 )}>
-                  {isImage ? (
-                    <img 
-                      src={`${api.defaults.baseURL}${msg.message}`} 
-                      alt="Attachment" 
-                      className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
-                      onClick={() => window.open(`${api.defaults.baseURL}${msg.message}`, '_blank')}
-                    />
-                  ) : (
+                  {isImage ? (() => {
+                    // S3-CW-02: Validate image path before rendering to prevent SSRF/path traversal.
+                    const safeSrc = buildSafeImageSrc(msg.message, api.defaults.baseURL);
+                    if (!safeSrc) {
+                      return (
+                        <div className="px-4 py-2.5 text-xs text-destructive italic">
+                          [Gambar tidak dapat ditampilkan]
+                        </div>
+                      );
+                    }
+                    return (
+                      <img 
+                        src={safeSrc} 
+                        alt="Attachment" 
+                        className="max-w-full rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => window.open(safeSrc, '_blank', 'noopener,noreferrer')}
+                      />
+                    );
+                  })() : (
                     msg.message
                   )}
                 </div>
@@ -259,10 +323,21 @@ export default function DisputeChat({ disputeId, onClose }: DisputeChatProps) {
             type="file" 
             ref={fileInputRef}
             className="hidden" 
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) {
+                // S3-CW-02: Re-validate on file picker selection
+                if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+                  addNotification({ title: 'Format tidak didukung', message: 'Hanya JPEG, PNG, WebP, atau GIF yang diizinkan.', type: 'error' });
+                  e.target.value = '';
+                  return;
+                }
+                if (file.size > MAX_IMAGE_BYTES) {
+                  addNotification({ title: 'File terlalu besar', message: 'Ukuran gambar maksimal 5 MB.', type: 'error' });
+                  e.target.value = '';
+                  return;
+                }
                 setSelectedFile(file);
                 setPreviewImage(URL.createObjectURL(file));
               }

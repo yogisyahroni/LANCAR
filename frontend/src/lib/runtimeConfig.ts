@@ -52,7 +52,15 @@ export const customerSocketUrl = resolveRequiredUrl(
   LOCAL_SOCKET_URL
 );
 
-export const customerGoogleAuthUrl = `${customerApiRootUrl}/auth/google`;
+// URL to initiate Google OAuth from the backend (new PKCE/nonce flow)
+export const customerGoogleAuthUrl = `${customerApiRootUrl}/api/v1/auth/customer/google/start`;
+
+// The URL Google will redirect to after consent (must match Google Cloud Console)
+export const customerGoogleCallbackUrl =
+  typeof window !== 'undefined'
+    ? `${window.location.origin}/google-callback`
+    : (process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI ?? 'http://localhost:3000/google-callback');
+
 
 export const getCustomerServerApiRootUrl = () => {
   const configured =

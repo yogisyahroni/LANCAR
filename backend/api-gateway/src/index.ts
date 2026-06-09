@@ -19,6 +19,7 @@ import { validateProductionEnv } from './envValidation';
 import { buildCorsOptions, rejectUnsafeCorsPreflight } from './corsPolicy';
 import { createGatewayAuthMatrixMiddleware } from './routeAuthMatrix';
 import { protectDocs, protectMetrics } from './opsSurfaceProtection';
+import { verifyCsrfToken } from './middleware/csrf';
 import {
   createMapsAbuseGuard,
   createPricingAbuseGuard,
@@ -171,24 +172,42 @@ const requestLogContext = (req: Request) => {
 
 
 app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
+  // S2-BE-03: API gateway serves no HTML, so CSP is defensive-in-depth.
+  // Remove 'unsafe-inline' from scriptSrc — there are zero server-rendered scripts here.
+  crossOriginResourcePolicy: { policy: "same-site" },
   contentSecurityPolicy: {
     directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "https:", "wss:"],
+      defaultSrc: ["'none'"],
+      scriptSrc: ["'self'"],            // no unsafe-inline, no CDN
+      styleSrc: ["'self'"],             // no unsafe-inline
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
       objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],       // clickjacking prevention
+      formAction: ["'self'"],
       upgradeInsecureRequests: [],
     },
   },
   hsts: {
-    maxAge: 31536000,
+    maxAge: 63072000, // 2 years — HSTS preload requirement
     includeSubDomains: true,
     preload: true,
   },
+  frameguard: { action: 'deny' },
+  referrerPolicy: { policy: 'no-referrer' },
+  permittedCrossDomainPolicies: { permittedPolicies: 'none' },
 }));
+
+// S2-BE-03: Permissions-Policy to restrict browser feature APIs on API gateway
+app.use((_req, res, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()'
+  );
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  next();
+});
 
 // CORS has to run before rate limiting and auth middleware. Browser preflights
 // and throttled responses must still carry Access-Control-Allow-Origin.
@@ -297,19 +316,12 @@ const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
-const authenticateCustomerApi = (req: Request, res: Response, next: NextFunction) => {
-  const hasWebCustomerSession = Boolean(
-    req.headers.cookie
-      ?.split(';')
-      .some((cookie) => cookie.trim().startsWith('customer_session='))
-  );
-
-  if (hasWebCustomerSession) {
-    return next();
-  }
-
-  return authenticateJWT(req, res, next);
-};
+// S-AG-01 FIX: authenticateCustomerApi was removed.
+// It only checked for the *presence* of a customer_session cookie without
+// validating its value — providing zero real security.
+// Authentication for /api/v1/customer/* is now handled entirely by:
+//   1. createGatewayAuthMatrixMiddleware (web-session-or-jwt policy)
+//   2. admin-service requireMobileOrWebAuth which validates the cookie against DB
 
 app.use(logger);
 app.use(createGatewayAuthMatrixMiddleware(authenticateJWT));
@@ -663,7 +675,8 @@ app.use(createProxyMiddleware({
 }));
 
 // Customer Mobile Portal Routes (JWT-authenticated, backed by Admin Service aggregates)
-app.use('/api/v1/customer', authenticateCustomerApi);
+// S-AG-01 FIX: authenticateCustomerApi removed — see comment at line 300.
+// Admin-service requireMobileOrWebAuth validates both cookies and JWTs against the DB.
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/customer',
   target: ADMIN_SERVICE_URL,
@@ -705,6 +718,10 @@ app.use(createProxyMiddleware({
 }));
 
 // Admin Service General Routes (Management API)
+// S-AD-01 FIX: verifyCsrfToken middleware prevents Cross-Site Request Forgery.
+// Admin routes use cookie-based sessions (withCredentials:true), making them
+// susceptible to CSRF. The middleware verifies X-CSRF-Token header === cookie.
+app.use('/api/v1/admin', verifyCsrfToken);
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/admin',
   target: ADMIN_SERVICE_URL,

@@ -47,6 +47,36 @@ interface DBNotification {
   deep_link?: string;
 }
 
+/**
+ * S3-CW-03: Validate a deep_link from a push notification before navigating.
+ *
+ * Only relative paths within the same origin are permitted (e.g. /orders/123).
+ * Absolute URLs, protocol-relative URLs (//evil.com), and javascript: URIs are
+ * all rejected. Returns null when the link should be ignored.
+ */
+function sanitizeDeepLink(rawLink: string | undefined | null): string | null {
+  if (!rawLink) return null;
+
+  const trimmed = rawLink.trim();
+  if (!trimmed) return null;
+
+  // Must start with '/' and be a relative path — block absolute URLs and protocol-relative
+  if (!trimmed.startsWith('/') || trimmed.startsWith('//')) return null;
+
+  // Reject path traversal
+  if (trimmed.includes('..')) return null;
+
+  // Guard against javascript: injections encoded as a path
+  try {
+    const url = new URL(trimmed, window.location.origin);
+    if (url.origin !== window.location.origin) return null;
+    // Only allow internal paths — block cross-origin even via tricky encoding
+    return url.pathname + (url.search || '') + (url.hash || '');
+  } catch {
+    return null;
+  }
+}
+
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, setAuth, setLoading, user } = useAuthStore();
   const { notifications, addNotification, removeNotification } = useNotificationStore();
@@ -480,7 +510,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                                   } catch (e) { clientLog.error('Failed to mark notification as read', { error: e }); }
                                 }
                                 if (notif.deep_link) {
-                                  router.push(notif.deep_link);
+                                  // S3-CW-03: Validate deep_link before navigation to prevent open redirect.
+                                  const safeLink = sanitizeDeepLink(notif.deep_link);
+                                  if (safeLink) {
+                                    router.push(safeLink);
+                                  } else {
+                                    clientLog.warn('Blocked suspicious deep_link from notification', { raw: notif.deep_link });
+                                  }
                                   setIsNotifOpen(false);
                                 }
                               }}

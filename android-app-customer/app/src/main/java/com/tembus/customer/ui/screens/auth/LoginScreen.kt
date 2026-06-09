@@ -63,6 +63,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import com.tembus.customer.R
 import com.tembus.customer.config.AppConfig
 import com.tembus.customer.ui.theme.Accent
@@ -95,8 +96,14 @@ private enum class PasswordResetStep {
 @Composable
 fun LoginScreen(
     viewModel: AuthViewModel,
-    onNavigateToOtp: (String) -> Unit
+    googleViewModel: GoogleAuthViewModel,
+    onNavigateToOtp: (String) -> Unit,
+    onGoogleRequiresOtp: (maskedRecipient: String, channel: String) -> Unit = { _, _ -> },
+    onGoogleRequiresPhone: (email: String, fullName: String, transactionId: String) -> Unit = { _, _, _ -> },
+    onGoogleAuthSuccess: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val googleAuthState by googleViewModel.googleAuthState.collectAsState()
     val authState by viewModel.authState.collectAsState()
     val passwordResetState by viewModel.passwordResetState.collectAsState()
     val phoneNumber by viewModel.phoneNumber.collectAsState()
@@ -140,6 +147,20 @@ fun LoginScreen(
         if (authState is AuthState.OtpSent) {
             onNavigateToOtp(phoneNumber)
             viewModel.resetState()
+        }
+    }
+
+    // Handle Google auth state changes
+    LaunchedEffect(googleAuthState) {
+        when (val state = googleAuthState) {
+            is GoogleAuthUiState.Authenticated -> onGoogleAuthSuccess()
+            is GoogleAuthUiState.RequiresOtp -> {
+                onGoogleRequiresOtp(state.maskedRecipient, state.channel)
+            }
+            is GoogleAuthUiState.RequiresPhone -> {
+                onGoogleRequiresPhone(state.email, state.fullName, state.transactionId)
+            }
+            else -> Unit
         }
     }
 
@@ -208,12 +229,27 @@ fun LoginScreen(
 
                     AnimatedVisibility(visible = !resetMode) {
                         Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                            val googleError = (googleAuthState as? GoogleAuthUiState.Error)?.message
                             GoogleButton(
+                                isLoading = googleAuthState is GoogleAuthUiState.Loading,
+                                enabled = AppConfig.IS_GOOGLE_AUTH_ENABLED,
                                 onClick = {
-                                    noticeMessage = "Google sign-in sedang disiapkan. Gunakan email dan password untuk melanjutkan saat ini."
-                                    entryMode = AuthEntryMode.Login
+                                    noticeMessage = null
+                                    googleViewModel.signInWithGoogle(context)
                                 }
                             )
+                            AnimatedVisibility(visible = googleError != null) {
+                                if (googleError != null) {
+                                    Text(
+                                        text = googleError,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Start
+                                    )
+                                }
+                            }
 
                             DividerWithText()
 
@@ -430,26 +466,47 @@ private fun AuthHeadline(entryMode: AuthEntryMode, isPasswordReset: Boolean) {
 }
 
 @Composable
-private fun GoogleButton(onClick: () -> Unit) {
+private fun GoogleButton(
+    onClick: () -> Unit,
+    isLoading: Boolean = false,
+    enabled: Boolean = true
+) {
     OutlinedButton(
         onClick = onClick,
+        enabled = enabled && !isLoading,
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp),
         shape = RoundedCornerShape(14.dp),
-        border = BorderStroke(1.dp, Primary.copy(alpha = 0.72f)),
+        border = BorderStroke(1.dp, Primary.copy(alpha = if (enabled && !isLoading) 0.72f else 0.30f)),
         colors = ButtonDefaults.outlinedButtonColors(
             containerColor = Color.White,
-            contentColor = Ink
+            contentColor = Ink,
+            disabledContainerColor = Color.White,
+            disabledContentColor = Ink.copy(alpha = 0.40f)
         )
     ) {
-        GoogleMark()
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = "Masuk dengan Google",
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold
-        )
+        if (isLoading) {
+            androidx.compose.material3.CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.5.dp,
+                color = Primary
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "Memuat...",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            )
+        } else {
+            GoogleMark()
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "Masuk dengan Google",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 

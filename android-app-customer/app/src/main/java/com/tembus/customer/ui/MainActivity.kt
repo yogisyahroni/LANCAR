@@ -119,17 +119,53 @@ class MainActivity : FragmentActivity() {
     }
 
     private fun isLikelyRootedDevice(): Boolean {
-        val suspiciousPaths = listOf(
-            "/system/app/Superuser.apk",
-            "/sbin/su",
-            "/system/bin/su",
-            "/system/xbin/su",
-            "/data/local/xbin/su",
-            "/data/local/bin/su",
-            "/system/sd/xbin/su",
-            "/system/bin/failsafe/su",
-            "/data/local/su"
-        )
-        return suspiciousPaths.any { java.io.File(it).exists() }
+        return try {
+            // 1. Test-keys build tag — indicates a non-production kernel build
+            val hasTestKeys = android.os.Build.TAGS?.contains("test-keys", ignoreCase = true) == true
+
+            // 2. Known root management app packages
+            val rootPackages = listOf(
+                "com.topjohnwu.magisk",
+                "io.github.vvb2060.magisk",
+                "eu.chainfire.supersu",
+                "com.koushikdutta.superuser",
+                "me.weishu.kernelsu",
+                "me.bmax.apatch"
+            )
+            val hasRootApp = rootPackages.any { pkg ->
+                runCatching {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                        packageManager.getPackageInfo(pkg, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        packageManager.getPackageInfo(pkg, 0)
+                    }
+                    true
+                }.getOrDefault(false)
+            }
+
+            // 3. Suspicious su binary paths
+            val suspiciousPaths = listOf(
+                "/system/app/Superuser.apk",
+                "/sbin/su",
+                "/system/bin/su",
+                "/system/xbin/su",
+                "/data/local/xbin/su",
+                "/data/local/bin/su",
+                "/system/sd/xbin/su",
+                "/system/bin/failsafe/su",
+                "/data/local/su",
+                "/su/bin/su"
+            )
+            val hasSuBinary = suspiciousPaths.any { path ->
+                runCatching { java.io.File(path).exists() }.getOrDefault(false)
+            }
+
+            hasTestKeys || hasRootApp || hasSuBinary
+        } catch (e: Exception) {
+            // S2-MA-01 Fix: Fail-CLOSED — treat device as rooted on any unexpected
+            // exception. Tampered environments may interfere with system calls.
+            true
+        }
     }
 }

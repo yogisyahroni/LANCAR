@@ -95,6 +95,8 @@ fun RootNavGraph(
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
     var foregroundNotification by remember { mutableStateOf<NotificationRealtimeEvent?>(null) }
+    // S2-MA-04: Screens containing PII or financial data must be protected with FLAG_SECURE
+    // to prevent screenshot and screen-recording leaks by malicious apps.
     val secureScreenRequired = currentRoute in setOf(
         Screen.AuthGraph.route,
         Screen.Booking.route,
@@ -104,14 +106,15 @@ fun RootNavGraph(
         Screen.Payment.route,
         Screen.Tracking.route,
         Screen.Chat.route,
-        Screen.InAppCall.route
+        Screen.InAppCall.route,
+        Screen.History.route,  // S2-MA-04: contains recipient names, addresses, payment amounts
     )
 
     SecureScreenEffect(enabled = secureScreenRequired)
 
     if (isLoading) {
         // Preload logic here if needed
-        return 
+        return
     }
 
     LaunchedEffect(startDestination) {

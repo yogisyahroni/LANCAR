@@ -66,6 +66,17 @@ jobs:
           DB_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
+      # S-CC-01 FIX: govulncheck — Go vulnerability scanner from Google.
+      # Unlike Trivy image scan, govulncheck only flags CVEs in code paths
+      # that are actually called, eliminating false positives from unused deps.
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Go Vulnerability Scan — auth-service
+        run: cd backend/auth-service && govulncheck ./...
+      - name: Go Vulnerability Scan — routing-service
+        run: cd backend/routing-service && govulncheck ./...
+
+
   security:
     name: Critical Security Audit
     runs-on: ubuntu-latest
@@ -82,6 +93,9 @@ jobs:
         run: |
           cd frontend && npm audit --audit-level=high
           cd ../backend/admin-service && npm audit --audit-level=high
+          # S-CC-01 FIX: api-gateway was not being audited
+          cd ../backend/api-gateway && npm audit --audit-level=high
+
 
   container-security:
     name: Container SBOM & Secret Audit (${{ matrix.image }})

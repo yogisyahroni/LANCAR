@@ -117,6 +117,7 @@ func validateProductionSecrets() {
 	requireProductionURL("READ_DATABASE_URL")
 	requireProductionURL("REDIS_URL")
 	requireStrongSecret("JWT_SECRET", 32)
+	requireStrongSecret("OTP_HASH_PEPPER", 32)
 }
 
 func main() {
@@ -250,6 +251,32 @@ func main() {
 	authAbuseProtector := middleware.NewAuthAbuseProtector(rdb)
 	h := handler.NewAuthHandler(svc, authAbuseProtector)
 
+	// ─────────────────────────────────────────────
+	// Google Auth + Zenziva OTP Service
+	// ─────────────────────────────────────────────
+	googleWebClientID := os.Getenv("GOOGLE_CUSTOMER_WEB_CLIENT_ID")
+	googleAndroidClientID := os.Getenv("GOOGLE_CUSTOMER_ANDROID_CLIENT_ID")
+	googleAuthSvc := service.NewGoogleAuthService(repo, googleWebClientID, googleAndroidClientID)
+
+	// Select OTP provider: live Zenziva or dry-run
+	otpProviderName := strings.ToLower(strings.TrimSpace(os.Getenv("OTP_PROVIDER")))
+	if otpProviderName == "zenziva" {
+		zenvProvider, zenvErr := service.NewZenzivaOTPProvider()
+		if zenvErr != nil {
+			if isProductionRuntime() {
+				log.Fatalf("[auth-service] Zenziva provider init failed in production: %v", zenvErr)
+			}
+			log.Printf("[auth-service] WARNING: Zenziva provider init failed (%v), falling back to dry-run", zenvErr)
+		} else {
+			googleAuthSvc.SetOTPProvider(zenvProvider)
+			log.Println("[auth-service] OTP provider: Zenziva (live)")
+		}
+	} else {
+		log.Println("[auth-service] OTP provider: dry-run (set OTP_PROVIDER=zenziva for live)")
+	}
+
+	gh := handler.NewGoogleAuthHandler(googleAuthSvc, authAbuseProtector)
+
 	mux := http.NewServeMux()
 
 	// ─────────────────────────────────────────────
@@ -283,6 +310,31 @@ func main() {
 
 	mux.HandleFunc("/api/v1/auth/password-reset/confirm",
 		middleware.AuthRateLimitedChain(rdb, h.ConfirmCustomerPasswordReset))
+
+	// ─────────────────────────────────────────────
+	// API v1 — Customer Google Auth (public + rate limited)
+	// Enforces AuthAbuseProtector inside GoogleAuthHandler itself.
+	// ─────────────────────────────────────────────
+	mux.HandleFunc("/api/v1/auth/customer/google/start",
+		middleware.AuthRateLimitedChain(rdb, gh.StartGoogleAuth))
+
+	mux.HandleFunc("/api/v1/auth/customer/google/complete",
+		middleware.AuthRateLimitedChain(rdb, gh.CompleteGoogleAuth))
+
+	mux.HandleFunc("/api/v1/auth/customer/google/link",
+		middleware.AuthChain(gh.LinkGoogleAccount))
+
+	// ─────────────────────────────────────────────
+	// API v1 — Customer OTP (new Zenziva-backed flow)
+	// ─────────────────────────────────────────────
+	mux.HandleFunc("/api/v1/auth/customer/otp/send",
+		middleware.AuthRateLimitedChain(rdb, gh.SendCustomerOTP))
+
+	mux.HandleFunc("/api/v1/auth/customer/otp/verify",
+		middleware.AuthRateLimitedChain(rdb, gh.VerifyCustomerOTP))
+
+	// Zenziva delivery status webhook (public, HMAC signature verified inside handler)
+	mux.HandleFunc("/api/v1/auth/providers/zenziva/webhook", gh.HandleZenzivaWebhook)
 
 	// ─────────────────────────────────────────────
 	// API v1 — Auth Endpoints (public + rate limited)

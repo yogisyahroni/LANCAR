@@ -257,6 +257,17 @@ fun MainScreen(
             courierVehicleType = courierVehicleType
         )
     }
+    // S2-MA-04 AUDIT — FLAG_SECURE Coverage for Courier App:
+    // Tab 0 (Home/Orders)     → NOT secure by default (public order list, no PII shown at list level)
+    // Tab 1 (Active Orders)   → NOT secure (same as home)
+    // Tab 2 (Earnings/Wallet) → SECURE (IDR amounts, payout account details, earnings history)
+    // Tab 3 on-demand courier → SECURE (active job route, recipient address, live location)
+    // showOrderDetail         → SECURE (recipient name, phone, address, package contents)
+    // showPodScreen           → SECURE (delivery proof photo, recipient signature)
+    // showScanScreen          → SECURE (package tracking codes, order context)
+    // showChatScreen          → SECURE (customer conversation)
+    // showCallScreen          → SECURE (live call, caller identity)
+    // LoginScreen + CourierRegistrationScreen → independently call SecureScreenEffect()
     val secureScreenRequired = selectedTab == 2 ||
         (isOnDemandCourier && selectedTab == 3) ||
         showPodScreen ||

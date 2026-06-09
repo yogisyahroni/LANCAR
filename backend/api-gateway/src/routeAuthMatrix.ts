@@ -269,21 +269,30 @@ export const createGatewayAuthMatrixMiddleware = (authenticateJwt: JwtAuthentica
   }
 
   if (policy.requirement === 'web-session-or-jwt') {
-    if (hasWebSessionCookie(req)) {
-      return next();
-    }
     if (hasBearerToken(req)) {
       return authenticateJwt(req, res, next);
+    }
+    if (hasWebSessionCookie(req)) {
+      // S-AG-01 FIX: Cookie presence alone is NOT treated as authentication.
+      // We mark the request so admin-service knows it must perform its own
+      // DB-backed cookie verification (via requireMobileOrWebAuth / verifyWebSession).
+      // admin-service validates: session_token exists in web_sessions, not expired,
+      // user role matches 'customer', user not deleted.
+      req.headers['x-auth-via-cookie'] = '1';
+      return next();
     }
     return rejectAnonymous(res, policy);
   }
 
   if (policy.requirement === 'admin-session-or-jwt') {
-    if (hasAdminSessionCookie(req)) {
-      return next();
-    }
     if (hasBearerToken(req)) {
       return authenticateJwt(req, res, next);
+    }
+    if (hasAdminSessionCookie(req)) {
+      // S-AG-02 FIX: Same as web-session — mark for downstream verification.
+      // admin-service validates: session exists, role is admin-level, not expired.
+      req.headers['x-auth-via-cookie'] = '1';
+      return next();
     }
     return rejectAnonymous(res, policy);
   }

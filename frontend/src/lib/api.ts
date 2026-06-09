@@ -7,6 +7,10 @@ const API_URL = customerApiUrl;
 const PUBLIC_AUTH_PATHS = [
   '/auth/customer/login/start',
   '/auth/customer/register/start',
+  '/auth/customer/google/start',
+  '/auth/customer/google/complete',
+  '/auth/customer/otp/send',
+  '/auth/customer/otp/verify',
   '/auth/otp/send',
   '/auth/otp/verify',
   '/auth/web/session/exchange',

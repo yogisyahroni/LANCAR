@@ -9,30 +9,35 @@ let socket: Socket | null = null;
 export const getSocket = (userId?: string, role: string = 'customer') => {
   if (socket && userId) {
     const currentQuery = socket.io.opts.query as any;
-    if (currentQuery?.userId !== userId || currentQuery?.role !== role) {
-      clientLog.debug('WebSocket identity changed, reconnecting', { role });
+    // Only reconnect if userId changes (for detecting user switching)
+    if (currentQuery?.userId !== userId) {
+      clientLog.debug('WebSocket identity changed, reconnecting');
       socket.disconnect();
       socket = null;
     }
   }
 
   if (!socket && userId) {
+    // S3-CW-01 Fix: Do NOT send userId or role in query params — these values
+    // are client-controlled and can be spoofed via DevTools.
+    // Authentication is handled server-side using the HttpOnly session cookie
+    // that is automatically sent with `withCredentials: true`.
     socket = io(SOCKET_URL, {
-      query: { userId, role },
-      withCredentials: true,
+      withCredentials: true, // HttpOnly session cookie carries the identity
       transports: ['polling', 'websocket'],
+      // No query.userId / query.role — backend derives identity from verified cookie
     });
 
     socket.on('connect', () => {
-      clientLog.debug('WebSocket connected', { role });
+      clientLog.debug('WebSocket connected');
     });
 
     socket.on('disconnect', (reason) => {
-      clientLog.debug('WebSocket disconnected', { reason, role });
+      clientLog.debug('WebSocket disconnected', { reason });
     });
 
     socket.on('connect_error', (error) => {
-      clientLog.error('WebSocket connection error', { error, role });
+      clientLog.error('WebSocket connection error', { error });
     });
   }
   return socket;

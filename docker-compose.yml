@@ -252,7 +252,7 @@ services:
       OUTBOX_RABBITMQ_ENABLED: ${OUTBOX_RABBITMQ_ENABLED:-false}
       OUTBOX_RABBITMQ_EXCHANGE: ${OUTBOX_RABBITMQ_EXCHANGE:-tembus.events}
       OUTBOX_MAX_ATTEMPTS: ${OUTBOX_MAX_ATTEMPTS:-8}
-      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER:-tembus_mq}:${RABBITMQ_DEFAULT_PASS:-changeme_rabbitmq_in_production}@rabbitmq:5672/"
       ROUTE_PRICING_CACHE_TTL_SECONDS: ${ROUTE_PRICING_CACHE_TTL_SECONDS:-300}
       ROUTE_PRICING_STALE_CACHE_TTL_SECONDS: ${ROUTE_PRICING_STALE_CACHE_TTL_SECONDS:-86400}
       MAPS_PROVIDER_CIRCUIT_FAILURE_THRESHOLD: ${MAPS_PROVIDER_CIRCUIT_FAILURE_THRESHOLD:-5}
@@ -394,7 +394,7 @@ services:
       TOMTOM_SERVER_API_KEY: ${TOMTOM_SERVER_API_KEY:-}
       TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
       TOMTOM_ROUTING_API_URL: ${TOMTOM_ROUTING_API_URL:-https://api.tomtom.com/routing/1}
-      RABBITMQ_URL: "amqp://guest:guest@rabbitmq:5672/"
+      RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER:-tembus_mq}:${RABBITMQ_DEFAULT_PASS:-changeme_rabbitmq_in_production}@rabbitmq:5672/"
       ENVIRONMENT: ${ENVIRONMENT:-development}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
     ports:
@@ -553,16 +553,22 @@ services:
     networks:
       - tembus-net
 
+  # ─────────────────────────────────────────────
+  # MESSAGE BROKER — RabbitMQ 3.13 Alpine
+  # Management UI: http://localhost:15672 (dev only, loopback-bound)
+  # S2-INF-01: Pinned to versioned alpine tag — smaller attack surface vs full image.
+  # Credentials pulled from env-vars; never use default guest:guest.
+  # ─────────────────────────────────────────────
   rabbitmq:
-    image: rabbitmq:3.12-management
-    container_name: rabbitmq
+    image: rabbitmq:3.13-management-alpine
+    container_name: tembus-rabbitmq
     restart: unless-stopped
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "${RABBITMQ_AMQP_PORT:-127.0.0.1:5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-127.0.0.1:15672}:15672"
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-tembus_mq}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-changeme_rabbitmq_in_production}
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
@@ -572,6 +578,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
 
 volumes:
   tembus-db-data:

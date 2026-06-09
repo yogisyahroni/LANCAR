@@ -59,6 +59,26 @@ interface TEMBUSApiService {
         @Body request: PasswordResetConfirmRequest
     ): Response<PasswordResetResponse>
 
+    @POST("api/v1/auth/customer/google/start")
+    suspend fun startGoogleAuth(
+        @Body request: GoogleAuthStartRequest
+    ): Response<GoogleAuthStartResponse>
+
+    @POST("api/v1/auth/customer/google/complete")
+    suspend fun completeGoogleAuth(
+        @Body request: GoogleAuthCompleteRequest
+    ): Response<GoogleAuthCompleteResponse>
+
+    @POST("api/v1/auth/customer/otp/send")
+    suspend fun sendCustomerOtp(
+        @Body request: CustomerOtpSendRequest
+    ): Response<CustomerOtpSendResponse>
+
+    @POST("api/v1/auth/customer/otp/verify")
+    suspend fun verifyCustomerOtp(
+        @Body request: CustomerOtpVerifyRequest
+    ): Response<CustomerOtpVerifyResponse>
+
     // Tracking Endpoints
     @GET("api/v1/tracking")
     suspend fun getTracking(

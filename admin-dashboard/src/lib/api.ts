@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { adminApiUrl } from './runtimeConfig'
+import { getOrCreateCsrfToken, CSRF_HEADER_NAME, CSRF_PROTECTED_METHODS } from './csrf'
 
 const API_URL = adminApiUrl
 const SAFE_REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/
@@ -67,6 +68,15 @@ export const api = axios.create({
 
 api.interceptors.request.use((config) => {
   config.headers = setHeader(config.headers, 'X-Request-ID', createRequestId())
+
+  // S-AD-01 FIX: Inject CSRF token for all state-mutating requests.
+  // Backend verifies cookie value === header value (Double Submit Cookie pattern).
+  const method = (config.method ?? '').toUpperCase()
+  if (CSRF_PROTECTED_METHODS.has(method)) {
+    const csrfToken = getOrCreateCsrfToken()
+    config.headers = setHeader(config.headers, CSRF_HEADER_NAME, csrfToken)
+  }
+
   return config
 })
 

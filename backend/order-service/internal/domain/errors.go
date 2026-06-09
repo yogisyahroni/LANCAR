@@ -16,8 +16,10 @@ func (e *ModelUnavailableError) Error() string {
 }
 
 var (
-	ErrInvalidEstimate   = errors.New("INVALID_ESTIMATE")
-	ErrInternal          = errors.New("INTERNAL_SERVER_ERROR")
-	ErrNotFound          = errors.New("NOT_FOUND")
+	ErrInvalidEstimate    = errors.New("INVALID_ESTIMATE")
+	ErrInternal           = errors.New("INTERNAL_SERVER_ERROR")
+	ErrNotFound           = errors.New("NOT_FOUND")
+	ErrForbidden          = errors.New("FORBIDDEN")
+	ErrConflict           = errors.New("CONFLICT")
 	ErrLocationNotCovered = errors.New("LOCATION_NOT_COVERED")
 )

@@ -2,6 +2,8 @@
 
 ## Active
 
+- [ ] **Customer Google Login + Zenziva OTP Infrastructure** - detail eksekusi ada di [task-customer-google-auth-zenziva-otp.md](task-customer-google-auth-zenziva-otp.md); scope customer web, Android customer app, auth-service, API gateway, database, trusted device, dan provider OTP WA/SMS.
+
 - [x] **P0 - Zero mock/hardcoded production data untuk admin, customer web, mobile customer, mobile kurir, dan backend** - semua data runtime harus berasal dari database, API backend, device sensor nyata, atau provider eksternal resmi; tidak boleh ada mock/demo/random/static business data di production path.
   - [x] Admin dashboard wajib menghapus hardcoded courier map, chart fallback, KPI fallback, Mapbox mock token, dan health/storage stat statis; jika data API kosong/gagal tampilkan empty/error state, bukan angka atau entitas palsu.
   - [x] Customer web hardcoded analytics IDs dan template/data contoh yang bisa masuk ke transaksi runtime dihapus; GA/GTM hanya aktif jika env tersedia dan kategori paket transaksi diisi user/API, bukan option contoh source code.

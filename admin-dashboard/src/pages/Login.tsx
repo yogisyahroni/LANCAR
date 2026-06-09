@@ -22,12 +22,20 @@ export default function Login() {
 
     try {
       await login({ email, password })
+      // On success: navigate immediately — component unmounts so no need to reset isLoading
       navigate('/dashboard')
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid credentials. Please try again.')
+      // S3-AD-02 Fix: Only show message if it's a short safe string; avoid leaking internal details
+      const msg = err.response?.data?.message
+      setError(
+        typeof msg === 'string' && msg.length < 200
+          ? msg
+          : 'Kredensial tidak valid. Silakan coba lagi.'
+      )
     } finally {
-      setIsLoading(true) // Keep loading until navigate
-      setTimeout(() => setIsLoading(false), 2000)
+      // S3-AD-02 Fix: Was `setIsLoading(true)` which permanently locked the button on error.
+      // Must always reset to false so the user can retry after a failed login.
+      setIsLoading(false)
     }
   }
 
@@ -131,6 +139,7 @@ export default function Login() {
                     type="email" 
                     name="email"
                     required
+                    autoComplete="email"
                     placeholder="admin@tembus.id"
                     className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
                   />
@@ -147,6 +156,7 @@ export default function Login() {
                     type="password" 
                     name="password"
                     required
+                    autoComplete="current-password"
                     placeholder="••••••••"
                     className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-all"
                   />
