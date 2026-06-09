@@ -21,13 +21,14 @@ ALTER TABLE courier_gps_logs
 -- Partial index for querying suspicious/flagged GPS logs only.
 -- Uses partial indexing (WHERE risk_level != 'VALID') to keep index size small
 -- since the vast majority of rows will be VALID.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS
+-- NOTE: CONCURRENTLY is NOT supported on partitioned tables (SQLSTATE 66000).
+CREATE INDEX IF NOT EXISTS
     idx_courier_gps_logs_risk_level ON courier_gps_logs (risk_level)
     WHERE risk_level != 'VALID';
 
 -- Index for time-windowed violation queries used by graduated response engine.
 -- Covers queries like "count violations in last 24 hours for courier X".
-CREATE INDEX CONCURRENTLY IF NOT EXISTS
+CREATE INDEX IF NOT EXISTS
     idx_courier_gps_logs_risk_courier_time ON courier_gps_logs (courier_id, recorded_at)
     WHERE risk_level IN ('SUSPICIOUS', 'FAKE_GPS_DETECTED');
 
