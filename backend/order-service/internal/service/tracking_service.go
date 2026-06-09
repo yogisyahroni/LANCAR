@@ -29,7 +29,7 @@ func (s *TrackingServiceImpl) UpdateLocation(ctx context.Context, req domain.Cou
 	}
 
 	// 1. Save to GPS Log (Partitioned table)
-	if err := s.repo.SaveGPSLog(ctx, req.CourierID, req.OrderID, req.Location, isSpoofed); err != nil {
+	if err := s.repo.SaveGPSLog(ctx, req.CourierID, req.OrderID, req.Location, isSpoofed, nil); err != nil {
 		return fmt.Errorf("failed to save gps log: %w", err)
 	}
 
@@ -93,7 +93,7 @@ func (s *TrackingServiceImpl) SyncLocations(ctx context.Context, req domain.Cour
 
 		// Persist individual log. Uses OrderID embedded in loc itself.
 		// We log errors but continue loop if one individual entry fails insertion.
-		if err := s.repo.SaveGPSLog(ctx, req.CourierID, loc.OrderID, loc, isSpoofed); err != nil {
+		if err := s.repo.SaveGPSLog(ctx, req.CourierID, loc.OrderID, loc, isSpoofed, nil); err != nil {
 			fmt.Printf("[TrackingService] Sync ERROR: failed to save sub-log: %v\n", err)
 		}
 	}

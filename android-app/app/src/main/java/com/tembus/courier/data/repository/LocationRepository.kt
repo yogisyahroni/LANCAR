@@ -95,7 +95,19 @@ class LocationRepository @Inject constructor(
                     isMock = location.isMock,
                     isRooted = location.isRooted,
                     orderId = location.orderId,
-                    clientLocationId = "${courierId}:${location.id}:${location.timestamp}"
+                    clientLocationId = "${courierId}:${location.id}:${location.timestamp}",
+                    // Anti-Fake GPS telemetry
+                    riskScore = location.riskScore,
+                    riskLevel = location.riskLevel,
+                    developerOptions = location.developerOptions,
+                    fakeGpsApps = if (location.fakeGpsApps.isNotBlank()) {
+                        location.fakeGpsApps.split(",").filter { it.isNotBlank() }
+                    } else emptyList(),
+                    accelerometerOk = location.sensorIntegrity,
+                    gyroscopeOk = location.sensorIntegrity,
+                    barometerOk = location.sensorIntegrity,
+                    stepCounterOk = location.sensorIntegrity,
+                    sensorAvailable = true
                 )
             }
 

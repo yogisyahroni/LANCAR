@@ -19,7 +19,7 @@ import kotlinx.serialization.json.Json
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -63,6 +63,31 @@ abstract class OrderDatabase : RoomDatabase() {
         private fun addVersion13Columns(db: SupportSQLiteDatabase) {
             addOrderColumnIfMissing(db, "packages", "ALTER TABLE `orders` ADD COLUMN `packages` TEXT NOT NULL DEFAULT '[]'")
             addOrderColumnIfMissing(db, "service_proof_min_accuracy_m", "ALTER TABLE `orders` ADD COLUMN `service_proof_min_accuracy_m` INTEGER NOT NULL DEFAULT 50")
+        }
+
+        /**
+         * Version 14: Anti-Fake GPS telemetry columns on locations table.
+         * Stores risk assessment data from FakeGpsDetector for each GPS sample.
+         */
+        private fun addLocationColumnIfMissing(db: SupportSQLiteDatabase, columnName: String, alterSql: String) {
+            var exists = false
+            db.query("PRAGMA table_info(`locations`)").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                while (cursor.moveToNext() && !exists) {
+                    exists = cursor.getString(nameIndex) == columnName
+                }
+            }
+            if (!exists) {
+                db.execSQL(alterSql)
+            }
+        }
+
+        private fun addVersion14LocationColumns(db: SupportSQLiteDatabase) {
+            addLocationColumnIfMissing(db, "risk_score", "ALTER TABLE `locations` ADD COLUMN `risk_score` REAL NOT NULL DEFAULT 0")
+            addLocationColumnIfMissing(db, "risk_level", "ALTER TABLE `locations` ADD COLUMN `risk_level` TEXT NOT NULL DEFAULT 'VALID'")
+            addLocationColumnIfMissing(db, "developer_options", "ALTER TABLE `locations` ADD COLUMN `developer_options` INTEGER NOT NULL DEFAULT 0")
+            addLocationColumnIfMissing(db, "fake_gps_apps", "ALTER TABLE `locations` ADD COLUMN `fake_gps_apps` TEXT NOT NULL DEFAULT ''")
+            addLocationColumnIfMissing(db, "sensor_integrity", "ALTER TABLE `locations` ADD COLUMN `sensor_integrity` INTEGER NOT NULL DEFAULT 1")
         }
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
@@ -154,6 +179,12 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addVersion14LocationColumns(db)
+            }
+        }
+
         val MIGRATION_10_13 = object : Migration(10, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 addVersion11Columns(db)
@@ -181,6 +212,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_10_11,
             MIGRATION_11_12,
             MIGRATION_12_13,
+            MIGRATION_13_14,
             MIGRATION_10_13,
             MIGRATION_11_13
         )

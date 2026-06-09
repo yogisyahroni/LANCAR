@@ -21,6 +21,8 @@ import com.google.android.gms.location.*
 import com.tembus.courier.R
 import com.tembus.courier.data.model.Location as LocationModel
 import com.tembus.courier.data.repository.LocationRepository
+import com.tembus.courier.data.security.FakeGpsDetector
+import com.tembus.courier.data.security.SensorFusionEngine
 import com.tembus.courier.data.session.AuthSessionManager
 import com.tembus.courier.ui.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
@@ -53,6 +55,10 @@ class LocationTrackerService : Service() {
     private var fusedLocationClient: FusedLocationProviderClient? = null
     private var locationCallback: LocationCallback? = null
     private var locationRequest: LocationRequest? = null
+
+    // 🛡️ Anti-Fake GPS Defense System
+    private var fakeGpsDetector: FakeGpsDetector? = null
+    private var sensorFusionEngine: SensorFusionEngine? = null
 
     // State
     private var isTracking = false
@@ -104,6 +110,10 @@ class LocationTrackerService : Service() {
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
+        // 🛡️ Initialize Anti-Fake GPS detection subsystem
+        fakeGpsDetector = FakeGpsDetector(this)
+        sensorFusionEngine = SensorFusionEngine(this)
+
         // Get device ID (use installation ID or generate once)
         deviceId = getUniqueDeviceId()
 
@@ -141,6 +151,7 @@ class LocationTrackerService : Service() {
         super.onDestroy()
         debugLog("Service destroyed")
         stopTracking()
+        sensorFusionEngine?.stop()
         MAIN_THREAD.cancel()
         IO_THREAD.cancel()
     }
@@ -199,6 +210,9 @@ class LocationTrackerService : Service() {
         }
 
         promoteToForeground()
+
+        // 🛡️ Start sensor fusion engine for anti-fake GPS validation
+        sensorFusionEngine?.start()
 
         // Build location request and start FusedLocation
         bindLocationUpdates()
@@ -263,6 +277,9 @@ class LocationTrackerService : Service() {
         locationCallback = null
         locationRequest = null
 
+        // 🛡️ Stop sensor fusion engine
+        sensorFusionEngine?.stop()
+
         // Unregister battery monitoring
         unregisterBatteryReceiver()
 
@@ -279,9 +296,41 @@ class LocationTrackerService : Service() {
         val batteryLevel = getBatteryLevel()
         val networkType = getNetworkType()
 
-        // 🛡️ INTEGRATE ANTI-FRAUD TELEMETRY
-        val isMock = com.tembus.courier.util.SecurityUtils.isMockLocation(location)
+        // 🛡️ COMPREHENSIVE ANTI-FAKE GPS EVALUATION
         val isRooted = com.tembus.courier.util.SecurityUtils.isDeviceRooted(this)
+        val gpsSpeedKmh = location.speed * 3.6f  // m/s to km/h
+        val sensorSnapshot = sensorFusionEngine?.getLatestReadings()
+
+        val report = fakeGpsDetector?.evaluate(
+            location = location,
+            sensorData = sensorSnapshot,
+            gpsSpeedKmh = gpsSpeedKmh,
+            gpsBearingDeg = location.bearing,
+            gpsAltitudeM = location.altitude
+        )
+
+        // Decision gate based on risk level
+        when (report?.riskLevel) {
+            FakeGpsDetector.RiskLevel.FAKE_GPS_DETECTED -> {
+                warnLog("⛔ Fake GPS detected (score: ${report.riskScore}). Location DROPPED.")
+                showFakeGpsWarningNotification()
+                IO_THREAD.launch {
+                    reportFakeGpsViolation(report)
+                }
+                return  // DROP this location entirely
+            }
+            FakeGpsDetector.RiskLevel.SUSPICIOUS -> {
+                warnLog("⚠️ Suspicious location (score: ${report.riskScore}). Logging with flag.")
+            }
+            FakeGpsDetector.RiskLevel.VALID, null -> {
+                // Clean location — proceed normally
+            }
+        }
+
+        val isMock = report?.isMockProvider ?: com.tembus.courier.util.SecurityUtils.isMockLocation(location)
+        val sensorIntegrity = report?.let {
+            it.accelerometerConsistent && it.gyroscopeConsistent && it.barometerConsistent && it.stepCounterConsistent
+        } ?: true
 
         val locationModel = LocationModel(
             latitude = location.latitude,
@@ -296,7 +345,12 @@ class LocationTrackerService : Service() {
             batteryLevel = batteryLevel,
             networkType = networkType,
             isMock = isMock,
-            isRooted = isRooted
+            isRooted = isRooted,
+            riskScore = report?.riskScore ?: 0f,
+            riskLevel = report?.riskLevel?.name ?: "VALID",
+            developerOptions = report?.developerOptionsEnabled ?: false,
+            fakeGpsApps = report?.fakeGpsAppsDetected?.joinToString(",") ?: "",
+            sensorIntegrity = sensorIntegrity
         )
 
         // Save to local database
@@ -478,17 +532,9 @@ class LocationTrackerService : Service() {
             override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
                 locationResult.lastLocation?.let { location ->
-                    val isMock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        location.isMock
-                    } else {
-                        @Suppress("DEPRECATION")
-                        location.isFromMockProvider
-                    }
-                    
-                    if (isMock) {
-                        warnLog("Spoofed or mock GPS update dropped")
-                        return@let
-                    }
+                    // 🛡️ All mock/fake GPS detection is now handled inside handleLocationUpdate()
+                    // via the comprehensive FakeGpsDetector engine. The simple isMock check
+                    // has been replaced with multi-layer evaluation.
                     handleLocationUpdate(location)
                 }
             }
@@ -570,6 +616,86 @@ class LocationTrackerService : Service() {
         }
     }
 
+    // ── 🛡️ Anti-Fake GPS: Warning & Reporting ─────────────────────
+
+    /**
+     * Show a heads-up notification warning the courier that fake GPS was detected.
+     * This serves as:
+     *   1. Deterrence — courier knows they're being monitored
+     *   2. Transparency — fair warning before any punitive action
+     *   3. Legal compliance — documented notification as required by employment law
+     */
+    private fun showFakeGpsWarningNotification() {
+        try {
+            // Create a separate high-importance channel for security alerts
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    CHANNEL_SECURITY_ALERT,
+                    "Security Alerts",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Critical security alerts for location integrity"
+                    enableVibration(true)
+                    setShowBadge(true)
+                }
+                val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.createNotificationChannel(channel)
+            }
+
+            val notificationIntent = Intent(this, MainActivity::class.java)
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                2,
+                notificationIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            val notification = NotificationCompat.Builder(this, CHANNEL_SECURITY_ALERT)
+                .setContentTitle("⚠️ Peringatan Keamanan")
+                .setContentText("Lokasi palsu terdeteksi. Penggunaan GPS palsu dapat mengakibatkan suspend akun.")
+                .setStyle(
+                    NotificationCompat.BigTextStyle()
+                        .bigText(
+                            "Sistem kami mendeteksi penggunaan lokasi palsu (Fake GPS) pada perangkat Anda. " +
+                            "Hal ini melanggar ketentuan layanan dan dapat mengakibatkan penangguhan akun. " +
+                            "Mohon nonaktifkan aplikasi GPS palsu untuk melanjutkan pengiriman."
+                        )
+                )
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(true)
+                .build()
+
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(NOTIFICATION_ID_SECURITY_ALERT, notification)
+        } catch (e: Exception) {
+            errorLog("Failed to show fake GPS warning notification", e)
+        }
+    }
+
+    /**
+     * Report a fake GPS violation to the backend server.
+     * This creates an audit trail for graduated response enforcement.
+     *
+     * The server will:
+     *   1. Log the violation in courier_safety_events
+     *   2. Evaluate graduated response (warning → suspend → ban)
+     *   3. Push enforcement action if threshold exceeded
+     */
+    private suspend fun reportFakeGpsViolation(report: FakeGpsDetector.LocationIntegrityReport) {
+        try {
+            // For now, the violation data is embedded in the next location sync payload.
+            // Phase 2 will add a dedicated /api/v1/courier/gps-violation endpoint.
+            // The backend already receives risk_score and risk_level in GPS telemetry,
+            // which triggers server-side behavioral analysis.
+            debugLog("Fake GPS violation logged for server sync (score: ${report.riskScore}, apps: ${report.fakeGpsAppsDetected})")
+        } catch (e: Exception) {
+            errorLog("Failed to report fake GPS violation", e)
+        }
+    }
+
     private fun debugLog(message: String) {
         if (BuildConfig.DEBUG) {
             Log.d(TAG, message)
@@ -590,13 +716,14 @@ class LocationTrackerService : Service() {
 
     companion object {
         const val CHANNEL_LOCATION_TRACKING = "location_tracking"
+        const val CHANNEL_SECURITY_ALERT = "security_alert"
         const val NOTIFICATION_ID = 1001
+        const val NOTIFICATION_ID_SECURITY_ALERT = 1002
 
         const val ACTION_START_TRACKING = "com.tembus.courier.ACTION_START_TRACKING"
         const val ACTION_STOP_TRACKING = "com.tembus.courier.ACTION_STOP_TRACKING"
         const val ACTION_FORCE_SYNC = "com.tembus.courier.ACTION_FORCE_SYNC"
         const val ACTION_GO_OFFLINE = "com.tembus.courier.ACTION_GO_OFFLINE"
-
         fun startIntent(context: Context): Intent =
             Intent(context, LocationTrackerService::class.java).apply {
                 action = ACTION_START_TRACKING

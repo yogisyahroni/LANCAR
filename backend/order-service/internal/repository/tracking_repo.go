@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"tembus/order-service/internal/domain"
 )
@@ -17,15 +18,21 @@ func NewPostgresTrackingRepo(db *sqlx.DB) *PostgresTrackingRepo {
 	return &PostgresTrackingRepo{db: db}
 }
 
-func (r *PostgresTrackingRepo) SaveGPSLog(ctx context.Context, courierID uuid.UUID, orderID *uuid.UUID, loc domain.GPSLocation, isSpoofed bool) error {
+func (r *PostgresTrackingRepo) SaveGPSLog(ctx context.Context, courierID uuid.UUID, orderID *uuid.UUID, loc domain.GPSLocation, isSpoofed bool, telemetry *domain.GPSIntegrityTelemetry) error {
 	query := `
 		INSERT INTO courier_gps_logs (
-			courier_id, order_leg_id, location, accuracy_m, speed_kmh, heading_deg, is_spoofed, recorded_at
+			courier_id, order_leg_id, location, accuracy_m, speed_kmh, heading_deg, is_spoofed, recorded_at,
+			risk_score, risk_level, mock_setting_enabled, developer_options, usb_debugging,
+			fake_gps_apps, accelerometer_ok, gyroscope_ok, barometer_ok, step_counter_ok,
+			sensor_available, sensor_integrity
 		) VALUES (
 			$1, 
 			(SELECT id FROM order_legs WHERE order_id = $2 AND status IN ('pending', 'assigned', 'accepted', 'picked_up', 'in_progress', 'in_transit') LIMIT 1), 
 			ST_SetSRID(ST_MakePoint($3, $4), 4326), 
-			$5, $6, $7, $8, $9
+			$5, $6, $7, $8, $9,
+			$10, $11, $12, $13, $14,
+			$15, $16, $17, $18, $19,
+			$20, $21
 		)
 	`
 	// If orderID is nil, we just pass nil to $2 which makes the subquery return NULL.
@@ -36,8 +43,36 @@ func (r *PostgresTrackingRepo) SaveGPSLog(ctx context.Context, courierID uuid.UU
 		oID = nil
 	}
 
+	// Extract telemetry values with safe defaults
+	var riskScore float64
+	var riskLevel string = "VALID"
+	var mockSettingEnabled, developerOptions, usbDebugging bool
+	var fakeGpsApps []string
+	var accelOk, gyroOk, baroOk, stepOk, sensorAvail, sensorInteg bool = true, true, true, true, true, true
+
+	if telemetry != nil {
+		riskScore = telemetry.RiskScore
+		riskLevel = telemetry.RiskLevel
+		mockSettingEnabled = telemetry.MockSettingEnabled
+		developerOptions = telemetry.DeveloperOptions
+		usbDebugging = telemetry.UsbDebugging
+		fakeGpsApps = telemetry.FakeGpsApps
+		accelOk = telemetry.AccelerometerOk
+		gyroOk = telemetry.GyroscopeOk
+		baroOk = telemetry.BarometerOk
+		stepOk = telemetry.StepCounterOk
+		sensorAvail = telemetry.SensorAvailable
+		sensorInteg = telemetry.SensorIntegrity
+	}
+
+	// Convert fakeGpsApps slice to PostgreSQL text array format
+	appsArray := pq.Array(fakeGpsApps)
+
 	_, err := r.db.ExecContext(ctx, query,
 		courierID, oID, loc.Longitude, loc.Latitude, loc.Accuracy, loc.Speed, loc.Heading, isSpoofed, loc.Timestamp,
+		riskScore, riskLevel, mockSettingEnabled, developerOptions, usbDebugging,
+		appsArray, accelOk, gyroOk, baroOk, stepOk,
+		sensorAvail, sensorInteg,
 	)
 	return err
 }

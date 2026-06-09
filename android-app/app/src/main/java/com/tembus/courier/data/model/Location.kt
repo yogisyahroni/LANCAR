@@ -76,6 +76,22 @@ data class Location(
     @ColumnInfo(name = "is_rooted", defaultValue = "0")
     val isRooted: Boolean = false,
 
+    // ── Anti-Fake GPS Telemetry ─────────────────────────────────
+    @ColumnInfo(name = "risk_score", defaultValue = "0")
+    val riskScore: Float = 0f,
+
+    @ColumnInfo(name = "risk_level", defaultValue = "VALID")
+    val riskLevel: String = "VALID",
+
+    @ColumnInfo(name = "developer_options", defaultValue = "0")
+    val developerOptions: Boolean = false,
+
+    @ColumnInfo(name = "fake_gps_apps", defaultValue = "")
+    val fakeGpsApps: String = "",
+
+    @ColumnInfo(name = "sensor_integrity", defaultValue = "1")
+    val sensorIntegrity: Boolean = true,
+
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
 )
