@@ -15,7 +15,7 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import com.tembus.customer.config.AppConfig
 import com.tembus.customer.data.repository.GoogleAuthRepository
-import com.tembus.customer.data.store.AuthTokenStore
+import com.tembus.customer.data.session.AuthSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -67,7 +67,7 @@ sealed class OtpUiState {
 @HiltViewModel
 class GoogleAuthViewModel @Inject constructor(
     private val googleAuthRepository: GoogleAuthRepository,
-    private val authTokenStore: AuthTokenStore
+    private val authSessionManager: AuthSessionManager
 ) : ViewModel() {
 
     private val _googleAuthState = MutableStateFlow<GoogleAuthUiState>(GoogleAuthUiState.Idle)
@@ -183,10 +183,13 @@ class GoogleAuthViewModel @Inject constructor(
         when (data.status) {
             "authenticated" -> {
                 if (data.accessToken != null) {
-                    authTokenStore.saveTokens(
-                        accessToken = data.accessToken,
-                        refreshToken = data.refreshToken
-                    )
+                    viewModelScope.launch {
+                        authSessionManager.saveSession(
+                            token = data.accessToken,
+                            id = data.user?.id ?: "",
+                            name = data.user?.fullName ?: ""
+                        )
+                    }
                 }
                 pendingNonce = null
                 pendingTransactionId = null
@@ -287,10 +290,13 @@ class GoogleAuthViewModel @Inject constructor(
             if (result.isSuccess) {
                 val data = result.getOrThrow()
                 if (data.accessToken != null) {
-                    authTokenStore.saveTokens(
-                        accessToken = data.accessToken,
-                        refreshToken = data.refreshToken
-                    )
+                    viewModelScope.launch {
+                        authSessionManager.saveSession(
+                            token = data.accessToken,
+                            id = data.user?.id ?: "",
+                            name = data.user?.fullName ?: ""
+                        )
+                    }
                 }
                 pendingChallengeId = null
                 pendingMaskedRecipient = null

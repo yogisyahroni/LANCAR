@@ -290,6 +290,11 @@ dependencies {
     // WorkManager for background handling
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
+    // Google Auth Credential Manager
+    implementation("androidx.credentials:credentials:1.2.2")
+    implementation("androidx.credentials:credentials-play-services-auth:1.2.2")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+
     // DataStore & Security
     implementation("androidx.datastore:datastore-preferences:1.0.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
