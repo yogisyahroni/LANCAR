@@ -7,7 +7,7 @@
  *   - ?flow=login    : standalone OTP login
  */
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Loader2, ShieldCheck, RefreshCw } from 'lucide-react';
@@ -105,7 +105,7 @@ function OtpInput({ value, onChange, disabled }: OtpInputProps) {
 
 // ── Main Page ─────────────────────────────────────────────────
 
-export default function OtpVerifyPage() {
+function OtpVerifyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const flow = searchParams.get('flow') ?? 'login';
@@ -286,7 +286,7 @@ export default function OtpVerifyPage() {
           {/* Resend */}
           <div className="text-center">
             <button
-              id="otp-resend-btn"
+               id="otp-resend-btn"
               onClick={handleResend}
               disabled={countdown > 0 || isResending}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 mx-auto"
@@ -319,5 +319,13 @@ export default function OtpVerifyPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function OtpVerifyPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <OtpVerifyContent />
+    </Suspense>
   );
 }

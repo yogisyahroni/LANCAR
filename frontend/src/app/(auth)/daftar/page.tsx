@@ -1,4 +1,5 @@
 'use client';
+import React from 'react';
 
 /**
  * /daftar/page.tsx
@@ -153,7 +154,7 @@ function OtpBoxes({ value, onChange, disabled }: OtpBoxesProps) {
 
 // ── Main Page ─────────────────────────────────────────────────
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const flow = (searchParams.get('flow') ?? 'normal') as RegisterFlow;
@@ -688,5 +689,13 @@ export default function RegisterPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <RegisterContent />
+    </React.Suspense>
   );
 }

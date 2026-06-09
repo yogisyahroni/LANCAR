@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { clientLog } from '@/lib/clientLogger';
@@ -22,7 +22,7 @@ interface Order {
   created_at: string;
 }
 
-export default function OrderListPage() {
+function OrderListContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { addNotification } = useNotificationStore();
@@ -460,5 +460,13 @@ export default function OrderListPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function OrderListPage() {
+  return (
+    <Suspense fallback={<div className="p-16 flex justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>}>
+      <OrderListContent />
+    </Suspense>
   );
 }

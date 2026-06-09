@@ -6,7 +6,7 @@
  * Validates state param → calls backend /google/complete → routes to next step.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Loader2, ShieldAlert } from 'lucide-react';
@@ -33,7 +33,7 @@ function getDeviceId(): string {
   return id;
 }
 
-export default function GoogleCallbackPage() {
+function GoogleCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -216,5 +216,13 @@ export default function GoogleCallbackPage() {
         )}
       </motion.div>
     </div>
+  );
+}
+
+export default function GoogleCallbackPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <GoogleCallbackContent />
+    </Suspense>
   );
 }
