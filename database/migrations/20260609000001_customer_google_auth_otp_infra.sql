@@ -3,6 +3,7 @@
 --              OTP challenges, and OTP delivery audit. Replaces plaintext OTP pattern.
 -- Reversible: YES (see DOWN section at the bottom)
 
+-- +goose Up
 -- ─────────────────────────────────────────────────────────────
 -- UP
 -- ─────────────────────────────────────────────────────────────
@@ -141,21 +142,20 @@ ON CONFLICT (key) DO UPDATE SET
     description = EXCLUDED.description,
     updated_at  = now();
 
+-- +goose Down
 -- ─────────────────────────────────────────────────────────────
 -- DOWN
 -- ─────────────────────────────────────────────────────────────
--- To roll back this migration, run:
---
--- DELETE FROM feature_flags
---   WHERE key IN (
---     'customer_google_login_enabled',
---     'customer_google_registration_enabled',
---     'customer_google_linking_enabled',
---     'customer_new_device_otp_required',
---     'otp_provider_live'
---   );
---
--- DROP TABLE IF EXISTS customer_otp_deliveries;
--- DROP TABLE IF EXISTS customer_otp_challenges;
--- DROP TABLE IF EXISTS customer_auth_transactions;
--- DROP TABLE IF EXISTS customer_auth_identities;
+DELETE FROM feature_flags
+  WHERE key IN (
+    'customer_google_login_enabled',
+    'customer_google_registration_enabled',
+    'customer_google_linking_enabled',
+    'customer_new_device_otp_required',
+    'otp_provider_live'
+  );
+
+DROP TABLE IF EXISTS customer_otp_deliveries;
+DROP TABLE IF EXISTS customer_otp_challenges;
+DROP TABLE IF EXISTS customer_auth_transactions;
+DROP TABLE IF EXISTS customer_auth_identities;
