@@ -223,6 +223,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 -- Run this ONLY if reverting to shared postgres user.
 -- ============================================================
 -- +goose Down
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT ON TABLES FROM tembus_readonly;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM tembus_auth, tembus_admin, tembus_order, tembus_payment, tembus_routing, tembus_readonly;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM tembus_auth, tembus_admin, tembus_order, tembus_payment, tembus_routing, tembus_readonly;
 REVOKE USAGE ON SCHEMA public FROM tembus_auth, tembus_admin, tembus_order, tembus_payment, tembus_routing, tembus_readonly;
