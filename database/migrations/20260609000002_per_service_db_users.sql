@@ -82,63 +82,57 @@ REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO tembus_auth, tembus_admin, tembus_order, tembus_payment, tembus_routing, tembus_readonly;
 
 -- ── 3. GRANT: tembus_auth ────────────────────────────────────────────────────
--- Tables: users, auth_identifiers, otp_codes, auth_sessions, trusted_devices,
---         user_credentials, audit_logs (insert only)
 GRANT SELECT, INSERT, UPDATE, DELETE ON
   users,
-  auth_identifiers,
-  otp_codes,
-  auth_sessions,
-  trusted_devices
+  customer_auth_identities,
+  customer_auth_transactions,
+  customer_otp_challenges,
+  customer_otp_deliveries,
+  user_sessions,
+  auth_trusted_devices,
+  otp_logs
 TO tembus_auth;
 
--- Password credentials table (customer login via email+password)
-GRANT SELECT, INSERT, UPDATE, DELETE ON user_credentials TO tembus_auth;
-
--- Audit logs: auth-service may only INSERT (append-only)
 GRANT INSERT ON audit_logs TO tembus_auth;
 GRANT SELECT ON audit_logs TO tembus_auth;
 
--- Sequences for tables where auth-service INSERTs
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO tembus_auth;
 
 -- ── 4. GRANT: tembus_admin ───────────────────────────────────────────────────
--- admin-service manages almost everything except payment ledger internals
 GRANT SELECT, INSERT, UPDATE, DELETE ON
   users,
   orders,
   order_events,
   order_chats,
   dispute_chats,
+  disputes,
   courier_profiles,
-  courier_bank_accounts,
+  courier_payout_accounts,
   courier_vehicles,
   courier_documents,
-  courier_availability,
-  courier_location_logs,
-  courier_performance_stats,
-  courier_rating_reviews,
-  courier_service_products,
+  courier_zones,
+  courier_locations,
+  courier_ratings,
   courier_service_capabilities,
   courier_offer_dispatches,
   courier_registration_links,
-  courier_onboarding_reviews,
   delivery_service_products,
-  wallets,
-  wallet_transactions,
+  customer_wallets,
+  courier_wallets,
+  customer_wallet_transactions,
+  courier_wallet_transactions,
   feature_flags,
   system_configs,
-  security_configs,
   sla_configs,
-  idempotency_keys,
-  outbox_events,
+  api_idempotency_keys,
+  event_outbox,
   scheduled_reports,
   webhook_audit_events,
-  maps_runtime_credentials,
-  maps_provider_runtime_config,
+  maps_provider_credentials,
+  maps_provider_credential_events,
   promo_campaigns,
   promo_redemptions,
-  customer_notifications,
+  notifications,
   notification_preferences,
   status_transition_policies
 TO tembus_admin;
@@ -148,55 +142,57 @@ GRANT SELECT ON audit_logs TO tembus_admin;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO tembus_admin;
 
 -- ── 5. GRANT: tembus_order ───────────────────────────────────────────────────
--- order-service: reads/writes orders, pricing, route snapshots, package scans
 GRANT SELECT, INSERT, UPDATE, DELETE ON
   orders,
   order_events,
   order_chats,
   package_scans,
-  route_snapshots,
+  courier_route_snapshots,
   courier_offer_dispatches,
-  idempotency_keys,
-  outbox_events
+  api_idempotency_keys,
+  event_outbox
 TO tembus_order;
 
--- order-service reads: pricing config, service products, feature flags, system configs
 GRANT SELECT ON
   delivery_service_products,
-  courier_service_products,
   feature_flags,
   system_configs,
   sla_configs,
   status_transition_policies,
   courier_profiles,
   courier_vehicles,
-  courier_availability,
-  maps_provider_runtime_config,
-  maps_runtime_credentials
+  courier_zones,
+  maps_provider_credentials
 TO tembus_order;
 
 GRANT INSERT ON audit_logs TO tembus_order;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO tembus_order;
 
 -- ── 6. GRANT: tembus_payment ─────────────────────────────────────────────────
--- payment-service: manages wallets, transactions, payouts, payout requests
 GRANT SELECT, INSERT, UPDATE, DELETE ON
-  wallets,
-  wallet_transactions,
-  payout_requests,
-  payout_batches,
-  payout_provider_logs,
-  payout_risk_assessments,
-  idempotency_keys,
-  outbox_events
+  customer_wallets,
+  courier_wallets,
+  customer_wallet_transactions,
+  courier_wallet_transactions,
+  customer_wallet_ledger_entries,
+  courier_earnings_ledger,
+  courier_payout_requests,
+  courier_payout_accounts,
+  courier_payout_provider_webhook_events,
+  courier_payout_risk_decisions,
+  courier_payout_dispatches,
+  courier_payout_reconciliation_runs,
+  courier_payout_reconciliation_items,
+  api_idempotency_keys,
+  event_outbox,
+  payments,
+  payout_records
 TO tembus_payment;
 
--- payment-service reads orders to validate context
 GRANT SELECT ON
   orders,
   users,
   courier_profiles,
-  courier_bank_accounts,
   feature_flags,
   system_configs
 TO tembus_payment;
@@ -205,12 +201,11 @@ GRANT INSERT ON audit_logs TO tembus_payment;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO tembus_payment;
 
 -- ── 7. GRANT: tembus_routing ─────────────────────────────────────────────────
--- routing-service: read-only, only reads feature flags and system configs
 GRANT SELECT ON
   feature_flags,
   system_configs,
   delivery_service_products,
-  maps_provider_runtime_config
+  maps_provider_credentials
 TO tembus_routing;
 
 -- ── 8. GRANT: tembus_readonly ────────────────────────────────────────────────
