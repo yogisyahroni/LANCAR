@@ -5,7 +5,7 @@
 
 CREATE TABLE IF NOT EXISTS courier_gps_violations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    courier_id UUID NOT NULL REFERENCES couriers(id) ON DELETE CASCADE,
+    courier_id UUID NOT NULL REFERENCES courier_profiles(id) ON DELETE CASCADE,
     risk_score REAL NOT NULL DEFAULT 0,
     risk_level TEXT NOT NULL DEFAULT 'SUSPICIOUS',
     action_taken TEXT NOT NULL DEFAULT 'WARNING',
