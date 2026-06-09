@@ -22,13 +22,22 @@ const ignoredSegments = new Set([
 ]);
 const ignoredFilePattern = /\.(test|spec)\.(js|ts|kt|go)$/i;
 const allowedKeys = new Set([
+  'auth.challenge_id',
+  'auth.channel',
+  'auth.channel.fallback',
+  'auth.device_id_present',
+  'auth.email_hash',
+  'auth.email_verified',
   'auth.flow',
   'auth.identifier_type',
   'auth.otp.required',
+  'auth.platform',
+  'auth.purpose',
   'auth.refresh_token.rotate',
   'auth.require_2fa',
   'auth.result',
   'auth.totp_verified',
+  'auth.transaction_id',
   'correlation_id',
   'deployment.environment',
   'http.method',
