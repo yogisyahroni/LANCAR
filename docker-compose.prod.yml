@@ -72,7 +72,7 @@ services:
     logging: *default-logging
 
   rabbitmq:
-    image: rabbitmq:3.12-management
+    image: rabbitmq:3.13-management-alpine
     container_name: tembus-prod-rabbitmq
     restart: unless-stopped
     environment:
@@ -295,7 +295,7 @@ services:
         condition: service_healthy
     environment:
       <<: *app-env
-      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      DATABASE_URL: ${PAYMENT_DATABASE_URL:-${DATABASE_URL:?DATABASE_URL is required}}
       REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
       PORT: 8084
       MIDTRANS_SERVER_KEY: ${MIDTRANS_SERVER_KEY:-}
