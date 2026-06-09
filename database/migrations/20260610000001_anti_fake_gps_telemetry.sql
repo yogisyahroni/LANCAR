@@ -1,3 +1,4 @@
+-- +goose NO TRANSACTION
 -- +goose Up
 -- Anti-Fake GPS Telemetry Columns
 -- Stores client-side risk assessment data for each GPS sample.
