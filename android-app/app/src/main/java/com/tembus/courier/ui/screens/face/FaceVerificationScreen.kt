@@ -183,16 +183,6 @@ fun FaceVerificationScreen(
             }
 
             // ── Face Capture Area ────────────────────────────────
-            if (showLiveness) {
-        ActiveLivenessScreen(
-            onSuccess = { bitmap ->
-                viewModel.onPhotoCaptured(bitmap)
-                showLiveness = false
-            },
-            onCancel = { showLiveness = false }
-        )
-        return
-    }
 
     Box(
                 modifier = Modifier
@@ -214,16 +204,6 @@ fun FaceVerificationScreen(
                     )
                     // Overlay sukses
                     if (state.isVerified) {
-                        if (showLiveness) {
-        ActiveLivenessScreen(
-            onSuccess = { bitmap ->
-                viewModel.onPhotoCaptured(bitmap)
-                showLiveness = false
-            },
-            onCancel = { showLiveness = false }
-        )
-        return
-    }
 
     Box(
                             modifier = Modifier
@@ -420,32 +400,11 @@ private fun FaceCapturePlaceholder() {
         label = "pulse_alpha"
     )
 
-    if (showLiveness) {
-        ActiveLivenessScreen(
-            onSuccess = { bitmap ->
-                viewModel.onPhotoCaptured(bitmap)
-                showLiveness = false
-            },
-            onCancel = { showLiveness = false }
-        )
-        return
-    }
-
     Box(
         modifier = Modifier.size(240.dp),
         contentAlignment = Alignment.Center
     ) {
         // Outer pulse ring
-        if (showLiveness) {
-        ActiveLivenessScreen(
-            onSuccess = { bitmap ->
-                viewModel.onPhotoCaptured(bitmap)
-                showLiveness = false
-            },
-            onCancel = { showLiveness = false }
-        )
-        return
-    }
 
     Box(
             modifier = Modifier
@@ -457,16 +416,6 @@ private fun FaceCapturePlaceholder() {
                 )
         )
         // Inner placeholder circle
-        if (showLiveness) {
-        ActiveLivenessScreen(
-            onSuccess = { bitmap ->
-                viewModel.onPhotoCaptured(bitmap)
-                showLiveness = false
-            },
-            onCancel = { showLiveness = false }
-        )
-        return
-    }
 
     Box(
             modifier = Modifier
@@ -504,29 +453,8 @@ private fun FaceGuideCorners() {
     val strokeWidth = 3.dp
     val color = FaceRingColor
 
-    if (showLiveness) {
-        ActiveLivenessScreen(
-            onSuccess = { bitmap ->
-                viewModel.onPhotoCaptured(bitmap)
-                showLiveness = false
-            },
-            onCancel = { showLiveness = false }
-        )
-        return
-    }
-
     Box(modifier = Modifier.size(240.dp)) {
         // Top-Left
-        if (showLiveness) {
-        ActiveLivenessScreen(
-            onSuccess = { bitmap ->
-                viewModel.onPhotoCaptured(bitmap)
-                showLiveness = false
-            },
-            onCancel = { showLiveness = false }
-        )
-        return
-    }
 
     Box(
             modifier = Modifier
@@ -538,16 +466,6 @@ private fun FaceGuideCorners() {
                 )
         )
         // Top-Right
-        if (showLiveness) {
-        ActiveLivenessScreen(
-            onSuccess = { bitmap ->
-                viewModel.onPhotoCaptured(bitmap)
-                showLiveness = false
-            },
-            onCancel = { showLiveness = false }
-        )
-        return
-    }
 
     Box(
             modifier = Modifier
@@ -559,16 +477,6 @@ private fun FaceGuideCorners() {
                 )
         )
         // Bottom-Left
-        if (showLiveness) {
-        ActiveLivenessScreen(
-            onSuccess = { bitmap ->
-                viewModel.onPhotoCaptured(bitmap)
-                showLiveness = false
-            },
-            onCancel = { showLiveness = false }
-        )
-        return
-    }
 
     Box(
             modifier = Modifier
@@ -580,16 +488,6 @@ private fun FaceGuideCorners() {
                 )
         )
         // Bottom-Right
-        if (showLiveness) {
-        ActiveLivenessScreen(
-            onSuccess = { bitmap ->
-                viewModel.onPhotoCaptured(bitmap)
-                showLiveness = false
-            },
-            onCancel = { showLiveness = false }
-        )
-        return
-    }
 
     Box(
             modifier = Modifier
