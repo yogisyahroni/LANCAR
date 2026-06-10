@@ -31,20 +31,39 @@ const readCsrfTokenFromCookie = (): string | null => {
   return match ? decodeURIComponent(match.slice(CSRF_COOKIE_NAME.length + 1)) : null;
 };
 
+import { adminApiUrl } from './runtimeConfig';
+
+const getSharedDomain = () => {
+  try {
+    const apiHostname = new URL(adminApiUrl).hostname;
+    if (apiHostname === 'localhost' || apiHostname === '127.0.0.1') return undefined;
+    const parts = apiHostname.split('.');
+    if (parts.length > 2) {
+      return `.${parts.slice(1).join('.')}`;
+    }
+    return `.${apiHostname}`;
+  } catch {
+    return undefined;
+  }
+};
+
 /**
  * Writes a CSRF token into a same-site cookie.
  * The cookie is NOT HttpOnly (must be readable by JS for double-submit),
- * but IS SameSite=Strict to add an extra layer.
+ * but IS SameSite=Lax to allow cross-subdomain API calls.
  */
 const writeCsrfTokenToCookie = (token: string): void => {
   if (typeof document === 'undefined') return;
   const isHttps = window.location.protocol === 'https:';
+  const domain = getSharedDomain();
+  
   const parts = [
     `${CSRF_COOKIE_NAME}=${encodeURIComponent(token)}`,
     'Path=/',
     'Max-Age=3600',
-    'SameSite=Strict',
+    'SameSite=Lax',
   ];
+  if (domain) parts.push(`Domain=${domain}`);
   if (isHttps) parts.push('Secure');
   document.cookie = parts.join('; ');
 };
