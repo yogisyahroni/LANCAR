@@ -1081,6 +1081,7 @@ fun MainScreen(
                         )
                     } else {
                         ProfileContent(
+                            courierProfile = courierProfile,
                             courierName = displayCourierName,
                             courierRole = courierRole,
                             localSecurityManager = localSecurityManager,
@@ -1112,10 +1113,17 @@ fun MainScreen(
                                 } catch (e: Exception) {
                                     scope.launch { snackbarHostState.showSnackbar("Gagal merestart cache.") }
                                 }
+                            },
+                            onUpdateCapacity = { maxWeightKg, maxPackages ->
+                                scope.launch {
+                                    val result = orderViewModel.updateCourierCapacity(maxWeightKg, maxPackages)
+                                    snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Gagal update kapasitas" }.toString())
+                                }
                             }
                         )
                     }
                     3 -> ProfileContent(
+                    courierProfile = courierProfile,
                     courierName = displayCourierName,
                     courierRole = courierRole,
                     localSecurityManager = localSecurityManager,
@@ -1146,6 +1154,12 @@ fun MainScreen(
                             }
                         } catch (e: Exception) {
                             scope.launch { snackbarHostState.showSnackbar("Gagal merestart cache.") }
+                        }
+                    },
+                    onUpdateCapacity = { maxWeightKg, maxPackages ->
+                        scope.launch {
+                            val result = orderViewModel.updateCourierCapacity(maxWeightKg, maxPackages)
+                            snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Gagal update kapasitas" }.toString())
                         }
                     }
                 )
@@ -4696,6 +4710,7 @@ private fun CourierWalletSkeleton() {
 
 @Composable
 private fun ProfileContent(
+    courierProfile: com.tembus.courier.data.model.CourierProfile?,
     courierName: String,
     courierRole: String,
     localSecurityManager: LocalDeviceSecurityManager,
@@ -4708,10 +4723,49 @@ private fun ProfileContent(
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
     onOptimizeBattery: () -> Unit,
-    onClearCache: () -> Unit
+    onClearCache: () -> Unit,
+    onUpdateCapacity: (Double?, Int?) -> Unit
 ) {
     var showDiagnostics by remember { mutableStateOf(false) }
     var showResetLocalDataDialog by remember { mutableStateOf(false) }
+    var showCapacityDialog by remember { mutableStateOf(false) }
+    var capacityWeight by remember { mutableStateOf(courierProfile?.maxWeightCapacityKg?.toString() ?: "") }
+    var capacityPackages by remember { mutableStateOf(courierProfile?.maxPackagesCapacity?.toString() ?: "") }
+
+    if (showCapacityDialog) {
+        AlertDialog(
+            onDismissRequest = { showCapacityDialog = false },
+            title = { Text("Atur Kapasitas Bawaan") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Kapasitas ini digunakan untuk Bulk Order (multi-stop).", style = MaterialTheme.typography.bodyMedium)
+                    androidx.compose.material3.OutlinedTextField(
+                        value = capacityWeight,
+                        onValueChange = { capacityWeight = it },
+                        label = { Text("Maks. Berat (kg)") },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                    )
+                    androidx.compose.material3.OutlinedTextField(
+                        value = capacityPackages,
+                        onValueChange = { capacityPackages = it },
+                        label = { Text("Maks. Jumlah Paket") },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showCapacityDialog = false
+                        onUpdateCapacity(capacityWeight.toDoubleOrNull(), capacityPackages.toIntOrNull())
+                    }
+                ) { Text("Simpan") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCapacityDialog = false }) { Text("Batal") }
+            }
+        )
+    }
 
     if (showResetLocalDataDialog) {
         AlertDialog(
@@ -4869,7 +4923,12 @@ private fun ProfileContent(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("Kendaraan & Layanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Kendaraan & Layanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        TextButton(onClick = { showCapacityDialog = true }) {
+                            Text("Atur Kapasitas", color = LogisticsOrange)
+                        }
+                    }
                     capability.vehicle?.let { vehicle ->
                         Surface(color = PrimaryLight.copy(alpha = 0.72f), shape = RoundedCornerShape(8.dp)) {
                             Row(

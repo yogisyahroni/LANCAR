@@ -97,6 +97,8 @@ func (r *relayRepository) GetCourierDispatchScoreStats(ctx context.Context, cour
 			id,
 			relay_score::float8 AS relay_score,
 			acceptance_rate_pct::float8 AS acceptance_rate_pct,
+			max_weight_capacity_kg::float8 AS max_weight_capacity_kg,
+			max_packages_capacity::int AS max_packages_capacity,
 			ST_Distance(
 				current_location::geography,
 				ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography

@@ -92,6 +92,7 @@ export type RouteEtaSnapshot = {
   traffic_aware: boolean;
   confidence: 'high' | 'medium' | 'low';
   fallback_reason?: string | null;
+  optimized_waypoints?: { providedIndex: number, optimizedIndex: number }[];
 };
 
 export type RouteSnapshotOptions = {
@@ -1772,6 +1773,112 @@ export const buildMapsRouteEtaSnapshot = async (
       throw buildRoadRouteRequiredError(error?.message || 'route_provider_failed');
     }
     return fallbackPayload;
+  }
+};
+
+export const buildMapsMultiWaypointRouteEtaSnapshot = async (
+  points: MapPoint[],
+  scope: MapProviderScope = 'tracking',
+  options: RouteSnapshotOptions & { computeBestOrder?: boolean } = {}
+): Promise<RouteEtaSnapshot> => {
+  const startedAt = Date.now();
+  const context = routeContext(scope, options);
+  const requestId = routeRequestId(options);
+  if (!points || points.length < 2) {
+    throw new Error('At least 2 points are required for routing');
+  }
+
+  const from = points[0];
+  const to = points[points.length - 1];
+  const fallback = fallbackRoute(from, to, 'fallback_haversine', null, context);
+  const providerConfig = await getPublicMapsProviderConfig(scope);
+
+  if (providerConfig.active_provider === 'disabled') {
+    throw new Error('Maps provider is disabled');
+  }
+
+  const TomTomCredential = providerConfig.active_provider === 'tomtom_maps'
+    ? await getActiveTomTomMapsServerCredential()
+    : null;
+
+  try {
+    if (providerConfig.active_provider === 'tomtom_maps' && TomTomCredential) {
+      const initialPolicy = resolveTomTomRoutePolicy(context);
+      const coordinates = points.map(p => `${p.latitude},${p.longitude}`).join(':');
+      const response = await axios.get(`${tomTomRoutingBaseUrl()}/calculateRoute/${coordinates}/json`, {
+        params: {
+          key: TomTomCredential.apiKey,
+          traffic: true,
+          travelMode: initialPolicy.travelMode,
+          ...(initialPolicy.avoidTypes.length > 0 ? { avoid: initialPolicy.avoidTypes.join(',') } : {}),
+          ...(initialPolicy.disallowTollSections ? { sectionType: 'toll' } : {}),
+          routeRepresentation: 'polyline',
+          computeTravelTimeFor: 'all',
+          instructionsType: 'text',
+          computeBestOrder: options.computeBestOrder ? 'true' : 'false',
+          language: 'id-ID',
+        },
+        timeout: TomTomRoutesTimeoutMs() * 2, // Waypoints take longer
+      });
+      const route = response.data?.routes?.[0];
+      if (routeContainsForbiddenTollSection(route, initialPolicy)) {
+        throw new Error('TOMTOM_ROUTING_TOLL_SECTION_FORBIDDEN');
+      }
+      const distanceMeters = Number(route?.summary?.lengthInMeters);
+      const durationSeconds = Number(
+        route?.summary?.trafficDelayInSeconds
+          ? route.summary.travelTimeInSeconds
+          : route?.summary?.travelTimeInSeconds
+      );
+      const returnedPoints = (route?.legs || [])
+        .flatMap((leg: any) => Array.isArray(leg?.points) ? leg.points : [])
+        .map((point: any) => ({
+          latitude: Number(point.latitude),
+          longitude: Number(point.longitude),
+        }))
+        .filter((point: MapPoint) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
+      const routePolyline = encodePolyline(returnedPoints);
+      if (!route) throw new Error('TOMTOM_ROUTING_NO_ROUTE');
+      if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) throw new Error('TOMTOM_ROUTING_DISTANCE_INVALID');
+      if (!routePolyline) throw new Error('TOMTOM_ROUTING_POLYLINE_MISSING');
+
+      const normalizedDurationSeconds = Number.isFinite(durationSeconds) && durationSeconds > 0
+        ? Math.ceil(durationSeconds)
+        : (fallback.eta_minutes || 3) * 60;
+
+      const payload = enrichRouteSnapshot({
+        eta: `${Math.max(1, Math.ceil(normalizedDurationSeconds / 60))} menit`,
+        eta_minutes: Math.max(1, Math.ceil(normalizedDurationSeconds / 60)),
+        distance_km: Number((distanceMeters / 1000).toFixed(2)),
+        distance_meters: distanceMeters,
+        duration_seconds: normalizedDurationSeconds,
+        route_polyline: routePolyline,
+        route_geometry: routePolyline,
+        provider: initialPolicy.provider,
+        traffic_aware: true,
+        fallback_reason: initialPolicy.fallbackReason,
+        optimized_waypoints: route.optimizedWaypoints,
+      }, fallback, providerConfig, context, initialPolicy.fallbackReason ? 'medium' : 'high');
+      
+      recordMapsProviderObservation({
+        operation: 'route',
+        scope,
+        requested_provider: providerConfig.requested_provider,
+        active_provider: providerConfig.active_provider,
+        provider: payload.provider,
+        status: 'success',
+        latency_ms: Date.now() - startedAt,
+        cache_hit: false,
+        fallback_reason: null,
+      });
+
+      return { ...payload, credential_alias: TomTomCredential.keyAlias } as any;
+    }
+
+    // Fallback if not TomTom (OSM doesn't natively support optimized multi-waypoint via standard profile easily, just greedy sum)
+    throw new Error('Multi-waypoint routing is only supported via TomTom currently');
+  } catch (error: any) {
+    throw error;
   }
 };
 

@@ -28,6 +28,7 @@ import com.tembus.courier.data.model.CancelPickupReason
 import com.tembus.courier.data.model.DutyStatusRequest
 import com.tembus.courier.data.model.FCMTokenRequest
 import com.tembus.courier.data.model.LocationRequest
+import com.tembus.courier.data.model.UpdateCapacityRequest
 import com.tembus.courier.data.model.LocationResponse
 import com.tembus.courier.data.model.LoginData
 import com.tembus.courier.data.model.LoginRequest
@@ -111,6 +112,11 @@ interface TEMBUSApiService {
      */
     @GET("api/v1/courier/profile")
     suspend fun getCourierProfile(): Response<ApiResponse<CourierProfile>>
+
+    @PUT("api/v1/courier/profile/capacity")
+    suspend fun updateCapacity(
+        @Body request: UpdateCapacityRequest
+    ): Response<ApiResponse<CourierProfile>>
 
     @GET("api/v1/courier/on-demand/services")
     suspend fun getOnDemandServices(): Response<ApiResponse<List<CourierServiceProduct>>>

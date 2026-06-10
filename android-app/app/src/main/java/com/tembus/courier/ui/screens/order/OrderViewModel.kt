@@ -271,6 +271,33 @@ class OrderViewModel @Inject constructor(
         }
     }
 
+    suspend fun updateCourierCapacity(maxWeightKg: Double?, maxPackages: Int?): Result<CourierProfile> {
+        return try {
+            val response = apiService.updateCapacity(
+                com.tembus.courier.data.model.UpdateCapacityRequest(
+                    maxWeightCapacityKg = maxWeightKg,
+                    maxPackagesCapacity = maxPackages
+                )
+            )
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.data != null) {
+                _courierProfile.update { body.data }
+                Result.success(body.data)
+            } else {
+                Result.failure(
+                    Exception(
+                        response.errorMessage(
+                            serverMessage = body?.message,
+                            fallback = "Gagal memperbarui kapasitas. Coba lagi."
+                        )
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun retrofit2.Response<*>.errorMessage(
         serverMessage: String? = null,
         fallback: String

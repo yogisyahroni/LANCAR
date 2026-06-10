@@ -37,10 +37,12 @@ type CourierPerformanceStats struct {
 // CourierDispatchScoreStats holds the runtime metrics required to rank a courier
 // for a specific pickup point. All values are read from operational DB state.
 type CourierDispatchScoreStats struct {
-	CourierID         uuid.UUID `db:"id"`
-	RelayScore        float64   `db:"relay_score"`
-	AcceptanceRatePct float64   `db:"acceptance_rate_pct"`
-	DistanceMeters    float64   `db:"distance_meters"`
+	CourierID           uuid.UUID `db:"id"`
+	RelayScore          float64   `db:"relay_score"`
+	AcceptanceRatePct   float64   `db:"acceptance_rate_pct"`
+	DistanceMeters      float64   `db:"distance_meters"`
+	MaxWeightCapacityKg *float64  `db:"max_weight_capacity_kg"`
+	MaxPackagesCapacity *int      `db:"max_packages_capacity"`
 }
 
 // CourierBankInfo holds bank account info needed for payout disbursement.

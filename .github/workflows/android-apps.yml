@@ -105,6 +105,7 @@ jobs:
           chmod 600 "${{ matrix.working_dir }}/app/google-services.json"
 
       - name: Prepare release signing
+        id: prepare_signing
         if: github.event_name != 'pull_request'
         shell: bash
         env:
@@ -177,6 +178,10 @@ jobs:
               encoding="utf-8",
           )
           PY
+
+          if [[ "$(cat $GITHUB_OUTPUT | grep 'has_secrets=false')" != "" ]]; then
+            exit 0
+          fi
 
           key_path="${GITHUB_WORKSPACE}/${{ matrix.working_dir }}/app/ci-release-keystore.jks"
           signing_env="${GITHUB_WORKSPACE}/${{ matrix.working_dir }}/app/.ci-release-signing.env"

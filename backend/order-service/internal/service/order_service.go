@@ -282,6 +282,23 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 		return fmt.Errorf("order is not in searching status: %s", order.Status)
 	}
 
+	totalWeight := order.Weight
+	packageCount := 1
+	var batchOrders []*domain.Order
+
+	if order.BatchID != nil {
+		batchOrders, err = s.orderRepo.GetByBatchID(ctx, *order.BatchID)
+		if err == nil && len(batchOrders) > 0 {
+			packageCount = len(batchOrders)
+			totalWeight = 0
+			for _, o := range batchOrders {
+				totalWeight += o.Weight
+			}
+		}
+	} else {
+		batchOrders = []*domain.Order{order}
+	}
+
 	// Cascading search radius: 3km, 5km, 10km
 	radii := []float64{3, 5, 10}
 
@@ -292,7 +309,7 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 		}
 
 		// 1. Score and Sort Couriers
-		scoredCouriers := s.scoreCouriers(ctx, courierIDs, order)
+		scoredCouriers := s.scoreCouriers(ctx, courierIDs, order, totalWeight, packageCount)
 
 		// 2. Batch Dispatch: Try top 3 couriers simultaneously
 		batchSize := 3
@@ -305,14 +322,16 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 
 			// Set dispatch expiry for the batch (30 seconds from now)
 			expiry := time.Now().Add(30 * time.Second)
-			if err := s.orderRepo.SetDispatchExpiry(ctx, order.ID, expiry); err != nil {
-				log.Printf("Failed to set dispatch expiry: %v", err)
+			for _, o := range batchOrders {
+				if err := s.orderRepo.SetDispatchExpiry(ctx, o.ID, expiry); err != nil {
+					log.Printf("Failed to set dispatch expiry for order %s: %v", o.ID, err)
+				}
 			}
 
 			// Notify all couriers in the batch
 			for _, sc := range batch {
 				// Notification logic handles Push + WebSocket
-				s.notifyCourierOfNewOrder(ctx, sc.ID, order)
+				s.notifyCourierOfNewOrder(ctx, sc.ID, order, packageCount)
 			}
 
 			// Wait for 30s for any courier to accept
@@ -341,7 +360,9 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 	s.notifyCustomerNoCourier(ctx, order)
 
 	// Cancel order assignment if all declined/expired
-	s.orderRepo.UpdateStatus(ctx, order.ID, domain.StatusCancelled)
+	for _, o := range batchOrders {
+		s.orderRepo.UpdateStatus(ctx, o.ID, domain.StatusCancelled)
+	}
 
 	return errors.New("no couriers accepted the order within the search window")
 }
@@ -351,7 +372,7 @@ type scoredCourier struct {
 	Score float64
 }
 
-func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []string, order *domain.Order) []scoredCourier {
+func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []string, order *domain.Order, totalWeight float64, packageCount int) []scoredCourier {
 	scored := make([]scoredCourier, 0, len(courierIDs))
 	for _, id := range courierIDs {
 		courierUUID, err := uuid.Parse(id)
@@ -362,6 +383,17 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 		stats, err := s.relayRepo.GetCourierDispatchScoreStats(ctx, courierUUID, order.PickupLat, order.PickupLng)
 		if err != nil {
 			log.Printf("Skipping courier %s: dispatch score stats unavailable: %v", id, err)
+			continue
+		}
+
+		// Capacity filtering
+		if stats.MaxWeightCapacityKg != nil && totalWeight > *stats.MaxWeightCapacityKg {
+			log.Printf("Skipping courier %s: total batch weight (%f kg) exceeds max capacity (%f kg)", id, totalWeight, *stats.MaxWeightCapacityKg)
+			continue
+		}
+		
+		if stats.MaxPackagesCapacity != nil && packageCount > *stats.MaxPackagesCapacity {
+			log.Printf("Skipping courier %s: order packages (%d) exceeds max capacity (%d)", id, packageCount, *stats.MaxPackagesCapacity)
 			continue
 		}
 
@@ -396,13 +428,20 @@ func proximityScoreFromDistance(distanceMeters float64) float64 {
 	return clampFloat(score, 0, 1)
 }
 
-func (s *orderServiceImpl) notifyCourierOfNewOrder(ctx context.Context, courierID string, order *domain.Order) {
+func (s *orderServiceImpl) notifyCourierOfNewOrder(ctx context.Context, courierID string, order *domain.Order, packageCount int) {
 	log.Printf("[OrderService] Notifying courier %s of new order %s", courierID, order.OrderNumber)
+
+	title := "New Order Available"
+	msg := fmt.Sprintf("New order %s is available nearby. Tap to view details.", order.OrderNumber)
+	if packageCount > 1 {
+		title = "New Multi-Stop Order"
+		msg = fmt.Sprintf("New batch order (%d packages) is available nearby. Tap to view details.", packageCount)
+	}
 
 	payload := domain.NotificationRequest{
 		UserID:  courierID,
-		Title:   "New Order Available",
-		Message: fmt.Sprintf("New order %s is available nearby. Tap to view details.", order.OrderNumber),
+		Title:   title,
+		Message: msg,
 		Data: map[string]string{
 			"order_id": order.ID,
 			"type":     "new_order",

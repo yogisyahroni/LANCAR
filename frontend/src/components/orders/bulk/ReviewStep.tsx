@@ -39,7 +39,8 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
       dimensions: row.dimensions || { length: 0, width: 0, height: 0 },
       has_insurance: row.has_insurance,
       item_value: row.item_value,
-      customer_notes: row.customer_notes || ''
+      customer_notes: row.customer_notes || '',
+      service_code: row.price_breakdown?.service_code || 'tembus_instant'
     });
   };
 
@@ -227,9 +228,43 @@ export function ReviewStep({ jobId, initialData, onNext, onBack }: ReviewStepPro
       }
     }),
     columnHelper.display({
+      id: 'service',
+      header: 'Layanan',
+      cell: info => {
+        if (editingRowId === info.row.original.id) {
+          return (
+            <select
+              value={editForm.service_code}
+              onChange={e => setEditForm({...editForm, service_code: e.target.value})}
+              className="w-40 rounded border border-white/10 bg-background/50 px-2 py-1 text-xs"
+            >
+              <option value="tembus_prioritas">Prioritas (Max 2)</option>
+              <option value="tembus_instant">Instant (Max 2)</option>
+              <option value="tembus_hemat">Hemat (Max 3)</option>
+              <option value="tembus_sameday">Sameday (Max 5)</option>
+              <option value="tembus_mobil">Mobil (Min 10)</option>
+            </select>
+          );
+        }
+        
+        const code = info.row.original.price_breakdown?.service_code || 'tembus_instant';
+        const labels: Record<string, string> = {
+          'tembus_prioritas': 'Prioritas (Max 2)',
+          'tembus_instant': 'Instant (Max 2)',
+          'tembus_hemat': 'Hemat (Max 3)',
+          'tembus_sameday': 'Sameday (Max 5)',
+          'tembus_mobil': 'Mobil (Min 10)'
+        };
+        return <span className="text-xs font-medium px-2 py-1 bg-white/5 rounded-md border border-white/10">{labels[code] || code}</span>;
+      }
+    }),
+    columnHelper.display({
       id: 'price',
       header: 'Harga',
-      cell: info => `Rp ${(info.row.original.price_breakdown?.total_price_idr || 0).toLocaleString('id-ID')}`
+      cell: info => {
+        const price = info.row.original.price_breakdown?.total_price_idr || 0;
+        return `Rp ${price.toLocaleString('id-ID')}`;
+      }
     }),
     columnHelper.display({
       id: 'actions',

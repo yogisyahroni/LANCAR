@@ -98,6 +98,9 @@ func (m *mockOrderRepo) SaveScan(ctx context.Context, scan *domain.PackageScan) 
 func (m *mockOrderRepo) GetScansForOrder(ctx context.Context, orderID string) ([]*domain.PackageScan, error) {
 	return nil, nil
 }
+func (m *mockOrderRepo) GetByBatchID(ctx context.Context, batchID string) ([]*domain.Order, error) {
+	return nil, nil
+}
 func (m *mockOrderRepo) CreateConsolidationBag(ctx context.Context, bag *domain.ConsolidationBag) error {
 	return nil
 }

@@ -72,13 +72,13 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 				length, width, height, weight,
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, ppn_idr, mdr_idr, handover_token,
-				dispatch_expiry, created_at, updated_at
+				dispatch_expiry, batch_id, sequence_no, created_at, updated_at
 			  ) VALUES (
 				$1, $2, $3, $4, $5, 
 				ST_SetSRID(ST_MakePoint($6, $7), 4326), $8, 
 				ST_SetSRID(ST_MakePoint($9, $10), 4326), $11, 
 				$12, $13, $14, $15, 
-				$16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26
+				$16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28
 			  )`
 
 	// Default tax/fee for now
@@ -92,7 +92,7 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 		o.Length, o.Width, o.Height, o.Weight,
 		o.DistanceKM, o.BasePriceIDR, o.VolumetricSurchargeIDR,
 		o.DynamicPriceIDR, o.TotalPriceIDR, ppn, mdr, o.HandoverToken,
-		o.DispatchExpiry, o.CreatedAt, o.UpdatedAt,
+		o.DispatchExpiry, o.BatchID, o.SequenceNo, o.CreatedAt, o.UpdatedAt,
 	)
 	return err
 }
@@ -104,7 +104,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
 				length, width, height, weight,
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, created_at, updated_at
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, created_at, updated_at
 			  FROM orders WHERE id = $1`
 
 	o := &domain.Order{}
@@ -114,7 +114,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
 		&o.Length, &o.Width, &o.Height, &o.Weight,
 		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.CreatedAt, &o.UpdatedAt,
+		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -125,6 +125,44 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 	return o, nil
 }
 
+func (r *postgresRepo) GetByBatchID(ctx context.Context, batchID string) ([]*domain.Order, error) {
+	query := `
+		SELECT
+			id, order_number, customer_id, model, status,
+			ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address,
+			ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address,
+			length, width, height, weight,
+			distance_km, base_price_idr, volumetric_surcharge_idr,
+			dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, created_at, updated_at
+		FROM orders
+		WHERE batch_id = $1
+		ORDER BY sequence_no ASC
+	`
+	rows, err := r.readDB.QueryContext(ctx, query, batchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	orders := []*domain.Order{}
+	for rows.Next() {
+		o := &domain.Order{}
+		err := rows.Scan(
+			&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
+			&o.PickupLat, &o.PickupLng, &o.PickupAddress,
+			&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+			&o.Length, &o.Width, &o.Height, &o.Weight,
+			&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
+			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CreatedAt, &o.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		orders = append(orders, o)
+	}
+	return orders, nil
+}
+
 func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter map[string]interface{}) ([]*domain.Order, error) {
 	query := `SELECT 
 				id, order_number, customer_id, model, status, 
@@ -132,7 +170,7 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
 				length, width, height, weight,
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, created_at, updated_at
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, created_at, updated_at
 			  FROM orders WHERE customer_id = $1 ORDER BY created_at DESC`
 
 	rows, err := r.readDB.QueryContext(ctx, query, userID)
@@ -150,7 +188,7 @@ func (r *postgresRepo) ListByUserID(ctx context.Context, userID string, filter m
 			&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
 			&o.Length, &o.Width, &o.Height, &o.Weight,
 			&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.CreatedAt, &o.UpdatedAt,
+			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CreatedAt, &o.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -235,7 +273,7 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
 				length, width, height, weight,
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, created_at, updated_at
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, created_at, updated_at
 			  FROM orders 
 			  WHERE status = 'searching' AND updated_at < $1`
 
@@ -253,8 +291,9 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 			&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
 			&o.PickupLat, &o.PickupLng, &o.PickupAddress,
 			&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+			&o.Length, &o.Width, &o.Height, &o.Weight,
 			&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.CreatedAt, &o.UpdatedAt,
+			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CreatedAt, &o.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err

@@ -109,9 +109,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
           height_cm: 15,
           has_insurance: 'Tidak',
           item_value: '',
-          customer_notes: 'Titip ke resepsionis',
-          dropoff_lat: '',
-          dropoff_lng: ''
+          customer_notes: 'Titip ke resepsionis'
         },
         {
           recipient_name: 'Siti Rahayu',
@@ -124,9 +122,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
           height_cm: 2,
           has_insurance: 'Ya',
           item_value: 250000,
-          customer_notes: '',
-          dropoff_lat: -6.158493,
-          dropoff_lng: 106.904972
+          customer_notes: ''
         }
       ],
       [
@@ -140,9 +136,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
         'height_cm',
         'has_insurance',
         'item_value',
-        'customer_notes',
-        'dropoff_lat',
-        'dropoff_lng'
+        'customer_notes'
       ]
     );
   };
@@ -260,11 +254,28 @@ export function UploadStep({ onComplete }: UploadStepProps) {
         {...getRootProps()}
         className={`relative overflow-hidden border-2 border-dashed rounded-2xl p-10 transition-all duration-200 ease-in-out cursor-pointer flex flex-col items-center justify-center text-center ${
           isDragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-white/5'
-        } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+        } ${isUploading && !pollingJobId ? 'opacity-50 pointer-events-none' : ''}`}
       >
         <input {...getInputProps()} />
 
-        {file ? (
+        {pollingJobId ? (
+          <div className="flex flex-col items-center gap-4 w-full max-w-md mx-auto">
+            <Loader2 className="w-10 h-10 text-primary animate-spin" />
+            <div className="w-full space-y-2">
+              <div className="flex justify-between text-sm font-medium">
+                <span>Memproses Data...</span>
+                <span>{progress.processed} / {progress.total} Baris</span>
+              </div>
+              <div className="w-full bg-white/10 rounded-full h-2.5 overflow-hidden">
+                <div 
+                  className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-out" 
+                  style={{ width: `${progress.total > 0 ? (progress.processed / progress.total) * 100 : 0}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">Sedang mencari koordinat tujuan dan menghitung rute...</p>
+            </div>
+          </div>
+        ) : file ? (
           <div className="flex flex-col items-center gap-3">
             <div className="p-3 bg-primary/10 rounded-full">
               <CheckCircle2 className="w-8 h-8 text-primary" />

@@ -108,7 +108,31 @@ data class CourierProfile(
     val totalEarningsIdr: Int = 0,
 
     @SerialName("today_earnings_idr")
-    val todayEarningsIdr: Int = 0
+    val todayEarningsIdr: Int = 0,
+
+    @SerialName("max_weight_capacity_kg")
+    val maxWeightCapacityKg: Double? = null,
+
+    @SerialName("max_packages_capacity")
+    val maxPackagesCapacity: Int? = null
+)
+
+@Serializable
+data class DutyStatusResponse(
+    @SerialName("success")
+    val success: Boolean,
+
+    @SerialName("message")
+    val message: String
+)
+
+@Serializable
+data class UpdateCapacityRequest(
+    @SerialName("max_weight_capacity_kg")
+    val maxWeightCapacityKg: Double?,
+
+    @SerialName("max_packages_capacity")
+    val maxPackagesCapacity: Int?
 )
 
 @Serializable

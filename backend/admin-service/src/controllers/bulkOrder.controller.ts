@@ -4,7 +4,7 @@ import { db } from '../db';
 import { redis } from '../redis';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../midtrans';
 import { calculateServiceSettlement, customerFacingService, DeliveryServiceProduct, findDeliveryServiceByCode } from './deliveryServices.controller';
-import { buildMapsRouteEtaSnapshot, RouteEtaSnapshot } from '../services/mapsProviderConfig';
+import { buildMapsRouteEtaSnapshot, buildMapsMultiWaypointRouteEtaSnapshot, geocodeAddress, RouteEtaSnapshot } from '../services/mapsProviderConfig';
 
 const normalizePhoneForPrivateLookup = (value: any) => {
   let digits = String(value || '').replace(/\D/g, '');
@@ -220,8 +220,8 @@ const buildRowFromExcel = async (
   const hasInsurance = parseBoolean(getCell(row, ['has_insurance', 'Asuransi (Ya/Tidak)', 'Asuransi', 'asuransi']));
   const itemValue = parseNumber(getCell(row, ['item_value', 'Nilai Barang (Rp)', 'Nilai Barang', 'nilai_barang']), 0);
   const notes = String(getCell(row, ['customer_notes', 'Catatan', 'catatan']) || '').trim();
-  const dropoffLat = parseNumber(getCell(row, ['dropoff_lat', 'Latitude Tujuan', 'latitude']), NaN);
-  const dropoffLng = parseNumber(getCell(row, ['dropoff_lng', 'Longitude Tujuan', 'longitude']), NaN);
+  let dropoffLat = NaN;
+  let dropoffLng = NaN;
 
   const errorMessages: string[] = [];
   if (!recipientName) errorMessages.push('Nama penerima harus diisi');
@@ -236,14 +236,30 @@ const buildRowFromExcel = async (
   if (!Number.isFinite(pickup.lat) || !Number.isFinite(pickup.lng)) {
     errorMessages.push('Koordinat pickup harus berasal dari input pengguna atau alamat tersimpan');
   }
-  if (!Number.isFinite(dropoffLat) || !Number.isFinite(dropoffLng)) {
-    errorMessages.push('Koordinat tujuan wajib diisi; pricing bulk tidak memakai koordinat buatan');
+
+  // Geocoding since we no longer read coordinates from Excel
+  if (dropoffAddress) {
+    try {
+      const results = await geocodeAddress(dropoffAddress, 'web_customer');
+      if (results && results.length > 0) {
+        dropoffLat = results[0].latitude;
+        dropoffLng = results[0].longitude;
+      } else {
+        errorMessages.push('Gagal menemukan koordinat dari alamat tujuan. Silakan lengkapi alamat atau isi manual koordinat.');
+      }
+    } catch (err) {
+      errorMessages.push('Layanan pencarian alamat (geocoding) sedang bermasalah.');
+    }
+  } else {
+    errorMessages.push('Alamat tujuan kosong sehingga koordinat tidak dapat dicari.');
   }
 
   const dLat = dropoffLat;
   const dLon = dropoffLng;
   const dimensions = length && width && height ? { length, width, height } : undefined;
-  let priceData: Record<string, number | string | null> = {
+  
+  // Default base price data (will be recalculated by multi-stop grouping later)
+  const priceData: Record<string, number | string | null> = {
     distance_km: 0,
     base_price_idr: 0,
     actual_weight_kg: Number((weightKg || 0).toFixed(2)),
@@ -254,29 +270,9 @@ const buildRowFromExcel = async (
     dynamic_price_idr: 0,
     delivery_model: service.route_model,
     eta_minutes: null,
-    total_price_idr: 0
+    total_price_idr: 0,
+    service_code: service.code, // Initial default
   };
-
-  if (errorMessages.length === 0) {
-    try {
-      const route = await buildMapsRouteEtaSnapshot(
-        { latitude: pickup.lat, longitude: pickup.lng },
-        { latitude: dLat, longitude: dLon },
-        'web_customer',
-        {
-          serviceCode: service.code,
-          vehicleType: 'motorcycle',
-          routeProfile: 'motorcycle',
-          requireRoadRoute: true,
-        }
-      );
-      const pricing = calculateRowPrice(service, route, weightKg || 1, dimensions, hasInsurance, itemValue);
-      priceData = pricing.price;
-      errorMessages.push(...pricing.errors);
-    } catch (error: any) {
-      errorMessages.push(error?.message || 'Route provider gagal menghitung jarak berbasis jalan');
-    }
-  }
 
   return {
     id: `row_${index}`,
@@ -298,6 +294,128 @@ const buildRowFromExcel = async (
     status: errorMessages.length > 0 ? 'error' : 'valid',
     error_messages: errorMessages
   };
+};
+
+const recalculateBulkJob = async (jobData: any, pLat: number, pLon: number, pickup_address: string) => {
+  const pickup = { latitude: pLat, longitude: pLon };
+
+  // Clear previous prices & routing errors
+  jobData.rows.forEach((r: any) => {
+    if (r.status === 'valid') {
+      r.price_breakdown.distance_km = 0;
+      r.price_breakdown.base_price_idr = 0;
+      r.price_breakdown.total_price_idr = 0;
+    }
+  });
+
+  const validRows = jobData.rows.filter((r: any) => r.status === 'valid' && r.dropoff_location?.lat && r.dropoff_location?.lng);
+  
+  // Group by service_code
+  const grouped = validRows.reduce((acc: any, row: any) => {
+    const s = row.price_breakdown?.service_code || 'tembus_instant';
+    if (!acc[s]) acc[s] = [];
+    acc[s].push(row);
+    return acc;
+  }, {});
+
+  for (const [serviceCode, rows] of Object.entries(grouped) as [string, any[]][]) {
+    const service = await findDeliveryServiceByCode(serviceCode);
+    if (!service) {
+      rows.forEach(r => {
+        r.status = 'error';
+        r.error_messages.push(`Layanan ${serviceCode} tidak tersedia`);
+      });
+      continue;
+    }
+
+    let maxPackages = 10;
+    if (serviceCode.includes('instant') || serviceCode.includes('prioritas')) maxPackages = 2;
+    else if (serviceCode.includes('hemat')) maxPackages = 3;
+    else if (serviceCode.includes('sameday')) maxPackages = 5;
+    else if (serviceCode.includes('mobil') || serviceCode.includes('bulky')) maxPackages = 10;
+    
+    // Split into chunks based on max capacity
+    const chunks: any[][] = [];
+    let currentChunk: any[] = [];
+    let currentChunkWeight = 0;
+    const maxWeight = serviceCode.includes('mobil') ? 500 : 20;
+
+    for (const row of rows) {
+      if (
+        currentChunk.length >= maxPackages || 
+        (currentChunkWeight + row.weight_kg > maxWeight && currentChunk.length > 0)
+      ) {
+        chunks.push(currentChunk);
+        currentChunk = [];
+        currentChunkWeight = 0;
+      }
+      currentChunk.push(row);
+      currentChunkWeight += row.weight_kg;
+    }
+    if (currentChunk.length > 0) chunks.push(currentChunk);
+
+    for (const chunk of chunks) {
+      const batchId = crypto.randomUUID();
+      const dropoffs = chunk.map(r => ({ latitude: r.dropoff_location.lat, longitude: r.dropoff_location.lng }));
+      const points = [pickup, ...dropoffs];
+      
+      try {
+        const route = await buildMapsMultiWaypointRouteEtaSnapshot(points, 'web_customer', {
+          serviceCode: service.code,
+          vehicleType: serviceCode.includes('mobil') ? 'car' : 'motorcycle',
+          routeProfile: serviceCode.includes('mobil') ? 'car' : 'motorcycle',
+          requireRoadRoute: true,
+          computeBestOrder: true
+        });
+
+        const distance = Number(route.distance_km || 0);
+        const extraDistance = Math.max(0, distance - Number(service.included_distance_km || 0));
+        const routeBasePrice = Math.ceil(
+          (Number(service.base_fare_idr || 0) + (Math.ceil(extraDistance) * Number(service.per_km_idr || 0))) *
+          Number(service.service_multiplier || 1)
+        );
+
+        // Distribute base price equally among packages in this chunk
+        const basePricePerPackage = Math.ceil(routeBasePrice / chunk.length);
+
+        for (let idx = 0; idx < chunk.length; idx++) {
+          const row = chunk[idx];
+          let sequence_no = idx + 1;
+          
+          if (route.optimized_waypoints && route.optimized_waypoints.length > 0) {
+            if (idx === chunk.length - 1) {
+              sequence_no = chunk.length;
+            } else {
+              const opt = route.optimized_waypoints.find((o: any) => o.providedIndex === idx);
+              if (opt) {
+                sequence_no = opt.optimizedIndex + 1;
+              }
+            }
+          }
+          
+          row.sequence_no = sequence_no;
+          row.batch_id = batchId;
+
+          const pricing = calculateRowPrice(service, route, row.weight_kg, row.dimensions, row.has_insurance, row.item_value);
+          row.price_breakdown = {
+            ...pricing.price,
+            base_price_idr: basePricePerPackage,
+            total_price_idr: basePricePerPackage + Number(pricing.price.volumetric_surcharge_idr || 0) + Number(pricing.price.insurance_premium_idr || 0)
+          };
+          if (pricing.errors.length > 0) {
+            row.status = 'error';
+            row.error_messages.push(...pricing.errors);
+          }
+        }
+
+      } catch (error: any) {
+        for (const row of chunk) {
+          row.status = 'error';
+          row.error_messages.push(error?.message || 'Gagal menghitung rute multi-stop');
+        }
+      }
+    }
+  }
 };
 
 export const uploadBulkExcel = async (req: Request, res: Response): Promise<void> => {
@@ -360,18 +478,35 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
         processedRows.push(await buildRowFromExcel(row, index, { address: pickup_address, lat: pLat, lng: pLon }, bulkService));
 
         completed++;
-        // Update Redis periodically
-        if (completed % 10 === 0 || completed === rawRows.length) {
+        // Update Redis frequently so progress bar is smooth
+        if (completed % Math.max(1, Math.floor(rawRows.length / 20)) === 0 || completed === rawRows.length) {
           await redis.set(jobId, JSON.stringify({
-            status: completed === rawRows.length ? 'completed' : 'processing',
-            progress: Math.round((completed / rawRows.length) * 100),
+            status: 'processing', // Keep processing until recalculation is done
+            progress: Math.round((completed / rawRows.length) * 90), // up to 90%
             total: rawRows.length,
             total_rows: rawRows.length,
             processed_rows: completed,
-            rows: completed === rawRows.length ? processedRows : []
+            rows: processedRows
           }), 'EX', 3600);
         }
       }
+
+      // After building rows, recalculate group pricing
+      const jobData = {
+        status: 'processing',
+        progress: 95,
+        total: rawRows.length,
+        total_rows: rawRows.length,
+        processed_rows: rawRows.length,
+        rows: processedRows
+      };
+      
+      await recalculateBulkJob(jobData, pLat, pLon, pickup_address);
+      
+      jobData.status = 'completed';
+      jobData.progress = 100;
+
+      await redis.set(jobId, JSON.stringify(jobData), 'EX', 3600);
     })();
 
   } catch (error: any) {
@@ -435,7 +570,8 @@ export const validateBulkRow = async (req: Request, res: Response): Promise<void
           dropoff_lat: row.dropoff_location?.lat,
           dropoff_lng: row.dropoff_location?.lng
         };
-        const bulkService = await findDeliveryServiceByCode(row.price_breakdown?.service_code as string || 'tembus_instant');
+        const requestedServiceCode = edits.service_code ?? row.price_breakdown?.service_code ?? 'tembus_instant';
+        const bulkService = await findDeliveryServiceByCode(requestedServiceCode);
         if (!bulkService) {
           res.status(400).json({ error: 'Layanan bulk tidak tersedia untuk validasi ulang' });
           return;
@@ -449,6 +585,23 @@ export const validateBulkRow = async (req: Request, res: Response): Promise<void
           id: row.id
         };
       }
+    }
+
+    const firstRow = jobData.rows[0];
+    const pLat = firstRow?.pickup_location?.lat || 0;
+    const pLon = firstRow?.pickup_location?.lng || 0;
+    const pickup_address = firstRow?.pickup_address || '';
+
+    // Need to reset errors before recalculating
+    for (const r of jobData.rows) {
+      if (r.error_messages.includes('Gagal menghitung rute multi-stop')) {
+        r.error_messages = r.error_messages.filter((msg: string) => msg !== 'Gagal menghitung rute multi-stop');
+        if (r.error_messages.length === 0) r.status = 'valid';
+      }
+    }
+
+    if (pLat && pLon) {
+      await recalculateBulkJob(jobData, pLat, pLon, pickup_address);
     }
 
     // Save back to Redis
@@ -527,6 +680,9 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
       return;
     }
 
+    // Extract unique batch IDs to pass to Midtrans
+    const batchIds = [...new Set(validRows.map((r: any) => r.batch_id))];
+    
     // Bulk insert (using a loop for simplicity, can be optimized with UNNEST in prod)
     for (const row of validRows) {
       const order_number = `TMB-BLK-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
@@ -568,11 +724,12 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
           package_details,
           customer_notes,
           schedule_type,
+          batch_id,
           created_at
         ) VALUES (
           $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
           $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
-          $11, $12, $13, $14, 'pending_payment', $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, 'now', NOW()
+          $11, $12, $13, $14, 'pending_payment', $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, NOW()
         ) RETURNING id, order_number
       `;
 
@@ -606,6 +763,8 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         row.item_value || 0,
         JSON.stringify({ category: row.category || 'bulk', weight_kg: row.weight_kg, dimensions: row.dimensions }),
         row.customer_notes || 'Bulk Order',
+        'now',
+        row.batch_id
       ];
 
       const result = await client.query(insertQuery, values);
@@ -614,8 +773,8 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         INSERT INTO payments (
           order_id, payment_number, provider, method, status, amount_idr,
           mdr_amount_idr, ppn_amount_idr, weather_reserve_idr, insurance_reserve_idr,
-          net_operational_idr, provider_reference, expires_at
-        ) VALUES ($1, $2, 'midtrans', 'snap', 'pending', $3, $4, $5, 0, $6, $7, $8, NOW() + INTERVAL '30 minutes')
+          net_operational_idr, provider_reference, batch_id, expires_at
+        ) VALUES ($1, $2, 'midtrans', 'snap', 'pending', $3, $4, $5, 0, $6, $7, $8, $9, NOW() + INTERVAL '30 minutes')
         ON CONFLICT (order_id) DO UPDATE SET
           status = 'pending',
           amount_idr = EXCLUDED.amount_idr,
@@ -630,7 +789,8 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         settlement.ppn_idr,
         settlement.insurance_reserve_idr,
         settlement.net_operational_idr,
-        `PENDING-BULK-${job_id}`
+        `PENDING-BULK-${job_id}`,
+        row.batch_id
       ]);
 
       await client.query(`
@@ -655,7 +815,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         first_name: 'TEMBUS Customer'
       },
       customFields: {
-        custom_field1: createdOrders.map((order: any) => order.id).join(',').slice(0, 255),
+        custom_field1: batchIds.join(',').slice(0, 255),
         custom_field2: 'bulk_order',
         custom_field3: String(customer_id || '')
       },

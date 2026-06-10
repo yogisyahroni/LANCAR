@@ -49,6 +49,8 @@ type Order struct {
 	QRCodeURL              string      `json:"qr_code_url,omitempty"`
 	CancellationReason     string      `json:"cancellation_reason,omitempty"`
 	DispatchExpiry         *time.Time  `json:"dispatch_expiry,omitempty"`
+	BatchID                *string     `json:"batch_id,omitempty"`
+	SequenceNo             *int        `json:"sequence_no,omitempty"`
 	CreatedAt              time.Time   `json:"created_at"`
 	UpdatedAt              time.Time   `json:"updated_at"`
 }
@@ -78,6 +80,7 @@ type OrderService interface {
 type OrderRepository interface {
 	Create(ctx context.Context, order *Order) error
 	GetByID(ctx context.Context, id string) (*Order, error)
+	GetByBatchID(ctx context.Context, batchID string) ([]*Order, error)
 	ListByUserID(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, id string, status OrderStatus) error
 	UpdateDimensions(ctx context.Context, id string, length, width, height, weight float64) error
