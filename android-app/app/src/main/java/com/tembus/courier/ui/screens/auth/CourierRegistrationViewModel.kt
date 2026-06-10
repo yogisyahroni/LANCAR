@@ -1,6 +1,7 @@
 package com.tembus.courier.ui.screens.auth
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
@@ -111,6 +112,39 @@ class CourierRegistrationViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(uploadingDocType = null, error = e.message ?: "Upload dokumen gagal")
                 }
+            }
+        }
+    }
+
+    /** Upload foto wajah dari kamera live (bukan galeri) saat pendaftaran kurir */
+    fun uploadFaceEnrollmentBitmap(bitmap: Bitmap) {
+        if (_uiState.value.uploadingDocType != null) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(uploadingDocType = "face_enrollment", error = null) }
+            try {
+                val bytes = withContext(Dispatchers.IO) {
+                    val stream = java.io.ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, stream)
+                    stream.toByteArray()
+                }
+                if (bytes.size > 10 * 1024 * 1024) {
+                    throw IllegalArgumentException("Foto melebihi batas 10 MB")
+                }
+                val fileName = "face_enrollment_${System.currentTimeMillis()}.jpg"
+                val requestBody = bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
+                val docTypePart = "face_enrollment".toRequestBody("text/plain".toMediaTypeOrNull())
+                val response = withContext(Dispatchers.IO) { apiService.uploadCourierDocument(docTypePart, part) }
+                if (!response.isSuccessful || response.body()?.success != true || response.body()?.data == null) {
+                    throw IllegalStateException(response.body()?.message ?: "Upload foto wajah gagal")
+                }
+                val uploaded = response.body()!!.data!!
+                _uiState.update { state ->
+                    val fileNames = state.documentFileNames + ("face_enrollment" to "Foto wajah terupload")
+                    state.copy(faceEnrollmentRef = uploaded.fileUrl, documentFileNames = fileNames, uploadingDocType = null)
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(uploadingDocType = null, error = e.message ?: "Upload foto wajah gagal") }
             }
         }
     }

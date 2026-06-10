@@ -345,6 +345,9 @@ dependencies {
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("com.google.zxing:core:3.5.4")
     
+    // ML Kit for Active Liveness Detection
+    implementation("com.google.mlkit:face-detection:16.1.7")
+    
     // TomTom Maps & Navigation Engine for courier operations.
     // Play Services Location remains only for device GPS, not map rendering.
     val tomTomNavigationSdkVersion = "2.3.0"

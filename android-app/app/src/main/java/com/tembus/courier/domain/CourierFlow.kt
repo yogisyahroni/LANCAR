@@ -8,6 +8,7 @@ enum class CourierStage {
     ASSIGNED,
     GOING_TO_PICKUP,
     ARRIVED_AT_PICKUP,
+    PICKUP_FACE_REQUIRED,
     PICKUP_SCAN_REQUIRED,
     PICKUP_PHOTO_REQUIRED,
     PICKUP_VERIFIED,
@@ -24,6 +25,7 @@ enum class CourierStage {
 enum class CourierNextActionType {
     ACCEPT_OFFER,
     NAVIGATE_TO_PICKUP,
+    VERIFY_FACE_PICKUP,
     SCAN_PICKUP,
     CAPTURE_PICKUP_PHOTO,
     START_DELIVERY,
@@ -49,6 +51,7 @@ data class CourierFlowState(
     val activeAddress: String,
     val activeAddressLabel: String,
     val targetIsPickup: Boolean,
+    val faceVerifiedForPickup: Boolean,
     val pickupScanDone: Boolean,
     val pickupPhotoDone: Boolean,
     val pickupDone: Boolean,
@@ -68,6 +71,7 @@ object CourierFlowResolver {
 
     fun resolve(
         order: Order,
+        faceVerifiedForPickup: Boolean = false,
         pickupScanVerified: Boolean = false,
         pickupPhotoVerified: Boolean = false,
         pickupPhotoRequired: Boolean = true
@@ -95,6 +99,7 @@ object CourierFlowResolver {
             status in cancelRequestStatuses -> CourierStage.CANCEL_REQUESTED
             status in returnStatuses -> CourierStage.RETURN_TO_HUB
             status in offerStatuses -> CourierStage.PENDING_OFFER
+            !faceVerifiedForPickup && !pickupDone -> CourierStage.PICKUP_FACE_REQUIRED
             !scanDone -> CourierStage.PICKUP_SCAN_REQUIRED
             !photoDone -> CourierStage.PICKUP_PHOTO_REQUIRED
             pickupDone && status !in activeDeliveryStatuses && status !in deliveredStatuses -> CourierStage.PICKUP_VERIFIED
@@ -107,6 +112,11 @@ object CourierFlowResolver {
                 type = CourierNextActionType.ACCEPT_OFFER,
                 label = "Terima Order",
                 helperText = "Konfirmasi pekerjaan sebelum mulai pickup."
+            )
+            CourierStage.PICKUP_FACE_REQUIRED -> CourierNextAction(
+                type = CourierNextActionType.VERIFY_FACE_PICKUP,
+                label = "Verifikasi Wajah",
+                helperText = "Scan wajah untuk membuktikan kamu yang mengambil barang ini."
             )
             CourierStage.PICKUP_SCAN_REQUIRED -> CourierNextAction(
                 type = CourierNextActionType.SCAN_PICKUP,
@@ -155,6 +165,7 @@ object CourierFlowResolver {
 
         val title = when (stage) {
             CourierStage.PENDING_OFFER -> "Pesanan baru"
+            CourierStage.PICKUP_FACE_REQUIRED -> "Verifikasi wajah dulu"
             CourierStage.PICKUP_SCAN_REQUIRED,
             CourierStage.PICKUP_PHOTO_REQUIRED,
             CourierStage.ASSIGNED,
@@ -172,6 +183,7 @@ object CourierFlowResolver {
         }
 
         val instruction = when (stage) {
+            CourierStage.PICKUP_FACE_REQUIRED -> "Scan wajah terlebih dahulu untuk memulai verifikasi pickup barang."
             CourierStage.PICKUP_SCAN_REQUIRED -> "Scan atau input kode paket saat barang sudah siap diverifikasi."
             CourierStage.PICKUP_PHOTO_REQUIRED -> "Scan sudah tercatat. Lengkapi foto barang pickup."
             CourierStage.PICKUP_VERIFIED -> "Semua bukti pickup sudah lengkap. Mulai antar ke penerima."
@@ -185,7 +197,7 @@ object CourierFlowResolver {
             else -> if (role == "regular") {
                 "Jalankan order regular sesuai tahap pengiriman."
             } else {
-                "Datang ke titik pickup dan verifikasi barang."
+                "Datang ke titik pickup dan verifikasi wajah sebelum scan barang."
             }
         }
 
@@ -194,6 +206,7 @@ object CourierFlowResolver {
             CourierStage.ASSIGNED,
             CourierStage.GOING_TO_PICKUP,
             CourierStage.ARRIVED_AT_PICKUP,
+            CourierStage.PICKUP_FACE_REQUIRED,
             CourierStage.PICKUP_SCAN_REQUIRED,
             CourierStage.PICKUP_PHOTO_REQUIRED
         )
@@ -202,10 +215,11 @@ object CourierFlowResolver {
             stage = stage,
             title = title,
             instruction = instruction,
-            progressLabels = listOf("Pickup", "Antar", "Bukti Terima"),
+            progressLabels = listOf("Verifikasi Wajah", "Pickup", "Antar", "Bukti Terima"),
             activeAddress = if (targetIsPickup) pickupAddress else dropAddress,
             activeAddressLabel = if (targetIsPickup) "Lokasi pickup" else "Lokasi penerima",
             targetIsPickup = targetIsPickup,
+            faceVerifiedForPickup = faceVerifiedForPickup,
             pickupScanDone = scanDone,
             pickupPhotoDone = photoDone,
             pickupDone = pickupDone,

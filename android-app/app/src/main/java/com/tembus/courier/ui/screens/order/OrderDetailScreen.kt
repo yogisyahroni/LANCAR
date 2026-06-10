@@ -135,6 +135,8 @@ fun OrderDetailScreen(
     statusTransitions: List<OrderStatusTransition> = emptyList(),
     pickupScanVerified: Boolean = false,
     pickupPhotoVerified: Boolean = false,
+    faceVerifiedForPickup: Boolean = false,
+    onVerifyFace: () -> Unit = {},
     onSosClick: () -> Unit = {},
     onReportIssue: (eventType: String, severity: String, message: String, photoFile: File?) -> Unit = { _, _, _, _ -> },
     onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit = { _, _, _ -> }
@@ -155,9 +157,10 @@ fun OrderDetailScreen(
     val pickupPhotoRequired = remember(order.orderId, order.status, order.workflowRole, statusTransitions) {
         isPickupPhotoRequired(order, statusTransitions)
     }
-    val courierFlow = remember(order, pickupScanVerified, pickupPhotoVerified, pickupPhotoRequired) {
+    val courierFlow = remember(order, faceVerifiedForPickup, pickupScanVerified, pickupPhotoVerified, pickupPhotoRequired) {
         CourierFlowResolver.resolve(
             order = order,
+            faceVerifiedForPickup = faceVerifiedForPickup,
             pickupScanVerified = pickupScanVerified,
             pickupPhotoVerified = pickupPhotoVerified,
             pickupPhotoRequired = pickupPhotoRequired
@@ -247,6 +250,8 @@ fun OrderDetailScreen(
                     cancelPickupReasons = cancelPickupReasons,
                     pickupScanVerified = pickupScanVerified,
                     pickupPhotoVerified = pickupPhotoVerified,
+                    faceVerifiedForPickup = faceVerifiedForPickup,
+                    onVerifyFace = onVerifyFace,
                     onVerifyPickup = onVerifyPickup,
                     onCapturePickupProof = onCapturePickupProof,
                     onCapturePod = onCapturePod,
@@ -405,6 +410,8 @@ private fun OnDemandTaskActions(
     cancelPickupReasons: List<CancelPickupReason>,
     pickupScanVerified: Boolean,
     pickupPhotoVerified: Boolean,
+    faceVerifiedForPickup: Boolean,
+    onVerifyFace: () -> Unit,
     onVerifyPickup: () -> Unit,
     onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
@@ -446,6 +453,7 @@ private fun OnDemandTaskActions(
                     runCourierNextAction(
                         context = context,
                         flowState = flowState,
+                        onVerifyFace = onVerifyFace,
                         onVerifyPickup = onVerifyPickup,
                         onCapturePickupProof = onCapturePickupProof,
                         onCapturePod = onCapturePod,
@@ -473,6 +481,7 @@ private fun OnDemandTaskActions(
             if (!flowState.pickupDone) {
                 PackageChecklistCard(order = order, deliveryDone = flowState.deliveryDone)
                 MandatoryPickupChecklist(
+                    faceDone = faceVerifiedForPickup,
                     scanDone = pickupScanVerified,
                     photoDone = pickupPhotoVerified
                 )
@@ -807,6 +816,7 @@ private fun SyncStateNotice(order: Order) {
 private fun runCourierNextAction(
     context: android.content.Context,
     flowState: CourierFlowState,
+    onVerifyFace: () -> Unit,
     onVerifyPickup: () -> Unit,
     onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
@@ -814,6 +824,7 @@ private fun runCourierNextAction(
     onChatClick: () -> Unit
 ) {
     when (flowState.nextAction.type) {
+        CourierNextActionType.VERIFY_FACE_PICKUP -> onVerifyFace()
         CourierNextActionType.NAVIGATE_TO_PICKUP,
         CourierNextActionType.NAVIGATE_TO_DROPOFF -> openNavigation(context, flowState.activeAddress)
         CourierNextActionType.SCAN_PICKUP -> onVerifyPickup()
@@ -829,6 +840,7 @@ private fun runCourierNextAction(
 
 private fun courierActionIcon(type: CourierNextActionType): androidx.compose.ui.graphics.vector.ImageVector {
     return when (type) {
+        CourierNextActionType.VERIFY_FACE_PICKUP -> Icons.Default.Face
         CourierNextActionType.ACCEPT_OFFER -> Icons.Default.AssignmentTurnedIn
         CourierNextActionType.NAVIGATE_TO_PICKUP,
         CourierNextActionType.NAVIGATE_TO_DROPOFF -> Icons.Default.Navigation
@@ -844,6 +856,7 @@ private fun courierActionIcon(type: CourierNextActionType): androidx.compose.ui.
 
 @Composable
 private fun MandatoryPickupChecklist(
+    faceDone: Boolean,
     scanDone: Boolean,
     photoDone: Boolean
 ) {
@@ -859,6 +872,11 @@ private fun MandatoryPickupChecklist(
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Black,
                 color = DeepForest
+            )
+            VerificationRequirementRow(
+                done = faceDone,
+                label = "Verifikasi Wajah",
+                description = "Membuktikan kamu yang mengambil barang, mencegah penyalahgunaan akun."
             )
             VerificationRequirementRow(
                 done = scanDone,
@@ -1543,7 +1561,8 @@ private fun OrderActions(
     onCapturePod: () -> Unit,
     onChatClick: () -> Unit,
     onCallClick: () -> Unit,
-    onSosClick: () -> Unit
+    onSosClick: () -> Unit,
+    onVerifyFace: () -> Unit = {}
 ) {
     val context = LocalContext.current
     Card(
@@ -1571,6 +1590,7 @@ private fun OrderActions(
                     runCourierNextAction(
                         context = context,
                         flowState = flowState,
+                        onVerifyFace = onVerifyFace,
                         onVerifyPickup = onVerifyPickup,
                         onCapturePickupProof = onCapturePickupProof,
                         onCapturePod = onCapturePod,
@@ -1597,6 +1617,7 @@ private fun OrderActions(
             if (!flowState.pickupDone) {
                 PackageChecklistCard(order = order, deliveryDone = flowState.deliveryDone)
                 MandatoryPickupChecklist(
+                    faceDone = false,
                     scanDone = flowState.pickupScanDone,
                     photoDone = flowState.pickupPhotoDone
                 )

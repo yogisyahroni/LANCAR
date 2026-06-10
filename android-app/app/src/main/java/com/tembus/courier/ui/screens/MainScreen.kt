@@ -92,6 +92,7 @@ import com.tembus.courier.ui.screens.pod.ProofOfDeliveryScreen
 import com.tembus.courier.ui.screens.profile.resolvePayoutActionState
 import com.tembus.courier.ui.screens.scan.ScanScreen
 import com.tembus.courier.ui.screens.chat.ChatScreen
+import com.tembus.courier.ui.screens.face.FaceVerificationScreen
 import com.tembus.courier.ui.security.LocalSecurityChallengeDialog
 import com.tembus.courier.ui.security.LocalSecuritySettingsPanel
 import com.tembus.courier.ui.security.SecureScreenEffect
@@ -235,10 +236,13 @@ fun MainScreen(
     val showScanScreen = routeState.screen == CourierRouteScreen.SCAN
     val showChatScreen = routeState.screen == CourierRouteScreen.CHAT
     val showCallScreen = routeState.screen == CourierRouteScreen.CALL
+    val showFaceVerifyScreen = routeState.screen == CourierRouteScreen.FACE_VERIFY
     val activeScanType = routeState.scanType
     val activeProofMode = routeState.proofMode
     var pickupScanVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var pickupPhotoVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    // Face verification state — NOT persisted (intentional: clear on app restart for security)
+    var faceVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var pendingDutySecurityTarget by remember { mutableStateOf<Boolean?>(null) }
     var inlineErrorMessage by rememberSaveable { mutableStateOf<String?>(null) }
@@ -274,7 +278,8 @@ fun MainScreen(
         showOrderDetail ||
         showScanScreen ||
         showChatScreen ||
-        showCallScreen
+        showCallScreen ||
+        showFaceVerifyScreen
 
     SecureScreenEffect(enabled = secureScreenRequired)
 
@@ -403,6 +408,11 @@ fun MainScreen(
         } else {
             scope.launch { performDutyToggle(online) }
         }
+    }
+
+    fun openFaceVerify(order: Order) {
+        selectedOrder = order
+        routeState = CourierRouteReducer.faceVerify(order.orderId)
     }
 
     fun openOrderDetail(order: Order) {
@@ -602,6 +612,22 @@ fun MainScreen(
         return
     }
 
+    // ── Face Verification Screen ───────────────────────────────
+    selectedOrder?.takeIf { showFaceVerifyScreen }?.let { order ->
+        FaceVerificationScreen(
+            orderId = order.orderId,
+            onVerified = {
+                faceVerifiedOrderIds = faceVerifiedOrderIds + order.orderId
+                routeState = CourierRouteReducer.detail(order.orderId)
+                scope.launch {
+                    snackbarHostState.showSnackbar("Verifikasi wajah berhasil. Lanjutkan scan paket.")
+                }
+            },
+            onBack = { backToOrderOrHome() }
+        )
+        return
+    }
+
     // ── Order Detail Screen ────────────────────────────────────
     selectedOrder?.takeIf { showOrderDetail }?.let { order ->
         LaunchedEffect(order.orderId) {
@@ -621,6 +647,7 @@ fun MainScreen(
                 order.scanType == "pickup" ||
                 order.scanType == CourierProofTypes.PICKUP_SCAN,
             pickupPhotoVerified = pickupPhotoVerifiedOrderIds.contains(order.orderId) || order.pickupPhotoVerified,
+            faceVerifiedForPickup = faceVerifiedOrderIds.contains(order.orderId),
             onBack = {
                 closeRoute()
             },
@@ -634,6 +661,9 @@ fun MainScreen(
             },
             onVerifyPickup = {
                 openScan(order, CourierProofTypes.PICKUP_SCAN)
+            },
+            onVerifyFace = {
+                openFaceVerify(order)
             },
             onCapturePickupProof = {
                 openProof(order, CourierProofTypes.PICKUP_PHOTO)

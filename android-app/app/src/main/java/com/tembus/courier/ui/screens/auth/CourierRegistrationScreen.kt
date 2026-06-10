@@ -10,7 +10,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.courier.ui.security.SecureScreenEffect
 import com.tembus.courier.ui.theme.Primary
+import com.tembus.courier.ui.screens.face.ActiveLivenessScreen
 
 @Composable
 fun CourierRegistrationScreen(
@@ -35,6 +38,7 @@ fun CourierRegistrationScreen(
 
     val state by viewModel.uiState.collectAsState()
     var pendingDocType by remember { mutableStateOf<String?>(null) }
+    var showLivenessScanner by remember { mutableStateOf(false) }
     val requiredDocuments = listOf(
         state.ktpRef,
         state.simRef,
@@ -67,6 +71,13 @@ fun CourierRegistrationScreen(
             viewModel.uploadDocument(docType, uri)
         }
         pendingDocType = null
+    }
+
+    // Face enrollment menggunakan kamera live — bukan galeri — untuk keamanan identitas kurir
+    val faceCameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        if (bitmap != null) {
+            viewModel.uploadFaceEnrollmentBitmap(bitmap)
+        }
     }
 
     Box(
@@ -181,10 +192,12 @@ fun CourierRegistrationScreen(
                     pendingDocType = docType
                     documentPicker.launch("*/*")
                 }
-                DocumentUploadRow("Verifikasi wajah", "face_enrollment", state.faceEnrollmentRef, state.documentFileNames["face_enrollment"], state.uploadingDocType) { docType ->
-                    pendingDocType = docType
-                    documentPicker.launch("image/*")
-                }
+                FaceEnrollmentUploadRow(
+                    faceRef = state.faceEnrollmentRef,
+                    fileName = state.documentFileNames["face_enrollment"],
+                    uploadingDocType = state.uploadingDocType,
+                    onCapture = { showLivenessScanner = true }
+                )
             }
 
             state.error?.let {
@@ -347,6 +360,50 @@ private fun DocumentUploadRow(
                 Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(if (uploaded) "Ganti" else "Upload")
+            }
+        }
+    }
+}
+
+@Composable
+private fun FaceEnrollmentUploadRow(
+    faceRef: String,
+    fileName: String?,
+    uploadingDocType: String?,
+    onCapture: () -> Unit
+) {
+    val isUploading = uploadingDocType == "face_enrollment"
+    val uploaded = faceRef.isNotBlank()
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Icon(
+            imageVector = if (uploaded) Icons.Default.CheckCircle else Icons.Default.Face,
+            contentDescription = null,
+            tint = if (uploaded) Primary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text("Foto Wajah (Live Camera)", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                fileName ?: if (uploaded) "Foto sudah diambil" else "Wajib menggunakan kamera — tidak boleh dari galeri",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2
+            )
+        }
+        OutlinedButton(
+            onClick = onCapture,
+            enabled = uploadingDocType == null,
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            if (isUploading) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            } else {
+                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(if (uploaded) "Ambil Ulang" else "Kamera")
             }
         }
     }

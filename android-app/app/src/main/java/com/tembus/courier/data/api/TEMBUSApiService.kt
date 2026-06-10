@@ -176,7 +176,7 @@ interface TEMBUSApiService {
     ): Response<ApiResponse<TripShareData>>
 
     @Multipart
-    @POST("api/v1/courier/face/verify")
+    @POST("api/v1/couriers/verify-liveness")
     suspend fun verifyCourierFace(
         @Header("X-Idempotency-Key") idempotencyKey: String,
         @Part("order_id") orderId: RequestBody?,

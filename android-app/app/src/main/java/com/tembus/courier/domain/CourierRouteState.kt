@@ -6,7 +6,8 @@ enum class CourierRouteScreen {
     SCAN,
     PROOF,
     CHAT,
-    CALL
+    CALL,
+    FACE_VERIFY
 }
 
 data class CourierRouteState(
@@ -55,8 +56,17 @@ object CourierRouteReducer {
             callTargetType = normalizeCallTargetType(targetType)
         )
 
+    fun faceVerify(orderId: String): CourierRouteState =
+        CourierRouteState(screen = CourierRouteScreen.FACE_VERIFY, orderId = orderId)
+
     fun backFromChild(state: CourierRouteState): CourierRouteState {
-        return if (state.hasOrderContext && state.screen in setOf(CourierRouteScreen.SCAN, CourierRouteScreen.PROOF, CourierRouteScreen.CHAT, CourierRouteScreen.CALL)) {
+        return if (state.hasOrderContext && state.screen in setOf(
+            CourierRouteScreen.SCAN,
+            CourierRouteScreen.PROOF,
+            CourierRouteScreen.CHAT,
+            CourierRouteScreen.CALL,
+            CourierRouteScreen.FACE_VERIFY
+        )) {
             state.copy(screen = CourierRouteScreen.ORDER_DETAIL)
         } else {
             home()
