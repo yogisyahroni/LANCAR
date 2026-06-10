@@ -147,6 +147,10 @@ val customerTomTomAndroidApiKey = getFirstConfigValue(
     "CUSTOMER_TOMTOM_ANDROID_API_KEY"
 )
 val effectiveTomTomAndroidApiKey = customerTomTomAndroidApiKey
+val googleCustomerWebClientId = getFirstConfigValue(
+    "GOOGLE_CUSTOMER_WEB_CLIENT_ID",
+    "GOOGLE_SERVER_CLIENT_ID"
+)
 val hasReleaseSigning = listOf(
     releaseKeystorePath,
     releaseKeystorePassword,
@@ -203,6 +207,7 @@ android {
         }
 
         buildConfigField("String", "TOMTOM_API_KEY", quoteBuildConfigString(effectiveTomTomAndroidApiKey))
+        buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", quoteBuildConfigString(googleCustomerWebClientId))
         buildConfigField("String", "API_CERT_SHA256_PIN_PRIMARY", quoteBuildConfigString(releaseCertificatePinPrimary))
         buildConfigField("String", "API_CERT_SHA256_PIN_BACKUP", quoteBuildConfigString(releaseCertificatePinBackup))
         buildConfigField("boolean", "API_CERT_PINNING_REQUIRED", releaseCertificatePinningRequired.toString())

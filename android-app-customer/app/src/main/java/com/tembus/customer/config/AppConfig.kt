@@ -23,7 +23,7 @@ object AppConfig {
      * NOTE: Also create an Android OAuth client for the same project (used by Credential Manager).
      * The Android client does NOT need to be listed here; it's registered via the package name + SHA-1.
      */
-    const val GOOGLE_SERVER_CLIENT_ID = "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+    const val GOOGLE_SERVER_CLIENT_ID = com.tembus.customer.BuildConfig.GOOGLE_SERVER_CLIENT_ID
 
     /**
      * Feature flag: enable Google Sign-In button.
