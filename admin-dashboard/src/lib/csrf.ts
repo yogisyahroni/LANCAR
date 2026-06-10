@@ -36,7 +36,14 @@ import { adminApiUrl } from './runtimeConfig';
 const getSharedDomain = () => {
   try {
     const apiHostname = new URL(adminApiUrl).hostname;
-    if (apiHostname === 'localhost' || apiHostname === '127.0.0.1') return undefined;
+    
+    // RFC 6265: Browsers reject the 'Domain' attribute for IP addresses and 'localhost'.
+    // If we return undefined, the cookie becomes a host-only cookie, which is structurally required here.
+    const isIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(apiHostname) || apiHostname.includes(':');
+    if (apiHostname === 'localhost' || isIpAddress) {
+      return undefined;
+    }
+
     const parts = apiHostname.split('.');
     if (parts.length > 2) {
       return `.${parts.slice(1).join('.')}`;
