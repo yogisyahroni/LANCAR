@@ -12,7 +12,11 @@ class CourierFlowResolverTest {
     fun `assigned order requires pickup scan first`() {
         val order = Order(orderId = "TMB-001", status = "assigned", workflowRole = "regular")
 
-        val flow = CourierFlowResolver.resolve(order, pickupPhotoRequired = false)
+        val flow = CourierFlowResolver.resolve(
+            order = order, 
+            faceVerifiedForPickup = true, 
+            pickupPhotoRequired = false
+        )
 
         assertEquals(CourierStage.PICKUP_SCAN_REQUIRED, flow.stage)
         assertEquals(CourierNextActionType.SCAN_PICKUP, flow.nextAction.type)
@@ -25,6 +29,7 @@ class CourierFlowResolverTest {
 
         val flow = CourierFlowResolver.resolve(
             order = order,
+            faceVerifiedForPickup = true,
             pickupScanVerified = true,
             pickupPhotoVerified = false,
             pickupPhotoRequired = true
@@ -41,6 +46,7 @@ class CourierFlowResolverTest {
 
         val flow = CourierFlowResolver.resolve(
             order = order,
+            faceVerifiedForPickup = true,
             pickupScanVerified = true,
             pickupPhotoVerified = true,
             pickupPhotoRequired = true
