@@ -77,6 +77,11 @@ export const createSnapTransaction = async (input: SnapTransactionInput): Promis
     callbacks: {
       finish: process.env.MIDTRANS_FINISH_URL || process.env.FRONTEND_URL || 'http://localhost:3000/orders',
     },
+    enabled_payments: [
+      "credit_card", "mandiri_clickpay", "cimb_clicks", "bca_klikbca", "bca_klikpay", 
+      "bri_epay", "echannel", "permata_va", "bca_va", "bni_va", "bri_va", "cimb_va", 
+      "other_va", "gopay", "indomaret", "alfamart", "danamon_online", "akulaku", "shopeepay", "qris"
+    ],
     custom_field1: input.customFields?.custom_field1,
     custom_field2: input.routingDetails ? JSON.stringify(input.routingDetails) : input.customFields?.custom_field2,
     custom_field3: input.customFields?.custom_field3,

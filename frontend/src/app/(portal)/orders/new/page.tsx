@@ -72,6 +72,8 @@ export default function NewOrderPage() {
   const [showPayment, setShowPayment] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
   const [orderData, setOrderData] = useState<any>(null);
+  const orderDataRef = useRef<any>(null);
+  const previousFormDataRef = useRef<string>("");
 
   const router = useRouter();
   const { addNotification } = useNotificationStore();
@@ -273,6 +275,14 @@ export default function NewOrderPage() {
     setIsValid(valid);
     setSelectedService(context?.selectedService);
     setScanRequired(Boolean(context?.scanRequired));
+    
+    // Check if form data actually changed before resetting orderData
+    const currentDataStr = JSON.stringify(data);
+    if (previousFormDataRef.current !== currentDataStr) {
+      previousFormDataRef.current = currentDataStr;
+      setOrderData(null);
+      orderDataRef.current = null;
+    }
   }, []);
 
   const handleValidatePromo = useCallback(async () => {
@@ -321,17 +331,29 @@ export default function NewOrderPage() {
     if (!pricing) return;
     setIsSubmitting(true);
     try {
-      const appliedPromoCode = promoQuote?.eligible ? promoCode.trim().toUpperCase() : undefined;
-      const payload = {
-        ...data,
-        price_breakdown: pricing,
-        promo_code: appliedPromoCode
-      };
+      let currentOrderId = orderDataRef.current?.id || orderData?.id;
+
+      if (!currentOrderId) {
+        const appliedPromoCode = promoQuote?.eligible ? promoCode.trim().toUpperCase() : undefined;
+        const payload = {
+          ...data,
+          price_breakdown: pricing,
+          promo_code: appliedPromoCode
+        };
+        
+        const res = await api.post('/auth/web/orders', payload);
+        const order = res.data.order;
+        currentOrderId = order.id;
+        setOrderData(order);
+        orderDataRef.current = order;
+      }
       
-      const res = await api.post('/auth/web/orders', payload);
+      const sessionRes = await api.post(`/auth/web/orders/${currentOrderId}/payment/session`, 
+        { method: 'midtrans' },
+        { headers: { 'X-Idempotency-Key': crypto.randomUUID() } }
+      );
       
-      setOrderData(res.data.order);
-      setPaymentData(res.data.payment);
+      setPaymentData(sessionRes.data.payment);
       setShowPayment(true);
       clearCustomerOrderDraft();
       

@@ -205,6 +205,7 @@ const asTrimmedString = (value: unknown, maxLength: number) => {
 };
 
 const asFiniteNumber = (value: unknown) => {
+  if (value === "" || value === null || value === undefined) return undefined;
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : undefined;
 };

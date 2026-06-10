@@ -39,7 +39,7 @@ type SLARepository interface {
 }
 
 type OrderLegSLA struct {
-	LegID       uuid.UUID `json:"leg_id" db:"id"`
+	LegID       uuid.UUID `json:"leg_id" db:"leg_id"`
 	OrderID     string    `json:"order_id" db:"order_id"`
 	CourierID   string    `json:"courier_id" db:"courier_id"`
 	Model       string    `json:"model" db:"model"`
@@ -49,7 +49,7 @@ type OrderLegSLA struct {
 }
 
 type IdleCourier struct {
-	LegID          uuid.UUID `json:"leg_id" db:"id"`
+	LegID          uuid.UUID `json:"leg_id" db:"leg_id"`
 	OrderID        string    `json:"order_id" db:"order_id"`
 	CourierID      string    `json:"courier_id" db:"courier_id"`
 	MeetingPointID string    `json:"meeting_point_id" db:"meeting_point_id"`

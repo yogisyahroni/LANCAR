@@ -376,7 +376,7 @@ export function OrderSummary({
   const promoDiscountIdr = promoQuote?.eligible ? Math.max(0, Number(promoQuote.discount_idr || 0)) : 0;
   const payableTotalIdr = pricing ? Math.max(0, pricing.total_price_idr - promoDiscountIdr) : 0;
   const promoRequiresValidation = promoCode.trim().length > 0 && !promoQuote?.eligible;
-  const submitDisabled = !isValid || isLoading || !pricing || promoRequiresValidation || isPromoChecking;
+  const submitDisabled = !isValid || isLoading || !pricing || isPromoChecking;
   const routeSnapshot = pricing?.route_snapshot || routePreview || null;
   const routeDistanceKm =
     routeSnapshot?.distance_km ||

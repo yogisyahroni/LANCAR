@@ -103,6 +103,7 @@ routes.post('/auth/web/promos/validate', verifyWebSession, promoReadRateLimiter,
 routes.post('/auth/web/orders/calculate', verifyWebSession, (req, res) => controllers.customerOrder.calculatePrice(req, res));
 routes.post('/auth/web/orders', verifyWebSession, requireIdempotencyKey('web.order.create'), (req, res) => controllers.customerOrder.createCustomerOrder(req, res));
 routes.get('/auth/web/orders', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrders(req, res));
+routes.post('/auth/web/orders/:id/payment/session', verifyWebSession, requireIdempotencyKey('web.payment.init'), (req, res) => controllers.customerOrder.createCustomerOrderPaymentSession(req, res));
 routes.get('/auth/web/orders/:id/payment/status', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderPaymentStatus(req, res));
 routes.post('/auth/web/orders/:id/payment/check', verifyWebSession, requireIdempotencyKey('web.payment.confirm'), (req, res) => controllers.customerOrder.confirmCustomerOrderPayment(req, res));
 routes.get('/auth/web/orders/:id', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderById(req, res));
