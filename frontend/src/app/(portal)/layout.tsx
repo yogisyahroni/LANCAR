@@ -52,8 +52,25 @@ interface DBNotification {
  *
  * Only relative paths within the same origin are permitted (e.g. /orders/123).
  * Absolute URLs, protocol-relative URLs (//evil.com), and javascript: URIs are
- * all rejected. Returns null when the link should be ignored.
+ * all rejected. Additionally, only pre-approved route prefixes are allowed —
+ * this prevents redirect to internal/admin pages like /analytics or /feature-flags.
+ * Returns null when the link should be ignored.
  */
+
+// S3-CW-03b: Only these customer-facing routes are allowed as deep link destinations
+const ALLOWED_DEEP_LINK_PREFIXES = [
+  '/orders/',
+  '/orders',
+  '/disputes/',
+  '/disputes',
+  '/resi/',
+  '/resi',
+  '/dashboard',
+  '/profil',
+  '/alamat',
+  '/laporan',
+] as const;
+
 function sanitizeDeepLink(rawLink: string | undefined | null): string | null {
   if (!rawLink) return null;
 
@@ -67,14 +84,26 @@ function sanitizeDeepLink(rawLink: string | undefined | null): string | null {
   if (trimmed.includes('..')) return null;
 
   // Guard against javascript: injections encoded as a path
+  let safePath: string;
   try {
     const url = new URL(trimmed, window.location.origin);
     if (url.origin !== window.location.origin) return null;
     // Only allow internal paths — block cross-origin even via tricky encoding
-    return url.pathname + (url.search || '') + (url.hash || '');
+    safePath = url.pathname + (url.search || '') + (url.hash || '');
   } catch {
     return null;
   }
+
+  // S3-CW-03b: Allowlist check — only navigate to known customer routes
+  const isAllowed = ALLOWED_DEEP_LINK_PREFIXES.some(
+    (prefix) => safePath === prefix || safePath.startsWith(`${prefix}`)
+  );
+
+  if (!isAllowed) {
+    return null; // Blocked — path not in allowlist (e.g. /analytics, /feature-flags, /admin)
+  }
+
+  return safePath;
 }
 
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -197,7 +226,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     }
   };
 
-  // Navigation Items
+  // Navigation Items — only customer-facing pages
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Kirim Paket', href: '/orders/new', icon: Package },
@@ -511,6 +540,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                                 }
                                 if (notif.deep_link) {
                                   // S3-CW-03: Validate deep_link before navigation to prevent open redirect.
+                                  // S3-CW-03b: Route allowlist enforced — only customer pages allowed.
                                   const safeLink = sanitizeDeepLink(notif.deep_link);
                                   if (safeLink) {
                                     router.push(safeLink);

@@ -40,7 +40,17 @@ const formatTime = (value?: string | null) => {
   }).format(new Date(value));
 };
 
+// S3-CW-05: Validate token format before using in URL to prevent path injection.
+// Tracking tokens must be alphanumeric + URL-safe chars (A-Z, a-z, 0-9, _, -), 10–128 chars.
+// This blocks tokens like: "../admin", "?inject=true", "<script>", etc.
+const TRACKING_TOKEN_PATTERN = /^[A-Za-z0-9_-]{10,128}$/;
+
 async function getTracking(token: string): Promise<PublicTrackingResponse> {
+  // Reject tokens with invalid format before they ever reach the network
+  if (!TRACKING_TOKEN_PATTERN.test(token)) {
+    return { success: false, message: 'Link tracking tidak valid.' };
+  }
+
   try {
     const response = await fetch(`${getCustomerServerApiRootUrl()}/track/${token}`, {
       cache: 'no-store',
