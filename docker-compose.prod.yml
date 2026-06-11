@@ -189,6 +189,21 @@ services:
       VERIHUBS_APP_ID: ${VERIHUBS_APP_ID:-}
       VERIHUBS_API_KEY: ${VERIHUBS_API_KEY:-}
       VERIHUBS_API_URL: ${VERIHUBS_API_URL:-}
+      # ─── OTP Provider (Zenziva WhatsApp/SMS) ───────────────────────────────
+      # Aktifkan dengan OTP_PROVIDER=zenziva + isi semua ZENZIVA_* di .env.
+      # Tanpa OTP_PROVIDER=zenziva, service fallback ke dry-run.
+      OTP_PROVIDER: ${OTP_PROVIDER:?OTP_PROVIDER is required in production}
+      ZENZIVA_BASE_URL: ${ZENZIVA_BASE_URL:?ZENZIVA_BASE_URL is required in production}
+      ZENZIVA_USER_KEY: ${ZENZIVA_USER_KEY:?ZENZIVA_USER_KEY is required in production}
+      ZENZIVA_API_KEY: ${ZENZIVA_API_KEY:?ZENZIVA_API_KEY is required in production}
+      ZENZIVA_WHATSAPP_SENDER: ${ZENZIVA_WHATSAPP_SENDER:?ZENZIVA_WHATSAPP_SENDER is required in production}
+      ZENZIVA_SMS_SENDER_ID: ${ZENZIVA_SMS_SENDER_ID:-}
+      ZENZIVA_WEBHOOK_SECRET: ${ZENZIVA_WEBHOOK_SECRET:?ZENZIVA_WEBHOOK_SECRET is required in production}
+      ZENZIVA_CONNECT_TIMEOUT_MS: ${ZENZIVA_CONNECT_TIMEOUT_MS:-3000}
+      ZENZIVA_REQUEST_TIMEOUT_MS: ${ZENZIVA_REQUEST_TIMEOUT_MS:-7000}
+      ZENZIVA_WEBHOOK_REPLAY_WINDOW_SECONDS: ${ZENZIVA_WEBHOOK_REPLAY_WINDOW_SECONDS:-300}
+      # ─── OTP Hash Security ─────────────────────────────────────────────────
+      OTP_HASH_PEPPER: ${OTP_HASH_PEPPER:?OTP_HASH_PEPPER is required in production}
       OTEL_ENABLED: ${OTEL_ENABLED:-false}
       OTEL_SERVICE_NAME: ${AUTH_OTEL_SERVICE_NAME:-auth-service}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}

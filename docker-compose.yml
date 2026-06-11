@@ -199,6 +199,22 @@ services:
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-changeme_refresh_min32chars}
       OTP_TTL_SECONDS: ${OTP_TTL_SECONDS:-300}
+      # ─── OTP Provider (Zenziva WhatsApp/SMS) ───────────────────────────────
+      # Set OTP_PROVIDER=zenziva + semua ZENZIVA_* di .env untuk kirim OTP live.
+      # Tanpa OTP_PROVIDER=zenziva, service fallback ke dry-run (OTP di stdout).
+      OTP_PROVIDER: ${OTP_PROVIDER:-}
+      ZENZIVA_BASE_URL: ${ZENZIVA_BASE_URL:-}
+      ZENZIVA_USER_KEY: ${ZENZIVA_USER_KEY:-}
+      ZENZIVA_API_KEY: ${ZENZIVA_API_KEY:-}
+      ZENZIVA_WHATSAPP_SENDER: ${ZENZIVA_WHATSAPP_SENDER:-}
+      ZENZIVA_SMS_SENDER_ID: ${ZENZIVA_SMS_SENDER_ID:-}
+      ZENZIVA_WEBHOOK_SECRET: ${ZENZIVA_WEBHOOK_SECRET:-}
+      ZENZIVA_CONNECT_TIMEOUT_MS: ${ZENZIVA_CONNECT_TIMEOUT_MS:-3000}
+      ZENZIVA_REQUEST_TIMEOUT_MS: ${ZENZIVA_REQUEST_TIMEOUT_MS:-7000}
+      ZENZIVA_WEBHOOK_REPLAY_WINDOW_SECONDS: ${ZENZIVA_WEBHOOK_REPLAY_WINDOW_SECONDS:-300}
+      # ─── OTP Hash Security ─────────────────────────────────────────────────
+      # WAJIB diisi di production (min 32 karakter). Tanpa ini OTP tidak aman.
+      OTP_HASH_PEPPER: ${OTP_HASH_PEPPER:-}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_SERVICE_NAME: ${AUTH_OTEL_SERVICE_NAME:-auth-service}
