@@ -515,6 +515,25 @@ services:
       - tembus-net
 
   # ─────────────────────────────────────────────
+  # LANDING PAGE — Next.js (Public Marketing Site)
+  # Akses: http://localhost:3003
+  # Tunnel domain target: https://bawain.my.id
+  # ─────────────────────────────────────────────
+  landing-page:
+    build:
+      context: ./landing-page
+      dockerfile: Dockerfile
+    container_name: tembus-landing-page
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "${LANDING_PORT:-3003}:3000"
+    networks:
+      - tembus-net
+
+  # ─────────────────────────────────────────────
   # FRONTEND — Next.js (Customer Portal)
   # Akses: http://localhost:3000
   # ─────────────────────────────────────────────

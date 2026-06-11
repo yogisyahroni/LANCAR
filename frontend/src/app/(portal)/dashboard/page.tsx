@@ -109,7 +109,7 @@ export default function DashboardPage() {
   const activeOrdersCount = dashboardStats?.active_orders ?? orders.filter((o) => o.status !== 'completed' && o.status !== 'cancelled' && o.status !== 'delivered').length;
   const completedOrdersCount = dashboardStats?.completed_orders_month ?? orders.filter((o) => o.status === 'completed' || o.status === 'delivered').length;
   const cancelledOrdersCount = dashboardStats?.cancelled_orders_month ?? orders.filter((o) => o.status === 'cancelled').length;
-  const totalSpend = dashboardStats?.total_spend_month ?? orders.reduce((sum, order) => sum + Number(order.total_price_idr || 0), 0);
+  const totalSpend = dashboardStats?.total_spend_month ?? orders.filter((o) => ['delivered', 'completed', 'pod_completed'].includes(o.status)).reduce((sum, order) => sum + Number(order.total_price_idr || 0), 0);
 
   // SVG-based custom premium Bar Chart Data
   const chartData = dashboardStats?.weekly_activity?.length ? dashboardStats.weekly_activity : [

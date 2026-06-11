@@ -2928,10 +2928,10 @@ export const getCustomerDashboardStats = async (req: Request, res: Response): Pr
     const { rows: summaryRows } = await db.query(`
       WITH current_month AS (
         SELECT
-          COUNT(*) FILTER (WHERE status NOT IN ('delivered', 'completed', 'cancelled', 'failed'))::int AS active_orders,
-          COUNT(*) FILTER (WHERE status IN ('delivered', 'completed'))::int AS completed_orders_month,
+          COUNT(*) FILTER (WHERE status NOT IN ('delivered', 'completed', 'pod_completed', 'cancelled', 'failed'))::int AS active_orders,
+          COUNT(*) FILTER (WHERE status IN ('delivered', 'completed', 'pod_completed'))::int AS completed_orders_month,
           COUNT(*) FILTER (WHERE status IN ('cancelled', 'failed'))::int AS cancelled_orders_month,
-          COALESCE(SUM(total_price_idr), 0)::bigint AS total_spend_month
+          COALESCE(SUM(total_price_idr) FILTER (WHERE status IN ('delivered', 'completed', 'pod_completed')), 0)::bigint AS total_spend_month
         FROM orders
         WHERE customer_id = $1
           AND created_at >= DATE_TRUNC('month', NOW())
@@ -2939,7 +2939,7 @@ export const getCustomerDashboardStats = async (req: Request, res: Response): Pr
       previous_month AS (
         SELECT
           COUNT(*)::int AS previous_orders_month,
-          COALESCE(SUM(total_price_idr), 0)::bigint AS previous_spend_month
+          COALESCE(SUM(total_price_idr) FILTER (WHERE status IN ('delivered', 'completed', 'pod_completed')), 0)::bigint AS previous_spend_month
         FROM orders
         WHERE customer_id = $1
           AND created_at >= DATE_TRUNC('month', NOW()) - INTERVAL '1 month'
@@ -2957,7 +2957,7 @@ export const getCustomerDashboardStats = async (req: Request, res: Response): Pr
         SELECT
           FLOOR((NOW()::date - created_at::date) / 7.0)::int AS week_bucket,
           COUNT(*)::int AS count,
-          COALESCE(SUM(total_price_idr), 0)::bigint AS value
+          COALESCE(SUM(total_price_idr) FILTER (WHERE status IN ('delivered', 'completed', 'pod_completed')), 0)::bigint AS value
         FROM orders
         WHERE customer_id = $1
           AND created_at >= NOW() - INTERVAL '28 days'
@@ -3117,7 +3117,7 @@ export const getCustomerUmkmReport = async (req: Request, res: Response): Promis
           COUNT(*)::int AS total_orders,
           COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) IN ('delivered', 'completed', 'pod_completed'))::int AS completed_orders,
           COUNT(*) FILTER (WHERE LOWER(COALESCE(status::text, '')) IN ('cancelled', 'canceled', 'failed', 'rejected'))::int AS failed_orders,
-          COALESCE(SUM(COALESCE(total_price_idr, 0)), 0)::bigint AS total_spend,
+          COALESCE(SUM(COALESCE(total_price_idr, 0)) FILTER (WHERE LOWER(COALESCE(status::text, '')) IN ('delivered', 'completed', 'pod_completed')), 0)::bigint AS total_spend,
           COALESCE(AVG(NULLIF(
             CASE
               WHEN COALESCE(package_details->>'weight_kg', '') ~ '^[0-9]+([.][0-9]+)?$'
@@ -3140,7 +3140,7 @@ export const getCustomerUmkmReport = async (req: Request, res: Response): Promis
           SELECT
             created_at::date AS day,
             COUNT(*)::int AS order_count,
-            COALESCE(SUM(COALESCE(total_price_idr, 0)), 0)::bigint AS total_spend
+            COALESCE(SUM(COALESCE(total_price_idr, 0)) FILTER (WHERE LOWER(COALESCE(status::text, '')) IN ('delivered', 'completed', 'pod_completed')), 0)::bigint AS total_spend
           FROM orders
           WHERE customer_id = $1
             AND created_at >= $2::date
@@ -3160,7 +3160,7 @@ export const getCustomerUmkmReport = async (req: Request, res: Response): Promis
         SELECT
           COALESCE(NULLIF(INITCAP(REPLACE(COALESCE(model::text, ''), '_', ' ')), ''), 'Tidak tersedia') AS name,
           COUNT(*)::int AS count,
-          COALESCE(SUM(COALESCE(total_price_idr, 0)), 0)::bigint AS total_spend
+          COALESCE(SUM(COALESCE(total_price_idr, 0)) FILTER (WHERE LOWER(COALESCE(status::text, '')) IN ('delivered', 'completed', 'pod_completed')), 0)::bigint AS total_spend
         FROM orders
         WHERE customer_id = $1
           AND created_at >= $2::date
@@ -3176,7 +3176,7 @@ export const getCustomerUmkmReport = async (req: Request, res: Response): Promis
             'Tujuan tidak tersedia'
           ) AS zone,
           COUNT(*)::int AS order_count,
-          COALESCE(SUM(COALESCE(total_price_idr, 0)), 0)::bigint AS total_spend
+          COALESCE(SUM(COALESCE(total_price_idr, 0)) FILTER (WHERE LOWER(COALESCE(status::text, '')) IN ('delivered', 'completed', 'pod_completed')), 0)::bigint AS total_spend
         FROM orders
         WHERE customer_id = $1
           AND created_at >= $2::date

@@ -492,6 +492,28 @@ services:
     networks:
       - tembus-private
 
+  landing-page:
+    <<: *app-security
+    image: ${LANDING_PAGE_IMAGE:-tembus/landing-page:production}
+    build:
+      context: ./landing-page
+      dockerfile: Dockerfile
+    container_name: tembus-prod-landing-page
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "${PUBLIC_BIND:-127.0.0.1}:${LANDING_HOST_PORT:-3003}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - tembus-private
+
   frontend:
     <<: *app-security
     image: ${FRONTEND_IMAGE:-tembus/frontend:production}
