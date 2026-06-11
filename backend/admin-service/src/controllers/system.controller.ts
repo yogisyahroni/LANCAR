@@ -47,6 +47,45 @@ export const getSystemConfigs = async (req: Request, res: Response) => {
   }
 };
 
+export const getPublicRuntimeConfigs = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const allowedKeys = [
+      'insurance_premium_rate',
+      'insurance_min_premium',
+      'tax_ppn',
+      'topup_denominations',
+      'topup_min_amount',
+      'withdraw_min_amount',
+      'withdraw_fee',
+      'courier_sync_interval_ms',
+    ];
+    
+    const result = await readDb.query(
+      'SELECT key, value FROM system_configs WHERE key = ANY($1)',
+      [allowedKeys]
+    );
+    
+    const configs = result.rows.reduce((acc, row) => {
+      acc[row.key] = row.value;
+      return acc;
+    }, {} as Record<string, any>);
+    
+    // Add safety fallbacks if they don't exist yet in the database
+    if (configs['insurance_premium_rate'] === undefined) configs['insurance_premium_rate'] = 0.002;
+    if (configs['insurance_min_premium'] === undefined) configs['insurance_min_premium'] = 1000;
+    if (configs['tax_ppn'] === undefined) configs['tax_ppn'] = 0.11;
+    if (configs['topup_denominations'] === undefined) configs['topup_denominations'] = ['50000', '100000', '200000'];
+    if (configs['topup_min_amount'] === undefined) configs['topup_min_amount'] = 10000;
+    if (configs['withdraw_min_amount'] === undefined) configs['withdraw_min_amount'] = 50000;
+    if (configs['withdraw_fee'] === undefined) configs['withdraw_fee'] = 5000;
+    if (configs['courier_sync_interval_ms'] === undefined) configs['courier_sync_interval_ms'] = 30000;
+
+    res.json({ data: configs });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 export const getLatestVersion = async (req: Request, res: Response): Promise<void> => {
   try {
     const type = req.query.type as string; // 'courier' or 'customer'

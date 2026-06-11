@@ -122,6 +122,12 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: exact('/api/v1/system/latest-version', ['GET']),
   },
   {
+    id: 'config-public-runtime',
+    requirement: 'public',
+    publicReason: 'Runtime config must be accessible by apps before authentication.',
+    matches: exact('/api/v1/config/runtime', ['GET']),
+  },
+  {
     id: 'maps-public-runtime',
     requirement: 'public',
     publicReason: 'Customer and courier clients need maps runtime config before order placement.',

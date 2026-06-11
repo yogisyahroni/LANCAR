@@ -14,12 +14,14 @@ import (
 type insuranceService struct {
 	insuranceRepo domain.InsuranceRepository
 	notifService  domain.NotificationService
+	configRepo    domain.ConfigRepository
 }
 
-func NewInsuranceService(insuranceRepo domain.InsuranceRepository, notifService domain.NotificationService) domain.InsuranceService {
+func NewInsuranceService(insuranceRepo domain.InsuranceRepository, notifService domain.NotificationService, configRepo domain.ConfigRepository) domain.InsuranceService {
 	return &insuranceService{
 		insuranceRepo: insuranceRepo,
 		notifService:  notifService,
+		configRepo:    configRepo,
 	}
 }
 
@@ -30,15 +32,20 @@ func (s *insuranceService) EnrollBPJSTK(ctx context.Context, courierID uuid.UUID
 		providerName = "bpjs_ketenagakerjaan"
 	}
 
+	coverageIDR := s.configRepo.GetIntConfig(ctx, "bpjstk_coverage_idr", 50000000)
+	premiumMonthlyIDR := s.configRepo.GetIntConfig(ctx, "bpjstk_premium_monthly_idr", 16800)
+	companyShareIDR := s.configRepo.GetIntConfig(ctx, "bpjstk_company_share_idr", 10000)
+	courierShareIDR := s.configRepo.GetIntConfig(ctx, "bpjstk_courier_share_idr", 6800)
+
 	ins := &domain.CourierInsurance{
 		CourierID:         courierID,
 		Type:              "bpjs_tk",
 		Provider:          providerName,
 		PolicyNumber:      "",
-		CoverageIDR:       50000000,
-		PremiumMonthlyIDR: 16800,
-		CompanyShareIDR:   10000,
-		CourierShareIDR:   6800,
+		CoverageIDR:       coverageIDR,
+		PremiumMonthlyIDR: premiumMonthlyIDR,
+		CompanyShareIDR:   companyShareIDR,
+		CourierShareIDR:   courierShareIDR,
 		Status:            domain.InsuranceStatusPendingProviderActivation,
 		ValidFrom:         validFrom,
 		ValidUntil:        nil,
@@ -53,16 +60,20 @@ func (s *insuranceService) EnrollBPJSTK(ctx context.Context, courierID uuid.UUID
 }
 
 func (s *insuranceService) CalculateOrderPremium(ctx context.Context, declaredValue int) (int, int) {
-	// Rule: Premium is 0.2% of declared value, minimum premium Rp 1.000
-	premium := int(float64(declaredValue) * 0.002)
-	if premium < 1000 {
-		premium = 1000
+	premiumRate := s.configRepo.GetFloatConfig(ctx, "insurance_premium_rate", 0.002)
+	minPremium := s.configRepo.GetIntConfig(ctx, "insurance_min_premium", 1000)
+
+	premium := int(float64(declaredValue) * premiumRate)
+	if premium < minPremium {
+		premium = minPremium
 	}
 
-	// Coverage limit is 100% of declared value, capped at Rp 10.000.000
+	maxCoverage := s.configRepo.GetIntConfig(ctx, "insurance_max_coverage_idr", 10000000)
+
+	// Coverage limit is 100% of declared value, capped at maxCoverage
 	coverageLimit := declaredValue
-	if coverageLimit > 10000000 {
-		coverageLimit = 10000000
+	if coverageLimit > maxCoverage {
+		coverageLimit = maxCoverage
 	}
 
 	return premium, coverageLimit

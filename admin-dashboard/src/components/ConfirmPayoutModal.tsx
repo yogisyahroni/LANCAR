@@ -66,6 +66,7 @@ const ACTION_CONFIG = {
  */
 function sanitizeReason(input: string): string {
   // Strip control characters and null bytes
+  // eslint-disable-next-line no-control-regex
   let safe = input.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
   // Prevent CSV formula injection (=, +, -, @, tab at start)
   if (/^[=+\-@\t]/.test(safe)) {

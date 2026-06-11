@@ -1,4 +1,5 @@
 import { redis } from '../redis';
+import { readDb } from '../db';
 import axios from 'axios';
 
 const JAKARTA_LAT = -6.2088;
@@ -25,18 +26,36 @@ export const fetchAndStoreWeather = async () => {
     let surgeMultiplier = 0;
     const code = current.weather_code;
 
+    // Fetch dynamic multipliers from system_configs
+    let drizzleSurge = 0.10;
+    let rainSurge = 0.25;
+    let thunderSurge = 0.50;
+
+    try {
+      const configRes = await readDb.query(
+        `SELECT key, value FROM system_configs WHERE key IN ('weather_surge_drizzle', 'weather_surge_rain', 'weather_surge_thunderstorm')`
+      );
+      for (const row of configRes.rows) {
+        if (row.key === 'weather_surge_drizzle') drizzleSurge = Number(row.value) || 0.10;
+        if (row.key === 'weather_surge_rain') rainSurge = Number(row.value) || 0.25;
+        if (row.key === 'weather_surge_thunderstorm') thunderSurge = Number(row.value) || 0.50;
+      }
+    } catch (err) {
+      console.error('[Weather Worker] Failed to fetch surge configs, using defaults', err);
+    }
+
     if (code >= 51 && code <= 55) {
       // Drizzle
       isBadWeather = true;
-      surgeMultiplier = 0.10; // 10% surge
+      surgeMultiplier = drizzleSurge;
     } else if ((code >= 61 && code <= 65) || (code >= 80 && code <= 82)) {
       // Rain
       isBadWeather = true;
-      surgeMultiplier = 0.25; // 25% surge
+      surgeMultiplier = rainSurge;
     } else if (code >= 95) {
       // Thunderstorm
       isBadWeather = true;
-      surgeMultiplier = 0.50; // 50% surge
+      surgeMultiplier = thunderSurge;
     }
 
     const weatherData = {

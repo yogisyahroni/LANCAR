@@ -25,9 +25,10 @@ type orderServiceImpl struct {
 	taskQueue       queue.Queue
 	flagReader      featureflags.FlagReader
 	notificationSvc domain.NotificationService
+	configRepo      domain.ConfigRepository
 }
 
-func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService) domain.OrderService {
+func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository) domain.OrderService {
 	return &orderServiceImpl{
 		orderRepo:       o,
 		eventRepo:       er,
@@ -38,6 +39,7 @@ func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r
 		taskQueue:       tq,
 		flagReader:      f,
 		notificationSvc: ns,
+		configRepo:      cr,
 	}
 }
 
@@ -397,10 +399,14 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 			continue
 		}
 
+		relayWeight := s.configRepo.GetFloatConfig(ctx, "relay_score_weight", 0.5)
+		proximityWeight := s.configRepo.GetFloatConfig(ctx, "proximity_score_weight", 0.3)
+		acceptanceWeight := s.configRepo.GetFloatConfig(ctx, "acceptance_score_weight", 0.2)
+
 		relayScore := clampFloat(stats.RelayScore, 0, 5) / 5
 		acceptanceRate := clampFloat(stats.AcceptanceRatePct, 0, 100) / 100
-		proximityScore := proximityScoreFromDistance(stats.DistanceMeters)
-		score := (relayScore * 0.5) + (proximityScore * 0.3) + (acceptanceRate * 0.2)
+		proximityScore := s.proximityScoreFromDistance(ctx, stats.DistanceMeters)
+		score := (relayScore * relayWeight) + (proximityScore * proximityWeight) + (acceptanceRate * acceptanceWeight)
 		scored = append(scored, scoredCourier{ID: id, Score: score})
 	}
 
@@ -420,11 +426,17 @@ func clampFloat(value float64, minValue float64, maxValue float64) float64 {
 	return value
 }
 
-func proximityScoreFromDistance(distanceMeters float64) float64 {
+func (s *orderServiceImpl) proximityScoreFromDistance(ctx context.Context, distanceMeters float64) float64 {
 	if distanceMeters <= 0 {
 		return 1
 	}
-	score := 1 - (distanceMeters / 10000)
+	
+	maxRadius := s.configRepo.GetFloatConfig(ctx, "max_proximity_radius_m", 10000.0)
+	if maxRadius <= 0 {
+		maxRadius = 10000.0
+	}
+	
+	score := 1 - (distanceMeters / maxRadius)
 	return clampFloat(score, 0, 1)
 }
 

@@ -5,19 +5,21 @@ import (
 	"log"
 	"math"
 	"time"
-
 	"github.com/redis/go-redis/v9"
+	"tembus/order-service/internal/domain"
 )
 
 type SurgeWorker struct {
 	redisClient *redis.Client
 	dataStore   SurgeDataStore
+	configRepo  domain.ConfigRepository
 }
 
-func NewSurgeWorker(client *redis.Client, dataStore SurgeDataStore) *SurgeWorker {
+func NewSurgeWorker(client *redis.Client, dataStore SurgeDataStore, configRepo domain.ConfigRepository) *SurgeWorker {
 	return &SurgeWorker{
 		redisClient: client,
 		dataStore:   dataStore,
+		configRepo:  configRepo,
 	}
 }
 
@@ -62,7 +64,7 @@ func (w *SurgeWorker) calculateAndSetSurge(ctx context.Context) {
 
 	globalMultiplier := 1.0
 	for _, input := range inputs {
-		multiplier := calculateSurgeMultiplier(input)
+		multiplier := w.calculateSurgeMultiplier(ctx, input)
 		if multiplier > globalMultiplier {
 			globalMultiplier = multiplier
 		}
@@ -96,7 +98,17 @@ func (w *SurgeWorker) calculateAndSetSurge(ctx context.Context) {
 	}
 }
 
-func calculateSurgeMultiplier(input ZoneSurgeInput) float64 {
+func (w *SurgeWorker) calculateSurgeMultiplier(ctx context.Context, input ZoneSurgeInput) float64 {
+	step := 0.25
+	ratioThreshold := 1.5
+	maxMultiplier := 2.5
+
+	if w.configRepo != nil {
+		step = w.configRepo.GetFloatConfig(ctx, "surge_demand_multiplier_step", 0.25)
+		ratioThreshold = w.configRepo.GetFloatConfig(ctx, "surge_demand_ratio_threshold", 1.5)
+		maxMultiplier = w.configRepo.GetFloatConfig(ctx, "surge_max_multiplier", 2.5)
+	}
+
 	multiplier := math.Max(input.WeatherMultiplier, input.PricingMultiplier)
 	if multiplier < 1 {
 		multiplier = 1
@@ -104,14 +116,14 @@ func calculateSurgeMultiplier(input ZoneSurgeInput) float64 {
 
 	if input.AvailableCouriers == 0 {
 		if input.ActiveOrders > 0 {
-			multiplier += 0.25
+			multiplier += step
 		}
-	} else if float64(input.ActiveOrders)/float64(input.AvailableCouriers) > 1.5 {
-		multiplier += 0.25
+	} else if float64(input.ActiveOrders)/float64(input.AvailableCouriers) > ratioThreshold {
+		multiplier += step
 	}
 
-	if multiplier > 2.5 {
-		return 2.5
+	if multiplier > maxMultiplier {
+		return maxMultiplier
 	}
 	return multiplier
 }

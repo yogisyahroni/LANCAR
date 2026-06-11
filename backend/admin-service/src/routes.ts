@@ -170,6 +170,7 @@ routes.get('/health', (req, res) => controllers.getSystemHealth(req, res));
 routes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res));
 routes.get('/api/v1/system/latest-version', (req, res) => controllers.getLatestVersion(req, res));
 routes.get('/api/v1/system/on-demand-readiness', (req, res) => controllers.getOnDemandReadiness(req, res));
+routes.get('/api/v1/config/runtime', (req, res) => controllers.getPublicRuntimeConfigs(req, res));
 routes.get('/api/v1/maps/config', (req, res) => controllers.getPublicMapsProviderRuntimeConfig(req, res));
 routes.get('/api/v1/maps/tiles/:z/:x/:y.png', (req, res) => controllers.getPublicOpenStreetMapTile(req, res));
 routes.get('/api/v1/maps/route', (req, res) => controllers.getPublicMapsRoutePreview(req, res));
@@ -222,6 +223,8 @@ routes.delete('/admin/admins/:id', (req, res) => controllers.deleteAdmin(req, re
 routes.get('/admin/delivery-services', (req, res) => controllers.deliveryServices.listAdminDeliveryServices(req, res));
 routes.post('/admin/delivery-services', (req, res) => controllers.deliveryServices.createAdminDeliveryService(req, res));
 routes.put('/admin/delivery-services/:code', (req, res) => controllers.deliveryServices.updateAdminDeliveryService(req, res));
+routes.patch('/admin/delivery-services/:code/toggle', (req, res) => controllers.deliveryServices.toggleAdminDeliveryService(req, res));
+routes.delete('/admin/delivery-services/:code', (req, res) => controllers.deliveryServices.deleteAdminDeliveryService(req, res));
 
 // Operational Lookup Configuration
 routes.get('/admin/operational-lookups/pickup-cancellation-reasons', (req, res) => controllers.operationalLookups.listAdminPickupCancellationReasons(req, res));
@@ -383,3 +386,10 @@ routes.get('/admin/finance/summary', (req, res) => controllers.getFinancialSumma
 routes.get('/admin/finance/revenue-breakdown', (req, res) => controllers.getRevenueBreakdown(req, res));
 routes.get('/admin/finance/cost-breakdown', (req, res) => controllers.getCostBreakdown(req, res));
 routes.get('/admin/finance/emergency-fund', (req, res) => controllers.getEmergencyFund(req, res));
+
+// Finance P0 extensions: Cash Position, P&L Report, Tax Dashboard
+routes.get('/admin/finance/cash-position', (req, res) => controllers.getCashPosition(req, res));
+routes.get('/admin/finance/pnl-report', (req, res) => controllers.getPnlReport(req, res));
+routes.get('/admin/finance/tax-dashboard', (req, res) => controllers.getTaxDashboard(req, res));
+routes.get('/admin/finance/pph-report', (req, res) => controllers.getPphReport(req, res));
+

@@ -2,6 +2,7 @@ package com.tembus.courier.data.api
 
 import com.tembus.courier.data.model.AppVersion
 import com.tembus.courier.data.model.ApiResponse
+import com.tembus.courier.data.model.RuntimeConfigResponse
 
 import com.tembus.courier.data.model.CourierProfile
 import com.tembus.courier.data.model.CourierCapabilityProfile
@@ -77,6 +78,9 @@ interface TEMBUSApiService {
     suspend fun getMapsProviderConfig(
         @Query("scope") scope: String = "courier_mobile"
     ): Response<MapsProviderConfig>
+
+    @GET("api/v1/config/runtime")
+    suspend fun getRuntimeConfig(): Response<RuntimeConfigResponse>
 
 
     // ── AUTH ────────────────────────────────────────────────────

@@ -1415,3 +1415,293 @@ export const getEmergencyFund = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+// ─── P0 Extension: Cash Position ────────────────────────────────────────────
+export const getCashPosition = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Total customer wallet balances (liability — not company money)
+    // Table: customer_wallets (no user_type column, this is customer-only)
+    const walletResult = await readDb.query(`
+      SELECT COALESCE(SUM(balance), 0)::bigint AS total_customer_wallet
+      FROM customer_wallets
+      WHERE status = 'active'
+    `);
+
+    // Pending payouts = cash we owe couriers but haven't sent yet
+    const pendingPayoutResult = await readDb.query(`
+      SELECT COALESCE(SUM(amount_idr), 0)::bigint AS pending_payouts
+      FROM courier_payout_requests
+      WHERE status IN ('requested', 'risk_screening', 'approved_auto', 'approved', 'processing', 'manual_review', 'risk_hold', 'under_review')
+    `);
+
+    // Emergency fund balance
+    const efResult = await readDb.query(`SELECT COALESCE(value::bigint, 0) AS emergency_fund FROM system_configs WHERE key = 'emergency_fund'`);
+
+    // Last 30 days collected revenue (cash that came in)
+    const revenueResult = await readDb.query(`
+      SELECT COALESCE(SUM(amount_idr), 0)::bigint AS inflow_30d
+      FROM payments
+      WHERE status = 'paid' AND paid_at >= NOW() - INTERVAL '30 days'
+    `);
+
+    // Last 30 days payout disbursed (cash that went out)
+    const payoutDisbResult = await readDb.query(`
+      SELECT COALESCE(SUM(net_idr), 0)::bigint AS outflow_30d
+      FROM payout_records
+      WHERE disbursement_status = 'completed'
+        AND disbursement_at >= NOW() - INTERVAL '30 days'
+    `);
+
+    const totalCustomerEscrow = parseInt(walletResult.rows[0]?.total_customer_wallet || '0');
+    const pendingPayouts = parseInt(pendingPayoutResult.rows[0]?.pending_payouts || '0');
+    const emergencyFund = parseInt(efResult.rows[0]?.emergency_fund || '0');
+    const inflow30d = parseInt(revenueResult.rows[0]?.inflow_30d || '0');
+    const outflow30d = parseInt(payoutDisbResult.rows[0]?.outflow_30d || '0');
+
+    // Total liabilities = customer wallets + pending payouts to couriers
+    const totalLiabilities = totalCustomerEscrow + pendingPayouts;
+    const operationalCash = Math.max(0, inflow30d - outflow30d);
+
+    res.json({
+      customer_escrow: totalCustomerEscrow,   // liability: customer wallets
+      courier_escrow: 0,                      // no separate courier wallet table
+      pending_payouts: pendingPayouts,        // liability: payout requests in queue
+      emergency_fund: emergencyFund,          // reserve
+      total_liabilities: totalLiabilities,
+      operational_cash_30d: operationalCash,
+      inflow_30d: inflow30d,
+      outflow_30d: outflow30d,
+      cash_ratio: inflow30d > 0 ? parseFloat(((inflow30d - outflow30d) / inflow30d * 100).toFixed(1)) : 0,
+    });
+  } catch (error: any) {
+    console.error('[getCashPosition] error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ─── P0 Extension: P&L Report ────────────────────────────────────────────────
+export const getPnlReport = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // period = 'YYYY-MM', defaults to current month
+    const period = typeof req.query.period === 'string' && /^\d{4}-\d{2}$/.test(req.query.period)
+      ? req.query.period
+      : new Date().toISOString().slice(0, 7);
+
+    const [year, month] = period.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    // Revenue: total payments received this period
+    // Actual payments columns: amount_idr, ppn_amount_idr, mdr_amount_idr,
+    // weather_reserve_idr, insurance_reserve_idr, net_operational_idr
+    const revenueResult = await readDb.query(`
+      SELECT
+        COALESCE(SUM(amount_idr), 0)::bigint                                     AS gross_revenue,
+        COALESCE(SUM(ppn_amount_idr), 0)::bigint                                AS ppn_collected,
+        COALESCE(SUM(mdr_amount_idr), 0)::bigint                                AS payment_gateway_cost,
+        COALESCE(SUM(insurance_reserve_idr + weather_reserve_idr), 0)::bigint   AS reserves_collected,
+        COALESCE(SUM(net_operational_idr), 0)::bigint                           AS net_operational,
+        COUNT(*)::int                                                             AS total_transactions
+      FROM payments
+      WHERE status = 'paid'
+        AND paid_at BETWEEN $1 AND $2
+    `, [startDate, endDate]);
+
+    // Payout cost (what we paid couriers)
+    const payoutCostResult = await readDb.query(`
+      SELECT
+        COALESCE(SUM(net_idr), 0)::bigint    AS courier_payout_total,
+        COUNT(*)::int                         AS payout_count
+      FROM payout_records
+      WHERE disbursement_status = 'completed'
+        AND disbursement_at BETWEEN $1 AND $2
+    `, [startDate, endDate]);
+
+    // Promo/subsidi cost: table is voucher_usages, column is discount_idr, timestamp is used_at
+    const promoCostResult = await readDb.query(`
+      SELECT COALESCE(SUM(discount_idr), 0)::bigint AS promo_subsidy
+      FROM voucher_usages
+      WHERE used_at BETWEEN $1 AND $2
+    `, [startDate, endDate]).catch(() => ({ rows: [{ promo_subsidy: 0 }] }));
+
+    // Revenue breakdown by service model
+    const modelBreakdown = await readDb.query(`
+      SELECT
+        model,
+        COUNT(*)::int                       AS order_count,
+        COALESCE(SUM(total_price_idr), 0)::bigint AS revenue
+      FROM orders
+      WHERE status IN ('delivered', 'completed')
+        AND created_at BETWEEN $1 AND $2
+      GROUP BY model
+      ORDER BY revenue DESC
+    `, [startDate, endDate]);
+
+    // Day-by-day revenue time series
+    const timeSeries = await readDb.query(`
+      SELECT
+        DATE_TRUNC('day', paid_at)::date AS day,
+        COALESCE(SUM(amount_idr), 0)::bigint   AS revenue,
+        COALESCE(SUM(ppn_amount_idr), 0)::bigint AS ppn
+      FROM payments
+      WHERE status = 'paid'
+        AND paid_at BETWEEN $1 AND $2
+      GROUP BY 1
+      ORDER BY 1 ASC
+    `, [startDate, endDate]);
+
+    const rev = revenueResult.rows[0];
+    const cost = payoutCostResult.rows[0];
+    const grossRevenue = parseInt(rev.gross_revenue);
+    const courierPayoutTotal = parseInt(cost.courier_payout_total);
+    const paymentGatewayCost = parseInt(rev.payment_gateway_cost);
+    const promoSubsidy = parseInt(String(promoCostResult.rows[0]?.promo_subsidy || 0));
+    const totalCost = courierPayoutTotal + paymentGatewayCost + promoSubsidy;
+    const grossProfit = grossRevenue - totalCost;
+    const ppnCollected = parseInt(rev.ppn_collected);
+
+    res.json({
+      period,
+      summary: {
+        gross_revenue: grossRevenue,
+        courier_payout: courierPayoutTotal,
+        payment_gateway_cost: paymentGatewayCost,
+        promo_subsidy: promoSubsidy,
+        total_cost: totalCost,
+        gross_profit: grossProfit,
+        profit_margin_pct: grossRevenue > 0 ? parseFloat((grossProfit / grossRevenue * 100).toFixed(1)) : 0,
+        ppn_collected: ppnCollected,
+        ppn_to_remit: ppnCollected,  // same amount, needs to be remitted to DJP
+        total_transactions: parseInt(rev.total_transactions),
+        payout_count: parseInt(cost.payout_count),
+      },
+      model_breakdown: modelBreakdown.rows.map(r => ({
+        model: r.model,
+        order_count: r.order_count,
+        revenue: parseInt(r.revenue),
+        share_pct: grossRevenue > 0 ? parseFloat((parseInt(r.revenue) / grossRevenue * 100).toFixed(1)) : 0,
+      })),
+      daily_series: timeSeries.rows.map(r => ({
+        day: r.day,
+        revenue: parseInt(r.revenue),
+        ppn: parseInt(r.ppn),
+      })),
+    });
+  } catch (error: any) {
+    console.error('[getPnlReport] error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ─── P0 Extension: Tax Dashboard (PPN per Masa) ──────────────────────────────
+export const getTaxDashboard = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Generate last 12 masa (months) with PPN data
+    const masaResult = await readDb.query(`
+      SELECT
+        TO_CHAR(DATE_TRUNC('month', paid_at), 'YYYY-MM')              AS masa,
+        COALESCE(SUM(ppn_amount_idr), 0)::bigint                      AS ppn_collected,
+        COALESCE(SUM(amount_idr), 0)::bigint                          AS gross_revenue,
+        COUNT(*)::int                                                  AS transaction_count
+      FROM payments
+      WHERE status = 'paid'
+        AND paid_at >= NOW() - INTERVAL '12 months'
+      GROUP BY 1
+      ORDER BY 1 DESC
+    `);
+
+    // Current masa summary
+    const currentMasa = new Date().toISOString().slice(0, 7);
+    const currentRow = masaResult.rows.find((r: any) => r.masa === currentMasa) || {
+      ppn_collected: 0, gross_revenue: 0, transaction_count: 0
+    };
+
+    // Tax deadline: every 15th of following month
+    const [cy, cm] = currentMasa.split('-').map(Number);
+    const deadlineDate = new Date(cy, cm, 15); // 15th of next month
+    const daysUntilDeadline = Math.ceil((deadlineDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+    res.json({
+      current_masa: currentMasa,
+      ppn_current_masa: parseInt(String(currentRow.ppn_collected)),
+      gross_revenue_current_masa: parseInt(String(currentRow.gross_revenue)),
+      transaction_count_current_masa: parseInt(String(currentRow.transaction_count)),
+      deadline_date: deadlineDate.toISOString().split('T')[0],
+      days_until_deadline: daysUntilDeadline,
+      masa_history: masaResult.rows.map((r: any) => ({
+        masa: r.masa,
+        ppn_collected: parseInt(r.ppn_collected),
+        gross_revenue: parseInt(r.gross_revenue),
+        transaction_count: parseInt(r.transaction_count),
+        // Status is managed separately; default 'pending' for recent, simulated here
+        status: r.masa < currentMasa ? 'submitted' : 'draft',
+      })),
+    });
+  } catch (error: any) {
+    console.error('[getTaxDashboard] error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ─── P0 Extension: PPh Report (Courier Income Tax) ───────────────────────────
+export const getPphReport = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const period = typeof req.query.period === 'string' && /^\d{4}-\d{2}$/.test(req.query.period)
+      ? req.query.period
+      : new Date().toISOString().slice(0, 7);
+
+    const [year, month] = period.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    // Top couriers by payout this period
+    const topCouriers = await readDb.query(`
+      SELECT
+        pr.courier_id,
+        u.full_name                             AS courier_name,
+        u.phone_number                          AS phone,
+        COALESCE(SUM(pr.net_idr), 0)::bigint    AS total_earned,
+        COUNT(pr.id)::int                        AS payout_count,
+        -- PPh 21: 5% for income > 50jt/year (rough ~4.1jt/month threshold)
+        CASE WHEN COALESCE(SUM(pr.net_idr), 0) > 4166666
+          THEN ROUND(COALESCE(SUM(pr.net_idr), 0) * 0.05)::bigint
+          ELSE 0
+        END                                      AS estimated_pph21
+      FROM payout_records pr
+      JOIN users u ON pr.courier_id = u.id
+      WHERE pr.disbursement_status = 'completed'
+        AND pr.created_at BETWEEN $1 AND $2
+      GROUP BY pr.courier_id, u.full_name, u.phone_number
+      ORDER BY total_earned DESC
+      LIMIT 50
+    `, [startDate, endDate]);
+
+    const totalPayouts = topCouriers.rows.reduce((s: number, r: any) => s + parseInt(r.total_earned), 0);
+    const totalEstimatedPph = topCouriers.rows.reduce((s: number, r: any) => s + parseInt(r.estimated_pph21), 0);
+    const couriersSubjectToPph = topCouriers.rows.filter((r: any) => parseInt(r.estimated_pph21) > 0).length;
+
+    res.json({
+      period,
+      summary: {
+        total_couriers_paid: topCouriers.rows.length,
+        total_payout_amount: totalPayouts,
+        couriers_subject_to_pph: couriersSubjectToPph,
+        estimated_pph21_total: totalEstimatedPph,
+        pph_threshold_monthly: 4166666,  // Rp 4.166.666 / bulan (PTKP TK/0 = Rp 50jt/tahun)
+      },
+      couriers: topCouriers.rows.map((r: any) => ({
+        courier_id: r.courier_id,
+        courier_name: r.courier_name,
+        phone: r.phone,
+        total_earned: parseInt(r.total_earned),
+        payout_count: r.payout_count,
+        estimated_pph21: parseInt(r.estimated_pph21),
+        subject_to_pph: parseInt(r.estimated_pph21) > 0,
+      })),
+    });
+  } catch (error: any) {
+    console.error('[getPphReport] error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+};
+

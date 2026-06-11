@@ -25,6 +25,7 @@ import com.tembus.courier.data.model.StatusUpdateRequest
 import com.tembus.courier.data.model.TripShareRequest
 import com.tembus.courier.data.model.CancelPickupReason
 import com.tembus.courier.data.repository.OrderRepository
+import com.tembus.courier.data.config.RemoteConfigManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -57,13 +58,17 @@ import javax.inject.Inject
 @HiltViewModel
 class OrderViewModel @Inject constructor(
     private val orderRepository: OrderRepository,
-    private val apiService: TEMBUSApiService
+    private val apiService: TEMBUSApiService,
+    private val remoteConfigManager: RemoteConfigManager
 ) : ViewModel() {
 
     // ── State ─────────────────────────────────────────────────────
 
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
+    private val _syncIntervalMs = MutableStateFlow(30_000L)
+    val syncIntervalMs: StateFlow<Long> = _syncIntervalMs.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
@@ -143,6 +148,10 @@ class OrderViewModel @Inject constructor(
 
     init {
         // Fetch fresh data from backend as soon as ViewModel starts
+        viewModelScope.launch {
+            remoteConfigManager.fetchConfig()
+            _syncIntervalMs.value = remoteConfigManager.getSyncInterval()
+        }
         fetchMapsProviderConfig()
         fetchCourierProfile()
         fetchPickupCancellationReasons(showUserErrors = false)

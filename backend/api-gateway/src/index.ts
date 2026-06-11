@@ -527,9 +527,10 @@ app.use('/api/v1/auth', proxyWithResilience(AUTH_SERVICE_URL, authBreaker));
 
 // Public Mobile Update Metadata
 app.use('/api/v1/system/latest-version', publicSystemLimiter);
+app.use('/api/v1/config/runtime', publicSystemLimiter);
 app.use(createProxyMiddleware({
   pathFilter: (pathname: string, req: Request) =>
-    req.method === 'GET' && pathname === '/api/v1/system/latest-version',
+    req.method === 'GET' && (pathname === '/api/v1/system/latest-version' || pathname === '/api/v1/config/runtime'),
   target: ADMIN_SERVICE_URL,
   changeOrigin: true,
   on: {

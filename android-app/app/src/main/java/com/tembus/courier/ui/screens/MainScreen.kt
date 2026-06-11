@@ -195,6 +195,7 @@ fun MainScreen(
     val statusTransitions by orderViewModel.statusTransitions.collectAsState()
     val courierProfile by orderViewModel.courierProfile.collectAsState()
     val isSyncing by orderViewModel.isSyncing.collectAsState()
+    val syncIntervalMs by orderViewModel.syncIntervalMs.collectAsState()
     val error by orderViewModel.error.collectAsState()
     val lastRemoteSyncAt by orderViewModel.lastRemoteSyncAt.collectAsState()
 
@@ -529,19 +530,20 @@ fun MainScreen(
         }
     }
 
-    LaunchedEffect(isOnline, courierRole, lifecycleOwner) {
+    // Main synchronization loop (App Foreground)
+    LaunchedEffect(isOnline, courierRole, syncIntervalMs, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             if (!isOnline) return@repeatOnLifecycle
 
             val baseIntervalMs = if (courierRole == "on_demand") {
                 ON_DEMAND_FOREGROUND_SYNC_INTERVAL_MS
             } else {
-                FOREGROUND_SYNC_INTERVAL_MS
+                syncIntervalMs
             }
             val minIntervalMs = if (courierRole == "on_demand") {
                 ON_DEMAND_FOREGROUND_SYNC_MIN_INTERVAL_MS
             } else {
-                FOREGROUND_SYNC_MIN_INTERVAL_MS
+                (syncIntervalMs * 0.66).toLong()
             }
             var intervalMs = baseIntervalMs
             while (isActive) {
@@ -5979,8 +5981,6 @@ private fun LatLng.isValidNavigationPoint(): Boolean {
         !(latitude == 0.0 && longitude == 0.0)
 }
 
-private const val FOREGROUND_SYNC_INTERVAL_MS = 30_000L
-private const val FOREGROUND_SYNC_MIN_INTERVAL_MS = 20_000L
 private const val ON_DEMAND_FOREGROUND_SYNC_INTERVAL_MS = 5_000L
 private const val ON_DEMAND_FOREGROUND_SYNC_MIN_INTERVAL_MS = 4_000L
 private const val FOREGROUND_SYNC_MAX_BACKOFF_MS = 120_000L

@@ -19,7 +19,17 @@ import {
   ShieldCheck,
   FileSearch,
   Smartphone,
-  AlertTriangle
+  AlertTriangle,
+  Wallet,
+  Users,
+  Clock,
+  BarChart2,
+  FileText,
+  Receipt,
+  Calendar,
+  AlertCircle,
+  ArrowRight,
+  TrendingDown as TrendDown
 } from 'lucide-react'
 import { 
   XAxis, 
@@ -30,14 +40,18 @@ import {
   Pie,
   Cell,
   BarChart,
-  Bar
+  Bar,
+  AreaChart,
+  Area,
+  CartesianGrid
 } from 'recharts'
 import { cn } from '../lib/utils'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { clientLog } from '../lib/clientLogger'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
+import { id as localeId } from 'date-fns/locale'
 import { useState } from 'react'
 import { ConfirmPayoutModal, type PayoutReviewAction } from '../components/ConfirmPayoutModal'
 
@@ -70,8 +84,13 @@ const riskActionLabel = (request: any) => ({
   terminal: 'Closed',
 } as Record<string, string>)[request.risk_action] || payoutStatusLabel(request);
 
+type FinanceTab = 'treasury' | 'pnl' | 'tax';
+
 export default function Finance() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState<FinanceTab>('treasury');
+  const [pnlPeriod, setPnlPeriod] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [pphPeriod, setPphPeriod] = useState<string>(new Date().toISOString().slice(0, 7));
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
 
   // S3-AD-01: Modal state replaces window.prompt()
@@ -139,6 +158,45 @@ export default function Finance() {
       return res.data?.data;
     }
   });
+
+  // ── New P0 queries ─────────────────────────────────────────────────────────
+  const { data: cashPosition, isLoading: isLoadingCashPosition } = useQuery({
+    queryKey: ['finance-cash-position'],
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/cash-position');
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: pnlReport, isLoading: isLoadingPnl } = useQuery({
+    queryKey: ['finance-pnl-report', pnlPeriod],
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/pnl-report', { params: { period: pnlPeriod } });
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: taxDashboard, isLoading: isLoadingTax } = useQuery({
+    queryKey: ['finance-tax-dashboard'],
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/tax-dashboard');
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+
+  const { data: pphReport, isLoading: isLoadingPph } = useQuery({
+    queryKey: ['finance-pph-report', pphPeriod],
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/pph-report', { params: { period: pphPeriod } });
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+
+
 
   const updatePayoutAccountMutation = useMutation({
     mutationFn: async ({ id, status, reason }: { id: string; status: string; reason: string }) => {
@@ -312,84 +370,146 @@ export default function Finance() {
 
 
   return (
-    <div className="space-y-10 animate-in">
+    <div className="space-y-8 animate-in">
+      {/* ── Page Header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-zinc-100 tracking-tight italic uppercase">Financial Treasury</h1>
-          <p className="text-zinc-500 mt-1">Real-time revenue oversight, cost analysis, and settlement control.</p>
+          <h1 className="text-3xl font-black text-zinc-100 tracking-tight italic uppercase">Finance Dashboard</h1>
+          <p className="text-zinc-500 mt-1">Treasury, P&L, Pajak, dan Settlement — satu tempat untuk staff finance.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => dispatchApprovedPayoutsMutation.mutate()}
-            disabled={dispatchApprovedPayoutsMutation.isPending}
-            className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2 disabled:opacity-50"
-          >
-            {dispatchApprovedPayoutsMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-            Dispatch Approved
-          </button>
-          <button
-            onClick={() => reconcilePayoutsMutation.mutate()}
-            disabled={reconcilePayoutsMutation.isPending}
-            className="px-6 py-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-300 font-black text-sm uppercase tracking-widest hover:bg-blue-500/20 transition-all flex items-center gap-2 disabled:opacity-50"
-          >
-            {reconcilePayoutsMutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <ShieldCheck size={18} />}
-            Reconcile
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                const res = await api.get('/admin/finance/payouts/export', { responseType: 'blob' })
-                const url = URL.createObjectURL(res.data)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `payouts_export_${new Date().toISOString().split('T')[0]}.csv`
-                a.click()
-                URL.revokeObjectURL(url)
-              } catch (error) { clientLog.error('Payout export failed', { error }) }
-            }}
-            className="px-6 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-sm uppercase tracking-widest hover:bg-emerald-500/20 transition-all flex items-center gap-2"
-          >
-            <Download size={18} />
-            Export Payouts CSV
-          </button>
-          <button 
-            onClick={async () => {
-              try {
-                const res = await api.get('/admin/audit-logs/export', { responseType: 'blob' })
-                const url = URL.createObjectURL(res.data)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `system_audit_${new Date().toISOString().split('T')[0]}.csv`
-                a.click()
-                URL.revokeObjectURL(url)
-              } catch { toast.error('Audit export failed') }
-            }}
-            className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-sm uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
-          >
-            <Download size={18} />
-            Export Audit (CSV)
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                const res = await api.get('/admin/finance/payout-risk-audit/export', { responseType: 'blob' })
-                const url = URL.createObjectURL(res.data)
-                const a = document.createElement('a')
-                a.href = url
-                a.download = `payout_risk_audit_${new Date().toISOString().split('T')[0]}.csv`
-                a.click()
-                URL.revokeObjectURL(url)
-              } catch { toast.error('Risk audit export failed') }
-            }}
-            className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-sm uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
-          >
-            <Download size={18} />
-            Export Risk
-          </button>
-        </div>
+        {activeTab === 'treasury' && (
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => dispatchApprovedPayoutsMutation.mutate()}
+              disabled={dispatchApprovedPayoutsMutation.isPending}
+              className="px-5 py-2.5 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              {dispatchApprovedPayoutsMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+              Dispatch
+            </button>
+            <button
+              onClick={() => reconcilePayoutsMutation.mutate()}
+              disabled={reconcilePayoutsMutation.isPending}
+              className="px-5 py-2.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-300 font-black text-xs uppercase tracking-widest hover:bg-blue-500/20 transition-all flex items-center gap-2 disabled:opacity-50"
+            >
+              {reconcilePayoutsMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+              Reconcile
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await api.get('/admin/finance/payouts/export', { responseType: 'blob' })
+                  const url = URL.createObjectURL(res.data)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `payouts_export_${new Date().toISOString().split('T')[0]}.csv`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                } catch (error) { clientLog.error('Payout export failed', { error }) }
+              }}
+              className="px-5 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-xs uppercase tracking-widest hover:bg-emerald-500/20 transition-all flex items-center gap-2"
+            >
+              <Download size={16} />
+              Export CSV
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await api.get('/admin/audit-logs/export', { responseType: 'blob' })
+                  const url = URL.createObjectURL(res.data)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `system_audit_${new Date().toISOString().split('T')[0]}.csv`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                } catch { toast.error('Audit export failed') }
+              }}
+              className="px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+            >
+              <Download size={16} />
+              Audit CSV
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await api.get('/admin/finance/payout-risk-audit/export', { responseType: 'blob' })
+                  const url = URL.createObjectURL(res.data)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `payout_risk_audit_${new Date().toISOString().split('T')[0]}.csv`
+                  a.click()
+                  URL.revokeObjectURL(url)
+                } catch { toast.error('Risk audit export failed') }
+              }}
+              className="px-5 py-2.5 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+            >
+              <Download size={16} />
+              Risk CSV
+            </button>
+          </div>
+        )}
       </div>
 
+      {/* ── Cash Position Strip ─────────────────────────────────────────── */}
+      {!isLoadingCashPosition && cashPosition && (
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+          {[
+            { label: 'Kas Masuk 30H', value: cashPosition.inflow_30d, color: 'text-emerald-400', icon: ArrowUpRight },
+            { label: 'Kas Keluar 30H', value: cashPosition.outflow_30d, color: 'text-red-400', icon: ArrowDownRight },
+            { label: 'Escrow Customer', value: cashPosition.customer_escrow, color: 'text-amber-400', icon: Wallet },
+            { label: 'Escrow Kurir', value: cashPosition.courier_escrow, color: 'text-blue-400', icon: Users },
+            { label: 'Payout Pending', value: cashPosition.pending_payouts, color: 'text-orange-400', icon: Clock },
+            { label: 'Total Liabilitas', value: cashPosition.total_liabilities, color: 'text-red-300', icon: TrendingDown },
+            { label: 'Emergency Fund', value: cashPosition.emergency_fund, color: 'text-amber-300', icon: ShieldAlert },
+            { label: 'Cash Ratio', value: null, rawLabel: `${cashPosition.cash_ratio}%`, color: cashPosition.cash_ratio > 30 ? 'text-emerald-400' : 'text-red-400', icon: BarChart2 },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.label} className="glass-card p-4 rounded-[20px] border-white/5 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Icon size={12} className={item.color} />
+                  <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest leading-tight">{item.label}</p>
+                </div>
+                <p className={`text-base font-black ${item.color} leading-none`}>
+                  {item.rawLabel ?? `Rp ${Number(item.value || 0).toLocaleString('id-ID')}`}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Tab Navigation ──────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 p-1 rounded-2xl bg-white/[0.03] border border-white/5 w-fit">
+        {([
+          { id: 'treasury' as FinanceTab, label: 'Treasury & Settlement', icon: Landmark },
+          { id: 'pnl' as FinanceTab, label: 'Laporan P&L', icon: BarChart2 },
+          { id: 'tax' as FinanceTab, label: 'Pajak (PPN + PPh)', icon: Receipt },
+        ]).map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => setActiveTab(id)}
+            className={cn(
+              'flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all',
+              activeTab === id
+                ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+            )}
+          >
+            <Icon size={14} />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          TAB: TREASURY (existing content below)
+      ══════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'treasury' && (
+      <div className="space-y-8">
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+
         <div className="glass-card p-8 rounded-[40px] border-white/5 space-y-6">
           <h3 className="text-xl font-black text-zinc-100 italic uppercase">Auto Payout Control</h3>
           <div className="grid grid-cols-3 gap-3">
@@ -1202,14 +1322,14 @@ export default function Finance() {
          </div>
 
          <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
-            <h3 className="text-xl font-black text-zinc-100 italic uppercase">Tax Compliance (PPN)</h3>
+            <h3 className="text-xl font-black text-zinc-100 italic uppercase">Tax Compliance (PPN) — Quick View</h3>
             <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex flex-col items-center justify-center text-center space-y-4">
                <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Total PPN to be Remitted (Current Masa)</p>
                <p className="text-5xl font-black text-zinc-100 tracking-tighter">
                   Rp {(financialData?.ppn_total || 0).toLocaleString()}
                </p>
                <div className="flex gap-3 pt-4">
-                  <button 
+                  <button
                     onClick={async () => {
                       try {
                         const res = await api.get('/admin/finance/masa-report/export', { responseType: 'blob' })
@@ -1225,13 +1345,412 @@ export default function Finance() {
                   >
                      Export Masa Report
                   </button>
-                  <button className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all">
-                     Finalize & Pay
+                  <button
+                    onClick={() => setActiveTab('tax')}
+                    className="px-6 py-3 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2"
+                  >
+                    <Receipt size={14} />
+                    Detail Tax Dashboard
                   </button>
                </div>
             </div>
          </div>
       </div>
+
+      {/* close treasury tab */}
+      </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          TAB: P&L REPORT
+      ══════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'pnl' && (
+        <div className="space-y-8">
+          {/* Period Picker */}
+          <div className="flex items-center gap-4">
+            <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Periode:</label>
+            <input
+              type="month"
+              value={pnlPeriod}
+              onChange={(e) => setPnlPeriod(e.target.value)}
+              className="px-4 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-zinc-100 text-sm font-bold focus:outline-none focus:border-primary"
+            />
+            {isLoadingPnl && <Loader2 size={16} className="animate-spin text-zinc-500" />}
+          </div>
+
+          {pnlReport && (
+            <>
+              {/* P&L Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Gross Revenue', value: pnlReport.summary.gross_revenue, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+                  { label: 'Total Biaya', value: pnlReport.summary.total_cost, color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20' },
+                  { label: 'Gross Profit', value: pnlReport.summary.gross_profit, color: pnlReport.summary.gross_profit >= 0 ? 'text-emerald-400' : 'text-red-400', bg: pnlReport.summary.gross_profit >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10', border: pnlReport.summary.gross_profit >= 0 ? 'border-emerald-500/20' : 'border-red-500/20' },
+                  { label: 'PPN Dipungut', value: pnlReport.summary.ppn_collected, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+                ].map((item) => (
+                  <div key={item.label} className={`glass-card p-6 rounded-[28px] border ${item.border} space-y-3`}>
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{item.label}</p>
+                    <p className={`text-2xl font-black ${item.color} tracking-tight`}>
+                      Rp {Number(item.value).toLocaleString('id-ID')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Breakdown Cards */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {/* Cost Breakdown */}
+                <div className="glass-card p-8 rounded-[36px] border-white/5 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-black text-zinc-100 italic uppercase">Rincian Biaya</h3>
+                    <div className="px-3 py-1 rounded-full bg-white/5 text-[10px] font-black text-zinc-500 uppercase tracking-widest">
+                      Margin: {pnlReport.summary.profit_margin_pct}%
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Payout Kurir', value: pnlReport.summary.courier_payout, icon: Users, color: 'text-blue-400' },
+                      { label: 'Biaya Payment Gateway', value: pnlReport.summary.payment_gateway_cost, icon: CreditCard, color: 'text-amber-400' },
+                      { label: 'Subsidi Promo/Voucher', value: pnlReport.summary.promo_subsidy, icon: TrendingDown, color: 'text-red-400' },
+                    ].map((row) => {
+                      const Icon = row.icon;
+                      const pct = pnlReport.summary.gross_revenue > 0
+                        ? Math.round(row.value / pnlReport.summary.gross_revenue * 100)
+                        : 0;
+                      return (
+                        <div key={row.label} className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                          <div className="flex items-center gap-3">
+                            <Icon size={14} className={row.color} />
+                            <span className="text-sm font-bold text-zinc-300">{row.label}</span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-[10px] text-zinc-600">{pct}% of revenue</span>
+                            <span className={`font-black text-sm ${row.color}`}>Rp {Number(row.value).toLocaleString('id-ID')}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Revenue by Service */}
+                <div className="glass-card p-8 rounded-[36px] border-white/5 space-y-6">
+                  <h3 className="text-lg font-black text-zinc-100 italic uppercase">Revenue per Layanan</h3>
+                  <div className="space-y-3">
+                    {pnlReport.model_breakdown.map((m: any) => (
+                      <div key={m.model} className="space-y-1">
+                        <div className="flex justify-between text-sm">
+                          <span className="font-bold text-zinc-300 capitalize">{m.model}</span>
+                          <span className="font-black text-zinc-100">Rp {Number(m.revenue).toLocaleString('id-ID')}</span>
+                        </div>
+                        <div className="w-full bg-white/5 rounded-full h-2">
+                          <div
+                            className="bg-primary h-2 rounded-full transition-all"
+                            style={{ width: `${m.share_pct}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-zinc-600">
+                          <span>{m.order_count} order</span>
+                          <span>{m.share_pct}%</span>
+                        </div>
+                      </div>
+                    ))}
+                    {pnlReport.model_breakdown.length === 0 && (
+                      <p className="text-zinc-600 text-sm italic text-center py-8">Tidak ada data untuk periode ini</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Daily Revenue Chart */}
+              {pnlReport.daily_series.length > 0 && (
+                <div className="glass-card p-8 rounded-[36px] border-white/5 space-y-6">
+                  <h3 className="text-lg font-black text-zinc-100 italic uppercase">Revenue Harian — {pnlPeriod}</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <AreaChart data={pnlReport.daily_series} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                      <defs>
+                        <linearGradient id="pnlRevGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#006437" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#006437" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="pnlPpnGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+                      <XAxis dataKey="day" tick={{ fill: '#52525b', fontSize: 10, fontWeight: 700 }} />
+                      <YAxis tick={{ fill: '#52525b', fontSize: 10 }} tickFormatter={(v) => `${Math.round(v / 1000)}K`} />
+                      <Tooltip
+                        contentStyle={{ background: '#0f0f12', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16 }}
+                        labelStyle={{ color: '#a1a1aa', fontSize: 10 }}
+                        formatter={(val: any) => [`Rp ${Number(val || 0).toLocaleString('id-ID')}`, '']}
+
+                      />
+                      <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#006437" fill="url(#pnlRevGrad)" strokeWidth={2} />
+                      <Area type="monotone" dataKey="ppn" name="PPN" stroke="#f59e0b" fill="url(#pnlPpnGrad)" strokeWidth={1.5} strokeDasharray="4 2" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                  <div className="flex gap-4 text-xs">
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-primary" /><span className="text-zinc-400">Revenue</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-400" /><span className="text-zinc-400">PPN</span></div>
+                  </div>
+                </div>
+              )}
+
+              {/* P&L Summary Table */}
+              <div className="glass-card p-8 rounded-[36px] border-white/5 space-y-4">
+                <h3 className="text-lg font-black text-zinc-100 italic uppercase">Ringkasan P&L — {pnlPeriod}</h3>
+                <div className="space-y-2">
+                  {[
+                    { label: 'Gross Revenue', value: pnlReport.summary.gross_revenue, type: 'income' },
+                    { label: '(-) Payout Kurir', value: -pnlReport.summary.courier_payout, type: 'expense' },
+                    { label: '(-) Biaya Payment Gateway', value: -pnlReport.summary.payment_gateway_cost, type: 'expense' },
+                    { label: '(-) Subsidi Promo', value: -pnlReport.summary.promo_subsidy, type: 'expense' },
+                    { label: 'Gross Profit', value: pnlReport.summary.gross_profit, type: 'total' },
+                    { label: 'PPN Dipungut (disetor ke DJP)', value: pnlReport.summary.ppn_collected, type: 'tax' },
+                  ].map((row, i) => (
+                    <div
+                      key={row.label}
+                      className={cn(
+                        'flex justify-between items-center px-4 py-3 rounded-xl',
+                        row.type === 'total' ? 'bg-primary/10 border border-primary/20' :
+                        row.type === 'tax' ? 'bg-amber-500/5 border border-amber-500/10' :
+                        i % 2 === 0 ? 'bg-white/[0.02]' : ''
+                      )}
+                    >
+                      <span className={cn(
+                        'text-sm font-bold',
+                        row.type === 'total' ? 'text-emerald-300 font-black' :
+                        row.type === 'tax' ? 'text-amber-400' :
+                        'text-zinc-300'
+                      )}>{row.label}</span>
+                      <span className={cn(
+                        'font-black text-sm',
+                        row.type === 'total' ? (row.value >= 0 ? 'text-emerald-400' : 'text-red-400') :
+                        row.type === 'income' ? 'text-emerald-400' :
+                        row.type === 'tax' ? 'text-amber-400' :
+                        'text-red-400'
+                      )}>
+                        {row.value < 0 ? '-' : ''}Rp {Math.abs(row.value).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="pt-2 flex justify-between text-[10px] font-black text-zinc-600 uppercase tracking-widest px-4">
+                  <span>Total Transaksi: {pnlReport.summary.total_transactions.toLocaleString()}</span>
+                  <span>Total Payout: {pnlReport.summary.payout_count.toLocaleString()}</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {!pnlReport && !isLoadingPnl && (
+            <div className="glass-card p-16 rounded-[36px] border-white/5 text-center">
+              <p className="text-zinc-500 font-bold italic uppercase text-sm">Pilih periode untuk melihat laporan P&L</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          TAB: TAX DASHBOARD
+      ══════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'tax' && (
+        <div className="space-y-8">
+
+          {/* PPN Dashboard */}
+          {isLoadingTax ? (
+            <div className="flex items-center justify-center py-20"><Loader2 size={32} className="animate-spin text-zinc-600" /></div>
+          ) : taxDashboard && (
+            <>
+              {/* Deadline Alert */}
+              <div className={cn(
+                'flex items-center gap-4 p-5 rounded-2xl border',
+                taxDashboard.days_until_deadline <= 5
+                  ? 'bg-red-500/10 border-red-500/30 text-red-300'
+                  : taxDashboard.days_until_deadline <= 10
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                  : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+              )}>
+                <AlertCircle size={20} />
+                <div className="flex-1">
+                  <p className="font-black text-sm uppercase tracking-widest">
+                    Deadline Lapor SPT Masa PPN: {taxDashboard.deadline_date}
+                  </p>
+                  <p className="text-[11px] opacity-70 mt-0.5">
+                    {taxDashboard.days_until_deadline > 0
+                      ? `${taxDashboard.days_until_deadline} hari lagi — pastikan PPN masa ${taxDashboard.current_masa} sudah dilaporkan ke DJP`
+                      : 'Deadline telah lewat!'}
+                  </p>
+                </div>
+              </div>
+
+              {/* PPN Summary Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { label: `PPN Masa ${taxDashboard.current_masa}`, value: taxDashboard.ppn_current_masa, color: 'text-amber-400', desc: 'Harus disetor ke DJP' },
+                  { label: 'Gross Revenue Masa Ini', value: taxDashboard.gross_revenue_current_masa, color: 'text-emerald-400', desc: 'Dasar pengenaan pajak' },
+                  { label: 'Jumlah Transaksi', value: null, rawLabel: taxDashboard.transaction_count_current_masa?.toLocaleString('id-ID'), color: 'text-blue-400', desc: 'Transaksi kena PPN' },
+                ].map((item) => (
+                  <div key={item.label} className="glass-card p-6 rounded-[28px] border-white/5 space-y-2">
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{item.label}</p>
+                    <p className={`text-3xl font-black ${item.color} tracking-tight`}>
+                      {item.rawLabel ?? `Rp ${Number(item.value || 0).toLocaleString('id-ID')}`}
+                    </p>
+                    <p className="text-[10px] text-zinc-600">{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* PPN Masa History Table */}
+              <div className="glass-card p-8 rounded-[36px] border-white/5 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-black text-zinc-100 italic uppercase">Riwayat Masa PPN (12 Bulan)</h3>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await api.get('/admin/finance/masa-report/export', { responseType: 'blob' })
+                        const url = URL.createObjectURL(res.data)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `ppn_masa_report_${new Date().toISOString().split('T')[0]}.csv`
+                        a.click()
+                        URL.revokeObjectURL(url)
+                      } catch { toast.error('Export gagal') }
+                    }}
+                    className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-300 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+                  >
+                    <Download size={12} />Export CSV
+                  </button>
+                </div>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/5">
+                      {['Masa', 'Transaksi', 'Gross Revenue', 'PPN Dipungut', 'Status'].map(h => (
+                        <th key={h} className="pb-4 text-left text-[10px] font-black text-zinc-600 uppercase tracking-widest">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {taxDashboard.masa_history.map((row: any) => (
+                      <tr key={row.masa} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                        <td className="py-4 font-black text-zinc-100">{row.masa}</td>
+                        <td className="py-4 text-zinc-400">{row.transaction_count.toLocaleString()}</td>
+                        <td className="py-4 font-bold text-zinc-300">Rp {Number(row.gross_revenue).toLocaleString('id-ID')}</td>
+                        <td className="py-4 font-black text-amber-400">Rp {Number(row.ppn_collected).toLocaleString('id-ID')}</td>
+                        <td className="py-4">
+                          <span className={cn(
+                            'px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest',
+                            row.status === 'submitted' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                          )}>
+                            {row.status === 'submitted' ? '✓ Dilaporkan' : 'Draft'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {/* PPh Report Section */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-zinc-100 italic uppercase">PPh Kurir (Pasal 21/23)</h3>
+                <p className="text-zinc-500 text-xs mt-1">Estimasi pajak penghasilan mitra kurir yang melebihi PTKP TK/0 (Rp 50jt/tahun)</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Periode:</label>
+                <input
+                  type="month"
+                  value={pphPeriod}
+                  onChange={(e) => setPphPeriod(e.target.value)}
+                  className="px-4 py-2 rounded-xl bg-white/[0.04] border border-white/10 text-zinc-100 text-sm font-bold focus:outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+
+            {isLoadingPph ? (
+              <div className="flex items-center justify-center py-10"><Loader2 size={24} className="animate-spin text-zinc-600" /></div>
+            ) : pphReport && (
+              <>
+                {/* PPh Summary */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'Total Kurir Dibayar', value: null, rawLabel: pphReport.summary.total_couriers_paid?.toLocaleString(), color: 'text-blue-400' },
+                    { label: 'Total Payout', value: pphReport.summary.total_payout_amount, color: 'text-emerald-400' },
+                    { label: 'Kurir Kena PPh', value: null, rawLabel: pphReport.summary.couriers_subject_to_pph?.toString(), color: 'text-orange-400' },
+                    { label: 'Est. PPh 21 Total', value: pphReport.summary.estimated_pph21_total, color: 'text-red-400' },
+                  ].map((item) => (
+                    <div key={item.label} className="glass-card p-5 rounded-[24px] border-white/5 space-y-2">
+                      <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{item.label}</p>
+                      <p className={`text-xl font-black ${item.color}`}>
+                        {item.rawLabel ?? `Rp ${Number(item.value || 0).toLocaleString('id-ID')}`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="glass-card p-8 rounded-[36px] border-white/5 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <h4 className="text-base font-black text-zinc-100 uppercase italic">Detail Kurir</h4>
+                    <span className="px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 text-[10px] font-black uppercase tracking-widest">
+                      {pphReport.couriers.filter((c: any) => c.subject_to_pph).length} kena PPh
+                    </span>
+                  </div>
+                  <div className="overflow-auto max-h-80">
+                    <table className="w-full text-sm min-w-[600px]">
+                      <thead>
+                        <tr className="border-b border-white/5">
+                          {['Kurir', 'Total Payout', 'Jml Payout', 'Est. PPh 21', 'Status'].map(h => (
+                            <th key={h} className="pb-3 text-left text-[10px] font-black text-zinc-600 uppercase tracking-widest">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pphReport.couriers.map((c: any) => (
+                          <tr key={c.courier_id} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                            <td className="py-3">
+                              <div>
+                                <p className="font-bold text-zinc-200 text-sm">{c.courier_name}</p>
+                                <p className="text-[10px] text-zinc-600">{c.phone}</p>
+                              </div>
+                            </td>
+                            <td className="py-3 font-bold text-zinc-300">Rp {Number(c.total_earned).toLocaleString('id-ID')}</td>
+                            <td className="py-3 text-zinc-400">{c.payout_count}</td>
+                            <td className="py-3">
+                              {c.subject_to_pph ? (
+                                <span className="font-black text-red-400">Rp {Number(c.estimated_pph21).toLocaleString('id-ID')}</span>
+                              ) : (
+                                <span className="text-zinc-600 italic">Di bawah PTKP</span>
+                              )}
+                            </td>
+                            <td className="py-3">
+                              <span className={cn(
+                                'px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest',
+                                c.subject_to_pph ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'
+                              )}>
+                                {c.subject_to_pph ? 'Kena PPh' : 'Bebas Pajak'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                        {pphReport.couriers.length === 0 && (
+                          <tr><td colSpan={5} className="py-10 text-center text-zinc-600 italic">Tidak ada data untuk periode ini</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+        </div>
+      )}
 
       {/* S3-AD-01: Secure payout confirmation modal — replaces all window.prompt() for review actions */}
       {confirmModal && (

@@ -7,7 +7,7 @@ export const getVouchers = async (req: Request, res: Response): Promise<void> =>
     res.json(result.rows);
   } catch (error: any) {
     console.error('Error fetching vouchers:', error);
-    res.status(500).json({ error: error.message });
+    console.error('VOUCHER DELETE ERROR:', error); res.status(500).json({ error: error.message });
   }
 };
 
@@ -109,7 +109,7 @@ export const updateVoucher = async (req: Request, res: Response) => {
 
 export const deleteVoucher = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { reason } = req.body;
+  const reason = req.body?.reason;
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -125,16 +125,20 @@ export const deleteVoucher = async (req: Request, res: Response) => {
 
     const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
-      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, category) 
-       VALUES ($1, $2, $3, $4, $5)`,
-      [`voucher:${voucher.code}`, false, changedBy, reason || `Deleted voucher: ${voucher.name}`, 'marketing']
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [`voucher:${voucher.code}`, false, changedBy, reason || `Deleted voucher: ${voucher.name}`, '{}', 'marketing']
     );
 
     await client.query('COMMIT');
     res.json({ message: 'Voucher deleted successfully' });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: error.message });
+    if (error.code === '23503') {
+      res.status(400).json({ error: 'Cannot delete voucher because it has been used. Please deactivate it instead.' });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
   } finally {
     client.release();
   }

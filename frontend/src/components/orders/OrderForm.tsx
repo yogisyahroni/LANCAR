@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, UseFormSetValue } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { api } from "@/lib/api";
+import { useRuntimeConfig, RuntimeConfig } from "@/hooks/useRuntimeConfig";
 import {
   Box,
   Camera,
@@ -39,7 +41,7 @@ export const clearCustomerOrderDraft = () => {
   window.sessionStorage.removeItem(LEGACY_CUSTOMER_ORDER_DRAFT_KEY);
 };
 
-export const orderSchema = z.object({
+export const createOrderSchema = (config?: RuntimeConfig | null) => z.object({
   service_code: z.string().min(1, "Pilih layanan pengiriman"),
   size_tier: z.string().optional(),
   pickup_address: z.string().min(5, "Alamat pickup minimal 5 karakter"),
@@ -73,7 +75,9 @@ export const orderSchema = z.object({
   has_insurance: z.boolean().default(false),
   item_value: z.preprocess(
     (val) => (val === "" || val === null || val === undefined) ? undefined : Number(val),
-    z.number({ message: "Nilai barang harus berupa angka" }).min(1000, "Nilai barang minimal Rp 1.000").optional()
+    z.number({ message: "Nilai barang harus berupa angka" })
+      .min(config?.insurance_min_premium || 1000, `Nilai barang minimal Rp ${(config?.insurance_min_premium || 1000).toLocaleString("id-ID")}`)
+      .optional()
   ).optional(),
   schedule_type: z.enum(["now", "scheduled"]).default("now"),
   scheduled_at: z.string().optional(),
@@ -109,7 +113,8 @@ export const orderSchema = z.object({
   }
 });
 
-export type OrderFormValues = z.infer<typeof orderSchema>;
+const defaultSchema = createOrderSchema();
+export type OrderFormValues = z.infer<typeof defaultSchema>;
 
 type LocationValue = { lat: number; lng: number };
 type AddressMode = "pickup" | "dropoff";
@@ -798,6 +803,7 @@ function DimensionScanModal({
 }
 
 export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
+  const { config } = useRuntimeConfig();
   const [isScanOpen, setIsScanOpen] = useState(false);
   const [services, setServices] = useState<DeliveryService[]>([]);
   const [isLoadingServices, setIsLoadingServices] = useState(true);
@@ -812,7 +818,8 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
   const [receiverLocationMessage, setReceiverLocationMessage] = useState<string | null>(null);
 
   const customZodResolver = async (data: any) => {
-    const result = orderSchema.safeParse(data);
+    const schema = createOrderSchema(config);
+    const result = schema.safeParse(data);
     if (result.success) {
       return { values: result.data, errors: {} };
     }
@@ -1497,7 +1504,9 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
               <input type="checkbox" {...register("has_insurance")} className="mt-1 h-4 w-4 rounded border-white/10 bg-background" />
               <div>
                 <p className="text-sm font-medium text-amber-500">Gunakan Asuransi Pengiriman</p>
-                <p className="text-xs text-muted-foreground">Lindungi barang berharga Anda. Premi 0.2% dari nilai barang.</p>
+                <p className="text-xs text-muted-foreground">
+                  Lindungi barang berharga Anda. Premi {((config?.insurance_premium_rate || 0.002) * 100).toFixed(1)}% dari nilai barang.
+                </p>
               </div>
             </label>
             {has_insurance && (

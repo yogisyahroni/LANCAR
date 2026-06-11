@@ -130,13 +130,26 @@ func (m *mockPaymentGateway) VerifyWebhookSignature(ctx context.Context, payload
 	return nil
 }
 
+type mockConfigRepo struct{}
+
+func (m *mockConfigRepo) GetConfig(ctx context.Context, key string) (*domain.SystemConfig, error) {
+	return nil, nil
+}
+func (m *mockConfigRepo) GetFloatConfig(ctx context.Context, key string, fallback float64) float64 {
+	return fallback
+}
+func (m *mockConfigRepo) GetIntConfig(ctx context.Context, key string, fallback int) int {
+	return fallback
+}
+
 func TestPaymentService_CreatePayment(t *testing.T) {
 	orderID := uuid.NewString()
 	mpr := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
 	mor := &mockOrderRepo{order: &domain.Order{ID: orderID, Status: domain.StatusPendingPayment, TotalPriceIDR: 100000}}
 	mpg := &mockPaymentGateway{}
+	mcr := &mockConfigRepo{}
 
-	svc := service.NewPaymentService(mpr, mor, mpg)
+	svc := service.NewPaymentService(mpr, mor, mpg, mcr)
 
 	p, err := svc.CreatePayment(context.Background(), orderID)
 	if err != nil {
@@ -169,8 +182,9 @@ func TestPaymentService_HandleWebhook_Settlement(t *testing.T) {
 	mpr := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
 	mor := &mockOrderRepo{order: &domain.Order{ID: orderID, Status: domain.StatusPendingPayment, TotalPriceIDR: 100000}}
 	mpg := &mockPaymentGateway{}
+	mcr := &mockConfigRepo{}
 
-	svc := service.NewPaymentService(mpr, mor, mpg)
+	svc := service.NewPaymentService(mpr, mor, mpg, mcr)
 	p, _ := svc.CreatePayment(context.Background(), orderID)
 
 	// Create mock payload

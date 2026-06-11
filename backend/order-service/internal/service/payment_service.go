@@ -57,13 +57,15 @@ type DefaultPaymentService struct {
 	paymentRepo    domain.PaymentRepository
 	orderRepo      domain.OrderRepository
 	paymentGateway domain.PaymentGateway
+	configRepo     domain.ConfigRepository
 }
 
-func NewPaymentService(pr domain.PaymentRepository, or domain.OrderRepository, pg domain.PaymentGateway) *DefaultPaymentService {
+func NewPaymentService(pr domain.PaymentRepository, or domain.OrderRepository, pg domain.PaymentGateway, cr domain.ConfigRepository) *DefaultPaymentService {
 	return &DefaultPaymentService{
 		paymentRepo:    pr,
 		orderRepo:      or,
 		paymentGateway: pg,
+		configRepo:     cr,
 	}
 }
 
@@ -92,9 +94,11 @@ func (s *DefaultPaymentService) CreatePayment(ctx context.Context, orderID strin
 	// 2. Fund splitting logic
 	amount := int(order.TotalPriceIDR)
 	// MDR 0.7% for QRIS
-	mdr := int(float64(amount) * 0.007)
+	mdrRate := s.configRepo.GetFloatConfig(ctx, "payment_mdr_rate", 0.007)
+	mdr := int(float64(amount) * mdrRate)
 	// PPN 11% of MDR (assuming tax is only on the service fee/MDR)
-	ppn := int(float64(mdr) * 0.11)
+	ppnRate := s.configRepo.GetFloatConfig(ctx, "payment_ppn_rate", 0.11)
+	ppn := int(float64(mdr) * ppnRate)
 
 	// Weather and insurance reserve placeholders
 	weatherReserve := 0

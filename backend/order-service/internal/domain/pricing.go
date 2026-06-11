@@ -59,8 +59,20 @@ type PricingService interface {
 	SimulatePrice(ctx context.Context, req *PricingEstimateRequest) (*PricingEstimateResponse, error)
 }
 
+type DeliveryServiceProduct struct {
+	Code                   string  `json:"code"`
+	Name                   string  `json:"name"`
+	BaseFareIDR            float64 `json:"base_fare_idr"`
+	PerKmIDR               float64 `json:"per_km_idr"`
+	IncludedDistanceKM     float64 `json:"included_distance_km"`
+	UsesSizeTier           bool    `json:"uses_size_tier"`
+	MaxDistanceKM          *float64 `json:"max_distance_km"`
+	MaxWeightKG            *float64 `json:"max_weight_kg"`
+}
+
 type PricingRepository interface {
 	GetActiveConfig(ctx context.Context, model string) (*PricingConfig, error)
+	GetDeliveryServiceByCode(ctx context.Context, code string) (*DeliveryServiceProduct, error)
 	UpdateConfig(ctx context.Context, config *PricingConfig) error
 	CheckCoverage(ctx context.Context, lat, lng float64) (bool, error)
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, Loader2, Plus, Save, Tags, Truck } from 'lucide-react'
+import { AlertCircle, Loader2, Plus, Save, Tags, Truck, Power, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
@@ -270,7 +270,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
     }
   })
 
-  const services = data || []
+  const services = useMemo(() => data || [], [data])
   const dynamicCategories = useMemo(() => {
     const known = new Set(serviceCategories.map((category) => category.code))
     return Array.from(new Set(services.map((service) => (service.service_category || 'on_demand')).filter(Boolean)))
@@ -331,6 +331,36 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
       setSelectedCategory(payload.service_category)
       setSelectedCode(payload.code)
       toast.success(isNewService ? 'Delivery service created' : 'Delivery service updated')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || error.message)
+    }
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (code: string) => {
+      const res = await api.delete(`/admin/delivery-services/${code}`)
+      return res.data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['delivery-services'] })
+      toast.success('Delivery service deleted')
+      setSelectedCode(undefined as any)
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error || error.message)
+    }
+  })
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ code, isActive }: { code: string; isActive: boolean }) => {
+      const res = await api.patch(`/admin/delivery-services/${code}/toggle`, { is_enabled: isActive })
+      return res.data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['delivery-services'] })
+      setForm((current) => ({ ...current, is_enabled: data.service.is_enabled }))
+      toast.success('Service status toggled')
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || error.message)
@@ -486,15 +516,47 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500">{form.code || 'new_service'}</p>
               <h2 className="mt-1 text-2xl font-bold">{form.name || 'New Delivery Service'}</h2>
             </div>
-            <button
-              type="button"
-              onClick={save}
-              disabled={mutation.isPending}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90 disabled:opacity-60"
-            >
-              {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {isNewService ? 'Create Service' : 'Save Config'}
-            </button>
+            <div className="flex items-center gap-3">
+              {!isNewService && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Toggle status service ini?')) {
+                        toggleMutation.mutate({ code: form.code, isActive: !form.is_enabled })
+                      }
+                    }}
+                    disabled={toggleMutation.isPending}
+                    className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-white/10"
+                  >
+                    {toggleMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                    {form.is_enabled ? 'Nonaktifkan' : 'Aktifkan'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Apakah Anda yakin ingin menghapus service ini permanen?')) {
+                        deleteMutation.mutate(form.code)
+                      }
+                    }}
+                    disabled={deleteMutation.isPending}
+                    className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-500 transition hover:bg-red-500/20"
+                  >
+                    {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    Delete
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={save}
+                disabled={mutation.isPending}
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary/90 disabled:opacity-60"
+              >
+                {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {isNewService ? 'Create Service' : 'Save Config'}
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

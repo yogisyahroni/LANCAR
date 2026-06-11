@@ -9,14 +9,16 @@ import (
 )
 
 type postgresRepo struct {
-	db     *sql.DB // writer
-	readDB *sql.DB // reader
+	db         *sql.DB // writer
+	readDB     *sql.DB // reader
+	configRepo domain.ConfigRepository
 }
 
-func NewPostgresRepository(db, readDB *sql.DB) *postgresRepo {
+func NewPostgresRepository(db, readDB *sql.DB, configRepo domain.ConfigRepository) *postgresRepo {
 	return &postgresRepo{
-		db:     db,
-		readDB: readDB,
+		db:         db,
+		readDB:     readDB,
+		configRepo: configRepo,
 	}
 }
 
@@ -63,6 +65,48 @@ func (r *postgresRepo) GetActiveConfig(ctx context.Context, model string) (*doma
 	return config, nil
 }
 
+func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string) (*domain.DeliveryServiceProduct, error) {
+	if code == "" {
+		return nil, fmt.Errorf("delivery service code is required")
+	}
+
+	query := `
+		SELECT
+			code,
+			name,
+			base_fare_idr,
+			per_km_idr,
+			included_distance_km,
+			uses_size_tier,
+			max_distance_km,
+			max_weight_kg
+		FROM delivery_service_products
+		WHERE code = $1 AND is_enabled = TRUE
+		LIMIT 1
+	`
+
+	service := &domain.DeliveryServiceProduct{}
+	err := r.readDB.QueryRowContext(ctx, query, code).Scan(
+		&service.Code,
+		&service.Name,
+		&service.BaseFareIDR,
+		&service.PerKmIDR,
+		&service.IncludedDistanceKM,
+		&service.UsesSizeTier,
+		&service.MaxDistanceKM,
+		&service.MaxWeightKG,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("active delivery service not found for code %s", code)
+		}
+		return nil, err
+	}
+
+	return service, nil
+}
+
+
 // Order Repository Implementation
 func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 	query := `INSERT INTO orders (
@@ -82,8 +126,11 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 			  )`
 
 	// Default tax/fee for now
-	ppn := int64(float64(o.TotalPriceIDR) * 0.11)
-	mdr := int64(2500) // flat fee for example
+	ppnRate := r.configRepo.GetFloatConfig(ctx, "payment_ppn_rate", 0.11)
+	ppn := int64(float64(o.TotalPriceIDR) * ppnRate)
+	
+	mdrFixed := r.configRepo.GetIntConfig(ctx, "payment_mdr_fixed", 2500)
+	mdr := int64(mdrFixed)
 
 	_, err := r.db.ExecContext(ctx, query,
 		o.ID, o.OrderNumber, o.CustomerID, o.Model, o.Status,

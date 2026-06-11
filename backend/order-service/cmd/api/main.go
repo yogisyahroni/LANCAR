@@ -172,7 +172,8 @@ func main() {
 	}
 
 	// Repositories
-	pgRepo := repository.NewPostgresRepository(db, readDB)
+	configRepo := repository.NewPostgresConfigRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
+	pgRepo := repository.NewPostgresRepository(db, readDB, configRepo)
 	redisRepo := repository.NewRedisRepository(rdb)
 	mapsRepo, err := repository.NewMapsRepository(mapsKey)
 	if err != nil {
@@ -222,14 +223,14 @@ func main() {
 	trackingSvc := service.NewTrackingService(trackingRepo, eb)
 
 	// Services
-	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo, flagReader)
+	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo, flagReader, configRepo)
 	meetingPointSvc := service.NewMeetingPointService(pgRepo, mapsRepo, redisRepo)
-	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, relayRepo, eb, tq, flagReader, notificationSvc)
-	paymentSvc := service.NewPaymentService(paymentRepo, pgRepo, paymentGw)
+	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, relayRepo, eb, tq, flagReader, notificationSvc, configRepo)
+	paymentSvc := service.NewPaymentService(paymentRepo, pgRepo, paymentGw, configRepo)
 	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw, relayRepo)
 	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw)
 	slaSvc := service.NewSLAService(slaRepo, notificationSvc, payoutRepo)
-	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc)
+	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc, configRepo)
 	relayScoreSvc := service.NewRelayScoreService(relayRepo)
 	analyticsSvc := service.NewAnalyticsService(analyticsRepo)
 	// matchingSvc := service.NewRelayMatchingService(relayRepo, pgRepo, redisRepo) // Can be used later
@@ -249,7 +250,7 @@ func main() {
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsSvc)
 
 	// Background Workers
-	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB))
+	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB), configRepo)
 	go surgeWorker.Start(context.Background())
 
 	monitorWorker := worker.NewOrderMonitorWorker(pgRepo, 15*time.Minute)

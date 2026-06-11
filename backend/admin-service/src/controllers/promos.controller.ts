@@ -17,7 +17,7 @@ import {
   validatePromoForCheckout,
 } from '../services/promoEngine';
 
-const respondError = (res: Response, error: unknown) => {
+const respondError = (res: Response, error: unknown) => { console.error('PROMO ERROR:', error);
   const safeError = safePromoError(error);
   res.status(safeError.status).json({
     success: false,

@@ -25,6 +25,23 @@ func (m *MockPricingRepo) CheckCoverage(ctx context.Context, lat, lng float64) (
 	return true, m.Err
 }
 
+func (m *MockPricingRepo) GetDeliveryServiceByCode(ctx context.Context, code string) (*domain.DeliveryServiceProduct, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	var baseFare, perKm float64
+	if m.Config != nil {
+		baseFare = m.Config.BaseFare
+		perKm = m.Config.PricePerKM
+	}
+	return &domain.DeliveryServiceProduct{
+		Code:        code,
+		Name:        "Mocked Service",
+		BaseFareIDR: baseFare,
+		PerKmIDR:    perKm,
+	}, nil
+}
+
 type MockMapsRepo struct {
 	DistKM     float64
 	DurMin     float64
@@ -67,6 +84,25 @@ func (m *MockRedisRepo) AcquireLock(ctx context.Context, key string, expiration 
 	return true, nil
 }
 func (m *MockRedisRepo) ReleaseLock(ctx context.Context, key string) error { return nil }
+
+type MockConfigRepo struct {
+	Configs map[string]interface{}
+}
+
+func (m *MockConfigRepo) GetConfig(ctx context.Context, key string) (*domain.SystemConfig, error) {
+	return nil, nil
+}
+func (m *MockConfigRepo) GetFloatConfig(ctx context.Context, key string, fallback float64) float64 {
+	if val, ok := m.Configs[key]; ok {
+		if f, ok := val.(float64); ok {
+			return f
+		}
+	}
+	return fallback
+}
+func (m *MockConfigRepo) GetIntConfig(ctx context.Context, key string, fallback int) int {
+	return fallback
+}
 
 type MockFlagReader struct {
 	Flags map[string]*featureflags.FeatureFlag
@@ -130,19 +166,19 @@ func TestPricingService_Estimate_FlagAware(t *testing.T) {
 		{
 			name:          "Jarak 10 km -> P2P",
 			distanceKM:    10.0,
-			expectedModel: "p2p",
+			expectedModel: "model_p2p",
 			expectErr:     false,
 		},
 		{
 			name:          "Jarak 20 km -> P2P",
 			distanceKM:    20.0,
-			expectedModel: "p2p",
+			expectedModel: "model_p2p",
 			expectErr:     false,
 		},
 		{
 			name:          "Jarak 30 km -> P2P",
 			distanceKM:    30.0,
-			expectedModel: "p2p",
+			expectedModel: "model_p2p",
 			expectErr:     false,
 		},
 	}
@@ -150,7 +186,8 @@ func TestPricingService_Estimate_FlagAware(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockMaps := &MockMapsRepo{DistKM: tt.distanceKM, DurMin: 30}
-			svc := service.NewPricingService(mockPricing, mockMaps, mockRedis, mockFlags)
+			mockConfig := &MockConfigRepo{Configs: map[string]interface{}{}}
+			svc := service.NewPricingService(mockPricing, mockMaps, mockRedis, mockFlags, mockConfig)
 
 			req := &domain.PricingEstimateRequest{
 				PickupLat: -6.2, PickupLng: 106.8,
@@ -204,13 +241,13 @@ func TestPricingService_Estimate_TwoLegsOff(t *testing.T) {
 		{
 			name:          "Jarak 10 km -> P2P",
 			distanceKM:    10.0,
-			expectedModel: "p2p",
+			expectedModel: "model_p2p",
 			expectErr:     false,
 		},
 		{
 			name:          "Jarak 20 km -> P2P meski model lama nonaktif",
 			distanceKM:    20.0,
-			expectedModel: "p2p",
+			expectedModel: "model_p2p",
 			expectErr:     false,
 		},
 	}
@@ -218,7 +255,8 @@ func TestPricingService_Estimate_TwoLegsOff(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockMaps := &MockMapsRepo{DistKM: tt.distanceKM, DurMin: 30}
-			svc := service.NewPricingService(mockPricing, mockMaps, mockRedis, mockFlags)
+			mockConfig := &MockConfigRepo{Configs: map[string]interface{}{}}
+			svc := service.NewPricingService(mockPricing, mockMaps, mockRedis, mockFlags, mockConfig)
 
 			req := &domain.PricingEstimateRequest{
 				PickupLat: -6.2, PickupLng: 106.8,

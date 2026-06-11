@@ -528,3 +528,49 @@ export const updateAdminDeliveryService = async (req: Request, res: Response): P
     res.status(error.statusCode || 500).json({ error: error.message });
   }
 };
+
+export const deleteAdminDeliveryService = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const code = req.params.code;
+    const { rows } = await db.query(
+      `DELETE FROM delivery_service_products
+       WHERE code = $1
+       RETURNING *`,
+      [code]
+    );
+
+    if (rows.length === 0) {
+      res.status(404).json({ error: 'Delivery service not found' });
+      return;
+    }
+
+    await writeDeliveryServiceAudit(req.user?.id, 'lookup.delivery_service.deleted', { before: rows[0] });
+    res.json({ success: true, message: 'Delivery service deleted successfully' });
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ error: error.message });
+  }
+};
+
+export const toggleAdminDeliveryService = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const code = req.params.code;
+    const is_enabled = Boolean(req.body.is_enabled);
+    const { rows } = await db.query(
+      `UPDATE delivery_service_products
+       SET is_enabled = $2, updated_at = NOW()
+       WHERE code = $1
+       RETURNING *`,
+      [code, is_enabled]
+    );
+
+    if (rows.length === 0) {
+      res.status(404).json({ error: 'Delivery service not found' });
+      return;
+    }
+
+    await writeDeliveryServiceAudit(req.user?.id, 'lookup.delivery_service.toggled', { after: rows[0] });
+    res.json({ success: true, service: normalizeService(rows[0]) });
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ error: error.message });
+  }
+};

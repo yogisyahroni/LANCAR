@@ -197,7 +197,7 @@ export const getPromoCampaignById = async (id: string) => {
 
 export const getPromoMarginPolicies = async () => {
   const result = await readDb.query(
-    `SELECT id, service_code, vehicle_type, zone_code, min_margin_amount_idr, min_margin_percent, active, created_at, updated_at
+    `SELECT id, service_code, vehicle_type, zone_code, min_margin_amount_idr, min_margin_percent, is_active as active, created_at, updated_at
      FROM promo_margin_policies
      ORDER BY service_code ASC, vehicle_type ASC NULLS FIRST, zone_code ASC NULLS FIRST`
   );
@@ -231,7 +231,7 @@ const requirePoliciesForCampaign = async (campaign: Record<string, any>) => {
   const result = await readDb.query(
     `SELECT service_code
      FROM promo_margin_policies
-     WHERE active = TRUE AND service_code = ANY($1::TEXT[])`,
+     WHERE is_active = TRUE AND service_code = ANY($1::TEXT[])`,
     [serviceCodes]
   );
   const configured = new Set(result.rows.map((row) => row.service_code));
@@ -619,7 +619,7 @@ const fetchServiceAndPolicy = async (input: z.infer<typeof validationSchema>) =>
      FROM delivery_service_products dsp
      JOIN promo_margin_policies pmp
        ON pmp.service_code = dsp.code
-      AND pmp.active = TRUE
+      AND pmp.is_active = TRUE
       AND (pmp.vehicle_type IS NULL OR pmp.vehicle_type = $2)
       AND (pmp.zone_code IS NULL OR pmp.zone_code = $3)
      WHERE dsp.code = $1

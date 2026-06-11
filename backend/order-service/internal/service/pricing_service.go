@@ -16,30 +16,21 @@ type pricingServiceImpl struct {
 	mapsRepo    domain.MapsRepository
 	redisRepo   domain.RedisRepository
 	flagReader  featureflags.FlagReader
+	configRepo  domain.ConfigRepository
 }
 
-func NewPricingService(p domain.PricingRepository, m domain.MapsRepository, r domain.RedisRepository, f featureflags.FlagReader) domain.PricingService {
+func NewPricingService(p domain.PricingRepository, m domain.MapsRepository, r domain.RedisRepository, f featureflags.FlagReader, cr domain.ConfigRepository) domain.PricingService {
 	return &pricingServiceImpl{
 		pricingRepo: p,
 		mapsRepo:    m,
 		redisRepo:   r,
 		flagReader:  f,
+		configRepo:  cr,
 	}
 }
 
 func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
-	if len(req.Models) > 0 && !p2pRequested(req.Models) {
-		return nil, &domain.ModelUnavailableError{
-			Model:     "p2p",
-			MessageID: "MODEL_P2P_ONLY",
-			UserMsg:   "Only P2P delivery model is available",
-		}
-	}
 
-	flags, err := s.flagReader.GetFlags(ctx, []string{"model_p2p"})
-	if err != nil {
-		return nil, fmt.Errorf("flag error: %w", err)
-	}
 
 	// 0.1 Check Coverage for Pickup and Dropoff
 	pickupCovered, err := s.pricingRepo.CheckCoverage(ctx, req.PickupLat, req.PickupLng)
@@ -64,41 +55,66 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		return nil, fmt.Errorf("maps error: %w", err)
 	}
 
-	p2pFlag := flags["model_p2p"]
-	if p2pFlag == nil || !p2pFlag.IsEnabled {
+	// 2. Determine which model was requested
+	var requestedModel string
+	if len(req.Models) > 0 {
+		requestedModel = req.Models[0]
+	} else {
+		requestedModel = "p2p" // Fallback to legacy default if none specified
+	}
+
+	// 3. Get Delivery Service Product
+	serviceProduct, err := s.pricingRepo.GetDeliveryServiceByCode(ctx, requestedModel)
+	if err != nil {
+		// Fallback to p2p lookup in legacy table if not found in delivery_service_products?
+		// Better to just error out cleanly or support a hard fallback to p2p
+		// For now, let's assume all valid codes are in the delivery_service_products table.
 		return nil, &domain.ModelUnavailableError{
-			Model:     "p2p",
-			MessageID: "MSG_P2P_UNAVAILABLE",
-			UserMsg:   "P2P delivery model is currently unavailable",
+			Model:     requestedModel,
+			MessageID: "MSG_MODEL_UNAVAILABLE",
+			UserMsg:   fmt.Sprintf("Delivery model %s is currently unavailable", requestedModel),
 		}
 	}
 
-	// 3. Get Pricing Configuration
-	config, err := s.pricingRepo.GetActiveConfig(ctx, "p2p")
-	if err != nil {
-		return nil, fmt.Errorf("config error: %w", err)
+	// 4. Calculate Volumetric Weight
+	volumetricDiv := s.configRepo.GetFloatConfig(ctx, "volumetric_div", 6000.0)
+	volWeight := (req.Length * req.Width * req.Height) / volumetricDiv
+	effectiveWeight := req.Weight
+	if serviceProduct.UsesSizeTier {
+		effectiveWeight = math.Max(req.Weight, volWeight)
 	}
 
-	// 4. Calculate Volumetric Weight
-	volWeight := (req.Length * req.Width * req.Height) / config.VolumetricDiv
-	effectiveWeight := math.Max(req.Weight, volWeight)
+	if serviceProduct.MaxWeightKG != nil && effectiveWeight > *serviceProduct.MaxWeightKG {
+		return nil, fmt.Errorf("weight exceeds maximum allowed for this service")
+	}
+	if serviceProduct.MaxDistanceKM != nil && distKM > *serviceProduct.MaxDistanceKM {
+		return nil, fmt.Errorf("distance exceeds maximum allowed for this service")
+	}
 
 	// 5. Calculate Base Prices
-	baseFare := int64(config.BaseFare)
-	distanceFare := int64(distKM * config.PricePerKM)
-	durationFare := int64(durMin * config.PricePerMin)
+	baseFare := int64(serviceProduct.BaseFareIDR)
+	var distanceFare int64 = 0
+	
+	if distKM > serviceProduct.IncludedDistanceKM {
+		chargeableDistance := distKM - serviceProduct.IncludedDistanceKM
+		distanceFare = int64(chargeableDistance * serviceProduct.PerKmIDR)
+	}
+
+	durationFare := int64(0) // Duration fare can be configured via system_configs if needed in the future
 
 	subtotal := baseFare + distanceFare + durationFare
 
 	// 5.1 Apply Weight Bracket Surcharge
-	// 0-2kg: Base
-	// 2-5kg: +15%
-	// >5kg: +30%
-	var weightSurcharge int64
-	if effectiveWeight > 5 {
-		weightSurcharge = int64(float64(subtotal) * 0.30)
-	} else if effectiveWeight > 2 {
-		weightSurcharge = int64(float64(subtotal) * 0.15)
+	var weightSurcharge int64 = 0
+	if serviceProduct.UsesSizeTier {
+		tier1Surcharge := s.configRepo.GetFloatConfig(ctx, "weight_surcharge_tier1", 0.15)
+		tier2Surcharge := s.configRepo.GetFloatConfig(ctx, "weight_surcharge_tier2", 0.30)
+		
+		if effectiveWeight > 5 {
+			weightSurcharge = int64(float64(subtotal) * tier2Surcharge)
+		} else if effectiveWeight > 2 {
+			weightSurcharge = int64(float64(subtotal) * tier1Surcharge)
+		}
 	}
 	subtotal += weightSurcharge
 
@@ -127,7 +143,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		PickupLng:              req.PickupLng,
 		DropoffLat:             req.DropoffLat,
 		DropoffLng:             req.DropoffLng,
-		Model:                  "p2p",
+		Model:                  serviceProduct.Code,
 		Length:                 req.Length,
 		Width:                  req.Width,
 		Height:                 req.Height,
@@ -142,15 +158,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	return resp, nil
 }
 
-func p2pRequested(models []string) bool {
-	for _, model := range models {
-		switch model {
-		case "p2p", "P2P", "model_p2p":
-			return true
-		}
-	}
-	return false
-}
+
 
 func (s *pricingServiceImpl) EstimatePrice(ctx context.Context, req *domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
 	return s.Estimate(ctx, *req)
