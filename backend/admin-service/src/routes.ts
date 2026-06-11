@@ -183,7 +183,7 @@ routes.post('/payments/midtrans/notification', (req, res) => controllers.custome
 routes.post('/webhooks/courier-payout-provider', (req, res) => controllers.handleCourierPayoutProviderWebhook(req, res));
 
 // Admin routes - Protected by Admin Auth and Role requirement
-routes.use('/admin', requireAuth, requireRole(['super_admin', 'ops_security', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager']));
+routes.use('/admin', requireAuth, requireRole(['super_admin', 'ops_security', 'ops_admin', 'finance_admin', 'finance', 'cs_agent', 'zone_manager']));
 routes.get('/admin/courier-safety-events', (req, res) => controllers.listAdminCourierSafetyEvents(req, res));
 routes.get('/admin/courier-growth-configs', (req, res) => controllers.listAdminCourierGrowthConfigs(req, res));
 routes.patch('/admin/courier-tier-configs/:id', (req, res) => controllers.updateAdminCourierTierConfig(req, res));
@@ -392,4 +392,7 @@ routes.get('/admin/finance/cash-position', (req, res) => controllers.getCashPosi
 routes.get('/admin/finance/pnl-report', (req, res) => controllers.getPnlReport(req, res));
 routes.get('/admin/finance/tax-dashboard', (req, res) => controllers.getTaxDashboard(req, res));
 routes.get('/admin/finance/pph-report', (req, res) => controllers.getPphReport(req, res));
+routes.get('/admin/finance/tax-efaktur/export', (req, res) => controllers.exportTaxEfakturCSV(req, res));
+routes.get('/admin/finance/tax-pph23/export', (req, res) => controllers.exportTaxPPh23CSV(req, res));
+routes.get('/admin/finance/ledger', (req, res) => controllers.getLedgerReport(req, res));
 

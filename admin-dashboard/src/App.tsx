@@ -30,8 +30,8 @@ import { useAuthStore } from './store/useAuthStore'
 
 const queryClient = new QueryClient()
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, isLoading, checkAuth } = useAuthStore()
+const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) => {
+  const { user, isAuthenticated, isLoading, checkAuth } = useAuthStore()
 
   useEffect(() => {
     checkAuth()
@@ -45,7 +45,15 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     )
   }
 
-  return isAuthenticated ? <DashboardLayout>{children}</DashboardLayout> : <Navigate to="/login" />
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />
+  }
+
+  if (allowedRoles && user && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" />
+  }
+
+  return <DashboardLayout>{children}</DashboardLayout>
 }
 
 function App() {
@@ -190,7 +198,7 @@ function App() {
           <Route 
             path="/audit-logs" 
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['super_admin', 'ops_security']}>
                 <AuditLogs />
               </ProtectedRoute>
             } 
@@ -198,7 +206,7 @@ function App() {
           <Route 
             path="/feature-flags" 
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['super_admin', 'ops_security', 'ops_admin']}>
                 <FeatureFlags />
               </ProtectedRoute>
             } 
@@ -206,7 +214,7 @@ function App() {
           <Route 
             path="/settings" 
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'ops_admin']}>
                 <Settings />
               </ProtectedRoute>
             } 
@@ -214,7 +222,7 @@ function App() {
           <Route
             path="/maps-runtime"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['super_admin', 'ops_security']}>
                 <MapsRuntime />
               </ProtectedRoute>
             }

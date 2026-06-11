@@ -167,10 +167,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [])
 
-  const navItems = [
+  const allNavItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: Map, label: "Zones", path: "/zones" },
-    { icon: Map, label: "Maps Runtime", path: "/maps-runtime" },
+    { icon: Map, label: "Maps Runtime", path: "/maps-runtime", restrictedRoles: ['finance', 'finance_admin'] },
     { icon: Ticket, label: "Vouchers", path: "/vouchers" },
     { icon: BadgePercent, label: "Promos", path: "/promos" },
     { icon: Bell, label: "Notifications", path: "/notifications" },
@@ -180,14 +180,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: ClipboardCheck, label: "Courier Review", path: "/courier-applications" },
     { icon: ShieldAlert, label: "Courier Safety", path: "/courier-safety-events" },
     { icon: TrendingUp, label: "Courier Growth", path: "/courier-growth" },
-    { icon: Activity, label: "Feature Flags", path: "/feature-flags" },
+    { icon: Activity, label: "Feature Flags", path: "/feature-flags", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },
     { icon: DollarSign, label: "Pricing", path: "/pricing" },
     { icon: AlertTriangle, label: "Disputes", path: "/disputes" },
     { icon: Users, label: "Customers", path: "/customers" },
     { icon: DollarSign, label: "Finance", path: "/finance" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
-    { icon: History, label: "Audit Logs", path: "/audit-logs" },
+    { icon: History, label: "Audit Logs", path: "/audit-logs", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },
+    { icon: Settings, label: "Settings", path: "/settings", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },
   ]
+
+  const navItems = allNavItems.filter(item => {
+    if (item.restrictedRoles && user?.role) {
+      return !item.restrictedRoles.includes(user.role);
+    }
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex overflow-hidden">

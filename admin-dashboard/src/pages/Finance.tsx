@@ -84,7 +84,7 @@ const riskActionLabel = (request: any) => ({
   terminal: 'Closed',
 } as Record<string, string>)[request.risk_action] || payoutStatusLabel(request);
 
-type FinanceTab = 'treasury' | 'pnl' | 'tax';
+type FinanceTab = 'treasury' | 'pnl' | 'tax' | 'ledger';
 
 export default function Finance() {
   const queryClient = useQueryClient();
@@ -92,6 +92,8 @@ export default function Finance() {
   const [pnlPeriod, setPnlPeriod] = useState<string>(new Date().toISOString().slice(0, 7));
   const [pphPeriod, setPphPeriod] = useState<string>(new Date().toISOString().slice(0, 7));
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
+  const [ledgerStartDate, setLedgerStartDate] = useState<string>(new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().slice(0, 10));
+  const [ledgerEndDate, setLedgerEndDate] = useState<string>(new Date().toISOString().slice(0, 10));
 
   // S3-AD-01: Modal state replaces window.prompt()
   const [confirmModal, setConfirmModal] = useState<{
@@ -326,6 +328,15 @@ export default function Finance() {
     }
   });
 
+  const { data: ledgerData, isLoading: isLoadingLedger } = useQuery({
+    queryKey: ['finance-ledger', ledgerStartDate, ledgerEndDate],
+    queryFn: async () => {
+      const res = await api.get(`/admin/finance/ledger?startDate=${ledgerStartDate}&endDate=${ledgerEndDate}`);
+      return res.data?.data || [];
+    },
+    enabled: activeTab === 'ledger',
+  });
+
   if (isLoadingStats || isLoadingPayouts || isLoadingPayoutAccounts || isLoadingPayoutRequests || isLoadingPayoutOps || isLoadingReviewQueue) {
     return (
       <div className="h-[80vh] flex items-center justify-center">
@@ -344,6 +355,37 @@ export default function Finance() {
   const reviewRequest = payoutReviewDetail?.request;
   const reviewRisk = payoutReviewDetail?.risk;
   const reviewAccount = payoutReviewDetail?.payout_account;
+
+
+  const handleExportEfaktur = async () => {
+    try {
+      const res = await api.get(`/admin/finance/tax-efaktur/export?month=${pphPeriod}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `efaktur_${pphPeriod}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      toast.success('e-Faktur CSV downloaded');
+    } catch (e) {
+      toast.error('Failed to export e-Faktur');
+    }
+  };
+
+  const handleExportPPh23 = async () => {
+    try {
+      const res = await api.get(`/admin/finance/tax-pph23/export?month=${pphPeriod}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `pph23_${pphPeriod}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      toast.success('PPh 23 CSV downloaded');
+    } catch (e) {
+      toast.error('Failed to export PPh 23');
+    }
+  };
 
   // S3-AD-01 Fix: Opens the confirmation modal instead of calling window.prompt().
   // The modal shows courier name, amount, action type, and requires a min-length reason.
@@ -485,6 +527,7 @@ export default function Finance() {
           { id: 'treasury' as FinanceTab, label: 'Treasury & Settlement', icon: Landmark },
           { id: 'pnl' as FinanceTab, label: 'Laporan P&L', icon: BarChart2 },
           { id: 'tax' as FinanceTab, label: 'Pajak (PPN + PPh)', icon: Receipt },
+          { id: 'ledger' as FinanceTab, label: 'Buku Besar', icon: Wallet },
         ]).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -1607,22 +1650,30 @@ export default function Finance() {
               <div className="glass-card p-8 rounded-[36px] border-white/5 space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-black text-zinc-100 italic uppercase">Riwayat Masa PPN (12 Bulan)</h3>
-                  <button
-                    onClick={async () => {
-                      try {
-                        const res = await api.get('/admin/finance/masa-report/export', { responseType: 'blob' })
-                        const url = URL.createObjectURL(res.data)
-                        const a = document.createElement('a')
-                        a.href = url
-                        a.download = `ppn_masa_report_${new Date().toISOString().split('T')[0]}.csv`
-                        a.click()
-                        URL.revokeObjectURL(url)
-                      } catch { toast.error('Export gagal') }
-                    }}
-                    className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-300 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
-                  >
-                    <Download size={12} />Export CSV
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleExportEfaktur}
+                      className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-light text-white font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
+                    >
+                      <Download size={12} />Export e-Faktur
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await api.get('/admin/finance/masa-report/export', { responseType: 'blob' })
+                          const url = URL.createObjectURL(res.data)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `ppn_masa_report_${new Date().toISOString().split('T')[0]}.csv`
+                          a.click()
+                          URL.revokeObjectURL(url)
+                        } catch { toast.error('Export gagal') }
+                      }}
+                      className="px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-zinc-300 font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
+                    >
+                      <Download size={12} />Export Laporan PPN
+                    </button>
+                  </div>
                 </div>
                 <table className="w-full text-sm">
                   <thead>
@@ -1663,6 +1714,12 @@ export default function Finance() {
                 <p className="text-zinc-500 text-xs mt-1">Estimasi pajak penghasilan mitra kurir yang melebihi PTKP TK/0 (Rp 50jt/tahun)</p>
               </div>
               <div className="flex items-center gap-3">
+                <button
+                  onClick={handleExportPPh23}
+                  className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-light text-white font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
+                >
+                  <Download size={12} />Export PPh 23
+                </button>
                 <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Periode:</label>
                 <input
                   type="month"
@@ -1749,6 +1806,76 @@ export default function Finance() {
             )}
           </div>
 
+        </div>
+      )}
+
+      {/* ── TAB: LEDGER (BUKU BESAR) ────────────────────────────────────────────── */}
+      {activeTab === 'ledger' && (
+        <div className="space-y-8 animate-in">
+          <div className="flex items-center justify-between p-6 rounded-2xl bg-zinc-900 border border-white/5">
+            <div>
+              <h3 className="text-lg font-black text-white uppercase tracking-widest">Buku Besar (Ledger)</h3>
+              <p className="text-sm text-zinc-500 mt-1">Laporan mutasi debit/kredit per akun GL.</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <input
+                type="date"
+                value={ledgerStartDate}
+                onChange={(e) => setLedgerStartDate(e.target.value)}
+                className="bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+              <span className="text-zinc-600 font-black tracking-widest uppercase">To</span>
+              <input
+                type="date"
+                value={ledgerEndDate}
+                onChange={(e) => setLedgerEndDate(e.target.value)}
+                className="bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="glass-card rounded-[24px] border border-white/5 overflow-hidden">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <h3 className="text-sm font-black text-white uppercase tracking-widest">Detail Mutasi Buku Besar</h3>
+            </div>
+            
+            {isLoadingLedger ? (
+              <div className="flex items-center justify-center py-20"><Loader2 size={32} className="animate-spin text-zinc-600" /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-white/[0.02]">
+                    <tr>
+                      {['Kode GL', 'Nama Akun', 'Saldo Awal', 'Total Debit', 'Total Kredit', 'Saldo Akhir'].map(h => (
+                        <th key={h} className="px-6 py-4 text-left text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-white/5">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(ledgerData || []).map((row: any) => (
+                      <tr key={row.gl_code} className="border-b border-white/[0.02] hover:bg-white/[0.02] transition-colors group">
+                        <td className="px-6 py-4">
+                          <span className="px-2.5 py-1 rounded-md bg-white/5 text-[10px] font-mono text-zinc-400 group-hover:text-primary-light transition-colors">{row.gl_code}</span>
+                        </td>
+                        <td className="px-6 py-4 font-bold text-zinc-300 text-sm">{row.gl_name}</td>
+                        <td className="px-6 py-4 font-medium text-zinc-400 text-sm">Rp {Number(row.opening_balance).toLocaleString('id-ID')}</td>
+                        <td className="px-6 py-4 font-medium text-emerald-400 text-sm">Rp {Number(row.total_debit).toLocaleString('id-ID')}</td>
+                        <td className="px-6 py-4 font-medium text-red-400 text-sm">Rp {Number(row.total_credit).toLocaleString('id-ID')}</td>
+                        <td className="px-6 py-4 font-bold text-white text-sm bg-white/[0.01]">Rp {Number(row.closing_balance).toLocaleString('id-ID')}</td>
+                      </tr>
+                    ))}
+                    {(ledgerData || []).length === 0 && (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-zinc-600 text-sm font-medium">
+                          Tidak ada data buku besar pada periode ini.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

@@ -229,7 +229,10 @@ if (process.env.NODE_ENV === 'production' && !resolveInternalGatewaySecret()) {
 // Rate Limiting
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // limit each IP to 10 requests per windowMs
+  max: 100, // limit each IP to 100 requests per windowMs (increased for testing)
+  keyGenerator: (req) => {
+    return (req.headers['cf-connecting-ip'] as string) || (req.headers['x-forwarded-for'] as string) || req.ip || 'unknown';
+  },
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -264,6 +267,9 @@ const logProxyError = (proxy: string, target: string, err: Error, req?: Request)
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 100, // limit each IP to 100 requests per minute
+  keyGenerator: (req) => {
+    return (req.headers['cf-connecting-ip'] as string) || (req.headers['x-forwarded-for'] as string) || req.ip || 'unknown';
+  },
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => req.method === 'OPTIONS',

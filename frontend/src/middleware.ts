@@ -29,7 +29,7 @@ const PROTECTED_PREFIXES = [
 const ADMIN_ONLY_PATHS = ['/analytics', '/feature-flags'];
 
 // Session cookie names used by auth-service
-const SESSION_COOKIE_NAMES = ['tembus_web_session', 'tembus_session', 'session'];
+const SESSION_COOKIE_NAMES = ['tembus_web_session', 'tembus_session', 'session', 'customer_session'];
 
 function hasSessionCookie(request: NextRequest): boolean {
   return SESSION_COOKIE_NAMES.some(

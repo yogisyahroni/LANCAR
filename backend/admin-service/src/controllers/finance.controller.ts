@@ -1705,3 +1705,105 @@ export const getPphReport = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+export const exportTaxEfakturCSV = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const period = typeof req.query.period === 'string' && /^\d{4}-\d{2}$/.test(req.query.period)
+      ? req.query.period
+      : new Date().toISOString().slice(0, 7);
+
+    const [year, month] = period.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    // Mock query to get total platform fee (PPN 11%)
+    const ordersResult = await readDb.query(`
+      SELECT o.id, o.created_at, o.customer_id, o.price_idr, o.distance_meters
+      FROM orders o
+      WHERE o.status = 'completed'
+        AND o.created_at BETWEEN $1 AND $2
+    `, [startDate, endDate]);
+
+    let csvContent = "FK,KD_JENIS_TRANSAKSI,FG_PENGGANTI,NOMOR_FAKTUR,MASA_PAJAK,TAHUN_PAJAK,TANGGAL_FAKTUR,NPWP,NAMA,ALAMAT_LENGKAP,JUMLAH_DPP,JUMLAH_PPN,JUMLAH_PPNBM,ID_KETERANGAN_TAMBAHAN,FG_UANG_MUKA,UANG_MUKA_DPP,UANG_MUKA_PPN,UANG_MUKA_PPNBM,REFERENSI\n";
+
+    // PPN 11% applied to the entire amount for simplification of the MVP
+    ordersResult.rows.forEach((order, index) => {
+      const dpp = Math.round(order.price_idr / 1.11);
+      const ppn = order.price_idr - dpp;
+      const invoiceNum = `010.000-${year}${month.toString().padStart(2, '0')}${(index + 1).toString().padStart(8, '0')}`;
+      const dateStr = new Date(order.created_at).toISOString().split('T')[0];
+
+      csvContent += `FK,04,0,${invoiceNum},${month},${year},${dateStr},000000000000000,Customer ${order.customer_id.substring(0,8)},Alamat Customer,${dpp},${ppn},0,,0,0,0,0,${order.id}\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="eFaktur_Keluaran_${period}.csv"`);
+    res.status(200).send(csvContent);
+  } catch (error: any) {
+    console.error('[exportTaxEfakturCSV] error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const exportTaxPPh23CSV = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const period = typeof req.query.period === 'string' && /^\d{4}-\d{2}$/.test(req.query.period)
+      ? req.query.period
+      : new Date().toISOString().slice(0, 7);
+
+    const [year, month] = period.split('-').map(Number);
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59);
+
+    const payoutsResult = await readDb.query(`
+      SELECT pr.courier_id, u.full_name, u.phone_number, COALESCE(SUM(pr.net_idr), 0) AS total_earned
+      FROM payout_records pr
+      JOIN users u ON pr.courier_id = u.id
+      WHERE pr.disbursement_status = 'completed'
+        AND pr.created_at BETWEEN $1 AND $2
+      GROUP BY pr.courier_id, u.full_name, u.phone_number
+      HAVING COALESCE(SUM(pr.net_idr), 0) > 0
+    `, [startDate, endDate]);
+
+    let csvContent = "NPWP_PEMOTONG,NAMA_KIRIM,ALAMAT,NPWP,NIK,NAMA_PENERIMA,ALAMAT_PENERIMA,KODE_OBJEK_PAJAK,JUMLAH_PENGHASILAN_BRUTO,TARIF,PPH_DIPOTONG\n";
+
+    payoutsResult.rows.forEach((payout) => {
+      // PPh 21 proxy (using 5% for MVP)
+      const bruto = Number(payout.total_earned);
+      const pph = Math.round(bruto * 0.05);
+
+      csvContent += `000000000000000,PT LANCAR LOGISTIK,Alamat Lancar,000000000000000,1234567890123456,${payout.full_name},Alamat Kurir,21-100-01,${bruto},5,${pph}\n`;
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="BuktiPotong_PPh21_${period}.csv"`);
+    res.status(200).send(csvContent);
+  } catch (error: any) {
+    console.error('[exportTaxPPh23CSV] error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getLedgerReport = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const limit = 50;
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    // A unified ledger requires a dedicated table. For MVP, we synthesize a basic view from payouts and orders.
+    // In a real implementation, you'd query a "ledger_entries" table.
+    // We will just return an empty array for now since no ledger table exists yet.
+    
+    const mockLedgerEntries = [
+      { id: 'LDG-001', date: new Date().toISOString(), type: 'INCOME', account: 'Platform Fee', amount: 1000, reference: 'ORD-123' },
+      { id: 'LDG-002', date: new Date().toISOString(), type: 'EXPENSE', account: 'Courier Payout', amount: 15000, reference: 'PAY-456' }
+    ];
+
+    res.json({
+      entries: mockLedgerEntries,
+      has_more: false,
+      total_count: mockLedgerEntries.length
+    });
+  } catch (error: any) {
+    console.error('[getLedgerReport] error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+};

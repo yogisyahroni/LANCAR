@@ -345,6 +345,8 @@ export const deactivateAdminMapsProviderCredential = async (req: Request, res: R
 export const updateSystemConfig = async (req: Request, res: Response): Promise<void> => {
   const key = req.params.key as string;
   const { value, description, category } = req.body;
+  
+  console.log(`[updateSystemConfig] key: ${key}, value: ${value}`);
 
   if (typeof value === 'number' && isNaN(value)) {
     console.error(`[updateSystemConfig] ERROR: Invalid config value (NaN) for key=${key}`);

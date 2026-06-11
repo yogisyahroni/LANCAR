@@ -17,13 +17,17 @@ type CustomerJwtPayload = {
   role?: string;
 };
 
-const resolveCookieSameSite = (): 'strict' | 'lax' =>
-  process.env.NODE_ENV === 'production' ? 'strict' : 'lax';
+// Use FORCE_SECURE_COOKIES=true when running behind an HTTPS tunnel/proxy
+// (e.g. Cloudflare Tunnel, ngrok) even if NODE_ENV is not 'production'.
+// SameSite=none is required when frontend and API are on different subdomains.
+const isSecureCookieContext = (): boolean =>
+  process.env.NODE_ENV === 'production' || process.env.FORCE_SECURE_COOKIES === 'true';
 
 const customerCookieOptions = (expiresAt: Date) => ({
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: resolveCookieSameSite(),
+  secure: isSecureCookieContext(),
+  sameSite: (isSecureCookieContext() ? 'none' : 'lax') as 'none' | 'lax',
+  domain: process.env.COOKIE_DOMAIN || undefined,
   path: '/',
   expires: expiresAt,
 });
@@ -138,8 +142,9 @@ export const loginWeb = async (req: Request, res: Response) => {
     
     const cookieOptions = {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: resolveCookieSameSite(),
+      secure: isSecureCookieContext(),
+      sameSite: (isSecureCookieContext() ? 'none' : 'lax') as 'none' | 'lax',
+      domain: process.env.COOKIE_DOMAIN || undefined,
       path: '/', // Crucial: must be root
       expires: expiresAt,
     };
