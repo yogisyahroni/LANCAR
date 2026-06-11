@@ -301,7 +301,9 @@ func (s *AuthService) StartCustomerPasswordLogin(ctx context.Context, email, pas
 	if email == "" || password == "" {
 		result = "invalid_input"
 		failed = true
-		return nil, errors.New("email and password are required")
+		// LGN-04: Use same error message as "wrong credentials" to prevent
+		// user enumeration via different responses for empty vs wrong inputs.
+		return nil, errors.New("invalid email or password")
 	}
 	if strings.TrimSpace(deviceID) == "" {
 		result = "missing_device_id"

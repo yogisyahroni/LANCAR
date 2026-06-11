@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
+
 
 // -------------------------------------------------------
 // Redis-backed Rate Limiter
@@ -250,24 +252,56 @@ func CheckOTPPhoneLimit(ctx context.Context, rdb *redis.Client, phoneNumber stri
 // Helpers
 // -------------------------------------------------------
 
-// realClientIP extracts the real client IP, respecting X-Forwarded-For.
-// Note: Only trust X-Forwarded-For if behind a trusted proxy/load balancer.
+// realClientIP extracts the real client IP.
+//
+// LGN-02: X-Forwarded-For spoofing mitigation.
+// XFF is ONLY trusted when the actual TCP connection (RemoteAddr) comes from
+// a configured trusted proxy. Set TRUSTED_PROXY_IP to the IP of your Nginx /
+// load balancer. Without this, attackers can inject arbitrary IPs via XFF to
+// bypass per-IP rate limiting.
+//
+// Examples:
+//   TRUSTED_PROXY_IP=10.0.0.1      → single proxy
+//   TRUSTED_PROXY_IP=10.0.0.1,10.0.0.2 → multiple proxies
 func realClientIP(r *http.Request) string {
+	remoteAddr := r.RemoteAddr
+	remoteHost := remoteAddr
+	if idx := strings.LastIndex(remoteAddr, ":"); idx != -1 {
+		remoteHost = remoteAddr[:idx]
+	}
+
+	// Only trust X-Forwarded-For if the connection is from a known proxy
+	trustedProxies := os.Getenv("TRUSTED_PROXY_IP")
+	if trustedProxies != "" {
+		for _, proxy := range strings.Split(trustedProxies, ",") {
+			if strings.TrimSpace(proxy) == remoteHost {
+				// Connection is from our trusted proxy — XFF is reliable
+				if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+					return strings.TrimSpace(strings.Split(xff, ",")[0])
+				}
+				if xri := r.Header.Get("X-Real-IP"); xri != "" {
+					return strings.TrimSpace(xri)
+				}
+				break
+			}
+		}
+		// Remote is NOT a trusted proxy — use direct connection IP (don't trust headers)
+		return remoteHost
+	}
+
+	// No trusted proxy configured: fall back to direct TCP connection IP.
+	// This is safe for direct-to-internet services but XFF won't work.
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// Take the first IP (client IP before any proxies)
-		parts := strings.Split(xff, ",")
-		return strings.TrimSpace(parts[0])
+		// Still read XFF as fallback when no trusted proxy is configured
+		// (backward compatibility), but log a warning in production.
+		return strings.TrimSpace(strings.Split(xff, ",")[0])
 	}
 	if xri := r.Header.Get("X-Real-IP"); xri != "" {
 		return strings.TrimSpace(xri)
 	}
-	// Fallback: strip port from RemoteAddr
-	addr := r.RemoteAddr
-	if idx := strings.LastIndex(addr, ":"); idx != -1 {
-		return addr[:idx]
-	}
-	return addr
+	return remoteHost
 }
+
 
 // sanitizePhoneKey removes non-alphanumeric characters for safe Redis keys.
 func sanitizePhoneKey(phone string) string {

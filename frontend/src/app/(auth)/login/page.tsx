@@ -13,10 +13,33 @@ import { customerGoogleAuthUrl } from '@/lib/runtimeConfig';
 import { useAuthStore } from '@/store/authStore';
 
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address').optional().or(z.literal('')),
-  password: z.string().min(1, 'Password is required').optional().or(z.literal('')),
-  phone: z.string().min(8, 'Phone number must be at least 8 digits').optional().or(z.literal('')),
-  otp: z.string().length(6, 'OTP must be exactly 6 digits').optional().or(z.literal('')),
+  // LGN-03: Email max length prevents oversized payload; format enforced by Zod
+  email: z
+    .string()
+    .email('Format email tidak valid')
+    .max(255, 'Email terlalu panjang')
+    .optional()
+    .or(z.literal('')),
+  // LGN-03: Password constraints — min 8 already enforced by backend
+  password: z
+    .string()
+    .min(1, 'Password is required')
+    .max(128, 'Password terlalu panjang')
+    .optional()
+    .or(z.literal('')),
+  phone: z
+    .string()
+    .min(8, 'Phone number must be at least 8 digits')
+    .max(20, 'Nomor telepon terlalu panjang')
+    .optional()
+    .or(z.literal('')),
+  // LGN-03: OTP must be EXACTLY 6 numeric digits — blocks non-digit injection
+  otp: z
+    .string()
+    .length(6, 'OTP harus tepat 6 digit')
+    .regex(/^\d{6}$/, 'OTP hanya boleh berisi angka 0-9')
+    .optional()
+    .or(z.literal('')),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -344,25 +367,28 @@ export default function LoginPage() {
                     )}
                   </div>
 
-                  {otpSent && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="space-y-2"
-                    >
-                      <label className="text-sm font-medium text-foreground">6-Digit OTP</label>
-                      <input
-                        {...register('otp')}
-                        type="text"
-                        maxLength={6}
-                        className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground text-center tracking-[0.5em] font-mono text-xl placeholder:text-muted-foreground"
-                        placeholder="••••••"
-                      />
-                      {errors.otp && (
-                        <p className="text-sm text-destructive mt-1">{errors.otp.message}</p>
-                      )}
-                    </motion.div>
-                  )}
+                    {otpSent && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="space-y-2"
+                      >
+                        <label className="text-sm font-medium text-foreground">6-Digit OTP</label>
+                        <input
+                          {...register('otp')}
+                          type="text"
+                          inputMode="numeric"  
+                          pattern="\d{6}"
+                          maxLength={6}
+                          autoComplete="one-time-code"
+                          className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground text-center tracking-[0.5em] font-mono text-xl placeholder:text-muted-foreground"
+                          placeholder="••••••"
+                        />
+                        {errors.otp && (
+                          <p className="text-sm text-destructive mt-1">{errors.otp.message}</p>
+                        )}
+                      </motion.div>
+                    )}
                 </motion.div>
               )}
             </AnimatePresence>

@@ -7,11 +7,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"tembus/auth-service/internal/domain"
 	"tembus/auth-service/internal/middleware"
 	"tembus/auth-service/internal/service"
 )
+
+// deviceIDRegex enforces a safe format for device_id values (LGN-05).
+// Prevents overly-long or special-character device IDs from being stored in DB.
+var deviceIDRegex = regexp.MustCompile(`^[A-Za-z0-9_\-]{8,256}$`)
 
 type AuthHandler struct {
 	abuse *middleware.AuthAbuseProtector
@@ -95,17 +100,29 @@ func (h *AuthHandler) StartCustomerPasswordLogin(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if h.rejectIfAuthAbuseBlocked(w, r, middleware.ScopeCustomerPasswordLogin, req.Email) {
+	// LGN-01: Normalize email BEFORE using as the abuse lockout identifier.
+	// Without this, attackers could bypass per-identifier lockout by varying
+	// capitalization (e.g. "User@Example.COM" vs "user@example.com").
+	normalizedEmail := strings.TrimSpace(strings.ToLower(req.Email))
+
+	// LGN-05: Validate device_id format to prevent oversized or special-char IDs.
+	deviceID := strings.TrimSpace(req.DeviceID)
+	if deviceID != "" && !deviceIDRegex.MatchString(deviceID) {
+		http.Error(w, "Invalid device_id format", http.StatusBadRequest)
 		return
 	}
 
-	res, err := h.svc.StartCustomerPasswordLogin(r.Context(), req.Email, req.Password, req.DeviceID, req.DeviceInfo)
+	if h.rejectIfAuthAbuseBlocked(w, r, middleware.ScopeCustomerPasswordLogin, normalizedEmail) {
+		return
+	}
+
+	res, err := h.svc.StartCustomerPasswordLogin(r.Context(), req.Email, req.Password, deviceID, req.DeviceInfo)
 	if err != nil {
-		h.recordAuthFailure(r, middleware.ScopeCustomerPasswordLogin, req.Email, "invalid_customer_password_login")
+		h.recordAuthFailure(r, middleware.ScopeCustomerPasswordLogin, normalizedEmail, "invalid_customer_password_login")
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
-	h.recordAuthSuccess(r, middleware.ScopeCustomerPasswordLogin, req.Email)
+	h.recordAuthSuccess(r, middleware.ScopeCustomerPasswordLogin, normalizedEmail)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(res)
