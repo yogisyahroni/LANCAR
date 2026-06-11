@@ -6,6 +6,9 @@
 # Stage 1: Builder
 FROM node:22-alpine AS builder
 
+# Security patch: upgrade all packages to get latest CVE fixes (CVE-2025-4544 libcrypto)
+RUN apk upgrade --no-cache
+
 WORKDIR /app
 
 # Copy dependency files first (cache layer)
@@ -22,6 +25,9 @@ RUN npm run build
 
 # Stage 2: Production
 FROM node:22-alpine AS production
+
+# Security patch: upgrade all packages to get latest CVE fixes (CVE-2025-4544 libcrypto)
+RUN apk upgrade --no-cache
 
 # Security: create non-root user
 RUN addgroup -S appgroup && \

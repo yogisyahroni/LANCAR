@@ -1,6 +1,9 @@
 # Use Node.js 22 LTS (required by Next.js 16 which needs >= 20.9)
 FROM node:22-alpine AS base
 
+# Security patch: upgrade all packages to get latest CVE fixes (CVE-2025-4544 libcrypto)
+RUN apk upgrade --no-cache
+
 # Install dependencies only when needed
 FROM base AS deps
 RUN apk add --no-cache libc6-compat

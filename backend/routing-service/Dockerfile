@@ -24,6 +24,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # Stage 2: Final
 FROM alpine:3.22
 
+# Security patch: upgrade all packages to get latest CVE fixes (CVE-2025-4544 libcrypto)
+RUN apk upgrade --no-cache
+
 RUN apk --no-cache add ca-certificates tzdata && \
     addgroup -S appgroup && \
     adduser -S appuser -G appgroup && \

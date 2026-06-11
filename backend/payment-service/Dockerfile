@@ -28,6 +28,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # Stage 2: Final (minimal attack surface)
 FROM alpine:3.22
 
+# Security patch: upgrade all packages to get latest CVE fixes (CVE-2025-4544 libcrypto)
+RUN apk upgrade --no-cache
+
 # Security: add ca-certs + timezone data
 RUN apk --no-cache add ca-certificates tzdata && \
     # Create non-root user
