@@ -26,6 +26,10 @@ type PricingEstimateResponse struct {
 	BasePriceIDR           int64     `json:"base_price_idr"`
 	VolumetricSurchargeIDR int64     `json:"volumetric_surcharge_idr"`
 	DynamicPriceIDR        int64     `json:"dynamic_price_idr"`
+	// PlatformFeeIDR adalah biaya layanan operasional (OTP, payment gateway, dll).
+	// Dikonfigurasi via admin panel (system_configs key: 'platform_fee_idr').
+	// Tidak diekspos sebagai line-item ke customer — sudah tercakup dalam TotalPriceIDR.
+	PlatformFeeIDR         int64     `json:"platform_fee_idr"`
 	TotalPriceIDR          int64     `json:"total_price_idr"`
 	ExpiresAt              time.Time `json:"expires_at"`
 

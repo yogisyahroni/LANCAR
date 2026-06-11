@@ -125,9 +125,24 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	}
 
 	dynamicPrice := int64(float64(subtotal) * (multiplier - 1.0))
-	totalPrice := int64(float64(subtotal) * multiplier)
+	priceAfterSurge := int64(float64(subtotal) * multiplier)
 
-	// 7. Create Response
+	// 7. Apply Platform Fee (Biaya Layanan Operasional)
+	//
+	// Ini adalah biaya tetap per order yang menutup biaya operasional platform:
+	//   - OTP WhatsApp (Rp 550/pesan via Zenziva)
+	//   - Overhead lainnya (notifikasi, monitoring, dll.)
+	//
+	// Fee dikonfigurasi via Admin > System Config (key: "platform_fee_idr").
+	// Default Rp 1.000 per order.
+	//
+	// Diterapkan SETELAH surge multiplier (flat fee, tidak dikalikan surge).
+	// Tidak ditampilkan sebagai line-item terpisah ke customer —
+	// sudah tercakup dalam TotalPriceIDR sebagai bagian dari harga layanan.
+	platformFee := int64(s.configRepo.GetFloatConfig(ctx, "platform_fee_idr", 1000.0))
+	totalPrice := priceAfterSurge + platformFee
+
+	// 8. Create Response
 	resp := &domain.PricingEstimateResponse{
 		EstimateID:             uuid.New().String(),
 		PickupAddress:          originAddr,
@@ -137,6 +152,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		BasePriceIDR:           subtotal,
 		VolumetricSurchargeIDR: weightSurcharge,
 		DynamicPriceIDR:        dynamicPrice,
+		PlatformFeeIDR:         platformFee,
 		TotalPriceIDR:          totalPrice,
 		ExpiresAt:              time.Now().Add(10 * time.Minute),
 		PickupLat:              req.PickupLat,
@@ -150,7 +166,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		Weight:                 req.Weight,
 	}
 
-	// 8. Cache in Redis
+	// 9. Cache in Redis
 	if err := s.redisRepo.SaveEstimate(ctx, resp); err != nil {
 		return nil, fmt.Errorf("cache error: %w", err)
 	}
