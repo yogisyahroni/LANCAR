@@ -58,12 +58,7 @@ const services = [
   { icon: Building2, title: "Business", text: "Logistik terintegrasi untuk bisnis Anda." }
 ];
 
-const processSteps = [
-  { icon: Smartphone, title: "Buat Pesanan", text: "Masukkan detail pengiriman dan kebutuhan layanan." },
-  { icon: Bike, title: "Kurir Pickup", text: "Kurir terdekat menjemput paket sesuai waktu pilihan." },
-  { icon: Truck, title: "Proses Pengiriman", text: "Paket dikirim dengan pantauan real-time." },
-  { icon: PackageCheck, title: "Sampai Tujuan", text: "Paket diterima aman dan tepat waktu." }
-];
+
 
 const collaborations = [
   {
@@ -105,137 +100,143 @@ function fadeUp(delay = 0) {
 export default function LandingPage() {
   return (
     <main className="page-shell">
-      <section id="beranda" className="relative min-h-[720px] overflow-hidden bg-[#001911] text-white">
-        <div className="hero-ambient" />
-        <div className="city-lines" />
-        <div className="road" />
+      <section id="beranda" className="relative min-h-[800px] lg:min-h-[900px] xl:min-h-[980px] overflow-hidden bg-[#001911] text-white">
+        {/* SVG Background */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/images/header landing page.svg"
+            alt=""
+            fill
+            priority
+            className="object-cover"
+            style={{ objectPosition: 'right top' }}
+            sizes="100vw"
+          />
+          {/* Overlay: kiri pekat untuk teks, kanan transparan untuk visual kurir */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#001911]/92 from-20% via-[#001911]/50 via-45% to-transparent to-65%" />
+        </div>
 
-        <header className="container relative z-20 flex items-center justify-between py-6">
-          <a href="#beranda" aria-label="TEMBUS beranda" className="flex items-center">
+        {/* Navbar — logo di kiri, nav di tengah, buttons di kanan */}
+        <header className="relative z-20 flex items-center px-6 py-5 sm:px-10 lg:px-14">
+          {/* Logo tampil di semua ukuran layar */}
+          <a href="#beranda" aria-label="TEMBUS beranda" className="flex shrink-0 items-center">
             <Image
-              src="/brand/tembus-tulisan.svg"
+              src="/brand/tembusweb.svg"
               alt="TEMBUS"
-              width={190}
-              height={58}
+              width={300}
+              height={90}
               priority
-              className="h-12 w-auto"
+              className="h-10 w-auto lg:h-12 xl:h-14"
             />
           </a>
 
-          <nav aria-label="Navigasi utama" className="hidden items-center gap-7 text-sm font-bold lg:flex">
-            {navItems.map((item) => (
-              <a key={item.label} href={item.href} className="transition-all duration-200 hover:text-[#9bd46f]">
+          <nav aria-label="Navigasi utama" className="hidden items-center gap-6 text-[15px] font-bold lg:flex lg:gap-8 xl:gap-10 lg:ml-16 xl:ml-24">
+            {navItems.map((item, i) => (
+              <a
+                key={item.label}
+                href={item.href}
+                className={`relative pb-1 transition-all duration-200 hover:text-[#9bd46f]${
+                  i === 0
+                    ? ' after:absolute after:bottom-0 after:left-0 after:h-[2px] after:w-full after:rounded-full after:bg-[#ff6908]'
+                    : ''
+                }`}
+              >
                 {item.label}
               </a>
             ))}
           </nav>
 
-          <div className="hidden items-center gap-3 md:flex">
-            <a href={trackingUrl} className="nav-action border border-white/35 px-5 py-3 text-sm">
+          <div className="ml-auto hidden items-center gap-4 md:flex lg:gap-5 lg:mr-10 xl:mr-[72px] 2xl:mr-[100px]">
+            <a
+              href={trackingUrl}
+              className="rounded-lg border-2 border-[#5a9a6a] px-6 py-2.5 text-[15px] font-bold text-white transition-all duration-200 hover:bg-white/5 lg:px-7 lg:py-3"
+            >
               Lacak Paket
             </a>
-            <a href={`${appUrl}/orders/new`} className="nav-action bg-[#ff6908] px-5 py-3 text-sm text-white">
+            <a
+              href={`${appUrl}/orders/new`}
+              className="rounded-lg bg-[#ff6908] px-6 py-2.5 text-[15px] font-bold text-white transition-all duration-200 hover:brightness-110 active:scale-95 lg:px-7 lg:py-3"
+            >
               Kirim Sekarang
             </a>
           </div>
 
-          <button className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-white/20 bg-white/10 transition-all duration-200 active:scale-95 lg:hidden" aria-label="Buka menu">
+          <button
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 bg-white/10 transition-all duration-200 active:scale-95 lg:hidden"
+            aria-label="Buka menu"
+          >
             <Menu className="h-5 w-5" />
           </button>
         </header>
 
-        <div className="container relative z-10 grid min-h-[600px] items-center gap-10 pb-28 pt-10 lg:grid-cols-[0.96fr_1.04fr]">
-          <motion.div {...fadeUp()} className="max-w-xl">
-            <p className="mb-4 inline-flex rounded-full border border-white/18 bg-white/10 px-4 py-2 text-sm font-bold text-[#b8e58f] backdrop-blur-md">
-              Kurir aman, sampai tujuan
-            </p>
-            <h1 className="text-5xl font-black leading-[1.02] tracking-normal sm:text-6xl lg:text-7xl">
+        {/* Hero Content */}
+        <div className="relative z-10 px-6 pb-16 pt-8 sm:px-10 lg:px-14">
+          <motion.div {...fadeUp()} className="max-w-[480px] lg:max-w-[580px] xl:max-w-[640px]">
+            <h1 className="text-6xl font-black leading-[1.05] tracking-tight lg:text-[5.5rem] xl:text-[6.5rem]">
               Kirim Cepat,
               <br />
               Aman,
               <br />
               <span className="text-[#7bc043]">Sampai Tujuan.</span>
             </h1>
-            <p className="mt-6 max-w-lg text-base leading-8 text-white/82">
-              TEMBUS hadir untuk pengalaman pengiriman terbaik dengan teknologi terdepan,
-              tracking real-time, dan jaringan mitra profesional.
+            <p className="mt-6 text-base leading-relaxed text-white/85 lg:text-lg">
+              Tembus hadir untuk memberikan pengalaman pengiriman terbaik dengan teknologi terdepan
+              dan jaringan mitra profesional.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <a href={`${appUrl}/orders/new`} className="cta-primary px-6 py-4">
+            <div className="mt-8 flex flex-wrap gap-4">
+              <a href={`${appUrl}/orders/new`} className="cta-primary px-7 py-4 text-base font-bold lg:px-8">
                 Kirim Sekarang <ArrowRight className="h-5 w-5" />
               </a>
-              <a href={trackingUrl} className="cta-secondary px-6 py-4">
+              <a
+                href={trackingUrl}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/30 bg-[#002d20] px-7 py-4 text-base font-bold text-white transition-all duration-200 hover:bg-[#003d2b] lg:px-8"
+              >
                 Lacak Paket <LocateFixed className="h-5 w-5" />
               </a>
             </div>
 
-            <div className="mt-10 grid gap-5 sm:grid-cols-3">
+            <div className="mt-12 grid grid-cols-2 gap-6 md:grid-cols-3 lg:gap-8">
               {highlights.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <div key={item.title} className="flex gap-3">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/22 bg-white/10">
+                  <div key={item.title} className="flex items-start gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10">
                       <Icon className="h-5 w-5" />
                     </span>
-                    <span>
-                      <strong className="block text-sm">{item.title}</strong>
-                      <span className="text-xs text-white/70">{item.text}</span>
+                    <span className="pt-0.5">
+                      <strong className="block text-sm font-bold leading-tight">{item.title}</strong>
+                      <span className="mt-1 block text-[11px] leading-snug text-white/65 lg:text-xs">{item.text}</span>
                     </span>
                   </div>
                 );
               })}
             </div>
           </motion.div>
-
-          <motion.div {...fadeUp(0.1)} className="relative hidden min-h-[520px] lg:block">
-            <div className="absolute left-2 top-24 h-52 w-80 rounded-[26px] border border-white/10 bg-gradient-to-br from-[#102b24] to-[#061b15] shadow-2xl">
-              <div className="absolute left-8 top-12 h-24 w-48 rounded-xl bg-[#123f31]" />
-              <div className="absolute -right-8 bottom-8 h-24 w-24 rounded-full border-[16px] border-[#0b1714] bg-[#24372e]" />
-              <div className="absolute left-8 bottom-8 h-20 w-20 rounded-full border-[14px] border-[#0b1714] bg-[#24372e]" />
-            </div>
-
-            <div className="floating absolute left-52 top-0 flex h-[410px] w-[290px] flex-col items-center justify-end rounded-[34px] border border-white/18 bg-gradient-to-b from-[#0d4e39] to-[#06291f] p-7 text-center shadow-[0_40px_110px_rgba(0,0,0,0.45)]">
-              <Image src="/brand/logo-putih.svg" alt="Logo TEMBUS" width={116} height={116} className="mb-5 h-24 w-24 object-contain" priority />
-              <div className="mb-5 h-28 w-40 rounded-xl border border-[#73461b]/20 bg-[#b8864f] shadow-xl">
-                <div className="mt-8 text-center text-2xl font-black text-[#063322]">TEMBUS</div>
-                <div className="mx-auto mt-3 h-1 w-20 rounded-full bg-[#063322]" />
-              </div>
-              <p className="text-sm font-bold text-white/90">Kurir siap jemput paket Anda</p>
-            </div>
-
-            <div className="absolute right-0 top-20 w-[230px] rounded-[32px] border-[8px] border-[#0c0f0d] bg-white p-4 text-[#071712] shadow-2xl">
-              <div className="mx-auto mb-3 h-5 w-20 rounded-b-xl bg-[#0c0f0d]" />
-              <p className="text-xs font-bold text-[#52635d]">Tracking</p>
-              <p className="mt-1 text-sm font-black">TBX1234567890</p>
-              <div className="relative mt-4 h-48 overflow-hidden rounded-2xl bg-[#eef4ed]">
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,61,43,0.09)_1px,transparent_1px),linear-gradient(rgba(0,61,43,0.09)_1px,transparent_1px)] bg-[size:28px_28px]" />
-                <div className="absolute left-9 top-32 h-4 w-4 rounded-full bg-[#2d9449]" />
-                <div className="absolute right-8 top-12 h-4 w-4 rounded-full bg-[#ff6908]" />
-                <div className="absolute left-12 top-36 h-[2px] w-32 -rotate-[34deg] bg-[#134d38]" />
-              </div>
-              <p className="mt-4 text-xs text-[#52635d]">Status</p>
-              <p className="text-sm font-black">Dalam Perjalanan</p>
-              <p className="mt-3 text-xs text-[#52635d]">Estimasi Tiba</p>
-              <p className="text-xs font-bold">20 Mei 2024, 16:00 - 18:00</p>
-            </div>
-          </motion.div>
         </div>
       </section>
 
-      <section className="container relative z-20 -mt-16">
-        <motion.div {...fadeUp()} className="glass-panel grid overflow-hidden rounded-xl md:grid-cols-3 lg:grid-cols-6">
-          {featureCards.map((item) => {
-            const Icon = item.icon;
-            return (
-              <div key={item.title} className="motion-card border-b border-[var(--line)] p-6 text-center md:border-r lg:border-b-0">
-                <Icon className="mx-auto mb-4 h-9 w-9 text-[#003d2b]" />
-                <h3 className="text-sm font-black">{item.title}</h3>
-                <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{item.text}</p>
-              </div>
-            );
-          })}
-        </motion.div>
+      {/* Feature Cards — floating white card sesuai referensi */}
+      <section className="container relative z-20 -mt-20 mb-10">
+        <div className="rounded-[24px] bg-white px-6 py-10 shadow-[0_8px_30px_rgb(0,0,0,0.08)] sm:px-10 lg:px-12">
+          <div className="grid grid-cols-2 gap-8 md:grid-cols-3 lg:grid-cols-6">
+            {featureCards.map((item, index) => {
+              const Icon = item.icon;
+              return (
+                <motion.div
+                  key={item.title}
+                  {...fadeUp(index * 0.06)}
+                  className="flex flex-col items-center text-center"
+                >
+                  <Icon className="mb-4 h-10 w-10 text-[#003d2b]" />
+                  <h3 className="text-[13px] font-black text-[#111]">{item.title}</h3>
+                  <p className="mt-2 text-[11px] leading-relaxed text-[#666]">{item.text}</p>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
       </section>
+
 
       <section id="layanan" className="container py-10">
         <motion.div {...fadeUp()} className="text-center">
@@ -260,26 +261,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="tentang" className="container grid gap-6 py-2 lg:grid-cols-[1fr_0.95fr]">
-        <motion.div {...fadeUp()} className="rounded-xl border border-[var(--line)] bg-white p-8">
+      <section id="tentang" className="container grid gap-6 py-2 lg:grid-cols-[1.5fr_1fr] xl:gap-8">
+        <motion.div {...fadeUp()} className="rounded-xl border border-[var(--line)] bg-white p-8 xl:p-10">
           <h2 className="section-title text-2xl font-black">Cara Kerja Pengiriman</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">Kirim paket jadi lebih mudah dalam 4 langkah sederhana.</p>
-          <div className="mt-8 grid gap-5 md:grid-cols-4">
-            {processSteps.map((step, index) => {
-              const Icon = step.icon;
-              return (
-                <div key={step.title} className="relative text-center">
-                  <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#eef6ed] text-[#003d2b]">
-                    <Icon className="h-8 w-8" />
-                  </span>
-                  <span className="absolute left-[58%] top-0 flex h-7 w-7 items-center justify-center rounded-full bg-[#003d2b] text-xs font-black text-white">
-                    {index + 1}
-                  </span>
-                  <h3 className="mt-4 text-sm font-black">{step.title}</h3>
-                  <p className="mt-2 text-xs leading-5 text-[var(--muted)]">{step.text}</p>
-                </div>
-              );
-            })}
+          <div className="mt-8">
+            <Image
+              src="/images/carakerja.svg"
+              alt="Cara Kerja Pengiriman"
+              width={1800}
+              height={874}
+              className="h-auto w-full"
+            />
           </div>
         </motion.div>
 
@@ -408,3 +401,4 @@ export default function LandingPage() {
     </main>
   );
 }
+
