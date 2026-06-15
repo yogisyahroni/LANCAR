@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/middleware"
 )
 
 type RelayHandler struct {
@@ -26,25 +27,25 @@ func (h *RelayHandler) AdminOverrideScore(w http.ResponseWriter, r *http.Request
 	// Assume admin ID is from auth header for this mock
 	adminIDStr := r.Header.Get("X-User-ID")
 	if adminIDStr == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
 	adminID, err := uuid.Parse(adminIDStr)
 	if err != nil {
-		http.Error(w, "Invalid admin ID", http.StatusBadRequest)
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid admin ID", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
 	var req AdminOverrideScoreRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid request", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
 	err = h.relayScoreSvc.AdminOverrideScore(r.Context(), req.CourierID, req.NewScore, adminID, req.Note)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 

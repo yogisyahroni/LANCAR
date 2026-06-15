@@ -119,7 +119,7 @@ func (h *AuthHandler) StartCustomerPasswordLogin(w http.ResponseWriter, r *http.
 	res, err := h.svc.StartCustomerPasswordLogin(r.Context(), req.Email, req.Password, deviceID, req.DeviceInfo)
 	if err != nil {
 		h.recordAuthFailure(r, middleware.ScopeCustomerPasswordLogin, normalizedEmail, "invalid_customer_password_login")
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Authentication required", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 	h.recordAuthSuccess(r, middleware.ScopeCustomerPasswordLogin, normalizedEmail)
@@ -144,7 +144,7 @@ func (h *AuthHandler) RequestCustomerPasswordReset(w http.ResponseWriter, r *htt
 
 	if err := h.svc.RequestCustomerPasswordReset(r.Context(), email); err != nil {
 		h.recordAuthFailure(r, middleware.ScopePasswordReset, email, "invalid_password_reset_request")
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid request", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -174,7 +174,7 @@ func (h *AuthHandler) ConfirmCustomerPasswordReset(w http.ResponseWriter, r *htt
 
 	if err := h.svc.ConfirmCustomerPasswordReset(r.Context(), email, req.Code, req.NewPassword); err != nil {
 		h.recordAuthFailure(r, middleware.ScopePasswordReset, email, "invalid_password_reset_confirm")
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid request", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -202,7 +202,7 @@ func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r
 	}
 	res, err := h.svc.StartCustomerPasswordRegistration(r.Context(), req.FullName, req.Email, req.PhoneNumber, req.Password, req.DeviceID, req.DeviceInfo)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid request", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -247,7 +247,7 @@ func (h *AuthHandler) RequestOTP(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.RequestOTP(r.Context(), req.PhoneNumber)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -283,7 +283,7 @@ func (h *AuthHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 	res, err := h.svc.VerifyOTP(r.Context(), req.PhoneNumber, req.Code, req.DeviceID, req.DeviceInfo)
 	if err != nil {
 		h.recordAuthFailure(r, middleware.ScopeCustomerOTPVerify, req.PhoneNumber, "invalid_customer_otp")
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Authentication required", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 	h.recordAuthSuccess(r, middleware.ScopeCustomerOTPVerify, req.PhoneNumber)
@@ -314,7 +314,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.svc.RefreshToken(r.Context(), req.RefreshToken, req.DeviceID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Authentication required", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -343,7 +343,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.Logout(r.Context(), req.RefreshToken)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -379,7 +379,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.Register(r.Context(), userID, req.FullName, req.Email)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -409,7 +409,7 @@ func (h *AuthHandler) SetPIN(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.SetPIN(r.Context(), userID, req.PIN)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -426,7 +426,7 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.svc.GetUserByID(r.Context(), userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Resource not found", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -458,13 +458,13 @@ func (h *AuthHandler) UpdatePhoto(w http.ResponseWriter, r *http.Request) {
 
 	secureUpload, err := service.ValidateSecureUpload(service.ProfilePhotoUpload, header.Filename, file)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnsupportedMediaType)
+		middleware.WriteError(w, http.StatusUnsupportedMediaType, "ERR_UNSUPPORTED_MEDIA", "Unsupported media type", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
 	url, err := h.svc.UpdateProfilePhoto(r.Context(), userID, secureUpload.Filename, bytes.NewReader(secureUpload.Content))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -488,7 +488,7 @@ func (h *AuthHandler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.UpdateUserRole(r.Context(), req.UserID, req.Role)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -524,7 +524,7 @@ func (h *AuthHandler) RegisterCourier(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.RegisterCourier(r.Context(), userID, req.VehicleType, req.VehiclePlate)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -572,13 +572,13 @@ func (h *AuthHandler) UploadCourierDocument(w http.ResponseWriter, r *http.Reque
 
 	secureUpload, err := service.ValidateSecureUpload(service.CourierDocumentUpload, header.Filename, file)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnsupportedMediaType)
+		middleware.WriteError(w, http.StatusUnsupportedMediaType, "ERR_UNSUPPORTED_MEDIA", "Unsupported media type", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
 	url, err := h.svc.UploadCourierDocument(r.Context(), userID, docType, secureUpload.Filename, bytes.NewReader(secureUpload.Content))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -593,7 +593,7 @@ func (h *AuthHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	// Role validation handled by middleware
 	logs, err := h.svc.GetAuditLogs(r.Context(), 50, 0)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -610,7 +610,7 @@ func (h *AuthHandler) GetCourierProfile(w http.ResponseWriter, r *http.Request) 
 
 	profile, err := h.svc.GetCourierProfile(r.Context(), userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Resource not found", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -621,7 +621,7 @@ func (h *AuthHandler) GetCourierProfile(w http.ResponseWriter, r *http.Request) 
 func (h *AuthHandler) ListCouriers(w http.ResponseWriter, r *http.Request) {
 	profiles, err := h.svc.ListCouriers(r.Context(), 50, 0)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -640,7 +640,7 @@ func (h *AuthHandler) VerifyCourier(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.VerifyCourier(r.Context(), req.UserID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -659,7 +659,7 @@ func (h *AuthHandler) SuspendCourier(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.SuspendCourier(r.Context(), req.UserID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -679,7 +679,7 @@ func (h *AuthHandler) AssignCourierZone(w http.ResponseWriter, r *http.Request) 
 
 	err := h.svc.AssignCourierZone(r.Context(), req.UserID, req.ZoneID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -696,7 +696,7 @@ func (h *AuthHandler) Setup2FA(w http.ResponseWriter, r *http.Request) {
 
 	secret, qrURL, err := h.svc.Setup2FA(r.Context(), userID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -724,7 +724,7 @@ func (h *AuthHandler) Verify2FA(w http.ResponseWriter, r *http.Request) {
 
 	err := h.svc.Verify2FA(r.Context(), userID, req.Code)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Authentication required", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -751,7 +751,7 @@ func (h *AuthHandler) Complete2FALogin(w http.ResponseWriter, r *http.Request) {
 	res, err := h.svc.Complete2FALogin(r.Context(), req.UserID, req.Code, req.DeviceID, req.DeviceInfo)
 	if err != nil {
 		h.recordAuthFailure(r, middleware.ScopeCustomer2FAComplete, req.UserID, "invalid_customer_2fa")
-		http.Error(w, err.Error(), http.StatusUnauthorized)
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Authentication required", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 	h.recordAuthSuccess(r, middleware.ScopeCustomer2FAComplete, req.UserID)
@@ -780,7 +780,7 @@ func (h *AuthHandler) CreateAdminUser(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.svc.CreateAdminUser(r.Context(), actorID, req.FullName, req.PhoneNumber, req.Role)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 
@@ -816,7 +816,7 @@ func (h *AuthHandler) VerifyLiveness(w http.ResponseWriter, r *http.Request) {
 
 	success, err := h.svc.VerifyCourierLiveness(r.Context(), userID, req.ImageBase64)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
 

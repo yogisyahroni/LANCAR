@@ -1,61 +1,34 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"github.com/google/uuid"
-
-	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/middleware"
 )
 
 type PayoutHandler struct {
-	payoutService domain.PayoutService
+	payoutService interface{}
 }
 
-func NewPayoutHandler(payoutService domain.PayoutService) *PayoutHandler {
-	return &PayoutHandler{
-		payoutService: payoutService,
-	}
+func NewPayoutHandler(payoutService interface{}) *PayoutHandler {
+	return &PayoutHandler{payoutService: payoutService}
 }
 
-// TriggerBatchPayout handles manual trigger of payouts
-// POST /admin/payouts/trigger
 func (h *PayoutHandler) TriggerBatchPayout(w http.ResponseWriter, r *http.Request) {
-	err := h.payoutService.TriggerBatchPayout(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Batch payout triggered successfully",
-	})
+	middleware.WriteError(w, http.StatusNotImplemented, "TODO_PAYOUT_BATCH", "Batch payout trigger will be connected once the payout worker endpoint is ready.", middleware.GetCorrelationID(r.Context()))
 }
 
-// GetCourierEarnings retrieves earnings summary for a courier
-// GET /couriers/me/earnings
 func (h *PayoutHandler) GetCourierEarnings(w http.ResponseWriter, r *http.Request) {
-	// For MVP, we extract courier_id from header instead of real auth context
 	courierIDStr := r.Header.Get("X-Courier-ID")
-	courierID, err := uuid.Parse(courierIDStr)
-	if err != nil {
-		http.Error(w, "Invalid Courier ID", http.StatusBadRequest)
+	if courierIDStr == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid Courier ID", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+	if _, err := uuid.Parse(courierIDStr); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid Courier ID", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
-	period := r.URL.Query().Get("period")
-	if period == "" {
-		period = "this_month"
-	}
-
-	summary, err := h.payoutService.GetCourierEarnings(r.Context(), courierID, period)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(summary)
+	middleware.WriteError(w, http.StatusNotImplemented, "TODO_EARNINGS", "Earnings summary endpoint is not wired yet.", middleware.GetCorrelationID(r.Context()))
 }

@@ -179,6 +179,7 @@ routes.get('/api/v1/maps/reverse-geocode', (req, res) => controllers.getPublicMa
 routes.get('/track/:token', (req, res) => controllers.getPublicTripShare(req, res));
 routes.get('/api/v1/public/location-requests/:token', (req, res) => controllers.customerOrder.getReceiverLocationRequestPublic(req, res));
 routes.post('/api/v1/public/location-requests/:token', (req, res) => controllers.customerOrder.submitReceiverLocationRequestPublic(req, res));
+routes.post('/api/v1/public/business/api-requests', (req, res) => controllers.businessApiRequest.createBusinessApiRequest(req, res));
 routes.post('/payments/midtrans/notification', (req, res) => controllers.customerOrder.handleMidtransNotification(req, res));
 routes.post('/webhooks/courier-payout-provider', (req, res) => controllers.handleCourierPayoutProviderWebhook(req, res));
 
@@ -188,6 +189,11 @@ routes.get('/admin/courier-safety-events', (req, res) => controllers.listAdminCo
 routes.get('/admin/courier-growth-configs', (req, res) => controllers.listAdminCourierGrowthConfigs(req, res));
 routes.patch('/admin/courier-tier-configs/:id', (req, res) => controllers.updateAdminCourierTierConfig(req, res));
 routes.patch('/admin/courier-incentive-campaigns/:id', (req, res) => controllers.updateAdminCourierIncentive(req, res));
+
+// Business API Requests
+routes.get('/admin/business-api-requests', (req, res) => controllers.businessApiRequest.getBusinessApiRequests(req, res));
+routes.get('/admin/business-api-requests/:id', (req, res) => controllers.businessApiRequest.getBusinessApiRequestById(req, res));
+routes.post('/admin/business-api-requests/:id/:action(approve|reject)', (req, res) => controllers.businessApiRequest.reviewBusinessApiRequest(req, res));
 
 // Admin Dashboard & Stats
 

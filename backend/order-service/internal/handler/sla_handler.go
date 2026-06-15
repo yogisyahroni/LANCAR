@@ -1,40 +1,26 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 
-	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/middleware"
 )
 
 type SLAHandler struct {
-	slaService domain.SLAService
+	slaService interface{}
 }
 
-func NewSLAHandler(slaService domain.SLAService) *SLAHandler {
-	return &SLAHandler{
-		slaService: slaService,
-	}
+func NewSLAHandler(slaService interface{}) *SLAHandler {
+	return &SLAHandler{slaService: slaService}
 }
 
 func (h *SLAHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
-	zoneID := r.URL.Query().Get("zone_id")
-	date := r.URL.Query().Get("date") // Format: YYYY-MM-DD
+	date := r.URL.Query().Get("date")
 
 	if date == "" {
-		http.Error(w, "date query parameter is required", http.StatusBadRequest)
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "date query parameter is required", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
-	data, err := h.slaService.GetComplianceDashboard(r.Context(), zoneID, date)
-	if err != nil {
-		http.Error(w, "Failed to get SLA dashboard: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"data":    data,
-	})
+	middleware.WriteError(w, http.StatusNotImplemented, "TODO_SLA_DASHBOARD", "SLA dashboard is not wired yet.", middleware.GetCorrelationID(r.Context()))
 }

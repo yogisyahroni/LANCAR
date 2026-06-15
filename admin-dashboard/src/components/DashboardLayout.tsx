@@ -173,6 +173,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: Map, label: "Maps Runtime", path: "/maps-runtime", restrictedRoles: ['finance', 'finance_admin'] },
     { icon: Ticket, label: "Vouchers", path: "/vouchers" },
     { icon: BadgePercent, label: "Promos", path: "/promos" },
+    { icon: ShieldAlert, label: "API Requests", path: "/business-api-requests", restrictedRoles: ['cs_agent', 'finance', 'finance_admin'] },
     { icon: Bell, label: "Notifications", path: "/notifications" },
     { icon: Package, label: "Orders", path: "/orders" },
     { icon: Layers, label: "Warehouse Ops", path: "/warehouse-operations" },

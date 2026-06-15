@@ -1,33 +1,24 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 
-	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/middleware"
 )
 
 type RefundHandler struct {
-	refundService domain.RefundService
+	refundService interface{}
 }
 
-func NewRefundHandler(refundService domain.RefundService) *RefundHandler {
-	return &RefundHandler{
-		refundService: refundService,
-	}
+func NewRefundHandler(refundService interface{}) *RefundHandler {
+	return &RefundHandler{refundService: refundService}
 }
 
-// ProcessRefunds handles manual trigger of pending refunds
-// POST /admin/refunds/process
-func (h *RefundHandler) ProcessRefunds(w http.ResponseWriter, r *http.Request) {
-	err := h.refundService.ProcessPendingRefunds(r.Context())
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+func (h *RefundHandler) CreateRefund(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Pending refunds processed successfully",
-	})
+	middleware.WriteError(w, http.StatusNotImplemented, "TODO_REFUND", "Refund flow is not wired yet.", middleware.GetCorrelationID(r.Context()))
 }

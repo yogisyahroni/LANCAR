@@ -23,6 +23,7 @@ import MapsRuntime from './pages/MapsRuntime'
 import AuditLogs from './pages/AuditLogs'
 import FeatureFlags from './pages/FeatureFlags'
 import WarehouseOperations from './pages/WarehouseOperations'
+import BusinessApiRequests from './pages/BusinessApiRequests'
 import DashboardLayout from './components/DashboardLayout'
 
 import { useEffect } from 'react'
@@ -78,6 +79,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Orders />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/business-api-requests" 
+            element={
+              <ProtectedRoute>
+                <BusinessApiRequests />
               </ProtectedRoute>
             } 
           />

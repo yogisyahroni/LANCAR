@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"tembus/order-service/internal/domain"
+	"tembus/order-service/internal/middleware"
 )
 
 type PaymentHandler struct {
@@ -26,19 +27,19 @@ type CreatePaymentRequest struct {
 func (h *PaymentHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 	var req CreatePaymentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid request", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
 	if req.OrderID == "" {
-		http.Error(w, "order_id is required", http.StatusBadRequest)
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "order_id is required", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
 	payment, err := h.paymentService.CreatePayment(r.Context(), req.OrderID)
 	if err != nil {
 		// In a real app we'd map domain errors to HTTP 400/404/500
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
@@ -56,7 +57,7 @@ func (h *PaymentHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "failed to read payload", http.StatusBadRequest)
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Failed to read payload", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 	defer r.Body.Close()
@@ -66,7 +67,7 @@ func (h *PaymentHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	// We'll extract "signature_key" manually from the payload for Midtrans.
 	var data map[string]interface{}
 	if err := json.Unmarshal(payload, &data); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid JSON payload", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
@@ -79,7 +80,7 @@ func (h *PaymentHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.paymentService.HandleWebhook(r.Context(), payload, signature); err != nil {
-		http.Error(w, "invalid webhook request", http.StatusBadRequest)
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid webhook request", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
@@ -90,17 +91,17 @@ func (h *PaymentHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 func (h *PaymentHandler) GetPaymentStatus(w http.ResponseWriter, r *http.Request) {
 	orderID := strings.TrimPrefix(r.URL.Path, "/api/v1/payments/")
 	if orderID == "" {
-		http.Error(w, "missing order id in path", http.StatusBadRequest)
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "missing order id in path", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
 	payment, err := h.paymentService.GetPaymentStatus(r.Context(), orderID)
 	if err != nil {
 		if err == domain.ErrNotFound {
-			http.Error(w, "payment not found", http.StatusNotFound)
+			middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Payment not found", middleware.GetCorrelationID(r.Context()))
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
