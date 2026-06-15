@@ -24,7 +24,10 @@ import {
   Layers,
   ShieldAlert,
   TrendingUp,
-  BadgePercent
+  BadgePercent,
+  Briefcase,
+  FileText,
+  Newspaper
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -185,6 +188,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: DollarSign, label: "Pricing", path: "/pricing" },
     { icon: AlertTriangle, label: "Disputes", path: "/disputes" },
     { icon: Users, label: "Customers", path: "/customers" },
+    { icon: Briefcase, label: "HR - Jobs", path: "/hr/jobs", restrictedRoles: ['cs_agent'] },
+    { icon: FileText, label: "HR - Applicants", path: "/hr/applications", restrictedRoles: ['cs_agent'] },
+    { icon: Newspaper, label: "Berita", path: "/news", restrictedRoles: ['cs_agent'] },
     { icon: DollarSign, label: "Finance", path: "/finance" },
     { icon: BarChart3, label: "Analytics", path: "/analytics" },
     { icon: History, label: "Audit Logs", path: "/audit-logs", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },

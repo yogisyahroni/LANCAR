@@ -37,6 +37,7 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/status", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.UpdateStatus)))
 	mux.HandleFunc("/api/v1/tracking/location", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.UpdateLocation)))
 	mux.HandleFunc("/api/v1/tracking/sync", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.SyncLocations)))
+	mux.HandleFunc("/api/v1/tracking/public", middleware.BaseChain(trackingHandler.GetPublicTracking))
 	mux.HandleFunc("/api/v1/tracking/", middleware.BaseChain(trackingHandler.GetTracking))
 	mux.HandleFunc("/api/v1/notifications/inbox", middleware.BaseChain(middleware.AuthMiddleware(notificationHandler.GetInbox)))
 	mux.HandleFunc("/api/v1/notifications/", middleware.BaseChain(notificationHandler.MarkAsRead))

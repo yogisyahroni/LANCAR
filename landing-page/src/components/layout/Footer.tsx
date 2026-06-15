@@ -89,7 +89,6 @@ export function Footer() {
               links: [
                 { name: "Solusi Logistik", href: "/bisnis/solusi-logistik" },
                 { name: "Integrasi API", href: "/bisnis/integrasi-api" },
-                { name: "Minta Akses API", href: "/developer/keys" },
                 { name: "Enterprise", href: "/bisnis/enterprise" },
                 { name: "Case Study", href: "/bisnis/case-study" }
               ]
@@ -97,19 +96,19 @@ export function Footer() {
             {
               title: "Mitra Kurir",
               links: [
-                { name: "Daftar Mitra", href: appUrl },
-                { name: "Keuntungan", href: appUrl },
-                { name: "Cara Bergabung", href: appUrl },
-                { name: "FAQ Mitra", href: appUrl }
+                { name: "Daftar Mitra", href: "/mitra/daftar" },
+                { name: "Keuntungan", href: "/mitra#keuntungan" },
+                { name: "Cara Bergabung", href: "/mitra#cara-bergabung" },
+                { name: "FAQ Mitra", href: "/mitra#faq" }
               ]
             },
             {
               title: "Perusahaan",
               links: [
-                { name: "Tentang Kami", href: appUrl },
-                { name: "Karir", href: appUrl },
-                { name: "Berita", href: appUrl },
-                { name: "Kontak", href: appUrl }
+                { name: "Tentang Kami", href: "/perusahaan/tentang-kami" },
+                { name: "Karir", href: "/perusahaan/karir" },
+                { name: "Berita", href: "/perusahaan/berita" },
+                { name: "Kontak", href: "/perusahaan/kontak" }
               ]
             }
           ].map((col) => (
@@ -151,9 +150,13 @@ export function Footer() {
             <div className="mt-5">
               <h4 className="text-[11px] font-bold text-white/50 uppercase tracking-wide mb-2">Bantuan</h4>
               <ul className="space-y-2 text-[12px] text-white/65">
-                {["Pusat Bantuan", "Syarat & Ketentuan", "Kebijakan Privasi"].map(link => (
-                  <li key={link}>
-                    <Link href={appUrl} className="transition-all duration-200 hover:text-white">{link}</Link>
+                {[
+                  { name: "Pusat Bantuan", href: "/bantuan/pusat-bantuan" },
+                  { name: "Syarat & Ketentuan", href: "/bantuan/syarat-dan-ketentuan" },
+                  { name: "Kebijakan Privasi", href: "/bantuan/kebijakan-privasi" }
+                ].map(link => (
+                  <li key={link.name}>
+                    <Link href={link.href} className="transition-all duration-200 hover:text-white">{link.name}</Link>
                   </li>
                 ))}
               </ul>
@@ -162,7 +165,7 @@ export function Footer() {
         </div>
 
         <div className="container mt-8 border-t border-white/10 pt-6 text-center text-[11px] text-white/45">
-          © 2024 Tembus. All rights reserved.
+          © 2026 Tembus. All rights reserved.
         </div>
       </footer>
     </>

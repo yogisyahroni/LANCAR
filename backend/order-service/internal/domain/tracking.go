@@ -76,10 +76,28 @@ type TrackingRepository interface {
 	CheckGeofence(ctx context.Context, courierID uuid.UUID, lat, lng float64) (*GeofenceCheckResult, error)
 }
 
+type PublicTrackingEvent struct {
+	Status      OrderStatus `json:"status"`
+	Description string      `json:"description"`
+	Location    string      `json:"location,omitempty"`
+	Timestamp   time.Time   `json:"timestamp"`
+}
+
+type PublicTrackingResponse struct {
+	ResiNumber  string                `json:"resi_number"`
+	Status      OrderStatus           `json:"status"`
+	Model       string                `json:"model"`
+	Origin      string                `json:"origin"`
+	Destination string                `json:"destination"`
+	LiveMap     *GPSLocation          `json:"live_map,omitempty"` // For ondemand
+	Timeline    []PublicTrackingEvent `json:"timeline"`           // Sorted ascending
+}
+
 type TrackingService interface {
 	UpdateLocation(ctx context.Context, req CourierLocationUpdate) error
 	SyncLocations(ctx context.Context, req CourierLocationSyncRequest) error
 	GetTrackingByOrder(ctx context.Context, orderID uuid.UUID) (*TrackingResponse, error)
+	GetPublicTracking(ctx context.Context, resi string) (*PublicTrackingResponse, error)
 	ProcessIdleCouriers(ctx context.Context) error
 }
 

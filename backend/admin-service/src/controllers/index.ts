@@ -60,3 +60,7 @@ export * from './uploads.controller';
 
 // Business API Requests
 export * as businessApiRequest from './businessApiRequest';
+
+// HR Careers
+export * as hr from './hrController';
+export * as news from './newsController';

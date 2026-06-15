@@ -105,3 +105,25 @@ func (h *TrackingHandler) GetTracking(w http.ResponseWriter, r *http.Request) {
 
 	middleware.WriteSuccess(w, http.StatusOK, resp)
 }
+
+func (h *TrackingHandler) GetPublicTracking(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	resi := r.URL.Query().Get("resi")
+	if resi == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_MISSING_RESI", "resi query parameter is required", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	resp, err := h.trackingSvc.GetPublicTracking(r.Context(), resi)
+	if err != nil {
+		// Log error, but return generic not found for security
+		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Tracking not found", middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	middleware.WriteSuccess(w, http.StatusOK, resp)
+}

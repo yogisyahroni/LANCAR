@@ -10,14 +10,18 @@ import (
 )
 
 type TrackingServiceImpl struct {
-	repo     domain.TrackingRepository
-	eventBus domain.EventBus
+	repo       domain.TrackingRepository
+	orderRepo  domain.OrderRepository
+	eventRepo  domain.OrderEventRepository
+	eventBus   domain.EventBus
 }
 
-func NewTrackingService(repo domain.TrackingRepository, eventBus domain.EventBus) domain.TrackingService {
+func NewTrackingService(repo domain.TrackingRepository, orderRepo domain.OrderRepository, eventRepo domain.OrderEventRepository, eventBus domain.EventBus) domain.TrackingService {
 	return &TrackingServiceImpl{
-		repo:     repo,
-		eventBus: eventBus,
+		repo:      repo,
+		orderRepo: orderRepo,
+		eventRepo: eventRepo,
+		eventBus:  eventBus,
 	}
 }
 
@@ -176,4 +180,71 @@ func (s *TrackingServiceImpl) ProcessIdleCouriers(ctx context.Context) error {
 		})
 	}
 	return nil
+}
+
+func (s *TrackingServiceImpl) GetPublicTracking(ctx context.Context, resi string) (*domain.PublicTrackingResponse, error) {
+	// 1. Get order by resi
+	order, err := s.orderRepo.GetByOrderNumber(ctx, resi)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order: %w", err)
+	}
+	if order == nil {
+		return nil, fmt.Errorf("order not found for resi: %s", resi)
+	}
+
+	resp := &domain.PublicTrackingResponse{
+		ResiNumber:  order.OrderNumber,
+		Status:      order.Status,
+		Model:       order.Model,
+		Origin:      order.PickupAddress, // Will mask or just use city in frontend if needed, backend can send full if not PII
+		Destination: order.DropoffAddress,
+		Timeline:    []domain.PublicTrackingEvent{},
+	}
+
+	// 2. Map Events
+	events, err := s.eventRepo.ListEventsByOrderID(ctx, order.ID)
+	if err == nil {
+		for _, e := range events {
+			desc := e.Message
+			if desc == "" {
+				desc = string(e.Status)
+			}
+			resp.Timeline = append(resp.Timeline, domain.PublicTrackingEvent{
+				Status:      e.Status,
+				Description: desc,
+				Timestamp:   e.CreatedAt,
+			})
+		}
+	}
+
+	// 3. Map Scans
+	scans, err := s.orderRepo.GetScansForOrder(ctx, order.ID)
+	if err == nil {
+		for _, sc := range scans {
+			desc := fmt.Sprintf("Scan %s", sc.ScanType)
+			if sc.WarehouseID != nil {
+				desc += fmt.Sprintf(" at Warehouse %s", *sc.WarehouseID)
+			}
+			resp.Timeline = append(resp.Timeline, domain.PublicTrackingEvent{
+				Status:      domain.OrderStatus(sc.ScanType),
+				Description: desc,
+				Timestamp:   sc.RecordedAt,
+			})
+		}
+	}
+
+	// Note: We could sort the timeline by Timestamp ascending here.
+
+	// 4. Live Map for ondemand
+	if order.Model == "instant" || order.Model == "same-day" {
+		courierID, err := s.repo.GetActiveCourierForOrder(ctx, uuid.MustParse(order.ID))
+		if err == nil && courierID != nil {
+			loc, err := s.repo.GetLatestLocation(ctx, *courierID)
+			if err == nil && loc != nil {
+				resp.LiveMap = loc
+			}
+		}
+	}
+
+	return resp, nil
 }

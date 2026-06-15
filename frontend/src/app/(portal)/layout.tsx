@@ -23,7 +23,8 @@ import {
   MapPin,
   Menu,
   ChevronLeft,
-  AlertTriangle
+  AlertTriangle,
+  Key
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';

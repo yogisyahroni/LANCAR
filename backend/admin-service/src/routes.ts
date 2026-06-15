@@ -165,6 +165,14 @@ routes.post('/auth/web/orders/bulk/process', verifyWebSession, (req, res) => con
 routes.post('/auth/web/orders/bulk/pay', verifyWebSession, (req, res) => controllers.bulkOrder.processBulkPayment(req, res));
 
 
+// Public HR Careers routes
+routes.get('/api/v1/public/jobs', (req, res) => controllers.hr.getPublicJobs(req, res));
+routes.post('/api/v1/public/jobs/:id/apply', (req, res) => controllers.hr.applyForJob(req, res));
+
+// Public News routes
+routes.get('/api/v1/public/news', (req, res) => controllers.news.getPublicNews(req, res));
+routes.get('/api/v1/public/news/:slug', (req, res) => controllers.news.getPublicNewsBySlug(req, res));
+
 // Public routes (no auth required)
 routes.get('/health', (req, res) => controllers.getSystemHealth(req, res));
 routes.get('/admin/health', (req, res) => controllers.getSystemHealth(req, res));
@@ -190,10 +198,26 @@ routes.get('/admin/courier-growth-configs', (req, res) => controllers.listAdminC
 routes.patch('/admin/courier-tier-configs/:id', (req, res) => controllers.updateAdminCourierTierConfig(req, res));
 routes.patch('/admin/courier-incentive-campaigns/:id', (req, res) => controllers.updateAdminCourierIncentive(req, res));
 
+// HR Careers Management
+routes.get('/admin/hr/jobs', (req, res) => controllers.hr.getAdminJobs(req, res));
+routes.post('/admin/hr/jobs', (req, res) => controllers.hr.createAdminJob(req, res));
+routes.get('/admin/hr/jobs/:id', (req, res) => controllers.hr.getAdminJobById(req, res));
+routes.put('/admin/hr/jobs/:id', (req, res) => controllers.hr.updateAdminJob(req, res));
+routes.delete('/admin/hr/jobs/:id', (req, res) => controllers.hr.deleteAdminJob(req, res));
+routes.get('/admin/hr/applications', (req, res) => controllers.hr.getAdminApplications(req, res));
+routes.put('/admin/hr/applications/:id/status', (req, res) => controllers.hr.updateAdminApplicationStatus(req, res));
+
+// News Management
+routes.get('/admin/news', (req, res) => controllers.news.getAdminNews(req, res));
+routes.post('/admin/news', ...secureUploadSingle('photo', 'newsImage'), (req, res) => controllers.news.createAdminNews(req, res));
+routes.get('/admin/news/:id', (req, res) => controllers.news.getAdminNewsById(req, res));
+routes.put('/admin/news/:id', ...secureUploadSingle('photo', 'newsImage'), (req, res) => controllers.news.updateAdminNews(req, res));
+routes.delete('/admin/news/:id', (req, res) => controllers.news.deleteAdminNews(req, res));
+
 // Business API Requests
 routes.get('/admin/business-api-requests', (req, res) => controllers.businessApiRequest.getBusinessApiRequests(req, res));
 routes.get('/admin/business-api-requests/:id', (req, res) => controllers.businessApiRequest.getBusinessApiRequestById(req, res));
-routes.post('/admin/business-api-requests/:id/:action(approve|reject)', (req, res) => controllers.businessApiRequest.reviewBusinessApiRequest(req, res));
+routes.post('/admin/business-api-requests/:id/:action', (req, res) => controllers.businessApiRequest.reviewBusinessApiRequest(req, res));
 
 // Admin Dashboard & Stats
 

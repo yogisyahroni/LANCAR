@@ -80,6 +80,7 @@ type OrderService interface {
 type OrderRepository interface {
 	Create(ctx context.Context, order *Order) error
 	GetByID(ctx context.Context, id string) (*Order, error)
+	GetByOrderNumber(ctx context.Context, orderNumber string) (*Order, error)
 	GetByBatchID(ctx context.Context, batchID string) ([]*Order, error)
 	ListByUserID(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, id string, status OrderStatus) error

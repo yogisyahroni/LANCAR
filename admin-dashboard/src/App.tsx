@@ -24,6 +24,9 @@ import AuditLogs from './pages/AuditLogs'
 import FeatureFlags from './pages/FeatureFlags'
 import WarehouseOperations from './pages/WarehouseOperations'
 import BusinessApiRequests from './pages/BusinessApiRequests'
+import HRJobs from './pages/HRJobs'
+import HRApplications from './pages/HRApplications'
+import News from './pages/News'
 import DashboardLayout from './components/DashboardLayout'
 
 import { useEffect } from 'react'
@@ -144,6 +147,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <Customers />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/hr/jobs" 
+            element={
+              <ProtectedRoute>
+                <HRJobs />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/hr/applications" 
+            element={
+              <ProtectedRoute>
+                <HRApplications />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/news" 
+            element={
+              <ProtectedRoute>
+                <News />
               </ProtectedRoute>
             } 
           />

@@ -162,7 +162,7 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 border-dashed border-slate-200 pb-6 gap-6">
           <div>
             <h2 className="text-2xl font-black tracking-tighter text-primary">TEMBUS DELIVERY</h2>
-            <p className="text-xs text-slate-500 font-medium select-none">PT Tembus Transportasi Indonesia</p>
+            <p className="text-xs text-slate-500 font-medium select-none">PT TEMBUS LINTAS TEKNOLOGI</p>
           </div>
           <div className="text-left md:text-right flex flex-col items-start md:items-end select-none">
             <span className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary font-bold rounded-full uppercase shadow-sm select-none">

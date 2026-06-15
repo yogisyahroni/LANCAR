@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { motion } from "framer-motion";
@@ -30,7 +31,6 @@ const codeSnippet = `{
 }`;
 
 export default function IntegrasiApiPage() {
-  const appUrl = "https://app.bawain.my.id";
 
   return (
     <main className="page-shell bg-[#f8fafc]">
@@ -65,12 +65,12 @@ export default function IntegrasiApiPage() {
                 >
                   Baca Dokumentasi API
                 </a>
-                <a
-                  href={`${appUrl}/developer/keys`}
+                <Link
+                  href="/developer/keys"
                   className="inline-flex rounded-lg border border-white/20 bg-white/5 backdrop-blur-sm px-8 py-3.5 text-[15px] font-bold text-white shadow-xl transition-all hover:bg-white/10 active:scale-95"
                 >
                   Dapatkan API Key
-                </a>
+                </Link>
               </div>
             </motion.div>
 

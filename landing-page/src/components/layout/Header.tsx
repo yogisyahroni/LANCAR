@@ -12,7 +12,7 @@ export const navItems = [
   { label: "Layanan", href: "/#layanan" },
   { label: "Untuk Bisnis", href: "/#kolaborasi" },
   { label: "Mitra Kurir", href: "/#kolaborasi" },
-  { label: "Tentang Kami", href: "/#tentang" },
+  { label: "Tentang Kami", href: "/perusahaan/tentang-kami" },
   { label: "Bantuan", href: "/#bantuan" }
 ];
 

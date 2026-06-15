@@ -21,8 +21,10 @@ import {
   Truck,
   Users,
   WalletCards,
-  Zap
+  Zap,
+  Search
 } from "lucide-react";
+import PublicTrackingWidget from "@/components/ui/PublicTrackingWidget";
 import { motion } from "framer-motion";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -237,9 +239,9 @@ export default function LandingPage() {
           })}
         </div>
         <div className="mt-6 text-center">
-          <a href={`${appUrl}/orders/new`} className="cta-primary px-6 py-2.5 text-sm">
+          <Link href="/layanan" className="cta-primary px-6 py-2.5 text-sm">
             Lihat Semua Layanan <ArrowRight className="h-4 w-4" />
-          </a>
+          </Link>
         </div>
       </section>
 
@@ -259,48 +261,8 @@ export default function LandingPage() {
           </div>
         </motion.div>
 
-        <motion.div {...fadeUp(0.08)} className="dark-panel rounded-xl p-7 xl:p-9 flex flex-col md:flex-row gap-8 items-center">
-          <div className="flex-1">
-            <h2 className="text-2xl font-black leading-tight">Lacak Paket Anda<br/>Secara Real-Time</h2>
-            <p className="mt-3 text-sm leading-6 text-white/74">
-              Masukkan nomor resi untuk melacak<br/>status pengiriman paket Anda.
-            </p>
-            <form action={trackingUrl} className="mt-6 flex flex-col gap-2.5 sm:flex-row">
-              <label className="sr-only" htmlFor="tracking-number">Nomor resi</label>
-              <input
-                id="tracking-number"
-                name="resi"
-                type="text"
-                inputMode="text"
-                autoComplete="off"
-                placeholder="Masukkan No. Resi"
-                className="min-h-[46px] flex-1 rounded-lg border border-white/12 bg-white px-4 text-sm font-semibold text-[#071712] outline-none transition-all duration-200 placeholder:text-[#ccc] focus:border-[#7bc043] focus:ring-4 focus:ring-[#7bc043]/25"
-              />
-              <button type="submit" className="min-h-[46px] shrink-0 rounded-lg bg-[#448045] px-6 text-sm font-bold text-white transition-all duration-200 hover:brightness-110 active:scale-95">
-                Lacak
-              </button>
-            </form>
-            <p className="mt-2 text-[11px] text-white/60">Contoh No. Resi: TBX1234567890</p>
-          </div>
-
-          <div className="w-full md:w-auto md:border-l md:border-white/10 md:pl-8 space-y-5">
-            {timeline.map((item, index) => (
-              <div key={item} className="flex items-start gap-4">
-                <span className="relative flex shrink-0 items-center justify-center mt-0.5">
-                  {index < timeline.length - 1 && (
-                    <span className="absolute left-1/2 top-6 bottom-[-20px] w-0 -translate-x-1/2 border-l-2 border-dashed border-[#ffb47d]/40" />
-                  )}
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#ffb47d]/30 bg-[#153423]">
-                    <MapPin className="h-3.5 w-3.5 text-[#ffb47d]" />
-                  </span>
-                </span>
-                <div>
-                  <strong className="block text-[13px] font-bold">{item}</strong>
-                  <span className="text-[11px] text-white/60">20 Mei 2024, {10 + index * 2}:{index === 1 ? '30' : index === 2 ? '15' : '00'}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+        <motion.div {...fadeUp(0.08)} className="dark-panel rounded-xl p-7 xl:p-9">
+          <PublicTrackingWidget />
         </motion.div>
       </section>
 
@@ -340,7 +302,7 @@ export default function LandingPage() {
               </div>
               <div className="mt-8">
                 <a
-                  href={`${appUrl}/login`}
+                  href="/mitra/daftar"
                   className="inline-flex rounded-md bg-[#072a20] px-5 py-2.5 text-sm font-bold !text-white shadow-md transition-all duration-200 hover:brightness-110 active:scale-95"
                 >
                   Daftar Sekarang
@@ -377,7 +339,7 @@ export default function LandingPage() {
               </div>
               <div className="mt-8">
                 <a
-                  href={`${appUrl}/login`}
+                  href="/bisnis/enterprise"
                   className="inline-flex rounded-md bg-[#072a20] px-5 py-2.5 text-sm font-bold !text-white shadow-md transition-all duration-200 hover:brightness-110 active:scale-95"
                 >
                   Pelajari Solusi

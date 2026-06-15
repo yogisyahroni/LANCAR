@@ -172,6 +172,34 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 	return o, nil
 }
 
+func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string) (*domain.Order, error) {
+	query := `SELECT 
+				id, order_number, customer_id, model, status, 
+				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
+				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
+				length, width, height, weight,
+				distance_km, base_price_idr, volumetric_surcharge_idr, 
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, created_at, updated_at
+			  FROM orders WHERE order_number = $1`
+
+	o := &domain.Order{}
+	err := r.readDB.QueryRowContext(ctx, query, orderNumber).Scan(
+		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
+		&o.PickupLat, &o.PickupLng, &o.PickupAddress,
+		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+		&o.Length, &o.Width, &o.Height, &o.Weight,
+		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
+		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CreatedAt, &o.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return o, nil
+}
+
 func (r *postgresRepo) GetByBatchID(ctx context.Context, batchID string) ([]*domain.Order, error) {
 	query := `
 		SELECT
