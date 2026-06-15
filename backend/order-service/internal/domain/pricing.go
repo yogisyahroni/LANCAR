@@ -81,8 +81,20 @@ type PricingRepository interface {
 	CheckCoverage(ctx context.Context, lat, lng float64) (bool, error)
 }
 
+type Waypoint struct {
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
+}
+
+type OptimizedRouteResult struct {
+	DistanceKM       float64
+	DurationMin      float64
+	OptimizedIndices []int
+}
+
 type MapsRepository interface {
 	GetDistanceMatrix(ctx context.Context, originLat, originLng, destLat, destLng float64) (distanceKM float64, durationMin float64, originAddr, destAddr string, err error)
+	OptimizeWaypoints(ctx context.Context, origin Waypoint, waypoints []Waypoint, dest Waypoint) (*OptimizedRouteResult, error)
 }
 
 type RedisRepository interface {

@@ -26,6 +26,10 @@ type tomTomRouteResponse struct {
 			TrafficDelaySecond float64 `json:"trafficDelayInSeconds"`
 		} `json:"summary"`
 	} `json:"routes"`
+	OptimizedWaypoints []struct {
+		ProvidedIndex  int `json:"providedIndex"`
+		OptimizedIndex int `json:"optimizedIndex"`
+	} `json:"optimizedWaypoints"`
 }
 
 func NewMapsRepository(apiKey string) (domain.MapsRepository, error) {
@@ -107,4 +111,82 @@ func (r *mapsRepo) GetDistanceMatrix(ctx context.Context, originLat, originLng, 
 	destAddr := fmt.Sprintf("%.6f, %.6f", destLat, destLng)
 
 	return distKM, durMin, originAddr, destAddr, nil
+}
+
+func (r *mapsRepo) OptimizeWaypoints(ctx context.Context, origin domain.Waypoint, waypoints []domain.Waypoint, dest domain.Waypoint) (*domain.OptimizedRouteResult, error) {
+	if len(waypoints) == 0 {
+		return nil, fmt.Errorf("no waypoints provided")
+	}
+
+	var coords []string
+	coords = append(coords, fmt.Sprintf("%.6f,%.6f", origin.Lat, origin.Lng))
+	for _, wp := range waypoints {
+		coords = append(coords, fmt.Sprintf("%.6f,%.6f", wp.Lat, wp.Lng))
+	}
+	coords = append(coords, fmt.Sprintf("%.6f,%.6f", dest.Lat, dest.Lng))
+
+	coordinates := strings.Join(coords, ":")
+	endpoint := fmt.Sprintf("%s/calculateRoute/%s/json", r.baseURL, coordinates)
+	requestURL, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("tomtom route endpoint invalid: %w", err)
+	}
+
+	query := requestURL.Query()
+	query.Set("key", r.apiKey)
+	query.Set("traffic", "true")
+	query.Set("travelMode", "car")
+	query.Set("routeRepresentation", "summaryOnly")
+	query.Set("computeBestOrder", "true")
+	requestURL.RawQuery = query.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("tomtom optimize request invalid: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "TEMBUS-OrderService/1.0")
+
+	resp, err := r.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("tomtom optimize request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("tomtom optimize api error: status %d", resp.StatusCode)
+	}
+
+	var payload tomTomRouteResponse
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return nil, fmt.Errorf("tomtom optimize response invalid: %w", err)
+	}
+	if len(payload.Routes) == 0 {
+		return nil, fmt.Errorf("tomtom optimize returned no routes")
+	}
+
+	summary := payload.Routes[0].Summary
+	distKM := summary.LengthInMeters / 1000.0
+	durMin := summary.TravelTimeSeconds / 60.0
+
+	var optimizedIndices []int
+	if len(payload.OptimizedWaypoints) > 0 {
+		optimizedIndices = make([]int, len(payload.OptimizedWaypoints))
+		for _, ow := range payload.OptimizedWaypoints {
+			if ow.OptimizedIndex >= 0 && ow.OptimizedIndex < len(optimizedIndices) {
+				optimizedIndices[ow.OptimizedIndex] = ow.ProvidedIndex
+			}
+		}
+	} else {
+		// Fallback if no optimization happened (e.g. only 1 waypoint)
+		for i := 0; i < len(waypoints); i++ {
+			optimizedIndices = append(optimizedIndices, i)
+		}
+	}
+
+	return &domain.OptimizedRouteResult{
+		DistanceKM:       distKM,
+		DurationMin:      durMin,
+		OptimizedIndices: optimizedIndices,
+	}, nil
 }
