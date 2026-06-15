@@ -1,3 +1,4 @@
+-- +goose Up
 -- database/migrations/20260616000001_business_api_requests.sql
 
 CREATE TABLE IF NOT EXISTS business_api_requests (
@@ -20,3 +21,9 @@ CREATE TABLE IF NOT EXISTS business_api_requests (
 CREATE INDEX IF NOT EXISTS idx_business_api_requests_status ON business_api_requests(status);
 CREATE INDEX IF NOT EXISTS idx_business_api_requests_created_at ON business_api_requests(created_at);
 CREATE INDEX IF NOT EXISTS idx_business_api_requests_contact_email ON business_api_requests(contact_email);
+
+-- +goose Down
+DROP INDEX IF EXISTS idx_business_api_requests_contact_email;
+DROP INDEX IF EXISTS idx_business_api_requests_created_at;
+DROP INDEX IF EXISTS idx_business_api_requests_status;
+DROP TABLE IF EXISTS business_api_requests;
