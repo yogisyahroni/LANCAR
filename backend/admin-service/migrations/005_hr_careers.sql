@@ -1,8 +1,6 @@
+-- +goose Up
 -- Migration: HR Careers
 -- This migration creates tables for Job Postings and Job Applications.
--- Date: 2024-06-15
-
-BEGIN;
 
 CREATE TABLE IF NOT EXISTS job_postings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -37,4 +35,6 @@ CREATE TABLE IF NOT EXISTS job_applications (
     CONSTRAINT fk_app_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id)
 );
 
-COMMIT;
+-- +goose Down
+DROP TABLE IF EXISTS job_applications;
+DROP TABLE IF EXISTS job_postings;

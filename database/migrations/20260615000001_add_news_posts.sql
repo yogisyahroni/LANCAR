@@ -1,3 +1,4 @@
+-- +goose Up
 CREATE TABLE IF NOT EXISTS news_posts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title VARCHAR(255) NOT NULL,
@@ -14,3 +15,9 @@ CREATE TABLE IF NOT EXISTS news_posts (
 CREATE INDEX IF NOT EXISTS idx_news_posts_status ON news_posts(status);
 CREATE INDEX IF NOT EXISTS idx_news_posts_slug ON news_posts(slug);
 CREATE INDEX IF NOT EXISTS idx_news_posts_published_at ON news_posts(published_at);
+
+-- +goose Down
+DROP INDEX IF EXISTS idx_news_posts_published_at;
+DROP INDEX IF EXISTS idx_news_posts_slug;
+DROP INDEX IF EXISTS idx_news_posts_status;
+DROP TABLE IF EXISTS news_posts;
