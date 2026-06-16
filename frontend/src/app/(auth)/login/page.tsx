@@ -229,9 +229,7 @@ export default function LoginPage() {
       >
         <div className="bg-card/40 backdrop-blur-xl border border-border/40 rounded-2xl p-8 shadow-2xl relative z-10">
           <div className="flex flex-col items-center mb-6">
-            <div className="h-12 w-12 bg-primary/20 rounded-xl flex items-center justify-center mb-4">
-              <Package className="h-6 w-6 text-primary" />
-            </div>
+            <img src="/tembusweb.svg" alt="Tembus Logo" className="h-12 object-contain mb-4 drop-shadow-md" />
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Welcome to TEMBUS</h1>
             <p className="text-sm text-muted-foreground mt-2 text-center">
               Sign in to manage your logistics and deliveries

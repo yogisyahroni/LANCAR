@@ -339,14 +339,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               animate={{ opacity: 1 }}
               className="flex items-center gap-3"
             >
-              <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/20">
-                <Package className="h-6 w-6 text-white" />
-              </div>
-              <span className="font-bold text-2xl tracking-tight">TEM<span className="text-primary-light">BUS</span></span>
+              <img src="/tembusweb.svg" alt="Tembus" className="h-10 object-contain drop-shadow-md" />
             </motion.div>
           ) : (
-            <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center mx-auto shadow-lg shadow-primary/20">
-              <Package className="h-6 w-6 text-white" />
+            <div className="h-10 w-10 overflow-hidden flex items-center justify-center mx-auto">
+              <img src="/tembusweb.svg" alt="Tembus" className="h-10 w-auto max-w-none object-cover object-left drop-shadow-md -ml-3" />
             </div>
           )}
         </div>
@@ -406,10 +403,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 bg-primary rounded-xl flex items-center justify-center">
-                    <Package className="h-6 w-6 text-white" />
-                  </div>
-                  <span className="font-bold text-2xl tracking-tight">TEM<span className="text-primary-light">BUS</span></span>
+                  <img src="/tembusweb.svg" alt="Tembus" className="h-10 object-contain drop-shadow-md" />
                 </div>
                 <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-muted-foreground hover:bg-muted rounded-xl transition-all">
                   <X size={24} />
