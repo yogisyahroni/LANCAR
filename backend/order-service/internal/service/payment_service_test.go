@@ -54,6 +54,12 @@ func (m *mockOrderRepo) GetByID(ctx context.Context, id string) (*domain.Order, 
 	}
 	return nil, domain.ErrNotFound
 }
+func (m *mockOrderRepo) GetByOrderNumber(ctx context.Context, orderNumber string) (*domain.Order, error) {
+	if m.order != nil && m.order.OrderNumber == orderNumber {
+		return m.order, nil
+	}
+	return nil, domain.ErrNotFound
+}
 func (m *mockOrderRepo) ListByUserID(ctx context.Context, userID string, filter map[string]interface{}) ([]*domain.Order, error) {
 	return nil, nil
 }
