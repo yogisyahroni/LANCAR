@@ -248,9 +248,11 @@ function RouteSnapshotPanel({ order, tracking }: { order: Order; tracking: Track
           </span>
         </div>
       </div>
-      <div className="relative h-36 overflow-hidden rounded-2xl border border-white/10 bg-background/45">
-        <div className={`absolute inset-0 bg-[radial-gradient(circle_at_18%_28%,${isCancelled ? 'rgba(239,68,68,0.18)' : 'rgba(16,185,129,0.18)'},transparent_28%),radial-gradient(circle_at_80%_68%,rgba(249,115,22,0.14),transparent_26%)]`} />
-        <svg viewBox="0 0 400 160" className="absolute inset-0 h-full w-full" role="img" aria-label="Polyline rute order">
+      <div className="relative h-36 overflow-hidden rounded-2xl border border-white/10 bg-zinc-950">
+        {/* Professional Map Grid Pattern */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff0a_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0a_1px,transparent_1px)] bg-[size:20px_20px]" />
+        <div className={`absolute inset-0 bg-[radial-gradient(circle_at_18%_28%,${isCancelled ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.18)'},transparent_28%),radial-gradient(circle_at_80%_68%,rgba(249,115,22,0.14),transparent_26%)]`} />
+        <svg viewBox="0 0 400 160" className="absolute inset-0 h-full w-full opacity-90" role="img" aria-label="Polyline rute order">
           <path
             d={svgPath}
             fill="none"
@@ -712,19 +714,27 @@ export default function OrderDetailPage() {
             </div>
 
             {/* Premium Dynamic/Interactive Visual Map View or High Quality Simulated view */}
-            <div className="flex-1 bg-gradient-to-br from-indigo-950/20 via-background to-blue-950/20 p-6 flex flex-col justify-center items-center space-y-4 select-none relative">
-              <Navigation className="h-10 w-10 text-primary/50" />
-              <div className="text-center space-y-1">
-                <h4 className="font-bold text-white tracking-tight">Peta Pengiriman</h4>
+            <div className="flex-1 bg-zinc-950 p-6 flex flex-col justify-center items-center space-y-4 select-none relative overflow-hidden">
+              {/* Map Grid Pattern */}
+              <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:24px_24px]" />
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/30 via-transparent to-blue-950/30" />
+              
+              <Navigation className="h-10 w-10 text-primary/50 relative z-10" />
+              <div className="text-center space-y-1 relative z-10">
+                <h4 className="font-bold text-white tracking-tight">
+                  {order.status.toLowerCase() === 'cancelled' ? 'Peta Pengiriman (Dibatalkan)' : 'Peta Pengiriman'}
+                </h4>
                 <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-                  {tracking?.location
-                    ? `Update terakhir ${formatTrackingTime(tracking.location.timestamp)}`
-                    : trackingError || 'Lokasi kurir otomatis muncul setelah pekerjaan diterima dan tracking aktif.'}
+                  {order.status.toLowerCase() === 'cancelled' 
+                    ? 'Pesanan dibatalkan. Tracking dihentikan.'
+                    : tracking?.location
+                      ? `Update terakhir ${formatTrackingTime(tracking.location.timestamp)}`
+                      : trackingError || 'Lokasi kurir otomatis muncul setelah pekerjaan diterima dan tracking aktif.'}
                 </p>
               </div>
 
-              <div className="w-full max-w-xs bg-background/60 p-4 border border-white/10 rounded-xl space-y-3.5">
-                {tracking?.location && (
+              <div className="w-full max-w-xs bg-black/40 backdrop-blur-md p-4 border border-white/10 rounded-xl space-y-3.5 relative z-10">
+                {tracking?.location && order.status.toLowerCase() !== 'cancelled' && (
                   <>
                     <div className="flex items-start gap-3">
                       <Truck className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -738,7 +748,7 @@ export default function OrderDetailPage() {
                     <div className="h-8 border-l-2 border-dashed border-white/10 ml-2.5" />
                   </>
                 )}
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 opacity-90">
                   <MapPin className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Pickup Point</p>
@@ -747,8 +757,8 @@ export default function OrderDetailPage() {
                     </p>
                   </div>
                 </div>
-                <div className="h-8 border-l-2 border-dashed border-white/10 ml-2.5" />
-                <div className="flex items-start gap-3">
+                <div className="h-8 border-l-2 border-dashed border-white/10 ml-2.5 opacity-90" />
+                <div className="flex items-start gap-3 opacity-90">
                   <MapPin className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Destination Point</p>
@@ -758,7 +768,7 @@ export default function OrderDetailPage() {
                   </div>
                 </div>
               </div>
-              {tracking?.location && (
+              {tracking?.location && order.status.toLowerCase() !== 'cancelled' && (
                 <a
                   href={`https://www.google.com/maps?q=${tracking.location.latitude},${tracking.location.longitude}`}
                   target="_blank"
