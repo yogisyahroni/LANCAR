@@ -529,10 +529,8 @@ export default function OrderDetailPage() {
   };
 
   const handleDownloadResi = () => {
-    addNotification({ title: 'Proses', message: 'Mempersiapkan unduhan resi PDF...', type: 'info' });
-    setTimeout(() => {
-      addNotification({ title: 'Selesai', message: 'Resi berhasil diunduh.', type: 'success' });
-    }, 1200);
+    if (!id) return;
+    window.open(`/resi/${id}`, '_blank');
   };
 
   const handleCreatePublicTrackingLink = async () => {
@@ -676,20 +674,24 @@ export default function OrderDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleCreatePublicTrackingLink}
-            disabled={sharingTracking || !order.courier_name}
-            className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 disabled:opacity-50 disabled:hover:bg-primary/10 border border-primary/20 text-primary rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2"
-          >
-            {sharingTracking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-            Bagikan Tracking
-          </button>
-          <button
-            onClick={handleDownloadResi}
-            className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" /> Unduh Resi
-          </button>
+          {order.status.toLowerCase() !== 'cancelled' && (
+            <>
+              <button
+                onClick={handleCreatePublicTrackingLink}
+                disabled={sharingTracking || !order.courier_name}
+                className="px-4 py-2.5 bg-primary/10 hover:bg-primary/20 disabled:opacity-50 disabled:hover:bg-primary/10 border border-primary/20 text-primary rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2"
+              >
+                {sharingTracking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+                Bagikan Tracking
+              </button>
+              <button
+                onClick={handleDownloadResi}
+                className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" /> Unduh Resi
+              </button>
+            </>
+          )}
           <button
             onClick={handleReportIssue}
             className="px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2"
