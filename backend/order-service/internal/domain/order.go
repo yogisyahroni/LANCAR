@@ -40,6 +40,7 @@ type Order struct {
 	Width                  float64     `json:"width,omitempty"`
 	Height                 float64     `json:"height,omitempty"`
 	Weight                 float64     `json:"weight,omitempty"`
+	ItemDescription        string      `json:"item_description,omitempty"`
 	DistanceKM             float64     `json:"distance_km"`
 	BasePriceIDR           int64       `json:"base_price_idr"`
 	VolumetricSurchargeIDR int64       `json:"volumetric_surcharge_idr"`
@@ -56,7 +57,8 @@ type Order struct {
 }
 
 type CreateOrderRequest struct {
-	EstimateID string `json:"estimate_id" validate:"required"`
+	EstimateID      string `json:"estimate_id" validate:"required"`
+	ItemDescription string `json:"item_description" validate:"required,min=5"`
 }
 
 type OrderService interface {

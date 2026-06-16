@@ -9,10 +9,17 @@ ALTER TABLE courier_profiles
   ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS reviewed_by UUID REFERENCES users(id);
 
-ALTER TABLE courier_documents
-  DROP CONSTRAINT IF EXISTS courier_documents_doc_type_check,
-  ADD CONSTRAINT courier_documents_doc_type_check
-    CHECK (doc_type IN ('ktp','sim','stnk','skpd','selfie','skck','vehicle_photo','bank_account'));
+-- +goose StatementBegin
+DO $$ 
+BEGIN
+  -- try dropping and adding constraint
+  ALTER TABLE courier_documents DROP CONSTRAINT IF EXISTS courier_documents_doc_type_check;
+  ALTER TABLE courier_documents ADD CONSTRAINT courier_documents_doc_type_check CHECK (doc_type IN ('ktp','sim','stnk','skpd','selfie','skck','vehicle_photo','bank_account'));
+EXCEPTION
+  WHEN undefined_column THEN
+    RAISE NOTICE 'Column doc_type does not exist, skipping constraint update';
+END $$;
+-- +goose StatementEnd
 
 CREATE INDEX IF NOT EXISTS idx_courier_profiles_application_review
   ON courier_profiles(application_channel, verification_status, created_at DESC);

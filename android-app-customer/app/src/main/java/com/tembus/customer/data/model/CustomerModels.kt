@@ -326,3 +326,28 @@ data class PaymentResponse(
     @SerialName("payment_url") val paymentUrl: String? = null,
     @SerialName("status") val status: String
 )
+
+@Serializable
+data class CreateDisputeRequest(
+    @SerialName("order_id") val orderId: String,
+    @SerialName("type") val type: String,
+    @SerialName("description") val description: String,
+    @SerialName("evidence_urls") val evidenceUrls: List<String>? = null,
+    @SerialName("is_customer") val isCustomer: Boolean = true
+)
+
+@Serializable
+data class UploadResponse(
+    @SerialName("success") val success: Boolean,
+    @SerialName("url") val url: String? = null,
+    @SerialName("error") val error: String? = null
+)
+
+@Serializable
+data class CustomerDisputeResponse(
+    @SerialName("id") val id: String,
+    @SerialName("order_id") val orderId: String,
+    @SerialName("type") val type: String,
+    @SerialName("status") val status: String,
+    @SerialName("created_at") val createdAt: String
+)

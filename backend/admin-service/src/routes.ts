@@ -140,6 +140,12 @@ routes.post('/api/v1/customer/orders/:id/payment', requireMobileOrWebAuth, requi
 routes.get('/api/v1/customer/orders/:id/payment/status', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getCustomerOrderPaymentStatus(req, res));
 routes.post('/api/v1/customer/orders/:id/payment/check', requireMobileOrWebAuth, requireIdempotencyKey('customer.payment.confirm'), (req, res) => controllers.customerOrder.confirmCustomerOrderPayment(req, res));
 routes.get('/api/v1/customer/orders/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrder(req, res));
+routes.post('/api/v1/customer/orders/:id/upload', requireMobileOrWebAuth, ...secureUploadSingle('file', 'customerAttachment'), (req, res) => controllers.customerOrder.uploadOrderFile(req, res));
+routes.get('/api/v1/customer/disputes', requireMobileOrWebAuth, (req, res) => controllers.getCustomerDisputes(req, res));
+routes.post('/api/v1/customer/disputes', requireMobileOrWebAuth, (req, res) => controllers.createDispute(req, res));
+routes.get('/api/v1/customer/disputes/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.getDisputeChats(req, res));
+routes.post('/api/v1/customer/disputes/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.sendDisputeChat(req, res));
+routes.post('/api/v1/customer/disputes/:id/upload', requireMobileOrWebAuth, ...secureUploadSingle('file', 'customerAttachment'), (req, res) => controllers.uploadDisputeFile(req, res));
 routes.get('/api/v1/customer/addresses', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.listCustomerAddresses(req, res));
 routes.post('/api/v1/customer/addresses', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.createCustomerAddress(req, res));
 routes.patch('/api/v1/customer/addresses/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.updateCustomerAddress(req, res));

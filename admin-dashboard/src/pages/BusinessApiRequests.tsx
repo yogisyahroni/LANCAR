@@ -64,7 +64,8 @@ export default function BusinessApiRequests() {
   useEffect(() => {
     // Attempting to connect to the backend
     // Assumes proxy is setup to forward `/socket.io` to the admin service
-    const socket = io('/', { path: '/socket.io', transports: ['websocket', 'polling'] });
+    const socketUrl = import.meta.env.VITE_SOCKET_URL || '/';
+    const socket = io(socketUrl, { path: '/socket.io', transports: ['websocket', 'polling'] });
     
     socket.on('new_api_request', (data) => {
       toast.info(`Permintaan API baru dari ${data.company_name} (${data.contact_email})`);

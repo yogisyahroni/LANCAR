@@ -251,4 +251,17 @@ interface TEMBUSApiService {
     suspend fun registerDeviceToken(
         @Body request: RegisterTokenRequest
     ): Response<Unit>
+
+    // Dispute Endpoints
+    @Multipart
+    @POST("api/v1/customer/orders/{id}/upload")
+    suspend fun uploadDisputeEvidence(
+        @Path("id") orderId: String,
+        @Part file: okhttp3.MultipartBody.Part
+    ): Response<UploadResponse>
+
+    @POST("api/v1/customer/disputes")
+    suspend fun createCustomerDispute(
+        @Body request: CreateDisputeRequest
+    ): Response<CustomerDisputeResponse>
 }

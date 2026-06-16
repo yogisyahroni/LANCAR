@@ -1149,12 +1149,13 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         route_polyline,
         route_fallback_reason,
         recipient_phone_hash,
+        item_description,
         created_at
       ) VALUES (
         $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
         $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
         $11, $12, $13, 'pending_payment', $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-        $31, $32, $33, $34, $35, $36, $37, $38, $39, NOW()
+        $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, NOW()
       ) RETURNING id, order_number, total_price_idr, loyalty_discount_idr, route_snapshot
     `;
 
@@ -1197,7 +1198,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       trustedRouteSnapshot.duration_seconds,
       trustedRouteSnapshot.route_polyline,
       trustedRouteSnapshot.fallback_reason,
-      hashPhoneForPrivateLookup(recipient_phone)
+      hashPhoneForPrivateLookup(recipient_phone),
+      package_details?.item_description || ''
     ];
 
     const result = await client.query(insertQuery, values);

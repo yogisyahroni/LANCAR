@@ -52,6 +52,7 @@ export const createOrderSchema = (config?: RuntimeConfig | null) => z.object({
   recipient_phone: z.string().min(10, "Nomor HP tidak valid"),
   package_details: z.object({
     category: z.string().min(1, "Pilih kategori paket"),
+    item_description: z.string().min(5, "Deskripsi barang minimal 5 karakter"),
     weight_kg: z.preprocess(
       (val) => (val === "" || val === null || val === undefined) ? undefined : Number(val),
       z.number({ message: "Berat wajib diisi" }).min(0.1, "Berat minimal 0.1 kg")
@@ -1452,6 +1453,17 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
                 placeholder="Isi kategori sesuai barang sebenarnya"
               />
               {errors.package_details?.category && <p className="mt-1 text-xs text-destructive">{errors.package_details.category.message}</p>}
+            </div>
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-sm font-medium text-muted-foreground">Detail Barang</label>
+              <textarea
+                {...register("package_details.item_description")}
+                data-testid="package-item-description-input"
+                className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 px-4 py-3 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                placeholder="Contoh: Dokumen Kependudukan, Kamera DSLR Hitam"
+                rows={2}
+              />
+              {errors.package_details?.item_description && <p className="mt-1 text-xs text-destructive">{errors.package_details.item_description.message}</p>}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Berat Aktual (kg)</label>

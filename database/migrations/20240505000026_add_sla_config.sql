@@ -16,7 +16,8 @@ VALUES ('sla_config', '{
       { "stage": "Relay Processing", "target": "10m", "critical": "20m" },
       { "stage": "Final Leg Delivery", "target": "30m", "critical": "45m" }
     ]
-}', 'logistics', 'System-wide SLA thresholds');
+}', 'logistics', 'System-wide SLA thresholds')
+ON CONFLICT (key) DO NOTHING;
 
 -- +goose Down
 DELETE FROM system_configs WHERE key = 'sla_config';

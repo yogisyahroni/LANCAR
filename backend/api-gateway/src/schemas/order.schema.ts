@@ -17,6 +17,7 @@ export const PricingEstimateSchema = z.object({
 export const CreateOrderSchema = z.object({
   body: z.object({
     estimate_id: z.string().uuid().or(z.string().min(10)), // flexible for our generated IDs
+    item_description: z.string().min(5),
   }),
 });
 

@@ -11,6 +11,7 @@ import { clientLog } from '@/lib/clientLogger';
 import { ArrowLeft, MapPin, Truck, Calendar, Phone, CheckCircle2, MessageSquare, Download, AlertTriangle, Send, Loader2, Sparkles, Navigation, Image as ImageIcon, X, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { DisputeModal } from '@/components/orders/DisputeModal';
 
 interface Event {
   id: string;
@@ -281,6 +282,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<Order | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [proofs, setProofs] = useState<TrackingProof[]>([]);
+  const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
   const [tracking, setTracking] = useState<TrackingData | null>(null);
   const [trackingError, setTrackingError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -545,23 +547,8 @@ export default function OrderDetailPage() {
     }
   };
 
-  const handleReportIssue = async () => {
-    const reason = window.prompt('Jelaskan masalah yang Anda hadapi (misal: barang rusak, terlambat, dll):');
-    if (!reason) return;
-
-    try {
-      const res = await api.post('/auth/web/disputes', {
-        order_id: id,
-        category: 'Customer Report',
-        description: reason
-      });
-      if (res.data && res.data.success) {
-        addNotification({ title: 'Terkirim', message: 'Laporan Anda telah kami terima dan akan segera diproses.', type: 'success' });
-      }
-    } catch (error) {
-      clientLog.error('Failed to report customer order issue', { error, orderId: id });
-      addNotification({ title: 'Gagal', message: 'Terjadi kesalahan saat mengirim laporan.', type: 'error' });
-    }
+  const handleReportIssue = () => {
+    setIsDisputeModalOpen(true);
   };
 
 
@@ -1131,6 +1118,15 @@ export default function OrderDetailPage() {
           </motion.button>
         )}
       </AnimatePresence>
+
+      <DisputeModal
+        isOpen={isDisputeModalOpen}
+        onClose={() => setIsDisputeModalOpen(false)}
+        orderId={id as string}
+        onSuccess={() => {
+          addNotification({ title: 'Terkirim', message: 'Laporan Anda telah kami terima dan akan segera diproses.', type: 'success' });
+        }}
+      />
     </div>
   );
 }

@@ -96,6 +96,7 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		Width:                  estimate.Width,
 		Height:                 estimate.Height,
 		Weight:                 estimate.Weight,
+		ItemDescription:        req.ItemDescription,
 		DistanceKM:             estimate.DistanceKM,
 		BasePriceIDR:           estimate.BasePriceIDR,
 		VolumetricSurchargeIDR: estimate.VolumetricSurchargeIDR,

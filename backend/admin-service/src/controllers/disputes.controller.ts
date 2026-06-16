@@ -159,6 +159,14 @@ export const createDispute = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Order ID, category, and description are required' });
   }
 
+  // Validate Lost Item Evidence
+  const isLostItem = category.toLowerCase().includes('hilang') || category.toLowerCase().includes('lost');
+  if (isLostItem && (!evidence_urls || evidence_urls.length === 0)) {
+    return res.status(400).json({ 
+      error: 'Klaim Barang Hilang memerlukan bukti berupa foto Invoice/Struk pembelian atau foto fisik barang sebelum dikirim.' 
+    });
+  }
+
   try {
     const query = `
       INSERT INTO disputes (order_id, opened_by, category, description, evidence_urls, status)

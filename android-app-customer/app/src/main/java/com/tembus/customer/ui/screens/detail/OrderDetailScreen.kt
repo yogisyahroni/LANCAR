@@ -14,6 +14,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,9 +38,30 @@ fun OrderDetailScreen(
     onChatClick: (String, String?) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    val disputeState by viewModel.disputeState.collectAsState()
+    val context = LocalContext.current
+    var showDisputeDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(disputeState) {
+        if (disputeState is DisputeSubmitState.Success) {
+            Toast.makeText(context, "Laporan berhasil dikirim. Tim kami akan segera meninjau.", Toast.LENGTH_LONG).show()
+            showDisputeDialog = false
+            viewModel.resetDisputeState()
+        }
+    }
 
     LaunchedEffect(orderId) {
         viewModel.fetchOrderDetail(orderId)
+    }
+
+    if (showDisputeDialog) {
+        DisputeDialog(
+            onDismiss = { showDisputeDialog = false },
+            onSubmit = { type, desc, bytes, mime ->
+                viewModel.submitDispute(orderId, type, desc, bytes, mime)
+            },
+            submitState = disputeState
+        )
     }
 
     Scaffold(
@@ -174,6 +197,18 @@ fun OrderDetailScreen(
                                     }
                                 }
                             }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+
+                        // Tombol Bantuan / Komplain
+                        TextButton(
+                            onClick = { showDisputeDialog = true },
+                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                        ) {
+                            Icon(Icons.Default.ReportProblem, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Laporkan Masalah / Barang Hilang", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
