@@ -229,16 +229,18 @@ function RouteSnapshotPanel({ order, tracking }: { order: Order; tracking: Track
   const svgPath = buildSvgRoute(routePoints);
   const hasProviderFallback = !routePolyline || Boolean(snapshot?.fallback_reason);
 
+  const isCancelled = order.status.toLowerCase() === 'cancelled';
+
   return (
-    <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.06] p-4 shadow-sm">
+    <div className={`rounded-2xl border ${isCancelled ? 'border-red-500/15 bg-red-500/[0.06]' : 'border-emerald-500/15 bg-emerald-500/[0.06]'} p-4 shadow-sm`}>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">Route snapshot</p>
-          <h3 className="mt-1 text-base font-bold tracking-tight text-white">Rute pengiriman</h3>
+          <p className={`text-xs font-bold uppercase tracking-wider ${isCancelled ? 'text-red-400' : 'text-emerald-300'}`}>Route snapshot</p>
+          <h3 className="mt-1 text-base font-bold tracking-tight text-white">{isCancelled ? 'Rute dibatalkan' : 'Rute pengiriman'}</h3>
           <p className="mt-1 text-sm text-muted-foreground">{distanceLabel} • {etaLabel}</p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+          <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${isCancelled ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-300'}`}>
             {provider}
           </span>
           <span className="rounded-full bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -247,18 +249,18 @@ function RouteSnapshotPanel({ order, tracking }: { order: Order; tracking: Track
         </div>
       </div>
       <div className="relative h-36 overflow-hidden rounded-2xl border border-white/10 bg-background/45">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_28%,rgba(16,185,129,0.18),transparent_28%),radial-gradient(circle_at_80%_68%,rgba(249,115,22,0.14),transparent_26%)]" />
+        <div className={`absolute inset-0 bg-[radial-gradient(circle_at_18%_28%,${isCancelled ? 'rgba(239,68,68,0.18)' : 'rgba(16,185,129,0.18)'},transparent_28%),radial-gradient(circle_at_80%_68%,rgba(249,115,22,0.14),transparent_26%)]`} />
         <svg viewBox="0 0 400 160" className="absolute inset-0 h-full w-full" role="img" aria-label="Polyline rute order">
           <path
             d={svgPath}
             fill="none"
-            stroke={routePoints.length >= 2 ? "#10b981" : "#64748b"}
+            stroke={routePoints.length >= 2 ? (isCancelled ? "#ef4444" : "#10b981") : "#64748b"}
             strokeDasharray={routePoints.length >= 2 ? "0" : "8 8"}
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth="6"
           />
-          <circle cx="28" cy={routePoints.length >= 2 ? "112" : "112"} r="10" fill="#10b981" />
+          <circle cx="28" cy={routePoints.length >= 2 ? "112" : "112"} r="10" fill={isCancelled ? "#ef4444" : "#10b981"} />
           <circle cx="372" cy={routePoints.length >= 2 ? "96" : "96"} r="10" fill="#f97316" />
         </svg>
       </div>
@@ -770,7 +772,12 @@ export default function OrderDetailPage() {
 
             {/* Premium Courier Info Overlay Card */}
             <div className="p-4 bg-background/90 backdrop-blur-md border-t border-white/10 flex items-center justify-between gap-4">
-              {order.courier_name ? (
+              {order.status.toLowerCase() === 'cancelled' ? (
+                <div className="flex items-center gap-3 text-red-500">
+                  <AlertTriangle className="h-5 w-5" />
+                  <p className="text-sm font-medium">Pesanan telah dibatalkan.</p>
+                </div>
+              ) : order.courier_name ? (
                 <>
                   <div className="flex items-center gap-3">
                     <div className="h-11 w-11 rounded-full bg-primary/20 border border-primary/20 flex items-center justify-center font-bold text-primary select-none text-base">
