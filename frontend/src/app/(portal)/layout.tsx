@@ -499,7 +499,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-80 glass-card rounded-2xl p-4 flex flex-col max-h-[380px] z-50 select-none"
+                      className="absolute right-0 mt-2 w-80 bg-white dark:bg-zinc-900 border border-black/10 dark:border-white/10 shadow-2xl rounded-2xl p-4 flex flex-col max-h-[380px] z-50 select-none"
                     >
                       <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-2 mb-2">
                         <span className="text-xs font-semibold text-foreground">Notifications</span>
@@ -600,7 +600,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-48 glass-card rounded-2xl p-2 flex flex-col z-50 select-none"
+                      className="absolute right-0 mt-2 w-48 bg-white dark:bg-zinc-900 border border-black/10 dark:border-white/10 shadow-2xl rounded-2xl p-2 flex flex-col z-50 select-none"
                     >
                       <Link
                         href="/profil"
