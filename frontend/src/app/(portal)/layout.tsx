@@ -439,7 +439,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative">
         {/* Topbar */}
-        <header className="h-20 border-b border-black/5 dark:border-white/5 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-20 transition-colors duration-300">
+        <header className="h-20 border-b border-black/5 dark:border-white/5 bg-white/50 dark:bg-zinc-950/50 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-50 transition-colors duration-300">
           <div className="flex items-center gap-4 flex-1">
             <button 
               className="lg:hidden p-2.5 text-zinc-500 dark:text-zinc-400 hover:text-foreground hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all"
@@ -493,13 +493,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <AnimatePresence>
                 {isNotifOpen && (
                   <>
-                    <div className="fixed inset-0 z-30" onClick={() => setIsNotifOpen(false)} />
+                    <div className="fixed inset-0 z-40" onClick={() => setIsNotifOpen(false)} />
                     <motion.div
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-80 glass-card rounded-2xl p-4 flex flex-col max-h-[380px] z-40 select-none"
+                      className="absolute right-0 mt-2 w-80 glass-card rounded-2xl p-4 flex flex-col max-h-[380px] z-50 select-none"
                     >
                       <div className="flex items-center justify-between border-b border-black/10 dark:border-white/10 pb-2 mb-2">
                         <span className="text-xs font-semibold text-foreground">Notifications</span>
@@ -594,13 +594,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <AnimatePresence>
                 {isUserOpen && (
                   <>
-                    <div className="fixed inset-0 z-30" onClick={() => setIsUserOpen(false)} />
+                    <div className="fixed inset-0 z-40" onClick={() => setIsUserOpen(false)} />
                     <motion.div
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-48 glass-card rounded-2xl p-2 flex flex-col z-40 select-none"
+                      className="absolute right-0 mt-2 w-48 glass-card rounded-2xl p-2 flex flex-col z-50 select-none"
                     >
                       <Link
                         href="/profil"
