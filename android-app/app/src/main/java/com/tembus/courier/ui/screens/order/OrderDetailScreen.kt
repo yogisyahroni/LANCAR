@@ -69,6 +69,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
 import java.io.File
 import java.io.FileOutputStream
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.draw.clip
 
 private val LogisticsOrange = Color(0xFFFF6D00)
 private val DeepForest = Color(0xFF0A2F20)
@@ -1512,6 +1515,19 @@ private fun OrderInfoCard(order: Order) {
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(16.dp))
+            
+            if (!order.itemImageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = order.itemImageUrl,
+                    contentDescription = "Foto Paket",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             InfoRow(label = "Order ID", value = order.orderId)
             InfoRow(label = "Pelanggan", value = order.customerName)

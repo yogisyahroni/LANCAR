@@ -175,6 +175,10 @@ data class Order(
     @SerialName("item_description")
     val itemDescription: String? = null,
 
+    @ColumnInfo(name = "item_image_url")
+    @SerialName("item_image_url")
+    val itemImageUrl: String? = null,
+
     @ColumnInfo(name = "model")
     @SerialName("model")
     val model: String = "P2P",
@@ -186,7 +190,6 @@ data class Order(
     @ColumnInfo(name = "workflow_role")
     @SerialName("workflow_role")
     val workflowRole: String = "on_demand",
-
     @ColumnInfo(name = "dispatch_id")
     @SerialName("dispatch_id")
     val dispatchId: String? = null,

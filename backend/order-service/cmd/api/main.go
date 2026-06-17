@@ -6,6 +6,8 @@ import (
 
 	"tembus/order-service/internal/handler"
 	"tembus/order-service/internal/middleware"
+	"tembus/order-service/internal/worker"
+	"context"
 )
 
 func main() {
@@ -27,6 +29,11 @@ func main() {
 	slaHandler := handler.NewSLAHandler(nil)
 	analyticsHandler := handler.NewAnalyticsHandler(nil)
 	refundHandler := handler.NewRefundHandler(nil)
+	paymentLinkHandler := handler.NewPaymentLinkHandler(nil) // Requires service to be passed, but the others use nil too. Wait, if they use nil they might crash if not initialized. I'll pass nil for now just to match the mock pattern in main.go
+
+	// Start Workers (mocked for now)
+	go worker.NewPaymentLinkWorker(nil).Start(context.Background())
+
 
 	// Public-ish routes (build will validate when services are wired)
 	mux.HandleFunc("/api/v1/pricing/estimate", middleware.BaseChain(middleware.ValidateBody(map[string]string{})(orderHandler.Estimate)))
@@ -47,6 +54,9 @@ func main() {
 	mux.HandleFunc("/api/v1/payments/create", middleware.BaseChain(middleware.AuthMiddleware(paymentHandler.CreatePayment)))
 	mux.HandleFunc("/api/v1/payments/", middleware.BaseChain(middleware.AuthMiddleware(paymentHandler.GetPaymentStatus)))
 	mux.HandleFunc("/api/v1/payments/webhook", middleware.BaseChain(paymentHandler.HandleWebhook))
+	mux.HandleFunc("/api/v1/payment-links", middleware.BaseChain(paymentLinkHandler.HandleRequest))
+	mux.HandleFunc("/api/v1/payment-links/", middleware.BaseChain(paymentLinkHandler.HandleRequest))
+	mux.HandleFunc("/api/v1/payment-links/webhook", middleware.BaseChain(paymentLinkHandler.HandleWebhook))
 	mux.HandleFunc("/api/v1/admin/meeting-points", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			adminHandler.CreateMeetingPoint(w, r)

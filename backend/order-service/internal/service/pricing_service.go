@@ -129,17 +129,23 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 
 	// 7. Apply Platform Fee (Biaya Layanan Operasional)
 	//
-	// Ini adalah biaya tetap per order yang menutup biaya operasional platform:
-	//   - OTP WhatsApp (Rp 550/pesan via Zenziva)
-	//   - Overhead lainnya (notifikasi, monitoring, dll.)
+	// Hybrid Platform Fee (Angka Flat + Persentase)
+	// Untuk menutupi fixed cost (Infra/OTP) dan variable cost (Payment Gateway %).
 	//
-	// Fee dikonfigurasi via Admin > System Config (key: "platform_fee_idr").
-	// Default Rp 1.000 per order.
+	// Fee dikonfigurasi via Admin > System Config:
+	// - "platform_fee_idr" (Default Rp 1.500)
+	// - "platform_fee_pct" (Default 0.015 atau 1.5%)
 	//
-	// Diterapkan SETELAH surge multiplier (flat fee, tidak dikalikan surge).
+	// Diterapkan SETELAH surge multiplier.
 	// Tidak ditampilkan sebagai line-item terpisah ke customer —
 	// sudah tercakup dalam TotalPriceIDR sebagai bagian dari harga layanan.
-	platformFee := int64(s.configRepo.GetFloatConfig(ctx, "platform_fee_idr", 1000.0))
+	fixedPlatformFee := s.configRepo.GetFloatConfig(ctx, "platform_fee_idr", 1500.0)
+	pctPlatformFeeRate := s.configRepo.GetFloatConfig(ctx, "platform_fee_pct", 0.015)
+	
+	// Percentage portion based on the priceAfterSurge
+	variablePlatformFee := float64(priceAfterSurge) * pctPlatformFeeRate
+	
+	platformFee := int64(fixedPlatformFee + variablePlatformFee)
 	totalPrice := priceAfterSurge + platformFee
 
 	// 8. Create Response
@@ -190,4 +196,10 @@ func (s *pricingServiceImpl) UpdateConfig(ctx context.Context, config *domain.Pr
 
 func (s *pricingServiceImpl) SimulatePrice(ctx context.Context, req *domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
 	return s.Estimate(ctx, *req)
+}
+
+func (s *pricingServiceImpl) CalculateMerchantFee(ctx context.Context, itemPrice int64) int64 {
+	// e.g. "merchant_transaction_fee_pct" defaulting to 0.025 (2.5%)
+	feePct := s.configRepo.GetFloatConfig(ctx, "merchant_transaction_fee_pct", 0.025)
+	return int64(float64(itemPrice) * feePct)
 }

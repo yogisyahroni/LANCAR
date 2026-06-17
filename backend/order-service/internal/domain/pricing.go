@@ -61,6 +61,7 @@ type PricingService interface {
 	GetConfig(ctx context.Context) (*PricingConfig, error)
 	UpdateConfig(ctx context.Context, config *PricingConfig) error
 	SimulatePrice(ctx context.Context, req *PricingEstimateRequest) (*PricingEstimateResponse, error)
+	CalculateMerchantFee(ctx context.Context, itemPrice int64) int64
 }
 
 type DeliveryServiceProduct struct {

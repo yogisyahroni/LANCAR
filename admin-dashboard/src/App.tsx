@@ -27,6 +27,7 @@ import BusinessApiRequests from './pages/BusinessApiRequests'
 import HRJobs from './pages/HRJobs'
 import HRApplications from './pages/HRApplications'
 import News from './pages/News'
+import PaymentLinks from './pages/PaymentLinks'
 import DashboardLayout from './components/DashboardLayout'
 
 import { useEffect } from 'react'
@@ -187,6 +188,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Finance />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/payment-links" 
+            element={
+              <ProtectedRoute>
+                <PaymentLinks />
               </ProtectedRoute>
             } 
           />

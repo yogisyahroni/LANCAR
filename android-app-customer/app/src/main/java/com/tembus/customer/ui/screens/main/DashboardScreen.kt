@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Card
@@ -111,6 +112,7 @@ fun DashboardScreen(
     onTrackingClick: (String) -> Unit = {},
     onChatClick: (String) -> Unit = {},
     onHistoryClick: () -> Unit = {},
+    onBusinessClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
 ) {
     val customerName by viewModel.customerName.collectAsState()
@@ -147,6 +149,13 @@ fun DashboardScreen(
                     label = { Text("Riwayat") },
                     selected = false,
                     onClick = onHistoryClick,
+                    colors = tembusNavigationColors()
+                )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Store, contentDescription = "Bisnis") },
+                    label = { Text("Bisnis") },
+                    selected = false,
+                    onClick = onBusinessClick,
                     colors = tembusNavigationColors()
                 )
                 NavigationBarItem(

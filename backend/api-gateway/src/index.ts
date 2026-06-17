@@ -605,6 +605,35 @@ app.use(createProxyMiddleware({
   }
 }));
 
+// Payment Links Service
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/payment-links',
+  target: ORDER_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('payment_links', req, ORDER_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) {
+        orderBreaker.fire(null);
+      }
+    },
+    error: (err: Error, req: any, res: any) => {
+      orderBreaker.fire(null);
+      logProxyError('payment_links', ORDER_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({
+          status: 'error',
+          code: 'ERR_BAD_GATEWAY',
+          message: 'Payment link service is currently unavailable',
+        });
+      }
+    }
+  }
+}));
+
 // Tracking Service (Order & Courier tracking)
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/tracking',

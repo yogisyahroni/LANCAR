@@ -56,8 +56,21 @@ type PaymentGatewayResponse struct {
 	QRCodeString      string
 }
 
+type SnapRequest struct {
+	OrderID     string
+	AmountIDR   int
+	ItemName    string
+	CustomerName string
+}
+
+type SnapResponse struct {
+	Token       string
+	RedirectURL string
+}
+
 type PaymentGateway interface {
 	GenerateQRIS(ctx context.Context, req PaymentGatewayRequest) (PaymentGatewayResponse, error)
+	GenerateSnap(ctx context.Context, req SnapRequest) (SnapResponse, error)
 	VerifyWebhookSignature(ctx context.Context, payload []byte, signature string) error
 }
 

@@ -27,7 +27,8 @@ import {
   BadgePercent,
   Briefcase,
   FileText,
-  Newspaper
+  Newspaper,
+  Link as LinkIcon
 } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -178,6 +179,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: BadgePercent, label: "Promos", path: "/promos" },
     { icon: ShieldAlert, label: "API Requests", path: "/business-api-requests", restrictedRoles: ['cs_agent', 'finance', 'finance_admin'] },
     { icon: Bell, label: "Notifications", path: "/notifications" },
+    { icon: LinkIcon, label: "Payment Links", path: "/payment-links", restrictedRoles: ['cs_agent'] },
     { icon: Package, label: "Orders", path: "/orders" },
     { icon: Layers, label: "Warehouse Ops", path: "/warehouse-operations" },
     { icon: Truck, label: "Couriers", path: "/couriers" },

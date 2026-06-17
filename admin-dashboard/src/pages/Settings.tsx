@@ -987,6 +987,21 @@ export default function Settings() {
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       />
                     </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest group relative">
+                        Platform Fee (%)
+                        <div className="absolute bottom-full mb-2 hidden group-hover:block w-48 p-2 bg-zinc-800 text-[10px] text-zinc-300 rounded-lg shadow-xl z-10 normal-case tracking-normal">
+                          Persentase dari total ongkos (Format desimal. Cth: 0.015 = 1.5%) untuk menutupi potongan Payment Gateway.
+                        </div>
+                      </label>
+                      <input 
+                        type="number" 
+                        step="0.001"
+                        defaultValue={getConfig('platform_fee_pct', 0.015)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'platform_fee_pct', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
                   </div>
                 </div>
 

@@ -264,4 +264,11 @@ interface TEMBUSApiService {
     suspend fun createCustomerDispute(
         @Body request: CreateDisputeRequest
     ): Response<CustomerDisputeResponse>
+
+    // Payment Link Endpoints
+    @POST("api/v1/payment-links")
+    suspend fun createPaymentLink(
+        @Header("X-User-ID") merchantId: String,
+        @Body request: Map<String, @JvmSuppressWildcards Any>
+    ): Response<com.tembus.customer.data.model.ApiResponse<com.tembus.customer.ui.screens.business.PaymentLinkResponse>>
 }

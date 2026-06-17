@@ -36,6 +36,13 @@ func (g *MidtransGateway) coreAPIURL() string {
 	return "https://api.sandbox.midtrans.com/v2/charge"
 }
 
+func (g *MidtransGateway) snapAPIURL() string {
+	if g.config.IsProd {
+		return "https://app.midtrans.com/snap/v1/transactions"
+	}
+	return "https://app.sandbox.midtrans.com/snap/v1/transactions"
+}
+
 type midtransChargeAction struct {
 	Name   string `json:"name"`
 	URL    string `json:"url"`
@@ -113,6 +120,70 @@ func (g *MidtransGateway) GenerateQRIS(ctx context.Context, req domain.PaymentGa
 		ProviderReference: data.TransactionID,
 		QRCodeURL:         qrCodeURL,
 		QRCodeString:      "",
+	}, nil
+}
+
+func (g *MidtransGateway) GenerateSnap(ctx context.Context, req domain.SnapRequest) (domain.SnapResponse, error) {
+	if g.config.ServerKey == "" {
+		return domain.SnapResponse{}, fmt.Errorf("MIDTRANS_SERVER_KEY is not configured")
+	}
+	if req.AmountIDR <= 0 {
+		return domain.SnapResponse{}, fmt.Errorf("payment amount must be greater than zero")
+	}
+
+	payload := map[string]any{
+		"transaction_details": map[string]any{
+			"order_id":     req.OrderID,
+			"gross_amount": req.AmountIDR,
+		},
+		"item_details": []map[string]any{
+			{
+				"id":       "ITEM-1",
+				"price":    req.AmountIDR,
+				"quantity": 1,
+				"name":     req.ItemName,
+			},
+		},
+		"customer_details": map[string]any{
+			"first_name": req.CustomerName,
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return domain.SnapResponse{}, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, g.snapAPIURL(), bytes.NewReader(body))
+	if err != nil {
+		return domain.SnapResponse{}, err
+	}
+	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(g.config.ServerKey+":")))
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return domain.SnapResponse{}, fmt.Errorf("midtrans snap request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return domain.SnapResponse{}, fmt.Errorf("failed to parse midtrans snap response: %w", err)
+	}
+	
+	token, _ := data["token"].(string)
+	redirectURL, _ := data["redirect_url"].(string)
+	
+	if token == "" {
+		errorMsg, _ := data["error_messages"].([]interface{})
+		return domain.SnapResponse{}, fmt.Errorf("midtrans snap rejected payment: %v", errorMsg)
+	}
+
+	return domain.SnapResponse{
+		Token:       token,
+		RedirectURL: redirectURL,
 	}, nil
 }
 

@@ -211,6 +211,9 @@ fun RootNavGraph(
                 onHistoryClick = {
                     navController.navigate(Screen.History.route)
                 },
+                onBusinessClick = {
+                    navController.navigate(Screen.Business.route)
+                },
                 onProfileClick = {
                     navController.navigate(Screen.Profile.route)
                 }
@@ -259,6 +262,12 @@ fun RootNavGraph(
                 onOrderClick = { orderId ->
                     navController.navigate(Screen.OrderDetail.createRoute(orderId))
                 }
+            )
+        }
+
+        composable(Screen.Business.route) {
+            com.tembus.customer.ui.screens.business.BusinessScreen(
+                onBackClick = { navController.popBackStack() }
             )
         }
 
