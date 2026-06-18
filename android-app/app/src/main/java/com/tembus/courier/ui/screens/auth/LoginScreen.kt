@@ -104,22 +104,9 @@ fun LoginScreen(
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 48.dp),
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 48.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Text(
-                        text = "Masuk Operasional",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "Gunakan kredensial mitra kurir yang terdaftar.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
 
                     // Username field
                     OutlinedTextField(
