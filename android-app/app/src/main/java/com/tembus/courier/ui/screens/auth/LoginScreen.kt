@@ -79,39 +79,15 @@ fun LoginScreen(
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(PrimaryDark)
+        modifier = Modifier.fillMaxSize()
     ) {
-        // Background Image anchored to Top with fixed max height
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.65f) // Limit height to top 65% of screen
-                .align(Alignment.TopCenter)
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.bg_courier_login),
-                contentDescription = "Background Courier Login",
-                contentScale = ContentScale.Crop, // Use Crop to fill the container
-                alignment = Alignment.TopCenter, // Anchor to top, crop the bottom
-                modifier = Modifier.fillMaxSize()
-            )
-            // Gradient fade out to blend with PrimaryDark background
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Transparent,
-                                PrimaryDark
-                            )
-                        )
-                    )
-            )
-        }
+        // Background Image
+        Image(
+            painter = painterResource(id = R.drawable.bg_courier_login),
+            contentDescription = "Background Courier Login",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
 
         Column(
             modifier = Modifier.fillMaxSize(),
