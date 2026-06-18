@@ -111,6 +111,16 @@ interface TEMBUSApiService {
         @Part file: MultipartBody.Part
     ): Response<ApiResponse<CourierDocumentUploadData>>
 
+    @POST("api/v1/auth/password-reset/request")
+    suspend fun requestPasswordReset(
+        @Body request: com.tembus.courier.data.model.ForgotPasswordRequest
+    ): Response<ApiResponse<Boolean>>
+
+    @POST("api/v1/auth/password-reset/confirm")
+    suspend fun confirmPasswordReset(
+        @Body request: com.tembus.courier.data.model.ConfirmPasswordResetRequest
+    ): Response<ApiResponse<Boolean>>
+
     /**
      * Get current courier profile
      */

@@ -247,7 +247,8 @@ func main() {
 	}
 
 	repo := repository.NewPostgresRepository(db, readDB)
-	svc := service.NewAuthService(repo, repo, repo, repo, repo, livenessSvc, storageSvc)
+	emailSvc := service.NewEmailService()
+	svc := service.NewAuthService(repo, repo, repo, repo, repo, livenessSvc, storageSvc, emailSvc)
 	authAbuseProtector := middleware.NewAuthAbuseProtector(rdb)
 	h := handler.NewAuthHandler(svc, authAbuseProtector)
 	s3PresignHandler := handler.NewS3PresignHandler(storageSvc)

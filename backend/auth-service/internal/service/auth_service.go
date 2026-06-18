@@ -29,13 +29,14 @@ type AuthService struct {
 	auditRepo       domain.AuditRepository
 	livenessService LivenessService
 	storageService  StorageService
+	emailService    EmailService
 }
 
 const customerAuthOTPRequiredFlag = "customer_auth_otp_required"
 
 var authTracer = otel.Tracer("tembus/auth-service")
 
-func NewAuthService(u domain.UserRepository, a domain.AuthRepository, s domain.SessionRepository, c domain.CourierRepository, au domain.AuditRepository, l LivenessService, st StorageService) *AuthService {
+func NewAuthService(u domain.UserRepository, a domain.AuthRepository, s domain.SessionRepository, c domain.CourierRepository, au domain.AuditRepository, l LivenessService, st StorageService, e EmailService) *AuthService {
 	return &AuthService{
 		userRepo:        u,
 		authRepo:        a,
@@ -44,6 +45,7 @@ func NewAuthService(u domain.UserRepository, a domain.AuthRepository, s domain.S
 		auditRepo:       au,
 		livenessService: l,
 		storageService:  st,
+		emailService:    e,
 	}
 }
 
@@ -164,11 +166,11 @@ func (s *AuthService) RequestCustomerPasswordReset(ctx context.Context, email st
 	}
 
 	user, err := s.userRepo.GetByPhoneNumber(ctx, email)
-	if err != nil || user == nil || user.ID == "" || user.Role != domain.RoleCustomer ||
+	if err != nil || user == nil || user.ID == "" || (user.Role != domain.RoleCustomer && user.Role != domain.RoleCourier) ||
 		user.Status != domain.StatusActive || user.PasswordHash == nil {
 		result = "identifier_not_eligible"
 		fmt.Printf(
-			"{\"event\":\"customer_password_reset_requested\",\"recipient_hash\":\"%s\",\"eligible\":false}\n",
+			"{\"event\":\"password_reset_requested\",\"recipient_hash\":\"%s\",\"eligible\":false}\n",
 			hashSensitiveIdentifier(email),
 		)
 		return nil
@@ -195,10 +197,11 @@ func (s *AuthService) RequestCustomerPasswordReset(ctx context.Context, email st
 		return err
 	}
 
-	fmt.Printf(
-		"{\"event\":\"customer_password_reset_otp_issued\",\"recipient_hash\":\"%s\",\"expires_in_seconds\":300}\n",
-		hashSensitiveIdentifier(email),
-	)
+	if err := s.emailService.SendPasswordResetOTP(email, code); err != nil {
+		result = "email_send_failed"
+		failed = true
+		return err
+	}
 
 	result = "reset_otp_issued"
 	return nil
@@ -237,7 +240,7 @@ func (s *AuthService) ConfirmCustomerPasswordReset(ctx context.Context, email, c
 	}
 
 	user, err := s.userRepo.GetByPhoneNumber(ctx, email)
-	if err != nil || user == nil || user.ID == "" || user.Role != domain.RoleCustomer ||
+	if err != nil || user == nil || user.ID == "" || (user.Role != domain.RoleCustomer && user.Role != domain.RoleCourier) ||
 		user.Status != domain.StatusActive || user.PasswordHash == nil {
 		result = "identifier_not_eligible"
 		failed = true

@@ -63,11 +63,17 @@ fun LoginScreen(
     SecureScreenEffect()
 
     var showRegistration by remember { mutableStateOf(false) }
+    var showForgotPassword by remember { mutableStateOf(false) }
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
 
     if (showRegistration) {
         CourierRegistrationScreen(onBack = { showRegistration = false })
+        return
+    }
+
+    if (showForgotPassword) {
+        ForgotPasswordScreen(onBack = { showForgotPassword = false })
         return
     }
 
@@ -363,12 +369,23 @@ fun LoginScreen(
                         }
                     }
 
-                    TextButton(
-                        onClick = { showRegistration = true },
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text("Daftar sebagai mitra kurir")
+                        TextButton(
+                            onClick = { showForgotPassword = true },
+                            colors = ButtonDefaults.textButtonColors(contentColor = Color.White.copy(alpha = 0.8f))
+                        ) {
+                            Text("Lupa Password?", style = MaterialTheme.typography.bodySmall)
+                        }
+
+                        TextButton(
+                            onClick = { showRegistration = true },
+                            colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
+                        ) {
+                            Text("Daftar Mitra Kurir", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
