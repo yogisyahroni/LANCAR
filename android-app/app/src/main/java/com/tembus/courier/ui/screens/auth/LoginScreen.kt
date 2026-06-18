@@ -110,12 +110,13 @@ fun LoginScreen(
                     Text(
                         text = "Masuk Operasional",
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
                     Text(
                         text = "Gunakan kredensial mitra kurir yang terdaftar.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = Color.White.copy(alpha = 0.8f)
                     )
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -139,7 +140,17 @@ fun LoginScreen(
                         ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                            focusedBorderColor = Color.White,
+                            unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                            focusedLabelColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedTextColor = Color.White,
+                            unfocusedLeadingIconColor = Color.White.copy(alpha = 0.7f),
+                            focusedLeadingIconColor = Color.White
+                        )
                     )
 
                     // Password field
@@ -187,7 +198,19 @@ fun LoginScreen(
                         ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                            focusedBorderColor = Color.White,
+                            unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                            focusedLabelColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedTextColor = Color.White,
+                            unfocusedLeadingIconColor = Color.White.copy(alpha = 0.7f),
+                            focusedLeadingIconColor = Color.White,
+                            unfocusedTrailingIconColor = Color.White.copy(alpha = 0.7f),
+                            focusedTrailingIconColor = Color.White
+                        )
                     )
 
                     AnimatedVisibility(
@@ -218,12 +241,12 @@ fun LoginScreen(
                                             text = "Verifikasi perangkat baru",
                                             style = MaterialTheme.typography.titleSmall,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            color = Color.White
                                         )
                                         Text(
                                             text = "Masukkan OTP 6 digit. Setelah berhasil, perangkat ini tidak perlu OTP lagi.",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = Color.White.copy(alpha = 0.8f)
                                         )
                                     }
                                 }
@@ -247,7 +270,17 @@ fun LoginScreen(
                                     ),
                                     singleLine = true,
                                     modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(14.dp)
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                                        focusedBorderColor = Color.White,
+                                        unfocusedLabelColor = Color.White.copy(alpha = 0.7f),
+                                        focusedLabelColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedTextColor = Color.White,
+                                        unfocusedLeadingIconColor = Color.White.copy(alpha = 0.7f),
+                                        focusedLeadingIconColor = Color.White
+                                    )
                                 )
 
                                 TextButton(
@@ -255,7 +288,8 @@ fun LoginScreen(
                                         focusManager.clearFocus()
                                         viewModel.cancelOtpChallenge()
                                     },
-                                    modifier = Modifier.align(Alignment.End)
+                                    modifier = Modifier.align(Alignment.End),
+                                    colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -327,7 +361,8 @@ fun LoginScreen(
 
                     TextButton(
                         onClick = { showRegistration = true },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
                     ) {
                         Text("Daftar sebagai mitra kurir")
                     }
@@ -337,7 +372,7 @@ fun LoginScreen(
                     Text(
                         text = "v${BuildConfig.VERSION_NAME} - TEMBUS Mitra Kurir",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        color = Color.White.copy(alpha = 0.6f),
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center
                     )
