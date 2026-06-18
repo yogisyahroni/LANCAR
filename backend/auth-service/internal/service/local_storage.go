@@ -61,3 +61,7 @@ func (s *LocalStorage) Delete(ctx context.Context, fileID string) error {
 func (s *LocalStorage) GetURL(ctx context.Context, fileID string) (string, error) {
 	return fmt.Sprintf("%s/%s", s.baseURL, filepath.Base(fileID)), nil
 }
+
+func (s *LocalStorage) GeneratePresignedURL(ctx context.Context, key string, contentType string, expiryMinutes int) (string, error) {
+	return "", fmt.Errorf("local storage does not support presigned URLs")
+}

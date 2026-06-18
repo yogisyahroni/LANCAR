@@ -15,6 +15,7 @@ interface PaymentLink {
   delivery_fee_amount: number;
   service_code?: string;
   order_id?: string;
+  store_name?: string;
   created_at: string;
 }
 
@@ -96,6 +97,12 @@ export default async function PaymentLinkPage({ params }: { params: { id: string
               />
             </div>
             <div className="flex flex-col justify-center">
+              {link.store_name && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold mb-1 uppercase tracking-wider">
+                  <Package className="w-3.5 h-3.5" />
+                  {link.store_name}
+                </div>
+              )}
               <h3 className="text-xl font-bold text-white line-clamp-2">{link.item_name}</h3>
               <p className="text-primary font-semibold mt-1">{formatPrice(link.item_price)}</p>
             </div>

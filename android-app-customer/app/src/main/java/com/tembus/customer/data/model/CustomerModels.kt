@@ -313,7 +313,9 @@ data class ProfileResponse(
     @SerialName("email") val email: String = "",
     @SerialName("phone_number") val phoneNumber: String = "",
     @SerialName("wallet_balance") val walletBalance: Long = 0L,
-    @SerialName("profile_image_url") val profileImageUrl: String? = null
+    @SerialName("profile_image_url") val profileImageUrl: String? = null,
+    @SerialName("store_name") val storeName: String? = null,
+    @SerialName("default_pickup_address") val defaultPickupAddress: String? = null
 )
 
 @Serializable
@@ -341,6 +343,12 @@ data class UploadResponse(
     @SerialName("success") val success: Boolean,
     @SerialName("url") val url: String? = null,
     @SerialName("error") val error: String? = null
+)
+
+@Serializable
+data class PresignResponse(
+    @SerialName("url") val url: String,
+    @SerialName("key") val key: String
 )
 
 @Serializable

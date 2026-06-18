@@ -70,6 +70,7 @@ func (s *paymentLinkServiceImpl) CreateLink(ctx context.Context, merchantID stri
 		EstimateID:        estimateID,
 		DeliveryFeeAmount: deliveryFee,
 		ServiceCode:       req.ServiceCode,
+		StoreName:         req.StoreName,
 		Status:            domain.PaymentLinkStatusPending,
 		ExpiredAt:         time.Now().Add(10 * time.Minute), // 10 minutes expiry
 		CreatedAt:         time.Now(),

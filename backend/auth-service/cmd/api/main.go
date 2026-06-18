@@ -250,6 +250,7 @@ func main() {
 	svc := service.NewAuthService(repo, repo, repo, repo, repo, livenessSvc, storageSvc)
 	authAbuseProtector := middleware.NewAuthAbuseProtector(rdb)
 	h := handler.NewAuthHandler(svc, authAbuseProtector)
+	s3PresignHandler := handler.NewS3PresignHandler(storageSvc)
 
 	// ─────────────────────────────────────────────
 	// Google Auth + Zenziva OTP Service
@@ -358,6 +359,11 @@ func main() {
 	mux.HandleFunc("/api/v1/auth/2fa/verify", middleware.AuthChain(h.Verify2FA))
 	mux.HandleFunc("/api/v1/users/me", middleware.AuthChain(h.GetMe))
 	mux.HandleFunc("/api/v1/users/me/photo", middleware.AuthChain(h.UpdatePhoto))
+
+	// ─────────────────────────────────────────────
+	// API v1 — Storage Endpoints (requires JWT auth)
+	// ─────────────────────────────────────────────
+	mux.HandleFunc("/api/v1/auth/presign", middleware.AuthChain(s3PresignHandler.GeneratePresignedURL))
 
 	// ─────────────────────────────────────────────
 	// API v1 — Courier Endpoints (requires JWT auth)

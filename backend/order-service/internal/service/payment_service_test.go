@@ -136,6 +136,13 @@ func (m *mockPaymentGateway) VerifyWebhookSignature(ctx context.Context, payload
 	return nil
 }
 
+func (m *mockPaymentGateway) GenerateSnap(ctx context.Context, req domain.SnapRequest) (domain.SnapResponse, error) {
+	return domain.SnapResponse{
+		Token:       "MOCK-SNAP-TOKEN",
+		RedirectURL: "http://mock.snap/redirect",
+	}, nil
+}
+
 type mockConfigRepo struct{}
 
 func (m *mockConfigRepo) GetConfig(ctx context.Context, key string) (*domain.SystemConfig, error) {

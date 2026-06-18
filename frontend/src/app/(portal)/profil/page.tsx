@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
 import { api } from '@/lib/api';
+import { customerApiRootUrl } from '@/lib/runtimeConfig';
 import { clientLog } from '@/lib/clientLogger';
 import { 
   User, 
@@ -78,6 +79,8 @@ export default function ProfilPage() {
   const [name, setName] = useState(user?.name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState('');
+  const [storeName, setStoreName] = useState('');
+  const [defaultPickupAddress, setDefaultPickupAddress] = useState('');
   const [profilePic, setProfilePic] = useState<string | null>(null);
 
   // Crop Photo Modal State
@@ -120,6 +123,8 @@ export default function ProfilPage() {
         setPhone(profile.phone_number || '');
         setProfilePic(profile.profile_image_url || null);
         setReferralCode(profile.referral_code || null);
+        setStoreName(profile.store_name || '');
+        setDefaultPickupAddress(profile.default_pickup_address || '');
       })
       .catch(() => {
         addNotification({ title: 'Info', message: 'Profil customer belum dapat dimuat dari server.', type: 'info' });
@@ -229,10 +234,15 @@ export default function ProfilPage() {
       return;
     }
 
-    api.put('/customer/profile', { name, phone_number: phone })
+    api.put('/customer/profile', { 
+        name, 
+        phone_number: phone, 
+        store_name: storeName, 
+        default_pickup_address: defaultPickupAddress 
+      })
       .then(() => {
         if (user) {
-          setAuth(true, { ...user, name, email });
+          setAuth(true, { ...user, name, email, store_name: storeName, default_pickup_address: defaultPickupAddress });
         }
         addNotification({ title: 'Sukses', message: 'Pengaturan akun berhasil disimpan.', type: 'success' });
       })
@@ -403,7 +413,7 @@ export default function ProfilPage() {
                 <div className="relative group flex-shrink-0 select-none">
                   <div className="h-32 w-32 rounded-3xl bg-primary/10 border-2 border-primary/20 flex items-center justify-center text-3xl font-extrabold text-primary overflow-hidden shadow-sm relative">
                     {profilePic ? (
-                      <img src={profilePic} alt="Profile preview" className="h-full w-full object-cover select-none" />
+                      <img src={profilePic.startsWith('/') ? `https://api.bawain.my.id${profilePic}` : profilePic} alt="Profile preview" className="h-full w-full object-cover select-none" />
                     ) : (
                       name.charAt(0).toUpperCase() || 'C'
                     )}
@@ -447,6 +457,29 @@ export default function ProfilPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full bg-muted/40 border border-border/40 p-2.5 rounded-xl text-sm focus:outline-none focus:border-primary/60 mt-1 select-none font-semibold text-foreground"
                     />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 select-none">
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground select-none">Nama Toko</label>
+                      <input
+                        type="text"
+                        value={storeName}
+                        onChange={(e) => setStoreName(e.target.value)}
+                        placeholder="Nama Toko Anda"
+                        className="w-full bg-muted/40 border border-border/40 p-2.5 rounded-xl text-sm focus:outline-none focus:border-primary/60 mt-1 select-none font-semibold text-foreground"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground select-none">Default Pickup Address</label>
+                      <input
+                        type="text"
+                        value={defaultPickupAddress}
+                        onChange={(e) => setDefaultPickupAddress(e.target.value)}
+                        placeholder="Alamat penjemputan default"
+                        className="w-full bg-muted/40 border border-border/40 p-2.5 rounded-xl text-sm focus:outline-none focus:border-primary/60 mt-1 select-none font-semibold text-foreground"
+                      />
+                    </div>
                   </div>
 
                   {/* Loyalty tier info visual element */}

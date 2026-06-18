@@ -13,4 +13,6 @@ type StorageService interface {
 	Delete(ctx context.Context, fileID string) error
 	// GetURL returns a temporary or permanent URL for the file
 	GetURL(ctx context.Context, fileID string) (string, error)
+	// GeneratePresignedURL generates a temporary upload URL for S3
+	GeneratePresignedURL(ctx context.Context, key string, contentType string, expiryMinutes int) (string, error)
 }

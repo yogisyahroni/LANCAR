@@ -223,7 +223,9 @@ const toMobileCustomerProfileDto = (row: any) => ({
   name: row.full_name || '',
   phone_number: row.phone_number || '',
   wallet_balance: Number(row.wallet_balance || 0),
-  profile_image_url: row.photo_url || null
+  profile_image_url: row.photo_url || null,
+  store_name: row.store_name || '',
+  default_pickup_address: row.default_pickup_address || ''
 });
 
 const getCustomerWalletBalance = async (customerId: string) => {
@@ -1992,7 +1994,9 @@ export const getMobileCustomerProfile = async (req: Request, res: Response): Pro
       SELECT id,
              full_name,
              phone_number,
-             photo_url
+             photo_url,
+             store_name,
+             default_pickup_address
       FROM users
       WHERE id = $1
         AND role = 'customer'
@@ -2016,6 +2020,7 @@ export const getMobileCustomerProfile = async (req: Request, res: Response): Pro
       message: 'Profil customer berhasil dimuat.'
     });
   } catch (error: any) {
+    console.error('Error in getMobileCustomerProfile:', error);
     res.status(500).json({
       success: false,
       data: null,
@@ -2055,6 +2060,8 @@ export const updateMobileCustomerProfile = async (req: Request, res: Response): 
       UPDATE users
       SET full_name = $2,
           phone_number = COALESCE($3, phone_number),
+          store_name = COALESCE($4, store_name),
+          default_pickup_address = COALESCE($5, default_pickup_address),
           updated_at = NOW()
       WHERE id = $1
         AND role = 'customer'
@@ -2062,8 +2069,10 @@ export const updateMobileCustomerProfile = async (req: Request, res: Response): 
       RETURNING id,
                 full_name,
                 phone_number,
-                photo_url
-    `, [customerId, normalizedName, normalizedPhone]);
+                photo_url,
+                store_name,
+                default_pickup_address
+    `, [customerId, normalizedName, normalizedPhone, req.body?.store_name, req.body?.default_pickup_address]);
 
     if (rows.length === 0) {
       res.status(404).json({
@@ -2092,12 +2101,12 @@ export const updateMobileCustomerProfile = async (req: Request, res: Response): 
       });
       return;
     }
-
+    console.error('Error in updateMobileCustomerProfile:', error);
     res.status(500).json({
       success: false,
       data: null,
       message: 'Gagal memperbarui profil customer.',
-      code: 'CUSTOMER_PROFILE_UPDATE_FAILED'
+      code: 'UPDATE_CUSTOMER_PROFILE_FAILED'
     });
   }
 };

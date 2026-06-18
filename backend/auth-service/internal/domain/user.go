@@ -39,9 +39,11 @@ type User struct {
 	TOTPSecret       *string    `json:"-" db:"totp_secret"`
 	Is2FAEnabled     bool       `json:"is_2fa_enabled" db:"is_2fa_enabled"`
 	TOTPBackupCodes  []string   `json:"-" db:"totp_backup_codes"`
-	LastLoginAt      *time.Time `json:"last_login_at" db:"last_login_at"`
-	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at" db:"updated_at"`
+	LastLoginAt          *time.Time `json:"last_login_at" db:"last_login_at"`
+	StoreName            *string    `json:"store_name" db:"store_name"`
+	DefaultPickupAddress *string    `json:"default_pickup_address" db:"default_pickup_address"`
+	CreatedAt            time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 type OTPLog struct {

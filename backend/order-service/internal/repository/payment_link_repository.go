@@ -44,12 +44,13 @@ func (r *paymentLinkRepositoryImpl) Create(ctx context.Context, link *domain.Pay
 
 func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*domain.PaymentLink, error) {
 	query := `
-		SELECT id, merchant_id, item_name, item_price, item_image_url, 
-		       merchant_fee_amount, dropoff_address, dropoff_lat, dropoff_lng, 
-		       status, expired_at, deleted_at, estimate_id, pickup_address, pickup_lat, pickup_lng,
-		       delivery_fee_amount, service_code, order_id, created_at, updated_at
-		FROM payment_links
-		WHERE id = $1
+		SELECT pl.id, pl.merchant_id, pl.item_name, pl.item_price, pl.item_image_url, 
+		       pl.merchant_fee_amount, pl.dropoff_address, pl.dropoff_lat, pl.dropoff_lng, 
+		       pl.status, pl.expired_at, pl.deleted_at, pl.estimate_id, pl.pickup_address, pl.pickup_lat, pl.pickup_lng,
+		       pl.delivery_fee_amount, pl.service_code, pl.order_id, pl.created_at, pl.updated_at, u.store_name
+		FROM payment_links pl
+		LEFT JOIN users u ON pl.merchant_id = u.id
+		WHERE pl.id = $1
 	`
 	row := r.db.QueryRowContext(ctx, query, id)
 	var link domain.PaymentLink
@@ -62,12 +63,13 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 	var deliveryFee sql.NullInt64
 	var serviceCode sql.NullString
 	var orderID sql.NullString
+	var storeName sql.NullString
 
 	err := row.Scan(
 		&link.ID, &link.MerchantID, &link.ItemName, &link.ItemPrice, &link.ItemImageURL,
 		&link.MerchantFeeAmount, &link.DropoffAddress, &link.DropoffLat, &link.DropoffLng,
 		&link.Status, &link.ExpiredAt, &link.DeletedAt, &estimateID, &pickupAddress, &pickupLat, &pickupLng,
-		&deliveryFee, &serviceCode, &orderID, &link.CreatedAt, &link.UpdatedAt,
+		&deliveryFee, &serviceCode, &orderID, &link.CreatedAt, &link.UpdatedAt, &storeName,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -83,6 +85,7 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 	link.DeliveryFeeAmount = deliveryFee.Int64
 	link.ServiceCode = serviceCode.String
 	link.OrderID = orderID.String
+	link.StoreName = storeName.String
 	return &link, nil
 }
 

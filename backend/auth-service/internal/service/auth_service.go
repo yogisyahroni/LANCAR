@@ -712,7 +712,7 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 	return s.sessionRepo.RevokeSession(ctx, refreshToken)
 }
 
-func (s *AuthService) Register(ctx context.Context, userID string, fullName, email string) error {
+func (s *AuthService) Register(ctx context.Context, userID string, fullName, email, storeName, defaultPickupAddress string) error {
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return errors.New("user not found")
@@ -721,6 +721,12 @@ func (s *AuthService) Register(ctx context.Context, userID string, fullName, ema
 	user.FullName = fullName
 	if email != "" {
 		user.Email = &email
+	}
+	if storeName != "" {
+		user.StoreName = &storeName
+	}
+	if defaultPickupAddress != "" {
+		user.DefaultPickupAddress = &defaultPickupAddress
 	}
 	user.Status = domain.StatusActive
 	user.UpdatedAt = time.Now()

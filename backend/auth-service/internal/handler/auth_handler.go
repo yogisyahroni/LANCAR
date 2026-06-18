@@ -29,7 +29,7 @@ type AuthHandler struct {
 		VerifyOTP(ctx context.Context, phoneNumber, code, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
 		RefreshToken(ctx context.Context, oldRefreshToken, deviceID string) (*service.AuthResponse, error)
 		Logout(ctx context.Context, refreshToken string) error
-		Register(ctx context.Context, userID, fullName, email string) error
+		Register(ctx context.Context, userID, fullName, email, storeName, defaultPickupAddress string) error
 		SetPIN(ctx context.Context, userID string, pin string) error
 		GetUserByID(ctx context.Context, id string) (*domain.User, error)
 		UpdateProfilePhoto(ctx context.Context, userID string, filename string, content io.Reader) (string, error)
@@ -369,15 +369,17 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		FullName string `json:"full_name"`
-		Email    string `json:"email"`
+		FullName             string `json:"full_name"`
+		Email                string `json:"email"`
+		StoreName            string `json:"store_name"`
+		DefaultPickupAddress string `json:"default_pickup_address"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	err := h.svc.Register(r.Context(), userID, req.FullName, req.Email)
+	err := h.svc.Register(r.Context(), userID, req.FullName, req.Email, req.StoreName, req.DefaultPickupAddress)
 	if err != nil {
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return

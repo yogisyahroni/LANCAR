@@ -24,7 +24,8 @@ import {
   Menu,
   ChevronLeft,
   AlertTriangle,
-  Key
+  Key,
+  Link as LinkIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -230,6 +231,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   // Navigation Items — only customer-facing pages
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Payment Links', href: '/payment-links', icon: LinkIcon },
     { name: 'Kirim Paket', href: '/orders/new', icon: Package },
     { name: 'Kirim Massal', href: '/orders/bulk', icon: Layers },
     { name: 'Riwayat Order', href: '/orders', icon: Package },

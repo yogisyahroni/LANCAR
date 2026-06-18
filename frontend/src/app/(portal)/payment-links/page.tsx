@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+"use client";
+
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Link as LinkIcon, 
   Plus, 
   Search, 
-  Filter, 
   Copy,
   Clock,
   Loader2,
@@ -15,29 +16,31 @@ import {
   MapPin,
   Image as ImageIcon,
   Check,
-  Package
-} from 'lucide-react'
-import { cn } from '../lib/utils'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api'
-import { format, differenceInHours } from 'date-fns'
-import { toast } from 'sonner'
-import { useAuthStore } from '../store/useAuthStore'
+  Package,
+  UploadCloud,
+  Navigation,
+  Store
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
+import { useNotificationStore } from '@/store/useNotificationStore';
 
 const queryErrorMessage = (error: any, fallback: string) =>
-  error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback
+  error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback;
 
 function PaymentLinkDataState({ title, message, onRetry, tone = 'muted' }: { title: string; message: string; onRetry?: () => void; tone?: 'muted' | 'error' }) {
-  const isError = tone === 'error'
+  const isError = tone === 'error';
   return (
     <div className={cn(
       "col-span-full py-20 text-center space-y-4 rounded-[40px] border",
-      isError ? "bg-red-500/5 border-red-500/20" : "glass-card border-dashed border-white/10"
+      isError ? "bg-red-500/5 border-red-500/20" : "glass-card border-dashed border-black/10 dark:border-white/10"
     )}>
-      <AlertCircle className={cn("mx-auto", isError ? "text-red-400" : "text-zinc-800")} size={48} />
+      <AlertCircle className={cn("mx-auto", isError ? "text-red-400" : "text-zinc-400")} size={48} />
       <div>
-        <p className="text-zinc-200 font-black italic uppercase tracking-widest">{title}</p>
-        <p className="text-xs text-zinc-600 mt-2">{message}</p>
+        <p className="text-zinc-600 dark:text-zinc-200 font-black italic uppercase tracking-widest">{title}</p>
+        <p className="text-xs text-zinc-500 mt-2">{message}</p>
       </div>
       {onRetry && (
         <button
@@ -45,7 +48,7 @@ function PaymentLinkDataState({ title, message, onRetry, tone = 'muted' }: { tit
           onClick={onRetry}
           className={cn(
             "inline-flex items-center gap-2 px-5 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest transition-all",
-            isError ? "bg-red-500/10 border-red-500/20 text-red-300 hover:bg-red-500/20" : "bg-white/5 border-white/10 text-zinc-400 hover:text-white"
+            isError ? "bg-red-500/10 border-red-500/20 text-red-500 dark:text-red-300 hover:bg-red-500/20" : "bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 text-zinc-500 hover:text-foreground"
           )}
         >
           <RefreshCw size={14} />
@@ -53,15 +56,17 @@ function PaymentLinkDataState({ title, message, onRetry, tone = 'muted' }: { tit
         </button>
       )}
     </div>
-  )
+  );
 }
 
-export default function PaymentLinks() {
+export default function PaymentLinksPage() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
-  const [search, setSearch] = useState('')
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const { addNotification } = useNotificationStore();
+  
+  const [search, setSearch] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const { data: linksData, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['payment-links'],
@@ -78,23 +83,23 @@ export default function PaymentLinks() {
     mutationFn: (newLink: any) => api.post('/payment-links', newLink),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-links'] });
-      toast.success('Payment Link created successfully!');
+      addNotification({ title: 'Success', message: 'Payment Link created successfully!', type: 'success' });
       setIsModalOpen(false);
-      // Automatically copy to clipboard if we know the domain. For now we just show toast.
+      
       const linkId = data.data?.data?.id || data.data?.id;
       if (linkId) {
         navigator.clipboard.writeText(`https://pay.tembus.my.id/inv/${linkId}`);
-        toast.info('Link copied to clipboard!');
+        addNotification({ title: 'Copied', message: 'Link copied to clipboard!', type: 'info' });
       }
     },
-    onError: (err: any) => toast.error(`Failed to create link: ${queryErrorMessage(err, 'Unknown error')}`)
+    onError: (err: any) => addNotification({ title: 'Error', message: `Failed to create link: ${queryErrorMessage(err, 'Unknown error')}`, type: 'error' })
   });
 
   const handleCopy = (id: string) => {
     navigator.clipboard.writeText(`https://pay.tembus.my.id/inv/${id}`);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
-    toast.success('Link copied!');
+    addNotification({ title: 'Copied', message: 'Link copied to clipboard!', type: 'info' });
   };
 
   if (isLoading) {
@@ -114,8 +119,8 @@ export default function PaymentLinks() {
     <div className="space-y-8 animate-in pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-black text-zinc-100 tracking-tight italic uppercase">Payment Links</h1>
-          <p className="text-zinc-500 mt-1">Generate digital invoice links to share with customers via WhatsApp.</p>
+          <h1 className="text-3xl font-black text-foreground tracking-tight italic uppercase">Payment Links</h1>
+          <p className="text-muted-foreground mt-1">Generate digital invoice links to share with customers via WhatsApp.</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)}
@@ -128,13 +133,13 @@ export default function PaymentLinks() {
 
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:w-96 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600 group-focus-within:text-primary-light transition-colors" size={18} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary-light transition-colors" size={18} />
           <input 
             type="text" 
             placeholder="Search by item name or ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-zinc-600"
+            className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-muted-foreground"
           />
         </div>
       </div>
@@ -148,7 +153,7 @@ export default function PaymentLinks() {
             tone="error"
           />
         ) : filteredLinks?.map((link: any, i: number) => {
-          const hoursLeft = differenceInHours(new Date(link.expired_at), new Date());
+          const hoursLeft = (new Date(link.expired_at).getTime() - new Date().getTime()) / (1000 * 60 * 60);
           const isExpired = hoursLeft <= 0 || link.status === 'EXPIRED';
           const isPaid = link.status === 'PAID';
           
@@ -158,7 +163,7 @@ export default function PaymentLinks() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
               key={link.id}
-              className="glass-card p-8 rounded-[40px] border-white/5 group hover:border-white/10 transition-all overflow-hidden relative"
+              className="glass-card p-8 rounded-[40px] border-black/5 dark:border-white/5 group hover:border-black/10 dark:hover:border-white/10 transition-all overflow-hidden relative"
             >
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                  <LinkIcon size={120} />
@@ -172,22 +177,21 @@ export default function PaymentLinks() {
                     </div>
                     <span className={cn(
                       "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                      isPaid ? "bg-emerald-500/10 text-emerald-400" : 
-                      isExpired ? "bg-red-500/10 text-red-400" : "bg-amber-500/10 text-amber-400"
+                      isPaid ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : 
+                      isExpired ? "bg-red-500/10 text-red-600 dark:text-red-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
                     )}>
                       {link.status}
                     </span>
                   </div>
                   <div className="flex gap-4">
                     {link.item_image_url && (
-                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/5 border border-white/10 shrink-0">
+                        <div className="w-16 h-16 rounded-xl overflow-hidden bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 shrink-0">
                             <img src={link.item_image_url} alt={link.item_name} className="w-full h-full object-cover" />
                         </div>
                     )}
                     <div>
-                        <h4 className="font-bold text-zinc-100 text-lg">{link.item_name}</h4>
-                        <p className="text-sm font-medium text-zinc-400 mt-1">Item: <span className="text-emerald-400 font-bold">Rp {link.item_price?.toLocaleString()}</span></p>
-                        <p className="text-[10px] text-zinc-500 mt-2 italic font-medium">
+                        <h4 className="font-bold text-foreground text-lg">{link.item_name}</h4>
+                        <p className="text-[10px] text-muted-foreground mt-2 italic font-medium">
                         Ongkir Estimate: Rp {link.delivery_fee_amount?.toLocaleString() || 0}
                         </p>
                     </div>
@@ -195,24 +199,24 @@ export default function PaymentLinks() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-8 mt-8 pt-8 border-t border-white/5 relative z-10">
+              <div className="grid grid-cols-2 gap-8 mt-8 pt-8 border-t border-black/5 dark:border-white/5 relative z-10">
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
                        <MapPin size={12} /> Destination
                     </p>
-                    <p className="text-xs font-bold text-zinc-400 mt-3 tracking-tight line-clamp-2">
+                    <p className="text-xs font-bold text-foreground mt-3 tracking-tight line-clamp-2">
                       {link.dropoff_address}
                     </p>
                  </div>
                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center gap-2">
                        <Clock size={12} /> Expiration
                     </p>
-                    <p className="text-xs font-bold text-zinc-200 mt-3">{format(new Date(link.expired_at), 'dd MMM yyyy HH:mm')}</p>
+                    <p className="text-xs font-bold text-foreground mt-3">{new Date(link.expired_at).toLocaleDateString()} {new Date(link.expired_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     <div className="flex items-center gap-1.5 mt-2">
                        <p className={cn(
                          "text-[10px] font-black uppercase tracking-wider",
-                         !isExpired ? "text-primary-light" : "text-red-400"
+                         !isExpired ? "text-primary-light" : "text-red-500"
                        )}>
                         {!isExpired ? 'Active' : 'Expired'}
                        </p>
@@ -226,7 +230,7 @@ export default function PaymentLinks() {
                    disabled={isExpired || isPaid}
                    className={cn(
                        "flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border flex items-center justify-center gap-2",
-                       copiedId === link.id ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-white/5 text-zinc-300 hover:bg-primary/20 hover:text-primary-light border-white/5 hover:border-primary/20",
+                       copiedId === link.id ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30" : "bg-black/5 dark:bg-white/5 text-zinc-600 dark:text-zinc-300 hover:bg-primary/20 hover:text-primary-light border-black/5 dark:border-white/5 hover:border-primary/20",
                        (isExpired || isPaid) ? "opacity-50 cursor-not-allowed" : ""
                    )}
                  >
@@ -238,8 +242,8 @@ export default function PaymentLinks() {
           )
         })}
         {!isError && (!filteredLinks || filteredLinks.length === 0) && (
-          <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-white/10">
-            <LinkIcon className="mx-auto text-zinc-800" size={48} />
+          <div className="col-span-full py-20 text-center space-y-4 glass-card rounded-[40px] border-dashed border-black/10 dark:border-white/10">
+            <LinkIcon className="mx-auto text-zinc-400" size={48} />
             <p className="text-zinc-500 font-black italic uppercase tracking-widest">
               No payment links generated yet
             </p>
@@ -254,13 +258,15 @@ export default function PaymentLinks() {
         isSaving={createMutation.isPending}
       />
     </div>
-  )
+  );
 }
 
 function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
+  const { addNotification } = useNotificationStore();
+  const { user } = useAuthStore();
   const [formData, setFormData] = useState<any>({
+    store_name: '',
     item_name: '',
-    item_price: '',
     item_image_url: '',
     pickup_address: '',
     dropoff_address: '',
@@ -269,17 +275,28 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
   
   const [geocodeError, setGeocodeError] = useState<string>('');
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const { data: services, isLoading: isLoadingServices } = useQuery({
     queryKey: ['active-delivery-services'],
     queryFn: async () => {
-      const res = await api.get('/admin/delivery-services')
-      return (res.data.services as any[]).filter((s: any) => s.is_enabled)
+      const res = await api.get('/auth/web/delivery-services');
+      return (res.data.services as any[]).filter((s: any) => s.is_enabled);
     },
     enabled: isOpen
   });
 
-  // When services load, if service_code is empty, change it to the first available service code
+  useEffect(() => {
+    if (isOpen && user) {
+      setFormData((prev: any) => ({
+        ...prev,
+        store_name: user.store_name || '',
+        pickup_address: user.default_pickup_address || '',
+      }));
+    }
+  }, [isOpen, user]);
+
   useEffect(() => {
     if (services && services.length > 0 && formData.service_code === '') {
       setFormData((prev: any) => ({ ...prev, service_code: services[0].code }));
@@ -288,12 +305,59 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
 
   if (!isOpen) return null;
 
+  const handleGetCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      addNotification({ title: 'Gagal', message: 'Browser tidak mendukung geolokasi', type: 'error' });
+      return;
+    }
+    
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await res.json();
+          if (data && data.display_name) {
+            setFormData((prev: any) => ({ ...prev, pickup_address: data.display_name }));
+          } else {
+            setFormData((prev: any) => ({ ...prev, pickup_address: `${latitude}, ${longitude}` }));
+          }
+        } catch (error) {
+          setFormData((prev: any) => ({ ...prev, pickup_address: `${position.coords.latitude}, ${position.coords.longitude}` }));
+        } finally {
+          setIsLocating(false);
+        }
+      },
+      (error) => {
+        setIsLocating(false);
+        addNotification({ title: 'Gagal', message: 'Akses lokasi ditolak atau gagal', type: 'error' });
+      }
+    );
+  };
+
   const handleGenerateLink = async () => {
     setGeocodeError('');
     setIsGeocoding(true);
     
     try {
-      // 1. Geocode Pickup Address
+      let finalImageUrl = formData.item_image_url;
+
+      if (selectedFile) {
+        const presignRes = await api.get(`/auth/presign?filename=${encodeURIComponent(selectedFile.name)}&contentType=${encodeURIComponent(selectedFile.type)}`);
+        const { url } = presignRes.data;
+
+        await fetch(url, {
+          method: 'PUT',
+          body: selectedFile,
+          headers: { 'Content-Type': selectedFile.type },
+        });
+        
+        finalImageUrl = url.split('?')[0]; 
+      }
+
+      if (!formData.pickup_address) throw new Error('Alamat Pickup tidak boleh kosong.');
+      
       const pickupRes = await api.get(`/maps/geocode?query=${encodeURIComponent(formData.pickup_address.trim())}`);
       const pickupResults = pickupRes.data?.results || [];
       const pickupLoc = pickupResults.find((item: any) => Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude)));
@@ -302,7 +366,8 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
         throw new Error('Alamat Pickup tidak spesifik. Tambahkan patokan, jalan, kota.');
       }
 
-      // 2. Geocode Dropoff Address
+      if (!formData.dropoff_address) throw new Error('Alamat Customer tidak boleh kosong.');
+
       const dropoffRes = await api.get(`/maps/geocode?query=${encodeURIComponent(formData.dropoff_address.trim())}`);
       const dropoffResults = dropoffRes.data?.results || [];
       const dropoffLoc = dropoffResults.find((item: any) => Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude)));
@@ -311,9 +376,12 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
         throw new Error('Alamat Customer tidak spesifik. Tambahkan patokan, jalan, kota.');
       }
 
+      // localStorage operations removed. Data persistence is now handled via Profile page -> backend.
+
       onSave({
         ...formData,
-        item_price: Number(formData.item_price),
+        item_price: 0,
+        item_image_url: finalImageUrl,
         pickup_lat: Number(pickupLoc.latitude),
         pickup_lng: Number(pickupLoc.longitude),
         dropoff_lat: Number(dropoffLoc.latitude),
@@ -321,60 +389,59 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
       });
 
     } catch (err: any) {
-      setGeocodeError(err.response?.data?.error || err.message || 'Gagal validasi alamat.');
+      setGeocodeError(err.response?.data?.error || err.message || 'Gagal membuat link.');
     } finally {
       setIsGeocoding(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-2xl bg-zinc-900 border border-white/10 rounded-[48px] overflow-hidden shadow-2xl shadow-primary/10 my-8"
+        className="w-full max-w-2xl bg-background border border-black/10 dark:border-white/10 rounded-[48px] overflow-hidden shadow-2xl shadow-primary/10 my-8"
       >
         <div className="p-10 space-y-8">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-black text-zinc-100 italic uppercase tracking-tight">
+              <h2 className="text-2xl font-black text-foreground italic uppercase tracking-tight">
                 Generate Payment Link
               </h2>
-              <p className="text-zinc-500 text-xs mt-1 font-medium">Create a new invoice for your customer.</p>
+              <p className="text-muted-foreground text-xs mt-1 font-medium">Create a new invoice for your customer.</p>
             </div>
-            <button onClick={onClose} className="p-3 rounded-2xl bg-white/5 text-zinc-500 hover:text-white transition-all">
+            <button onClick={onClose} className="p-3 rounded-2xl bg-black/5 dark:bg-white/5 text-zinc-500 hover:text-foreground transition-all">
               <X size={20} />
             </button>
           </div>
 
+          <div className="mb-8 flex items-center gap-3 bg-primary/10 border border-primary/20 p-4 rounded-2xl">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+              <Store size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-primary/80 uppercase tracking-[0.2em]">Toko Pengirim</p>
+              <h3 className="text-lg font-bold text-white tracking-tight">{user?.store_name || 'Toko Anda'}</h3>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-8">
             <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] flex items-center gap-2"><Package size={14}/> Item Name</label>
+              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><Package size={14}/> Item Name</label>
               <input 
                 value={formData.item_name}
                 onChange={e => setFormData({ ...formData, item_name: e.target.value })}
                 placeholder="e.g. Kue Kering Lebaran"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em]">Item Price (Rp)</label>
-              <input 
-                type="number"
-                value={formData.item_price}
-                onChange={e => setFormData({ ...formData, item_price: Number(e.target.value) })}
-                placeholder="50000"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] flex items-center gap-2">Pilihan Layanan</label>
+              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Pilihan Layanan</label>
               <select 
                 value={formData.service_code}
                 onChange={e => setFormData({ ...formData, service_code: e.target.value })}
-                className="w-full bg-zinc-900 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                className="w-full bg-background border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                 disabled={isLoadingServices}
               >
                 {isLoadingServices ? (
@@ -382,62 +449,78 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                 ) : (
                   services?.map((svc: any) => (
                     <option key={svc.code} value={svc.code}>
-                      {svc.name} - Rp {svc.base_fare_idr.toLocaleString()}
+                      {svc.name}
                     </option>
                   ))
                 )}
               </select>
             </div>
 
-            <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] flex items-center gap-2"><ImageIcon size={14}/> Image URL</label>
-              <input 
-                value={formData.item_image_url}
-                onChange={e => setFormData({ ...formData, item_image_url: e.target.value })}
-                placeholder="https://..."
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
-              />
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><UploadCloud size={14}/> Item Image</label>
+              <label className="flex items-center justify-center w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 border-dashed rounded-2xl py-4 px-6 cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-all text-sm font-semibold text-muted-foreground hover:text-foreground">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) setSelectedFile(e.target.files[0]);
+                  }} 
+                />
+                {selectedFile ? selectedFile.name : (formData.item_image_url ? 'Image Selected (Click to change)' : 'Choose File')}
+              </label>
             </div>
 
-            <div className="space-y-2 col-span-2 border-t border-white/5 pt-6">
+            <div className="space-y-2 col-span-2 border-t border-black/10 dark:border-white/10 pt-6">
               <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">Origin & Destination</h3>
             </div>
 
             <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14}/> Pickup Address (Your Store)</label>
+              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center justify-between">
+                <span className="flex items-center gap-2"><MapPin size={14}/> Pickup Address (Your Store)</span>
+                <button 
+                  type="button" 
+                  onClick={handleGetCurrentLocation}
+                  disabled={isLocating}
+                  className="text-primary hover:text-primary-light flex items-center gap-1 font-bold bg-primary/10 px-3 py-1.5 rounded-lg transition-all"
+                >
+                  {isLocating ? <Loader2 size={12} className="animate-spin" /> : <Navigation size={12} />}
+                  Gunakan Lokasi Saat Ini
+                </button>
+              </label>
               <textarea 
                 value={formData.pickup_address}
                 onChange={e => { setFormData({ ...formData, pickup_address: e.target.value }); setGeocodeError(''); }}
                 placeholder="Alamat lengkap tokomu beserta patokan..."
                 rows={2}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
               />
             </div>
 
             <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14}/> Dropoff Address (Customer)</label>
+              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14}/> Dropoff Address (Customer)</label>
               <textarea 
                 value={formData.dropoff_address}
                 onChange={e => { setFormData({ ...formData, dropoff_address: e.target.value }); setGeocodeError(''); }}
                 placeholder="Alamat lengkap pembeli beserta patokan..."
                 rows={3}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
               />
             </div>
           </div>
 
           {geocodeError && (
-            <div className="px-6 py-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-400">
+            <div className="px-6 py-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500">
               <AlertCircle size={18} />
               <p className="text-xs font-bold">{geocodeError}</p>
             </div>
           )}
 
-          <div className="pt-8 border-t border-white/5 flex items-center justify-end">
+          <div className="pt-8 border-t border-black/10 dark:border-white/10 flex items-center justify-end">
             <div className="flex gap-4">
               <button 
                 onClick={onClose}
-                className="px-8 py-4 rounded-2xl bg-zinc-800 text-zinc-400 font-black text-xs uppercase tracking-widest hover:text-white transition-all"
+                className="px-8 py-4 rounded-2xl bg-black/5 dark:bg-white/5 text-zinc-500 font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
               >
                 Cancel
               </button>
@@ -447,16 +530,15 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
                   isSaving || 
                   isGeocoding ||
                   !formData.item_name || 
-                  !formData.item_price || 
                   !formData.dropoff_address || 
                   !formData.pickup_address || 
-                  !formData.item_image_url || 
-                  !formData.service_code
+                  !formData.service_code ||
+                  (!selectedFile && !formData.item_image_url)
                 }
                 className="px-10 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {(isSaving || isGeocoding) ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
-                {isGeocoding ? 'Mencari Titik...' : 'Generate Link'}
+                {isGeocoding ? 'Loading...' : 'Generate Link'}
               </button>
             </div>
           </div>

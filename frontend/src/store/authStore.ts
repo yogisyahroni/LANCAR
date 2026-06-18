@@ -7,6 +7,8 @@ interface User {
   phone_number?: string;
   full_name?: string;
   role?: string;
+  store_name?: string;
+  default_pickup_address?: string;
 }
 
 interface AuthState {

@@ -265,6 +265,12 @@ interface TEMBUSApiService {
         @Body request: CreateDisputeRequest
     ): Response<CustomerDisputeResponse>
 
+    @GET("api/v1/auth/presign")
+    suspend fun getPresignUrl(
+        @Query("filename") filename: String,
+        @Query("contentType") contentType: String
+    ): Response<PresignResponse>
+
     // Payment Link Endpoints
     @POST("api/v1/payment-links")
     suspend fun createPaymentLink(

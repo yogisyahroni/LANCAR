@@ -32,7 +32,7 @@ func (h *PaymentLinkHandler) CreateLink(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Basic validation
-	if req.ItemName == "" || req.ItemPrice <= 0 || req.DropoffAddress == "" || req.ItemImageURL == "" {
+	if req.ItemName == "" || req.DropoffAddress == "" || req.ItemImageURL == "" {
 		http.Error(w, "Missing required fields", http.StatusBadRequest)
 		return
 	}

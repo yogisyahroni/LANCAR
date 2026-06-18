@@ -33,6 +33,7 @@ type PaymentLink struct {
 	PickupLat         float64           `json:"pickup_lat,omitempty"`
 	PickupLng         float64           `json:"pickup_lng,omitempty"`
 	DeliveryFeeAmount int64             `json:"delivery_fee_amount"`
+	StoreName         string            `json:"store_name,omitempty"`
 	CreatedAt         time.Time         `json:"created_at"`
 	UpdatedAt         time.Time         `json:"updated_at"`
 }
@@ -58,6 +59,7 @@ type CreatePaymentLinkRequest struct {
 	DropoffAddress string  `json:"dropoff_address" validate:"required"`
 	DropoffLat     float64 `json:"dropoff_lat" validate:"required"`
 	DropoffLng     float64 `json:"dropoff_lng" validate:"required"`
+	StoreName      string  `json:"store_name,omitempty"`
 }
 
 type PaymentLinkCheckoutResponse struct {

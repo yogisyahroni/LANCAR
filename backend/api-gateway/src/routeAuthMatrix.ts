@@ -164,7 +164,9 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
   {
     id: 'customer-portal-api',
     requirement: 'web-session-or-jwt',
-    matches: prefix('/api/v1/customer'),
+    matches: (method, path) => 
+      prefix('/api/v1/customer')(method, path) || 
+      prefix('/api/v1/payment-links')(method, path),
   },
   {
     id: 'mobile-courier-api',

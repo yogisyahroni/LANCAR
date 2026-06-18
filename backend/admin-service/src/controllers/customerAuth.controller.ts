@@ -190,7 +190,7 @@ export const exchangeCustomerJwtForWebSession = async (req: Request, res: Respon
     }
 
     const result = await db.query(
-      `SELECT id, full_name as name, email, role, status
+      `SELECT id, full_name as name, email, role, status, store_name
        FROM users
        WHERE id = $1
          AND role = 'customer'
@@ -311,7 +311,7 @@ export const me = async (req: Request, res: Response) => {
   try {
     const userRole = req.user?.role || '';
     const result = await db.query(
-      `SELECT id, full_name as name, email, role
+      `SELECT id, full_name as name, email, role, store_name
        FROM users
        WHERE id = $1
          AND role = $2

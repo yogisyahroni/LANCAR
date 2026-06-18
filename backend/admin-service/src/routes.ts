@@ -160,6 +160,12 @@ routes.post('/api/v1/customer/promos/reserve', requireMobileOrWebAuth, promoMuta
 routes.post('/api/v1/customer/promos/redeem', requireMobileOrWebAuth, promoMutationRateLimiter, requireIdempotencyKey('customer.promo.redeem'), (req, res) => controllers.redeemCustomerPromo(req, res));
 routes.post('/api/v1/customer/promos/release', requireMobileOrWebAuth, promoMutationRateLimiter, (req, res) => controllers.releaseCustomerPromoReservation(req, res));
 
+// Payment Links Proxy
+routes.get('/api/v1/payment-links', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.listLinks(req, res));
+routes.post('/api/v1/payment-links', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.createLink(req, res));
+routes.get('/api/v1/payment-links/:id', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.getLink(req, res));
+routes.post('/api/v1/payment-links/:id/checkout', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.checkoutLink(req, res));
+
 // Bulk Order Routes
 routes.post('/auth/web/orders/bulk/upload', verifyWebSession, ...secureUploadSingle('file', 'bulkCsv'), (req, res) => controllers.bulkOrder.uploadBulkExcel(req, res));
 routes.use('/uploads', requireMobileOrWebAuth, (req, res) => controllers.servePrivateUpload(req, res));
