@@ -1,3 +1,4 @@
+-- +goose Up
 CREATE TABLE IF NOT EXISTS payment_links (
     id VARCHAR(50) PRIMARY KEY,
     merchant_id UUID NOT NULL REFERENCES users(id),
@@ -17,3 +18,6 @@ CREATE TABLE IF NOT EXISTS payment_links (
 
 CREATE INDEX IF NOT EXISTS idx_payment_links_merchant ON payment_links(merchant_id);
 CREATE INDEX IF NOT EXISTS idx_payment_links_status ON payment_links(status);
+
+-- +goose Down
+DROP TABLE IF EXISTS payment_links CASCADE;
