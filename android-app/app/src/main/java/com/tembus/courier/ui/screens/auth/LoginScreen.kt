@@ -83,17 +83,19 @@ fun LoginScreen(
             .fillMaxSize()
             .background(PrimaryDark)
     ) {
-        // Background Image anchored to Top
+        // Background Image anchored to Top with fixed max height
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .fillMaxHeight(0.65f) // Limit height to top 65% of screen
                 .align(Alignment.TopCenter)
         ) {
             Image(
                 painter = painterResource(id = R.drawable.bg_courier_login),
                 contentDescription = "Background Courier Login",
-                contentScale = ContentScale.FillWidth,
-                modifier = Modifier.fillMaxWidth()
+                contentScale = ContentScale.Crop, // Use Crop to fill the container
+                alignment = Alignment.TopCenter, // Anchor to top, crop the bottom
+                modifier = Modifier.fillMaxSize()
             )
             // Gradient fade out to blend with PrimaryDark background
             Box(
@@ -396,7 +398,7 @@ fun LoginScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     
                     Text(
-                        text = "v${BuildConfig.VERSION_NAME} - TEMBUS Mitra Kurir",
+                        text = "${BuildConfig.VERSION_NAME} - TEMBUS Mitra Kurir",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White.copy(alpha = 0.6f),
                         modifier = Modifier.fillMaxWidth(),
