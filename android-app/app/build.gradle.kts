@@ -42,8 +42,19 @@ fun getVersionCode(): Int {
     return (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
 }
 
+fun getGitVersion(): String {
+    return try {
+        val process = ProcessBuilder("git", "describe", "--tags", "--always", "--dirty")
+            .redirectError(ProcessBuilder.Redirect.PIPE)
+            .start()
+        process.inputStream.bufferedReader().readText().trim().takeIf { it.isNotBlank() } ?: "1.0.0"
+    } catch (e: Exception) {
+        "1.0.0"
+    }
+}
+
 fun getVersionName(): String {
-    return (project.findProperty("versionName") as String?)?.takeIf { it.isNotBlank() } ?: "1.0.0"
+    return (project.findProperty("versionName") as String?)?.takeIf { it.isNotBlank() } ?: getGitVersion()
 }
 
 fun normalizedBaseUrl(value: String): String {
