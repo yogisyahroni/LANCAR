@@ -234,7 +234,7 @@ func main() {
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc, configRepo)
 	relayScoreSvc := service.NewRelayScoreService(relayRepo)
 	analyticsSvc := service.NewAnalyticsService(analyticsRepo)
-	paymentLinkSvc := service.NewPaymentLinkService(paymentLinkRepo, pricingSvc, orderSvc, paymentGw)
+	paymentLinkSvc := service.NewPaymentLinkService(paymentLinkRepo, pricingSvc, orderSvc, paymentGw, notificationSvc)
 	// matchingSvc := service.NewRelayMatchingService(relayRepo, pgRepo, redisRepo) // Can be used later
 
 	// Handlers

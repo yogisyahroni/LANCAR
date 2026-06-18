@@ -11,18 +11,20 @@ import (
 )
 
 type paymentLinkServiceImpl struct {
-	repo         domain.PaymentLinkRepository
-	pricingSvc   domain.PricingService
-	orderSvc     domain.OrderService
-	gateway      domain.PaymentGateway
+	repo            domain.PaymentLinkRepository
+	pricingSvc      domain.PricingService
+	orderSvc        domain.OrderService
+	gateway         domain.PaymentGateway
+	notificationSvc domain.NotificationService
 }
 
-func NewPaymentLinkService(repo domain.PaymentLinkRepository, pricingSvc domain.PricingService, orderSvc domain.OrderService, gateway domain.PaymentGateway) domain.PaymentLinkService {
+func NewPaymentLinkService(repo domain.PaymentLinkRepository, pricingSvc domain.PricingService, orderSvc domain.OrderService, gateway domain.PaymentGateway, notificationSvc domain.NotificationService) domain.PaymentLinkService {
 	return &paymentLinkServiceImpl{
-		repo:         repo,
-		pricingSvc:   pricingSvc,
-		orderSvc:     orderSvc,
-		gateway:      gateway,
+		repo:            repo,
+		pricingSvc:      pricingSvc,
+		orderSvc:        orderSvc,
+		gateway:         gateway,
+		notificationSvc: notificationSvc,
 	}
 }
 
@@ -186,6 +188,18 @@ func (s *paymentLinkServiceImpl) HandleWebhook(ctx context.Context, id string, e
 	if err := s.repo.UpdateStatus(ctx, id, domain.PaymentLinkStatusPaid); err != nil {
 		return fmt.Errorf("failed to update payment link status: %w", err)
 	}
+
+	// 2.5 Send Notification to Merchant
+	_ = s.notificationSvc.Send(ctx, domain.NotificationRequest{
+		UserID:  link.MerchantID,
+		Title:   "Pembayaran Berhasil!",
+		Message: fmt.Sprintf("Payment link untuk %s telah dibayar. Kurir sedang dicari.", link.ItemName),
+		Channel: domain.ChannelPush,
+		Data: map[string]string{
+			"type":    "payment_link_paid",
+			"link_id": id,
+		},
+	})
 
 	// 3. Auto-Create Order
 	// Note: The EstimateID might be slightly expired (> 10 mins). In a real production app, 

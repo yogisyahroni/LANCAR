@@ -126,6 +126,7 @@ class BusinessViewModel @Inject constructor(
                 }
 
                 if (form.itemName.isBlank()) throw Exception("Nama Barang tidak boleh kosong")
+                if (form.itemPrice <= 0L) throw Exception("Harga barang harus lebih dari Rp 0")
                 if (form.pickupAddress.isBlank()) throw Exception("Alamat Pickup tidak boleh kosong")
                 if (form.dropoffAddress.isBlank()) throw Exception("Alamat Pengiriman tidak boleh kosong")
                 if (form.serviceCode.isBlank()) throw Exception("Pilih Layanan pengiriman")
