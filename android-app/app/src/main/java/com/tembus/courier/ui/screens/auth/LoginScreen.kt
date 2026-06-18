@@ -90,24 +90,21 @@ fun LoginScreen(
         )
 
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Bottom
         ) {
             // ── Login Card ────────────────────────────────────────
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
+                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 32.dp),
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 32.dp, bottom = 48.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Text(
@@ -272,6 +269,8 @@ fun LoginScreen(
                         }
                     }
 
+
+
                     // Error banner
                     AnimatedVisibility(
                         visible = uiState.error != null,
@@ -332,15 +331,18 @@ fun LoginScreen(
                     ) {
                         Text("Daftar sebagai mitra kurir")
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = "v${BuildConfig.VERSION_NAME} - TEMBUS Mitra Kurir",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
-
-            Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                text = "v${BuildConfig.VERSION_NAME} - TEMBUS Mitra Kurir",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.5f)
-            )
         }
     }
 }
