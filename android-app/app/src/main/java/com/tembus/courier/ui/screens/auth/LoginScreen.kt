@@ -373,8 +373,9 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
                     
+                    val displayVersion = BuildConfig.VERSION_NAME.substringBefore("-")
                     Text(
-                        text = "${BuildConfig.VERSION_NAME} - TEMBUS Mitra Kurir",
+                        text = "$displayVersion - TEMBUS Mitra Kurir",
                         style = MaterialTheme.typography.labelSmall,
                         color = Color.White.copy(alpha = 0.6f),
                         modifier = Modifier.fillMaxWidth(),
