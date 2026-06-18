@@ -136,7 +136,12 @@ fun LoginScreen(
                             unfocusedTextColor = Color.White,
                             focusedTextColor = Color.White,
                             unfocusedLeadingIconColor = Color.White.copy(alpha = 0.7f),
-                            focusedLeadingIconColor = Color.White
+                            focusedLeadingIconColor = Color.White,
+                            errorBorderColor = Color(0xFFFF8A8A),
+                            errorLabelColor = Color(0xFFFF8A8A),
+                            errorTextColor = Color.White,
+                            errorLeadingIconColor = Color(0xFFFF8A8A),
+                            errorSupportingTextColor = Color(0xFFFF8A8A)
                         )
                     )
 
@@ -196,7 +201,13 @@ fun LoginScreen(
                             unfocusedLeadingIconColor = Color.White.copy(alpha = 0.7f),
                             focusedLeadingIconColor = Color.White,
                             unfocusedTrailingIconColor = Color.White.copy(alpha = 0.7f),
-                            focusedTrailingIconColor = Color.White
+                            focusedTrailingIconColor = Color.White,
+                            errorBorderColor = Color(0xFFFF8A8A),
+                            errorLabelColor = Color(0xFFFF8A8A),
+                            errorTextColor = Color.White,
+                            errorLeadingIconColor = Color(0xFFFF8A8A),
+                            errorTrailingIconColor = Color(0xFFFF8A8A),
+                            errorSupportingTextColor = Color(0xFFFF8A8A)
                         )
                     )
 
