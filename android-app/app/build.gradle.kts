@@ -363,6 +363,7 @@ dependencies {
     // Play Services Location remains only for device GPS, not map rendering.
     val tomTomNavigationSdkVersion = "2.3.0"
     implementation("com.tomtom.sdk.maps:map-display-common-android-complete:$tomTomNavigationSdkVersion")
+    implementation("com.tomtom.sdk.maps:map-display-engine-gl:$tomTomNavigationSdkVersion")
     implementation("com.tomtom.sdk:init:$tomTomNavigationSdkVersion")
     implementation("com.tomtom.sdk.location:provider-simulation:$tomTomNavigationSdkVersion")
     implementation("com.tomtom.sdk.routing:route-planner:$tomTomNavigationSdkVersion")
