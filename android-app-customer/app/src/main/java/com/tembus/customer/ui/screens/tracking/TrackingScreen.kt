@@ -6,6 +6,8 @@ import android.graphics.Canvas
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
@@ -229,6 +231,10 @@ fun CourierStatusCard(
     hasUnreadMessage: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val sessionManager = remember(context) { com.tembus.customer.data.session.AuthSessionManager(context) }
+    val authToken by sessionManager.authToken.collectAsState(initial = null)
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -299,9 +305,13 @@ fun CourierStatusCard(
                         .background(Color(0xFFE0E0E0)),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (!order?.courierPhotoUrl.isNullOrBlank()) {
+                    if (!order?.courierPhotoUrl.isNullOrBlank() && authToken != null) {
                         AsyncImage(
-                            model = absoluteUploadUrl(order?.courierPhotoUrl),
+                            model = ImageRequest.Builder(context)
+                                .data(absoluteUploadUrl(order?.courierPhotoUrl))
+                                .addHeader("Authorization", "Bearer $authToken")
+                                .crossfade(true)
+                                .build(),
                             contentDescription = "Foto Profil Kurir",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize()
@@ -467,24 +477,28 @@ private fun ProofSection(detail: OrderTrackingDetail) {
             Text("Bukti pengiriman", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0B3D2E))
         }
         Spacer(modifier = Modifier.height(12.dp))
+        val context = LocalContext.current
+        val sessionManager = remember(context) { com.tembus.customer.data.session.AuthSessionManager(context) }
+        val authToken by sessionManager.authToken.collectAsState(initial = null)
+        
         cancellationProof?.let {
-            CancellationProofCard(proof = it)
+            CancellationProofCard(proof = it, authToken = authToken)
             if (pickupProof != null || podProof != null) {
                 Spacer(modifier = Modifier.height(10.dp))
             }
         }
         pickupProof?.let {
-            ProofImage(title = "Foto barang pickup", url = absoluteUploadUrl(it.photoUrl))
+            ProofImage(title = "Foto barang pickup", url = absoluteUploadUrl(it.photoUrl), authToken = authToken)
             Spacer(modifier = Modifier.height(10.dp))
         }
         podProof?.let {
-            ProofImage(title = "Foto POD", url = absoluteUploadUrl(it.photoUrl))
+            ProofImage(title = "Foto POD", url = absoluteUploadUrl(it.photoUrl), authToken = authToken)
         }
     }
 }
 
 @Composable
-private fun CancellationProofCard(proof: com.tembus.customer.data.model.TrackingProof) {
+private fun CancellationProofCard(proof: com.tembus.customer.data.model.TrackingProof, authToken: String?) {
     val reasonText = proof.reasonNote
         ?: proof.overrideReason?.substringAfter(":", missingDelimiterValue = proof.overrideReason)?.trim()
         ?: "Alasan operasional sudah dikirim oleh kurir."
@@ -499,17 +513,24 @@ private fun CancellationProofCard(proof: com.tembus.customer.data.model.Tracking
         Spacer(modifier = Modifier.height(4.dp))
         Text(reasonText, fontSize = 13.sp, color = Color(0xFF5F1D1B))
         Spacer(modifier = Modifier.height(10.dp))
-        ProofImage(title = "Foto bukti pembatalan", url = absoluteUploadUrl(proof.photoUrl))
+        ProofImage(title = "Foto bukti pembatalan", url = absoluteUploadUrl(proof.photoUrl), authToken = authToken)
     }
 }
 
 @Composable
-private fun ProofImage(title: String, url: String) {
+private fun ProofImage(title: String, url: String, authToken: String?) {
     Column {
         Text(title, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color(0xFF1A1A1A))
         Spacer(modifier = Modifier.height(6.dp))
+        val context = LocalContext.current
         AsyncImage(
-            model = url,
+            model = if (authToken != null) {
+                ImageRequest.Builder(context)
+                    .data(url)
+                    .addHeader("Authorization", "Bearer $authToken")
+                    .crossfade(true)
+                    .build()
+            } else url,
             contentDescription = title,
             contentScale = ContentScale.Crop,
             modifier = Modifier

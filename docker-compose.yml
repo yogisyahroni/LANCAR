@@ -330,6 +330,10 @@ services:
       FIREBASE_COURIER_SERVICE_ACCOUNT_B64: ${FIREBASE_COURIER_SERVICE_ACCOUNT_B64:-}
       FIREBASE_COURIER_PROJECT_ID: ${FIREBASE_COURIER_PROJECT_ID:-}
       FCM_PROJECT_ID: ${FCM_PROJECT_ID:-}
+      # ─── Persistent file storage (foto kurir, dokumen, dll.) ───────────────
+      # Path ini harus sama dengan volume mount di bawah (/app/public/uploads)
+      # agar file tidak hilang saat container di-restart atau di-recreate.
+      UPLOAD_PRIVATE_DIR: /app/public/uploads
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_SERVICE_NAME: ${ADMIN_OTEL_SERVICE_NAME:-admin-service}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}

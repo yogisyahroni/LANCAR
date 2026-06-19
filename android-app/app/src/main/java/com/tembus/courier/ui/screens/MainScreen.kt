@@ -1,5 +1,8 @@
 package com.tembus.courier.ui.screens
 
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import android.Manifest
 import android.content.Context
 import android.content.Intent
@@ -1092,6 +1095,7 @@ fun MainScreen(
                             totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
                             performanceSummary = performanceSummary,
                             capabilityProfile = capabilityProfile,
+                            authToken = authSessionManager.getAuthTokenSync(),
                             onCompleteTraining = {
                                 scope.launch {
                                     val result = orderViewModel.completeTraining()
@@ -1134,6 +1138,7 @@ fun MainScreen(
                     totalEarningsIdr = courierProfile?.totalEarningsIdr ?: allOrders.sumOf { it.cleanPayoutIdr() },
                     performanceSummary = performanceSummary,
                     capabilityProfile = capabilityProfile,
+                    authToken = authSessionManager.getAuthTokenSync(),
                     onCompleteTraining = {
                         scope.launch {
                             val result = orderViewModel.completeTraining()
@@ -4721,6 +4726,7 @@ private fun ProfileContent(
     totalEarningsIdr: Int,
     performanceSummary: CourierPerformanceSummary?,
     capabilityProfile: CourierCapabilityProfile?,
+    authToken: String?,
     onCompleteTraining: () -> Unit,
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
@@ -4826,12 +4832,25 @@ private fun ProfileContent(
                     shape = RoundedCornerShape(8.dp),
                     color = Color.White.copy(alpha = 0.18f)
                 ) {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.padding(12.dp).size(28.dp)
-                    )
+                    if (!courierProfile?.profilePhotoUrl.isNullOrBlank() && authToken != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data("https://api.bawain.my.id${courierProfile.profilePhotoUrl}")
+                                .addHeader("Authorization", "Bearer $authToken")
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Foto Profil",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(52.dp).clip(RoundedCornerShape(8.dp))
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.padding(12.dp).size(28.dp)
+                        )
+                    }
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(courierName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)

@@ -1164,18 +1164,11 @@ export const updateCourierProfilePhoto = async (req: Request, res: Response): Pr
     await client.query(
       `UPDATE users u
        SET photo_url = $1,
+           profile_photo_locked_at = NOW(),
            updated_at = NOW()
        FROM courier_profiles cp
        WHERE cp.user_id = u.id AND cp.id = $2`,
       [fileUrl, id]
-    );
-
-    await client.query(
-      `UPDATE courier_profiles
-       SET profile_photo_locked_at = NOW(),
-           updated_at = NOW()
-       WHERE id = $1`,
-      [id]
     );
 
     const result = await client.query(`
@@ -1204,6 +1197,7 @@ export const updateCourierProfilePhoto = async (req: Request, res: Response): Pr
     res.json(result.rows[0]);
   } catch (error: any) {
     await client.query('ROLLBACK');
+    console.error('[COURIER PHOTO UPDATE ERROR]', error);
     res.status(500).json({ error: error.message });
   } finally {
     client.release();

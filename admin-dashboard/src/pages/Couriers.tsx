@@ -28,8 +28,53 @@ import {
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { adminApiRootUrl } from '../lib/runtimeConfig'
 import { cn } from '../lib/utils'
 import { toast } from 'sonner'
+
+// Resolve relative /uploads/... paths to absolute API server URL
+const resolvePhotoUrl = (photoUrl: string | null | undefined): string | null => {
+  if (!photoUrl) return null
+  if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) return photoUrl
+  // path like /uploads/profiles/xxx.jpg → https://api.bawain.my.id/uploads/profiles/xxx.jpg
+  const base = adminApiRootUrl.replace(/\/api\/v1\/?$/, '')
+  return `${base}${photoUrl.startsWith('/') ? '' : '/'}${photoUrl}`
+}
+
+// Hook: fetch authenticated image blob
+function useAuthPhoto(photoUrl: string | null | undefined) {
+  const fullUrl = resolvePhotoUrl(photoUrl)
+  return useQuery({
+    queryKey: ['auth-photo', fullUrl],
+    queryFn: async () => {
+      if (!fullUrl) return null
+      const res = await api.get(fullUrl, { responseType: 'blob', baseURL: '' })
+      return URL.createObjectURL(res.data)
+    },
+    enabled: !!fullUrl,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  })
+}
+
+// Component: render authenticated image or fallback
+function AuthPhoto({
+  photoUrl,
+  fallback,
+  className = 'w-full h-full object-cover',
+  alt = 'Photo',
+}: {
+  photoUrl: string | null | undefined
+  fallback?: React.ReactNode
+  className?: string
+  alt?: string
+}) {
+  const { data: blobUrl, isLoading } = useAuthPhoto(photoUrl)
+  if (!photoUrl) return <>{fallback}</>
+  if (isLoading) return <div className="w-full h-full bg-zinc-800 animate-pulse" />
+  if (!blobUrl) return <>{fallback}</>
+  return <img src={blobUrl} alt={alt} className={className} />
+}
 
 
 
@@ -687,8 +732,12 @@ export default function Couriers() {
               ) : courierDetail && detailTab === 'profile' && (
                 <div className="flex flex-col md:flex-row gap-10">
                   <div className="md:w-1/3 space-y-6">
-                    <div className="aspect-square rounded-[32px] bg-zinc-900 border border-white/10 flex items-center justify-center text-6xl font-black text-zinc-700 uppercase shadow-inner">
-                      {courierDetail.full_name?.charAt(0)}
+                    <div className="aspect-square rounded-[32px] bg-zinc-900 border border-white/10 overflow-hidden flex items-center justify-center text-6xl font-black text-zinc-700 uppercase shadow-inner">
+                      <AuthPhoto
+                        photoUrl={courierDetail.photo_url}
+                        alt={courierDetail.full_name}
+                        fallback={<span>{courierDetail.full_name?.charAt(0)}</span>}
+                      />
                     </div>
                     <div className="space-y-4">
                       {courierDetail.status === 'Pending' && (
@@ -911,7 +960,10 @@ export default function Couriers() {
                         </div>
                       ) : courierDetail.photo_url ? (
                         <div className="relative w-full aspect-[3/4] max-w-[280px] rounded-2xl overflow-hidden border border-white/10">
-                          <img src={courierDetail.photo_url} alt="Current Profile" className="w-full h-full object-cover" />
+                          <AuthPhoto
+                            photoUrl={courierDetail.photo_url}
+                            alt="Current Profile"
+                          />
                         </div>
                       ) : (
                         <div className="flex flex-col items-center gap-3 text-zinc-600">

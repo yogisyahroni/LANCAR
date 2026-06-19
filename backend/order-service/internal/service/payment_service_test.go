@@ -119,6 +119,9 @@ func (m *mockOrderRepo) UpdateConsolidationBagStatus(ctx context.Context, bagNum
 func (m *mockOrderRepo) GetLatestScanForOrder(ctx context.Context, orderID string) (*domain.PackageScan, error) {
 	return nil, nil
 }
+func (m *mockOrderRepo) GetCourierInfo(ctx context.Context, courierID string) (*domain.CourierInfo, error) {
+	return nil, nil
+}
 func (m *mockOrderRepo) GetScansByBagNumber(ctx context.Context, bagNumber string) ([]*domain.PackageScan, error) {
 	return nil, nil
 }
