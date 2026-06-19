@@ -31,7 +31,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.0",
     "helmet": "^8.1.0",
-    "http-proxy-middleware": "^3.0.5",
+    "http-proxy-middleware": "^3.0.7",
     "jsonwebtoken": "^9.0.3",
     "opossum": "^9.0.0",
     "pino": "^10.3.1",
