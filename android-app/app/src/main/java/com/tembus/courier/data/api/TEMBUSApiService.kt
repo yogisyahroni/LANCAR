@@ -54,6 +54,8 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.Response
 import retrofit2.http.*
+import com.tembus.courier.data.model.AppNotification
+import com.tembus.courier.data.model.UnreadCountData
 import kotlinx.serialization.json.JsonElement
 
 /**
@@ -377,4 +379,22 @@ interface TEMBUSApiService {
         @Path("callId") callId: String,
         @Body request: EndCallRequest
     ): Response<CallResponse>
+
+    // ── NOTIFICATIONS ───────────────────────────────────────────
+
+    @GET("api/v1/mobile/notifications")
+    suspend fun getNotifications(
+        @Query("limit") limit: Int = 50
+    ): Response<ApiResponse<List<AppNotification>>>
+
+    @GET("api/v1/mobile/notifications/unread-count")
+    suspend fun getUnreadNotificationCount(): Response<ApiResponse<UnreadCountData>>
+
+    @PATCH("api/v1/mobile/notifications/read-all")
+    suspend fun markAllNotificationsRead(): Response<ApiResponse<JsonElement>>
+
+    @PATCH("api/v1/mobile/notifications/{id}/read")
+    suspend fun markNotificationRead(
+        @Path("id") id: String
+    ): Response<ApiResponse<AppNotification>>
 }

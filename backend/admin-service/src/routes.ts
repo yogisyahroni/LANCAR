@@ -295,6 +295,7 @@ routes.get('/admin/courier-applications/:channel', (req, res) => controllers.get
 routes.get('/admin/courier-registration-links', (req, res) => controllers.getCourierRegistrationLinks(req, res));
 routes.post('/admin/courier-registration-links', (req, res) => controllers.createCourierRegistrationLink(req, res));
 routes.get('/admin/couriers', (req, res) => controllers.getAllCouriers(req, res));
+routes.post('/admin/couriers/broadcast-onboarding', (req, res) => controllers.broadcastOnboardingInvite(req, res));
 routes.get('/admin/couriers/stats', (req, res) => controllers.getCourierStats(req, res));
 routes.get('/admin/couriers/:id', (req, res) => controllers.getCourierById(req, res));
 routes.patch('/admin/couriers/:id/status', (req, res) => controllers.updateCourierStatus(req, res));

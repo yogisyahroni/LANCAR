@@ -139,6 +139,13 @@ export default function Couriers() {
   const [generatedLinkExpiresAt, setGeneratedLinkExpiresAt] = useState('')
   const queryClient = useQueryClient()
 
+  // Broadcast States
+  const [selectedCourierIds, setSelectedCourierIds] = useState<string[]>([])
+  const [isBroadcastModalOpen, setIsBroadcastModalOpen] = useState(false)
+  const [broadcastDate, setBroadcastDate] = useState('')
+  const [broadcastTime, setBroadcastTime] = useState('')
+  const [broadcastAddress, setBroadcastAddress] = useState('')
+
   // Webcam States
   const [isWebcamActive, setIsWebcamActive] = useState(false)
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
@@ -283,6 +290,30 @@ export default function Couriers() {
     }
   })
 
+  // Broadcast Mutation
+  const broadcastMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('/admin/couriers/broadcast-onboarding', {
+        courier_ids: selectedCourierIds,
+        date: broadcastDate,
+        time: broadcastTime,
+        address: broadcastAddress
+      })
+      return res.data
+    },
+    onSuccess: () => {
+      toast.success('Undangan basecamp berhasil dikirim ke kurir terpilih')
+      setIsBroadcastModalOpen(false)
+      setSelectedCourierIds([])
+      setBroadcastDate('')
+      setBroadcastTime('')
+      setBroadcastAddress('')
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || 'Gagal mengirim undangan')
+    }
+  })
+
   const createRegistrationLink = useMutation({
     mutationFn: async () => {
       const expiresInDays = Number(linkExpiryDays)
@@ -401,6 +432,21 @@ export default function Couriers() {
             </button>
           ))}
         </div>
+        
+        {selectedCourierIds.length > 0 && (
+          <div className="flex items-center gap-3 border-l border-white/10 pl-4">
+            <span className="text-xs font-bold text-zinc-300">
+              {selectedCourierIds.length} terpilih
+            </span>
+            <button
+              onClick={() => setIsBroadcastModalOpen(true)}
+              className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-light transition-colors flex items-center gap-2"
+            >
+              <FileText size={14} />
+              Broadcast Undangan Basecamp
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -529,6 +575,20 @@ export default function Couriers() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-white/5 bg-white/[0.01]">
+                <th className="px-6 py-6 w-12 text-center">
+                  <input 
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-primary focus:ring-primary/50"
+                    checked={couriersData?.data?.length > 0 && selectedCourierIds.length === couriersData.data.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedCourierIds(couriersData.data.map((c: any) => c.id))
+                      } else {
+                        setSelectedCourierIds([])
+                      }
+                    }}
+                  />
+                </th>
                 <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Courier</th>
                 <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Status</th>
                 <th className="px-8 py-6 text-xs font-black text-zinc-500 uppercase tracking-[0.2em]">Avg Rating</th>
@@ -539,7 +599,7 @@ export default function Couriers() {
             <tbody className="divide-y divide-white/5">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-8 py-20 text-center">
+                  <td colSpan={6} className="px-8 py-20 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <Loader2 className="w-8 h-8 text-primary animate-spin" />
                       <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Loading fleet data...</p>
@@ -551,6 +611,7 @@ export default function Couriers() {
                   title="Courier gagal dimuat"
                   message={queryErrorMessage(couriersError, 'Daftar kurir belum bisa diambil dari API admin.')}
                   onRetry={() => refetchCouriers()}
+                  colSpan={6}
                 />
               ) : couriersData?.data?.length ? couriersData.data.map((courier: any, i: number) => (
                 <motion.tr 
@@ -560,6 +621,20 @@ export default function Couriers() {
                   key={courier.id} 
                   className="hover:bg-white/[0.02] transition-colors group"
                 >
+                  <td className="px-6 py-6 text-center">
+                    <input 
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-primary focus:ring-primary/50"
+                      checked={selectedCourierIds.includes(courier.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedCourierIds(prev => [...prev, courier.id])
+                        } else {
+                          setSelectedCourierIds(prev => prev.filter(id => id !== courier.id))
+                        }
+                      }}
+                    />
+                  </td>
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-4">
                       <div className="h-12 w-12 rounded-2xl bg-zinc-800 flex items-center justify-center text-zinc-400 font-bold text-lg border border-white/5 group-hover:border-primary/20 transition-all uppercase">
@@ -637,7 +712,7 @@ export default function Couriers() {
                 </motion.tr>
               )) : (
                 <tr>
-                  <td colSpan={5} className="px-8 py-20 text-center">
+                  <td colSpan={6} className="px-8 py-20 text-center">
                     <Package className="w-10 h-10 text-zinc-800 mx-auto mb-4" />
                     <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Tidak ada kurir dari database untuk filter ini.</p>
                   </td>
@@ -684,6 +759,85 @@ export default function Couriers() {
           </div>
         </div>
       </div>
+
+      {/* Broadcast Modal */}
+      <AnimatePresence>
+        {isBroadcastModalOpen && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsBroadcastModalOpen(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="glass-card w-full max-w-lg p-8 rounded-[32px] relative z-10 border-white/10 shadow-3xl"
+            >
+              <h2 className="text-2xl font-black text-zinc-100">Broadcast Undangan Basecamp</h2>
+              <p className="text-sm text-zinc-400 mt-2">Kirim undangan ke {selectedCourierIds.length} kurir terpilih.</p>
+
+              <div className="space-y-4 mt-6">
+                <div>
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest">Tanggal</label>
+                  <input
+                    type="date"
+                    value={broadcastDate}
+                    onChange={(e) => setBroadcastDate(e.target.value)}
+                    className="w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest">Jam</label>
+                  <input
+                    type="time"
+                    value={broadcastTime}
+                    onChange={(e) => setBroadcastTime(e.target.value)}
+                    className="w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-black text-zinc-500 uppercase tracking-widest">Alamat Basecamp</label>
+                  <textarea
+                    value={broadcastAddress}
+                    onChange={(e) => setBroadcastAddress(e.target.value)}
+                    className="w-full mt-2 bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary transition-colors"
+                    rows={3}
+                    placeholder="Masukkan alamat lengkap..."
+                  />
+                </div>
+
+                <div className="bg-primary/5 border border-primary/20 p-4 rounded-xl mt-4">
+                  <p className="text-xs font-black text-primary-light uppercase tracking-widest mb-2">Preview Pesan</p>
+                  <p className="text-sm text-zinc-300 italic">
+                    "Halo <span className="text-primary font-bold">{"{nama_kurir}"}</span>! Pendaftaran kamu sudah disetujui. Silakan datang ke basecamp untuk pengambilan atribut pada tanggal <span className="text-primary font-bold">{broadcastDate || '[Tanggal]'}</span> jam <span className="text-primary font-bold">{broadcastTime || '[Jam]'}</span>. Lokasi: <span className="text-primary font-bold">{broadcastAddress || '[Alamat]'}</span>."
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-8">
+                <button
+                  onClick={() => setIsBroadcastModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl font-bold text-sm text-zinc-400 hover:text-white transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={() => broadcastMutation.mutate()}
+                  disabled={!broadcastDate || !broadcastTime || !broadcastAddress || broadcastMutation.isPending}
+                  className="px-5 py-2.5 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-light transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {broadcastMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                  Kirim Broadcast
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Courier Detail Modal */}
       <AnimatePresence>

@@ -577,7 +577,7 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
 
   try {
     const courierRes = await db.query(
-      `SELECT cp.id, cp.user_id
+      `SELECT cp.id, cp.user_id, u.photo_url, u.profile_photo_locked_at
        FROM courier_profiles cp
        JOIN users u ON u.id = cp.user_id
        WHERE cp.user_id = $1 AND u.role = 'courier' AND u.status = 'active'
@@ -592,6 +592,16 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
         data: null,
         message: 'Courier not found',
         code: 'ERR_NOT_FOUND',
+      });
+      return;
+    }
+
+    if (online && (!courier.photo_url || !courier.profile_photo_locked_at)) {
+      res.status(403).json({
+        success: false,
+        data: null,
+        message: 'Anda belum melengkapi foto profil kurir. Tunggu sampai kami menghubungi Anda untuk ambil foto dan jaket operasional di Basecamp kami.',
+        code: 'ERR_PHOTO_REQUIRED',
       });
       return;
     }

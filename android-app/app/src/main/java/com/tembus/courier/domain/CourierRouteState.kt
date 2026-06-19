@@ -7,7 +7,8 @@ enum class CourierRouteScreen {
     PROOF,
     CHAT,
     CALL,
-    FACE_VERIFY
+    FACE_VERIFY,
+    INBOX
 }
 
 data class CourierRouteState(
@@ -24,6 +25,8 @@ data class CourierRouteState(
 
 object CourierRouteReducer {
     fun home(): CourierRouteState = CourierRouteState()
+
+    fun inbox(): CourierRouteState = CourierRouteState(screen = CourierRouteScreen.INBOX)
 
     fun detail(orderId: String): CourierRouteState =
         CourierRouteState(screen = CourierRouteScreen.ORDER_DETAIL, orderId = orderId)

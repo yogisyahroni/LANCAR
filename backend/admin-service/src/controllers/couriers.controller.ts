@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db, readDb } from '../db';
 import crypto from 'crypto';
 import { saveSecureUploadBuffer } from '../security/uploadSecurity';
+import { createNotification } from '../notifications';
 
 const requiredOnDemandDocuments = ['ktp', 'sim', 'stnk', 'skpd', 'vehicle_photo', 'skck', 'bank_account', 'face_enrollment'];
 const forbiddenVehicleCategories = ['trail', 'sport', 'touring'];
@@ -762,6 +763,7 @@ export const getCourierById = async (req: Request, res: Response): Promise<void>
         u.email, 
         u.phone_number, 
         u.photo_url,
+        u.profile_photo_locked_at,
         cp.application_channel,
         cp.vehicle_plate as plate_number,
         CASE 
@@ -1175,6 +1177,7 @@ export const updateCourierProfilePhoto = async (req: Request, res: Response): Pr
       SELECT 
         cp.*,
         u.photo_url,
+        u.profile_photo_locked_at,
         CASE 
           WHEN cp.verification_status = 'pending' THEN 'Pending'
           WHEN u.status = 'suspended' THEN 'Suspended'
@@ -1201,5 +1204,50 @@ export const updateCourierProfilePhoto = async (req: Request, res: Response): Pr
     res.status(500).json({ error: error.message });
   } finally {
     client.release();
+  }
+};
+
+export const broadcastOnboardingInvite = async (req: Request, res: Response) => {
+  try {
+    const { courier_ids, date, time, address } = req.body;
+
+    if (!Array.isArray(courier_ids) || courier_ids.length === 0) {
+      return res.status(400).json({ error: 'courier_ids is required and must be an array' });
+    }
+
+    if (!date || !time || !address) {
+      return res.status(400).json({ error: 'date, time, and address are required' });
+    }
+
+    // Fetch courier names to replace in template
+    const couriersRes = await db.query(
+      `SELECT id, full_name FROM couriers WHERE id = ANY($1)`,
+      [courier_ids]
+    );
+
+    const couriers = couriersRes.rows;
+
+    if (couriers.length === 0) {
+      return res.status(404).json({ error: 'No couriers found' });
+    }
+
+    const notificationsPromises = couriers.map((courier) => {
+      const messageBody = `Halo ${courier.full_name}! Pendaftaran kamu sudah disetujui. Silakan datang ke basecamp untuk pengambilan atribut pada tanggal ${date} jam ${time}. Lokasi: ${address}.`;
+      return createNotification({
+        user_id: courier.id,
+        title: 'Undangan Pengambilan Atribut',
+        body: messageBody,
+        type: 'basecamp_invite',
+        category: 'message',
+        priority: 'high',
+      });
+    });
+
+    await Promise.all(notificationsPromises);
+
+    return res.status(200).json({ success: true, message: `Broadcast sent to ${couriers.length} couriers` });
+  } catch (error) {
+    console.error('Error broadcasting onboarding invite:', error);
+    return res.status(500).json({ error: 'Failed to broadcast onboarding invite' });
   }
 };

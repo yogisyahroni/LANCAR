@@ -92,6 +92,7 @@ import com.tembus.courier.ui.screens.call.InAppCallState
 import com.tembus.courier.ui.screens.order.OrderDetailScreen
 import com.tembus.courier.ui.screens.order.OrderScreen
 import com.tembus.courier.ui.screens.order.OrderViewModel
+import com.tembus.courier.ui.screens.notification.InboxScreen
 import com.tembus.courier.ui.screens.pod.ProofOfDeliveryScreen
 import com.tembus.courier.ui.screens.profile.resolvePayoutActionState
 import com.tembus.courier.ui.screens.scan.ScanScreen
@@ -179,6 +180,7 @@ fun MainScreen(
     // Real ViewModel backed by Hilt/Room DB
     val orderViewModel: OrderViewModel = hiltViewModel()
     val callEventsViewModel: CallEventsViewModel = hiltViewModel()
+    val notificationViewModel: com.tembus.courier.ui.screens.notification.NotificationViewModel = hiltViewModel()
 
     val allOrders by orderViewModel.allOrders.collectAsState()
     val pendingOrders by orderViewModel.pendingOrders.collectAsState()
@@ -202,6 +204,8 @@ fun MainScreen(
     val syncIntervalMs by orderViewModel.syncIntervalMs.collectAsState()
     val error by orderViewModel.error.collectAsState()
     val lastRemoteSyncAt by orderViewModel.lastRemoteSyncAt.collectAsState()
+    
+    val unreadNotificationCount by notificationViewModel.unreadCount.collectAsState()
 
     val courierName by authSessionManager.courierName.collectAsState(initial = null)
     val isOnline by authSessionManager.isOnline.collectAsState(initial = false)
@@ -402,6 +406,11 @@ fun MainScreen(
     }
 
     fun requestDutyToggle(online: Boolean) {
+        if (online && profilePhotoUrl.isNullOrBlank()) {
+            showMissingPhotoWarning = true
+            return
+        }
+
         if (online && !hasForegroundLocationPermission(context)) {
             pendingOnlineAfterForegroundPermission = true
             showForegroundLocationPermissionDialog = true
@@ -789,6 +798,14 @@ fun MainScreen(
         return
     }
 
+    // ── Inbox Screen ──────────────────────────────────────────
+    if (routeState.screen == CourierRouteScreen.INBOX) {
+        InboxScreen(
+            onBackClick = { routeState = CourierRouteReducer.home() }
+        )
+        return
+    }
+
     // ── Logout Confirmation Dialog ─────────────────────────────
     if (showLogoutDialog) {
         AlertDialog(
@@ -937,11 +954,19 @@ fun MainScreen(
                                 contentDescription = "Muat ulang"
                             )
                         }
-                        IconButton(onClick = { /* notifications */ }) {
-                            Icon(
-                                imageVector = Icons.Default.Notifications,
-                                contentDescription = "Notifikasi"
-                            )
+                        IconButton(onClick = { routeState = CourierRouteReducer.inbox() }) {
+                            BadgedBox(
+                                badge = {
+                                    if (unreadNotificationCount > 0) {
+                                        Badge { Text("$unreadNotificationCount") }
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = "Notifikasi"
+                                )
+                            }
                         }
                     }
                 )
@@ -1173,6 +1198,19 @@ fun MainScreen(
                 )
                 }
             }
+        }
+        
+        if (showMissingPhotoWarning) {
+            AlertDialog(
+                onDismissRequest = { showMissingPhotoWarning = false },
+                title = { Text(text = "Akses Operasional Terkunci") },
+                text = { Text(text = "Anda belum melakukan foto. Tunggu sampai kami menghubungi Anda untuk sesi ambil foto dan jaket operasional di Basecamp kami.") },
+                confirmButton = {
+                    TextButton(onClick = { showMissingPhotoWarning = false }) {
+                        Text(text = "Mengerti")
+                    }
+                }
+            )
         }
     }
 }

@@ -928,3 +928,44 @@ data class AppVersion(
     @SerialName("checksum_sha256")
     val checksumSha256: String? = null
 )
+
+/**
+ * App Notification
+ */
+@Serializable
+data class AppNotification(
+    @SerialName("id")
+    val id: String,
+    
+    @SerialName("title")
+    val title: String,
+    
+    @SerialName("body")
+    val body: String,
+    
+    @SerialName("type")
+    val type: String? = null,
+    
+    @SerialName("category")
+    val category: String? = null,
+    
+    @SerialName("priority")
+    val priority: Int = 0,
+    
+    @SerialName("is_read")
+    val isRead: Boolean = false,
+    
+    @SerialName("created_at")
+    val createdAt: String
+)
+
+/**
+ * Unread Count Response Data
+ */
+@Serializable
+data class UnreadCountData(
+    @SerialName("total")
+    val total: Int,
+    @SerialName("by_category")
+    val byCategory: Map<String, Int>? = null
+)
