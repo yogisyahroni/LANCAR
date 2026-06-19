@@ -4836,7 +4836,7 @@ private fun ProfileContent(
                     if (!courierProfile?.profilePhotoUrl.isNullOrBlank() && authToken != null) {
                         AsyncImage(
                             model = ImageRequest.Builder(LocalContext.current)
-                                .data("https://api.bawain.my.id${courierProfile.profilePhotoUrl}")
+                                .data("https://api.bawain.my.id${courierProfile?.profilePhotoUrl}")
                                 .addHeader("Authorization", "Bearer $authToken")
                                 .crossfade(true)
                                 .build(),
