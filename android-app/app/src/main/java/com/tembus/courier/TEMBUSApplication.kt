@@ -26,7 +26,6 @@ import android.os.Build
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.ExistingWorkPolicy
 import com.tembus.courier.util.FirebaseInitializer
-import net.zetetic.database.sqlcipher.SQLiteDatabase
 import javax.inject.Inject
 
 /**
@@ -53,7 +52,7 @@ class TEMBUSApplication : Application(), Configuration.Provider {
 
         // 🔒 WAJIB: Muat native library SQLCipher SEBELUM database apapun dibuka.
         // Tanpa ini, JVM tidak bisa menemukan implementasi nativeOpen() → UnsatisfiedLinkError → crash fatal.
-        SQLiteDatabase.loadLibs(this)
+        System.loadLibrary("sqlcipher")
         
         Log.d(TAG, "Application created")
 
