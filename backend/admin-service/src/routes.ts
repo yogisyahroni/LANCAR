@@ -299,6 +299,7 @@ routes.get('/admin/couriers/stats', (req, res) => controllers.getCourierStats(re
 routes.get('/admin/couriers/:id', (req, res) => controllers.getCourierById(req, res));
 routes.patch('/admin/couriers/:id/status', (req, res) => controllers.updateCourierStatus(req, res));
 routes.patch('/admin/couriers/:id/service-capabilities', (req, res) => controllers.updateCourierServiceCapabilities(req, res));
+routes.patch('/admin/couriers/:id/profile-photo', ...secureUploadSingle('photo', 'profileImage'), (req, res) => controllers.updateCourierProfilePhoto(req, res));
 routes.get('/admin/couriers/:id/history', (req, res) => controllers.getCourierHistory(req, res));
 routes.get('/admin/couriers/export', (req, res) => controllers.exportCouriers(req, res));
 

@@ -42,9 +42,13 @@ type User struct {
 	LastLoginAt          *time.Time `json:"last_login_at" db:"last_login_at"`
 	StoreName            *string    `json:"store_name" db:"store_name"`
 	DefaultPickupAddress *string    `json:"default_pickup_address" db:"default_pickup_address"`
+	// Profile photo lock — hanya admin yang bisa set, kurir tidak bisa update sendiri setelah dikunci
+	ProfilePhotoLockedAt *time.Time `json:"profile_photo_locked_at,omitempty" db:"profile_photo_locked_at"`
+	ProfilePhotoSetBy    *string    `json:"profile_photo_set_by,omitempty" db:"profile_photo_set_by"`
 	CreatedAt            time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt            time.Time  `json:"updated_at" db:"updated_at"`
 }
+
 
 type OTPLog struct {
 	ID          string    `json:"id" db:"id"`

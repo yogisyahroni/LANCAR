@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Users, 
@@ -21,7 +21,10 @@ import {
   Link2,
   Copy,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Camera,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
@@ -83,13 +86,85 @@ export default function Couriers() {
   const [page, setPage] = useState(1)
   const [selectedCourierId, setSelectedCourierId] = useState<string | null>(null)
   const [isExporting, setIsExporting] = useState(false)
-  const [detailTab, setDetailTab] = useState<'profile' | 'history'>('profile')
+  const [detailTab, setDetailTab] = useState<'profile' | 'history' | 'photo'>('profile')
   const [applicationChannel, setApplicationChannel] = useState('all')
   const [linkChannel, setLinkChannel] = useState<'regular'>('regular')
   const [linkExpiryDays, setLinkExpiryDays] = useState('7')
   const [generatedLink, setGeneratedLink] = useState('')
   const [generatedLinkExpiresAt, setGeneratedLinkExpiresAt] = useState('')
   const queryClient = useQueryClient()
+
+  // Webcam States
+  const [isWebcamActive, setIsWebcamActive] = useState(false)
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  const startWebcam = async () => {
+    try {
+      setIsWebcamActive(true)
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+    } catch (err) {
+      toast.error('Tidak dapat mengakses webcam')
+      setIsWebcamActive(false)
+    }
+  }
+
+  const stopWebcam = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream
+      stream.getTracks().forEach(track => track.stop())
+      videoRef.current.srcObject = null
+    }
+    setIsWebcamActive(false)
+  }
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const context = canvasRef.current.getContext('2d')
+      if (context) {
+        canvasRef.current.width = videoRef.current.videoWidth
+        canvasRef.current.height = videoRef.current.videoHeight
+        context.drawImage(videoRef.current, 0, 0)
+        setCapturedPhoto(canvasRef.current.toDataURL('image/jpeg'))
+        stopWebcam()
+      }
+    }
+  }
+
+  const uploadPhoto = async (file: File | Blob) => {
+    if (!selectedCourierId) return
+    setIsUploadingPhoto(true)
+    try {
+      const formData = new FormData()
+      formData.append('photo', file, 'profile.jpg')
+      await api.patch(`/admin/couriers/${selectedCourierId}/profile-photo`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      toast.success('Foto profil berhasil dikunci')
+      setCapturedPhoto(null)
+      queryClient.invalidateQueries({ queryKey: ['admin-courier-detail', selectedCourierId] })
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Gagal upload foto')
+    } finally {
+      setIsUploadingPhoto(false)
+    }
+  }
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setCapturedPhoto(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
 
   // Fetch Stats
   const { data: stats, isError: isStatsError, error: statsError, refetch: refetchStats } = useQuery({
@@ -585,7 +660,7 @@ export default function Couriers() {
               {/* Tab Switcher */}
               {!isLoadingDetail && courierDetail && (
                 <div className="flex gap-2 mb-8 border-b border-white/5 pb-px">
-                  {(['profile', 'history'] as const).map(tab => (
+                  {(['profile', 'history', 'photo'] as const).map(tab => (
                     <button
                       key={tab}
                       onClick={() => setDetailTab(tab)}
@@ -594,8 +669,8 @@ export default function Couriers() {
                         detailTab === tab ? 'text-primary-light' : 'text-zinc-500 hover:text-zinc-300'
                       )}
                     >
-                      {tab === 'profile' ? <ShieldCheck size={15} /> : <History size={15} />}
-                      {tab === 'profile' ? 'Profile' : 'Order History'}
+                      {tab === 'profile' ? <ShieldCheck size={15} /> : tab === 'history' ? <History size={15} /> : <Camera size={15} />}
+                      {tab === 'profile' ? 'Profile' : tab === 'history' ? 'Order History' : 'Profile Photo'}
                       {detailTab === tab && (
                         <motion.div layoutId="courierTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-light" />
                       )}
@@ -786,6 +861,109 @@ export default function Couriers() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Profile Photo Tab */}
+              {!isLoadingDetail && courierDetail && detailTab === 'photo' && (
+                <div className="flex flex-col gap-8">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-black text-zinc-100">Set Courier Profile Photo</h3>
+                      <p className="text-zinc-500 text-sm mt-1">Photo ini akan digunakan saat dispatching order agar customer melihat foto verified dari basecamp.</p>
+                      {courierDetail.profile_photo_locked_at ? (
+                        <p className="text-emerald-400 text-xs mt-2 font-bold flex items-center gap-1">
+                          <CheckCircle size={12} />
+                          Locked at {new Date(courierDetail.profile_photo_locked_at).toLocaleString('id-ID')}
+                        </p>
+                      ) : (
+                        <p className="text-amber-400 text-xs mt-2 font-bold flex items-center gap-1">
+                          <AlertCircle size={12} />
+                          Not Locked. Kurir tidak akan menerima order.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Current Photo / Webcam View */}
+                    <div className="glass-card p-6 rounded-[32px] border-white/5 flex flex-col items-center justify-center gap-6 min-h-[300px]">
+                      {isWebcamActive ? (
+                        <div className="relative w-full aspect-[3/4] max-w-[280px] rounded-2xl overflow-hidden bg-black border-2 border-primary">
+                          <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                          <canvas ref={canvasRef} className="hidden" />
+                          <button
+                            onClick={capturePhoto}
+                            className="absolute bottom-4 left-1/2 -translate-x-1/2 px-6 py-2 bg-primary text-white rounded-full font-bold shadow-lg"
+                          >
+                            Capture
+                          </button>
+                        </div>
+                      ) : capturedPhoto ? (
+                        <div className="relative w-full aspect-[3/4] max-w-[280px] rounded-2xl overflow-hidden border border-white/10">
+                          <img src={capturedPhoto} alt="Captured" className="w-full h-full object-cover" />
+                          <button
+                            onClick={() => setCapturedPhoto(null)}
+                            className="absolute top-2 right-2 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white transition"
+                          >
+                            <RefreshCw size={16} />
+                          </button>
+                        </div>
+                      ) : courierDetail.photo_url ? (
+                        <div className="relative w-full aspect-[3/4] max-w-[280px] rounded-2xl overflow-hidden border border-white/10">
+                          <img src={courierDetail.photo_url} alt="Current Profile" className="w-full h-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-3 text-zinc-600">
+                          <ImageIcon size={48} className="opacity-50" />
+                          <p className="text-sm font-bold uppercase tracking-widest">No Photo Available</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-col gap-4 justify-center">
+                      {!isWebcamActive && !capturedPhoto && (
+                        <>
+                          <button
+                            onClick={startWebcam}
+                            className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-primary/10 text-primary-light border border-primary/20 hover:bg-primary/20 transition-all font-bold"
+                          >
+                            <Camera size={20} />
+                            Take Photo with Webcam
+                          </button>
+                          
+                          <div className="relative">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleFileUpload}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                            <div className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all font-bold text-zinc-300">
+                              <Upload size={20} />
+                              Upload File
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {capturedPhoto && (
+                        <button
+                          onClick={async () => {
+                            const res = await fetch(capturedPhoto);
+                            const blob = await res.blob();
+                            uploadPhoto(blob);
+                          }}
+                          disabled={isUploadingPhoto}
+                          className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-emerald-500 text-white shadow-lg hover:bg-emerald-600 transition-all font-bold disabled:opacity-50"
+                        >
+                          {isUploadingPhoto ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
+                          Save & Lock Photo
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </motion.div>

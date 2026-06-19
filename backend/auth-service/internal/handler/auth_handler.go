@@ -33,6 +33,7 @@ type AuthHandler struct {
 		SetPIN(ctx context.Context, userID string, pin string) error
 		GetUserByID(ctx context.Context, id string) (*domain.User, error)
 		UpdateProfilePhoto(ctx context.Context, userID string, filename string, content io.Reader) (string, error)
+		AdminSetCourierProfilePhoto(ctx context.Context, adminID, courierUserID string, filename string, content io.Reader) (string, error)
 		UpdateUserRole(ctx context.Context, userID string, role string) error
 		RegisterCourier(ctx context.Context, userID string, vehicleType, vehiclePlate string) error
 		UploadCourierDocument(ctx context.Context, userID string, docType string, filename string, content io.Reader) (string, error)
@@ -48,6 +49,7 @@ type AuthHandler struct {
 		CreateAdminUser(ctx context.Context, actorID string, fullName, phoneNumber, role string) (*domain.User, error)
 		VerifyCourierLiveness(ctx context.Context, userID string, imageBase64 string) (bool, error)
 	}
+
 }
 
 func (h *AuthHandler) rejectIfAuthAbuseBlocked(w http.ResponseWriter, r *http.Request, scope middleware.AuthAbuseScope, identifier string) bool {
@@ -830,4 +832,78 @@ func (h *AuthHandler) VerifyLiveness(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Liveness verification successful"})
+}
+
+// HandleAdminSetCourierProfilePhoto handles admin requests to set and lock a courier's profile photo
+func (h *AuthHandler) HandleAdminSetCourierProfilePhoto(w http.ResponseWriter, r *http.Request) {
+	// 1. Get Admin ID from context
+	adminID, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok || adminID == "" {
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	// 2. Extract Courier ID from path
+	// Assuming router is something like /api/v1/admin/couriers/{id}/profile-photo
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 2 {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid path", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+	
+	// We'll extract the ID based on standard mux / chi path params if available,
+	// but since we don't have the router object directly, let's extract it manually for now.
+	// We know the pattern is /admin/couriers/{id}/profile-photo
+	var courierID string
+	for i, part := range pathParts {
+		if part == "couriers" && i+1 < len(pathParts) {
+			courierID = pathParts[i+1]
+			break
+		}
+	}
+
+	if courierID == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Courier ID is required", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	// 3. Parse multipart form
+	err := r.ParseMultipartForm(5 << 20) // 5 MB max
+	if err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Failed to parse form: file too large or invalid", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	file, header, err := r.FormFile("photo")
+	if err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Photo file is required", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+	defer file.Close()
+
+	// 4. Validate file type
+	contentType := header.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, "image/") {
+		middleware.WriteError(w, http.StatusUnsupportedMediaType, "ERR_UNSUPPORTED_MEDIA_TYPE", "File must be an image", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	// 5. Call service
+	photoURL, err := h.svc.AdminSetCourierProfilePhoto(r.Context(), adminID, courierID, header.Filename, file)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", err.Error(), middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		} else if strings.Contains(err.Error(), "not a courier") {
+			middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", err.Error(), middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		} else {
+			middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to process photo upload", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message":   "Profile photo updated successfully and locked.",
+		"photo_url": photoURL,
+	})
 }

@@ -384,6 +384,8 @@ func main() {
 	mux.HandleFunc("/api/v1/admin/couriers/verify", middleware.Permission2FAChain(repo, domain.PermManageCouriers, h.VerifyCourier))
 	mux.HandleFunc("/api/v1/admin/couriers/suspend", middleware.Permission2FAChain(repo, domain.PermManageCouriers, h.SuspendCourier))
 	mux.HandleFunc("/api/v1/admin/couriers/zones", middleware.Permission2FAChain(repo, domain.PermManageCouriers, h.AssignCourierZone))
+	mux.HandleFunc("PATCH /api/v1/admin/couriers/{id}/profile-photo", middleware.Permission2FAChain(repo, domain.PermManageCouriers, h.HandleAdminSetCourierProfilePhoto))
+
 
 	// ─────────────────────────────────────────────
 	// Static Files (only if not using S3)

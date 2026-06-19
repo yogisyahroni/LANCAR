@@ -94,21 +94,23 @@ func (r *relayRepository) GetCourierDispatchScoreStats(ctx context.Context, cour
 	var stats domain.CourierDispatchScoreStats
 	query := `
 		SELECT
-			id,
-			relay_score::float8 AS relay_score,
-			acceptance_rate_pct::float8 AS acceptance_rate_pct,
-			max_weight_capacity_kg::float8 AS max_weight_capacity_kg,
-			max_packages_capacity::int AS max_packages_capacity,
+			cp.id,
+			cp.relay_score::float8 AS relay_score,
+			cp.acceptance_rate_pct::float8 AS acceptance_rate_pct,
+			cp.max_weight_capacity_kg::float8 AS max_weight_capacity_kg,
+			cp.max_packages_capacity::int AS max_packages_capacity,
+			(u.profile_photo_locked_at IS NOT NULL) AS profile_photo_locked,
 			ST_Distance(
-				current_location::geography,
+				cp.current_location::geography,
 				ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography
 			)::float8 AS distance_meters
-		FROM courier_profiles
-		WHERE (id = $1 OR user_id = $1)
-		  AND is_online = TRUE
-		  AND current_location IS NOT NULL
-		  AND relay_score IS NOT NULL
-		  AND acceptance_rate_pct IS NOT NULL
+		FROM courier_profiles cp
+		JOIN users u ON cp.user_id = u.id
+		WHERE (cp.id = $1 OR cp.user_id = $1)
+		  AND cp.is_online = TRUE
+		  AND cp.current_location IS NOT NULL
+		  AND cp.relay_score IS NOT NULL
+		  AND cp.acceptance_rate_pct IS NOT NULL
 		LIMIT 1
 	`
 

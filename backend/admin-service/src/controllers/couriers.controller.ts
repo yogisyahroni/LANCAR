@@ -1146,3 +1146,66 @@ export const exportCouriers = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const updateCourierProfilePhoto = async (req: Request, res: Response): Promise<void> => {
+  const id = String(req.params.id);
+  
+  if (!req.file) {
+    res.status(400).json({ error: 'No photo provided' });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    const { fileUrl } = saveSecureUploadBuffer(req.file, 'profiles');
+
+    await client.query('BEGIN');
+
+    await client.query(
+      `UPDATE users u
+       SET photo_url = $1,
+           updated_at = NOW()
+       FROM courier_profiles cp
+       WHERE cp.user_id = u.id AND cp.id = $2`,
+      [fileUrl, id]
+    );
+
+    await client.query(
+      `UPDATE courier_profiles
+       SET profile_photo_locked_at = NOW(),
+           updated_at = NOW()
+       WHERE id = $1`,
+      [id]
+    );
+
+    const result = await client.query(`
+      SELECT 
+        cp.*,
+        u.photo_url,
+        CASE 
+          WHEN cp.verification_status = 'pending' THEN 'Pending'
+          WHEN u.status = 'suspended' THEN 'Suspended'
+          WHEN u.status = 'active' THEN 'Active'
+          ELSE 'Inactive'
+        END as status
+      FROM courier_profiles cp 
+      JOIN users u ON cp.user_id = u.id 
+      WHERE cp.id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ error: 'Courier not found' });
+      return;
+    }
+
+    await client.query('COMMIT');
+    res.json(result.rows[0]);
+  } catch (error: any) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: error.message });
+  } finally {
+    client.release();
+  }
+};

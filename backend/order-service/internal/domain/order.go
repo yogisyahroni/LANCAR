@@ -51,11 +51,24 @@ type Order struct {
 	QRCodeURL              string      `json:"qr_code_url,omitempty"`
 	CancellationReason     string      `json:"cancellation_reason,omitempty"`
 	DispatchExpiry         *time.Time  `json:"dispatch_expiry,omitempty"`
-	BatchID                *string     `json:"batch_id,omitempty"`
-	SequenceNo             *int        `json:"sequence_no,omitempty"`
-	CreatedAt              time.Time   `json:"created_at"`
-	UpdatedAt              time.Time   `json:"updated_at"`
+	BatchID                *string      `json:"batch_id,omitempty"`
+	SequenceNo             *int         `json:"sequence_no,omitempty"`
+	CourierID              *string      `json:"courier_id,omitempty"` // Added for S2-OS-01
+	Courier                *CourierInfo `json:"courier,omitempty"`    // Added for Courier Profile
+	CreatedAt              time.Time    `json:"created_at"`
+	UpdatedAt              time.Time    `json:"updated_at"`
 }
+
+type CourierInfo struct {
+	ID                 string `json:"id"`
+	FullName           string `json:"full_name"`
+	ProfilePhotoURL    string `json:"profile_photo_url"`
+	Initial            string `json:"initial"`
+	VehicleType        string `json:"vehicle_type"`
+	VehiclePlate       string `json:"vehicle_plate"`
+	AvgPartnerRating   float64 `json:"avg_partner_rating"`
+}
+
 
 type CreateOrderRequest struct {
 	EstimateID      string `json:"estimate_id" validate:"required"`
@@ -91,6 +104,7 @@ type OrderRepository interface {
 	UpdateDimensions(ctx context.Context, id string, length, width, height, weight float64) error
 	CancelExpiredOrders(ctx context.Context, timeout time.Duration) (int64, error)
 	AssignCourier(ctx context.Context, orderID string, courierID string) error
+	GetCourierInfo(ctx context.Context, courierID string) (*CourierInfo, error)
 	GetActiveCourierOrder(ctx context.Context, courierID string) (string, error)
 	GetPendingAssignmentOrders(ctx context.Context, threshold time.Duration) ([]*Order, error)
 	SetDispatchExpiry(ctx context.Context, orderID string, expiry time.Time) error

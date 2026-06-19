@@ -763,6 +763,15 @@ func (s *AuthService) GetUserByID(ctx context.Context, id string) (*domain.User,
 }
 
 func (s *AuthService) UpdateProfilePhoto(ctx context.Context, userID string, filename string, content io.Reader) (string, error) {
+	// Block couriers from updating photo if it has been locked by admin (basecamp photo)
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return "", fmt.Errorf("user not found: %w", err)
+	}
+	if user.Role == domain.RoleCourier && user.ProfilePhotoLockedAt != nil {
+		return "", fmt.Errorf("foto profil Anda telah dikunci oleh admin dan tidak dapat diubah secara mandiri")
+	}
+
 	url, err := s.storageService.Save(ctx, filename, content)
 	if err != nil {
 		return "", fmt.Errorf("failed to save profile photo: %w", err)
@@ -774,6 +783,48 @@ func (s *AuthService) UpdateProfilePhoto(ctx context.Context, userID string, fil
 	}
 
 	return url, nil
+}
+
+// AdminSetCourierProfilePhoto is the admin-only endpoint to take the courier's official
+// profile photo at basecamp. After this, the courier's photo is permanently locked.
+func (s *AuthService) AdminSetCourierProfilePhoto(ctx context.Context, adminID, courierUserID string, filename string, content io.Reader) (string, error) {
+	// 1. Validate courier exists and is a courier
+	courier, err := s.userRepo.GetByID(ctx, courierUserID)
+	if err != nil || courier == nil {
+		return "", fmt.Errorf("courier not found")
+	}
+	if courier.Role != domain.RoleCourier {
+		return "", fmt.Errorf("user %s is not a courier", courierUserID)
+	}
+
+	// 2. Upload photo to storage
+	photoURL, err := s.storageService.Save(ctx, filename, content)
+	if err != nil {
+		return "", fmt.Errorf("failed to save profile photo: %w", err)
+	}
+
+	// 3. Lock photo in DB atomically
+	if err := s.userRepo.LockProfilePhoto(ctx, courierUserID, adminID, photoURL); err != nil {
+		return "", fmt.Errorf("failed to lock profile photo: %w", err)
+	}
+
+	// 4. Audit log
+	_ = s.auditRepo.CreateAuditLog(ctx, &domain.AuditLog{
+		ActorID:  adminID,
+		Action:   "admin_lock_courier_profile_photo",
+		TargetID: courierUserID,
+		Payload:  fmt.Sprintf(`{"photo_url": "%s"}`, photoURL),
+	})
+
+	// 5. Notify courier via email (FCM push will be wired in future sprint)
+	if courier.Email != nil {
+		_ = s.emailService.SendGenericNotification(*courier.Email, courier.FullName,
+			"Foto Profil Anda Sudah Aktif",
+			"Selamat! Foto profil Anda telah diambil oleh tim admin TEMBUS dan sudah aktif. Anda sekarang siap menerima order pertama Anda.",
+		)
+	}
+
+	return photoURL, nil
 }
 
 func (s *AuthService) UpdateUserRole(ctx context.Context, userID string, role string) error {

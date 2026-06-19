@@ -148,6 +148,14 @@ func (s *orderServiceImpl) GetOrder(ctx context.Context, orderID string) (*domai
 		return nil, errors.New("order not found")
 	}
 
+	// Fetch Courier Info if order is assigned
+	if order.CourierID != nil && *order.CourierID != "" {
+		courierInfo, err := s.orderRepo.GetCourierInfo(ctx, *order.CourierID)
+		if err == nil && courierInfo != nil {
+			order.Courier = courierInfo
+		}
+	}
+
 	// Generate QR Code URL for the detail view
 	qrURL, _ := utils.GenerateQRCodeDataURI(order.HandoverToken, 256)
 	order.QRCodeURL = qrURL
@@ -404,6 +412,12 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 		stats, err := s.relayRepo.GetCourierDispatchScoreStats(ctx, courierUUID, order.PickupLat, order.PickupLng)
 		if err != nil {
 			log.Printf("Skipping courier %s: dispatch score stats unavailable: %v", id, err)
+			continue
+		}
+
+		// Basecamp Photo Lock Check
+		if !stats.ProfilePhotoLocked {
+			log.Printf("Skipping courier %s: profile photo has not been locked at basecamp yet", id)
 			continue
 		}
 

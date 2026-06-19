@@ -198,20 +198,14 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	// Authorization: admins bypass; others must own the order or be the assigned courier.
 	isAdmin := role == "admin" || role == "super_admin"
 	isOwner := order.CustomerID == userID
+	isAssignedCourier := false
+	if order.CourierID != nil && *order.CourierID == userID {
+		isAssignedCourier = true
+	}
 
-	// The Order struct doesn't have CourierID yet — check via the service.
-	// For now we allow couriers to access any order they are assigned to by calling
-	// GetOrder which internally enforces DB-level ownership through the repository
-	// query (GetByID fetches all orders). Until CourierID is exposed on the Order
-	// struct, couriers are allowed read access with role=="courier" gating only
-	// to prevent leaking customer-only orders via brute-force.
-	//
-	// TODO: add CourierID to Order domain model and check order.CourierID == userID
-	isCourier := role == "courier"
-
-	if !isAdmin && !isOwner && !isCourier {
+	if !isAdmin && !isOwner && !isAssignedCourier {
 		correlationID := middleware.GetCorrelationID(r.Context())
-		middleware.LogJSON("warn", "idor_attempt_blocked", middleware.StructuredFields{
+		middleware.LogJSON("warn", "unauthorized_order_access", middleware.StructuredFields{
 			"correlation_id": correlationID,
 			"order_id":       id,
 			"requester_id":   userID,

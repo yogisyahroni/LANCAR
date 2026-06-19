@@ -43,6 +43,7 @@ type CourierDispatchScoreStats struct {
 	DistanceMeters      float64   `db:"distance_meters"`
 	MaxWeightCapacityKg *float64  `db:"max_weight_capacity_kg"`
 	MaxPackagesCapacity *int      `db:"max_packages_capacity"`
+	ProfilePhotoLocked  bool      `db:"profile_photo_locked"`
 }
 
 // CourierBankInfo holds bank account info needed for payout disbursement.

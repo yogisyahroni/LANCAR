@@ -299,16 +299,25 @@ fun CourierStatusCard(
                         .background(Color(0xFFE0E0E0)),
                     contentAlignment = Alignment.Center
                 ) {
-                    val initials = remember(order?.courierName) {
-                        val name = order?.courierName ?: "K"
-                        val parts = name.trim().split("\\s+".toRegex())
-                        if (parts.size >= 2) {
-                            "${parts[0].take(1)}${parts[1].take(1)}".uppercase()
-                        } else {
-                            name.take(2).uppercase()
+                    if (!order?.courierPhotoUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = absoluteUploadUrl(order?.courierPhotoUrl),
+                            contentDescription = "Foto Profil Kurir",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        val initials = remember(order?.courierName) {
+                            val name = order?.courierName ?: "K"
+                            val parts = name.trim().split("\\s+".toRegex())
+                            if (parts.size >= 2) {
+                                "${parts[0].take(1)}${parts[1].take(1)}".uppercase()
+                            } else {
+                                name.take(2).uppercase()
+                            }
                         }
+                        Text(initials, fontWeight = FontWeight.Bold, color = Color.DarkGray)
                     }
-                    Text(initials, fontWeight = FontWeight.Bold, color = Color.DarkGray)
                 }
 
                 Spacer(modifier = Modifier.width(16.dp))

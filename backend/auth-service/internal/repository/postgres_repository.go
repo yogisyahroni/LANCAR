@@ -26,7 +26,8 @@ func NewPostgresRepository(db, readDB *sql.DB) *postgresRepo {
 func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string) (*domain.User, error) {
 	query := `
 		SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
-			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, store_name, default_pickup_address, created_at, updated_at 
+			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, store_name, default_pickup_address,
+			   profile_photo_locked_at, profile_photo_set_by, created_at, updated_at 
 		FROM users
 		WHERE phone_number = $1 OR email = $1
 		ORDER BY
@@ -41,7 +42,8 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 	err := r.readDB.QueryRowContext(ctx, query, phoneNumber).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status,
 		&user.ReferralCode, &user.ReferredBy, &user.PasswordHash, &user.PINHash, &user.IsVerified,
-		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.StoreName, &user.DefaultPickupAddress, &user.CreatedAt, &user.UpdatedAt,
+		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.StoreName, &user.DefaultPickupAddress,
+		&user.ProfilePhotoLockedAt, &user.ProfilePhotoSetBy, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -52,14 +54,16 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.User, error) {
 	query := `
 		SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
-			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, store_name, default_pickup_address, created_at, updated_at 
+			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, store_name, default_pickup_address,
+			   profile_photo_locked_at, profile_photo_set_by, created_at, updated_at 
 		FROM users
 		WHERE id = $1`
 	user := &domain.User{}
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status,
 		&user.ReferralCode, &user.ReferredBy, &user.PasswordHash, &user.PINHash, &user.IsVerified,
-		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.StoreName, &user.DefaultPickupAddress, &user.CreatedAt, &user.UpdatedAt,
+		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.StoreName, &user.DefaultPickupAddress,
+		&user.ProfilePhotoLockedAt, &user.ProfilePhotoSetBy, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -133,6 +137,26 @@ func (r *postgresRepo) UpdatePhotoURL(ctx context.Context, userID, url string) e
 	query := `UPDATE users SET photo_url = $1, updated_at = $2 WHERE id = $3`
 	_, err := r.db.ExecContext(ctx, query, url, time.Now(), userID)
 	return err
+}
+
+// LockProfilePhoto sets the courier's official profile photo and locks it so the courier
+// cannot change it themselves. Only callable by admins (enforced at service layer).
+func (r *postgresRepo) LockProfilePhoto(ctx context.Context, courierUserID, setByAdminID, photoURL string) error {
+	now := time.Now()
+	query := `UPDATE users
+		SET photo_url = $1,
+		    profile_photo_locked_at = $2,
+		    profile_photo_set_by = $3,
+		    updated_at = $2
+		WHERE id = $4 AND role = 'courier'`
+	res, err := r.db.ExecContext(ctx, query, photoURL, now, setByAdminID, courierUserID)
+	if err != nil {
+		return err
+	}
+	if count, _ := res.RowsAffected(); count == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (r *postgresRepo) SetReferralCode(ctx context.Context, userID, code string) error {

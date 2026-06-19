@@ -12,12 +12,14 @@ type UserRepository interface {
 	SetPIN(ctx context.Context, userID, pinHash string) error
 	UpdateLastLogin(ctx context.Context, userID string) error
 	UpdatePhotoURL(ctx context.Context, userID, url string) error
+	LockProfilePhoto(ctx context.Context, courierUserID, setByAdminID, photoURL string) error
 	SetReferralCode(ctx context.Context, userID, code string) error
 	UpdateRole(ctx context.Context, userID, role string) error
 	GetPermissionsByRole(ctx context.Context, role string) ([]string, error)
 	UpdateTOTP(ctx context.Context, userID string, secret string, backupCodes []string) error
 	Enable2FA(ctx context.Context, userID string) error
 }
+
 
 type SessionRepository interface {
 	CreateSession(ctx context.Context, session *Session) error

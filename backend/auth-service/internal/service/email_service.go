@@ -8,6 +8,7 @@ import (
 
 type EmailService interface {
 	SendPasswordResetOTP(email, code string) error
+	SendGenericNotification(email, recipientName, subject, body string) error
 }
 
 type smtpEmailService struct {
@@ -61,5 +62,28 @@ func (s *smtpEmailService) SendPasswordResetOTP(email, code string) error {
 	}
 
 	fmt.Printf("{\"event\":\"email_otp_sent\",\"recipient\":\"%s\"}\n", email)
+	return nil
+}
+
+func (s *smtpEmailService) SendGenericNotification(email, recipientName, subject, body string) error {
+	if s.host == "" || s.port == "" {
+		fmt.Printf("{\"event\":\"email_notification_mocked\",\"recipient\":\"%s\",\"subject\":\"%s\"}\n", email, subject)
+		return nil
+	}
+
+	auth := smtp.PlainAuth("", s.user, s.pass, s.host)
+	to := []string{email}
+	fullBody := fmt.Sprintf("Halo %s,\n\n%s\n\n— Tim TEMBUS", recipientName, body)
+	msg := []byte("To: " + email + "\r\n" +
+		"Subject: " + subject + "\r\n" +
+		"\r\n" + fullBody + "\r\n")
+
+	err := smtp.SendMail(s.host+":"+s.port, auth, s.fromAddr, to, msg)
+	if err != nil {
+		fmt.Printf("{\"event\":\"email_notification_failed\",\"recipient\":\"%s\",\"error\":\"%s\"}\n", email, err.Error())
+		return err
+	}
+
+	fmt.Printf("{\"event\":\"email_notification_sent\",\"recipient\":\"%s\",\"subject\":\"%s\"}\n", email, subject)
 	return nil
 }
