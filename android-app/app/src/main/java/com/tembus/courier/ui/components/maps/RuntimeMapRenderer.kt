@@ -214,6 +214,15 @@ private fun TomTomSdkMapRenderer(
                     mapView = this
                 }
             },
+            onRelease = { view ->
+                try {
+                    view.onPause()
+                    view.onStop()
+                    view.onDestroy()
+                } catch (e: Exception) {
+                    // Ignore already destroyed
+                }
+            },
             update = { view ->
                 view.getMapAsync(object : MapReadyCallback {
                     override fun onMapReady(map: TomTomMap) {
@@ -237,28 +246,35 @@ private fun TomTomSdkMapRenderer(
     DisposableEffect(lifecycleOwner, mapView) {
         val currentMapView = mapView ?: return@DisposableEffect onDispose {}
         val lifecycle = lifecycleOwner.lifecycle
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-            currentMapView.onStart()
+        
+        try {
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                currentMapView.onStart()
+            }
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                currentMapView.onResume()
+            }
+        } catch (e: Exception) {
+            // Map might be already destroyed
         }
-        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-            currentMapView.onResume()
-        }
+        
         val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> currentMapView.onStart()
-                Lifecycle.Event.ON_RESUME -> currentMapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> currentMapView.onPause()
-                Lifecycle.Event.ON_STOP -> currentMapView.onStop()
-                Lifecycle.Event.ON_DESTROY -> currentMapView.onDestroy()
-                else -> Unit
+            try {
+                when (event) {
+                    Lifecycle.Event.ON_START -> currentMapView.onStart()
+                    Lifecycle.Event.ON_RESUME -> currentMapView.onResume()
+                    Lifecycle.Event.ON_PAUSE -> currentMapView.onPause()
+                    Lifecycle.Event.ON_STOP -> currentMapView.onStop()
+                    // onDestroy is handled by AndroidView onRelease
+                    else -> Unit
+                }
+            } catch (e: Exception) {
+                // Map might be already destroyed
             }
         }
         lifecycle.addObserver(observer)
         onDispose {
             lifecycle.removeObserver(observer)
-            currentMapView.onPause()
-            currentMapView.onStop()
-            currentMapView.onDestroy()
         }
     }
 }
