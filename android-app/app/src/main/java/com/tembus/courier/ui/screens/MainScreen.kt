@@ -4835,7 +4835,7 @@ private fun ProfileContent(
                 ) {
                     if (!courierProfile?.profilePhotoUrl.isNullOrBlank() && authToken != null) {
                         AsyncImage(
-                            model = ImageRequest.Builder(LocalContext.current)
+                            model = coil.request.ImageRequest.Builder(LocalContext.current)
                                 .data("${com.tembus.courier.BuildConfig.BASE_URL.dropLastWhile { it == '/' }}${courierProfile?.profilePhotoUrl}")
                                 .addHeader("Authorization", "Bearer $authToken")
                                 .crossfade(true)

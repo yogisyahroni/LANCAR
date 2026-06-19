@@ -36,8 +36,12 @@ import javax.inject.Inject
  * - Notification channels
  * - Periodic WorkManager sync (every 15 minutes, network required)
  */
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import okhttp3.OkHttpClient
+
 @HiltAndroidApp
-class TEMBUSApplication : Application(), Configuration.Provider {
+class TEMBUSApplication : Application(), Configuration.Provider, ImageLoaderFactory {
 
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
@@ -200,5 +204,23 @@ class TEMBUSApplication : Application(), Configuration.Provider {
         const val CHANNEL_ORDERS = "tembus_orders"
         const val CHANNEL_GENERAL = "tembus_general"
         const val WORKER_ORDER_SYNC = "order_sync_periodic"
+    }
+
+    override fun newImageLoader(): ImageLoader {
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val requestBuilder = chain.request().newBuilder()
+                if (BuildConfig.DEBUG) {
+                    requestBuilder.addHeader("ngrok-skip-browser-warning", "1")
+                    requestBuilder.addHeader("Bypass-Tunnel-Reminder", "1")
+                }
+                chain.proceed(requestBuilder.build())
+            }
+            .build()
+
+        return ImageLoader.Builder(this)
+            .okHttpClient(client)
+            .crossfade(true)
+            .build()
     }
 }
