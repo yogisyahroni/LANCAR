@@ -407,7 +407,7 @@ fun MainScreen(
     }
 
     fun requestDutyToggle(online: Boolean) {
-        if (online && profilePhotoUrl.isNullOrBlank()) {
+        if (online && courierProfile?.profilePhotoUrl.isNullOrBlank()) {
             showMissingPhotoWarning = true
             return
         }
