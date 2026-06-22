@@ -131,7 +131,7 @@ fun NotificationItem(notification: AppNotification) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            crossAxisAlignment = CrossAxisAlignment.Start
+            verticalAlignment = Alignment.Top
         ) {
             // Icon or Indicator
             Box(
