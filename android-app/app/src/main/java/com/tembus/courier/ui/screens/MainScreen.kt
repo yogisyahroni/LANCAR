@@ -254,6 +254,7 @@ fun MainScreen(
     var faceVerifiedOrderIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var pendingDutySecurityTarget by remember { mutableStateOf<Boolean?>(null) }
+    var showMissingPhotoWarning by remember { mutableStateOf(false) }
     var inlineErrorMessage by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingOnlineAfterForegroundPermission by remember { mutableStateOf(false) }
     var showForegroundLocationPermissionDialog by remember { mutableStateOf(false) }
