@@ -147,7 +147,7 @@ export default function LandingPage() {
               </a>
               <a
                 href={trackingUrl}
-                className="inline-flex items-center gap-2 rounded-lg border border-white/30 bg-[#002d20] px-6 py-3 text-sm font-bold text-white transition-all duration-200 hover:bg-[#003d2b]"
+                className="cta-secondary px-6 py-3 text-sm"
               >
                 Lacak Paket <LocateFixed className="h-4 w-4" />
               </a>
@@ -217,7 +217,7 @@ export default function LandingPage() {
                   />
                 </div>
                 <div className="p-4 pt-2">
-                  <h3 className="text-[13px] font-black text-[#111] group-hover:text-[#ff6908] transition-colors">{item.title}</h3>
+                  <h3 className="text-[13px] font-black text-[#111] group-hover:text-[var(--brand-soft)] transition-colors">{item.title}</h3>
                   <p className="mt-1.5 text-[10px] leading-[1.5] text-[var(--muted)]">{item.text}</p>
                 </div>
               </article>
@@ -303,7 +303,7 @@ export default function LandingPage() {
               <div className="mt-8">
                 <a
                   href="/mitra/daftar"
-                  className="inline-flex rounded-md bg-[#072a20] px-5 py-2.5 text-sm font-bold !text-white shadow-md transition-all duration-200 hover:brightness-110 active:scale-95"
+                  className="cta-primary px-5 py-2.5 text-sm"
                 >
                   Daftar Sekarang
                 </a>
@@ -340,7 +340,7 @@ export default function LandingPage() {
               <div className="mt-8">
                 <a
                   href="/bisnis/enterprise"
-                  className="inline-flex rounded-md bg-[#072a20] px-5 py-2.5 text-sm font-bold !text-white shadow-md transition-all duration-200 hover:brightness-110 active:scale-95"
+                  className="cta-primary px-5 py-2.5 text-sm"
                 >
                   Pelajari Solusi
                 </a>
@@ -377,7 +377,7 @@ export default function LandingPage() {
               <div className="mt-8">
                 <a
                   href={`${appUrl}/orders/new`}
-                  className="inline-flex rounded-md bg-[#072a20] px-5 py-2.5 text-sm font-bold !text-white shadow-md transition-all duration-200 hover:brightness-110 active:scale-95"
+                  className="cta-primary px-5 py-2.5 text-sm"
                 >
                   Kirim Sekarang
                 </a>
@@ -408,7 +408,7 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-3">
               <a
                 href={appUrl}
-                className="flex items-center gap-2.5 rounded-xl border border-white/20 bg-black px-4 py-2.5 transition-all duration-200 hover:scale-[1.02] active:scale-95 shadow-xl"
+                className="flex items-center gap-2.5 rounded-lg border border-white/20 bg-black px-4 py-2.5 transition-all duration-200 hover:scale-[1.02] active:scale-95 shadow-xl"
               >
                 <svg viewBox="0 0 24 24" className="h-6 w-6 fill-white" xmlns="http://www.w3.org/2000/svg">
                   <path d="M3.18 23.76c.39.22.83.24 1.24.07l12.72-7.35-2.82-2.82-11.14 10.1zM.5 1.5C.19 1.88 0 2.4 0 3.04v17.92c0 .64.19 1.16.5 1.54l.08.08 10.04-10.04v-.24L.58 1.42.5 1.5zM20.12 10.16l-2.56-1.48L14.7 11.5l2.86 2.86 2.56-1.48c.73-.42.73-1.3 0-1.72zM4.42.17L17.14 7.52l-2.82 2.82L3.18.24C3.59.07 4.03.09 4.42.17z"/>
@@ -420,7 +420,7 @@ export default function LandingPage() {
               </a>
               <a
                 href={appUrl}
-                className="flex items-center gap-2.5 rounded-xl border border-white/20 bg-black px-4 py-2.5 transition-all duration-200 hover:scale-[1.02] active:scale-95 shadow-xl"
+                className="flex items-center gap-2.5 rounded-lg border border-white/20 bg-black px-4 py-2.5 transition-all duration-200 hover:scale-[1.02] active:scale-95 shadow-xl"
               >
                 <svg viewBox="0 0 24 24" className="h-6 w-6 fill-white" xmlns="http://www.w3.org/2000/svg">
                   <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>

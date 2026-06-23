@@ -131,6 +131,26 @@ export default function DashboardPage() {
     }
   };
 
+  // Orchestration Variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15 },
+    show: { 
+      opacity: 1, 
+      y: 0,
+      transition: { duration: 0.4 }
+    }
+  };
+
   // Render skeletons while loading
   if (loading) {
     return (
@@ -190,12 +210,15 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* Widget Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+      >
         {/* Active Orders */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
+          variants={itemVariants}
           className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group transition-all duration-300"
         >
           <div className="flex items-start justify-between z-10">
@@ -214,9 +237,7 @@ export default function DashboardPage() {
 
         {/* Completed this month */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
+          variants={itemVariants}
           className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group transition-all duration-300"
         >
           <div className="flex items-start justify-between z-10">
@@ -235,9 +256,7 @@ export default function DashboardPage() {
 
         {/* Total Spend */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.3 }}
+          variants={itemVariants}
           className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group transition-all duration-300"
         >
           <div className="flex items-start justify-between z-10">
@@ -258,9 +277,7 @@ export default function DashboardPage() {
 
         {/* Cancelled this month */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.4 }}
+          variants={itemVariants}
           className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group transition-all duration-300"
         >
           <div className="flex items-start justify-between z-10">
@@ -276,7 +293,7 @@ export default function DashboardPage() {
             Berdasarkan status order aktual
           </div>
         </motion.div>
-      </div>
+      </motion.div>
 
       {/* Analytics Graph & Order List Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

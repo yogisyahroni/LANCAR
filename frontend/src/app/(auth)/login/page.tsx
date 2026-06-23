@@ -187,6 +187,11 @@ export default function LoginPage() {
         setAuth(true, user);
         router.push('/dashboard');
       } else {
+        if (!otpSent) {
+          await handleSendOtp();
+          return;
+        }
+
         const identifier = pendingOtpIdentifier || data.phone;
         if (!identifier || !data.otp) {
           setApiError('Email/phone and OTP are required for OTP login');
@@ -236,31 +241,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Toggle Login Method */}
-          <div className="flex bg-background/60 p-1 rounded-xl border border-border/40 mb-6">
-            <button
-              onClick={() => setLoginMethod('password')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all ${
-                loginMethod === 'password'
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <KeyRound className="h-4 w-4" />
-              Password
-            </button>
-            <button
-              onClick={() => setLoginMethod('otp')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all ${
-                loginMethod === 'otp'
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <ShieldCheck className="h-4 w-4" />
-              OTP Login
-            </button>
-          </div>
+          {/* Login method is determined automatically. Password is the default, OTP is a fallback challenge. */}
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {apiError && (
@@ -336,57 +317,51 @@ export default function LoginPage() {
                       <Phone className="h-4 w-4 text-muted-foreground" />
                       {pendingOtpIdentifier ? 'Verified account' : 'Email or Phone Number'}
                     </label>
-                    <div className="flex gap-2">
-                      <input
-                        {...register('phone')}
-                        type="text"
-                        value={pendingOtpIdentifier || phoneValue || ''}
-                        readOnly={!!pendingOtpIdentifier}
-                        className="flex-1 px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground placeholder:text-muted-foreground"
-                        placeholder="customer@tembus.id or +62812345678"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSendOtp}
-                        disabled={countdown > 0 || isSendingOtp}
-                        className="px-3 bg-secondary text-secondary-foreground text-xs font-medium rounded-lg hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                      >
-                        {isSendingOtp ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : countdown > 0 ? (
-                          `Resend (${countdown}s)`
-                        ) : (
-                          'Send OTP'
-                        )}
-                      </button>
-                    </div>
+                    <input
+                      {...register('phone')}
+                      type="text"
+                      value={pendingOtpIdentifier || phoneValue || ''}
+                      readOnly={!!pendingOtpIdentifier || otpSent}
+                      className={`w-full px-4 py-2.5 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground placeholder:text-muted-foreground ${otpSent || pendingOtpIdentifier ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      placeholder="customer@tembus.id or +62812345678"
+                    />
                     {errors.phone && (
                       <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>
                     )}
                   </div>
 
-                    {otpSent && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="space-y-2"
-                      >
+                  {otpSent && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
                         <label className="text-sm font-medium text-foreground">6-Digit OTP</label>
-                        <input
-                          {...register('otp')}
-                          type="text"
-                          inputMode="numeric"  
-                          pattern="\d{6}"
-                          maxLength={6}
-                          autoComplete="one-time-code"
-                          className="w-full px-4 py-2 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground text-center tracking-[0.5em] font-mono text-xl placeholder:text-muted-foreground"
-                          placeholder="••••••"
-                        />
-                        {errors.otp && (
-                          <p className="text-sm text-destructive mt-1">{errors.otp.message}</p>
-                        )}
-                      </motion.div>
-                    )}
+                        <button
+                          type="button"
+                          onClick={handleSendOtp}
+                          disabled={countdown > 0 || isSendingOtp}
+                          className="text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline transition-all"
+                        >
+                          {isSendingOtp ? 'Sending...' : countdown > 0 ? `Resend in ${countdown}s` : 'Resend OTP'}
+                        </button>
+                      </div>
+                      <input
+                        {...register('otp')}
+                        type="text"
+                        inputMode="numeric"  
+                        pattern="\d{6}"
+                        maxLength={6}
+                        autoComplete="one-time-code"
+                        className="w-full px-4 py-3 bg-background/50 border border-border/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground text-center tracking-[0.75em] font-mono text-2xl placeholder:text-muted-foreground/30 shadow-inner"
+                        placeholder="••••••"
+                      />
+                      {errors.otp && (
+                        <p className="text-sm text-destructive mt-1">{errors.otp.message}</p>
+                      )}
+                    </motion.div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -405,14 +380,16 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-primary text-primary-foreground font-medium py-2 px-4 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+              disabled={isSubmitting || (loginMethod === 'otp' && !otpSent && isSendingOtp)}
+              className="w-full bg-primary text-primary-foreground font-medium py-2.5 px-4 rounded-lg hover:brightness-110 active:scale-[0.98] transition-all duration-200 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed shadow-md shadow-primary/20"
             >
-              {isSubmitting ? (
+              {isSubmitting || (loginMethod === 'otp' && !otpSent && isSendingOtp) ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  {loginMethod === 'otp' && !otpSent ? 'Sending OTP...' : 'Signing in...'}
                 </>
+              ) : loginMethod === 'otp' && !otpSent ? (
+                'Send OTP'
               ) : (
                 'Sign In'
               )}

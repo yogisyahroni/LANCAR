@@ -7,8 +7,8 @@
   --brand: #003d2b;
   --brand-strong: #00281e;
   --brand-soft: #0b6b45;
-  --accent: #ff6908;
-  --accent-strong: #e95800;
+  --accent: #0b6b45;
+  --accent-strong: #003d2b;
   --line: rgba(4, 41, 31, 0.12);
 }
 
@@ -41,7 +41,7 @@ input {
 }
 
 ::selection {
-  background: rgba(255, 105, 8, 0.25);
+  background: rgba(11, 107, 69, 0.25);
 }
 
 .page-shell {
@@ -94,7 +94,7 @@ input {
 .cta-primary {
   background: var(--accent);
   color: #ffffff;
-  box-shadow: 0 14px 36px rgba(255, 105, 8, 0.28);
+  box-shadow: 0 14px 36px rgba(11, 107, 69, 0.28);
 }
 
 .cta-primary:hover,
