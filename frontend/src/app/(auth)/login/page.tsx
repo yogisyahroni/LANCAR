@@ -11,6 +11,7 @@ import { api } from '@/lib/api';
 import { clientLog } from '@/lib/clientLogger';
 import { customerGoogleAuthUrl } from '@/lib/runtimeConfig';
 import { useAuthStore } from '@/store/authStore';
+import { startGoogleAuth } from '@/lib/googleAuth';
 
 const loginSchema = z.object({
   // LGN-03: Email max length prevents oversized payload; format enforced by Zod
@@ -214,8 +215,22 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSignIn = () => {
-    window.location.href = customerGoogleAuthUrl;
+  const handleGoogleSignIn = async () => {
+    try {
+      setApiError(null);
+      const deviceId = getOrCreateCustomerWebDeviceId();
+      const redirectUri = typeof window !== 'undefined' ? `${window.location.origin}/google-callback` : undefined;
+      const response = await startGoogleAuth(deviceId, redirectUri);
+      
+      if (response.authorization_url) {
+        window.location.href = response.authorization_url;
+      } else {
+        setApiError('Gagal mendapatkan tautan login Google.');
+      }
+    } catch (error: any) {
+      clientLog.error('Google Auth Start Error', { error });
+      setApiError(getApiErrorMessage(error, 'Gagal memulai login dengan Google. Coba lagi.'));
+    }
   };
 
   return (
