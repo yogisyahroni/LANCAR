@@ -363,12 +363,15 @@ jobs:
       - name: Upload Android build diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: android-build-diagnostics-${{ matrix.app_slug }}
           path: |
             ${{ matrix.working_dir }}/build/reports/problems/
             ${{ matrix.working_dir }}/app/build/reports/
           if-no-files-found: ignore
+          retention-days: 1
+          compression-level: 9
 
       - name: Build Signed Release APK
         if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
@@ -436,11 +439,13 @@ jobs:
       - name: Upload named release assets
         if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: ${{ matrix.asset_prefix }}-android-${{ github.run_number }}
           path: ./${{ matrix.working_dir }}/app/build/release-assets/*
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 1
+          compression-level: 9
 
       # 4. Enterprise Security Scan (Placeholder)
       - name: Security Check
