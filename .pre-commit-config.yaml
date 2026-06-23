@@ -1,0 +1,106 @@
+# ============================================================
+# PRE-COMMIT HOOKS
+# ============================================================
+# Pre-commit hooks berjalan di local machine developer
+# sebelum code masuk ke repository. Ini adalah lapisan
+# pertahanan pertama (shift-left security).
+# ============================================================
+
+# Install: pip install pre-commit
+# Setup: pre-commit install
+# Run manual: pre-commit run --all-files
+
+repos:
+  # ---------------------------------------------------------
+  # General Hooks (GitHub official)
+  # ---------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+      - id: detect-private-key
+      - id: check-merge-conflict
+
+  # ---------------------------------------------------------
+  # Secret Detection: GitLeaks
+  # ---------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.1
+    hooks:
+      - id: gitleaks
+        args: ["--verbose", "--redact"]
+
+  # ---------------------------------------------------------
+  # Secret Detection: detect-secrets (Alternatif)
+  # ---------------------------------------------------------
+  # - repo: https://github.com/Yelp/detect-secrets
+  #   rev: v1.4.0
+  #   hooks:
+  #     - id: detect-secrets
+  #       args: ["--baseline", ".secrets.baseline"]
+
+  # ---------------------------------------------------------
+  # SAST: Semgrep (Local Scan)
+  # ---------------------------------------------------------
+  - repo: https://github.com/returntocorp/semgrep
+    rev: v1.55.0
+    hooks:
+      - id: semgrep
+        args: ["--config=auto", "--error", "--skip-unknown-extensions"]
+
+  # ---------------------------------------------------------
+  # Dependency Audit (Node.js)
+  # ---------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: npm-audit
+        name: npm audit
+        entry: npm audit --audit-level=high
+        language: system
+        pass_filenames: false
+        files: package\.json$
+
+  # ---------------------------------------------------------
+  # Dependency Audit (Python)
+  # ---------------------------------------------------------
+  # - repo: local
+  #   hooks:
+  #     - id: pip-audit
+  #       name: pip-audit
+  #       entry: pip-audit --desc
+  #       language: system
+  #       pass_filenames: false
+  #       files: requirements.*\.txt$
+
+  # ---------------------------------------------------------
+  # Linting dengan Security Rules
+  # ---------------------------------------------------------
+  # Node.js: ESLint dengan plugin security
+  # - repo: https://github.com/pre-commit/mirrors-eslint
+  #   rev: v9.0.0
+  #   hooks:
+  #     - id: eslint
+  #       additional_dependencies:
+  #         - eslint-plugin-security
+
+  # Python: Bandit (security linter)
+  # - repo: https://github.com/PyCQA/bandit
+  #   rev: 1.7.6
+  #   hooks:
+  #     - id: bandit
+  #       args: ["-c", "pyproject.toml"]
+  #       additional_dependencies: ["bandit[toml]"]
+
+  # ---------------------------------------------------------
+  # Commit Message Validation
+  # ---------------------------------------------------------
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.13.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]

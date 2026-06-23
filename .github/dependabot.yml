@@ -1,0 +1,188 @@
+# ============================================================
+# DEPENDABOT CONFIGURATION
+# ============================================================
+# Dependabot memindai manifest file (package.json, requirements.txt, dll)
+# dan memberi alert jika ada CVE. Jika security updates diaktifkan,
+# Dependabot akan otomatis membuat PR dengan patch yang tersedia.
+# ============================================================
+
+version: 2
+
+# -----------------------------------------------------------
+# Update Registries (untuk private registry, uncomment jika perlu)
+# -----------------------------------------------------------
+# registries:
+#   npm-github:
+#     type: npm-registry
+#     url: https://npm.pkg.github.com
+#     token: ${{ secrets.GITHUB_TOKEN }}
+#   maven-private:
+#     type: maven-repository
+#     url: https://maven.mycompany.com
+#     username: ${{ secrets.MAVEN_USERNAME }}
+#     password: ${{ secrets.MAVEN_PASSWORD }}
+
+updates:
+  # ==========================================================
+  # NPM / Node.js
+  # ==========================================================
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"          # Scan setiap hari untuk CVE
+      time: "06:00"
+      timezone: "Asia/Jakarta"
+
+    # Grouping: satukan semua patch update ke 1 PR
+    groups:
+      security-updates:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+
+      version-updates:
+        applies-to: "version-updates"
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+
+    # Batasi jumlah PR terbuka
+    open-pull-requests-limit: 10
+
+    # Auto-assign reviewer dari CODEOWNERS
+    reviewers:
+      - "@your-team/security"
+
+    # Label otomatis
+    labels:
+      - "security"
+      - "dependencies"
+      - "automated"
+
+    # Prefix commit message
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps(dev)"
+      include: "scope"
+
+    # Ignore package tertentu (contoh: jika breaking change diketahui)
+    # ignore:
+    #   - dependency-name: "express"
+    #     versions: ["5.x"]
+
+    # Target branch untuk PR
+    target-branch: "main"
+
+    # Vendor untuk Go modules (jika ada)
+    # vendor: true
+
+  # ==========================================================
+  # Python / pip
+  # ==========================================================
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "06:30"
+      timezone: "Asia/Jakarta"
+    groups:
+      security-updates:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "@your-team/security"
+    labels:
+      - "security"
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # ==========================================================
+  # Java / Maven
+  # ==========================================================
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "07:00"
+      timezone: "Asia/Jakarta"
+    groups:
+      security-updates:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "@your-team/security"
+    labels:
+      - "security"
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # ==========================================================
+  # Go Modules
+  # ==========================================================
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "07:30"
+      timezone: "Asia/Jakarta"
+    groups:
+      security-updates:
+        applies-to: "security-updates"
+        patterns:
+          - "*"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "@your-team/security"
+    labels:
+      - "security"
+      - "dependencies"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    vendor: true
+
+  # ==========================================================
+  # Docker
+  # ==========================================================
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:00"
+      timezone: "Asia/Jakarta"
+    open-pull-requests-limit: 5
+    labels:
+      - "docker"
+      - "dependencies"
+    commit-message:
+      prefix: "deps(docker)"
+
+  # ==========================================================
+  # GitHub Actions
+  # ==========================================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "08:30"
+      timezone: "Asia/Jakarta"
+    open-pull-requests-limit: 5
+    labels:
+      - "github-actions"
+      - "dependencies"
+    commit-message:
+      prefix: "deps(ci)"

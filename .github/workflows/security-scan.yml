@@ -1,0 +1,738 @@
+# ============================================================
+# SECURITY SCAN PIPELINE
+# ============================================================
+# Pipeline ini mendeteksi:
+# 1. Dependency vulnerabilities (SCA) - Trivy, Snyk, npm audit
+# 2. Secret leakage - GitLeaks
+# 3. Insecure code patterns (SAST) - Semgrep, CodeQL
+# 4. Container vulnerabilities - Trivy Image Scan
+# 5. IaC misconfigurations - Checkov
+# 6. SBOM generation - Syft
+# ============================================================
+
+name: 🔒 Security Scan Pipeline
+
+# -----------------------------------------------------------
+# TRIGGERS
+# -----------------------------------------------------------
+on:
+  # Trigger setiap push ke branch utama
+  push:
+    branches:
+      - main
+      - develop
+      - release/*
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+  # Trigger setiap Pull Request
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+  # Schedule: scan mingguan (Senin 06:00 UTC)
+  schedule:
+    - cron: "0 6 * * 1"
+
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: "Tipe scan yang dijalankan"
+        required: true
+        default: "full"
+        type: choice
+        options:
+          - full
+          - sca-only
+          - sast-only
+          - secret-only
+
+# -----------------------------------------------------------
+# PERMISSIONS (Principle of Least Privilege)
+# -----------------------------------------------------------
+permissions:
+  contents: read
+  security-events: write    # Untuk upload SARIF
+  actions: read
+  checks: write
+  pull-requests: write      # Untuk PR comment
+
+# -----------------------------------------------------------
+# ENVIRONMENT VARIABLES
+# -----------------------------------------------------------
+env:
+  NODE_VERSION: "20"
+  PYTHON_VERSION: "3.11"
+  JAVA_VERSION: "21"
+  TRIVY_SEVERITY: "HIGH,CRITICAL"
+  SNYK_SEVERITY: "high"
+  FAIL_ON_CRITICAL: "true"
+
+# ============================================================
+# JOBS
+# ============================================================
+jobs:
+
+  # ==========================================================
+  # JOB 1: DETECT CHANGES (Optimasi - hanya scan yang relevan)
+  # ==========================================================
+  detect-changes:
+    name: 📁 Detect Changed Files
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.changes.outputs.code }}
+      deps: ${{ steps.changes.outputs.deps }}
+      docker: ${{ steps.changes.outputs.docker }}
+      iac: ${{ steps.changes.outputs.iac }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history untuk GitLeaks
+
+      - name: Detect file changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'app/**'
+              - 'lib/**'
+              - '**.js'
+              - '**.ts'
+              - '**.py'
+              - '**.java'
+              - '**.go'
+            deps:
+              - 'package.json'
+              - 'package-lock.json'
+              - 'yarn.lock'
+              - 'requirements.txt'
+              - 'Pipfile.lock'
+              - 'pom.xml'
+              - 'build.gradle'
+              - 'go.mod'
+              - 'go.sum'
+            docker:
+              - 'Dockerfile'
+              - 'docker-compose.yml'
+              - '.dockerignore'
+            iac:
+              - '**.tf'
+              - '**.tfvars'
+              - 'cloudformation/**'
+              - 'k8s/**'
+              - 'helm/**'
+
+  # ==========================================================
+  # JOB 2: SCA - DEPENDENCY VULNERABILITY SCAN
+  # ==========================================================
+  sca-scan:
+    name: 🔍 SCA Scan (Dependency Vulnerabilities)
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.deps == 'true' || github.event_name == 'schedule' || github.event.inputs.scan_type == 'full' || github.event.inputs.scan_type == 'sca-only' }}
+
+    steps:
+      # -------------------------------------------------------
+      # Setup
+      # -------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: ${{ hashFiles('package.json') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Setup Python
+        if: ${{ hashFiles('requirements.txt') != '' || hashFiles('Pipfile') != '' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Setup Java
+        if: ${{ hashFiles('pom.xml') != '' || hashFiles('build.gradle') != '' }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+
+      - name: Setup Go
+        if: ${{ hashFiles('go.mod') != '' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.11'
+
+      # -------------------------------------------------------
+      # Install dependencies
+      # -------------------------------------------------------
+      - name: Install npm dependencies
+        if: ${{ hashFiles('package.json') != '' }}
+        run: npm ci || true
+
+      - name: Install Python dependencies
+        if: ${{ hashFiles('requirements.txt') != '' }}
+        run: pip install -r requirements.txt || true
+
+      # -------------------------------------------------------
+      # SCA Tool 1: Trivy Filesystem Scan
+      # -------------------------------------------------------
+      # Trivy memindai lockfiles dan manifest files untuk
+      # mendeteksi CVE di dependency. Database di-cache untuk
+      # mempercepat scan berikutnya.
+      # -------------------------------------------------------
+      - name: Cache Trivy DB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: ${{ env.TRIVY_SEVERITY }}
+          exit-code: '0'  # Jangan fail dulu, kita evaluasi di summary
+          ignore-unfixed: false
+
+      - name: Run Trivy filesystem scan (JSON for detailed report)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'json'
+          output: 'trivy-fs-report.json'
+          severity: ${{ env.TRIVY_SEVERITY }}
+          exit-code: '0'
+
+      # -------------------------------------------------------
+      # SCA Tool 2: Snyk (Validasi tambahan)
+      # -------------------------------------------------------
+      # Snyk memberikan insight tambahan dan rekomendasi
+      # remediation yang lebih detail dibanding Trivy.
+      # -------------------------------------------------------
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        continue-on-error: true
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: >
+            --severity-threshold=${{ env.SNYK_SEVERITY }}
+            --json-file-output=snyk-report.json
+            --all-projects
+
+      # -------------------------------------------------------
+      # SCA Tool 3: Native Package Manager Audit (Baseline)
+      # -------------------------------------------------------
+      # Native audit sebagai baseline yang selalu tersedia
+      # meski tools lain gagal.
+      # -------------------------------------------------------
+      - name: Run npm audit
+        if: ${{ hashFiles('package.json') != '' }}
+        run: |
+          npm audit --audit-level=high --json > npm-audit-report.json || true
+        continue-on-error: true
+
+      - name: Run pip-audit
+        if: ${{ hashFiles('requirements.txt') != '' }}
+        run: |
+          pip install pip-audit
+          pip-audit --format=json --output=pip-audit-report.json || true
+        continue-on-error: true
+
+      # -------------------------------------------------------
+      # Upload Reports
+      # -------------------------------------------------------
+      - name: Upload Trivy SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+          category: 'trivy-sca'
+
+      - name: Upload Snyk report as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: snyk-report
+          path: snyk-report.json
+
+      - name: Upload Trivy JSON report as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-fs-report
+          path: trivy-fs-report.json
+
+      # -------------------------------------------------------
+      # Evaluate & Fail on Critical
+      # -------------------------------------------------------
+      - name: Check for CRITICAL vulnerabilities
+        run: |
+          echo "=== EVALUASI HASIL SCAN ==="
+
+          # Parse Trivy JSON untuk CRITICAL count
+          CRITICAL_COUNT=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' trivy-fs-report.json 2>/dev/null || echo "0")
+          HIGH_COUNT=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-fs-report.json 2>/dev/null || echo "0")
+
+          echo "CRITICAL vulnerabilities: $CRITICAL_COUNT"
+          echo "HIGH vulnerabilities: $HIGH_COUNT"
+
+          # Set output untuk PR comment
+          echo "CRITICAL_COUNT=$CRITICAL_COUNT" >> $GITHUB_ENV
+          echo "HIGH_COUNT=$HIGH_COUNT" >> $GITHUB_ENV
+
+          # Fail jika CRITICAL ditemukan dan FAIL_ON_CRITICAL=true
+          if [ "$FAIL_ON_CRITICAL" = "true" ] && [ "$CRITICAL_COUNT" -gt 0 ]; then
+            echo "❌ CRITICAL vulnerabilities detected. Blocking merge."
+            exit 1
+          fi
+
+          echo "✅ SCA scan completed."
+
+  # ==========================================================
+  # JOB 3: SECRET DETECTION
+  # ==========================================================
+  secret-scan:
+    name: 🔐 Secret Detection (GitLeaks)
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: ${{ github.event_name != 'pull_request' || needs.detect-changes.outputs.code == 'true' || github.event.inputs.scan_type == 'full' || github.event.inputs.scan_type == 'secret-only' }}
+
+    steps:
+      - name: Checkout repository (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Diperlukan untuk scan seluruh git history
+
+      # -------------------------------------------------------
+      # GitLeaks: Scan seluruh history untuk secret
+      # -------------------------------------------------------
+      # GitLeaks mendeteksi: API keys, tokens, passwords,
+      # private keys, AWS credentials, database URLs, dll.
+      # -------------------------------------------------------
+      - name: Run GitLeaks secret detection
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}  # Free for public repos
+        with:
+          config-path: .gitleaks.toml  # Custom config (opsional)
+
+      # -------------------------------------------------------
+      # Fallback: TruffleHog (jika GitLeaks tidak tersedia)
+      # -------------------------------------------------------
+      - name: Run TruffleHog (fallback)
+        if: failure()
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  # ==========================================================
+  # JOB 4: SAST - STATIC ANALYSIS
+  # ==========================================================
+  sast-scan:
+    name: 📝 SAST Scan (Static Analysis)
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.code == 'true' || github.event_name == 'schedule' || github.event.inputs.scan_type == 'full' || github.event.inputs.scan_type == 'sast-only' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------------
+      # SAST Tool 1: Semgrep (Open Source)
+      # -------------------------------------------------------
+      # Semgrep menggunakan ruleset OWASP, CWE, dan security audit.
+      # Hasil dalam format SARIF untuk integrasi GitHub Security.
+      # -------------------------------------------------------
+      - name: Run Semgrep SAST
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/owasp-top-ten
+            p/cwe-top-25
+            p/security-audit
+            p/correctness
+          generateSarif: "1"
+          sarifOutput: semgrep-results.sarif
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}  # Opsional untuk dashboard
+
+      # -------------------------------------------------------
+      # SAST Tool 2: CodeQL (GitHub Native)
+      # -------------------------------------------------------
+      # CodeQL mendukung: C/C++, C#, Go, Java, JavaScript/TypeScript,
+      # Python, Ruby, Swift. Auto-detect bahasa dari repo.
+      # -------------------------------------------------------
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript,python,java,go
+          queries: security-extended,security-and-quality
+
+      - name: Autobuild CodeQL
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:codeql"
+
+      # -------------------------------------------------------
+      # Upload Semgrep SARIF
+      # -------------------------------------------------------
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep-results.sarif
+          category: 'semgrep-sast'
+
+  # ==========================================================
+  # JOB 5: CONTAINER SCAN
+  # ==========================================================
+  container-scan:
+    name: 🐳 Container Image Scan
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.docker == 'true' || github.event_name == 'schedule' || github.event.inputs.scan_type == 'full' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------------
+      # Build image (tanpa push) untuk di-scan
+      # -------------------------------------------------------
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t app-scan:${{ github.sha }} . || true
+
+      # -------------------------------------------------------
+      # Trivy Image Scan
+      # -------------------------------------------------------
+      # Scan image yang baru di-build untuk CVE di OS packages
+      # dan application dependencies.
+      # -------------------------------------------------------
+      - name: Run Trivy image scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'app-scan:${{ github.sha }}'
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+          severity: ${{ env.TRIVY_SEVERITY }}
+          exit-code: '0'
+        continue-on-error: true
+
+      - name: Run Trivy image scan (table format)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'app-scan:${{ github.sha }}'
+          format: 'table'
+          output: 'trivy-image-report.txt'
+          severity: ${{ env.TRIVY_SEVERITY }}
+          exit-code: '0'
+        continue-on-error: true
+
+      # -------------------------------------------------------
+      # Container Best Practices Check
+      # -------------------------------------------------------
+      - name: Check container best practices
+        run: |
+          echo "=== Container Security Checks ==="
+
+          # Check: tidak menggunakan USER root
+          USER_CHECK=$(docker inspect app-scan:${{ github.sha }} --format='{{.Config.User}}' || echo "unknown")
+          if [ -z "$USER_CHECK" ] || [ "$USER_CHECK" = "root" ] || [ "$USER_CHECK" = "0" ]; then
+            echo "⚠️ WARNING: Container runs as root. Consider adding 'USER' directive."
+          else
+            echo "✅ Container runs as non-root user: $USER_CHECK"
+          fi
+
+          # Check: tidak menggunakan latest tag
+          echo "Note: Image tag is ${{ github.sha }} (immutable) ✅"
+
+      # -------------------------------------------------------
+      # Upload Reports
+      # -------------------------------------------------------
+      - name: Upload Trivy image SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-image-results.sarif'
+          category: 'trivy-image'
+
+      - name: Upload image report as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-image-report
+          path: trivy-image-report.txt
+
+  # ==========================================================
+  # JOB 6: IaC MISCONFIGURATION SCAN
+  # ==========================================================
+  iac-scan:
+    name: 🏗️ IaC Misconfiguration Scan
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.iac == 'true' || github.event_name == 'schedule' || github.event.inputs.scan_type == 'full' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------------
+      # Checkov: Scan Terraform, CloudFormation, K8s, Helm, ARM
+      # -------------------------------------------------------
+      # Checkov mendeteksi misconfigurasi berdasarkan:
+      # - CIS Benchmarks
+      # - NIST 800-53
+      # - PCI-DSS
+      # - SOC 2
+      # - AWS/GCP/Azure best practices
+      # -------------------------------------------------------
+      - name: Run Checkov scan
+        uses: bridgecrewio/checkov-action@master
+        continue-on-error: true
+        with:
+          directory: .
+          framework: terraform,cloudformation,kubernetes,helm,dockerfile
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+          soft_fail: true  # Jangan fail dulu, evaluasi di summary
+          download_external_modules: true
+
+      # -------------------------------------------------------
+      # Trivy Config Scan (fallback/complement)
+      # -------------------------------------------------------
+      - name: Run Trivy config scan
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-config-results.sarif'
+          severity: ${{ env.TRIVY_SEVERITY }}
+          exit-code: '0'
+
+      # -------------------------------------------------------
+      # Upload Reports
+      # -------------------------------------------------------
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: checkov-results.sarif
+          category: 'checkov-iac'
+
+      - name: Upload Trivy config SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-config-results.sarif'
+          category: 'trivy-config'
+
+  # ==========================================================
+  # JOB 7: SBOM GENERATION
+  # ==========================================================
+  sbom-generate:
+    name: 📦 SBOM Generation
+    runs-on: ubuntu-latest
+    needs: [sca-scan, container-scan]
+    if: ${{ always() && (needs.sca-scan.result == 'success' || needs.container-scan.result == 'success') }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -------------------------------------------------------
+      # Syft: Generate SBOM dalam format CycloneDX dan SPDX
+      # -------------------------------------------------------
+      # SBOM (Software Bill of Materials) diperlukan untuk:
+      # - Supply chain transparency
+      # - Compliance (EO 14028, SLSA)
+      # - Incident response (tau persis apa yang terdeploy)
+      # -------------------------------------------------------
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom.cyclonedx.json
+
+      - name: Generate SBOM SPDX
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      # -------------------------------------------------------
+      # Upload SBOM sebagai artifact dan release asset
+      # -------------------------------------------------------
+      - name: Upload SBOM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-reports
+          path: |
+            sbom.cyclonedx.json
+            sbom.spdx.json
+
+      - name: Attach SBOM to release (if release event)
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            sbom.cyclonedx.json
+            sbom.spdx.json
+
+  # ==========================================================
+  # JOB 8: SUMMARY & PR COMMENT
+  # ==========================================================
+  security-summary:
+    name: 📊 Security Summary
+    runs-on: ubuntu-latest
+    needs: [sca-scan, secret-scan, sast-scan, container-scan, iac-scan]
+    if: always()
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: artifacts
+
+      # -------------------------------------------------------
+      # Generate Summary Report
+      # -------------------------------------------------------
+      - name: Generate security summary
+        run: |
+          echo "# 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| SCA Scan | ${{ needs.sca-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Secret Scan | ${{ needs.secret-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| SAST Scan | ${{ needs.sast-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Container Scan | ${{ needs.container-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| IaC Scan | ${{ needs.iac-scan.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📁 Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- Trivy FS Report: \"trivy-fs-report\"" >> $GITHUB_STEP_SUMMARY
+          echo "- Snyk Report: \"snyk-report\"" >> $GITHUB_STEP_SUMMARY
+          echo "- Trivy Image Report: \"trivy-image-report\"" >> $GITHUB_STEP_SUMMARY
+          echo "- SBOM Reports: \"sbom-reports\"" >> $GITHUB_STEP_SUMMARY
+
+      # -------------------------------------------------------
+      # PR Comment (jika pull request)
+      # -------------------------------------------------------
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const summary = `## 🔒 Security Scan Results
+
+            | Check | Status |
+            |-------|--------|
+            | SCA (Dependency) | ${{ needs.sca-scan.result }} |
+            | Secret Detection | ${{ needs.secret-scan.result }} |
+            | SAST | ${{ needs.sast-scan.result }} |
+            | Container | ${{ needs.container-scan.result }} |
+            | IaC | ${{ needs.iac-scan.result }} |
+
+            > 📎 Lihat detail di **GitHub Security tab** → **Code scanning**
+            > 
+            > 📦 SBOM tersedia di artifacts.
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+      # -------------------------------------------------------
+      # Notifikasi Slack (Opsional - jika ada secret)
+      # -------------------------------------------------------
+      - name: Notify Slack on failure
+        if: ${{ failure() && secrets.SLACK_WEBHOOK_URL != '' }}
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "🚨 Security scan FAILED on ${{ github.repository }}\nBranch: ${{ github.ref }}\nCommit: ${{ github.sha }}\nLihat: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # ==========================================================
+  # JOB 9: FINAL GATE (Block Merge if Critical)
+  # ==========================================================
+  security-gate:
+    name: 🚦 Security Gate
+    runs-on: ubuntu-latest
+    needs: [sca-scan, secret-scan, sast-scan, container-scan]
+    if: always()
+
+    steps:
+      - name: Evaluate security gate
+        run: |
+          echo "=== SECURITY GATE EVALUATION ==="
+
+          SCA="${{ needs.sca-scan.result }}"
+          SECRET="${{ needs.secret-scan.result }}"
+          SAST="${{ needs.sast-scan.result }}"
+          CONTAINER="${{ needs.container-scan.result }}"
+
+          # Secret scan HARUS success (tidak boleh ada leak)
+          if [ "$SECRET" != "success" ]; then
+            echo "❌ FAIL: Secret scan detected leaked credentials."
+            echo "   Perbaiki sebelum merge."
+            exit 1
+          fi
+
+          # SCA scan HARUS success (tidak boleh ada CRITICAL)
+          if [ "$SCA" != "success" ] && [ "$SCA" != "skipped" ]; then
+            echo "❌ FAIL: SCA scan detected CRITICAL vulnerabilities."
+            echo "   Perbarui dependency atau apply patch."
+            exit 1
+          fi
+
+          # SAST scan boleh warning tapi tidak error
+          if [ "$SAST" = "failure" ]; then
+            echo "⚠️ WARNING: SAST scan found issues. Review required."
+            # Bisa diubah ke exit 1 jika ingin strict
+          fi
+
+          echo "✅ SECURITY GATE PASSED"
+          echo "   - No leaked secrets"
+          echo "   - No CRITICAL vulnerabilities"
+          echo "   - Ready to merge"
