@@ -210,7 +210,7 @@ android {
         vectorDrawables { useSupportLibrary = true }
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
 
         missingDimensionStrategy("tomtom-sdk-version", "complete")
@@ -322,6 +322,7 @@ dependencies {
     // Use the modern artifact because the legacy android-database-sqlcipher package
     // ships native libraries that are not compatible with Android 15+ 16 KB pages.
     implementation("net.zetetic:sqlcipher-android:4.10.0")
+    implementation("com.getkeepsafe.relinker:relinker:1.4.5")
 
     // Networking & Serialization (Modern Data Stack)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

@@ -203,7 +203,7 @@ android {
         vectorDrawables { useSupportLibrary = true }
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
 
         buildConfigField("String", "TOMTOM_API_KEY", quoteBuildConfigString(effectiveTomTomAndroidApiKey))
@@ -316,6 +316,7 @@ dependencies {
     // ships native libraries that are not compatible with Android 15+ 16 KB pages.
     implementation("androidx.sqlite:sqlite-ktx:2.4.0")
     implementation("net.zetetic:sqlcipher-android:4.10.0")
+    implementation("com.getkeepsafe.relinker:relinker:1.4.5")
 
     // Networking
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

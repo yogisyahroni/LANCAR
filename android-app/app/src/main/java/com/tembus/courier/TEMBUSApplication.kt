@@ -56,7 +56,8 @@ class TEMBUSApplication : Application(), Configuration.Provider, ImageLoaderFact
 
         // 🔒 WAJIB: Muat native library SQLCipher SEBELUM database apapun dibuka.
         // Tanpa ini, JVM tidak bisa menemukan implementasi nativeOpen() → UnsatisfiedLinkError → crash fatal.
-        System.loadLibrary("sqlcipher")
+        // Gunakan ReLinker untuk mencegah crash pada device dengan arsitektur 32-bit atau masalah ekstraksi native library.
+        com.getkeepsafe.relinker.ReLinker.loadLibrary(this, "sqlcipher")
         
         Log.d(TAG, "Application created")
 

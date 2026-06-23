@@ -20,7 +20,8 @@ class TEMBUSApplication : Application(), Configuration.Provider {
         super.onCreate()
         // 🔒 WAJIB: Muat native library SQLCipher SEBELUM database apapun dibuka.
         // Tanpa ini, JVM tidak bisa menemukan implementasi nativeOpen() → UnsatisfiedLinkError → crash fatal.
-        System.loadLibrary("sqlcipher")
+        // Gunakan ReLinker untuk memuat native library SQLCipher agar lebih aman dari UnsatisfiedLinkError
+        com.getkeepsafe.relinker.ReLinker.loadLibrary(this, "sqlcipher")
         FirebaseInitializer.initializeIfConfigured(this)
         Log.d(TAG, "Customer Application created")
     }
