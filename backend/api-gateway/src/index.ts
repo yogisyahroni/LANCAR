@@ -448,6 +448,20 @@ app.post(
 );
 
 app.post(
+  '/api/v1/auth/customer/google/start',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+);
+
+app.post(
+  '/api/v1/auth/customer/google/complete',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+);
+
+app.post(
   '/api/v1/auth/password-reset/request',
   authLimiter,
   jsonParser,

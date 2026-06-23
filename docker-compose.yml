@@ -215,6 +215,8 @@ services:
       # ─── OTP Hash Security ─────────────────────────────────────────────────
       # WAJIB diisi di production (min 32 karakter). Tanpa ini OTP tidak aman.
       OTP_HASH_PEPPER: ${OTP_HASH_PEPPER:-}
+      GOOGLE_CUSTOMER_WEB_CLIENT_ID: ${GOOGLE_CUSTOMER_WEB_CLIENT_ID:-}
+      GOOGLE_CUSTOMER_ANDROID_CLIENT_ID: ${GOOGLE_CUSTOMER_ANDROID_CLIENT_ID:-}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_SERVICE_NAME: ${AUTH_OTEL_SERVICE_NAME:-auth-service}

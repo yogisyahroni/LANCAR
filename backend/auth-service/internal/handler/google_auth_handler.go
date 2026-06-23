@@ -115,6 +115,7 @@ func (h *GoogleAuthHandler) CompleteGoogleAuth(w http.ResponseWriter, r *http.Re
 
 	resp, err := h.svc.CompleteGoogleAuth(r.Context(), &req)
 	if err != nil {
+		log.Printf("CompleteGoogleAuth error: %v", err)
 		// Anti-enumeration: always return the same generic message on failure
 		writeJSONError(w, http.StatusUnauthorized, "auth_failed", "Login tidak dapat diproses. Silakan coba lagi.")
 		return
