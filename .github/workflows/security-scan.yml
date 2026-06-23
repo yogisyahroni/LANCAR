@@ -21,6 +21,7 @@ on:
     branches:
       - main
       - develop
+      - staging
       - release/*
     paths-ignore:
       - "**.md"
@@ -31,6 +32,7 @@ on:
     branches:
       - main
       - develop
+      - staging
     paths-ignore:
       - "**.md"
       - "docs/**"
@@ -332,6 +334,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}  # Free for public repos
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
         with:
           config-path: .gitleaks.toml  # Custom config (opsional)
 
@@ -683,7 +686,7 @@ jobs:
       # Notifikasi Slack (Opsional - jika ada secret)
       # -------------------------------------------------------
       - name: Notify Slack on failure
-        if: ${{ failure() && secrets.SLACK_WEBHOOK_URL != '' }}
+        if: ${{ failure() }}
         uses: slackapi/slack-github-action@v1
         with:
           payload: |
