@@ -439,38 +439,18 @@ jobs:
       - name: Upload named release assets
         if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
         uses: actions/upload-artifact@v4
-        continue-on-error: true
         with:
           name: ${{ matrix.asset_prefix }}-android-${{ github.run_number }}
           path: ./${{ matrix.working_dir }}/app/build/release-assets/*
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 30
           compression-level: 9
 
       # 4. Enterprise Security Scan (Placeholder)
       - name: Security Check
         run: echo "🚀 Running Security Scan for ${{ matrix.app_name }}..."
 
-      # 5. Create GitHub Release & Upload APK
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        if: github.event_name == 'push' && github.ref == 'refs/heads/staging' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
-        with:
-          tag_name: "v1.0.${{ github.run_number }}-${{ matrix.app_slug }}"
-          name: "Release v1.0.${{ github.run_number }} - ${{ matrix.app_name }}"
-          files: |
-            ./${{ matrix.working_dir }}/app/build/release-assets/${{ matrix.asset_prefix }}-debug.apk
-            ./${{ matrix.working_dir }}/app/build/release-assets/${{ matrix.asset_prefix }}-release.apk
-            ./${{ matrix.working_dir }}/app/build/release-assets/${{ matrix.asset_prefix }}-release.aab
-          draft: false
-          prerelease: true
-          body: |
-            Automated Staging Build for ${{ matrix.app_name }}
-            - Build Number: ${{ github.run_number }}
-            - Branch: ${{ github.ref_name }}
-            - Commit: ${{ github.sha }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
       # 6. Optional: Firebase App Distribution (Requires FIREBASE_TOKEN secret)
@@ -480,3 +460,34 @@ jobs:
       #     args: appdistribution:distribute ./${{ matrix.working_dir }}/app/build/outputs/apk/debug/*.apk --app ${{ matrix.app_name == 'Courier-App' && secrets.FIREBASE_APP_ID_COURIER || secrets.FIREBASE_APP_ID_CUSTOMER }}
       #   env:
       #     FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+  create-release:
+    name: Create Combined Release
+    needs: build-android
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-android-*'
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v1.0.${{ github.run_number }}"
+          name: "Release v1.0.${{ github.run_number }} (Courier & Customer)"
+          files: release-assets/*
+          draft: false
+          prerelease: true
+          body: |
+            Automated Staging Build for Courier and Customer
+            - Build Number: ${{ github.run_number }}
+            - Branch: ${{ github.ref_name }}
+            - Commit: ${{ github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
