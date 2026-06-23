@@ -5,6 +5,7 @@ import { Footer } from "@/components/layout/Footer";
 import { motion } from "framer-motion";
 import { Smartphone, Download, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 function fadeUp(delay = 0) {
   return {
@@ -86,11 +87,14 @@ export default function DaftarMitraPage() {
                 <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full border-[30px] border-white"></div>
               </div>
               <div className="absolute inset-0 flex items-center justify-center p-8">
-                <div className="relative w-full aspect-[9/16] bg-white/10 rounded-2xl border-4 border-[#1a3029] shadow-2xl overflow-hidden backdrop-blur-sm flex items-center justify-center">
-                   <Smartphone className="w-24 h-24 text-white/30" />
-                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full text-center px-4">
-                     <p className="text-white/80 font-bold text-lg mt-16">Tembus Driver</p>
-                   </div>
+                <div className="relative w-full h-full max-h-[600px] rounded-2xl border-[6px] border-[#1a3029] shadow-2xl overflow-hidden flex items-center justify-center bg-black">
+                   <Image 
+                     src="/ladingpagedaftar.png"
+                     alt="Tembus Driver App"
+                     fill
+                     className="object-cover object-top"
+                     sizes="(max-width: 768px) 100vw, 40vw"
+                   />
                 </div>
               </div>
             </div>
