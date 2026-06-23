@@ -80,23 +80,15 @@ export default function DaftarMitraPage() {
             </div>
 
             {/* Right side: Illustration / Visual */}
-            <div className="hidden md:block w-2/5 bg-[#001911] relative overflow-hidden">
-              <div className="absolute inset-0 opacity-20">
-                {/* Decorative background pattern */}
-                <div className="absolute -top-24 -right-24 w-64 h-64 rounded-full border-[20px] border-[#9bd46f]"></div>
-                <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full border-[30px] border-white"></div>
-              </div>
-              <div className="absolute inset-0 flex items-center justify-center p-8 lg:p-12">
-                <div className="relative w-full h-full flex items-center justify-center">
-                   <Image 
-                     src="/ladingpagedaftar.png"
-                     alt="Tembus Driver App"
-                     fill
-                     className="object-contain object-center drop-shadow-2xl"
-                     sizes="(max-width: 768px) 100vw, 40vw"
-                   />
-                </div>
-              </div>
+            <div className="hidden md:block md:w-[45%] relative overflow-hidden bg-[#001911]">
+               <Image 
+                 src="/ladingpagedaftar.png"
+                 alt="Tembus Driver App"
+                 fill
+                 className="object-cover object-center"
+                 sizes="(max-width: 768px) 100vw, 50vw"
+                 priority
+               />
             </div>
             
           </div>
