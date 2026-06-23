@@ -89,6 +89,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
       - name: Audit Production Deps
         run: |
           cd frontend && npm audit --audit-level=high
@@ -169,6 +170,7 @@ jobs:
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: sbom-${{ matrix.image }}
           path: sbom-${{ matrix.image }}.cdx.json
