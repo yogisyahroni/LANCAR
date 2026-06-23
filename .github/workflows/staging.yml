@@ -299,6 +299,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [observability-guard]
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:

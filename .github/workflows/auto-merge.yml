@@ -53,6 +53,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      checks: read
     steps:
       - name: Tunggu semua CI checks selesai
         uses: lewagon/wait-on-check-action@v1.3.4
