@@ -53,9 +53,7 @@ updates:
     # Batasi jumlah PR terbuka
     open-pull-requests-limit: 10
 
-    # Auto-assign reviewer dari CODEOWNERS
-    reviewers:
-      - "@your-team/security"
+
 
     # Label otomatis
     labels:
@@ -95,8 +93,7 @@ updates:
         patterns:
           - "*"
     open-pull-requests-limit: 10
-    reviewers:
-      - "@your-team/security"
+
     labels:
       - "security"
       - "dependencies"
@@ -119,8 +116,7 @@ updates:
         patterns:
           - "*"
     open-pull-requests-limit: 10
-    reviewers:
-      - "@your-team/security"
+
     labels:
       - "security"
       - "dependencies"
@@ -143,8 +139,7 @@ updates:
         patterns:
           - "*"
     open-pull-requests-limit: 10
-    reviewers:
-      - "@your-team/security"
+
     labels:
       - "security"
       - "dependencies"
