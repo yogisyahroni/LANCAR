@@ -370,7 +370,7 @@ jobs:
       # Hasil dalam format SARIF untuk integrasi GitHub Security.
       # -------------------------------------------------------
       - name: Run Semgrep SAST
-        uses: returntocorp/semgrep-action@v1
+        uses: semgrep/semgrep-action@v1
         with:
           config: >-
             p/owasp-top-ten
