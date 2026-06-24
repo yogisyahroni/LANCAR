@@ -110,16 +110,7 @@ const resolveRouteTileProvider = (
 ): { provider: RouteTileProvider; tomTomApiKey: string | null } => {
   const routeProvider = `${routeSnapshot?.active_provider || routeSnapshot?.provider || ""}`.toLowerCase();
   const activeProvider = `${mapsRuntimeConfig?.active_provider || ""}`.toLowerCase();
-  const shouldPreferTomTom = routeProvider.includes("tomtom") || activeProvider === "tomtom_maps";
-  const tomTomApiKey = mapsRuntimeConfig?.tomtom_maps?.browser_api_key?.trim() || null;
-
-  if (shouldPreferTomTom) {
-    return {
-      provider: tomTomApiKey ? "tomtom" : "none",
-      tomTomApiKey
-    };
-  }
-
+  // Admin web forced to OSM
   return {
     provider: "openstreetmap",
     tomTomApiKey: null

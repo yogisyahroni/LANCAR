@@ -41,7 +41,7 @@ func (s *meetingPointServiceImpl) SuggestMeetingPoint(ctx context.Context, picku
 	suggestions := []map[string]interface{}{}
 	for _, p := range points {
 		// Get traffic/travel time from pickup to point
-		dist, dur, _, _, err := s.mapsRepo.GetDistanceMatrix(ctx, pickupLat, pickupLng, p.Latitude, p.Longitude)
+		dist, dur, _, _, err := s.mapsRepo.GetDistanceMatrix(ctx, pickupLat, pickupLng, p.Latitude, p.Longitude, false)
 		if err != nil {
 			log.Printf("Failed to get traffic for point %s: %v", p.ID, err)
 			continue

@@ -597,6 +597,28 @@ services:
       - tembus-net
 
   # ─────────────────────────────────────────────
+  # DATALAKE WORKER — Go 1.25
+  # Worker untuk membaca message GPS dari RabbitMQ dan simpan ke Cloudflare R2
+  # ─────────────────────────────────────────────
+  datalake-worker:
+    build:
+      context: ./backend/datalake-worker
+      dockerfile: Dockerfile
+    container_name: tembus-datalake-worker
+    restart: unless-stopped
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER:-tembus_mq}:${RABBITMQ_DEFAULT_PASS:-changeme_rabbitmq_in_production}@rabbitmq:5672/"
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      R2_BUCKET_NAME: ${R2_BUCKET_NAME:-lancar-ai-datalake}
+    networks:
+      - tembus-net
+
+  # ─────────────────────────────────────────────
   # MESSAGE BROKER — RabbitMQ 3.13 Alpine
   # Management UI: http://localhost:15672 (dev only, loopback-bound)
   # S2-INF-01: Pinned to versioned alpine tag — smaller attack surface vs full image.

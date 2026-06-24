@@ -58,7 +58,7 @@ func NewMapsRepository(apiKey string) (domain.MapsRepository, error) {
 	}, nil
 }
 
-func (r *mapsRepo) GetDistanceMatrix(ctx context.Context, originLat, originLng, destLat, destLng float64) (float64, float64, string, string, error) {
+func (r *mapsRepo) GetDistanceMatrix(ctx context.Context, originLat, originLng, destLat, destLng float64, useTraffic bool) (float64, float64, string, string, error) {
 	coordinates := fmt.Sprintf("%.6f,%.6f:%.6f,%.6f", originLat, originLng, destLat, destLng)
 	endpoint := fmt.Sprintf("%s/calculateRoute/%s/json", r.baseURL, coordinates)
 	requestURL, err := url.Parse(endpoint)
@@ -68,7 +68,11 @@ func (r *mapsRepo) GetDistanceMatrix(ctx context.Context, originLat, originLng, 
 
 	query := requestURL.Query()
 	query.Set("key", r.apiKey)
-	query.Set("traffic", "true")
+	if useTraffic {
+		query.Set("traffic", "true")
+	} else {
+		query.Set("traffic", "false")
+	}
 	query.Set("travelMode", "car")
 	query.Set("routeRepresentation", "summaryOnly")
 	query.Set("computeTravelTimeFor", "all")
@@ -113,7 +117,7 @@ func (r *mapsRepo) GetDistanceMatrix(ctx context.Context, originLat, originLng, 
 	return distKM, durMin, originAddr, destAddr, nil
 }
 
-func (r *mapsRepo) OptimizeWaypoints(ctx context.Context, origin domain.Waypoint, waypoints []domain.Waypoint, dest domain.Waypoint) (*domain.OptimizedRouteResult, error) {
+func (r *mapsRepo) OptimizeWaypoints(ctx context.Context, origin domain.Waypoint, waypoints []domain.Waypoint, dest domain.Waypoint, useTraffic bool) (*domain.OptimizedRouteResult, error) {
 	if len(waypoints) == 0 {
 		return nil, fmt.Errorf("no waypoints provided")
 	}
@@ -134,7 +138,11 @@ func (r *mapsRepo) OptimizeWaypoints(ctx context.Context, origin domain.Waypoint
 
 	query := requestURL.Query()
 	query.Set("key", r.apiKey)
-	query.Set("traffic", "true")
+	if useTraffic {
+		query.Set("traffic", "true")
+	} else {
+		query.Set("traffic", "false")
+	}
 	query.Set("travelMode", "car")
 	query.Set("routeRepresentation", "summaryOnly")
 	query.Set("computeBestOrder", "true")

@@ -50,10 +50,10 @@ type MockMapsRepo struct {
 	Err        error
 }
 
-func (m *MockMapsRepo) GetDistanceMatrix(ctx context.Context, originLat, originLng, destLat, destLng float64) (float64, float64, string, string, error) {
+func (m *MockMapsRepo) GetDistanceMatrix(ctx context.Context, originLat, originLng, destLat, destLng float64, useTraffic bool) (float64, float64, string, string, error) {
 	return m.DistKM, m.DurMin, m.OriginAddr, m.DestAddr, m.Err
 }
-func (m *MockMapsRepo) OptimizeWaypoints(ctx context.Context, origin domain.Waypoint, waypoints []domain.Waypoint, dest domain.Waypoint) (*domain.OptimizedRouteResult, error) {
+func (m *MockMapsRepo) OptimizeWaypoints(ctx context.Context, origin domain.Waypoint, waypoints []domain.Waypoint, dest domain.Waypoint, useTraffic bool) (*domain.OptimizedRouteResult, error) {
 	return nil, nil
 }
 

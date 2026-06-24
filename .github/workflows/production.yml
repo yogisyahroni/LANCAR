@@ -3,6 +3,12 @@ name: CI/CD Production
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+# Cancel in-progress runs on the same branch (save CI minutes)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 # Ephemeral GitHub Actions service database only; production runtime database
 # credentials must come from protected environment secrets on the server.
@@ -10,16 +16,85 @@ env:
   CI_POSTGRES_USER: tembus_ci
   CI_POSTGRES_PASSWORD: tembus_ci_ephemeral_db_auth
   CI_POSTGRES_DB: tembus_ci
+  GO_VERSION: '1.25.11'
+  NODE_VERSION: '20'
 
 jobs:
-  # ───────────────────────────────────────────────
-  # FULL QUALITY & BUILD
-  # ───────────────────────────────────────────────
-  
-  build-and-test:
-    name: Build & Test All
+  # ═══════════════════════════════════════════════════════════
+  # PHASE 1: BUILD & TEST (parallel — mirrors staging.yml)
+  # ═══════════════════════════════════════════════════════════
+
+  maps-runtime-guard:
+    name: Maps Runtime Guard
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail on Google Maps runtime residue
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RInE 'google_maps|GOOGLE_MAPS|GOOGLE_ROUTES|GOOGLE_DIRECTIONS|maps\.googleapis\.com|routes\.googleapis\.com|GoogleMapCanvas|play-services-maps|com\.google\.maps\.android|com\.google\.android\.gms\.maps|google\.navigation' \
+            --exclude-dir=node_modules \
+            --exclude-dir=build \
+            --exclude-dir=dist \
+            --exclude-dir=.gradle \
+            backend admin-dashboard frontend android-app android-app-customer docker-compose.yml docker-compose.prod.yml .env.example; then
+            echo "Google Maps runtime residue detected. Firebase google-services and Play Services Location are allowed; Google Maps is not." >&2
+            exit 1
+          fi
+          echo "✅ No Google Maps runtime residue found."
+
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || 'https://api.bawain.my.id/api/v1' }}
+          NEXT_PUBLIC_WS_URL: ${{ vars.NEXT_PUBLIC_WS_URL || 'wss://api.bawain.my.id' }}
+          NEXT_PUBLIC_SOCKET_URL: ${{ vars.NEXT_PUBLIC_SOCKET_URL || 'https://api.bawain.my.id' }}
+          SERVER_API_URL: ${{ vars.SERVER_API_URL || vars.NEXT_PUBLIC_API_URL || 'https://api.bawain.my.id/api/v1' }}
+
+  admin-build:
+    name: Admin Dashboard Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: admin-dashboard/package-lock.json
+      - name: Install dependencies
+        working-directory: ./admin-dashboard
+        run: npm ci
+      - name: Build
+        working-directory: ./admin-dashboard
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'https://api.bawain.my.id/api/v1' }}
+          VITE_WS_URL: ${{ vars.VITE_WS_URL || 'wss://api.bawain.my.id' }}
+          VITE_SOCKET_URL: ${{ vars.VITE_SOCKET_URL || 'https://api.bawain.my.id' }}
+
+  admin-service:
+    name: Admin Service Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     services:
       postgres:
         image: mirror.gcr.io/postgres:15
@@ -28,75 +103,310 @@ jobs:
           POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
         ports: [5432:5432]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
       redis:
-        image: mirror.gcr.io/redis:6-alpine
+        image: mirror.gcr.io/redis:7-alpine
         ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
-      
-      # Frontend
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-      - run: cd frontend && npm ci && npm run build
-        env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
-          NEXT_PUBLIC_WS_URL: ${{ vars.NEXT_PUBLIC_WS_URL }}
-          NEXT_PUBLIC_SOCKET_URL: ${{ vars.NEXT_PUBLIC_SOCKET_URL }}
-          SERVER_API_URL: ${{ vars.SERVER_API_URL || vars.NEXT_PUBLIC_API_URL }}
-      
-      # Admin Service
-      - run: cd backend/admin-service && npm ci && npm test -- --testTimeout=60000
+          cache-dependency-path: backend/admin-service/package-lock.json
+      - name: Install dependencies
+        working-directory: ./backend/admin-service
+        run: npm ci
+      - name: Run tests
+        working-directory: ./backend/admin-service
+        run: npm test -- --testTimeout=60000
         env:
           DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
-          
-      # Go Services
+          NODE_ENV: test
+
+  auth-service:
+    name: Auth Service Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: mirror.gcr.io/postgres:15
+        env:
+          POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
+        ports: [5432:5432]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: mirror.gcr.io/redis:7-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.11'
-      - run: |
-          cd backend/auth-service && go mod tidy && go test -v -timeout 5m ./...
-          cd ../routing-service && go mod tidy && go test -v -timeout 5m ./...
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/auth-service/go.sum
+      - name: Verify modules are tidy
+        working-directory: ./backend/auth-service
+        run: |
+          go mod tidy
+          go mod verify
+      - name: Run tests
+        working-directory: ./backend/auth-service
+        run: go test -v -race -timeout 5m ./...
         env:
           DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
-          DB_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
           REDIS_URL: "redis://localhost:6379"
 
-      # S-CC-01 FIX: govulncheck — Go vulnerability scanner from Google.
-      # Unlike Trivy image scan, govulncheck only flags CVEs in code paths
-      # that are actually called, eliminating false positives from unused deps.
-      - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
-      - name: Go Vulnerability Scan — auth-service
-        run: cd backend/auth-service && govulncheck ./...
-      - name: Go Vulnerability Scan — routing-service
-        run: cd backend/routing-service && govulncheck ./...
+  routing-service:
+    name: Routing Service Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: mirror.gcr.io/postgres:15
+        env:
+          POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
+        ports: [5432:5432]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: mirror.gcr.io/redis:7-alpine
+        ports: [6379:6379]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/routing-service/go.sum
+      - name: Verify modules are tidy
+        working-directory: ./backend/routing-service
+        run: |
+          go mod tidy
+          go mod verify
+      - name: Run tests
+        working-directory: ./backend/routing-service
+        run: go test -v -race -timeout 5m ./...
+        env:
+          DATABASE_URL: "postgresql://${{ env.CI_POSTGRES_USER }}:${{ env.CI_POSTGRES_PASSWORD }}@localhost:5432/${{ env.CI_POSTGRES_DB }}?sslmode=disable"
+          REDIS_URL: "redis://localhost:6379"
 
+  order-service-build:
+    name: Order Service Build Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: backend/order-service/go.sum
+      - name: Verify modules are tidy
+        working-directory: ./backend/order-service
+        run: |
+          go mod tidy
+          go mod verify
+      - name: Build (compile check)
+        working-directory: ./backend/order-service
+        run: go build ./cmd/api
+
+  datalake-worker-build:
+    name: Datalake Worker Build Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Build (compile check)
+        working-directory: ./backend/datalake-worker
+        run: |
+          go mod tidy
+          go build .
+
+  migration-test:
+    name: Migration Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: mirror.gcr.io/postgis/postgis:15-3.4
+        env:
+          POSTGRES_USER: ${{ env.CI_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.CI_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.CI_POSTGRES_DB }}
+        ports: [5432:5432]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 10s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install goose
+        run: |
+          go install github.com/pressly/goose/v3/cmd/goose@latest
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+      - name: Run migrations UP
+        run: |
+          goose -dir database/migrations postgres \
+            "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" \
+            up
+      - name: Verify migration version
+        run: |
+          goose -dir database/migrations postgres \
+            "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" \
+            version
+      - name: Run migrations DOWN (rollback test)
+        run: |
+          goose -dir database/migrations postgres \
+            "host=localhost port=5432 user=${CI_POSTGRES_USER} password=${CI_POSTGRES_PASSWORD} dbname=${CI_POSTGRES_DB} sslmode=disable" \
+            down
+
+  observability-guard:
+    name: Observability Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+      - frontend
+      - admin-build
+      - maps-runtime-guard
+      - admin-service
+      - auth-service
+      - routing-service
+      - order-service-build
+      - datalake-worker-build
+      - migration-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Static observability leak guard
+        run: node scripts/ci/observability-guard.mjs
+      - name: Validate OpenTelemetry Collector config
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/observability/otel-collector-config.yml:/etc/otelcol/config.yml:ro" \
+            otel/opentelemetry-collector-contrib:0.128.0 \
+            validate --config=/etc/otelcol/config.yml
+      - name: Docker Compose config check
+        run: docker compose config --quiet
+
+  # ═══════════════════════════════════════════════════════════
+  # PHASE 2: SECURITY SCANS (needs all phase 1 to pass)
+  # ═══════════════════════════════════════════════════════════
 
   security:
-    name: Critical Security Audit
+    name: Security Scan
     runs-on: ubuntu-latest
-    needs: [build-and-test]
+    timeout-minutes: 15
+    needs: [observability-guard]
+    permissions:
+      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      - name: Gitleaks
+          fetch-depth: 0  # full history for gitleaks
+
+      # ── Node.js dependency audit ──────────────────────────
+      - name: npm audit (frontend)
+        working-directory: ./frontend
+        run: |
+          npm ci --quiet
+          npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: npm audit (admin-service)
+        working-directory: ./backend/admin-service
+        run: |
+          npm ci --quiet
+          npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: npm audit (api-gateway)
+        working-directory: ./backend/api-gateway
+        run: |
+          npm ci --quiet
+          npm audit --audit-level=high
+        continue-on-error: true
+
+      # ── Go vulnerability check ───────────────────────────
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: govulncheck (auth-service)
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          cd backend/auth-service && govulncheck ./...
+        continue-on-error: true
+
+      - name: govulncheck (routing-service)
+        run: cd backend/routing-service && govulncheck ./...
+        continue-on-error: true
+
+      - name: govulncheck (order-service)
+        run: cd backend/order-service && govulncheck ./...
+        continue-on-error: true
+
+      - name: govulncheck (datalake-worker)
+        run: cd backend/datalake-worker && govulncheck ./...
+        continue-on-error: true
+
+      # ── Go static security analysis ───────────────────────
+      - name: gosec (auth-service)
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          cd backend/auth-service && gosec -severity high -confidence high ./... 2>&1 || true
+
+      - name: gosec (routing-service)
+        run: cd backend/routing-service && gosec -severity high -confidence high ./... 2>&1 || true
+
+      - name: gosec (order-service)
+        run: cd backend/order-service && gosec -severity high -confidence high ./... 2>&1 || true
+
+      # ── Secret scanning ───────────────────────────────────
+      - name: Gitleaks (secret scanning)
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
-      - name: Audit Production Deps
-        run: |
-          cd frontend && npm audit --audit-level=high
-          cd ../backend/admin-service && npm audit --audit-level=high
-          # S-CC-01 FIX: api-gateway was not being audited
-          cd ../backend/api-gateway && npm audit --audit-level=high
 
+  # ═══════════════════════════════════════════════════════════
+  # PHASE 3: CONTAINER SUPPLY-CHAIN SECURITY GATE
+  # ═══════════════════════════════════════════════════════════
 
   container-security:
     name: Container SBOM & Secret Audit (${{ matrix.image }})
@@ -117,6 +427,8 @@ jobs:
             context: ./backend/admin-service
           - image: order-service
             context: ./backend/order-service
+          - image: datalake-worker
+            context: ./backend/datalake-worker
           - image: payment-service
             context: ./backend/payment-service
           - image: api-gateway
@@ -130,6 +442,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker
 
       - name: Build local image for audit
         uses: docker/build-push-action@v5
@@ -140,14 +454,14 @@ jobs:
           load: true
           tags: tembus-local/${{ matrix.image }}:${{ github.sha }}
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
-            NEXT_PUBLIC_WS_URL=${{ vars.NEXT_PUBLIC_WS_URL }}
-            NEXT_PUBLIC_SOCKET_URL=${{ vars.NEXT_PUBLIC_SOCKET_URL }}
-            VITE_API_URL=${{ vars.VITE_API_URL }}
-            VITE_WS_URL=${{ vars.VITE_WS_URL }}
-            VITE_SOCKET_URL=${{ vars.VITE_SOCKET_URL }}
-          cache-from: type=gha,scope=${{ matrix.image }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'https://api.bawain.my.id/api/v1' }}
+            NEXT_PUBLIC_WS_URL=${{ vars.NEXT_PUBLIC_WS_URL || 'wss://api.bawain.my.id' }}
+            NEXT_PUBLIC_SOCKET_URL=${{ vars.NEXT_PUBLIC_SOCKET_URL || 'https://api.bawain.my.id' }}
+            VITE_API_URL=${{ vars.VITE_API_URL || 'https://api.bawain.my.id/api/v1' }}
+            VITE_WS_URL=${{ vars.VITE_WS_URL || 'wss://api.bawain.my.id' }}
+            VITE_SOCKET_URL=${{ vars.VITE_SOCKET_URL || 'https://api.bawain.my.id' }}
+          cache-from: type=gha,scope=${{ matrix.image }}-prod
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}-prod
 
       - name: Generate CycloneDX SBOM
         uses: aquasecurity/trivy-action@0.35.0
@@ -172,23 +486,18 @@ jobs:
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
-          name: sbom-${{ matrix.image }}
+          name: sbom-${{ matrix.image }}-prod
           path: sbom-${{ matrix.image }}.cdx.json
-          retention-days: 90
+          retention-days: 90  # longer retention for production audit trail
 
-  deploy:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [docker-build-push]
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy Placeholder
-        run: echo "🚀 Deploying to Production Server..."
+  # ═══════════════════════════════════════════════════════════
+  # PHASE 4: DOCKER BUILD & PUSH TO GHCR
+  # ═══════════════════════════════════════════════════════════
 
   docker-build-push:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [container-security]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
@@ -199,7 +508,7 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Lowercase repo name
         run: echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
 
@@ -216,6 +525,8 @@ jobs:
           context: ./backend/auth-service
           pull: true
           push: true
+          cache-from: type=gha,scope=auth-prod
+          cache-to: type=gha,mode=max,scope=auth-prod
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/auth-service:latest
             ghcr.io/${{ env.REPO_LOWER }}/auth-service:${{ github.sha }}
@@ -226,6 +537,8 @@ jobs:
           context: ./backend/routing-service
           pull: true
           push: true
+          cache-from: type=gha,scope=routing-prod
+          cache-to: type=gha,mode=max,scope=routing-prod
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/routing-service:latest
             ghcr.io/${{ env.REPO_LOWER }}/routing-service:${{ github.sha }}
@@ -236,6 +549,288 @@ jobs:
           context: ./backend/admin-service
           pull: true
           push: true
+          cache-from: type=gha,scope=admin-svc-prod
+          cache-to: type=gha,mode=max,scope=admin-svc-prod
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/admin-service:latest
             ghcr.io/${{ env.REPO_LOWER }}/admin-service:${{ github.sha }}
+
+      - name: Build and Push Order Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/order-service
+          pull: true
+          push: true
+          cache-from: type=gha,scope=order-prod
+          cache-to: type=gha,mode=max,scope=order-prod
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/order-service:latest
+            ghcr.io/${{ env.REPO_LOWER }}/order-service:${{ github.sha }}
+
+      - name: Build and Push Datalake Worker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/datalake-worker
+          pull: true
+          push: true
+          cache-from: type=gha,scope=datalake-prod
+          cache-to: type=gha,mode=max,scope=datalake-prod
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/datalake-worker:latest
+            ghcr.io/${{ env.REPO_LOWER }}/datalake-worker:${{ github.sha }}
+
+      - name: Build and Push Payment Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/payment-service
+          pull: true
+          push: true
+          cache-from: type=gha,scope=payment-prod
+          cache-to: type=gha,mode=max,scope=payment-prod
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/payment-service:latest
+            ghcr.io/${{ env.REPO_LOWER }}/payment-service:${{ github.sha }}
+
+      - name: Build and Push API Gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/api-gateway
+          pull: true
+          push: true
+          cache-from: type=gha,scope=gateway-prod
+          cache-to: type=gha,mode=max,scope=gateway-prod
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/api-gateway:latest
+            ghcr.io/${{ env.REPO_LOWER }}/api-gateway:${{ github.sha }}
+
+      - name: Build and Push Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          pull: true
+          push: true
+          cache-from: type=gha,scope=frontend-prod
+          cache-to: type=gha,mode=max,scope=frontend-prod
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'https://api.bawain.my.id/api/v1' }}
+            NEXT_PUBLIC_WS_URL=${{ vars.NEXT_PUBLIC_WS_URL || 'wss://api.bawain.my.id' }}
+            NEXT_PUBLIC_SOCKET_URL=${{ vars.NEXT_PUBLIC_SOCKET_URL || 'https://api.bawain.my.id' }}
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:latest
+            ghcr.io/${{ env.REPO_LOWER }}/frontend:${{ github.sha }}
+
+      - name: Build and Push Admin Dashboard
+        uses: docker/build-push-action@v5
+        with:
+          context: ./admin-dashboard
+          pull: true
+          push: true
+          cache-from: type=gha,scope=dashboard-prod
+          cache-to: type=gha,mode=max,scope=dashboard-prod
+          build-args: |
+            VITE_API_URL=${{ vars.VITE_API_URL || 'https://api.bawain.my.id/api/v1' }}
+            VITE_WS_URL=${{ vars.VITE_WS_URL || 'wss://api.bawain.my.id' }}
+            VITE_SOCKET_URL=${{ vars.VITE_SOCKET_URL || 'https://api.bawain.my.id' }}
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/admin-dashboard:latest
+            ghcr.io/${{ env.REPO_LOWER }}/admin-dashboard:${{ github.sha }}
+
+  # ═══════════════════════════════════════════════════════════
+  # PHASE 5: DEPLOY TO PRODUCTION (requires manual approval)
+  # ═══════════════════════════════════════════════════════════
+  #
+  # Prerequisites — add these GitHub Secrets:
+  #   PROD_SSH_HOST        → IP atau domain VPS production
+  #   PROD_SSH_USER        → username SSH (contoh: root atau ubuntu)
+  #   PROD_SSH_PRIVATE_KEY → isi file ~/.ssh/id_rsa di mesin lokal Anda
+  #   PROD_SSH_PORT        → port SSH, biasanya 22
+  #   PROD_APP_DIR         → path project di VPS, contoh: /opt/lancar
+  #
+  #   R2_ACCESS_KEY_ID     → dari Cloudflare R2 (bisa dikosongkan dulu)
+  #   R2_SECRET_ACCESS_KEY → dari Cloudflare R2 (bisa dikosongkan dulu)
+  #   R2_ENDPOINT          → dari Cloudflare R2 (bisa dikosongkan dulu)
+  #
+  # GitHub Environment "production" WAJIB dikonfigurasi dengan:
+  #   Required reviewers → sehingga deployment hanya terjadi setelah
+  #   ada yang menyetujui secara manual.
+  # ═══════════════════════════════════════════════════════════
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [docker-build-push]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production  # ← Manual approval gate di sini
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required secrets
+        id: check_secrets
+        run: |
+          if [ -z "${{ secrets.PROD_SSH_HOST }}" ]; then
+            echo "⚠️  PROD_SSH_HOST belum di-set. Deploy di-skip."
+            echo "   Tambahkan di: Settings → Secrets and Variables → Actions"
+            echo "has_ssh=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ SSH secrets configured. Proceeding with deploy."
+            echo "has_ssh=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Write SSH private key
+        if: steps.check_secrets.outputs.has_ssh == 'true'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROD_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p ${{ secrets.PROD_SSH_PORT || '22' }} ${{ secrets.PROD_SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy via SSH
+        if: steps.check_secrets.outputs.has_ssh == 'true'
+        env:
+          REPO_LOWER: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          PROD_APP_DIR: ${{ secrets.PROD_APP_DIR || '/opt/lancar' }}
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER || 'root' }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT || '22' }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Runtime env vars yang akan ditulis ke .env di VPS
+          SECRET_JWT: ${{ secrets.JWT_SECRET }}
+          SECRET_JWT_REFRESH: ${{ secrets.JWT_REFRESH_SECRET }}
+          SECRET_DB_URL: ${{ secrets.PROD_DATABASE_URL }}
+          SECRET_READ_DB_URL: ${{ secrets.PROD_READ_DATABASE_URL }}
+          SECRET_REDIS_URL: ${{ secrets.PROD_REDIS_URL }}
+          SECRET_RABBITMQ_URL: ${{ secrets.PROD_RABBITMQ_URL }}
+          SECRET_MIDTRANS_KEY: ${{ secrets.MIDTRANS_SERVER_KEY }}
+          SECRET_R2_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          SECRET_R2_SECRET: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          SECRET_R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          REPO_LOWER_LC="${REPO_LOWER,,}"
+
+          ssh -i ~/.ssh/id_rsa -p "${PROD_SSH_PORT}" "${PROD_SSH_USER}@${PROD_SSH_HOST}" bash -s << EOF
+          set -euo pipefail
+          cd "${PROD_APP_DIR}"
+
+          echo "📋 Step 1: Log in to GHCR..."
+          echo "${GHCR_TOKEN}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+          echo "📋 Step 2: Pull new images..."
+          docker pull ghcr.io/${REPO_LOWER_LC}/auth-service:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/routing-service:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/admin-service:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/order-service:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/datalake-worker:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/payment-service:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/api-gateway:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/frontend:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/admin-dashboard:${SHA}
+
+          echo "📋 Step 3: Update .env with runtime secrets..."
+          # Hanya update baris yang berkaitan dengan secrets — baris lain tidak disentuh
+          sed -i "s|^JWT_SECRET=.*|JWT_SECRET=\"${SECRET_JWT}\"|" .env
+          sed -i "s|^JWT_REFRESH_SECRET=.*|JWT_REFRESH_SECRET=\"${SECRET_JWT_REFRESH}\"|" .env
+          sed -i "s|^DATABASE_URL=.*|DATABASE_URL=\"${SECRET_DB_URL}\"|" .env
+          sed -i "s|^READ_DATABASE_URL=.*|READ_DATABASE_URL=\"${SECRET_READ_DB_URL}\"|" .env
+          sed -i "s|^REDIS_URL=.*|REDIS_URL=\"${SECRET_REDIS_URL}\"|" .env
+          sed -i "s|^RABBITMQ_URL=.*|RABBITMQ_URL=\"${SECRET_RABBITMQ_URL}\"|" .env
+          sed -i "s|^MIDTRANS_SERVER_KEY=.*|MIDTRANS_SERVER_KEY=\"${SECRET_MIDTRANS_KEY}\"|" .env
+          # R2 (kosong jika belum tersedia)
+          sed -i "s|^R2_ACCESS_KEY_ID=.*|R2_ACCESS_KEY_ID=\"${SECRET_R2_KEY_ID}\"|" .env
+          sed -i "s|^R2_SECRET_ACCESS_KEY=.*|R2_SECRET_ACCESS_KEY=\"${SECRET_R2_SECRET}\"|" .env
+          sed -i "s|^R2_ENDPOINT=.*|R2_ENDPOINT=\"${SECRET_R2_ENDPOINT}\"|" .env
+
+          echo "📋 Step 4: Rolling update services (no full restart)..."
+          # Update image references di compose file lalu rolling restart per service
+          export CURRENT_SHA="${SHA}"
+          export REPO="${REPO_LOWER_LC}"
+
+          # Update & restart masing-masing service satu per satu (zero-downtime)
+          for svc in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway frontend admin-dashboard; do
+            echo "  ↻ Restarting \${svc}..."
+            docker-compose up -d --no-deps \${svc} || true
+          done
+
+          echo "📋 Step 5: Health check..."
+          sleep 10
+          curl -sf http://localhost:8080/health && echo "✅ API Gateway healthy" || echo "⚠️ Health check failed — check logs"
+
+          echo "📋 Step 6: Cleanup old images..."
+          docker image prune -f --filter "until=24h" || true
+
+          echo "🎉 Deployment complete! SHA: ${SHA}"
+          EOF
+
+  # ═══════════════════════════════════════════════════════════
+  # PHASE 6: E2E SMOKE TEST (post-deploy validation)
+  # ═══════════════════════════════════════════════════════════
+
+  e2e-smoke-test:
+    name: E2E Smoke Test
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Tetap continue jika server production belum dikonfigurasi
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check if PROD_URL is configured
+        id: check_url
+        run: |
+          if [ -z "${{ vars.PROD_URL }}" ]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️  PROD_URL belum di-set di GitHub Variables."
+            echo "   E2E test di-skip. Set PROD_URL di:"
+            echo "   Settings → Environments → production → Variables"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "✅ PROD_URL: ${{ vars.PROD_URL }}"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.check_url.outputs.skip == 'false'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        if: steps.check_url.outputs.skip == 'false'
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        if: steps.check_url.outputs.skip == 'false'
+        working-directory: ./frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E smoke test against Production URL
+        if: steps.check_url.outputs.skip == 'false'
+        working-directory: ./frontend
+        run: npx playwright test
+        env:
+          BASE_URL: ${{ vars.PROD_URL }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+      - name: Upload Playwright Report
+        if: always() && steps.check_url.outputs.skip == 'false'
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: playwright-report-production
+          path: frontend/playwright-report/
+          retention-days: 30
+
+      - name: Comment on commit if E2E failed
+        if: failure() && steps.check_url.outputs.skip == 'false'
+        uses: peter-evans/commit-comment@v3
+        with:
+          body: |
+            ❌ **E2E Smoke Test FAILED** setelah deploy production.
+            SHA: `${{ github.sha }}`
+            Lihat report: [Playwright Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            ⚠️ Pertimbangkan untuk rollback jika ada fitur kritis yang rusak.

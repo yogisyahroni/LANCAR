@@ -220,8 +220,19 @@ func main() {
 	notifRepo := repository.NewPostgresNotificationRepo(sqlx.NewDb(db, "postgres"))
 	trackingRepo := repository.NewPostgresTrackingRepo(sqlx.NewDb(db, "postgres"))
 
+	var datalakePub domain.GPSDatalakePublisher
+	if rabbitmqURL != "" {
+		dp, err := queue.NewGPSDatalakePublisher(rabbitmqURL)
+		if err != nil {
+			log.Printf("Warning: Failed to connect to RabbitMQ for Datalake Publisher: %v", err)
+		} else {
+			datalakePub = dp
+			defer dp.Close()
+		}
+	}
+
 	notificationSvc := service.NewNotificationService(notifRepo, tq)
-	trackingSvc := service.NewTrackingService(trackingRepo, pgRepo, pgRepo, eb)
+	trackingSvc := service.NewTrackingService(trackingRepo, pgRepo, pgRepo, eb, datalakePub)
 
 	// Services
 	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo, flagReader, configRepo)

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -10,18 +11,20 @@ import (
 )
 
 type TrackingServiceImpl struct {
-	repo       domain.TrackingRepository
-	orderRepo  domain.OrderRepository
-	eventRepo  domain.OrderEventRepository
-	eventBus   domain.EventBus
+	repo        domain.TrackingRepository
+	orderRepo   domain.OrderRepository
+	eventRepo   domain.OrderEventRepository
+	eventBus    domain.EventBus
+	datalakePub domain.GPSDatalakePublisher
 }
 
-func NewTrackingService(repo domain.TrackingRepository, orderRepo domain.OrderRepository, eventRepo domain.OrderEventRepository, eventBus domain.EventBus) domain.TrackingService {
+func NewTrackingService(repo domain.TrackingRepository, orderRepo domain.OrderRepository, eventRepo domain.OrderEventRepository, eventBus domain.EventBus, datalakePub domain.GPSDatalakePublisher) domain.TrackingService {
 	return &TrackingServiceImpl{
-		repo:      repo,
-		orderRepo: orderRepo,
-		eventRepo: eventRepo,
-		eventBus:  eventBus,
+		repo:        repo,
+		orderRepo:   orderRepo,
+		eventRepo:   eventRepo,
+		eventBus:    eventBus,
+		datalakePub: datalakePub,
 	}
 }
 
@@ -74,6 +77,34 @@ func (s *TrackingServiceImpl) UpdateLocation(ctx context.Context, req domain.Cou
 		s.eventBus.Publish(ctx, orderTopic, payload)
 	}
 
+	// 5. Fire and forget to AI Datalake Publisher
+	if s.datalakePub != nil {
+		go func() {
+			// Using a background context because we don't want to cancel the datalake upload
+			// if the HTTP request ctx cancels early.
+			bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			var orderID string
+			if req.OrderID != nil {
+				orderID = req.OrderID.String()
+			}
+
+			// We use a map to represent the payload, similar to JSON representation
+			msg := map[string]interface{}{
+				"courier_id": req.CourierID.String(),
+				"order_id":   orderID,
+				"latitude":   req.Location.Latitude,
+				"longitude":  req.Location.Longitude,
+				"timestamp":  req.Location.Timestamp.UnixMilli(),
+			}
+
+			if err := s.datalakePub.Publish(bgCtx, msg); err != nil {
+				fmt.Printf("[TrackingService] WARN: Failed to publish GPS to datalake: %v\n", err)
+			}
+		}()
+	}
+
 	return nil
 }
 
@@ -99,6 +130,30 @@ func (s *TrackingServiceImpl) SyncLocations(ctx context.Context, req domain.Cour
 		// We log errors but continue loop if one individual entry fails insertion.
 		if err := s.repo.SaveGPSLog(ctx, req.CourierID, loc.OrderID, loc, isSpoofed, nil); err != nil {
 			fmt.Printf("[TrackingService] Sync ERROR: failed to save sub-log: %v\n", err)
+		}
+
+		// Fire and forget to AI Datalake Publisher
+		if s.datalakePub != nil {
+			go func(l domain.GPSLocation) {
+				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+
+				var oID string
+				if l.OrderID != nil {
+					oID = l.OrderID.String()
+				}
+
+				msg := map[string]interface{}{
+					"courier_id": req.CourierID.String(),
+					"order_id":   oID,
+					"latitude":   l.Latitude,
+					"longitude":  l.Longitude,
+					"timestamp":  l.Timestamp.UnixMilli(),
+				}
+				if err := s.datalakePub.Publish(bgCtx, msg); err != nil {
+					fmt.Printf("[TrackingService] WARN: Failed to publish GPS to datalake (Sync): %v\n", err)
+				}
+			}(loc)
 		}
 	}
 

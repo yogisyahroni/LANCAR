@@ -379,6 +379,8 @@ jobs:
             context: ./backend/admin-service
           - image: order-service
             context: ./backend/order-service
+          - image: datalake-worker
+            context: ./backend/datalake-worker
           - image: payment-service
             context: ./backend/payment-service
           - image: api-gateway
@@ -502,6 +504,54 @@ jobs:
           tags: |
             ghcr.io/${{ env.REPO_LOWER }}/admin-service:staging
             ghcr.io/${{ env.REPO_LOWER }}/admin-service:staging-${{ github.sha }}
+
+      - name: Build and Push Order Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/order-service
+          pull: true
+          push: true
+          cache-from: type=gha,scope=order-v2
+          cache-to: type=gha,mode=max,scope=order-v2
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/order-service:staging
+            ghcr.io/${{ env.REPO_LOWER }}/order-service:staging-${{ github.sha }}
+
+      - name: Build and Push Datalake Worker
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/datalake-worker
+          pull: true
+          push: true
+          cache-from: type=gha,scope=datalake-v2
+          cache-to: type=gha,mode=max,scope=datalake-v2
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/datalake-worker:staging
+            ghcr.io/${{ env.REPO_LOWER }}/datalake-worker:staging-${{ github.sha }}
+
+      - name: Build and Push Payment Service
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/payment-service
+          pull: true
+          push: true
+          cache-from: type=gha,scope=payment-v2
+          cache-to: type=gha,mode=max,scope=payment-v2
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/payment-service:staging
+            ghcr.io/${{ env.REPO_LOWER }}/payment-service:staging-${{ github.sha }}
+
+      - name: Build and Push API Gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend/api-gateway
+          pull: true
+          push: true
+          cache-from: type=gha,scope=gateway-v2
+          cache-to: type=gha,mode=max,scope=gateway-v2
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER }}/api-gateway:staging
+            ghcr.io/${{ env.REPO_LOWER }}/api-gateway:staging-${{ github.sha }}
 
       - name: Build and Push Frontend
         uses: docker/build-push-action@v5

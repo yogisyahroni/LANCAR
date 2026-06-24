@@ -94,8 +94,8 @@ type OptimizedRouteResult struct {
 }
 
 type MapsRepository interface {
-	GetDistanceMatrix(ctx context.Context, originLat, originLng, destLat, destLng float64) (distanceKM float64, durationMin float64, originAddr, destAddr string, err error)
-	OptimizeWaypoints(ctx context.Context, origin Waypoint, waypoints []Waypoint, dest Waypoint) (*OptimizedRouteResult, error)
+	GetDistanceMatrix(ctx context.Context, originLat, originLng, destLat, destLng float64, useTraffic bool) (distanceKM float64, durationMin float64, originAddr, destAddr string, err error)
+	OptimizeWaypoints(ctx context.Context, origin Waypoint, waypoints []Waypoint, dest Waypoint, useTraffic bool) (*OptimizedRouteResult, error)
 }
 
 type RedisRepository interface {

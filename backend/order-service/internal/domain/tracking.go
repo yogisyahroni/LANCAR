@@ -103,6 +103,11 @@ type TrackingService interface {
 
 // ── Anti-Fake GPS Domain Types ─────────────────────────────────────
 
+type GPSDatalakePublisher interface {
+	Publish(ctx context.Context, msg interface{}) error
+	Close() error
+}
+
 // RiskLevel represents the severity of a GPS integrity violation.
 type RiskLevel string
 

@@ -7,6 +7,10 @@ dist/
 bin/
 *.exe
 *.test
+tmp_build
+tmp/
+auth_logs.txt
+test.json
 
 # Environment & Secrets
 .env
