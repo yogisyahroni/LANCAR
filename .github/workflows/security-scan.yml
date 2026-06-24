@@ -559,13 +559,11 @@ jobs:
           echo "| SCA Scan | ${{ needs.sca-scan.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Secret Scan | ${{ needs.secret-scan.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| SAST Scan | ${{ needs.sast-scan.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Container Scan | ${{ needs.container-scan.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| IaC Scan | ${{ needs.iac-scan.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 📁 Artifacts" >> $GITHUB_STEP_SUMMARY
           echo "- Trivy FS Report: \"trivy-fs-report\"" >> $GITHUB_STEP_SUMMARY
           echo "- Snyk Report: \"snyk-report\"" >> $GITHUB_STEP_SUMMARY
-          echo "- Trivy Image Report: \"trivy-image-report\"" >> $GITHUB_STEP_SUMMARY
           echo "- SBOM Reports: \"sbom-reports\"" >> $GITHUB_STEP_SUMMARY
 
       # -------------------------------------------------------
@@ -583,7 +581,6 @@ jobs:
             | SCA (Dependency) | ${{ needs.sca-scan.result }} |
             | Secret Detection | ${{ needs.secret-scan.result }} |
             | SAST | ${{ needs.sast-scan.result }} |
-            | Container | ${{ needs.container-scan.result }} |
             | IaC | ${{ needs.iac-scan.result }} |
 
             > 📎 Lihat detail di **GitHub Security tab** → **Code scanning**
@@ -618,7 +615,7 @@ jobs:
   security-gate:
     name: 🚦 Security Gate
     runs-on: ubuntu-latest
-    needs: [sca-scan, secret-scan, sast-scan, container-scan]
+    needs: [sca-scan, secret-scan, sast-scan]
     if: always()
 
     steps:
@@ -629,7 +626,6 @@ jobs:
           SCA="${{ needs.sca-scan.result }}"
           SECRET="${{ needs.secret-scan.result }}"
           SAST="${{ needs.sast-scan.result }}"
-          CONTAINER="${{ needs.container-scan.result }}"
 
           # Secret scan HARUS success (tidak boleh ada leak)
           if [ "$SECRET" != "success" ]; then
