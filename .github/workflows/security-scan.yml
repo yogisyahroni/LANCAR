@@ -483,8 +483,8 @@ jobs:
   sbom-generate:
     name: 📦 SBOM Generation
     runs-on: ubuntu-latest
-    needs: [sca-scan, container-scan]
-    if: ${{ always() && (needs.sca-scan.result == 'success' || needs.container-scan.result == 'success') }}
+    needs: [sca-scan]
+    if: ${{ always() && needs.sca-scan.result == 'success' }}
 
     steps:
       - name: Checkout repository
