@@ -458,3 +458,12 @@ func (r *postgresRepo) UpdateLivenessStatus(ctx context.Context, id string, stat
 	_, err := r.db.ExecContext(ctx, query, status, time.Now(), id)
 	return err
 }
+
+func (r *postgresRepo) LogLocalSecurityEvent(ctx context.Context, log *domain.CourierLocalSecurityLog) error {
+	query := `
+		INSERT INTO courier_local_security_logs (courier_id, action_type, method, order_id, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	_, err := r.db.ExecContext(ctx, query, log.CourierID, log.ActionType, log.Method, log.OrderID, log.CreatedAt)
+	return err
+}

@@ -72,6 +72,8 @@ import java.io.FileOutputStream
 import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
+import com.tembus.courier.data.security.LocalDeviceSecurityManager
+import com.tembus.courier.ui.screens.face.FaceVerificationScreen
 
 private val LogisticsOrange = Color(0xFFFF6D00)
 private val DeepForest = Color(0xFF0A2F20)
@@ -142,7 +144,8 @@ fun OrderDetailScreen(
     onVerifyFace: () -> Unit = {},
     onSosClick: () -> Unit = {},
     onReportIssue: (eventType: String, severity: String, message: String, photoFile: File?) -> Unit = { _, _, _, _ -> },
-    onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit = { _, _, _ -> }
+    onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit = { _, _, _ -> },
+    onLogLocalSecurity: (String, () -> Unit) -> Unit = { _, cb -> cb() }
 ) {
     val context = LocalContext.current
     
@@ -167,6 +170,24 @@ fun OrderDetailScreen(
             pickupScanVerified = pickupScanVerified,
             pickupPhotoVerified = pickupPhotoVerified,
             pickupPhotoRequired = pickupPhotoRequired
+        )
+    }
+
+    val localSecurityManager = remember { LocalDeviceSecurityManager(context.applicationContext) }
+    var showStartDeliverySecurityChallenge by remember { mutableStateOf<String?>(null) }
+    
+    if (showStartDeliverySecurityChallenge != null) {
+        FaceVerificationScreen(
+            orderId = order.orderId,
+            verificationType = "start_delivery",
+            onVerified = {
+                val targetStatus = showStartDeliverySecurityChallenge!!
+                showStartDeliverySecurityChallenge = null
+                onLogLocalSecurity("mulai_antar") {
+                    onUpdateStatus(targetStatus)
+                }
+            },
+            onBack = { showStartDeliverySecurityChallenge = null }
         )
     }
 
@@ -259,6 +280,9 @@ fun OrderDetailScreen(
                     onCapturePickupProof = onCapturePickupProof,
                     onCapturePod = onCapturePod,
                     onUpdateStatus = onUpdateStatus,
+                    onStartDelivery = { targetStatus ->
+                        showStartDeliverySecurityChallenge = targetStatus
+                    },
                     onChatClick = onChatClick,
                     onCallClick = onCallClick,
                     onSosClick = onSosClick,
@@ -271,6 +295,9 @@ fun OrderDetailScreen(
                     flowState = courierFlow,
                     onStatusClick = { showStatusDialog = true },
                     onUpdateStatus = onUpdateStatus,
+                    onStartDelivery = { targetStatus ->
+                        showStartDeliverySecurityChallenge = targetStatus
+                    },
                     onVerifyPickup = onVerifyPickup,
                     onCapturePickupProof = onCapturePickupProof,
                     onCapturePod = onCapturePod,
@@ -419,6 +446,7 @@ private fun OnDemandTaskActions(
     onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
     onUpdateStatus: (String) -> Unit,
+    onStartDelivery: (String) -> Unit,
     onChatClick: () -> Unit,
     onCallClick: () -> Unit,
     onSosClick: () -> Unit,
@@ -461,6 +489,7 @@ private fun OnDemandTaskActions(
                         onCapturePickupProof = onCapturePickupProof,
                         onCapturePod = onCapturePod,
                         onUpdateStatus = onUpdateStatus,
+                        onStartDelivery = onStartDelivery,
                         onChatClick = onChatClick
                     )
                 }
@@ -824,6 +853,7 @@ private fun runCourierNextAction(
     onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
     onUpdateStatus: (String) -> Unit,
+    onStartDelivery: (String) -> Unit,
     onChatClick: () -> Unit
 ) {
     when (flowState.nextAction.type) {
@@ -832,7 +862,7 @@ private fun runCourierNextAction(
         CourierNextActionType.NAVIGATE_TO_DROPOFF -> openNavigation(context, flowState.activeAddress)
         CourierNextActionType.SCAN_PICKUP -> onVerifyPickup()
         CourierNextActionType.CAPTURE_PICKUP_PHOTO -> onCapturePickupProof()
-        CourierNextActionType.START_DELIVERY -> onUpdateStatus(flowState.nextAction.targetStatus ?: "in_transit")
+        CourierNextActionType.START_DELIVERY -> onStartDelivery(flowState.nextAction.targetStatus ?: "in_transit")
         CourierNextActionType.CAPTURE_DELIVERY_PROOF -> onCapturePod()
         CourierNextActionType.CONTACT_SUPPORT -> onChatClick()
         CourierNextActionType.ACCEPT_OFFER,
@@ -1572,6 +1602,7 @@ private fun OrderActions(
     flowState: CourierFlowState,
     onStatusClick: () -> Unit,
     onUpdateStatus: (String) -> Unit,
+    onStartDelivery: (String) -> Unit,
     onVerifyPickup: () -> Unit,
     onCapturePickupProof: () -> Unit,
     onCapturePod: () -> Unit,
@@ -1611,6 +1642,7 @@ private fun OrderActions(
                         onCapturePickupProof = onCapturePickupProof,
                         onCapturePod = onCapturePod,
                         onUpdateStatus = onUpdateStatus,
+                        onStartDelivery = onStartDelivery,
                         onChatClick = onChatClick
                     )
                 }

@@ -118,7 +118,7 @@ export default function LiveMap() {
     [uniqueCourierPoints]
   )
   const offlineCourierCount = Math.max(uniqueCourierPoints.length - onlineCourierCount, 0)
-  const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('tracking')
+  const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('web_admin')
   const shouldRenderTomTom = isTomTomRuntimeReady(mapsRuntimeConfig)
   const tileUrl = shouldRenderTomTom
     ? tomTomRasterTileUrl(mapsRuntimeConfig?.tomtom_maps?.browser_api_key || '', mapTheme === 'dark' ? 'night' : 'main')

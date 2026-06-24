@@ -1242,3 +1242,20 @@ func generateOTP(max int) (string, error) {
 	}
 	return string(b), nil
 }
+
+func (s *AuthService) LogLocalSecurityEvent(ctx context.Context, userID string, actionType string, method string, orderID *string) error {
+	profile, err := s.courierRepo.GetProfileByUserID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	log := &domain.CourierLocalSecurityLog{
+		CourierID:  profile.ID,
+		ActionType: actionType,
+		Method:     method,
+		OrderID:    orderID,
+		CreatedAt:  time.Now(),
+	}
+
+	return s.courierRepo.LogLocalSecurityEvent(ctx, log)
+}

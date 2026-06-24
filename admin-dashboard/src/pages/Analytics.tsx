@@ -344,7 +344,7 @@ export default function Analytics() {
     ...analyticsQueryOptions,
     refetchInterval: 30000 // Refresh every 30s
   })
-  const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('tracking')
+  const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('web_admin')
   const shouldRenderTomTomMap = isTomTomRuntimeReady(mapsRuntimeConfig)
   const heatmapTileUrl = shouldRenderTomTomMap
     ? tomTomRasterTileUrl(mapsRuntimeConfig?.tomtom_maps?.browser_api_key || '', 'night')

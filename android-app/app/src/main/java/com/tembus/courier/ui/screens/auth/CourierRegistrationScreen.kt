@@ -73,11 +73,15 @@ fun CourierRegistrationScreen(
         pendingDocType = null
     }
 
-    // Face enrollment menggunakan kamera live — bukan galeri — untuk keamanan identitas kurir
-    val faceCameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        if (bitmap != null) {
-            viewModel.uploadFaceEnrollmentBitmap(bitmap)
-        }
+    if (showLivenessScanner) {
+        ActiveLivenessScreen(
+            onSuccess = { bitmap ->
+                showLivenessScanner = false
+                viewModel.uploadFaceEnrollmentBitmap(bitmap)
+            },
+            onCancel = { showLivenessScanner = false }
+        )
+        return
     }
 
     Box(

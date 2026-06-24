@@ -26,7 +26,7 @@ import { api } from '../lib/api'
 import { cn } from '../lib/utils'
 
 type MapProviderId = 'tomtom_maps' | 'openstreetmap' | 'disabled'
-type MapScopeId = 'global' | 'customer_mobile' | 'courier_mobile' | 'web_customer' | 'tracking'
+type MapScopeId = 'global' | 'customer_mobile' | 'courier_mobile' | 'web_customer' | 'web_admin' | 'tracking'
 type OpsStatus = 'operational' | 'degraded' | 'disabled' | 'critical'
 
 interface ScopePolicy {
@@ -293,6 +293,12 @@ const scopeOptions: Array<{
     title: 'Customer Web',
     description: 'Dipakai web customer dan public tracking link.',
     icon: Map,
+  },
+  {
+    id: 'web_admin',
+    title: 'Admin Web',
+    description: 'Dipakai di dashboard ini untuk monitoring dan peta operasional.',
+    icon: MonitorSmartphone,
   },
   {
     id: 'tracking',

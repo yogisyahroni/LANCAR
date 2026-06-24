@@ -632,6 +632,7 @@ fun MainScreen(
     selectedOrder?.takeIf { showFaceVerifyScreen }?.let { order ->
         FaceVerificationScreen(
             orderId = order.orderId,
+            verificationType = "pickup",
             onVerified = {
                 faceVerifiedOrderIds = faceVerifiedOrderIds + order.orderId
                 routeState = CourierRouteReducer.detail(order.orderId)
@@ -692,6 +693,9 @@ fun MainScreen(
             },
             onCallClick = {
                 openCall(order)
+            },
+            onLogLocalSecurity = { actionType, cb ->
+                orderViewModel.logLocalSecurityEvent(actionType, onComplete = cb)
             },
             onSosClick = {
                 scope.launch {
@@ -906,15 +910,17 @@ fun MainScreen(
     }
 
     pendingDutySecurityTarget?.let { targetOnline ->
-        LocalSecurityChallengeDialog(
-            securityManager = localSecurityManager,
-            title = "Verifikasi mulai bekerja",
-            message = "Gunakan PIN atau biometrik lokal sebelum mengaktifkan duty.",
-            onCancel = { pendingDutySecurityTarget = null },
+        FaceVerificationScreen(
+            orderId = null,
+            verificationType = if (targetOnline) "on_duty" else "off_duty",
             onVerified = {
+                val actionType = if (targetOnline) "on_duty" else "off_duty"
                 pendingDutySecurityTarget = null
-                scope.launch { performDutyToggle(targetOnline) }
-            }
+                orderViewModel.logLocalSecurityEvent(actionType) {
+                    scope.launch { performDutyToggle(targetOnline) }
+                }
+            },
+            onBack = { pendingDutySecurityTarget = null }
         )
     }
 

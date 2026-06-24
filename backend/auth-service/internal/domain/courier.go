@@ -33,3 +33,12 @@ type CourierDocument struct {
 	IsVerified   bool      `json:"is_verified" db:"is_verified"`
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 }
+
+type CourierLocalSecurityLog struct {
+	ID         string    `json:"id" db:"id"`
+	CourierID  string    `json:"courier_id" db:"courier_id"`
+	ActionType string    `json:"action_type" db:"action_type"`
+	Method     string    `json:"method" db:"method"`
+	OrderID    *string   `json:"order_id,omitempty" db:"order_id"`
+	CreatedAt  time.Time `json:"created_at" db:"created_at"`
+}

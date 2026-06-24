@@ -1093,6 +1093,7 @@ export const getMapsProviderConfigValue = async (): Promise<MapsProviderConfigVa
         customer_mobile: { enabled: true, provider: 'tomtom_maps' },
         courier_mobile: { enabled: true, provider: 'tomtom_maps' },
         web_customer: { enabled: true, provider: 'tomtom_maps' },
+        web_admin: { enabled: true, provider: 'tomtom_maps' },
         tracking: { enabled: true, provider: 'tomtom_maps' },
       },
     });

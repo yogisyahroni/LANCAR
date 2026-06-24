@@ -579,6 +579,7 @@ export default function Settings() {
                           { id: 'customer_mobile', label: 'Customer Mobile' },
                           { id: 'courier_mobile', label: 'Courier Mobile' },
                           { id: 'web_customer', label: 'Customer Web' },
+                          { id: 'web_admin', label: 'Admin Web' },
                         ].map((scope) => {
                           const scopeConfig = mapsProviderConfig?.value?.scopes?.[scope.id] || { provider: mapsProviderConfig?.value?.active_provider || 'openstreetmap', enabled: true }
                           const resolved = mapsProviderConfig?.resolved?.[scope.id]

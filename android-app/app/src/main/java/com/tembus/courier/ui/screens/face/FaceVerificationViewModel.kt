@@ -54,7 +54,7 @@ class FaceVerificationViewModel @Inject constructor(
      * Kirim foto wajah ke backend untuk diverifikasi.
      * Flow: compress bitmap → multipart → POST /api/v1/courier/face/verify
      */
-    fun verifyFace(orderId: String?, onVerified: () -> Unit) {
+    fun verifyFace(orderId: String?, verificationType: String, onVerified: () -> Unit) {
         val bitmap = _uiState.value.capturedBitmap
         if (bitmap == null) {
             _uiState.update { it.copy(error = "Belum ada foto wajah. Ambil foto terlebih dahulu.") }
@@ -84,7 +84,7 @@ class FaceVerificationViewModel @Inject constructor(
 
                     val textType = "text/plain".toMediaTypeOrNull()
                     val orderIdPart = orderId?.takeIf { it.isNotBlank() }?.toRequestBody(textType)
-                    val verificationTypePart = "pickup".toRequestBody(textType)
+                    val verificationTypePart = verificationType.toRequestBody(textType)
                     val livenessScorePart = "0.0".toRequestBody(textType) // backend menghitung sendiri
 
                     apiService.verifyCourierFace(

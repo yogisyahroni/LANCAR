@@ -24,6 +24,7 @@ import com.tembus.courier.data.model.OrderStatusTransition
 import com.tembus.courier.data.model.StatusUpdateRequest
 import com.tembus.courier.data.model.TripShareRequest
 import com.tembus.courier.data.model.CancelPickupReason
+import com.tembus.courier.data.model.SecurityLogRequest
 import com.tembus.courier.data.repository.OrderRepository
 import com.tembus.courier.data.config.RemoteConfigManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -759,4 +760,21 @@ class OrderViewModel @Inject constructor(
     suspend fun getPendingCount(): Int = orderRepository.getPendingCount()
 
     suspend fun getOrderById(orderId: String): Order? = orderRepository.getOrderById(orderId)
+
+    fun logLocalSecurityEvent(actionType: String, status: String = "success", onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                apiService.logLocalSecurity(
+                    SecurityLogRequest(
+                        actionType = actionType,
+                        status = status
+                    )
+                )
+            } catch (e: Exception) {
+                // Silently fail or log to crashlytics, we don't want to block courier flow on non-critical log failure
+            } finally {
+                onComplete()
+            }
+        }
+    }
 }

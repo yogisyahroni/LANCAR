@@ -374,6 +374,7 @@ func main() {
 	mux.HandleFunc("/api/v1/couriers/documents", middleware.MobileAuthIntegrityChain(repo, h.UploadCourierDocument))
 	mux.HandleFunc("/api/v1/couriers/me", middleware.MobileAuthIntegrityChain(repo, h.GetCourierProfile))
 	mux.HandleFunc("/api/v1/couriers/verify-liveness", middleware.MobileAuthIntegrityChain(repo, h.VerifyLiveness))
+	mux.HandleFunc("/api/v1/couriers/local-security-log", middleware.MobileAuthIntegrityChain(repo, h.LogLocalSecurity))
 
 	// ─────────────────────────────────────────────
 	// API v1 — Admin Endpoints (requires JWT + role + 2FA for sensitive)

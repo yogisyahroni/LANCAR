@@ -47,4 +47,5 @@ type CourierRepository interface {
 	UpdateStatus(ctx context.Context, id string, status CourierStatus) error
 	SetZone(ctx context.Context, id string, zoneID string) error
 	UpdateLivenessStatus(ctx context.Context, id string, status bool) error
+	LogLocalSecurityEvent(ctx context.Context, log *CourierLocalSecurityLog) error
 }

@@ -65,6 +65,7 @@ private val DimOverlay = Color(0xCC000000)
 @Composable
 fun FaceVerificationScreen(
     orderId: String?,
+    verificationType: String,
     onVerified: () -> Unit,
     onBack: () -> Unit,
     viewModel: FaceVerificationViewModel = hiltViewModel()
@@ -355,7 +356,7 @@ fun FaceVerificationScreen(
                         }
 
                         Button(
-                            onClick = { viewModel.verifyFace(orderId, onVerified) },
+                            onClick = { viewModel.verifyFace(orderId, verificationType, onVerified) },
                             modifier = Modifier
                                 .weight(1.5f)
                                 .height(56.dp),

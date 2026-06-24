@@ -48,6 +48,7 @@ type AuthHandler struct {
 		Complete2FALogin(ctx context.Context, userID, code, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
 		CreateAdminUser(ctx context.Context, actorID string, fullName, phoneNumber, role string) (*domain.User, error)
 		VerifyCourierLiveness(ctx context.Context, userID string, imageBase64 string) (bool, error)
+		LogLocalSecurityEvent(ctx context.Context, userID string, actionType string, method string, orderID *string) error
 	}
 
 }
@@ -919,4 +920,46 @@ func (h *AuthHandler) HandleAdminSetCourierProfilePhoto(w http.ResponseWriter, r
 		"message":   "Profile photo updated successfully and locked.",
 		"photo_url": photoURL,
 	})
+}
+
+// LogLocalSecurity godoc
+// @Summary Log courier local security challenge event
+// @Description Log biometric or PIN success for tracking and auditing
+// @Tags couriers
+// @Accept json
+// @Produce json
+// @Param request body object true "Security Log Payload"
+// @Success 200 {object} map[string]string
+// @Router /couriers/local-security-log [post]
+func (h *AuthHandler) LogLocalSecurity(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Missing or invalid token", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	var req struct {
+		ActionType string  `json:"action_type"`
+		Method     string  `json:"method"`
+		OrderID    *string `json:"order_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid request body", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	if req.ActionType == "" || req.Method == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Action type and method are required", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	err := h.svc.LogLocalSecurityEvent(r.Context(), userID, req.ActionType, req.Method, req.OrderID)
+	if err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to log security event", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Local security event logged successfully"})
 }

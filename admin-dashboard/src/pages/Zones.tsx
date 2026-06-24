@@ -95,7 +95,7 @@ export default function Zones() {
       return res.data;
     }
   });
-  const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('global');
+  const { data: mapsRuntimeConfig } = useMapsRuntimeConfig('web_admin');
   const shouldRenderTomTomMap = isTomTomRuntimeReady(mapsRuntimeConfig);
   const tileUrl = shouldRenderTomTomMap
     ? tomTomRasterTileUrl(mapsRuntimeConfig?.tomtom_maps?.browser_api_key || '', mapTheme === 'dark' ? 'night' : 'main')

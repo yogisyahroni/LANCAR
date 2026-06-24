@@ -113,6 +113,11 @@ interface TEMBUSApiService {
         @Part file: MultipartBody.Part
     ): Response<ApiResponse<CourierDocumentUploadData>>
 
+    @POST("api/v1/couriers/local-security-log")
+    suspend fun logLocalSecurity(
+        @Body request: com.tembus.courier.data.model.SecurityLogRequest
+    ): Response<ApiResponse<Any>>
+
     @POST("api/v1/auth/password-reset/request")
     suspend fun requestPasswordReset(
         @Body request: com.tembus.courier.data.model.ForgotPasswordRequest
