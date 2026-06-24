@@ -14,13 +14,14 @@ var (
 )
 
 type Claims struct {
-	UserID       string `json:"user_id"`
-	Role         string `json:"role"`
-	TOTPVerified bool   `json:"totp_verified"`
+	UserID       string   `json:"user_id"`
+	Role         string   `json:"role"`
+	Permissions  []string `json:"permissions"`
+	TOTPVerified bool     `json:"totp_verified"`
 	jwt.RegisteredClaims
 }
 
-func GenerateToken(userID string, role string, totpVerified bool, duration time.Duration) (string, error) {
+func GenerateToken(userID string, role string, permissions []string, totpVerified bool, duration time.Duration) (string, error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		return "", errors.New("JWT_SECRET environment variable is not set")
@@ -30,6 +31,7 @@ func GenerateToken(userID string, role string, totpVerified bool, duration time.
 	claims := &Claims{
 		UserID:       userID,
 		Role:         role,
+		Permissions:  permissions,
 		TOTPVerified: totpVerified,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(duration)),

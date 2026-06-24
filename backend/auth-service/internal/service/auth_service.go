@@ -27,6 +27,7 @@ type AuthService struct {
 	sessionRepo     domain.SessionRepository
 	courierRepo     domain.CourierRepository
 	auditRepo       domain.AuditRepository
+	deviceFpRepo    domain.DeviceFingerprintRepository
 	livenessService LivenessService
 	storageService  StorageService
 	emailService    EmailService
@@ -36,13 +37,14 @@ const customerAuthOTPRequiredFlag = "customer_auth_otp_required"
 
 var authTracer = otel.Tracer("tembus/auth-service")
 
-func NewAuthService(u domain.UserRepository, a domain.AuthRepository, s domain.SessionRepository, c domain.CourierRepository, au domain.AuditRepository, l LivenessService, st StorageService, e EmailService) *AuthService {
+func NewAuthService(u domain.UserRepository, a domain.AuthRepository, s domain.SessionRepository, c domain.CourierRepository, au domain.AuditRepository, df domain.DeviceFingerprintRepository, l LivenessService, st StorageService, e EmailService) *AuthService {
 	return &AuthService{
 		userRepo:        u,
 		authRepo:        a,
 		sessionRepo:     s,
 		courierRepo:     c,
 		auditRepo:       au,
+		deviceFpRepo:    df,
 		livenessService: l,
 		storageService:  st,
 		emailService:    e,
@@ -475,7 +477,7 @@ type AuthResponse struct {
 	MFAUserID    string       `json:"mfa_user_id,omitempty"`
 }
 
-func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID string, deviceInfo []byte) (*AuthResponse, error) {
+func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID string, deviceInfo []byte, ipAddress string) (*AuthResponse, error) {
 	ctx, span := authTracer.Start(ctx, "auth.otp.verify")
 	result := "unknown"
 	failed := false
@@ -541,6 +543,43 @@ func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID
 		_ = s.userRepo.SetReferralCode(ctx, user.ID, refCode)
 		user.ReferralCode = &refCode
 	}
+	// ---- ANTI-TERNAK & DEVICE FINGERPRINTING ----
+	if strings.TrimSpace(deviceID) != "" {
+		deviceIDHash := hashSensitiveIdentifier(deviceID)
+
+		// 1. Check if device is blocked
+		if s.deviceFpRepo != nil {
+			isBlocked, _ := s.deviceFpRepo.IsDeviceBlocked(ctx, deviceIDHash)
+			if isBlocked {
+				result = "device_blocked"
+				failed = true
+				return nil, errors.New("authentication blocked due to suspicious activity")
+			}
+
+			// 2. Count distinct users for this device
+			if isNewUser {
+				count, _ := s.deviceFpRepo.CountUsersByDeviceHash(ctx, deviceIDHash)
+				if count >= 3 {
+					result = "device_limit_exceeded"
+					failed = true
+					return nil, errors.New("maximum number of accounts for this device has been reached")
+				}
+			}
+
+			// 3. Record Fingerprint
+			fp := &domain.DeviceFingerprint{
+				DeviceIDHash: deviceIDHash,
+				UserID:       user.ID,
+				IPAddress:    ipAddress,
+				DeviceType:   "unknown", // Will be refined later based on deviceInfo
+				RiskScore:    0,
+				IsBlocked:    false,
+			}
+			_ = s.deviceFpRepo.RecordFingerprint(ctx, fp)
+		}
+	}
+	// ---------------------------------------------
+
 	span.SetAttributes(attribute.Bool("auth.is_new_user", isNewUser))
 
 	_ = s.userRepo.MarkVerified(ctx, user.ID)
@@ -587,7 +626,14 @@ func (s *AuthService) issueAuthSession(ctx context.Context, user *domain.User, d
 		attribute.Bool("auth.device_id_present", strings.TrimSpace(deviceID) != ""),
 	)
 
-	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), totpVerified, 15*time.Minute)
+	permissions, err := s.userRepo.GetPermissionsByRole(ctx, string(user.Role))
+	if err != nil {
+		result = "permissions_fetch_failed"
+		failed = true
+		return nil, err
+	}
+
+	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, totpVerified, 15*time.Minute)
 	if err != nil {
 		result = "access_token_generation_failed"
 		failed = true
@@ -674,7 +720,14 @@ func (s *AuthService) RefreshToken(ctx context.Context, oldRefreshToken, deviceI
 	// Note: We'll assume the session was verified if it exists and 2FA was required.
 	// For now, if role is SuperAdmin/Finance, we should check if they actually verified.
 	// We'll pass true if the user's role doesn't require 2FA, or if the session is valid.
-	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), true, 15*time.Minute)
+	permissions, err := s.userRepo.GetPermissionsByRole(ctx, string(user.Role))
+	if err != nil {
+		result = "permissions_fetch_failed"
+		failed = true
+		return nil, err
+	}
+
+	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, true, 15*time.Minute)
 	if err != nil {
 		result = "access_token_generation_failed"
 		failed = true

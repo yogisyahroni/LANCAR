@@ -26,7 +26,7 @@ type AuthHandler struct {
 		ConfirmCustomerPasswordReset(ctx context.Context, email, code, newPassword string) error
 		StartCustomerPasswordLogin(ctx context.Context, email, password, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
 		StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
-		VerifyOTP(ctx context.Context, phoneNumber, code, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
+		VerifyOTP(ctx context.Context, phoneNumber, code, deviceID string, deviceInfo []byte, ipAddress string) (*service.AuthResponse, error)
 		RefreshToken(ctx context.Context, oldRefreshToken, deviceID string) (*service.AuthResponse, error)
 		Logout(ctx context.Context, refreshToken string) error
 		Register(ctx context.Context, userID, fullName, email, storeName, defaultPickupAddress string) error
@@ -202,11 +202,20 @@ func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	normalizedEmail := strings.TrimSpace(strings.ToLower(req.Email))
+	if h.rejectIfAuthAbuseBlocked(w, r, middleware.ScopeCustomerRegistration, normalizedEmail) {
+		return
+	}
+
 	res, err := h.svc.StartCustomerPasswordRegistration(r.Context(), req.FullName, req.Email, req.PhoneNumber, req.Password, req.DeviceID, req.DeviceInfo)
 	if err != nil {
+		h.recordAuthFailure(r, middleware.ScopeCustomerRegistration, normalizedEmail, "registration_failed")
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid request", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
+	
+	h.recordAuthSuccess(r, middleware.ScopeCustomerRegistration, normalizedEmail)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(res)
@@ -282,7 +291,11 @@ func (h *AuthHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := h.svc.VerifyOTP(r.Context(), req.PhoneNumber, req.Code, req.DeviceID, req.DeviceInfo)
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	res, err := h.svc.VerifyOTP(r.Context(), req.PhoneNumber, req.Code, req.DeviceID, req.DeviceInfo, ipAddress)
 	if err != nil {
 		h.recordAuthFailure(r, middleware.ScopeCustomerOTPVerify, req.PhoneNumber, "invalid_customer_otp")
 		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Authentication required", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))

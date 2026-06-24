@@ -67,6 +67,12 @@ func (h *GoogleAuthHandler) StartGoogleAuth(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	req.IPAddress = ipAddress
+
 	resp, err := h.svc.StartGoogleAuth(r.Context(), &req)
 	if err != nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "google_auth_unavailable", "Login dengan Google belum tersedia.")
@@ -112,6 +118,12 @@ func (h *GoogleAuthHandler) CompleteGoogleAuth(w http.ResponseWriter, r *http.Re
 			return
 		}
 	}
+
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	req.IPAddress = ipAddress
 
 	resp, err := h.svc.CompleteGoogleAuth(r.Context(), &req)
 	if err != nil {
@@ -161,6 +173,12 @@ func (h *GoogleAuthHandler) LinkGoogleAccount(w http.ResponseWriter, r *http.Req
 		IDToken:  req.IDToken,
 		DeviceID: req.DeviceID,
 	}
+
+	ipAddress := r.Header.Get("X-Forwarded-For")
+	if ipAddress == "" {
+		ipAddress = r.RemoteAddr
+	}
+	completeReq.IPAddress = ipAddress
 
 	resp, err := h.svc.CompleteGoogleAuth(r.Context(), completeReq)
 	if err != nil {

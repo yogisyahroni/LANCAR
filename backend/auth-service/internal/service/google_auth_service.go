@@ -64,6 +64,7 @@ type GoogleAuthRepository interface {
 	MarkVerified(ctx context.Context, userID string) error
 	SetReferralCode(ctx context.Context, userID, code string) error
 	UpdateLastLogin(ctx context.Context, userID string) error
+	GetPermissionsByRole(ctx context.Context, role string) ([]string, error)
 
 	// Session
 	CreateSession(ctx context.Context, session *domain.Session) error
@@ -83,6 +84,7 @@ type GoogleAuthRepository interface {
 // for the customer surface (web + Android).
 type GoogleAuthService struct {
 	repo            GoogleAuthRepository
+	deviceFpRepo    domain.DeviceFingerprintRepository
 	tokenVerifier   *GoogleTokenVerifier
 	otpProvider     domain.OTPProvider  // selected at runtime (dry_run or zenziva)
 	fallbackChannel domain.OTPChannel
@@ -124,7 +126,7 @@ func loadOTPConfig() otpConfig {
 
 // NewGoogleAuthService creates a new GoogleAuthService.
 // The OTP provider is selected based on the otp_provider_live feature flag at runtime.
-func NewGoogleAuthService(repo GoogleAuthRepository, webClientID, androidClientID string) *GoogleAuthService {
+func NewGoogleAuthService(repo GoogleAuthRepository, df domain.DeviceFingerprintRepository, webClientID, androidClientID string) *GoogleAuthService {
 	clientIDs := []string{}
 	if webClientID != "" {
 		clientIDs = append(clientIDs, webClientID)
@@ -136,6 +138,7 @@ func NewGoogleAuthService(repo GoogleAuthRepository, webClientID, androidClientI
 	// Default to dry-run; the live provider is initialized separately and injected.
 	return &GoogleAuthService{
 		repo:          repo,
+		deviceFpRepo:  df,
 		tokenVerifier: NewGoogleTokenVerifier(clientIDs),
 		otpProvider:   NewDryRunOTPProvider(),
 		fallbackChannel: domain.OTPChannelSMS,
@@ -277,6 +280,16 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 	deviceIDHash := hashDeviceID(req.DeviceID)
 	deviceInfoJSON, _ := json.Marshal(req.DeviceInfo)
 
+	// ---- ANTI-TERNAK & DEVICE FINGERPRINTING ----
+	if s.deviceFpRepo != nil && req.DeviceID != "" {
+		isBlocked, _ := s.deviceFpRepo.IsDeviceBlocked(ctx, deviceIDHash)
+		if isBlocked {
+			span.SetStatus(codes.Error, "device_blocked")
+			return &domain.GoogleAuthCompleteResponse{Status: domain.GoogleAuthStatusBlocked}, errors.New("login tidak dapat diproses (device_blocked)")
+		}
+	}
+	// ---------------------------------------------
+
 	// ─── Case 1: Existing Google identity found ───
 	if identity != nil {
 		user, err := s.repo.GetByID(ctx, identity.UserID)
@@ -291,6 +304,18 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 		isTrusted, _ := s.repo.IsTrustedDevice(ctx, user.ID, string(domain.RoleCustomer), deviceIDHash)
 		if isTrusted {
 			_ = s.repo.TouchTrustedDevice(ctx, user.ID, string(domain.RoleCustomer), deviceIDHash)
+			
+			// Record fingerprint
+			if s.deviceFpRepo != nil && req.DeviceID != "" {
+				fp := &domain.DeviceFingerprint{
+					DeviceIDHash: deviceIDHash,
+					UserID:       user.ID,
+					IPAddress:    req.IPAddress,
+					DeviceType:   "unknown",
+				}
+				_ = s.deviceFpRepo.RecordFingerprint(ctx, fp)
+			}
+
 			return s.issueGoogleSession(ctx, user, req.DeviceID, deviceInfoJSON, isTrusted)
 		}
 
@@ -599,6 +624,15 @@ func (s *GoogleAuthService) completeRegistration(ctx context.Context, tx *domain
 		return nil, errors.New("sesi registrasi tidak valid")
 	}
 
+	// ---- ANTI-TERNAK & DEVICE FINGERPRINTING ----
+	if s.deviceFpRepo != nil && deviceID != "" {
+		count, _ := s.deviceFpRepo.CountUsersByDeviceHash(ctx, deviceIDHash)
+		if count >= 3 {
+			return nil, errors.New("maximum number of accounts for this device has been reached")
+		}
+	}
+	// ---------------------------------------------
+
 	// Create user account
 	emailVal := googleEmail
 	randomPart, _ := utils.GenerateRandomString(6)
@@ -618,6 +652,17 @@ func (s *GoogleAuthService) completeRegistration(ctx context.Context, tx *domain
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 	_ = s.repo.SetReferralCode(ctx, user.ID, refCode)
+
+	// Record fingerprint
+	if s.deviceFpRepo != nil && deviceID != "" {
+		fp := &domain.DeviceFingerprint{
+			DeviceIDHash: deviceIDHash,
+			UserID:       user.ID,
+			IPAddress:    "unknown", // From VerifyOTP flow it's hard to get without changing signature, keep unknown
+			DeviceType:   "unknown",
+		}
+		_ = s.deviceFpRepo.RecordFingerprint(ctx, fp)
+	}
 
 	// Create Google identity link
 	emailForIdentity := googleEmail
@@ -701,7 +746,12 @@ func (s *GoogleAuthService) completeLinkGoogle(ctx context.Context, tx *domain.C
 // ─────────────────────────────────────────────
 
 func (s *GoogleAuthService) issueGoogleSession(ctx context.Context, user *domain.User, deviceID string, deviceInfoJSON []byte, trustedDevice bool) (*domain.GoogleAuthCompleteResponse, error) {
-	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), false, 15*time.Minute)
+	permissions, err := s.repo.GetPermissionsByRole(ctx, string(user.Role))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch permissions: %w", err)
+	}
+
+	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, false, 15*time.Minute)
 	if err != nil {
 		return nil, fmt.Errorf("failed to issue access token: %w", err)
 	}
@@ -746,7 +796,12 @@ func (s *GoogleAuthService) issueGoogleSession(ctx context.Context, user *domain
 }
 
 func (s *GoogleAuthService) issueOTPVerifySession(ctx context.Context, user *domain.User, deviceID, deviceIDHash string, deviceInfoJSON []byte) (*domain.CustomerOTPVerifyResponse, error) {
-	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), false, 15*time.Minute)
+	permissions, err := s.repo.GetPermissionsByRole(ctx, string(user.Role))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch permissions: %w", err)
+	}
+
+	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, false, 15*time.Minute)
 	if err != nil {
 		return nil, fmt.Errorf("failed to issue access token: %w", err)
 	}

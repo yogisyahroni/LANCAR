@@ -247,8 +247,9 @@ func main() {
 	}
 
 	repo := repository.NewPostgresRepository(db, readDB)
+	deviceFpRepo := repository.NewDeviceFingerprintRepository(db)
 	emailSvc := service.NewEmailService()
-	svc := service.NewAuthService(repo, repo, repo, repo, repo, livenessSvc, storageSvc, emailSvc)
+	svc := service.NewAuthService(repo, repo, repo, repo, repo, deviceFpRepo, livenessSvc, storageSvc, emailSvc)
 	authAbuseProtector := middleware.NewAuthAbuseProtector(rdb)
 	h := handler.NewAuthHandler(svc, authAbuseProtector)
 	s3PresignHandler := handler.NewS3PresignHandler(storageSvc)
@@ -258,7 +259,7 @@ func main() {
 	// ─────────────────────────────────────────────
 	googleWebClientID := os.Getenv("GOOGLE_CUSTOMER_WEB_CLIENT_ID")
 	googleAndroidClientID := os.Getenv("GOOGLE_CUSTOMER_ANDROID_CLIENT_ID")
-	googleAuthSvc := service.NewGoogleAuthService(repo, googleWebClientID, googleAndroidClientID)
+	googleAuthSvc := service.NewGoogleAuthService(repo, deviceFpRepo, googleWebClientID, googleAndroidClientID)
 
 	// Select OTP provider: live Zenziva or dry-run
 	otpProviderName := strings.ToLower(strings.TrimSpace(os.Getenv("OTP_PROVIDER")))
@@ -377,14 +378,14 @@ func main() {
 	// ─────────────────────────────────────────────
 	// API v1 — Admin Endpoints (requires JWT + role + 2FA for sensitive)
 	// ─────────────────────────────────────────────
-	mux.HandleFunc("/api/v1/admin/users", middleware.Permission2FAChain(repo, domain.PermManageUsers, h.CreateAdminUser))
-	mux.HandleFunc("/api/v1/admin/users/role", middleware.Permission2FAChain(repo, domain.PermManageUsers, h.UpdateUserRole))
-	mux.HandleFunc("/api/v1/admin/audit-logs", middleware.Permission2FAChain(repo, domain.PermViewAuditLogs, h.GetAuditLogs))
-	mux.HandleFunc("/api/v1/admin/couriers", middleware.PermissionChain(repo, domain.PermManageCouriers, h.ListCouriers))
-	mux.HandleFunc("/api/v1/admin/couriers/verify", middleware.Permission2FAChain(repo, domain.PermManageCouriers, h.VerifyCourier))
-	mux.HandleFunc("/api/v1/admin/couriers/suspend", middleware.Permission2FAChain(repo, domain.PermManageCouriers, h.SuspendCourier))
-	mux.HandleFunc("/api/v1/admin/couriers/zones", middleware.Permission2FAChain(repo, domain.PermManageCouriers, h.AssignCourierZone))
-	mux.HandleFunc("PATCH /api/v1/admin/couriers/{id}/profile-photo", middleware.Permission2FAChain(repo, domain.PermManageCouriers, h.HandleAdminSetCourierProfilePhoto))
+	mux.HandleFunc("/api/v1/admin/users", middleware.Permission2FAChain(domain.PermManageUsers, h.CreateAdminUser))
+	mux.HandleFunc("/api/v1/admin/users/role", middleware.Permission2FAChain(domain.PermManageUsers, h.UpdateUserRole))
+	mux.HandleFunc("/api/v1/admin/audit-logs", middleware.Permission2FAChain(domain.PermViewAuditLogs, h.GetAuditLogs))
+	mux.HandleFunc("/api/v1/admin/couriers", middleware.PermissionChain(domain.PermManageCouriers, h.ListCouriers))
+	mux.HandleFunc("/api/v1/admin/couriers/verify", middleware.Permission2FAChain(domain.PermManageCouriers, h.VerifyCourier))
+	mux.HandleFunc("/api/v1/admin/couriers/suspend", middleware.Permission2FAChain(domain.PermManageCouriers, h.SuspendCourier))
+	mux.HandleFunc("/api/v1/admin/couriers/zones", middleware.Permission2FAChain(domain.PermManageCouriers, h.AssignCourierZone))
+	mux.HandleFunc("PATCH /api/v1/admin/couriers/{id}/profile-photo", middleware.Permission2FAChain(domain.PermManageCouriers, h.HandleAdminSetCourierProfilePhoto))
 
 
 	// ─────────────────────────────────────────────

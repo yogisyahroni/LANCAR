@@ -13,6 +13,7 @@ type contextKey string
 const (
 	UserIDKey       contextKey = "user_id"
 	RoleKey         contextKey = "role"
+	PermissionsKey  contextKey = "permissions"
 	TOTPVerifiedKey contextKey = "totp_verified"
 )
 
@@ -38,6 +39,7 @@ func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
 		ctx = context.WithValue(ctx, RoleKey, claims.Role)
+		ctx = context.WithValue(ctx, PermissionsKey, claims.Permissions)
 		ctx = context.WithValue(ctx, TOTPVerifiedKey, claims.TOTPVerified)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -62,8 +64,16 @@ func Enforce2FAMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// PermissionMiddleware checks if the user's role has the required permission
-func PermissionMiddleware(userRepo domain.UserRepository, requiredPerm domain.Permission, next http.HandlerFunc) http.HandlerFunc {
+// GetPermissionsFromContext extracts permissions array from context
+func GetPermissionsFromContext(ctx context.Context) []string {
+	if val, ok := ctx.Value(PermissionsKey).([]string); ok {
+		return val
+	}
+	return nil
+}
+
+// PermissionMiddleware checks if the user's role has the required permission using JWT claims
+func PermissionMiddleware(requiredPerm domain.Permission, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		role := GetRoleFromContext(r.Context())
 		if role == "" {
@@ -77,12 +87,7 @@ func PermissionMiddleware(userRepo domain.UserRepository, requiredPerm domain.Pe
 			return
 		}
 
-		permissions, err := userRepo.GetPermissionsByRole(r.Context(), role)
-		if err != nil {
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-
+		permissions := GetPermissionsFromContext(r.Context())
 		hasPerm := false
 		for _, p := range permissions {
 			if p == string(requiredPerm) {

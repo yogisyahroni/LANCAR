@@ -509,13 +509,13 @@ func Admin2FAChain(role string, h http.HandlerFunc) http.HandlerFunc {
 }
 
 // PermissionChain applies BaseChain + Auth + Permission middleware.
-func PermissionChain(userRepo domain.UserRepository, perm domain.Permission, h http.HandlerFunc) http.HandlerFunc {
-	return BaseChain(AuthMiddleware(PermissionMiddleware(userRepo, perm, h)))
+func PermissionChain(perm domain.Permission, h http.HandlerFunc) http.HandlerFunc {
+	return BaseChain(AuthMiddleware(PermissionMiddleware(perm, h)))
 }
 
 // Permission2FAChain applies BaseChain + Auth + 2FA Enforce + Permission middleware.
-func Permission2FAChain(userRepo domain.UserRepository, perm domain.Permission, h http.HandlerFunc) http.HandlerFunc {
-	return BaseChain(AuthMiddleware(Enforce2FAMiddleware(PermissionMiddleware(userRepo, perm, h))))
+func Permission2FAChain(perm domain.Permission, h http.HandlerFunc) http.HandlerFunc {
+	return BaseChain(AuthMiddleware(Enforce2FAMiddleware(PermissionMiddleware(perm, h))))
 }
 
 // -------------------------------------------------------

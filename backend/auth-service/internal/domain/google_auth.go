@@ -173,6 +173,7 @@ type GoogleAuthStartRequest struct {
 	Platform    string `json:"platform"`
 	DeviceID    string `json:"device_id"`
 	RedirectURI string `json:"redirect_uri"`
+	IPAddress   string `json:"-"`
 }
 
 // GoogleAuthStartResponse is returned to the client to begin the OAuth flow.
@@ -191,6 +192,7 @@ type GoogleAuthCompleteRequest struct {
 	Nonce         string                     `json:"nonce,omitempty"`
 	DeviceID      string                     `json:"device_id"`
 	DeviceInfo    GoogleAuthDeviceInfo       `json:"device_info"`
+	IPAddress     string                     `json:"-"`
 }
 
 // GoogleAuthDeviceInfo carries device metadata from the client.
