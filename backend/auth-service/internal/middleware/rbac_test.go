@@ -61,17 +61,17 @@ func TestPermissionMiddleware(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &MockUserRepository{
-				Permissions: tt.permissions,
-			}
-
-			handler := middleware.PermissionMiddleware(mockRepo, tt.requiredPerm, dummyHandler)
+			handler := middleware.PermissionMiddleware(tt.requiredPerm, dummyHandler)
 
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			ctx := req.Context()
 			if tt.role != "" {
-				ctx := context.WithValue(req.Context(), middleware.RoleKey, tt.role)
-				req = req.WithContext(ctx)
+				ctx = context.WithValue(ctx, middleware.RoleKey, tt.role)
 			}
+			if tt.permissions != nil {
+				ctx = context.WithValue(ctx, middleware.PermissionsKey, tt.permissions)
+			}
+			req = req.WithContext(ctx)
 
 			rr := httptest.NewRecorder()
 			handler.ServeHTTP(rr, req)
