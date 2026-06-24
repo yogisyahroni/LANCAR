@@ -391,11 +391,10 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: javascript,python,java,go
-          build-mode: autobuild
           queries: security-extended,security-and-quality
 
-      # Autobuild step dihapus karena kita menggunakan build-mode: none
-
+      - name: Autobuild for compiled languages
+        uses: github/codeql-action/autobuild@v3
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
