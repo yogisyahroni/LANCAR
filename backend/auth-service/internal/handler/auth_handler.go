@@ -932,8 +932,8 @@ func (h *AuthHandler) HandleAdminSetCourierProfilePhoto(w http.ResponseWriter, r
 // @Success 200 {object} map[string]string
 // @Router /couriers/local-security-log [post]
 func (h *AuthHandler) LogLocalSecurity(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
 		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Missing or invalid token", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
