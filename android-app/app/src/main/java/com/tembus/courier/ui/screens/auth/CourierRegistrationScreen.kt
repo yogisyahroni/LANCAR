@@ -145,7 +145,13 @@ fun CourierRegistrationScreen(
                     AppTextField("Tahun", state.vehicleYear, KeyboardType.Number, Modifier.weight(1f)) { viewModel.update { copy(vehicleYear = it) } }
                     AppTextField("CC", state.vehicleCc, KeyboardType.Number, Modifier.weight(1f)) { viewModel.update { copy(vehicleCc = it) } }
                 }
-                AppTextField("Tipe kendaraan (matic/bebek/trail/sport/touring)", state.vehicleCategory) { viewModel.update { copy(vehicleCategory = it.lowercase()) } }
+                val vehicleOptions = listOf("Matic", "Bebek", "Trail", "Sport", "Touring", "Roda Tiga")
+                AppDropdownField(
+                    label = "Tipe kendaraan",
+                    value = state.vehicleCategory.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
+                    options = vehicleOptions,
+                    onChange = { viewModel.update { copy(vehicleCategory = it.lowercase()) } }
+                )
                 CheckRow("Mesin 4 tak", state.fourStroke) { viewModel.update { copy(fourStroke = it) } }
                 CheckRow("SIM masih berlaku", state.simActive) { viewModel.update { copy(simActive = it) } }
                 CheckRow("SKPD/pajak 5 tahunan masih berlaku", state.skpdTaxActive) { viewModel.update { copy(skpdTaxActive = it) } }
@@ -315,6 +321,47 @@ private fun AppTextField(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppDropdownField(
+    label: String,
+    value: String,
+    options: List<String>,
+    modifier: Modifier = Modifier,
+    onChange: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onChange(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
 @Composable
 private fun CheckRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
