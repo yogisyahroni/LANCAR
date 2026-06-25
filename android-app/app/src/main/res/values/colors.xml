@@ -15,7 +15,7 @@
     <!-- Neutral -->
     <color name="background">#F7F8FA</color>
     <color name="surface">#FFFFFF</color>
-    <color name="launcher_icon_background">#FFFFFF</color>
+    <color name="launcher_icon_background">#055415</color>
     <color name="on_primary">#FFFFFF</color>
     <color name="on_secondary">#FFFFFF</color>
     <color name="on_background">#111827</color>

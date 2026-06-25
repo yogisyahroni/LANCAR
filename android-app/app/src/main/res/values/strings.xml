@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">TEMBUS Courier</string>
+    <string name="app_name">Tembus Kurir</string>
     
     <!-- Notification channels -->
     <string name="channel_orders_name">Order Assignments</string>
