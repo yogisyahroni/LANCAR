@@ -365,6 +365,7 @@ const submitCourierApplication = async (
 ): Promise<void> => {
   const {
     full_name,
+    nik,
     phone_number,
     email,
     password,
@@ -375,6 +376,9 @@ const submitCourierApplication = async (
     vehicle_year,
     vehicle_cc,
     vehicle_category,
+    engine_type,
+    sim_active,
+    skpd_tax_active,
     bank_code,
     bank_account_number,
     bank_account_name,
@@ -391,6 +395,20 @@ const submitCourierApplication = async (
 
   try {
     await client.query('BEGIN');
+
+    // SECURITY FIX: Prevent Account Takeover for existing active couriers
+    const existingCourierRes = await client.query(
+      `SELECT status FROM couriers WHERE phone_number = $1`,
+      [normalizePhone(phone_number)]
+    );
+    if (existingCourierRes.rows.length > 0) {
+      const existingStatus = existingCourierRes.rows[0].status;
+      if (existingStatus === 'active' || existingStatus === 'suspended') {
+        await client.query('ROLLBACK');
+        res.status(409).json({ error: 'Nomor HP ini sudah terdaftar pada akun kurir yang aktif. Silakan gunakan fitur Lupa Password jika Anda tidak bisa login.' });
+        return;
+      }
+    }
 
     let registrationLinkId: string | null = null;
     if (registrationToken) {
@@ -436,11 +454,12 @@ const submitCourierApplication = async (
     );
     const profileRes = await client.query(
       `INSERT INTO courier_profiles (
-        user_id, vehicle_type, vehicle_plate, vehicle_cc, vehicle_brand, vehicle_model, vehicle_year,
-        vehicle_category, bank_code, bank_account_number, bank_account_name, application_channel,
+        user_id, nik, vehicle_type, vehicle_plate, vehicle_cc, vehicle_brand, vehicle_model, vehicle_year,
+        vehicle_category, engine_type, sim_active, skpd_tax_active, bank_code, bank_account_number, bank_account_name, application_channel,
         onboarding_checklist, verification_status
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'pending')
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'pending')
        ON CONFLICT (user_id) DO UPDATE SET
+        nik = EXCLUDED.nik,
         vehicle_type = EXCLUDED.vehicle_type,
         vehicle_plate = EXCLUDED.vehicle_plate,
         vehicle_cc = EXCLUDED.vehicle_cc,
@@ -448,6 +467,9 @@ const submitCourierApplication = async (
         vehicle_model = EXCLUDED.vehicle_model,
         vehicle_year = EXCLUDED.vehicle_year,
         vehicle_category = EXCLUDED.vehicle_category,
+        engine_type = EXCLUDED.engine_type,
+        sim_active = EXCLUDED.sim_active,
+        skpd_tax_active = EXCLUDED.skpd_tax_active,
         bank_code = EXCLUDED.bank_code,
         bank_account_number = EXCLUDED.bank_account_number,
         bank_account_name = EXCLUDED.bank_account_name,
@@ -459,6 +481,7 @@ const submitCourierApplication = async (
        RETURNING id`,
       [
         userId,
+        nik || null,
         vehicle_type || 'matic',
         normalizePlate(vehicle_plate),
         Number(vehicle_cc || 0),
@@ -466,6 +489,9 @@ const submitCourierApplication = async (
         vehicle_model || null,
         Number(vehicle_year || 0),
         vehicle_category || null,
+        engine_type || null,
+        Boolean(sim_active),
+        Boolean(skpd_tax_active),
         bank_code || null,
         bank_account_number || null,
         bank_account_name || null,
@@ -583,6 +609,10 @@ const getCourierApplications = async (req: Request, res: Response, requestedChan
         cp.vehicle_model,
         cp.vehicle_year,
         cp.vehicle_category,
+        cp.engine_type,
+        cp.sim_active,
+        cp.skpd_tax_active,
+        cp.nik,
         cp.bank_code,
         cp.bank_account_number,
         cp.bank_account_name,
@@ -665,6 +695,10 @@ export const getAllCouriers = async (req: Request, res: Response) => {
         cp.vehicle_type,
         cp.vehicle_plate,
         cp.vehicle_cc,
+        cp.engine_type,
+        cp.sim_active,
+        cp.skpd_tax_active,
+        cp.nik,
         cp.relay_score as avg_rating,
         cp.verification_status,
         cp.application_channel,

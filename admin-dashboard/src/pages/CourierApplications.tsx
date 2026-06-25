@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, Bike, CheckCircle2, Clock, ExternalLink, FileCheck2, ShieldCheck, XCircle } from 'lucide-react'
+import { AlertTriangle, Bike, CheckCircle2, Clock, ExternalLink, FileCheck2, ShieldCheck, XCircle, IdCard, Cog } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
@@ -213,10 +213,12 @@ export default function CourierApplications() {
                 <StatusBadge status={active.verification_status} />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-3">
+                <InfoCard icon={IdCard} label="NIK" value={active.nik || '-'} />
                 <InfoCard icon={Bike} label="Kendaraan" value={`${active.vehicle_brand || '-'} ${active.vehicle_model || ''}`} />
                 <InfoCard icon={Clock} label="Tahun" value={String(active.vehicle_year || '-')} />
                 <InfoCard icon={ShieldCheck} label="CC" value={`${active.vehicle_cc || 0} cc`} />
+                <InfoCard icon={Cog} label="Mesin" value={active.engine_type || '-'} />
                 <InfoCard icon={FileCheck2} label="Bank" value={active.bank_code || '-'} />
               </div>
 

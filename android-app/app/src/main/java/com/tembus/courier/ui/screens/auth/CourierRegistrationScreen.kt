@@ -39,6 +39,7 @@ fun CourierRegistrationScreen(
     val state by viewModel.uiState.collectAsState()
     var pendingDocType by remember { mutableStateOf<String?>(null) }
     var showLivenessScanner by remember { mutableStateOf(false) }
+    var showKtpScanner by remember { mutableStateOf(false) }
     val requiredDocuments = listOf(
         state.ktpRef,
         state.simRef,
@@ -73,11 +74,22 @@ fun CourierRegistrationScreen(
         pendingDocType = null
     }
 
+    if (showKtpScanner) {
+        KtpScannerScreen(
+            onSuccess = { bitmap, ktpData ->
+                viewModel.uploadKtpBitmap(bitmap, ktpData?.nik, ktpData?.name)
+                showKtpScanner = false
+            },
+            onCancel = { showKtpScanner = false }
+        )
+        return
+    }
+
     if (showLivenessScanner) {
         ActiveLivenessScreen(
-            onSuccess = { bitmap ->
-                showLivenessScanner = false
+            onSuccess = { bitmap -> 
                 viewModel.uploadFaceEnrollmentBitmap(bitmap)
+                showLivenessScanner = false
             },
             onCancel = { showLivenessScanner = false }
         )
@@ -131,7 +143,8 @@ fun CourierRegistrationScreen(
             }
 
             RegistrationSection("Data Diri") {
-                AppTextField("Nama lengkap", state.fullName) { viewModel.update { copy(fullName = it) } }
+                AppTextField("Nomor Induk Kependudukan (NIK)", state.nik, KeyboardType.Number) { viewModel.update { copy(nik = it) } }
+                AppTextField("Nama lengkap sesuai KTP", state.fullName) { viewModel.update { copy(fullName = it) } }
                 AppTextField("Nomor HP", state.phoneNumber, KeyboardType.Phone) { viewModel.update { copy(phoneNumber = it) } }
                 AppTextField("Email", state.email, KeyboardType.Email) { viewModel.update { copy(email = it) } }
                 AppTextField("Password login setelah disetujui", state.password, KeyboardType.Password) { viewModel.update { copy(password = it) } }
@@ -139,7 +152,13 @@ fun CourierRegistrationScreen(
 
             RegistrationSection("Kendaraan") {
                 AppTextField("Plat nomor", state.vehiclePlate) { viewModel.update { copy(vehiclePlate = it.uppercase()) } }
-                AppTextField("Merek", state.vehicleBrand) { viewModel.update { copy(vehicleBrand = it) } }
+                val brandOptions = listOf("Honda", "Yamaha", "Suzuki", "Kawasaki", "Vespa", "Lainnya")
+                AppDropdownField(
+                    label = "Merek",
+                    value = state.vehicleBrand,
+                    options = brandOptions,
+                    onChange = { viewModel.update { copy(vehicleBrand = it) } }
+                )
                 AppTextField("Model", state.vehicleModel) { viewModel.update { copy(vehicleModel = it) } }
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     AppTextField("Tahun", state.vehicleYear, KeyboardType.Number, Modifier.weight(1f)) { viewModel.update { copy(vehicleYear = it) } }
@@ -158,7 +177,13 @@ fun CourierRegistrationScreen(
             }
 
             RegistrationSection("Rekening Bank") {
-                AppTextField("Kode bank (BCA/BNI/MANDIRI/dsb)", state.bankCode) { viewModel.update { copy(bankCode = it.uppercase()) } }
+                val bankOptions = listOf("BCA", "BNI", "BRI", "MANDIRI", "BSI", "CIMB", "PERMATA", "Lainnya")
+                AppDropdownField(
+                    label = "Kode bank",
+                    value = state.bankCode,
+                    options = bankOptions,
+                    onChange = { viewModel.update { copy(bankCode = it) } }
+                )
                 AppTextField("Nomor rekening", state.bankAccountNumber, KeyboardType.Number) { viewModel.update { copy(bankAccountNumber = it) } }
                 AppTextField("Nama pemilik rekening", state.bankAccountName) { viewModel.update { copy(bankAccountName = it) } }
             }
@@ -174,9 +199,8 @@ fun CourierRegistrationScreen(
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
                 Text("$uploadedDocumentCount dari ${requiredDocuments.size} dokumen wajib terupload", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                DocumentUploadRow("e-KTP Asli", "ktp", state.ktpRef, state.documentFileNames["ktp"], state.uploadingDocType) { docType ->
-                    pendingDocType = docType
-                    documentPicker.launch("image/*")
+                DocumentUploadRow("e-KTP Asli (Live Camera)", "ktp", state.ktpRef, state.documentFileNames["ktp"], state.uploadingDocType) {
+                    showKtpScanner = true
                 }
                 DocumentUploadRow("SIM C / D Asli", "sim", state.simRef, state.documentFileNames["sim"], state.uploadingDocType) { docType ->
                     pendingDocType = docType

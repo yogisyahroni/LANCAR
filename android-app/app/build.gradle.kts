@@ -357,8 +357,9 @@ dependencies {
     implementation("androidx.camera:camera-view:$cameraxVersion")
     implementation("com.google.zxing:core:3.5.4")
     
-    // ML Kit for Active Liveness Detection
+    // ML Kit for Active Liveness Detection and OCR
     implementation("com.google.mlkit:face-detection:16.1.7")
+    implementation("com.google.mlkit:text-recognition:16.0.0")
     
     // TomTom Maps & Navigation Engine for courier operations.
     // Play Services Location remains only for device GPS, not map rendering.

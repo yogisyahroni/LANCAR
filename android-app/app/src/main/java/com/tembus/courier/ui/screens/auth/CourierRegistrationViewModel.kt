@@ -24,6 +24,7 @@ import javax.inject.Inject
 
 data class CourierRegistrationUiState(
     val fullName: String = "",
+    val nik: String = "",
     val phoneNumber: String = "",
     val email: String = "",
     val password: String = "",
@@ -149,6 +150,45 @@ class CourierRegistrationViewModel @Inject constructor(
         }
     }
 
+    /** Upload KTP dari kamera live dan set NIK / Nama dari hasil OCR */
+    fun uploadKtpBitmap(bitmap: Bitmap, nik: String?, name: String?) {
+        if (_uiState.value.uploadingDocType != null) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(uploadingDocType = "ktp", error = null) }
+            try {
+                val bytes = withContext(Dispatchers.IO) {
+                    val stream = java.io.ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 85, stream)
+                    stream.toByteArray()
+                }
+                if (bytes.size > 10 * 1024 * 1024) {
+                    throw IllegalArgumentException("Foto KTP melebihi batas 10 MB")
+                }
+                val fileName = "ktp_${System.currentTimeMillis()}.jpg"
+                val requestBody = bytes.toRequestBody("image/jpeg".toMediaTypeOrNull())
+                val part = MultipartBody.Part.createFormData("file", fileName, requestBody)
+                val docTypePart = "ktp".toRequestBody("text/plain".toMediaTypeOrNull())
+                val response = withContext(Dispatchers.IO) { apiService.uploadCourierDocument(docTypePart, part) }
+                if (!response.isSuccessful || response.body()?.success != true || response.body()?.data == null) {
+                    throw IllegalStateException(response.body()?.message ?: "Upload KTP gagal")
+                }
+                val uploaded = response.body()!!.data!!
+                _uiState.update { state ->
+                    val fileNames = state.documentFileNames + ("ktp" to "KTP terupload")
+                    state.copy(
+                        ktpRef = uploaded.fileUrl, 
+                        documentFileNames = fileNames, 
+                        uploadingDocType = null,
+                        nik = nik ?: state.nik,
+                        fullName = if (name.isNullOrBlank()) state.fullName else name
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(uploadingDocType = null, error = e.message ?: "Upload KTP gagal") }
+            }
+        }
+    }
+
     private fun queryDisplayName(uri: Uri): String? {
         return appContext.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
             val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -162,6 +202,7 @@ class CourierRegistrationViewModel @Inject constructor(
         val vehicleCc = state.vehicleCc.toIntOrNull() ?: 0
         val requiredMissing = listOf(
             state.fullName,
+            state.nik,
             state.phoneNumber,
             state.password,
             state.vehiclePlate,
@@ -181,23 +222,17 @@ class CourierRegistrationViewModel @Inject constructor(
         ).any { it.isBlank() }
 
         if (requiredMissing) {
-            _uiState.update { it.copy(error = "Lengkapi semua data dan referensi dokumen terlebih dahulu") }
+            _uiState.update { it.copy(error = "Harap lengkapi semua data wajib") }
             return
         }
 
-        val currentYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
-        if (vehicleYear <= 0 || currentYear - vehicleYear > 8) {
-            _uiState.update { it.copy(error = "Umur kendaraan maksimal 8 tahun dari tahun pendaftaran") }
+        if (state.password.length < 8) {
+            _uiState.update { it.copy(error = "Password minimal 8 karakter") }
             return
         }
-
-        if (vehicleCc <= 0 || vehicleCc > 250) {
-            _uiState.update { it.copy(error = "Maksimal CC kendaraan 250 cc") }
-            return
-        }
-
-        if (state.vehicleCategory in listOf("trail", "sport", "touring")) {
-            _uiState.update { it.copy(error = "Motor Trail, Sport, dan Touring tidak dapat didaftarkan") }
+        
+        if (state.nik.length != 16) {
+            _uiState.update { it.copy(error = "NIK harus 16 digit") }
             return
         }
 
@@ -206,10 +241,10 @@ class CourierRegistrationViewModel @Inject constructor(
             try {
                 val request = CourierRegistrationRequest(
                     fullName = state.fullName,
-                    phoneNumber = state.phoneNumber,
+                    nik = state.nik,
                     email = state.email,
+                    phoneNumber = state.phoneNumber,
                     password = state.password,
-                    vehicleType = state.vehicleCategory,
                     vehiclePlate = state.vehiclePlate,
                     vehicleBrand = state.vehicleBrand,
                     vehicleModel = state.vehicleModel,

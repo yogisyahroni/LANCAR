@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class CourierRegistrationRequest(
     @SerialName("full_name") val fullName: String,
+    @SerialName("nik") val nik: String = "",
     @SerialName("phone_number") val phoneNumber: String,
     val email: String = "",
     val password: String,
