@@ -116,21 +116,20 @@ class GoogleAuthViewModel @Inject constructor(
             pendingNonce = startData.nonce
             pendingTransactionId = startData.transactionId
 
-            // Step 2: Build the Credential Manager request
-            val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false) // allow all Google accounts
-                .setServerClientId(AppConfig.GOOGLE_SERVER_CLIENT_ID)
-                .setNonce(startData.nonce)
-                .setAutoSelectEnabled(false)
-                .build()
-
-            val request = GetCredentialRequest.Builder()
-                .addCredentialOption(googleIdOption)
-                .build()
-
-            // Step 3: Launch Credential Manager
-            val credentialManager = CredentialManager.create(context)
+            // Step 2 & 3: Build request and launch Credential Manager
             try {
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false) // allow all Google accounts
+                    .setServerClientId(AppConfig.GOOGLE_SERVER_CLIENT_ID)
+                    .setNonce(startData.nonce)
+                    .setAutoSelectEnabled(false)
+                    .build()
+
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+
+                val credentialManager = CredentialManager.create(context)
                 val credentialResponse: GetCredentialResponse =
                     credentialManager.getCredential(context = context, request = request)
                 handleCredentialResponse(credentialResponse)
@@ -146,6 +145,11 @@ class GoogleAuthViewModel @Inject constructor(
                 Log.e("GoogleAuth", "GetCredentialException Error: ${e.message}", e)
                 _googleAuthState.value = GoogleAuthUiState.Error(
                     "Login Google gagal. Periksa koneksi internet dan coba lagi."
+                )
+            } catch (e: Exception) {
+                Log.e("GoogleAuth", "Unknown Crash Error: ${e.message}", e)
+                _googleAuthState.value = GoogleAuthUiState.Error(
+                    "Terjadi kesalahan: ${e.message}"
                 )
             }
         }
