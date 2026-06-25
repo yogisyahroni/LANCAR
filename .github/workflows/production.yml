@@ -741,19 +741,39 @@ jobs:
           sed -i "s|^R2_SECRET_ACCESS_KEY=.*|R2_SECRET_ACCESS_KEY=\"${SECRET_R2_SECRET}\"|" .env
           sed -i "s|^R2_ENDPOINT=.*|R2_ENDPOINT=\"${SECRET_R2_ENDPOINT}\"|" .env
 
-          echo "📋 Step 4: Rolling update services (no full restart)..."
-          # Update image references di compose file lalu rolling restart per service
+          echo "📋 Step 4: Starting Traefik (if not running)..."
+          docker-compose up -d traefik
+
+          echo "📋 Step 5: Rolling update services (Zero Downtime)..."
           export CURRENT_SHA="${SHA}"
           export REPO="${REPO_LOWER_LC}"
 
-          # Update & restart masing-masing service satu per satu (zero-downtime)
           for svc in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway frontend admin-dashboard; do
-            echo "  ↻ Restarting \${svc}..."
-            docker-compose up -d --no-deps \${svc} || true
+            echo "  ↻ Rolling update for \${svc}..."
+            
+            # Find the old container ID
+            OLD_CONTAINER=\$(docker-compose ps -q \${svc} | head -n 1 || true)
+            
+            # Scale up to 2 instances to create the new container alongside the old one
+            docker-compose up -d --no-deps --scale \${svc}=2 --no-recreate \${svc} || true
+            
+            # Wait for the new container to become healthy
+            echo "  ⏳ Waiting 30s for \${svc} healthcheck to pass..."
+            sleep 30
+            
+            # Stop and remove the old container
+            if [ -n "\${OLD_CONTAINER}" ]; then
+              echo "  ⏹️ Stopping old \${svc} container (\${OLD_CONTAINER})..."
+              docker stop \${OLD_CONTAINER} || true
+              docker rm \${OLD_CONTAINER} || true
+            fi
+            
+            # Reconcile compose state back to 1 instance
+            docker-compose up -d --no-deps --scale \${svc}=1 --no-recreate \${svc} || true
           done
 
-          echo "📋 Step 5: Health check..."
-          sleep 10
+          echo "📋 Step 6: Health check (Traefik Gateway)..."
+          sleep 5
           curl -sf http://localhost:8080/health && echo "✅ API Gateway healthy" || echo "⚠️ Health check failed — check logs"
 
           echo "📋 Step 6: Cleanup old images..."

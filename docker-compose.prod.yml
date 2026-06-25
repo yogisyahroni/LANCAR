@@ -163,7 +163,6 @@ services:
     build:
       context: ./backend/auth-service
       dockerfile: Dockerfile
-    container_name: tembus-prod-auth
     restart: unless-stopped
     depends_on:
       db:
@@ -228,7 +227,6 @@ services:
     build:
       context: ./backend/routing-service
       dockerfile: Dockerfile
-    container_name: tembus-prod-routing
     restart: unless-stopped
     depends_on:
       db:
@@ -264,7 +262,6 @@ services:
     build:
       context: ./backend/order-service
       dockerfile: Dockerfile
-    container_name: tembus-prod-order
     restart: unless-stopped
     depends_on:
       db:
@@ -301,7 +298,6 @@ services:
     build:
       context: ./backend/payment-service
       dockerfile: Dockerfile
-    container_name: tembus-prod-payment
     restart: unless-stopped
     depends_on:
       db:
@@ -331,7 +327,6 @@ services:
     build:
       context: ./backend/admin-service
       dockerfile: Dockerfile
-    container_name: tembus-prod-admin
     restart: unless-stopped
     depends_on:
       db:
@@ -442,11 +437,15 @@ services:
 
   api-gateway:
     <<: *app-security
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gateway.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.gateway.entrypoints=gateway"
+      - "traefik.http.services.gateway.loadbalancer.server.port=8080"
     image: ${API_GATEWAY_IMAGE:-tembus/api-gateway:production}
     build:
       context: ./backend/api-gateway
       dockerfile: Dockerfile
-    container_name: tembus-prod-gateway
     restart: unless-stopped
     depends_on:
       auth-service:
@@ -494,11 +493,15 @@ services:
 
   landing-page:
     <<: *app-security
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.landing.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.landing.entrypoints=landing"
+      - "traefik.http.services.landing.loadbalancer.server.port=3000"
     image: ${LANDING_PAGE_IMAGE:-tembus/landing-page:production}
     build:
       context: ./landing-page
       dockerfile: Dockerfile
-    container_name: tembus-prod-landing-page
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -516,6 +519,11 @@ services:
 
   frontend:
     <<: *app-security
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.entrypoints=frontend"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
     image: ${FRONTEND_IMAGE:-tembus/frontend:production}
     build:
       context: ./frontend
@@ -526,7 +534,6 @@ services:
         NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:?NEXT_PUBLIC_SOCKET_URL is required}
         NEXT_PUBLIC_MIDTRANS_CLIENT_KEY: ${NEXT_PUBLIC_MIDTRANS_CLIENT_KEY:-}
         NEXT_PUBLIC_MIDTRANS_SNAP_URL: ${NEXT_PUBLIC_MIDTRANS_SNAP_URL:-https://app.midtrans.com/snap/snap.js}
-    container_name: tembus-prod-frontend
     restart: unless-stopped
     depends_on:
       api-gateway:
@@ -553,6 +560,11 @@ services:
 
   admin-dashboard:
     <<: *app-security
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.admin.entrypoints=admin"
+      - "traefik.http.services.admin.loadbalancer.server.port=3001"
     image: ${ADMIN_DASHBOARD_IMAGE:-tembus/admin-dashboard:production}
     build:
       context: ./admin-dashboard
@@ -561,7 +573,6 @@ services:
         VITE_API_URL: ${VITE_API_URL:?VITE_API_URL is required}
         VITE_WS_URL: ${VITE_WS_URL:?VITE_WS_URL is required}
         VITE_SOCKET_URL: ${VITE_SOCKET_URL:?VITE_SOCKET_URL is required}
-    container_name: tembus-prod-admin-dashboard
     restart: unless-stopped
     depends_on:
       api-gateway:
@@ -576,6 +587,29 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    networks:
+      - tembus-private
+
+
+  traefik:
+    image: traefik:v3.0
+    container_name: tembus-prod-traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.gateway.address=:8080"
+      - "--entrypoints.landing.address=:3003"
+      - "--entrypoints.frontend.address=:3000"
+      - "--entrypoints.admin.address=:3002"
+    ports:
+      - "${PUBLIC_BIND:-127.0.0.1}:${GATEWAY_HOST_PORT:-8080}:8080"
+      - "${PUBLIC_BIND:-127.0.0.1}:${LANDING_HOST_PORT:-3003}:3003"
+      - "${PUBLIC_BIND:-127.0.0.1}:${FRONTEND_HOST_PORT:-3000}:3000"
+      - "${PUBLIC_BIND:-127.0.0.1}:${ADMIN_DASHBOARD_HOST_PORT:-3002}:3002"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - tembus-private
 
