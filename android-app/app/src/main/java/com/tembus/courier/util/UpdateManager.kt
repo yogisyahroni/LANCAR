@@ -210,7 +210,7 @@ class UpdateManager @Inject constructor(
                         .filterNot { it.draft }
                         .mapNotNull { release ->
                             val versionCode = COURIER_TAG_REGEX
-                                .matchEntire(release.tagName)
+                                .find(release.tagName)
                                 ?.groupValues
                                 ?.getOrNull(1)
                                 ?.toIntOrNull()
@@ -511,7 +511,7 @@ class UpdateManager @Inject constructor(
     )
 
     private companion object {
-        private val COURIER_TAG_REGEX = Regex("""^v1\.0\.(\d+)-courier$""")
+        private val COURIER_TAG_REGEX = Regex("""v1\.0\.(\d+)""")
         private val SHA256_HEX_REGEX = Regex("^[a-f0-9]{64}$")
         private const val UPDATE_CACHE_DIR = "updates"
         private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
