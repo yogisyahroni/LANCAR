@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,42 +17,24 @@ import (
 	"github.com/google/uuid"
 )
 
-type midtransSnapResponse struct {
-	Token       string `json:"token"`
-	RedirectURL string `json:"redirect_url"`
-	Message     string `json:"message"`
+type invoiceResponse struct {
+	Token      string `json:"Token"`
+	InvoiceURL string `json:"InvoiceURL"`
 }
 
-func midtransSnapAPIURL() string {
-	if os.Getenv("MIDTRANS_ENV") == "production" {
-		return "https://app.midtrans.com/snap/v1/transactions"
+func createInvoiceViaGateway(ctx context.Context, orderID string, grossAmountIDR int64, userID uuid.UUID) (string, error) {
+	gatewayURL := os.Getenv("INTEGRATION_GATEWAY_URL")
+	if gatewayURL == "" {
+		gatewayURL = "http://integration-gateway:8085"
 	}
-	return "https://app.sandbox.midtrans.com/snap/v1/transactions"
-}
-
-func createMidtransSnapToken(ctx context.Context, orderID string, grossAmountIDR int64, userID uuid.UUID) (string, error) {
-	serverKey := os.Getenv("MIDTRANS_SERVER_KEY")
-	if serverKey == "" {
-		return "", errors.New("MIDTRANS_SERVER_KEY is not configured")
-	}
+	internalAPIKey := os.Getenv("INTERNAL_API_KEY")
 
 	payload := map[string]any{
-		"transaction_details": map[string]any{
-			"order_id":     orderID,
-			"gross_amount": grossAmountIDR,
-		},
-		"customer_details": map[string]any{
-			"first_name": userID.String(),
-		},
-		"credit_card": map[string]any{
-			"secure": true,
-		},
-		"expiry": map[string]any{
-			"unit":     "minutes",
-			"duration": 30,
-		},
-		"custom_field1": userID.String(),
-		"custom_field2": "wallet_topup",
+		"ReferenceID":   orderID,
+		"Amount":        float64(grossAmountIDR),
+		"Description":   "wallet_topup",
+		"CustomerName":  userID.String(),
+		"CustomerEmail": "",
 	}
 
 	body, err := json.Marshal(payload)
@@ -61,36 +42,36 @@ func createMidtransSnapToken(ctx context.Context, orderID string, grossAmountIDR
 		return "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, midtransSnapAPIURL(), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, gatewayURL+"/api/internal/payment/invoice", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(serverKey+":")))
+	if internalAPIKey != "" {
+		req.Header.Set("X-Internal-Api-Key", internalAPIKey)
+	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("midtrans snap request failed: %w", err)
+		return "", fmt.Errorf("payment gateway request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var snap midtransSnapResponse
-	if err := json.NewDecoder(resp.Body).Decode(&snap); err != nil {
-		return "", fmt.Errorf("failed to parse midtrans snap response: %w", err)
-	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		if snap.Message != "" {
-			return "", fmt.Errorf("midtrans snap rejected top up: %s", snap.Message)
-		}
-		return "", fmt.Errorf("midtrans snap rejected top up with status %d", resp.StatusCode)
-	}
-	if snap.Token == "" {
-		return "", errors.New("midtrans snap response did not include token")
+		return "", fmt.Errorf("payment gateway rejected with status %d", resp.StatusCode)
 	}
 
-	return snap.Token, nil
+	var result invoiceResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to parse gateway response: %w", err)
+	}
+
+	if result.Token == "" {
+		return "", errors.New("gateway response did not include token")
+	}
+
+	return result.Token, nil
 }
 
 type walletService struct {
@@ -162,7 +143,7 @@ func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amoun
 	if totalAmountIDR <= 0 {
 		return "", errors.New("top up amount is invalid")
 	}
-	snapToken, err := createMidtransSnapToken(ctx, orderID, totalAmountIDR, userID)
+	snapToken, err := createInvoiceViaGateway(ctx, orderID, totalAmountIDR, userID)
 	if err != nil {
 		return "", err
 	}

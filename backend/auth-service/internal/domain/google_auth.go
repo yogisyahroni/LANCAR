@@ -256,7 +256,7 @@ type CustomerOTPSendResponse struct {
 	Channel            string `json:"channel"`
 	MaskedRecipient    string `json:"masked_recipient"`
 	ExpiresInSeconds   int    `json:"expires_in_seconds"`
-	ResendAfterSeconds int    `json:"resend_after_seconds"`
+	ResendAfterSeconds int    `json:"resend_cooldown_seconds"`
 }
 
 // CustomerOTPVerifyRequest is the request body for POST /auth/customer/otp/verify

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -417,6 +418,11 @@ func (s *GoogleAuthService) SendCustomerOTP(ctx context.Context, req *domain.Cus
 		return nil, fmt.Errorf("failed to generate OTP: %w", err)
 	}
 
+	// DEV MODE: Log OTP to console so developer can test the flow even if SMS provider fails
+	log.Printf("==============================================")
+	log.Printf("📱 [MOCK OTP] OTP CODE FOR %s: %s", phone, code)
+	log.Printf("==============================================")
+
 	// Hash the code before storing
 	codeHash, err := HashOTPCode(code)
 	if err != nil {
@@ -498,13 +504,13 @@ func (s *GoogleAuthService) SendCustomerOTP(ctx context.Context, req *domain.Cus
 				TargetID: challenge.ID,
 				Payload:  fmt.Sprintf(`{"challenge_id":"%s","wa_error":"redacted","sms_error":"redacted"}`, challenge.ID),
 			})
-			return nil, errors.New("Kode belum dapat dikirim. Coba lagi beberapa saat.")
+			return nil, errors.New("gagal mengirim OTP melalui WhatsApp dan SMS")
 		}
 
 		// SMS fallback succeeded — update challenge channel
 		challenge.Channel = domain.OTPChannelSMS
 	} else if sendErr != nil {
-		return nil, errors.New("Kode belum dapat dikirim. Coba lagi beberapa saat.")
+		return nil, errors.New("gagal mengirim OTP: " + sendErr.Error())
 	}
 
 	// Audit log (no PII, no OTP plaintext)

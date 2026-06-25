@@ -448,6 +448,20 @@ app.post(
 );
 
 app.post(
+  '/api/v1/auth/customer/otp/send',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+);
+
+app.post(
+  '/api/v1/auth/customer/otp/verify',
+  authLimiter,
+  jsonParser,
+  proxyWithResilience(AUTH_SERVICE_URL, authBreaker)
+);
+
+app.post(
   '/api/v1/auth/customer/google/start',
   authLimiter,
   jsonParser,
