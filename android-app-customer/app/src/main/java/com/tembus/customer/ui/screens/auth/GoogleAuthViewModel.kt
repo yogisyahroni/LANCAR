@@ -1,6 +1,7 @@
 package com.tembus.customer.ui.screens.auth
 
 import android.content.Context
+import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -134,12 +135,15 @@ class GoogleAuthViewModel @Inject constructor(
                     credentialManager.getCredential(context = context, request = request)
                 handleCredentialResponse(credentialResponse)
             } catch (e: GetCredentialCancellationException) {
+                Log.d("GoogleAuth", "Login Google dibatalkan oleh user.")
                 _googleAuthState.value = GoogleAuthUiState.Idle
             } catch (e: NoCredentialException) {
+                Log.e("GoogleAuth", "Tidak ada kredensial. Cek login akun di Emulator/Play Store.", e)
                 _googleAuthState.value = GoogleAuthUiState.Error(
                     "Tidak ada akun Google yang tersedia di perangkat ini."
                 )
             } catch (e: GetCredentialException) {
+                Log.e("GoogleAuth", "GetCredentialException Error: ${e.message}", e)
                 _googleAuthState.value = GoogleAuthUiState.Error(
                     "Login Google gagal. Periksa koneksi internet dan coba lagi."
                 )
