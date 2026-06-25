@@ -11,6 +11,7 @@ export * from './orders.controller';
 
 // Couriers
 export * from './couriers.controller';
+export * from './faceVerifications.controller';
 
 // Finance (Payouts, Revenue, Emergency Fund)
 export * from './finance.controller';

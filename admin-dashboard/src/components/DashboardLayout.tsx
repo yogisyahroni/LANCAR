@@ -184,6 +184,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: Layers, label: "Warehouse Ops", path: "/warehouse-operations" },
     { icon: Truck, label: "Couriers", path: "/couriers" },
     { icon: ClipboardCheck, label: "Courier Review", path: "/courier-applications" },
+    { icon: ShieldAlert, label: "Face Verifications", path: "/courier-face-verifications" },
     { icon: ShieldAlert, label: "Courier Safety", path: "/courier-safety-events" },
     { icon: TrendingUp, label: "Courier Growth", path: "/courier-growth" },
     { icon: Activity, label: "Feature Flags", path: "/feature-flags", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },

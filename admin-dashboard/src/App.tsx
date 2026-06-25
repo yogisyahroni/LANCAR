@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Orders from './pages/Orders'
 import Couriers from './pages/Couriers'
 import CourierApplications from './pages/CourierApplications'
+import CourierFaceVerifications from './pages/CourierFaceVerifications'
 import CourierSafetyEvents from './pages/CourierSafetyEvents'
 import CourierGrowthConfig from './pages/CourierGrowthConfig'
 import CourierPublicRegistration from './pages/CourierPublicRegistration'
@@ -110,6 +111,14 @@ function App() {
                 <CourierApplications />
               </ProtectedRoute>
             }
+          />
+          <Route 
+            path="/courier-face-verifications" 
+            element={
+              <ProtectedRoute>
+                <CourierFaceVerifications />
+              </ProtectedRoute>
+            } 
           />
           <Route
             path="/courier-safety-events"

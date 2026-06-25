@@ -53,6 +53,8 @@ fun KtpScannerScreen(
     var instructionText by remember { mutableStateOf("Posisikan KTP di dalam kotak") }
     var detectedData by remember { mutableStateOf<KtpData?>(null) }
     var captureInProgress by remember { mutableStateOf(false) }
+    var showManualInputDialog by remember { mutableStateOf(false) }
+    var capturedBitmapForManual by remember { mutableStateOf<Bitmap?>(null) }
 
     val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
@@ -211,7 +213,9 @@ fun KtpScannerScreen(
                     instructionText = "Mengambil foto manual..."
                     takePhoto(context, imageCapture, cameraExecutor) { bitmap ->
                         if (bitmap != null) {
-                            onSuccess(bitmap, detectedData)
+                            capturedBitmapForManual = bitmap
+                            showManualInputDialog = true
+                            captureInProgress = false
                         } else {
                             captureInProgress = false
                             instructionText = "Gagal memotret, coba lagi."
@@ -222,7 +226,7 @@ fun KtpScannerScreen(
                     .align(Alignment.BottomCenter)
                     .padding(bottom = 40.dp)
             ) {
-                Text("Ambil Foto Manual")
+                Text("Input Manual NIK & Nama")
             }
         }
 
@@ -239,6 +243,73 @@ fun KtpScannerScreen(
             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Batal", tint = Color.White)
         }
     }
+    
+    if (showManualInputDialog && capturedBitmapForManual != null) {
+        ManualKtpInputDialog(
+            onDismiss = {
+                showManualInputDialog = false
+                capturedBitmapForManual = null
+                instructionText = "Posisikan KTP di dalam kotak"
+            },
+            onSubmit = { nik, name ->
+                showManualInputDialog = false
+                onSuccess(capturedBitmapForManual!!, KtpData(nik, name))
+            }
+        )
+    }
+}
+
+@Composable
+fun ManualKtpInputDialog(
+    onDismiss: () -> Unit,
+    onSubmit: (String, String) -> Unit
+) {
+    var nik by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Input Manual Data KTP") },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                OutlinedTextField(
+                    value = nik,
+                    onValueChange = { if (it.length <= 16) nik = it },
+                    label = { Text("NIK (16 digit)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Nama Lengkap") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (nik.isNotEmpty() && nik.length < 16) {
+                    Text(
+                        text = "NIK harus 16 digit",
+                        color = MaterialTheme.colorScheme.error,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSubmit(nik, name) },
+                enabled = nik.length == 16 && name.isNotBlank()
+            ) {
+                Text("Simpan")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Batal")
+            }
+        }
+    )
 }
 
 @Composable
