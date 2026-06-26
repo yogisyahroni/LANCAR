@@ -19,6 +19,7 @@ export interface SendCustomerOTPRequest {
 }
 
 export interface SendCustomerOTPResponse {
+  status: string;
   challenge_id: string;
   masked_recipient: string;
   channel: OTPChannel;
@@ -27,6 +28,7 @@ export interface SendCustomerOTPResponse {
 }
 
 export interface VerifyCustomerOTPRequest {
+  transaction_id?: string;
   challenge_id: string;
   code: string;
   phone_number: string;
@@ -76,6 +78,11 @@ export async function sendCustomerOTP(
 export async function verifyCustomerOTP(
   req: VerifyCustomerOTPRequest
 ): Promise<VerifyCustomerOTPResponse> {
-  const response = await api.post<VerifyCustomerOTPResponse>('/auth/customer/otp/verify', req);
+  // Map 'code' to 'otp_code' which is what the backend expects
+  const payload = {
+    ...req,
+    otp_code: req.code,
+  };
+  const response = await api.post<VerifyCustomerOTPResponse>('/auth/customer/otp/verify', payload);
   return response.data;
 }

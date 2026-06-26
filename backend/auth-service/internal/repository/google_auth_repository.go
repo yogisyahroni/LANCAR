@@ -380,6 +380,12 @@ func (r *postgresRepo) IsCustomerGoogleRegistrationEnabled(ctx context.Context) 
 	return enabled
 }
 
+// IsCustomerAuthOTPRequired returns whether customer OTP is required.
+func (r *postgresRepo) IsCustomerAuthOTPRequired(ctx context.Context) bool {
+	enabled, _ := r.IsFeatureFlagEnabled(ctx, "customer_auth_otp_required", true) // defaulting to true for safety
+	return enabled
+}
+
 // IsOTPProviderLive returns whether the live OTP provider should be used.
 func (r *postgresRepo) IsOTPProviderLive(ctx context.Context) bool {
 	enabled, _ := r.IsFeatureFlagEnabled(ctx, "otp_provider_live", false)

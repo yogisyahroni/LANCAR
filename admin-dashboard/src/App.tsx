@@ -22,7 +22,6 @@ import Finance from './pages/Finance'
 import Settings from './pages/Settings'
 import MapsRuntime from './pages/MapsRuntime'
 import AuditLogs from './pages/AuditLogs'
-import FeatureFlags from './pages/FeatureFlags'
 import WarehouseOperations from './pages/WarehouseOperations'
 import BusinessApiRequests from './pages/BusinessApiRequests'
 import HRJobs from './pages/HRJobs'
@@ -254,14 +253,6 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['super_admin', 'ops_security']}>
                 <AuditLogs />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/feature-flags" 
-            element={
-              <ProtectedRoute allowedRoles={['super_admin', 'ops_security', 'ops_admin']}>
-                <FeatureFlags />
               </ProtectedRoute>
             } 
           />

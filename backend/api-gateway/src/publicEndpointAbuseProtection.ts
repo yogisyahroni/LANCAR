@@ -13,7 +13,7 @@ type AbuseProtectionOptions = {
   recordEvent?: (event: AbuseEvent) => void;
 };
 
-const VALID_MAP_SCOPES = new Set(['global', 'customer_mobile', 'courier_mobile', 'web_customer', 'tracking']);
+const VALID_MAP_SCOPES = new Set(['global', 'customer_mobile', 'courier_mobile', 'web_customer', 'web_admin', 'tracking']);
 const VALID_ROUTE_PROFILES = new Set(['car', 'motorcycle', 'bike', 'foot', 'driving', 'two_wheeler']);
 const MAX_QUERY_LENGTH = 120;
 const MAX_SERVICE_CODE_LENGTH = 64;

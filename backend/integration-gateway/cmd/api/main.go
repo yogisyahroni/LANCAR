@@ -30,11 +30,6 @@ func main() {
 	}
 	log.Println("[integration-gateway] OTP provider initialized successfully")
 
-	paymentProv, err := provider.NewPaymentProvider("")
-	if err != nil {
-		log.Fatalf("[integration-gateway] failed to init Payment Provider: %v", err)
-	}
-	log.Println("[integration-gateway] Payment provider initialized successfully")
 
 	mapsProv, err := provider.NewMapsProvider("")
 	if err != nil {
@@ -63,7 +58,7 @@ func main() {
 	}
 
 	otpHandler := handler.NewOTPHandler(otpProv)
-	paymentHandler := handler.NewPaymentHandler(paymentProv)
+	paymentHandler := handler.NewPaymentHandler()
 	mapsHandler := handler.NewMapsHandler(mapsProv)
 
 	// Routes

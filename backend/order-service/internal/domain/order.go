@@ -74,6 +74,7 @@ type CreateOrderRequest struct {
 	EstimateID      string `json:"estimate_id" validate:"required"`
 	ItemDescription string `json:"item_description" validate:"required,min=5"`
 	ItemImageURL    string `json:"item_image_url,omitempty"`
+	IsScheduled     bool   `json:"is_scheduled"`
 }
 
 type OrderService interface {

@@ -41,13 +41,14 @@ export interface GoogleAuthState {
   // Phone-collection sub-flow (new Google users)
   pendingEmail: string | null;
   pendingFullName: string | null;
+  otpRequired: boolean | null;
 
   // Actions
   setStarting: () => void;
   setRedirecting: (txId: string, nonce: string) => void;
   setCompleting: () => void;
   setRequiresOtp: (challengeId: string, masked: string, channel: string, txId: string) => void;
-  setRequiresPhone: (email: string, fullName: string, txId: string) => void;
+  setRequiresPhone: (email: string, fullName: string, txId: string, otpRequired: boolean) => void;
   setDone: () => void;
   setError: (message: string) => void;
   reset: () => void;
@@ -64,8 +65,10 @@ export const useGoogleAuthStore = create<GoogleAuthState>((set) => ({
   otpChallengeId: null,
   maskedRecipient: null,
   preferredChannel: null,
+
   pendingEmail: null,
   pendingFullName: null,
+  otpRequired: null,
 
   setStarting: () =>
     set({ step: 'starting', error: null }),
@@ -86,12 +89,13 @@ export const useGoogleAuthStore = create<GoogleAuthState>((set) => ({
       error: null,
     }),
 
-  setRequiresPhone: (email, fullName, txId) =>
+  setRequiresPhone: (email, fullName, txId, otpRequired) =>
     set({
       step: 'requires_phone',
       pendingEmail: email,
       pendingFullName: fullName,
       transactionId: txId,
+      otpRequired: otpRequired,
       error: null,
     }),
 
@@ -113,5 +117,6 @@ export const useGoogleAuthStore = create<GoogleAuthState>((set) => ({
       preferredChannel: null,
       pendingEmail: null,
       pendingFullName: null,
+      otpRequired: null,
     }),
 }));

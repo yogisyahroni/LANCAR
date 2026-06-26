@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"tembus/payment-service/internal/domain"
+	"tembus/payment-service/internal/featureflags"
 	"tembus/payment-service/internal/handler"
 	"tembus/payment-service/internal/middleware"
 	"tembus/payment-service/internal/repository"
@@ -118,9 +119,12 @@ func main() {
 	}
 	middleware.LogJSON("info", "database connection established", map[string]interface{}{})
 
+	// Feature Flag Reader
+	flagReader := featureflags.NewFlagReader(db)
+
 	// Wire Layers
 	repo := repository.NewPostgresWalletRepository(db, db) // Using same DB for R/W in this simple setup
-	svc := service.NewWalletService(repo, repo.(domain.SettingsRepository), db)
+	svc := service.NewWalletService(repo, repo.(domain.SettingsRepository), db, flagReader)
 	h := handler.NewWalletHandler(svc)
 
 	// Router

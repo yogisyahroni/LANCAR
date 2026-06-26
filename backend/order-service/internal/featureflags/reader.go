@@ -25,6 +25,7 @@ type FeatureFlag struct {
 type FlagReader interface {
 	GetFlag(ctx context.Context, key string) (*FeatureFlag, error)
 	GetFlags(ctx context.Context, keys []string) (map[string]*FeatureFlag, error)
+	IsFeatureFlagEnabled(ctx context.Context, key string, defaultVal bool) (bool, error)
 	InvalidateCache(ctx context.Context, key string) error
 	Close() error
 }
@@ -142,6 +143,14 @@ func (f *flagReaderImpl) GetFlag(ctx context.Context, key string) (*FeatureFlag,
 	f.localCache.Store(key, &flag)
 
 	return &flag, nil
+}
+
+func (r *flagReaderImpl) IsFeatureFlagEnabled(ctx context.Context, key string, defaultVal bool) (bool, error) {
+	flag, err := r.GetFlag(ctx, key)
+	if err != nil || flag == nil {
+		return defaultVal, err
+	}
+	return flag.IsEnabled, nil
 }
 
 func (f *flagReaderImpl) GetFlags(ctx context.Context, keys []string) (map[string]*FeatureFlag, error) {

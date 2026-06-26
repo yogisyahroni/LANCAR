@@ -56,6 +56,7 @@ type GoogleAuthRepository interface {
 	// Feature flags
 	IsCustomerGoogleLoginEnabled(ctx context.Context) bool
 	IsCustomerGoogleRegistrationEnabled(ctx context.Context) bool
+	IsCustomerAuthOTPRequired(ctx context.Context) bool
 	IsOTPProviderLive(ctx context.Context) bool
 
 	// Shared user repo methods
@@ -216,7 +217,7 @@ func (s *GoogleAuthService) StartGoogleAuth(ctx context.Context, req *domain.Goo
 	}
 
 	authURL := fmt.Sprintf(
-		"https://accounts.google.com/o/oauth2/v2/auth?client_id=%s&redirect_uri=%s&response_type=code&scope=openid%%20email%%20profile&state=%s&nonce=%s&prompt=select_account",
+		"https://accounts.google.com/o/oauth2/v2/auth?client_id=%s&redirect_uri=%s&response_type=id_token&scope=openid%%20email%%20profile&state=%s&nonce=%s&prompt=select_account",
 		webClientID, redirectURI, state, nonce,
 	)
 
@@ -303,8 +304,12 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 
 		// Check if device is trusted
 		isTrusted, _ := s.repo.IsTrustedDevice(ctx, user.ID, string(domain.RoleCustomer), deviceIDHash)
-		if isTrusted {
-			_ = s.repo.TouchTrustedDevice(ctx, user.ID, string(domain.RoleCustomer), deviceIDHash)
+		otpRequired := s.repo.IsCustomerAuthOTPRequired(ctx)
+		
+		if isTrusted || !otpRequired {
+			if isTrusted {
+				_ = s.repo.TouchTrustedDevice(ctx, user.ID, string(domain.RoleCustomer), deviceIDHash)
+			}
 			
 			// Record fingerprint
 			if s.deviceFpRepo != nil && req.DeviceID != "" {
@@ -345,6 +350,22 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 		linkTx.Metadata = metaBytes
 		_ = s.repo.CreateAuthTransaction(ctx, linkTx)
 
+		otpRequired := s.repo.IsCustomerAuthOTPRequired(ctx)
+		if !otpRequired {
+			res, err := s.completeLinkGoogle(ctx, linkTx, req.DeviceID, deviceIDHash, deviceInfoJSON)
+			if err != nil {
+				return nil, err
+			}
+			return &domain.GoogleAuthCompleteResponse{
+				Status:        domain.GoogleAuthStatusAuthenticated,
+				AccessToken:   res.AccessToken,
+				RefreshToken:  res.RefreshToken,
+				ExpiresIn:     res.ExpiresIn,
+				User:          res.User,
+				TrustedDevice: res.TrustedDevice,
+			}, nil
+		}
+
 		return s.triggerStepUpOTP(ctx, existingUser, linkTx.ID, req.DeviceID, string(domain.OTPPurposeLinkGoogle))
 	}
 
@@ -374,11 +395,15 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 	_ = s.repo.CreateAuthTransaction(ctx, regTx)
 
 	span.SetStatus(codes.Ok, "requires_phone")
+	
+	otpReq := s.repo.IsCustomerAuthOTPRequired(ctx)
+	
 	return &domain.GoogleAuthCompleteResponse{
 		Status:        domain.GoogleAuthStatusRequiresPhone,
 		TransactionID: regTx.ID,
 		Email:         claims.Email,
 		FullName:      claims.FullName,
+		OtpRequired:   &otpReq,
 	}, nil
 }
 
@@ -433,10 +458,32 @@ func (s *GoogleAuthService) SendCustomerOTP(ctx context.Context, req *domain.Cus
 	recipientMask := MaskPhoneNumber(phone)
 	lockSeconds := cfg.LockSeconds
 
+	// Auto-determine purpose from transaction type when client doesn't specify one.
+	// This prevents the verify handler from landing in the wrong flow branch.
+	purpose := domain.OTPPurpose(req.Purpose)
+	if purpose == "" {
+		switch tx.Type {
+		case domain.AuthTxGoogleComplete:
+			if tx.UserID == nil {
+				// No user yet → this is a new registration
+				purpose = domain.OTPPurposeRegistrationPhone
+			} else {
+				// Existing user → step-up / new device
+				purpose = domain.OTPPurposeStepUp
+			}
+		case domain.AuthTxLinkGoogle:
+			purpose = domain.OTPPurposeLinkGoogle
+		case domain.AuthTxStepUp:
+			purpose = domain.OTPPurposeStepUp
+		default:
+			purpose = domain.OTPPurposeStepUp
+		}
+	}
+
 	challenge := &domain.CustomerOTPChallenge{
 		TransactionID:  req.TransactionID,
 		UserID:         tx.UserID,
-		Purpose:        domain.OTPPurpose(req.Purpose),
+		Purpose:        purpose,
 		IdentifierHash: phoneHash,
 		RecipientMask:  recipientMask,
 		Channel:        channel,
@@ -450,67 +497,79 @@ func (s *GoogleAuthService) SendCustomerOTP(ctx context.Context, req *domain.Cus
 		return nil, fmt.Errorf("failed to create OTP challenge: %w", err)
 	}
 
-	// Send OTP via provider
-	correlationID := uuid.New().String()
-	idempotencyKey := fmt.Sprintf("otp-%s-%s", challenge.ID, correlationID)
+	otpRequired := s.repo.IsCustomerAuthOTPRequired(ctx)
 
-	sendReq := domain.OTPSendRequest{
-		RecipientPhone: phone,
-		Channel:        channel,
-		Purpose:        domain.OTPPurpose(req.Purpose),
-		OTPCode:        code, // plaintext only lives here; never stored
-		IdempotencyKey: idempotencyKey,
-		CorrelationID:  correlationID,
-	}
+	var result domain.OTPSendResult
+	var sendErr error
 
-	result, sendErr := s.otpProvider.SendOTP(ctx, sendReq)
+	if otpRequired {
+		// Send OTP via provider
+		correlationID := uuid.New().String()
+		idempotencyKey := fmt.Sprintf("otp-%s-%s", challenge.ID, correlationID)
 
-	// Record delivery audit
-	now := time.Now()
-	delivery := &domain.CustomerOTPDelivery{
-		ChallengeID:       challenge.ID,
-		Provider:          s.otpProvider.Name(),
-		Channel:           channel,
-		ProviderMessageID: nilableString(result.ProviderMessageID),
-		Status:            result.Status,
-		ErrorCode:         nilableString(result.NormalizedError),
-		SentAt:            &now,
-	}
-	_ = s.repo.RecordOTPDelivery(ctx, delivery)
+		sendReq := domain.OTPSendRequest{
+			RecipientPhone: phone,
+			Channel:        channel,
+			Purpose:        domain.OTPPurpose(req.Purpose),
+			OTPCode:        code, // plaintext only lives here; never stored
+			IdempotencyKey: idempotencyKey,
+			CorrelationID:  correlationID,
+		}
 
-	// Fallback: if WhatsApp failed, try SMS
-	if sendErr != nil && channel == domain.OTPChannelWhatsApp && result.Retryable == false {
-		span.SetAttributes(attribute.Bool("auth.channel.fallback", true))
-		smsReq := sendReq
-		smsReq.Channel = domain.OTPChannelSMS
-		smsResult, smsErr := s.otpProvider.SendOTP(ctx, smsReq)
+		result, sendErr = s.otpProvider.SendOTP(ctx, sendReq)
 
-		smsDelivery := &domain.CustomerOTPDelivery{
+		// Record delivery audit
+		now := time.Now()
+		delivery := &domain.CustomerOTPDelivery{
 			ChallengeID:       challenge.ID,
 			Provider:          s.otpProvider.Name(),
-			Channel:           domain.OTPChannelSMS,
-			ProviderMessageID: nilableString(smsResult.ProviderMessageID),
-			Status:            domain.OTPDeliveryFallback,
-			ErrorCode:         nilableString(smsResult.NormalizedError),
+			Channel:           channel,
+			ProviderMessageID: nilableString(result.ProviderMessageID),
+			Status:            result.Status,
+			ErrorCode:         nilableString(result.NormalizedError),
 			SentAt:            &now,
 		}
-		_ = s.repo.RecordOTPDelivery(ctx, smsDelivery)
+		_ = s.repo.RecordOTPDelivery(ctx, delivery)
 
-		if smsErr != nil {
-			// Both channels failed — fail closed
-			_ = s.repo.CreateAuditLog(ctx, &domain.AuditLog{
-				ActorID:  "system",
-				Action:   "otp_both_channels_failed",
-				TargetID: challenge.ID,
-				Payload:  fmt.Sprintf(`{"challenge_id":"%s","wa_error":"redacted","sms_error":"redacted"}`, challenge.ID),
-			})
-			return nil, errors.New("gagal mengirim OTP melalui WhatsApp dan SMS")
+		// Fallback: if WhatsApp failed, try SMS
+		if sendErr != nil && channel == domain.OTPChannelWhatsApp && result.Retryable == false {
+			span.SetAttributes(attribute.Bool("auth.channel.fallback", true))
+			smsReq := sendReq
+			smsReq.Channel = domain.OTPChannelSMS
+			smsResult, smsErr := s.otpProvider.SendOTP(ctx, smsReq)
+
+			smsDelivery := &domain.CustomerOTPDelivery{
+				ChallengeID:       challenge.ID,
+				Provider:          s.otpProvider.Name(),
+				Channel:           domain.OTPChannelSMS,
+				ProviderMessageID: nilableString(smsResult.ProviderMessageID),
+				Status:            domain.OTPDeliveryFallback,
+				ErrorCode:         nilableString(smsResult.NormalizedError),
+				SentAt:            &now,
+			}
+			_ = s.repo.RecordOTPDelivery(ctx, smsDelivery)
+
+			if smsErr != nil {
+				// Both channels failed — fail closed
+				_ = s.repo.CreateAuditLog(ctx, &domain.AuditLog{
+					ActorID:  "system",
+					Action:   "otp_both_channels_failed",
+					TargetID: challenge.ID,
+					Payload:  fmt.Sprintf(`{"challenge_id":"%s","wa_error":"redacted","sms_error":"redacted"}`, challenge.ID),
+				})
+				return nil, errors.New("gagal mengirim OTP melalui WhatsApp dan SMS")
+			}
+
+			// SMS fallback succeeded — update challenge channel
+			challenge.Channel = domain.OTPChannelSMS
+		} else if sendErr != nil {
+			return nil, errors.New("gagal mengirim OTP: " + sendErr.Error())
 		}
-
-		// SMS fallback succeeded — update challenge channel
-		challenge.Channel = domain.OTPChannelSMS
-	} else if sendErr != nil {
-		return nil, errors.New("gagal mengirim OTP: " + sendErr.Error())
+	} else {
+		// Mock success for OTP bypass
+		result = domain.OTPSendResult{
+			Status: domain.OTPDeliverySent,
+		}
 	}
 
 	// Audit log (no PII, no OTP plaintext)
@@ -528,8 +587,13 @@ func (s *GoogleAuthService) SendCustomerOTP(ctx context.Context, req *domain.Cus
 	)
 	_ = lockSeconds
 
+	statusVal := "sent"
+	if !otpRequired {
+		statusVal = "bypassed"
+	}
+
 	return &domain.CustomerOTPSendResponse{
-		Status:             "sent",
+		Status:             statusVal,
 		ChallengeID:        challenge.ID,
 		Channel:            string(challenge.Channel),
 		MaskedRecipient:    recipientMask,
@@ -578,11 +642,21 @@ func (s *GoogleAuthService) VerifyCustomerOTP(ctx context.Context, req *domain.C
 		return nil, errors.New("Terlalu banyak percobaan. Silakan minta kode baru.")
 	}
 
+	otpRequired := s.repo.IsCustomerAuthOTPRequired(ctx)
+
 	// Verify code (constant-time comparison)
-	codeOK, err := VerifyOTPCode(strings.TrimSpace(req.OTPCode), challenge.CodeHash)
-	if err != nil {
-		return nil, fmt.Errorf("OTP verification error: %w", err)
+	codeOK := false
+
+	if otpRequired {
+		codeOK, err = VerifyOTPCode(strings.TrimSpace(req.OTPCode), challenge.CodeHash)
+		if err != nil {
+			return nil, fmt.Errorf("OTP verification error: %w", err)
+		}
+	} else {
+		// Bypass OTP check
+		codeOK = true
 	}
+
 	if !codeOK {
 		lockSec := 300 // lock for 5 minutes after max attempts
 		_ = s.repo.IncrementOTPAttempts(ctx, challenge.ID, &lockSec)

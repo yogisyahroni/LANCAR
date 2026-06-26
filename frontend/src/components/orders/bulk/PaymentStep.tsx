@@ -89,6 +89,10 @@ export function PaymentStep({ jobId, data, onComplete }: PaymentStepProps) {
     try {
       const res = await api.post('/auth/web/orders/bulk/process', { job_id: jobId });
       const snapPayment = res.data.payment;
+      if (!snapPayment) {
+        completePayment();
+        return;
+      }
       setPayment(snapPayment);
       await openSnap(snapPayment);
     } catch (err: any) {

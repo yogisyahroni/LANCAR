@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"tembus/payment-service/internal/featureflags"
 	"time"
 )
 
@@ -14,9 +15,10 @@ type DisbursementService struct {
 	gatewayUrl     string
 	internalAPIKey string
 	httpClient     *http.Client
+	flagReader     featureflags.FlagReader
 }
 
-func NewDisbursementService() *DisbursementService {
+func NewDisbursementService(flagReader featureflags.FlagReader) *DisbursementService {
 	gatewayUrl := os.Getenv("INTEGRATION_GATEWAY_URL")
 	if gatewayUrl == "" {
 		gatewayUrl = "http://integration-gateway:8085"
@@ -26,6 +28,7 @@ func NewDisbursementService() *DisbursementService {
 		gatewayUrl:     gatewayUrl,
 		internalAPIKey: os.Getenv("INTERNAL_API_KEY"),
 		httpClient:     &http.Client{Timeout: 15 * time.Second},
+		flagReader:     flagReader,
 	}
 }
 
@@ -66,6 +69,18 @@ func (s *DisbursementService) CreatePayout(ctx context.Context, referenceID stri
 	req.Header.Set("Content-Type", "application/json")
 	if s.internalAPIKey != "" {
 		req.Header.Set("X-Internal-Api-Key", s.internalAPIKey)
+	}
+
+	// Check Feature Flag for Payment Provider
+	if s.flagReader != nil {
+		flag, err := s.flagReader.GetFlag(ctx, "payment_provider_xendit")
+		if err == nil && flag != nil && flag.IsEnabled {
+			req.Header.Set("X-Payment-Provider", "xendit")
+		} else {
+			req.Header.Set("X-Payment-Provider", "midtrans")
+		}
+	} else {
+		req.Header.Set("X-Payment-Provider", "midtrans")
 	}
 
 	resp, err := s.httpClient.Do(req)

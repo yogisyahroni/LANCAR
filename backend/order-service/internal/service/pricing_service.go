@@ -76,6 +76,20 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		}
 	}
 
+	// 3.5 Check Flags
+	if req.IsARCore {
+		arcoreEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "arcore_scanning", false)
+		if !arcoreEnabled {
+			return nil, fmt.Errorf("Feature ARCore Scanning is disabled")
+		}
+	}
+	if req.IsVolumetric {
+		volumetricEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "volumetric_scanning", false)
+		if !volumetricEnabled {
+			return nil, fmt.Errorf("Feature Volumetric Scanning is disabled")
+		}
+	}
+
 	// 4. Calculate Volumetric Weight
 	volumetricDiv := s.configRepo.GetFloatConfig(ctx, "volumetric_div", 6000.0)
 	volWeight := (req.Length * req.Width * req.Height) / volumetricDiv
@@ -124,8 +138,23 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		return nil, fmt.Errorf("surge multiplier error: %w", err)
 	}
 
+	peakHourEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "dynamic_pricing_peak_hour", false)
+	demandSupplyEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "dynamic_pricing_demand_supply", false)
+
+	if peakHourEnabled {
+		multiplier += 0.20 // Add 20% surge
+	}
+	if demandSupplyEnabled {
+		multiplier += 0.10 // Add 10% surge
+	}
+
 	dynamicPrice := int64(float64(subtotal) * (multiplier - 1.0))
 	priceAfterSurge := int64(float64(subtotal) * multiplier)
+	
+	insuranceEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "package_insurance", false)
+	if insuranceEnabled {
+		priceAfterSurge += 5000 // Mock 5000 IDR insurance
+	}
 
 	// 7. Apply Platform Fee (Biaya Layanan Operasional)
 	//

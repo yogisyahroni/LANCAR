@@ -65,6 +65,7 @@ export interface GoogleAuthCompleteResponse {
   // Populated when status == 'requires_phone'
   email?: string;
   full_name?: string;
+  otp_required?: boolean;
 }
 
 // ── Session key constants ─────────────────────────────────────

@@ -129,6 +129,16 @@ func (m *MockFlagReader) GetFlags(ctx context.Context, keys []string) (map[strin
 	return res, nil
 }
 
+func (m *MockFlagReader) IsFeatureFlagEnabled(ctx context.Context, key string, defaultVal bool) (bool, error) {
+	if m.Err != nil {
+		return defaultVal, m.Err
+	}
+	if flag, ok := m.Flags[key]; ok {
+		return flag.IsEnabled, nil
+	}
+	return defaultVal, nil
+}
+
 func (m *MockFlagReader) InvalidateCache(ctx context.Context, key string) error {
 	return nil
 }

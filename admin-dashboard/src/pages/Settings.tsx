@@ -35,6 +35,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
 
+const PREDEFINED_FLAGS = [
+  { key: 'custom', name: '-- Custom / Other --', description: 'Create a brand new feature flag', category: 'Experimental' },
+  { key: 'customer_auth_otp_required', name: 'Customer Auth OTP', description: 'Require OTP for customer registration and login', category: 'System' },
+  { key: 'require_payment_gateway', name: 'Require Payment Gateway', description: 'Enable or bypass the payment gateway for orders', category: 'System' },
+  { key: 'payment_provider_xendit', name: 'Xendit Payment Provider', description: 'Enable Xendit as a payment provider', category: 'System' },
+  { key: 'payment_provider_midtrans', name: 'Midtrans Payment Provider', description: 'Enable Midtrans as a payment provider', category: 'System' },
+];
+
 export default function Settings() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('General')
@@ -1487,7 +1495,7 @@ export default function Settings() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-xl bg-zinc-900 border border-white/10 rounded-[40px] shadow-2xl overflow-hidden"
+              className="relative w-full max-w-xl bg-zinc-950 border border-white/10 rounded-[40px] shadow-2xl overflow-hidden"
             >
               <div className="p-8 pb-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -1511,13 +1519,40 @@ export default function Settings() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Flag Key (Unique ID)</label>
-                    <input 
-                      type="text"
-                      placeholder="e.g. beta_checkout_flow"
-                      value={registerFlagForm.key}
-                      onChange={(e) => setRegisterFlagForm({...registerFlagForm, key: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
-                    />
+                    <select
+                      value={PREDEFINED_FLAGS.some(f => f.key === registerFlagForm.key) ? registerFlagForm.key : 'custom'}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'custom') {
+                          setRegisterFlagForm({...registerFlagForm, key: ''});
+                        } else {
+                          const predefined = PREDEFINED_FLAGS.find(f => f.key === val);
+                          if (predefined) {
+                            setRegisterFlagForm({
+                              ...registerFlagForm,
+                              key: predefined.key,
+                              name: predefined.name,
+                              description: predefined.description,
+                              category: predefined.category,
+                            });
+                          }
+                        }
+                      }}
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all appearance-none"
+                    >
+                      {PREDEFINED_FLAGS.map(flag => (
+                        <option key={flag.key} value={flag.key}>{flag.name} ({flag.key === 'custom' ? 'New' : flag.key})</option>
+                      ))}
+                    </select>
+                    {(!PREDEFINED_FLAGS.some(f => f.key === registerFlagForm.key) || registerFlagForm.key === '') && (
+                      <input 
+                        type="text"
+                        placeholder="e.g. beta_checkout_flow"
+                        value={registerFlagForm.key}
+                        onChange={(e) => setRegisterFlagForm({...registerFlagForm, key: e.target.value})}
+                        className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all mt-2"
+                      />
+                    )}
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Display Name</label>
@@ -1526,7 +1561,7 @@ export default function Settings() {
                       placeholder="e.g. Beta Checkout"
                       value={registerFlagForm.name}
                       onChange={(e) => setRegisterFlagForm({...registerFlagForm, name: e.target.value})}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                     />
                   </div>
                 </div>
@@ -1558,7 +1593,7 @@ export default function Settings() {
                     value={registerFlagForm.description}
                     onChange={(e) => setRegisterFlagForm({...registerFlagForm, description: e.target.value})}
                     rows={2}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
                   />
                 </div>
 
@@ -1574,16 +1609,16 @@ export default function Settings() {
                     value={registerFlagForm.reason}
                     onChange={(e) => setRegisterFlagForm({...registerFlagForm, reason: e.target.value})}
                     rows={2}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                    className="w-full bg-zinc-900 border border-zinc-700 rounded-2xl py-4 px-4 text-white font-bold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
                   />
                 </div>
 
-                <label className="flex items-center gap-3 p-4 rounded-2xl bg-white/[0.02] border border-white/5 cursor-pointer hover:bg-white/[0.05] transition-all">
+                <label className="flex items-center gap-3 p-4 rounded-2xl bg-zinc-900 border border-zinc-700 cursor-pointer hover:bg-zinc-800 transition-all">
                   <input 
                     type="checkbox"
                     checked={registerFlagForm.is_enabled}
                     onChange={(e) => setRegisterFlagForm({...registerFlagForm, is_enabled: e.target.checked})}
-                    className="w-5 h-5 rounded border-white/10 bg-white/5 text-primary focus:ring-offset-0 focus:ring-0"
+                    className="w-5 h-5 rounded border-zinc-600 bg-zinc-800 text-primary focus:ring-offset-0 focus:ring-0"
                   />
                   <div>
                     <p className="text-xs font-black text-zinc-200 uppercase tracking-tight">Enable by Default</p>

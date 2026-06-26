@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"tembus/payment-service/internal/domain"
+	"tembus/payment-service/internal/featureflags"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,7 +23,7 @@ type invoiceResponse struct {
 	InvoiceURL string `json:"InvoiceURL"`
 }
 
-func createInvoiceViaGateway(ctx context.Context, orderID string, grossAmountIDR int64, userID uuid.UUID) (string, error) {
+func createInvoiceViaGateway(ctx context.Context, orderID string, grossAmountIDR int64, userID uuid.UUID, flagReader featureflags.FlagReader) (string, error) {
 	gatewayURL := os.Getenv("INTEGRATION_GATEWAY_URL")
 	if gatewayURL == "" {
 		gatewayURL = "http://integration-gateway:8085"
@@ -49,6 +50,18 @@ func createInvoiceViaGateway(ctx context.Context, orderID string, grossAmountIDR
 	req.Header.Set("Content-Type", "application/json")
 	if internalAPIKey != "" {
 		req.Header.Set("X-Internal-Api-Key", internalAPIKey)
+	}
+
+	// Check Feature Flag for Payment Provider
+	if flagReader != nil {
+		flag, err := flagReader.GetFlag(ctx, "payment_provider_xendit")
+		if err == nil && flag != nil && flag.IsEnabled {
+			req.Header.Set("X-Payment-Provider", "xendit")
+		} else {
+			req.Header.Set("X-Payment-Provider", "midtrans")
+		}
+	} else {
+		req.Header.Set("X-Payment-Provider", "midtrans")
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
@@ -79,14 +92,16 @@ type walletService struct {
 	settingsRepo domain.SettingsRepository
 	disbursement *DisbursementService
 	db           *sql.DB
+	flagReader   featureflags.FlagReader
 }
 
-func NewWalletService(repo domain.WalletRepository, settingsRepo domain.SettingsRepository, db *sql.DB) domain.WalletService {
+func NewWalletService(repo domain.WalletRepository, settingsRepo domain.SettingsRepository, db *sql.DB, flagReader featureflags.FlagReader) domain.WalletService {
 	return &walletService{
 		repo:         repo,
 		settingsRepo: settingsRepo,
-		disbursement: NewDisbursementService(),
+		disbursement: NewDisbursementService(flagReader),
 		db:           db,
+		flagReader:   flagReader,
 	}
 }
 
@@ -143,7 +158,7 @@ func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amoun
 	if totalAmountIDR <= 0 {
 		return "", errors.New("top up amount is invalid")
 	}
-	snapToken, err := createInvoiceViaGateway(ctx, orderID, totalAmountIDR, userID)
+	snapToken, err := createInvoiceViaGateway(ctx, orderID, totalAmountIDR, userID, s.flagReader)
 	if err != nil {
 		return "", err
 	}

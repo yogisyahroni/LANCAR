@@ -4,22 +4,38 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"tembus/integration-gateway/internal/domain"
 )
 
-// NewPaymentProvider creates a PaymentProvider based on the given provider name
-func NewPaymentProvider(providerName string) (domain.PaymentProvider, error) {
+var (
+	midtransProv domain.PaymentProvider
+	xenditProv   domain.PaymentProvider
+	once         sync.Once
+)
+
+func initProviders() {
+	once.Do(func() {
+		midtransProv = NewMidtransProvider()
+		xenditProv = NewXenditProvider()
+	})
+}
+
+// GetPaymentProvider returns a PaymentProvider based on the given provider name
+func GetPaymentProvider(providerName string) (domain.PaymentProvider, error) {
+	initProviders()
+
 	if providerName == "" {
 		providerName = os.Getenv("ACTIVE_PAYMENT_PROVIDER")
 	}
 
 	switch strings.ToLower(providerName) {
 	case "midtrans":
-		return NewMidtransProvider(), nil
+		return midtransProv, nil
 	case "xendit":
-		return NewXenditProvider(), nil
+		return xenditProv, nil
 	default:
 		fmt.Printf("[integration-gateway] Warning: Unknown payment provider '%s', falling back to midtrans\n", providerName)
-		return NewMidtransProvider(), nil
+		return midtransProv, nil
 	}
 }

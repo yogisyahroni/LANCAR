@@ -9,7 +9,7 @@ import {
 } from './mapsRuntimeCredentials';
 
 export type MapProviderId = 'tomtom_maps' | 'openstreetmap' | 'disabled';
-export type MapProviderScope = 'global' | 'customer_mobile' | 'courier_mobile' | 'web_customer' | 'tracking';
+export type MapProviderScope = 'global' | 'customer_mobile' | 'courier_mobile' | 'web_customer' | 'web_admin' | 'tracking';
 export type RouteVehicleType = 'motorcycle' | 'car' | 'unknown';
 export type RouteProfile = 'motorcycle' | 'car' | 'fallback';
 
@@ -203,6 +203,7 @@ const DEFAULT_CONFIG: MapsProviderConfigValue = {
     customer_mobile: { enabled: true, provider: 'tomtom_maps' },
     courier_mobile: { enabled: true, provider: 'tomtom_maps' },
     web_customer: { enabled: true, provider: 'tomtom_maps' },
+    web_admin: { enabled: true, provider: 'openstreetmap' },
     tracking: { enabled: true, provider: 'tomtom_maps' },
   },
   providers: {
@@ -227,7 +228,7 @@ const DEFAULT_CONFIG: MapsProviderConfigValue = {
 };
 
 const VALID_PROVIDERS = new Set<MapProviderId>(['tomtom_maps', 'openstreetmap', 'disabled']);
-const VALID_SCOPES = new Set<MapProviderScope>(['global', 'customer_mobile', 'courier_mobile', 'web_customer', 'tracking']);
+const VALID_SCOPES = new Set<MapProviderScope>(['global', 'customer_mobile', 'courier_mobile', 'web_customer', 'web_admin', 'tracking']);
 const VALID_ROUTE_PROFILES = new Set<RouteProfile>(['motorcycle', 'car', 'fallback']);
 const VALID_VEHICLE_TYPES = new Set<RouteVehicleType>(['motorcycle', 'car', 'unknown']);
 const MAPS_OBSERVATION_LIMIT = 200;
@@ -1093,7 +1094,7 @@ export const getMapsProviderConfigValue = async (): Promise<MapsProviderConfigVa
         customer_mobile: { enabled: true, provider: 'tomtom_maps' },
         courier_mobile: { enabled: true, provider: 'tomtom_maps' },
         web_customer: { enabled: true, provider: 'tomtom_maps' },
-        web_admin: { enabled: true, provider: 'tomtom_maps' },
+        web_admin: { enabled: true, provider: 'openstreetmap' },
         tracking: { enabled: true, provider: 'tomtom_maps' },
       },
     });
@@ -1114,6 +1115,7 @@ export const getMapsProviderConfigValue = async (): Promise<MapsProviderConfigVa
       customer_mobile: { enabled: true, provider: 'tomtom_maps' },
       courier_mobile: { enabled: true, provider: 'tomtom_maps' },
       web_customer: { enabled: true, provider: 'tomtom_maps' },
+      web_admin: { enabled: true, provider: 'openstreetmap' },
       tracking: { enabled: true, provider: 'tomtom_maps' },
     },
   });

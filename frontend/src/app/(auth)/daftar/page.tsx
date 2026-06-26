@@ -164,6 +164,7 @@ function RegisterContent() {
     pendingEmail,
     pendingFullName,
     transactionId: googleTransactionId,
+    otpRequired: googleOtpRequired,
     reset: resetGoogleStore,
   } = useGoogleAuthStore();
 
@@ -313,6 +314,39 @@ function RegisterContent() {
         transaction_id: googleTransactionId ?? undefined,
         device_id: getDeviceId(),
       });
+
+      if (result.status === 'bypassed') {
+        const verifyResult = await verifyCustomerOTP({
+          transaction_id: googleTransactionId ?? undefined,
+          challenge_id: result.challenge_id,
+          code: '000000',
+          phone_number: normalized,
+          device_id: getDeviceId(),
+          device_info: {
+            platform: 'web',
+            app: 'customer-portal',
+            remember_me: false,
+            user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            language: typeof navigator !== 'undefined' ? navigator.language : 'id',
+          },
+        });
+
+        if (verifyResult.access_token) {
+          const sessionResponse = await api.post('/auth/web/session/exchange', {
+            access_token: verifyResult.access_token,
+          });
+          setAuth(true, sessionResponse.data.user);
+        } else if (verifyResult.user) {
+          setAuth(true, verifyResult.user);
+        }
+
+        clearGoogleSession();
+        resetGoogleStore();
+        router.push('/dashboard');
+        return;
+      }
+
       setChallengeId(result.challenge_id);
       setMaskedRecipient(result.masked_recipient);
       setPhoneNumber(normalized);
@@ -581,7 +615,7 @@ function RegisterContent() {
                   </div>
                 )}
 
-                {flow === 'google' && (
+                {flow === 'google' && googleOtpRequired !== false && (
                   <p className="text-xs text-muted-foreground">
                     Kode OTP akan dikirim via <strong>WhatsApp</strong> ke nomor di atas.
                   </p>
@@ -599,7 +633,9 @@ function RegisterContent() {
                   ) : (
                     <ArrowRight className="h-5 w-5" />
                   )}
-                  {flow === 'google' ? 'Kirim Kode OTP' : 'Daftar dan Kirim OTP'}
+                  {flow === 'google'
+                    ? (googleOtpRequired === false ? 'Simpan & Lanjutkan' : 'Kirim Kode OTP')
+                    : 'Daftar dan Kirim OTP'}
                 </button>
               </motion.div>
             )}

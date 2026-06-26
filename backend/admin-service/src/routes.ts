@@ -198,6 +198,32 @@ routes.get('/api/v1/maps/geocode', (req, res) => controllers.getPublicMapsGeocod
 routes.get('/api/v1/maps/reverse-geocode', (req, res) => controllers.getPublicMapsReverseGeocode(req, res));
 routes.get('/track/:token', (req, res) => controllers.getPublicTripShare(req, res));
 routes.get('/api/v1/public/location-requests/:token', (req, res) => controllers.customerOrder.getReceiverLocationRequestPublic(req, res));
+
+routes.get('/api/admin/courier/leaderboard', requireAuth, async (req, res) => {
+    try {
+        const db = require('./db').db;
+        const result = await db.query(`SELECT is_enabled FROM feature_flags WHERE key = 'courier_leaderboard'`);
+        if (result.rows.length === 0 || !result.rows[0].is_enabled) {
+            return res.status(403).json({ error: 'Feature Courier Leaderboard is disabled' });
+        }
+        res.json({ status: 'success', data: [] });
+    } catch(e) {
+        res.status(500).json({error: 'Internal Server Error'});
+    }
+});
+
+routes.get('/api/admin/chat/messages', requireAuth, async (req, res) => {
+    try {
+        const db = require('./db').db;
+        const result = await db.query(`SELECT is_enabled FROM feature_flags WHERE key = 'in_app_chat'`);
+        if (result.rows.length === 0 || !result.rows[0].is_enabled) {
+            return res.status(403).json({ error: 'Feature In-App Chat is disabled' });
+        }
+        res.json({ status: 'success', data: [] });
+    } catch(e) {
+        res.status(500).json({error: 'Internal Server Error'});
+    }
+});
 routes.post('/api/v1/public/location-requests/:token', (req, res) => controllers.customerOrder.submitReceiverLocationRequestPublic(req, res));
 routes.post('/api/v1/public/business/api-requests', (req, res) => controllers.businessApiRequest.createBusinessApiRequest(req, res));
 routes.post('/payments/midtrans/notification', (req, res) => controllers.customerOrder.handleMidtransNotification(req, res));

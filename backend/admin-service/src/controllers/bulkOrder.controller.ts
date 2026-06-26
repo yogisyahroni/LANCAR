@@ -680,6 +680,10 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
       return;
     }
 
+    const flagRes = await client.query("SELECT is_enabled FROM flags WHERE key = 'require_payment_gateway' LIMIT 1");
+    const requirePayment = flagRes.rows.length > 0 ? flagRes.rows[0].is_enabled : true;
+    const initialStatus = requirePayment ? 'pending_payment' : 'pending_assignment';
+
     // Extract unique batch IDs to pass to Midtrans
     const batchIds = [...new Set(validRows.map((r: any) => r.batch_id))];
     
@@ -729,7 +733,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         ) VALUES (
           $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
           $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
-          $11, $12, $13, $14, 'pending_payment', $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, NOW()
+          $11, $12, $13, $14, $31, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, NOW()
         ) RETURNING id, order_number
       `;
 
@@ -764,7 +768,8 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         JSON.stringify({ category: row.category || 'bulk', weight_kg: row.weight_kg, dimensions: row.dimensions }),
         row.customer_notes || 'Bulk Order',
         'now',
-        row.batch_id
+        row.batch_id,
+        initialStatus
       ];
 
       const result = await client.query(insertQuery, values);
@@ -797,6 +802,19 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         INSERT INTO order_events (order_id, user_id, event_type, description)
         VALUES ($1, $2, 'created', 'Customer created order via Web Portal Bulk Upload')
       `, [result.rows[0].id, customer_id]);
+    }
+
+    if (!requirePayment) {
+      await client.query('COMMIT');
+      await redis.del(job_id);
+
+      res.status(201).json({
+        success: true,
+        processed_count: validRows.length,
+        total_amount_idr: totalAmount,
+        payment: null
+      });
+      return;
     }
 
     const midtransOrderId = `TMB-BULK-${crypto.randomUUID()}`;

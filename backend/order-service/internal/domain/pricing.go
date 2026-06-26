@@ -13,8 +13,10 @@ type PricingEstimateRequest struct {
 	Length     float64  `json:"length" validate:"required"`
 	Width      float64  `json:"width" validate:"required"`
 	Height     float64  `json:"height" validate:"required"`
-	Weight     float64  `json:"weight" validate:"required"`
-	Models     []string `json:"models" validate:"required"` // Requested delivery models
+	Weight       float64  `json:"weight" validate:"required"`
+	Models       []string `json:"models" validate:"required"` // Requested delivery models
+	IsARCore     bool     `json:"is_arcore"`
+	IsVolumetric bool     `json:"is_volumetric"`
 }
 
 type PricingEstimateResponse struct {

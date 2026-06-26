@@ -50,6 +50,13 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		return nil, domain.ErrInvalidEstimate
 	}
 
+	if req.IsScheduled {
+		scheduledEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "scheduled_delivery", false)
+		if !scheduledEnabled {
+			return nil, fmt.Errorf("Feature Scheduled Delivery is disabled")
+		}
+	}
+
 	// 2. Double check Feature Flag for the selected model
 	flag, err := s.flagReader.GetFlag(ctx, estimate.Model)
 	if err != nil || flag == nil || !flag.IsEnabled {
@@ -79,13 +86,25 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		return nil, fmt.Errorf("failed to generate qr code: %w", err)
 	}
 
-	// 5. Create Order object
+	// 5. Check if Payment Gateway is required
+	requirePaymentFlag, err := s.flagReader.GetFlag(ctx, "require_payment_gateway")
+	requirePayment := true
+	if err == nil && requirePaymentFlag != nil {
+		requirePayment = requirePaymentFlag.IsEnabled
+	}
+
+	initialStatus := domain.StatusPendingPayment
+	if !requirePayment {
+		initialStatus = domain.StatusPendingAssignment
+	}
+
+	// 6. Create Order object
 	order := &domain.Order{
 		ID:                     uuid.New().String(),
 		OrderNumber:            orderNum,
 		CustomerID:             userID,
 		Model:                  estimate.Model,
-		Status:                 domain.StatusPendingPayment,
+		Status:                 initialStatus,
 		PickupAddress:          estimate.PickupAddress,
 		PickupLat:              estimate.PickupLat,
 		PickupLng:              estimate.PickupLng,

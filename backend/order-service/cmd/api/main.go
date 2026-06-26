@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -317,6 +318,17 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetOrder)))
 	mux.HandleFunc("/api/v1/orders/poll", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.PollOrderUpdates)))
 	mux.HandleFunc("/api/v1/meeting-points/suggest", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.SuggestMeetingPoints)))
+
+	// Mock Chat Endpoint
+	mux.HandleFunc("/api/v1/chat/send", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		chatEnabled, _ := flagReader.IsFeatureFlagEnabled(r.Context(), "in_app_chat", false)
+		if !chatEnabled {
+			middleware.WriteError(w, http.StatusForbidden, "ERR_FEATURE_DISABLED", "Feature In-App Chat is disabled", middleware.GetCorrelationID(r.Context()))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"status": "success", "message": "Message sent (mock)"})
+	})))
 
 	// Courier Workflow Routes
 	mux.HandleFunc("/api/v1/couriers/orders/accept", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AcceptOrder)))

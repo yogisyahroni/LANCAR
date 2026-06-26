@@ -231,6 +231,7 @@ type GoogleAuthCompleteResponse struct {
 	// Populated when status == "requires_phone"
 	Email             string                   `json:"email,omitempty"`
 	FullName          string                   `json:"full_name,omitempty"`
+	OtpRequired       *bool                    `json:"otp_required,omitempty"`
 }
 
 // GoogleAuthUser is a safe customer representation returned after auth.

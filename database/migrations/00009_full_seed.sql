@@ -121,7 +121,7 @@ INSERT INTO feature_flags (key, name, description, is_enabled, category, require
 ('model_two_legs',                'Two-Legs Relay',        'Relay delivery with 1 meeting point, max 25km',               TRUE,  'model',   FALSE, '{"active_zones":["JKT-PST","JKT-SEL","JKT-BAR","JKT-TIM","JKT-UTA"],"rollout_pct":100}'::jsonb),
 ('model_three_legs',              'Three-Legs Relay',      'High distance relay with 2 meeting points',                   FALSE, 'model',   TRUE,  '{"active_zones":[],"rollout_pct":0}'::jsonb),
 ('dynamic_pricing_peak_hour',     'Peak Hour Surge',       'Increase price during peak hours (07-09, 17-20 WIB)',         TRUE,  'pricing', FALSE, '{"peak_hours":[[7,9],[17,20]],"max_multiplier":1.4}'::jsonb),
-('dynamic_pricing_weather',       'Weather Surge',         'Increase price during rain events based on BMKG data',        TRUE,  'pricing', FALSE, '{"rain_threshold_mm":5.0,"max_multiplier":1.3}'::jsonb),
+
 ('dynamic_pricing_demand_supply', 'Demand-Supply Surge',   'Increase price when courier density low per zone',            TRUE,  'pricing', FALSE, '{"ratio_threshold":0.5,"max_multiplier":1.2}'::jsonb),
 ('volumetric_scanning',           'Volumetric Scanning',   'ML-based package dimension scanning via camera',              TRUE,  'feature', FALSE, '{"confidence_threshold":0.75}'::jsonb),
 ('arcore_scanning',               'ARCore Scanning',       'Enhanced AR depth sensor scanning (for supported devices)',   FALSE, 'feature', FALSE, '{"min_android_version":24}'::jsonb),
@@ -130,6 +130,7 @@ INSERT INTO feature_flags (key, name, description, is_enabled, category, require
 ('loyalty_program',               'Loyalty Program',       'Customer tier rewards and cashback system',                   TRUE,  'feature', FALSE, '{"tiers":["bronze","silver","gold","platinum"]}'::jsonb),
 ('referral_program',              'Referral Program',      'Customer referral code and reward tracking',                  TRUE,  'feature', FALSE, '{"reward_idr":20000,"referrer_reward_idr":10000}'::jsonb),
 ('scheduled_delivery',            'Scheduled Delivery',    'Allow customers to schedule deliveries up to 7 days ahead',  FALSE, 'feature', FALSE, '{"max_days_ahead":7}'::jsonb),
+('require_payment_gateway',       'Payment Gateway',       'Enable/disable integration with Midtrans',                    TRUE,  'system',  FALSE, '{}'::jsonb),
 ('multi_zone_courier',            'Multi-Zone Courier',    'Allow couriers to be assigned to multiple zones',             TRUE,  'system',  FALSE, '{"max_zones":3}'::jsonb),
 ('courier_leaderboard',           'Courier Leaderboard',   'Weekly relay score leaderboard visible to couriers',          TRUE,  'system',  FALSE, '{"top_n":10}'::jsonb)
 ON CONFLICT (key) DO UPDATE

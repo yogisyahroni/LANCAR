@@ -54,9 +54,12 @@ function GoogleCallbackContent() {
         setCompleting();
 
         // ── 1. Extract callback params ──────────────────────────
-        const idToken = searchParams.get('id_token') ?? searchParams.get('credential');
-        const stateParam = searchParams.get('state');
-        const errorParam = searchParams.get('error');
+        // Implicit Flow (response_type=id_token) returns params in the URL fragment (#)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        
+        const idToken = searchParams.get('id_token') ?? hashParams.get('id_token') ?? searchParams.get('credential');
+        const stateParam = searchParams.get('state') ?? hashParams.get('state');
+        const errorParam = searchParams.get('error') ?? hashParams.get('error');
 
         if (errorParam) {
           throw new Error(
@@ -143,7 +146,7 @@ function GoogleCallbackContent() {
           case 'requires_phone': {
             // New Google user — need to collect phone number
             const txId = result.transaction_id ?? session.txId;
-            setRequiresPhone(result.email ?? '', result.full_name ?? '', txId);
+            setRequiresPhone(result.email ?? '', result.full_name ?? '', txId, result.otp_required ?? true);
             router.replace('/daftar?flow=google');
             break;
           }

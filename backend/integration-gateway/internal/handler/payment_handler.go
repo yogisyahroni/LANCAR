@@ -5,16 +5,14 @@ import (
 	"log"
 	"net/http"
 	"tembus/integration-gateway/internal/domain"
+	"tembus/integration-gateway/internal/provider"
 )
 
 type PaymentHandler struct {
-	provider domain.PaymentProvider
 }
 
-func NewPaymentHandler(provider domain.PaymentProvider) *PaymentHandler {
-	return &PaymentHandler{
-		provider: provider,
-	}
+func NewPaymentHandler() *PaymentHandler {
+	return &PaymentHandler{}
 }
 
 func (h *PaymentHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +22,10 @@ func (h *PaymentHandler) CreateInvoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.provider.CreateInvoice(r.Context(), req)
+	providerName := r.Header.Get("X-Payment-Provider")
+	prov, _ := provider.GetPaymentProvider(providerName)
+
+	resp, err := prov.CreateInvoice(r.Context(), req)
 	if err != nil {
 		log.Printf("[integration-gateway] CreateInvoice Error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -42,7 +43,10 @@ func (h *PaymentHandler) CreateDisbursement(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	resp, err := h.provider.CreateDisbursement(r.Context(), req)
+	providerName := r.Header.Get("X-Payment-Provider")
+	prov, _ := provider.GetPaymentProvider(providerName)
+
+	resp, err := prov.CreateDisbursement(r.Context(), req)
 	if err != nil {
 		log.Printf("[integration-gateway] CreateDisbursement Error: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

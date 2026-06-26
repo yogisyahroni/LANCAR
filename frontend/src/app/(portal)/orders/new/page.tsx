@@ -347,6 +347,17 @@ export default function NewOrderPage() {
         setOrderData(order);
         orderDataRef.current = order;
       }
+
+      if (orderDataRef.current?.status === 'pending_assignment') {
+        clearCustomerOrderDraft();
+        addNotification({
+          title: "Order Berhasil",
+          message: `Order ${orderDataRef.current?.order_number} sedang diproses.`,
+          type: "success"
+        });
+        router.push('/dashboard');
+        return;
+      }
       
       const sessionRes = await api.post(`/auth/web/orders/${currentOrderId}/payment/session`, 
         { method: 'midtrans' },
