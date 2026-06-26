@@ -39,11 +39,23 @@ fun getFirstConfigValue(vararg keys: String): String {
 }
 
 fun getVersionCode(): Int {
-    return (project.findProperty("versionCode") as String?)?.toIntOrNull() ?: 1
+    val prop = (project.findProperty("versionCode") as String?)?.toIntOrNull()
+    if (prop != null) return prop
+    return try {
+        val proc = ProcessBuilder("git", "rev-list", "--count", "HEAD").start()
+        proc.inputStream.bufferedReader().readText().trim().toInt()
+    } catch (e: Exception) { 1 }
 }
 
 fun getVersionName(): String {
-    return (project.findProperty("versionName") as String?)?.takeIf { it.isNotBlank() } ?: "1.0.0"
+    val prop = (project.findProperty("versionName") as String?)?.takeIf { it.isNotBlank() }
+    if (prop != null) return prop
+    return try {
+        val proc = ProcessBuilder("git", "describe", "--tags", "--always").start()
+        val rawName = proc.inputStream.bufferedReader().readText().trim()
+        val name = rawName.split("-").firstOrNull() ?: rawName
+        name.ifBlank { "1.0.0" }
+    } catch (e: Exception) { "1.0.0" }
 }
 
 fun normalizedBaseUrl(value: String): String {

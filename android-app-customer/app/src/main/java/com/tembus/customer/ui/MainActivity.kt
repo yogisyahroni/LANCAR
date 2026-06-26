@@ -24,6 +24,8 @@ import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+import androidx.activity.enableEdgeToEdge
+
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
 
@@ -33,6 +35,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         
         // Root detection uses a lightweight Java/Kotlin heuristic here to keep the
         // customer app compatible with Android 15+ 16 KB page-size devices.

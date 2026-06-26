@@ -38,12 +38,25 @@ fun CustomerLaunchSplash(
     }
 
     if (!view.isInEditMode) {
-        SideEffect {
+        androidx.compose.runtime.DisposableEffect(view) {
             val window = (view.context as Activity).window
+            val originalStatusBarColor = window.statusBarColor
+            val originalNavigationBarColor = window.navigationBarColor
+            val controller = WindowCompat.getInsetsController(window, view)
+            val originalLightStatusBars = controller.isAppearanceLightStatusBars
+            val originalLightNavBars = controller.isAppearanceLightNavigationBars
+
             window.statusBarColor = SplashBackground.toArgb()
             window.navigationBarColor = SplashBackground.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
-            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = false
+            controller.isAppearanceLightStatusBars = false
+            controller.isAppearanceLightNavigationBars = false
+
+            onDispose {
+                window.statusBarColor = androidx.compose.ui.graphics.Color.Transparent.toArgb()
+                window.navigationBarColor = androidx.compose.ui.graphics.Color.Transparent.toArgb()
+                controller.isAppearanceLightStatusBars = originalLightStatusBars
+                controller.isAppearanceLightNavigationBars = originalLightNavBars
+            }
         }
     }
 

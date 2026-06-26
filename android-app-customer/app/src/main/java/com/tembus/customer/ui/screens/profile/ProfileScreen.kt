@@ -43,6 +43,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -81,31 +82,30 @@ import com.tembus.customer.data.model.ProfileResponse
 import com.tembus.customer.data.security.LocalDeviceSecurityManager
 import com.tembus.customer.ui.security.LocalSecuritySettingsPanel
 import com.tembus.customer.ui.theme.Primary
+import com.tembus.customer.BuildConfig
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
-private val ProfileBackground = Color(0xFFF4F7FB)
-private val SuccessGreen = Color(0xFF008C5A)
-private val DangerRed = Color(0xFFC62828)
+
 
 @Composable
 private fun profileTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color(0xFF17202A),
-    unfocusedTextColor = Color(0xFF17202A),
-    disabledTextColor = Color(0xFF6B7280),
-    focusedContainerColor = Color.White,
-    unfocusedContainerColor = Color.White,
-    disabledContainerColor = Color(0xFFF5F7FA),
-    cursorColor = SuccessGreen,
-    focusedBorderColor = SuccessGreen,
-    unfocusedBorderColor = Color(0xFFDCE3EE),
-    disabledBorderColor = Color(0xFFE5EAF2),
-    focusedLabelColor = SuccessGreen,
-    unfocusedLabelColor = Color(0xFF6B7280),
-    disabledLabelColor = Color(0xFF6B7280),
-    focusedPlaceholderColor = Color(0xFF6B7280),
-    unfocusedPlaceholderColor = Color(0xFF6B7280)
+    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+    unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+    disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    focusedContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    cursorColor = MaterialTheme.colorScheme.primary,
+    focusedBorderColor = MaterialTheme.colorScheme.primary,
+    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+    disabledBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+    focusedLabelColor = MaterialTheme.colorScheme.primary,
+    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -144,13 +144,13 @@ fun ProfileScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.White,
-                    titleContentColor = Color(0xFF17202A),
-                    navigationIconContentColor = Color(0xFF17202A)
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
-        containerColor = ProfileBackground
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Box(
             modifier = Modifier
@@ -231,22 +231,24 @@ private fun ProfileContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 18.dp),
+            .padding(horizontal = 20.dp)
+            .padding(top = 32.dp, bottom = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         AvatarBadge(name = profile.name)
         Spacer(Modifier.height(14.dp))
         Text(
             text = profile.name.ifBlank { "Pelanggan TEMBUS" },
-            fontWeight = FontWeight.ExtraBold,
+            fontWeight = FontWeight.Black,
+            letterSpacing = (-0.5).sp,
             fontSize = 24.sp,
-            color = Color(0xFF17202A),
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
         Text(
             text = primaryContact,
-            color = Color(0xFF6B7280),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -260,7 +262,7 @@ private fun ProfileContent(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(24.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
@@ -293,13 +295,20 @@ private fun ProfileContent(
                 .fillMaxWidth()
                 .height(54.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
-            border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.6f))
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
         ) {
                         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
             Spacer(Modifier.width(8.dp))
             Text("Keluar Akun", fontWeight = FontWeight.Bold)
         }
+        Spacer(Modifier.height(24.dp))
+        Text(
+            text = "Versi Aplikasi: ${BuildConfig.VERSION_NAME}",
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
+        )
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -384,16 +393,17 @@ private fun ProfileStatusCard(profile: ProfileResponse) {
     val verifiedPhoneNumber = profile.phoneNumber.asPhoneDisplay()
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(24.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Text(
                 text = "Status Akun",
-                fontWeight = FontWeight.ExtraBold,
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-0.5).sp,
                 fontSize = 18.sp,
-                color = Color(0xFF17202A)
+                color = MaterialTheme.colorScheme.onSurface
             )
             StatusRow(Icons.Default.VerifiedUser, "Identitas", if (profile.name.isNotBlank()) "Lengkap" else "Perlu dilengkapi")
             StatusRow(
@@ -418,17 +428,17 @@ private fun StatusRow(icon: ImageVector, label: String, value: String) {
             modifier = Modifier
                 .size(42.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(SuccessGreen.copy(alpha = 0.1f)),
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = SuccessGreen)
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(label, color = Color(0xFF6B7280), fontSize = 12.sp)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             Text(
                 value,
-                color = Color(0xFF17202A),
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -453,13 +463,13 @@ private fun MenuRow(
             modifier = Modifier.padding(vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = Color(0xFF4B5563), modifier = Modifier.size(24.dp))
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(16.dp))
-            Text(label, fontSize = 16.sp, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF9CA3AF))
+            Text(label, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
         }
     }
-    if (showDivider) Divider(thickness = 0.5.dp, color = Color(0xFFE5E7EB))
+    if (showDivider) HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 }
 
 @Composable
@@ -496,7 +506,7 @@ private fun EditProfileDialog(
                 )
                 Text(
                     text = "Perubahan disimpan ke database TEMBUS dan tersinkron ke sesi aplikasi.",
-                    color = Color(0xFF6B7280),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
@@ -512,7 +522,7 @@ private fun EditProfileDialog(
                         modifier = Modifier
                             .size(16.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.82f))
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.82f))
                     )
                     Spacer(Modifier.width(8.dp))
                 }
@@ -538,7 +548,7 @@ private fun SettingsDialog(onDismiss: () -> Unit, onRefresh: () -> Unit) {
                 StatusRow(Icons.Default.Refresh, "Konfigurasi peta", "Disinkronkan otomatis tanpa update aplikasi")
                 Text(
                     text = "Gunakan sinkronisasi untuk mengambil konfigurasi terbaru dari server.",
-                    color = Color(0xFF6B7280),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
@@ -576,7 +586,7 @@ private fun SecurityDialog(
                 )
                 Text(
                     text = "Saat proteksi aktif, pembayaran dan aksi sensitif perlu PIN atau biometrik lokal. Keluar akun tetap menghapus token terenkripsi dari perangkat ini.",
-                    color = Color(0xFF6B7280),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
@@ -584,8 +594,8 @@ private fun SecurityDialog(
         confirmButton = {
             OutlinedButton(
                 onClick = onLogout,
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = DangerRed),
-                border = BorderStroke(1.dp, DangerRed.copy(alpha = 0.6f))
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.6f))
             ) {
                 Text("Keluar")
             }
@@ -607,7 +617,7 @@ private fun HelpDialog(onDismiss: () -> Unit) {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Tim operasional TEMBUS siap membantu kendala akun, pembayaran, dan pengiriman.")
-                Text("Email: support@tembus.id", color = Color(0xFF6B7280))
+                Text("Email: support@tembus.id", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {
@@ -646,9 +656,9 @@ private fun ProfileLoadingState() {
     ) {
         Box(
             modifier = Modifier
-                .size(96.dp)
+                .size(64.dp)
                 .clip(CircleShape)
-                .background(Primary.copy(alpha = 0.12f))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         )
         Spacer(Modifier.height(18.dp))
         Box(
@@ -656,7 +666,7 @@ private fun ProfileLoadingState() {
                 .width(180.dp)
                 .height(22.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFE3EAF4))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         )
         Spacer(Modifier.height(8.dp))
         Box(
@@ -664,7 +674,7 @@ private fun ProfileLoadingState() {
                 .width(132.dp)
                 .height(14.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFFE3EAF4))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
         )
         Spacer(Modifier.height(28.dp))
         repeat(3) {
@@ -673,11 +683,11 @@ private fun ProfileLoadingState() {
                     .fillMaxWidth()
                     .height(86.dp)
                     .clip(RoundedCornerShape(22.dp))
-                    .background(Color.White)
+                    .background(MaterialTheme.colorScheme.surface)
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
         }
-        Text("Memuat profil...", color = Color(0xFF4B5563), fontWeight = FontWeight.SemiBold)
+        Text("Memuat profil...", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -688,11 +698,11 @@ private fun ProfileErrorState(message: String, onRetry: () -> Unit) {
             modifier = Modifier.padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(Icons.Default.Security, contentDescription = null, tint = DangerRed, modifier = Modifier.size(48.dp))
+            Icon(Icons.Default.Security, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
             Spacer(Modifier.height(12.dp))
             Text("Profil belum tersinkron", fontWeight = FontWeight.Bold, fontSize = 20.sp)
             Spacer(Modifier.height(6.dp))
-            Text(message, color = Color(0xFF6B7280))
+            Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(16.dp))
             Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = Primary)) {
                 Text("Coba Lagi")

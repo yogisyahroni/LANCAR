@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -40,6 +42,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -70,7 +73,6 @@ import com.tembus.customer.ui.theme.PrimaryLight
 import com.tembus.customer.ui.theme.Secondary
 import com.tembus.customer.ui.theme.SecondaryLight
 
-private val NotificationSurface = Color.White
 private val PromoOrange = Color(0xFFFF7A00)
 
 private data class NotificationCategoryTab(
@@ -104,10 +106,7 @@ fun NotificationCenterScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("Notifikasi", fontWeight = FontWeight.Black, color = OnSurface)
-                        Text("Inbox, bantuan, dan promo resmi TEMBUS", color = OnSurfaceVariant, fontSize = 12.sp)
-                    }
+                    Text("Notifikasi", fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp, color = OnSurface)
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
@@ -121,7 +120,7 @@ fun NotificationCenterScreen(
                         Text("Baca", color = Primary, fontWeight = FontWeight.ExtraBold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { padding ->
@@ -159,7 +158,7 @@ fun NotificationCenterScreen(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
+                        contentPadding = PaddingValues(start = 18.dp, top = 24.dp, end = 18.dp, bottom = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(state.notifications, key = { it.id }) { notification ->
@@ -193,37 +192,37 @@ private fun NotificationCategoryTabs(
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(vertical = 12.dp),
-        contentPadding = PaddingValues(horizontal = 18.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(notificationTabs) { tab ->
             val selected = tab.key == selectedCategory
             val unread = if (tab.key == null) unreadByCategory.values.sum() else unreadByCategory[tab.key].orZero()
             Surface(
-                modifier = Modifier.clickable { onSelect(tab.key) },
-                color = if (selected) Primary else Background,
-                shape = RoundedCornerShape(999.dp),
-                border = BorderStroke(1.dp, if (selected) Primary else Outline)
+                onClick = { onSelect(tab.key) },
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(100.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 13.dp, vertical = 10.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(tab.icon, contentDescription = null, tint = if (selected) Color.White else Primary, modifier = Modifier.size(17.dp))
-                    Spacer(Modifier.width(7.dp))
-                    Text(tab.label, color = if (selected) Color.White else PrimaryDark, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
+                    Icon(tab.icon, contentDescription = null, tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(tab.label, color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                     if (unread > 0) {
-                        Spacer(Modifier.width(7.dp))
+                        Spacer(Modifier.width(6.dp))
                         Box(
                             modifier = Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(if (selected) PromoOrange else Primary),
+                                .height(18.dp)
+                                .padding(horizontal = 5.dp)
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(unread.coerceAtMost(99).toString(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            Text(unread.coerceAtMost(99).toString(), color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimary, fontSize = 9.sp, fontWeight = FontWeight.Black)
                         }
                     }
                 }
@@ -256,7 +255,7 @@ private fun NotificationRow(
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = NotificationSurface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, if (notification.isRead) Outline else accent.copy(alpha = 0.34f)),
         elevation = CardDefaults.cardElevation(defaultElevation = if (notification.isRead) 1.dp else 3.dp)
     ) {
@@ -303,7 +302,7 @@ private fun NotificationRow(
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color(0xFFAAB2C0))
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
             }
             Spacer(Modifier.height(12.dp))
             HorizontalDivider(color = Outline)
@@ -357,7 +356,7 @@ private fun NotificationLoadingState() {
                     .fillMaxWidth()
                     .height(104.dp)
                     .clip(RoundedCornerShape(22.dp))
-                    .background(Color(0xFFE7EEF5))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             )
         }
     }
@@ -371,39 +370,44 @@ private fun NotificationEmptyState(
 ) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(
-            modifier = Modifier.padding(24.dp),
+            modifier = Modifier.padding(32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier = Modifier
-                    .size(74.dp)
-                    .clip(RoundedCornerShape(25.dp))
-                    .background(PrimaryLight),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = Primary, modifier = Modifier.size(38.dp))
-            }
-            Spacer(Modifier.height(16.dp))
-            Text("Belum ada notifikasi", color = OnSurface, fontSize = 20.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(6.dp))
+            Icon(
+                Icons.Default.NotificationsOff,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                modifier = Modifier.size(80.dp)
+            )
+            Spacer(Modifier.height(32.dp))
             Text(
-                when (selectedCategory) {
-                    "promo" -> "Promo yang tersedia akan muncul di sini setelah kamu mengaktifkan preferensi marketing."
-                    "support" -> "Pertanyaan dan balasan bantuan akan tampil di sini."
-                    else -> "Pesan operasional dan update order akan tampil di sini."
+                text = "TIDAK ADA NOTIFIKASI",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-0.5).sp
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = when (selectedCategory) {
+                    "promo" -> "Belum ada promo yang tersedia saat ini.\nNyalakan preferensi marketing untuk update."
+                    "support" -> "Kotak masuk bantuan masih kosong.\nRiwayat percakapanmu akan muncul di sini."
+                    else -> "Belum ada pesan masuk atau update pesanan.\nSemuanya masih tenang."
                 },
-                color = OnSurfaceVariant,
-                fontSize = 13.sp,
-                lineHeight = 19.sp
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 15.sp,
+                lineHeight = 24.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
             if (selectedCategory == "promo" || selectedCategory == "support") {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(24.dp))
                 Button(
                     onClick = if (selectedCategory == "support") onSupportClick else onPromoClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
-                    shape = RoundedCornerShape(16.dp)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(100.dp),
+                    modifier = Modifier.height(48.dp)
                 ) {
-                    Text(if (selectedCategory == "support") "Pusat Bantuan" else "Lihat Promo", fontWeight = FontWeight.ExtraBold)
+                    Text(if (selectedCategory == "support") "Pusat Bantuan" else "Lihat Promo", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onPrimary)
                 }
             }
         }

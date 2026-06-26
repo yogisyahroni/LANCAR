@@ -19,23 +19,26 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Primary,
+    primary = PrimaryLight,
+    onPrimary = PrimaryDark,
     primaryContainer = PrimaryDark,
-    secondary = Secondary,
+    onPrimaryContainer = PrimaryLight,
+    secondary = SecondaryLight,
+    onSecondary = SecondaryDark,
     secondaryContainer = SecondaryDark,
-    tertiary = Accent,
-    tertiaryContainer = AccentLight,
+    onSecondaryContainer = SecondaryLight,
+    tertiary = AccentLight,
+    onTertiary = Accent,
+    tertiaryContainer = Accent,
+    onTertiaryContainer = AccentLight,
     background = DarkBackground,
     surface = DarkSurface,
     surfaceVariant = DarkSurfaceVariant,
-    outline = OutlineStrong,
-    outlineVariant = DarkSurfaceVariant,
-    onPrimary = OnPrimary,
-    onSecondary = OnSecondary,
-    onTertiary = OnAccent,
+    outline = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.12f),
+    outlineVariant = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.05f),
     onBackground = DarkOnBackground,
     onSurface = DarkOnSurface,
-    onSurfaceVariant = DarkOnSurface,
+    onSurfaceVariant = DarkOnSurfaceVariant,
     error = Error,
     errorContainer = Error.copy(alpha = 0.18f),
     onError = OnPrimary,
@@ -95,9 +98,9 @@ fun TEMBUSCustomerTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            window.navigationBarColor = colorScheme.surface.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+            window.statusBarColor = androidx.compose.ui.graphics.Color.Transparent.toArgb()
+            window.navigationBarColor = androidx.compose.ui.graphics.Color.Transparent.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
             WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
         }
     }
