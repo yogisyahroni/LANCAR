@@ -101,8 +101,10 @@ fun OnboardingScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(TembusSpacing.Screen))
+        val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+        val logoRes = if (isDark) R.drawable.tembus_home_logo else R.drawable.tembus_login_logo
         Image(
-            painter = painterResource(id = R.drawable.tembus_login_logo),
+            painter = painterResource(id = logoRes),
             contentDescription = "Logo TEMBUS",
             contentScale = ContentScale.Fit,
             modifier = Modifier

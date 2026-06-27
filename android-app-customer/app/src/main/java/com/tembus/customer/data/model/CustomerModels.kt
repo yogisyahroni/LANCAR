@@ -271,6 +271,7 @@ data class CustomerPaymentSetup(
     @SerialName("status") val status: String = "pending",
     @SerialName("payment_status") val paymentStatus: String = "pending",
     @SerialName("order_status") val orderStatus: String = "",
+    @SerialName("active_payment_provider") val activePaymentProvider: String? = null,
     @SerialName("amount_idr") val amountIdr: Long = 0L,
     @SerialName("wallet_balance_idr") val walletBalanceIdr: Long = 0L,
     @SerialName("snap_token") val snapToken: String? = null,

@@ -1152,7 +1152,6 @@ private fun RoutePreviewCard(
                 .fillMaxWidth()
                 .height(190.dp)
                 .clip(RoundedCornerShape(22.dp))
-                .background(SoftBlue)
         ) {
             val markers = buildList {
                 state.pickupLocation?.let {
@@ -1663,7 +1662,6 @@ private fun ReviewRouteSnapshotBlock(state: BookingState, price: PriceBreakdown?
                 .fillMaxWidth()
                 .height(158.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .background(SoftBlue)
         ) {
             RuntimeMapRenderer(
                 providerConfig = state.mapsProviderConfig,

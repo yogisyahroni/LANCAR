@@ -75,6 +75,10 @@ import com.tomtom.sdk.map.display.marker.MarkerOptions
 import com.tomtom.sdk.map.display.polyline.PolylineOptions
 import com.tomtom.sdk.map.display.ui.MapReadyCallback
 import com.tomtom.sdk.map.display.ui.MapView
+import com.tomtom.sdk.map.display.style.StandardStyles
+import com.tomtom.sdk.map.display.style.StyleLoadingCallback
+import com.tomtom.sdk.map.display.style.LoadingStyleFailure
+import android.util.Log
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.floor
@@ -186,10 +190,12 @@ private fun TomTomSdkMapRenderer(
     val lifecycleOwner = LocalLifecycleOwner.current
     val clickHandlerState = rememberUpdatedState(onMapClick)
     var mapView by remember { mutableStateOf<MapView?>(null) }
+    var tomTomMap by remember { mutableStateOf<TomTomMap?>(null) }
     val mapKey = remember { BuildConfig.TOMTOM_API_KEY.trim() }
     val routeColorArgb = routeColor.toArgb()
 
-    Box(modifier = modifier.background(Color(0xFFEAF3FF))) {
+        val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    Box(modifier = modifier) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { viewContext ->
@@ -211,19 +217,33 @@ private fun TomTomSdkMapRenderer(
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
                     onCreate(null)
+                    // Lifecycle is managed by DisposableEffect below.
+                    // Just request the map asynchronously.
                     getMapAsync(object : MapReadyCallback {
                         override fun onMapReady(map: TomTomMap) {
-                            configureTomTomMap(map, clickHandlerState)
-                            renderTomTomMapContent(
-                                tomTomMap = map,
-                                markers = markers,
-                                routePoints = routePoints,
-                                viewport = viewport,
-                                routeColorArgb = routeColorArgb
+                            Log.d("TomTomMap", "onMapReady triggered, loading style...")
+                            map.loadStyle(
+                                StandardStyles.BROWSING,
+                                object : StyleLoadingCallback {
+                                    override fun onSuccess() {
+                                        Log.d("TomTomMap", "Style loaded successfully!")
+                                        configureTomTomMap(map, clickHandlerState)
+                                        tomTomMap = map
+                                        hideTomTomWatermarks(this@apply)
+                                    }
+                                    override fun onFailure(failure: LoadingStyleFailure) {
+                                        Log.e("TomTomMap", "Style FAILED: ${failure::class.simpleName} | $failure")
+                                        // Fallback: set map anyway so we can draw markers
+                                        configureTomTomMap(map, clickHandlerState)
+                                        tomTomMap = map
+                                        hideTomTomWatermarks(this@apply)
+                                    }
+                                }
                             )
                         }
                     })
                     mapView = this
+                    hideTomTomWatermarks(this)
                 }
             },
             onRelease = { view ->
@@ -235,18 +255,17 @@ private fun TomTomSdkMapRenderer(
                     // Ignore already destroyed
                 }
             },
-            update = { view ->
-                view.getMapAsync(object : MapReadyCallback {
-                    override fun onMapReady(map: TomTomMap) {
-                        renderTomTomMapContent(
-                            tomTomMap = map,
-                            markers = markers,
-                            routePoints = routePoints,
-                            viewport = viewport,
-                            routeColorArgb = routeColorArgb
-                        )
-                    }
-                })
+            update = { _ ->
+                // Called on recomposition. We use the saved tomTomMap instance.
+                tomTomMap?.let { map ->
+                    renderTomTomMapContent(
+                        tomTomMap = map,
+                        markers = markers,
+                        routePoints = routePoints,
+                        viewport = viewport,
+                        routeColorArgb = routeColorArgb
+                    )
+                }
             }
         )
 
@@ -258,18 +277,7 @@ private fun TomTomSdkMapRenderer(
     DisposableEffect(lifecycleOwner, mapView) {
         val currentMapView = mapView ?: return@DisposableEffect onDispose {}
         val lifecycle = lifecycleOwner.lifecycle
-        
-        try {
-            if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-                currentMapView.onStart()
-            }
-            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                currentMapView.onResume()
-            }
-        } catch (e: Exception) {
-            // Map might be already destroyed
-        }
-        
+
         val observer = LifecycleEventObserver { _, event ->
             try {
                 when (event) {
@@ -277,11 +285,10 @@ private fun TomTomSdkMapRenderer(
                     Lifecycle.Event.ON_RESUME -> currentMapView.onResume()
                     Lifecycle.Event.ON_PAUSE -> currentMapView.onPause()
                     Lifecycle.Event.ON_STOP -> currentMapView.onStop()
-                    // onDestroy is handled by AndroidView onRelease
                     else -> Unit
                 }
             } catch (e: Exception) {
-                // Map might be already destroyed
+                Log.w("TomTomMap", "Lifecycle event error: ${e.message}")
             }
         }
         lifecycle.addObserver(observer)
@@ -441,9 +448,9 @@ private fun renderTomTomMapContent(
             PolylineOptions(
                 coordinates = routePoints.map { it.toGeoPoint() },
                 lineColor = routeColorArgb,
-                lineWidths = listOf(WidthByZoom(7.0, 0.0)),
-                outlineColor = Color.White.copy(alpha = 0.88f).toArgb(),
-                outlineWidths = listOf(WidthByZoom(10.0, 0.0)),
+                lineWidths = listOf(WidthByZoom(5.0, 0.0)),
+                outlineColor = Color.White.copy(alpha = 0.5f).toArgb(),
+                outlineWidths = listOf(WidthByZoom(2.0, 0.0)),
                 tag = "runtime-route"
             )
         )
@@ -459,6 +466,18 @@ private fun renderTomTomMapContent(
                 balloonText = marker.title
             )
         )
+    }
+}
+
+private fun hideTomTomWatermarks(viewGroup: android.view.ViewGroup) {
+    for (i in 0 until viewGroup.childCount) {
+        val child = viewGroup.getChildAt(i)
+        val className = child.javaClass.simpleName.lowercase()
+        if (className.contains("logo") || className.contains("compass") || className.contains("currentlocation") || className.contains("watermark")) {
+            child.visibility = android.view.View.GONE
+        } else if (child is android.view.ViewGroup) {
+            hideTomTomWatermarks(child)
+        }
     }
 }
 

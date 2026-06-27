@@ -20,7 +20,7 @@ enum class CustomerPaymentMethod(val apiValue: String, val title: String, val de
     QRIS(
         apiValue = "qris",
         title = "QRIS",
-        description = "Bayar dengan QRIS melalui gateway Midtrans yang terverifikasi."
+        description = "Bayar dengan QRIS melalui payment gateway."
     )
 }
 
@@ -29,6 +29,7 @@ sealed class PaymentUiState {
         val selectedMethod: CustomerPaymentMethod = CustomerPaymentMethod.LAPAY,
         val amountIdr: Long = 0L,
         val walletBalanceIdr: Long = 0L,
+        val activePaymentProvider: String? = null,
         val message: String? = null
     ) : PaymentUiState()
     data class Loading(val method: CustomerPaymentMethod) : PaymentUiState()
@@ -60,6 +61,7 @@ class PaymentViewModel @Inject constructor(
                         selectedMethod = selected,
                         amountIdr = payment.amountIdr,
                         walletBalanceIdr = payment.walletBalanceIdr,
+                        activePaymentProvider = payment.activePaymentProvider,
                         message = "Sesi pembayaran sebelumnya kedaluwarsa. Pilih metode pembayaran lagi."
                     )
                     !payment.redirectUrl.isNullOrBlank() && payment.method.equals("QRIS", ignoreCase = true) -> {
@@ -67,13 +69,15 @@ class PaymentViewModel @Inject constructor(
                             selectedMethod = CustomerPaymentMethod.QRIS,
                             amountIdr = payment.amountIdr,
                             walletBalanceIdr = payment.walletBalanceIdr,
+                            activePaymentProvider = payment.activePaymentProvider,
                             message = "Sesi QRIS tersedia. Lanjutkan jika ingin memakai QRIS."
                         )
                     }
                     else -> _uiState.value = PaymentUiState.Choosing(
                         selectedMethod = selected,
                         amountIdr = payment.amountIdr,
-                        walletBalanceIdr = payment.walletBalanceIdr
+                        walletBalanceIdr = payment.walletBalanceIdr,
+                        activePaymentProvider = payment.activePaymentProvider
                     )
                 }
             }
@@ -87,10 +91,12 @@ class PaymentViewModel @Inject constructor(
         val current = _uiState.value
         val amount = amountFrom(current)
         val wallet = walletFrom(current)
+        val activeProvider = (current as? PaymentUiState.Choosing)?.activePaymentProvider
         _uiState.value = PaymentUiState.Choosing(
             selectedMethod = method,
             amountIdr = amount,
-            walletBalanceIdr = wallet
+            walletBalanceIdr = wallet,
+            activePaymentProvider = activeProvider
         )
     }
 

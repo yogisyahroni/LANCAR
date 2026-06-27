@@ -77,9 +77,9 @@ import com.tembus.customer.ui.theme.Secondary
 import com.tembus.customer.ui.theme.SurfaceVariant
 import com.tembus.customer.ui.theme.TextDisabled
 
-private val Ink = OnSurface
-private val Muted = OnSurfaceVariant
-private val Line = Outline
+private val Ink @Composable get() = MaterialTheme.colorScheme.onSurface
+private val Muted @Composable get() = MaterialTheme.colorScheme.onSurfaceVariant
+private val Line @Composable get() = MaterialTheme.colorScheme.outline
 
 private enum class AuthEntryMode {
     Login,
@@ -195,7 +195,7 @@ fun LoginScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color.White
+        containerColor = MaterialTheme.colorScheme.surface
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -424,8 +424,10 @@ fun LoginScreen(
 
 @Composable
 private fun TembusLogo(modifier: Modifier = Modifier) {
+    val isDark = androidx.compose.foundation.isSystemInDarkTheme()
+    val logoRes = if (isDark) R.drawable.tembus_home_logo else R.drawable.tembus_login_logo
     Image(
-        painter = painterResource(id = R.drawable.tembus_login_logo),
+        painter = painterResource(id = logoRes),
         contentDescription = "TEMBUS",
         modifier = modifier
             .fillMaxWidth(0.76f)
@@ -480,9 +482,9 @@ private fun GoogleButton(
         shape = RoundedCornerShape(14.dp),
         border = BorderStroke(1.dp, Primary.copy(alpha = if (enabled && !isLoading) 0.72f else 0.30f)),
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.White,
+            containerColor = MaterialTheme.colorScheme.surface,
             contentColor = Ink,
-            disabledContainerColor = Color.White,
+            disabledContainerColor = MaterialTheme.colorScheme.surface,
             disabledContentColor = Ink.copy(alpha = 0.40f)
         )
     ) {
@@ -715,7 +717,7 @@ private fun PasswordResetPanel(
                 shape = RoundedCornerShape(14.dp),
                 border = BorderStroke(1.dp, Primary.copy(alpha = 0.45f)),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = Primary
                 )
             ) {
@@ -952,9 +954,9 @@ private fun NoticeBox(message: String) {
 
 @Composable
 private fun authTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedContainerColor = Color.White,
-    unfocusedContainerColor = Color.White,
-    disabledContainerColor = Color(0xFFF5F7FA),
+    focusedContainerColor = MaterialTheme.colorScheme.surface,
+    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
     focusedBorderColor = Primary,
     unfocusedBorderColor = Line,
     focusedPlaceholderColor = Muted,
@@ -968,7 +970,7 @@ private fun authTextFieldColors() = OutlinedTextFieldDefaults.colors(
 private fun GoogleMark() {
     Surface(
         modifier = Modifier.size(28.dp),
-        color = Color.White,
+        color = MaterialTheme.colorScheme.surface,
         shape = CircleShape,
         border = BorderStroke(1.dp, Line)
     ) {

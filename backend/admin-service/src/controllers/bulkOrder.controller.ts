@@ -680,7 +680,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const flagRes = await client.query("SELECT is_enabled FROM flags WHERE key = 'require_payment_gateway' LIMIT 1");
+    const flagRes = await client.query("SELECT is_enabled FROM feature_flags WHERE key = 'require_payment_gateway' LIMIT 1");
     const requirePayment = flagRes.rows.length > 0 ? flagRes.rows[0].is_enabled : true;
     const initialStatus = requirePayment ? 'pending_payment' : 'pending_assignment';
 

@@ -355,6 +355,7 @@ const publicCustomerPaymentSession = (row: any) => {
     status: paymentStatus,
     payment_status: paymentStatus,
     order_status: row.order_status,
+    active_payment_provider: process.env.ACTIVE_PAYMENT_PROVIDER || 'midtrans',
     amount_idr: Number(row.amount_idr || row.total_price_idr || 0),
     wallet_balance_idr: Number(row.wallet_balance || 0),
     snap_token: row.snap_token || null,
@@ -952,7 +953,12 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
   const client = await db.connect();
   let reservedPromoKey: string | null = null;
   let reservedPromoCustomerId: string | null = null;
+  let isPaymentBypassed = false;
   try {
+    const flagRes = await client.query("SELECT is_enabled FROM feature_flags WHERE key = 'require_payment_gateway' LIMIT 1");
+    const requirePayment = flagRes.rows.length > 0 ? flagRes.rows[0].is_enabled : true;
+    isPaymentBypassed = !requirePayment;
+
     const customer_id = req.user?.id;
     if (!customer_id) {
       client.release();
@@ -1156,8 +1162,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       ) VALUES (
         $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
         $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
-        $11, $12, $13, 'pending_payment', $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-        $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, NOW()
+        $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31,
+        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, NOW()
       ) RETURNING id, order_number, total_price_idr, loyalty_discount_idr, route_snapshot
     `;
 
@@ -1175,6 +1181,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       service.route_model,
       service.code,
       JSON.stringify(trustedPriceBreakdown.service_snapshot || publicServiceSnapshot(service)),
+      isPaymentBypassed ? 'pending' : 'pending_payment',
       trustedPriceBreakdown.distance_km || 0,
       trustedPriceBreakdown.base_price_idr || 0,
       trustedPriceBreakdown.volumetric_surcharge_idr || 0,
@@ -1273,7 +1280,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         order_id, payment_number, provider, method, status, amount_idr,
         mdr_amount_idr, ppn_amount_idr, weather_reserve_idr, insurance_reserve_idr,
         net_operational_idr, provider_reference, expires_at
-      ) VALUES ($1, $2, 'midtrans', 'unselected', 'pending', $3, $4, $5, 0, $6, $7, NULL, NOW() + INTERVAL '30 minutes')
+      ) VALUES ($1, $2, $8, $9, $10, $3, $4, $5, 0, $6, $7, NULL, NOW() + INTERVAL '30 minutes')
     `, [
       newOrder.id,
       `PAY-${order_number}`,
@@ -1281,7 +1288,10 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       settlement.mdr_idr,
       settlement.ppn_idr,
       settlement.insurance_reserve_idr,
-      settlement.net_operational_idr
+      settlement.net_operational_idr,
+      isPaymentBypassed ? 'bypassed' : 'midtrans',
+      isPaymentBypassed ? 'bypassed' : 'unselected',
+      isPaymentBypassed ? 'paid' : 'pending'
     ]);
 
     // Create Order Event

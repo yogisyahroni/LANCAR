@@ -212,13 +212,15 @@ private fun PaymentMethodChooser(
                     walletBalanceIdr = state.walletBalanceIdr,
                     onClick = { onSelectMethod(CustomerPaymentMethod.LAPAY) }
                 )
-                PaymentMethodCard(
-                    method = CustomerPaymentMethod.QRIS,
-                    selected = selectedMethod == CustomerPaymentMethod.QRIS,
-                    amountIdr = state.amountIdr,
-                    walletBalanceIdr = state.walletBalanceIdr,
-                    onClick = { onSelectMethod(CustomerPaymentMethod.QRIS) }
-                )
+                if (state.activePaymentProvider != "none" && state.activePaymentProvider != "lapay") {
+                    PaymentMethodCard(
+                        method = CustomerPaymentMethod.QRIS,
+                        selected = selectedMethod == CustomerPaymentMethod.QRIS,
+                        amountIdr = state.amountIdr,
+                        walletBalanceIdr = state.walletBalanceIdr,
+                        onClick = { onSelectMethod(CustomerPaymentMethod.QRIS) }
+                    )
+                }
                 state.message?.let {
                     Text(
                         text = it,
@@ -265,7 +267,11 @@ private fun PaymentMethodChooser(
                 )
                 Spacer(modifier = Modifier.width(14.dp))
                 Text(
-                    text = "Pembayaran diproses aman melalui saldo LAPAY atau QRIS resmi TEMBUS.",
+                    text = if (state.activePaymentProvider == "none" || state.activePaymentProvider == "lapay") {
+                        "Pembayaran diproses aman melalui saldo LAPAY resmi TEMBUS."
+                    } else {
+                        "Pembayaran diproses aman melalui saldo LAPAY atau QRIS resmi TEMBUS."
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color(0xFF084C2E)
                 )
