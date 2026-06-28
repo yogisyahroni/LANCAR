@@ -147,6 +147,50 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetOrder godoc
+// CreateBulkOrder godoc
+// @Summary Create bulk order (multidrop)
+// @Description Create an order with 1 pickup and multiple destinations
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body domain.CreateBulkOrderRequest true "Bulk Order Request"
+// @Success 201 {object} map[string]interface{}
+// @Router /orders/bulk [post]
+func (h *OrderHandler) CreateBulkOrder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", correlationID)
+		return
+	}
+
+	req, ok := middleware.GetValidatedData(r.Context()).(*domain.CreateBulkOrderRequest)
+	if !ok || req == nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to retrieve validated request", correlationID)
+		return
+	}
+
+	orders, batchID, err := h.orderSvc.CreateBulkOrder(r.Context(), userID, *req)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"batch_id": batchID,
+		"orders":   orders,
+	})
+}
+
 // @Summary Get order details
 // @Description Get full details of a specific order
 // @Tags orders

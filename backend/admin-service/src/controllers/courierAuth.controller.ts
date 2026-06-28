@@ -798,6 +798,8 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
       `SELECT DISTINCT ON (o.id)
          o.id AS order_id,
          o.model,
+         o.batch_id,
+         o.sequence_no,
          ol.leg_number,
          CASE
            WHEN COALESCE(dsp.service_category, '') = 'on_demand' THEN 'on_demand'
@@ -907,7 +909,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
        LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
        LEFT JOIN users c ON c.id = o.customer_id
        WHERE ol.courier_id = $1
-       ORDER BY o.id, o.created_at DESC
+       ORDER BY o.sequence_no ASC NULLS FIRST, o.created_at ASC, o.id
        LIMIT 100`,
       [req.user.id]
     );
@@ -933,6 +935,8 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
 const mobileOrderSelect = `
   o.id AS order_id,
   o.model,
+  o.batch_id,
+  o.sequence_no,
   ol.leg_number,
   CASE
     WHEN COALESCE(dsp.service_category, '') = 'on_demand' THEN 'on_demand'
@@ -4406,6 +4410,7 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
           o.model,
           o.status AS order_status,
           o.service_code,
+          o.batch_id,
           ol.id AS leg_id,
           ol.status AS leg_status,
           COALESCE(dsp.service_category, '') AS service_category,
@@ -4529,25 +4534,50 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
       return;
     }
 
-    await client.query(
-      `UPDATE order_legs
-          SET status = $2,
-              started_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(started_at, NOW()) ELSE started_at END,
-              completed_at = CASE WHEN $2 IN ('delivered', 'failed', 'return_required') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
-              updated_at = NOW()
-        WHERE id = $1`,
-      [order.leg_id, effectiveRequestedStatus]
-    );
+    const pickupStatuses = ['going_to_pickup', 'pickup_pending', 'picked_up', 'in_transit'];
+    const isPickupStatus = pickupStatuses.includes(effectiveRequestedStatus);
 
-    await client.query(
-      `UPDATE orders
-          SET status = $2,
-              picked_up_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
-              delivered_at = CASE WHEN $2 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
-              updated_at = NOW()
-        WHERE id = $1`,
-      [orderId, effectiveRequestedStatus]
-    );
+    if (isPickupStatus && order.batch_id) {
+      await client.query(
+        `UPDATE order_legs
+            SET status = $2,
+                started_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(started_at, NOW()) ELSE started_at END,
+                completed_at = CASE WHEN $2 IN ('delivered', 'failed', 'return_required') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+                updated_at = NOW()
+          WHERE courier_id = $3 AND order_id IN (SELECT id FROM orders WHERE batch_id = $1)`,
+        [order.batch_id, effectiveRequestedStatus, req.user.id]
+      );
+
+      await client.query(
+        `UPDATE orders
+            SET status = $2,
+                picked_up_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
+                delivered_at = CASE WHEN $2 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
+                updated_at = NOW()
+          WHERE batch_id = $1`,
+        [order.batch_id, effectiveRequestedStatus]
+      );
+    } else {
+      await client.query(
+        `UPDATE order_legs
+            SET status = $2,
+                started_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(started_at, NOW()) ELSE started_at END,
+                completed_at = CASE WHEN $2 IN ('delivered', 'failed', 'return_required') THEN COALESCE(completed_at, NOW()) ELSE completed_at END,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [order.leg_id, effectiveRequestedStatus]
+      );
+
+      await client.query(
+        `UPDATE orders
+            SET status = $2,
+                picked_up_at = CASE WHEN $2 IN ('picked_up', 'in_transit') THEN COALESCE(picked_up_at, NOW()) ELSE picked_up_at END,
+                delivered_at = CASE WHEN $2 = 'delivered' THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [orderId, effectiveRequestedStatus]
+      );
+    }
 
     const statusEventType = workflowRole === 'regular' && requestedStatus === 'failed'
       ? (effectiveRequestedStatus === 'return_required' ? 'return_required' : 'delivery_rescheduled')

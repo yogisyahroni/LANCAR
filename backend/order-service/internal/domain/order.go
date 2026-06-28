@@ -79,8 +79,20 @@ type CreateOrderRequest struct {
 	IsScheduled     bool   `json:"is_scheduled"`
 }
 
+type BulkOrderDestination struct {
+	EstimateID      string `json:"estimate_id" validate:"required"`
+	ItemDescription string `json:"item_description" validate:"required,min=5"`
+	ItemImageURL    string `json:"item_image_url,omitempty"`
+}
+
+type CreateBulkOrderRequest struct {
+	Destinations []BulkOrderDestination `json:"destinations" validate:"required,min=2,max=5"`
+	IsScheduled  bool                   `json:"is_scheduled"`
+}
+
 type OrderService interface {
 	CreateOrder(ctx context.Context, userID string, req CreateOrderRequest) (*Order, error)
+	CreateBulkOrder(ctx context.Context, userID string, req CreateBulkOrderRequest) ([]*Order, string, error)
 	GetOrder(ctx context.Context, orderID string) (*Order, error)
 	ListOrders(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, orderID string, status OrderStatus) error

@@ -307,7 +307,8 @@ func (r *postgresRepo) AssignCourier(ctx context.Context, orderID string, courie
 
 	// Check if order is still searching
 	var status domain.OrderStatus
-	err = tx.QueryRowContext(ctx, "SELECT status FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&status)
+	var batchID *string
+	err = tx.QueryRowContext(ctx, "SELECT status, batch_id FROM orders WHERE id = $1 FOR UPDATE", orderID).Scan(&status, &batchID)
 	if err != nil {
 		return err
 	}
@@ -316,10 +317,18 @@ func (r *postgresRepo) AssignCourier(ctx context.Context, orderID string, courie
 		return sql.ErrNoRows // Or a custom error like "Order already assigned"
 	}
 
-	query := `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW(), dispatch_expiry = NULL WHERE id = $2`
-	_, err = tx.ExecContext(ctx, query, courierID, orderID)
-	if err != nil {
-		return err
+	if batchID != nil && *batchID != "" {
+		query := `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW(), dispatch_expiry = NULL WHERE batch_id = $2 AND status = 'searching'`
+		_, err = tx.ExecContext(ctx, query, courierID, *batchID)
+		if err != nil {
+			return err
+		}
+	} else {
+		query := `UPDATE orders SET courier_id = $1, status = 'assigned', updated_at = NOW(), dispatch_expiry = NULL WHERE id = $2`
+		_, err = tx.ExecContext(ctx, query, courierID, orderID)
+		if err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()

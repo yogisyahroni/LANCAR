@@ -159,6 +159,120 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 	return order, nil
 }
 
+func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, req domain.CreateBulkOrderRequest) ([]*domain.Order, string, error) {
+	if len(req.Destinations) < 2 {
+		return nil, "", fmt.Errorf("bulk order requires at least 2 destinations")
+	}
+
+	batchID := uuid.New().String()
+	var createdOrders []*domain.Order
+
+	for i, dest := range req.Destinations {
+		// 1. Get cached estimate
+		estimate, err := s.redisRepo.GetEstimate(ctx, dest.EstimateID)
+		if err != nil {
+			return nil, "", fmt.Errorf("invalid estimate for destination %d: %w", i+1, err)
+		}
+
+		if req.IsScheduled {
+			scheduledEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "scheduled_delivery", false)
+			if !scheduledEnabled {
+				return nil, "", fmt.Errorf("Feature Scheduled Delivery is disabled")
+			}
+		}
+
+		// Only allow specific models for bulk order
+		if estimate.Model != "tembus_sameday" && estimate.Model != "tembus_mobil" {
+			return nil, "", fmt.Errorf("bulk order only supported for TEMBUS Sameday and TEMBUS Mobil")
+		}
+
+		// 2. Check Feature Flag
+		flag, err := s.flagReader.GetFlag(ctx, estimate.Model)
+		if err != nil || flag == nil || !flag.IsEnabled {
+			return nil, "", &domain.ModelUnavailableError{
+				Model:     estimate.Model,
+				MessageID: "MODEL_UNAVAILABLE",
+				UserMsg:   "The selected delivery model is no longer available",
+			}
+		}
+
+		orderNum := fmt.Sprintf("RLY-BLK-%s-%s-%d", time.Now().Format("20060102"), batchID[:5], i+1)
+		handoverToken := uuid.New().String()
+		qrURL, _ := utils.GenerateQRCodeDataURI(handoverToken, 256)
+
+		requirePaymentFlag, err := s.flagReader.GetFlag(ctx, "require_payment_gateway")
+		requirePayment := true
+		if err == nil && requirePaymentFlag != nil {
+			requirePayment = requirePaymentFlag.IsEnabled
+		}
+
+		initialStatus := domain.StatusPendingPayment
+		if !requirePayment {
+			initialStatus = domain.StatusPendingAssignment
+		}
+
+		seq := i + 1
+		order := &domain.Order{
+			ID:                     uuid.New().String(),
+			OrderNumber:            orderNum,
+			CustomerID:             userID,
+			Model:                  estimate.Model,
+			Status:                 initialStatus,
+			PickupAddress:          estimate.PickupAddress,
+			PickupLat:              estimate.PickupLat,
+			PickupLng:              estimate.PickupLng,
+			DropoffAddress:         estimate.DropoffAddress,
+			DropoffLat:             estimate.DropoffLat,
+			DropoffLng:             estimate.DropoffLng,
+			Length:                 estimate.Length,
+			Width:                  estimate.Width,
+			Height:                 estimate.Height,
+			Weight:                 estimate.Weight,
+			ItemDescription:        dest.ItemDescription,
+			ItemImageURL:           dest.ItemImageURL,
+			DistanceKM:             estimate.DistanceKM,
+			BasePriceIDR:           estimate.BasePriceIDR,
+			VolumetricSurchargeIDR: estimate.VolumetricSurchargeIDR,
+			DynamicPriceIDR:        estimate.DynamicPriceIDR,
+			TotalPriceIDR:          estimate.TotalPriceIDR,
+			HandoverToken:          handoverToken,
+			QRCodeURL:              qrURL,
+			BatchID:                &batchID,
+			SequenceNo:             &seq,
+			CreatedAt:              time.Now(),
+			UpdatedAt:              time.Now(),
+		}
+
+		if err := s.orderRepo.Create(ctx, order); err != nil {
+			return nil, "", fmt.Errorf("failed to save order for destination %d: %w", i+1, err)
+		}
+
+		event := domain.OrderEvent{
+			OrderID:   order.ID,
+			UserID:    order.CustomerID,
+			Status:    order.Status,
+			Message:   "Bulk Order created, awaiting payment",
+			CreatedAt: time.Now(),
+		}
+		s.eventRepo.SaveEvent(ctx, event)
+		s.eventBus.Publish(ctx, "order.updates", event)
+
+		if s.taskQueue != nil {
+			s.taskQueue.Push(ctx, queue.Task{
+				Type: "order.created",
+				Payload: map[string]interface{}{
+					"order_id": order.ID,
+					"user_id":  order.CustomerID,
+				},
+			})
+		}
+
+		createdOrders = append(createdOrders, order)
+	}
+
+	return createdOrders, batchID, nil
+}
+
 func (s *orderServiceImpl) GetOrder(ctx context.Context, orderID string) (*domain.Order, error) {
 	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err != nil {

@@ -22,7 +22,7 @@ import (
 	"tembus/order-service/internal/worker"
 	"time"
 
-	"tembus/order-service/pkg/alerting"
+
 	"tembus/order-service/pkg/logger"
 	"tembus/order-service/pkg/sentry"
 
@@ -333,6 +333,7 @@ func main() {
 		}
 	})))
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetOrder)))
+	mux.HandleFunc("/api/v1/orders/bulk", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CreateBulkOrder)))
 	mux.HandleFunc("/api/v1/orders/poll", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.PollOrderUpdates)))
 	mux.HandleFunc("/api/v1/meeting-points/suggest", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.SuggestMeetingPoints)))
 

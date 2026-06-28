@@ -20,6 +20,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
   const [pickupLat, setPickupLat] = useState(-6.200000);
   const [pickupLng, setPickupLng] = useState(106.816666);
   const [isLocating, setIsLocating] = useState(false);
+  const [serviceCode, setServiceCode] = useState('tembus_instant');
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -82,6 +83,7 @@ export function UploadStep({ onComplete }: UploadStepProps) {
       formData.append('pickup_address', pickupAddress);
       formData.append('pickup_lat', pickupLat.toString());
       formData.append('pickup_lng', pickupLng.toString());
+      formData.append('service_code', serviceCode);
 
       const res = await api.post('/auth/web/orders/bulk/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -214,6 +216,27 @@ export function UploadStep({ onComplete }: UploadStepProps) {
           Download Template Excel Standar
         </button>
       </div>
+
+      {/* Service Selection */}
+      <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+        <h3 className="flex items-center gap-2 text-lg font-semibold">
+          <UploadCloud className="h-5 w-5 text-primary" />
+          Pilih Layanan Pengiriman
+        </h3>
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-muted-foreground">Jenis Layanan Default</label>
+          <select
+            value={serviceCode}
+            onChange={(e) => setServiceCode(e.target.value)}
+            disabled={isUploading}
+            className="w-full rounded-lg border border-white/10 bg-background/50 py-3 px-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="tembus_instant">Tembus Instant (P2P)</option>
+            <option value="tembus_sameday">Tembus Sameday (Max 5 Drop, Multidrop)</option>
+            <option value="tembus_mobil">Tembus Mobil (Max 10 Drop, Multidrop)</option>
+          </select>
+        </div>
+      </section>
 
       {/* Pickup Info */}
       <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">

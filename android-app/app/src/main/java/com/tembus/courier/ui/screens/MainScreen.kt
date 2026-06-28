@@ -4326,9 +4326,6 @@ private fun OfferRouteRow(
     }
 }
 
-@Composable
-private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
-
 // S2-COURIER-03: Daily earnings target progress bar
 // Target harian bisa dikonfigurasi via backend (feature flag / config)
 private const val DAILY_EARNINGS_TARGET_IDR = 150_000
@@ -4364,6 +4361,7 @@ private fun DailyEarningsTargetBar(todayEarningsIdr: Int) {
     }
 }
 
+@Composable
 private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,

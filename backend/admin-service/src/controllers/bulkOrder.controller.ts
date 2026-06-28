@@ -450,7 +450,8 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const bulkService = await findDeliveryServiceByCode('tembus_instant');
+    const serviceCode = req.body.service_code || 'tembus_instant';
+    const bulkService = await findDeliveryServiceByCode(serviceCode);
     if (!bulkService) {
       res.status(400).json({ error: 'Layanan bulk default tidak tersedia' });
       return;
@@ -729,11 +730,12 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
           customer_notes,
           schedule_type,
           batch_id,
+          sequence_no,
           created_at
         ) VALUES (
           $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
           $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
-          $11, $12, $13, $14, $31, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, NOW()
+          $11, $12, $13, $14, $31, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $32, NOW()
         ) RETURNING id, order_number
       `;
 
@@ -769,7 +771,8 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         row.customer_notes || 'Bulk Order',
         'now',
         row.batch_id,
-        initialStatus
+        initialStatus,
+        row.sequence_no
       ];
 
       const result = await client.query(insertQuery, values);

@@ -67,6 +67,14 @@ data class Order(
     @SerialName("order_id")
     val orderId: String = "",
 
+    @ColumnInfo(name = "batch_id")
+    @SerialName("batch_id")
+    val batchId: String? = null,
+
+    @ColumnInfo(name = "sequence_no")
+    @SerialName("sequence_no")
+    val sequenceNo: Int? = null,
+
     @ColumnInfo(name = "pickup_address")
     @SerialName("pickup_address")
     val pickupAddress: String = "",

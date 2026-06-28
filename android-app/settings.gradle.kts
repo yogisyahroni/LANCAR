@@ -11,7 +11,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // maven("https://repositories.tomtom.com/artifactory/maven")
+        maven("https://repositories.tomtom.com/artifactory/maven")
     }
 }
 
