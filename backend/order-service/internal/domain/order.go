@@ -21,6 +21,8 @@ const (
 	StatusOutboundDestination OrderStatus = "outbound_destination"
 	StatusDelivering        OrderStatus = "delivering"
 	StatusDelivered         OrderStatus = "delivered"
+	StatusFailedDelivery    OrderStatus = "failed_delivery"
+	StatusReturnToSender    OrderStatus = "return_to_sender"
 	StatusCancelled         OrderStatus = "cancelled"
 )
 

@@ -18,8 +18,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -32,9 +37,13 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -42,7 +51,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
@@ -2992,6 +3003,8 @@ private fun OnDemandHomeHubEnterprise(
                     InfoPill(icon = Icons.Default.CheckCircle, text = "$deliveredCount selesai")
                     InfoPill(icon = Icons.Default.Inventory2, text = "$totalOrders order")
                 }
+                // S2-COURIER-03: Daily earnings target progress bar
+                DailyEarningsTargetBar(todayEarningsIdr = todayEarningsIdr)
             }
         }
 
@@ -4134,43 +4147,145 @@ private fun OnDemandOfferDialog(
                     }
                 }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                // ── Swipe-to-Accept + Tolak ───────────────────────────
+                // S2-COURIER-01: Ganti tap dengan swipe gesture untuk mencegah
+                // accidental accept saat kurir riding. Threshold 80% seperti
+                // rekomendasi skill 02-courier-app-flow.md Section A.
+                // Reject tetap tap biasa (outlined button) karena tidak butuh
+                // pengamanan sekuat accept.
+                SwipeToAcceptTrack(
+                    remainingSeconds = remainingSeconds,
+                    onAccept = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onAccept()
+                    }
+                )
+                OutlinedButton(
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onReject()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252)),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.48f))
                 ) {
-                    OutlinedButton(
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onReject()
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(54.dp),
-                        shape = RoundedCornerShape(28.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252)),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.48f))
-                    ) {
-                        Text("Tolak", fontWeight = FontWeight.Black)
-                    }
-                    Button(
-                        onClick = {
-                            if (remainingSeconds > 0) {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onAccept()
-                            }
-                        },
-                        enabled = remainingSeconds > 0,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(54.dp),
-                        shape = RoundedCornerShape(28.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Primary, contentColor = Color.White)
-                    ) {
-                        Text("Terima", fontWeight = FontWeight.Black)
-                    }
+                    Text("Tolak", fontWeight = FontWeight.Black)
                 }
             }
         }
+    }
+}
+
+/**
+ * Swipe-to-Accept track widget untuk on-demand order offer.
+ *
+ * Pattern dari Grab/Gojek/Uber Driver: swipe gesture (drag dari kiri ke kanan)
+ * untuk mengurangi risiko accidental accept saat kurir riding.
+ *
+ * - Threshold: 80% lebar track
+ * - Snap-back animation: kalau swipe belum mencapai threshold
+ * - Progress feedback: track terisi warna seiring swipe
+ * - Haptic: getaran pendek saat threshold tercapai
+ * - Timer: countdown tetap visible selama swipe
+ *
+ * @param remainingSeconds Detik tersisa sebelum auto-reject
+ * @param onAccept Callback saat swipe mencapai threshold
+ */
+@Composable
+private fun SwipeToAcceptTrack(remainingSeconds: Int, onAccept: () -> Unit) {
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    var trackWidthPx by remember { mutableFloatStateOf(0f) }
+    val swipeProgress = remember { Animatable(0f) }
+    var hasTriggered by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    val thumbSize = 52.dp
+    val trackPadding = 4.dp
+    val threshold = 0.80f // 80% — standar industri (skill 02-courier-app-flow.md)
+
+    val trackColor = Color.White.copy(alpha = 0.10f)
+    val progressColor = Primary
+    val thumbColor = Color.White
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(thumbSize + trackPadding * 2)
+            .clip(RoundedCornerShape(thumbSize / 2))
+            .background(trackColor)
+            .onSizeChanged { size -> trackWidthPx = size.width.toFloat() }
+    ) {
+        // Progress fill — terisi warna hijau seiring swipe
+        val progressWidth by swipeProgress.asState()
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxHeight()
+                .width(with(density) { (progressWidth * trackWidthPx).toDp() }.coerceAtMost(
+                    with(density) { trackWidthPx.toDp() }
+                ))
+                .clip(RoundedCornerShape(thumbSize / 2))
+                .background(progressColor.copy(alpha = 0.35f))
+        )
+
+        // Teks panduan — sembunyi saat swipe mulai
+        if (progressWidth < 0.05f && remainingSeconds > 0) {
+            Text(
+                text = "SWIPE UNTUK TERIMA  →",
+                modifier = Modifier.align(Alignment.Center),
+                color = Color.White.copy(alpha = 0.55f),
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+        }
+
+        // Draggable thumb
+        val thumbOffsetPx = swipeProgress.value * (trackWidthPx - with(density) { thumbSize.toPx() })
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(thumbOffsetPx.toInt(), 0) }
+                .padding(trackPadding)
+                .size(thumbSize - trackPadding * 2)
+                .clip(CircleShape)
+                .background(thumbColor)
+                .pointerInput(remainingSeconds) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            scope.launch {
+                                if (swipeProgress.value >= threshold && !hasTriggered) {
+                                    hasTriggered = true
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    // Animasikan ke ujung kanan sebelum trigger
+                                    swipeProgress.animateTo(
+                                        1f,
+                                        animationSpec = tween(150, easing = FastOutSlowInEasing)
+                                    )
+                                    onAccept()
+                                } else if (!hasTriggered) {
+                                    // Snap-back kalau belum mencapai threshold
+                                    swipeProgress.animateTo(
+                                        0f,
+                                        animationSpec = tween(300, easing = FastOutSlowInEasing)
+                                    )
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            if (remainingSeconds > 0 && !hasTriggered) {
+                                scope.launch {
+                                    val delta = dragAmount / (trackWidthPx - with(density) { thumbSize.toPx() })
+                                    val newValue = (swipeProgress.value + delta).coerceIn(0f, 1f)
+                                    swipeProgress.snapTo(newValue)
+                                }
+                            }
+                        }
+                    )
+                }
+        )
     }
 }
 
@@ -4212,6 +4327,43 @@ private fun OfferRouteRow(
 }
 
 @Composable
+private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
+
+// S2-COURIER-03: Daily earnings target progress bar
+// Target harian bisa dikonfigurasi via backend (feature flag / config)
+private const val DAILY_EARNINGS_TARGET_IDR = 150_000
+
+@Composable
+private fun DailyEarningsTargetBar(todayEarningsIdr: Int) {
+    val progress = (todayEarningsIdr.toFloat() / DAILY_EARNINGS_TARGET_IDR).coerceIn(0f, 1f)
+    val pct = (progress * 100).toInt()
+    val remaining = (DAILY_EARNINGS_TARGET_IDR - todayEarningsIdr).coerceAtLeast(0)
+    val isTargetReached = progress >= 1f
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                text = if (isTargetReached) "🎯 Target tercapai!" else "Target harian",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isTargetReached) Success else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = if (isTargetReached) "Rp ${todayEarningsIdr.toRupiahCompact()}"
+                else "Rp ${remaining.toRupiahCompact()} lagi",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = if (isTargetReached) Success else LogisticsOrange
+            )
+        }
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+            color = if (isTargetReached) Success else LogisticsOrange,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant,
+        )
+    }
+}
+
 private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,

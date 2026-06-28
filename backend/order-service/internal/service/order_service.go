@@ -9,6 +9,7 @@ import (
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/domain/queue"
 	"tembus/order-service/internal/featureflags"
+	"tembus/order-service/pkg/alerting"
 	"tembus/order-service/pkg/utils"
 	"time"
 
@@ -260,8 +261,8 @@ func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, cour
 		return errors.New("order not found")
 	}
 
-	// Only allow acceptance if searching
-	if order.Status != domain.StatusSearching {
+	// Only allow acceptance if searching (initial match) or failed_delivery (retry)
+	if order.Status != domain.StatusSearching && order.Status != domain.StatusFailedDelivery {
 		return fmt.Errorf("order cannot be accepted in current status: %s", order.Status)
 	}
 
@@ -350,17 +351,36 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 	// Cascading search radius: 3km, 5km, 10km
 	radii := []float64{3, 5, 10}
 
+	// S2-OS-02: Ganti time.Sleep(30s) blocking dengan polling loop
+	// (1 detik interval) + context cancellation. Ini mencegah goroutine
+	// stuck dan memberi customer progress visibility.
+	const (
+		batchOfferTimeout = 15 * time.Second // synced with ON_DEMAND_OFFER_TTL_SECONDS (15s)
+		pollInterval      = 1 * time.Second
+		batchSize         = 3
+	)
+
 	for _, radius := range radii {
+		// Check context cancellation before each radius attempt
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("matching cancelled: %w", ctx.Err())
+		default:
+		}
+
 		courierIDs, err := s.redisRepo.FindNearbyCouriers(ctx, order.PickupLat, order.PickupLng, radius)
 		if err != nil || len(courierIDs) == 0 {
+			log.Printf("[Matching] No couriers in %.0fkm radius for order %s", radius, order.OrderNumber)
 			continue
 		}
+
+		log.Printf("[Matching] Found %d couriers in %.0fkm radius for order %s",
+			len(courierIDs), radius, order.OrderNumber)
 
 		// 1. Score and Sort Couriers
 		scoredCouriers := s.scoreCouriers(ctx, courierIDs, order, totalWeight, packageCount)
 
 		// 2. Batch Dispatch: Try top 3 couriers simultaneously
-		batchSize := 3
 		for i := 0; i < len(scoredCouriers); i += batchSize {
 			end := i + batchSize
 			if end > len(scoredCouriers) {
@@ -368,8 +388,8 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 			}
 			batch := scoredCouriers[i:end]
 
-			// Set dispatch expiry for the batch (30 seconds from now)
-			expiry := time.Now().Add(30 * time.Second)
+			// Set dispatch expiry for the batch
+			expiry := time.Now().Add(batchOfferTimeout)
 			for _, o := range batchOrders {
 				if err := s.orderRepo.SetDispatchExpiry(ctx, o.ID, expiry); err != nil {
 					log.Printf("Failed to set dispatch expiry for order %s: %v", o.ID, err)
@@ -378,30 +398,49 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 
 			// Notify all couriers in the batch
 			for _, sc := range batch {
-				// Notification logic handles Push + WebSocket
 				s.notifyCourierOfNewOrder(ctx, sc.ID, order, packageCount)
 			}
 
-			// Wait for 30s for any courier to accept
-			// In a real reactive system, this would be an event-driven wait.
-			// For this MVP, we sleep and check if the order status has changed.
-			// Note: The actual acceptance happens via a separate endpoint/handler.
+			// ── Polling wait instead of time.Sleep ─────────────────
+			// Poll every 1s for courier acceptance or timeout.
+			// Context cancellation lets the caller abort early.
+			deadline := time.After(batchOfferTimeout)
+			ticker := time.NewTicker(pollInterval)
+			accepted := false
 
-			time.Sleep(30 * time.Second)
+		pollLoop:
+			for {
+				select {
+				case <-ctx.Done():
+					ticker.Stop()
+					return fmt.Errorf("matching cancelled: %w", ctx.Err())
+				case <-deadline:
+					ticker.Stop()
+					break pollLoop
+				case <-ticker.C:
+					updatedOrder, err := s.orderRepo.GetByID(ctx, orderID)
+					if err == nil && updatedOrder.Status != domain.StatusSearching {
+						// Order was accepted by someone!
+						accepted = true
+						ticker.Stop()
+						break pollLoop
+					}
+				}
+			}
 
-			// Re-fetch order to see if it's been assigned
-			updatedOrder, err := s.orderRepo.GetByID(ctx, orderID)
-			if err == nil && updatedOrder.Status != domain.StatusSearching {
-				// Order was accepted by someone!
+			if accepted {
 				return nil
 			}
 
-			// If we reach here, the 30s expired without acceptance.
-			// The loop continues to the next batch.
+			// Batch expired — continue to next batch if available
 		}
 
 		// Small delay before next radius
-		time.Sleep(500 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("matching cancelled: %w", ctx.Err())
+		case <-time.After(500 * time.Millisecond):
+		}
 	}
 
 	// If no courier found after all radii and batches
@@ -451,14 +490,35 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 			continue
 		}
 
-		relayWeight := s.configRepo.GetFloatConfig(ctx, "relay_score_weight", 0.5)
-		proximityWeight := s.configRepo.GetFloatConfig(ctx, "proximity_score_weight", 0.3)
-		acceptanceWeight := s.configRepo.GetFloatConfig(ctx, "acceptance_score_weight", 0.2)
+		relayWeight := s.configRepo.GetFloatConfig(ctx, "relay_score_weight", 0.4)
+		proximityWeight := s.configRepo.GetFloatConfig(ctx, "proximity_score_weight", 0.25)
+		acceptanceWeight := s.configRepo.GetFloatConfig(ctx, "acceptance_score_weight", 0.15)
+		idleWeight := s.configRepo.GetFloatConfig(ctx, "idle_time_weight", 0.1)
+		ratingWeight := s.configRepo.GetFloatConfig(ctx, "rating_score_weight", 0.1)
+
+		// S3-OS-01: Rating minimum threshold — kurir rating < 3.5 difilter
+		minRating := s.configRepo.GetFloatConfig(ctx, "min_courier_rating_threshold", 3.5)
+		if stats.AvgRating < minRating {
+			log.Printf("Skipping courier %s: avg rating %.1f below threshold %.1f", id, stats.AvgRating, minRating)
+			continue
+		}
 
 		relayScore := clampFloat(stats.RelayScore, 0, 5) / 5
 		acceptanceRate := clampFloat(stats.AcceptanceRatePct, 0, 100) / 100
 		proximityScore := s.proximityScoreFromDistance(ctx, stats.DistanceMeters)
-		score := (relayScore * relayWeight) + (proximityScore * proximityWeight) + (acceptanceRate * acceptanceWeight)
+
+		// S3-OS-02: Idle time bonus — kurir yang lama nunggu diprioritaskan
+		// Idle 0 menit = 0, idle 30+ menit = 1 (full bonus)
+		idleScore := clampFloat(stats.IdleMinutes/30.0, 0, 1)
+
+		// Rating score: 1.0-5.0 dinormalisasi ke 0-1
+		ratingScore := clampFloat(stats.AvgRating, 1.0, 5.0) / 5.0
+
+		score := (relayScore * relayWeight) +
+			(proximityScore * proximityWeight) +
+			(acceptanceRate * acceptanceWeight) +
+			(idleScore * idleWeight) +
+			(ratingScore * ratingWeight)
 		scored = append(scored, scoredCourier{ID: id, Score: score})
 	}
 
@@ -552,6 +612,11 @@ func (s *orderServiceImpl) notifyCustomerNoCourier(ctx context.Context, order *d
 			"user_id":  order.CustomerID,
 		},
 	})
+
+	// LAUNCH-3: Alert on no-driver-found for ops visibility
+	go func() {
+		alerting.AlertNoDriverFound(100, 1, 1) // Single event triggers immediate alert
+	}()
 }
 
 func (s *orderServiceImpl) ListEvents(ctx context.Context, userID string, since time.Time) ([]domain.OrderEvent, error) {
@@ -633,10 +698,24 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 		}
 		targetStatus = domain.StatusDelivering
 	case "delivered":
-		if order.Status != domain.StatusDelivering {
+		if order.Status != domain.StatusDelivering && order.Status != domain.StatusFailedDelivery {
 			return fmt.Errorf("invalid state transition: cannot deliver order in status %s", order.Status)
 		}
 		targetStatus = domain.StatusDelivered
+	// S2-OS-03: Failed delivery flow — courier reports "penerima tidak ada"
+	// atau tolak terima. Transisi dari delivering (on-demand) atau
+	// outbound_destination (regular). Admin/resolver kemudian bisa
+	// trigger return_to_sender atau reschedule.
+	case "failed_delivery":
+		if order.Status != domain.StatusDelivering && order.Status != domain.StatusOutboundDestination {
+			return fmt.Errorf("invalid state transition: cannot fail delivery on order in status %s", order.Status)
+		}
+		targetStatus = domain.StatusFailedDelivery
+	case "return_to_sender":
+		if order.Status != domain.StatusFailedDelivery {
+			return fmt.Errorf("invalid state transition: can only return to sender from failed_delivery status, current: %s", order.Status)
+		}
+		targetStatus = domain.StatusReturnToSender
 	default:
 		return fmt.Errorf("unknown scan type: %s", scan.ScanType)
 	}
@@ -658,6 +737,12 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 	eventMsg := fmt.Sprintf("Package scan recorded: %s", scan.ScanType)
 	if scan.ScanType == "delivered" {
 		eventMsg = "Package delivered successfully. ePOD recorded."
+	}
+	if scan.ScanType == "failed_delivery" {
+		eventMsg = "Delivery attempt failed. Recipient unavailable or refused package."
+	}
+	if scan.ScanType == "return_to_sender" {
+		eventMsg = "Package is being returned to sender."
 	}
 	event := domain.OrderEvent{
 		OrderID:   order.ID,
@@ -694,6 +779,12 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 	case "delivered":
 		title = "Delivered Successfully!"
 		msg = "Your package has been delivered. Thank you for using TEMBUS!"
+	case "failed_delivery":
+		title = "Delivery Attempt Failed"
+		msg = "Courier was unable to complete delivery. Our team will contact you for next steps."
+	case "return_to_sender":
+		title = "Package Returning to Sender"
+		msg = "Your package is being returned to the pickup location. Contact support if you need assistance."
 	}
 
 	s.notificationSvc.Send(ctx, domain.NotificationRequest{

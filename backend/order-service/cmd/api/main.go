@@ -22,6 +22,10 @@ import (
 	"tembus/order-service/internal/worker"
 	"time"
 
+	"tembus/order-service/pkg/alerting"
+	"tembus/order-service/pkg/logger"
+	"tembus/order-service/pkg/sentry"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -131,6 +135,16 @@ func main() {
 	// Load environment variables
 	godotenv.Load("../../.env", "../../../.env")
 	validateProductionSecrets()
+
+	// LAUNCH-1: Structured JSON logging (configured via LOG_LEVEL, LOG_FORMAT, LOG_SERVICE env)
+	logger.Info("Starting order-service",
+		"environment", os.Getenv("ENVIRONMENT"),
+		"log_level", os.Getenv("LOG_LEVEL"),
+	)
+
+	// LAUNCH-2: Sentry error tracking (disabled if SENTRY_DSN not set)
+	sentry.Init()
+	defer sentry.Flush()
 
 	// Database connections
 	dbConn := os.Getenv("DATABASE_URL")
@@ -276,6 +290,9 @@ func main() {
 
 	slaWorker := worker.NewSLAWorker(slaSvc)
 	slaWorker.Start()
+
+	// LAUNCH-6: Data retention cleanup worker
+	worker.StartCleanupWorker(db)
 
 	if tq != nil {
 		taskWorker := worker.NewTaskWorker(tq, pgRepo, notificationSvc, notifRepo, insuranceSvc, relayScoreSvc, analyticsSvc)

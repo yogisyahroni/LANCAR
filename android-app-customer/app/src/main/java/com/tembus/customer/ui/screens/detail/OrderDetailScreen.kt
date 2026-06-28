@@ -41,6 +41,19 @@ fun OrderDetailScreen(
     val disputeState by viewModel.disputeState.collectAsState()
     val context = LocalContext.current
     var showDisputeDialog by remember { mutableStateOf(false) }
+    var showCancelDialog by remember { mutableStateOf(false) }
+
+    // S2-CUSTOMER-02: Predefined cancel reasons per skill 01 B.5
+    val cancelReasons = remember {
+        listOf(
+            "Harga terlalu mahal",
+            "Waktu tunggu terlalu lama",
+            "Tidak jadi mengirim",
+            "Alamat pickup/drop salah",
+            "Kesalahan input data",
+            "Lainnya"
+        )
+    }
 
     LaunchedEffect(disputeState) {
         if (disputeState is DisputeSubmitState.Success) {
@@ -61,6 +74,18 @@ fun OrderDetailScreen(
                 viewModel.submitDispute(orderId, type, desc, bytes, mime)
             },
             submitState = disputeState
+        )
+    }
+
+    // S2-CUSTOMER-02: Cancel Reason Dialog
+    if (showCancelDialog) {
+        CancelReasonDialog(
+            reasons = cancelReasons,
+            onConfirm = { reason ->
+                showCancelDialog = false
+                viewModel.cancelOrder(orderId, reason)
+            },
+            onDismiss = { showCancelDialog = false }
         )
     }
 
@@ -196,6 +221,21 @@ fun OrderDetailScreen(
                                         Text("Chat Kurir", color = Primary, fontWeight = FontWeight.Bold)
                                     }
                                 }
+
+                                // S2-CUSTOMER-02: Cancel button with reason picker
+                                if (canCancelOrder(order.status)) {
+                                    OutlinedButton(
+                                        onClick = { showCancelDialog = true },
+                                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        border = BorderStroke(1.dp, Color(0xFFFF5252)),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252))
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Batalkan Pesanan", fontWeight = FontWeight.Bold)
+                                    }
+                                }
                             }
                         }
 
@@ -226,6 +266,73 @@ private fun canOpenConversation(status: String): Boolean {
         "picked_up",
         "in_transit",
         "delivering"
+    )
+}
+
+// S2-CUSTOMER-02: Only allow cancellation before pickup
+private fun canCancelOrder(status: String): Boolean {
+    return status.lowercase() in setOf(
+        "searching",
+        "assigned",
+        "accepted",
+        "pending_assignment",
+        "pending",
+        "pending_payment"
+    )
+}
+
+@Composable
+private fun CancelReasonDialog(
+    reasons: List<String>,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var selectedReason by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Alasan Pembatalan", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    "Pilih alasan pembatalan pesanan:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(8.dp))
+                reasons.forEach { reason ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selectedReason == reason,
+                            onClick = { selectedReason = reason },
+                            colors = RadioButtonDefaults.colors(selectedColor = Color(0xFFFF5252))
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(reason, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    selectedReason?.let { onConfirm(it) }
+                },
+                enabled = selectedReason != null
+            ) {
+                Text("Batalkan Pesanan", color = Color(0xFFFF5252), fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Tutup")
+            }
+        }
     )
 }
 

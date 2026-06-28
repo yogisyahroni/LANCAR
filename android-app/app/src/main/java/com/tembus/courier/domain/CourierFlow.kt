@@ -32,6 +32,7 @@ enum class CourierNextActionType {
     NAVIGATE_TO_DROPOFF,
     CAPTURE_DELIVERY_PROOF,
     COMPLETE_DELIVERY,
+    REPORT_FAILED_DELIVERY,
     CONTACT_SUPPORT,
     NONE
 }
@@ -56,7 +57,8 @@ data class CourierFlowState(
     val pickupPhotoDone: Boolean,
     val pickupDone: Boolean,
     val deliveryDone: Boolean,
-    val nextAction: CourierNextAction
+    val nextAction: CourierNextAction,
+    val secondaryAction: CourierNextAction? = null
 )
 
 object CourierFlowResolver {
@@ -224,7 +226,14 @@ object CourierFlowResolver {
             pickupPhotoDone = photoDone,
             pickupDone = pickupDone,
             deliveryDone = deliveryDone,
-            nextAction = nextAction
+            nextAction = nextAction,
+            secondaryAction = if (role == "on_demand" && stage == CourierStage.DELIVERY_POD_REQUIRED) {
+                CourierNextAction(
+                    type = CourierNextActionType.REPORT_FAILED_DELIVERY,
+                    label = "Penerima Tidak Ada",
+                    helperText = "Laporkan jika penerima tidak bisa ditemui. Tim operasional akan membantu."
+                )
+            } else null
         )
     }
 }
@@ -236,6 +245,9 @@ object CourierProofTypes {
     const val DELIVERY_SIGNATURE = "delivery_signature"
     const val CANCEL_PICKUP_PHOTO = "cancel_pickup_photo"
     const val FAILED_DELIVERY_PHOTO = "failed_delivery_photo"
+    // S2-COURIER-04: OTP verification types for anti-fraud
+    const val PICKUP_OTP = "pickup_otp"
+    const val DELIVERY_OTP = "delivery_otp"
 
     fun normalize(value: String): String {
         return when (value.trim().lowercase()) {
@@ -245,11 +257,15 @@ object CourierProofTypes {
             "signature", DELIVERY_SIGNATURE -> DELIVERY_SIGNATURE
             "cancel_pickup", "pickup_cancellation", CANCEL_PICKUP_PHOTO -> CANCEL_PICKUP_PHOTO
             "failed_delivery", FAILED_DELIVERY_PHOTO -> FAILED_DELIVERY_PHOTO
+            "pickup_otp", PICKUP_OTP -> PICKUP_OTP
+            "delivery_otp", DELIVERY_OTP -> DELIVERY_OTP
             else -> value.trim().lowercase().ifBlank { DELIVERY_POD_PHOTO }
         }
     }
 
-    fun isPickupProof(value: String): Boolean = normalize(value) in setOf(PICKUP_SCAN, PICKUP_PHOTO)
+    fun isPickupProof(value: String): Boolean = normalize(value) in setOf(PICKUP_SCAN, PICKUP_PHOTO, PICKUP_OTP)
 
-    fun isDeliveryProof(value: String): Boolean = normalize(value) in setOf(DELIVERY_POD_PHOTO, DELIVERY_SIGNATURE)
+    fun isDeliveryProof(value: String): Boolean = normalize(value) in setOf(DELIVERY_POD_PHOTO, DELIVERY_SIGNATURE, DELIVERY_OTP)
+
+    fun isOtpProof(value: String): Boolean = normalize(value) in setOf(PICKUP_OTP, DELIVERY_OTP)
 }

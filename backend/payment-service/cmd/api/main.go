@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"log"
-
 	"net/http"
 	"os"
 	"strings"
@@ -12,13 +11,26 @@ import (
 	"tembus/payment-service/internal/domain"
 	"tembus/payment-service/internal/featureflags"
 	"tembus/payment-service/internal/handler"
+	_ "tembus/payment-service/internal/handler/docs"
 	"tembus/payment-service/internal/middleware"
 	"tembus/payment-service/internal/repository"
 	"tembus/payment-service/internal/service"
+	"tembus/payment-service/pkg/logger"
+	"tembus/payment-service/pkg/sentry"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
+
+// @title TEMBUS Payment Service API
+// @version 1.0
+// @description API for Wallet, Payout, and Payment Reconciliation.
+// @host localhost:8084
+// @BasePath /api/v1
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
 
 func isProductionRuntime() bool {
 	return strings.EqualFold(os.Getenv("ENVIRONMENT"), "production") ||
@@ -98,6 +110,11 @@ func main() {
 	_ = godotenv.Load("../../.env")
 	validateProductionSecrets()
 
+	// LAUNCH-1+2: Logger & Sentry
+	logger.Info("Starting payment-service", "environment", os.Getenv("ENVIRONMENT"))
+	sentry.Init()
+	defer sentry.Flush()
+
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		log.Fatal("DATABASE_URL is not set")
@@ -141,6 +158,11 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+
+	// LAUNCH-5: Swagger UI (enabled via SWAGGER_ENABLED=true env, default: non-production only)
+	if strings.ToLower(os.Getenv("SWAGGER_ENABLED")) != "false" || !isProductionRuntime() {
+		mux.Handle("/swagger/", httpSwagger.WrapHandler)
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {

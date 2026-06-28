@@ -74,6 +74,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.clip
 import com.tembus.courier.data.security.LocalDeviceSecurityManager
 import com.tembus.courier.ui.screens.face.FaceVerificationScreen
+import com.tembus.courier.util.NavigationHelper
 
 private val LogisticsOrange = Color(0xFFFF6D00)
 private val DeepForest = Color(0xFF0A2F20)
@@ -490,9 +491,19 @@ private fun OnDemandTaskActions(
                         onCapturePod = onCapturePod,
                         onUpdateStatus = onUpdateStatus,
                         onStartDelivery = onStartDelivery,
-                        onChatClick = onChatClick
+                        onChatClick = onChatClick,
+                        onReportFailedDelivery = {
+                            onReportIssue("failed_delivery", "high",
+                                "Penerima tidak dapat ditemui. Membutuhkan tindak lanjut operasional.", null)
+                        }
                     )
-                }
+                },
+                onSecondaryClick = if (flowState.secondaryAction != null) {
+                    {
+                        onReportIssue("failed_delivery", "high",
+                            "Penerima tidak dapat ditemui. Membutuhkan tindak lanjut operasional.", null)
+                    }
+                } else null
             )
 
             RouteStateStrip(routePreview)
@@ -752,10 +763,12 @@ private fun OnDemandProofPanel(
 @Composable
 private fun CourierNextActionPanel(
     flowState: CourierFlowState,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onSecondaryClick: (() -> Unit)? = null
 ) {
     val action = flowState.nextAction
     val hasAction = action.type != CourierNextActionType.NONE
+    val secondary = flowState.secondaryAction
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = if (hasAction) LogisticsOrange.copy(alpha = 0.12f) else Success.copy(alpha = 0.12f),
@@ -790,6 +803,20 @@ private fun CourierNextActionPanel(
                     Icon(courierActionIcon(action.type), contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(action.label, fontWeight = FontWeight.Black)
+                }
+                // S2-OS-03: Secondary action for on-demand failed delivery
+                if (secondary != null && onSecondaryClick != null) {
+                    OutlinedButton(
+                        onClick = onSecondaryClick,
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.55f))
+                    ) {
+                        Icon(courierActionIcon(secondary.type), contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(secondary.label, fontWeight = FontWeight.Bold)
+                    }
                 }
             } else {
                 Text(action.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Success)
@@ -854,7 +881,8 @@ private fun runCourierNextAction(
     onCapturePod: () -> Unit,
     onUpdateStatus: (String) -> Unit,
     onStartDelivery: (String) -> Unit,
-    onChatClick: () -> Unit
+    onChatClick: () -> Unit,
+    onReportFailedDelivery: () -> Unit = {}
 ) {
     when (flowState.nextAction.type) {
         CourierNextActionType.VERIFY_FACE_PICKUP -> onVerifyFace()
@@ -864,6 +892,7 @@ private fun runCourierNextAction(
         CourierNextActionType.CAPTURE_PICKUP_PHOTO -> onCapturePickupProof()
         CourierNextActionType.START_DELIVERY -> onStartDelivery(flowState.nextAction.targetStatus ?: "in_transit")
         CourierNextActionType.CAPTURE_DELIVERY_PROOF -> onCapturePod()
+        CourierNextActionType.REPORT_FAILED_DELIVERY -> onReportFailedDelivery()
         CourierNextActionType.CONTACT_SUPPORT -> onChatClick()
         CourierNextActionType.ACCEPT_OFFER,
         CourierNextActionType.COMPLETE_DELIVERY,
@@ -882,6 +911,7 @@ private fun courierActionIcon(type: CourierNextActionType): androidx.compose.ui.
         CourierNextActionType.CAPTURE_DELIVERY_PROOF -> Icons.Default.CameraAlt
         CourierNextActionType.START_DELIVERY -> Icons.Default.LocalShipping
         CourierNextActionType.COMPLETE_DELIVERY -> Icons.Default.CheckCircle
+        CourierNextActionType.REPORT_FAILED_DELIVERY -> Icons.Default.AssignmentLate
         CourierNextActionType.CONTACT_SUPPORT -> Icons.AutoMirrored.Filled.Chat
         CourierNextActionType.NONE -> Icons.Default.CheckCircle
     }
@@ -1841,14 +1871,41 @@ private fun saveIssuePhoto(context: android.content.Context, orderId: String, is
     return file
 }
 
-private fun openNavigation(context: android.content.Context, address: String) {
+/**
+ * S2-COURIER-02: Turn-by-turn navigation via TomTom SDK (with Google Maps/Waze fallback).
+ * Uses coordinates when available for precise routing, falls back to address search.
+ */
+private fun openNavigation(
+    context: android.content.Context,
+    address: String,
+    lat: Double? = null,
+    lng: Double? = null,
+    label: String? = null
+) {
+    if (lat != null && lng != null && lat != 0.0 && lng != 0.0) {
+        NavigationHelper.navigateTo(context, lat, lng, label ?: address)
+        return
+    }
+
+    // Fallback: address-based search via Google Maps intent
     try {
-        val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(address)}")
+        val gmmIntentUri = Uri.parse("google.navigation:q=${Uri.encode(address)}&mode=d")
         val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
-        val chooser = Intent.createChooser(mapIntent, "Pilih Aplikasi Peta/Navigasi")
+        mapIntent.setPackage("com.google.android.apps.maps")
+        val resolved = mapIntent.resolveActivity(context.packageManager)
+        if (resolved != null) {
+            context.startActivity(mapIntent)
+            return
+        }
+    } catch (_: Exception) { }
+
+    // Last resort: chooser
+    try {
+        val geoUri = Uri.parse("geo:0,0?q=${Uri.encode(address)}")
+        val chooser = Intent.createChooser(Intent(Intent.ACTION_VIEW, geoUri), "Pilih Aplikasi Navigasi")
         context.startActivity(chooser)
     } catch (e: Exception) {
-        android.widget.Toast.makeText(context, "Tidak ada aplikasi peta terinstall.", android.widget.Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(context, "Tidak ada aplikasi navigasi terinstall.", android.widget.Toast.LENGTH_SHORT).show()
     }
 }
 

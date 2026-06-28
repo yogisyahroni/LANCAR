@@ -633,7 +633,7 @@ func (s *AuthService) issueAuthSession(ctx context.Context, user *domain.User, d
 		return nil, err
 	}
 
-	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, totpVerified, 15*time.Minute)
+	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, totpVerified, utils.GetAccessTokenTTL())
 	if err != nil {
 		result = "access_token_generation_failed"
 		failed = true
@@ -727,7 +727,7 @@ func (s *AuthService) RefreshToken(ctx context.Context, oldRefreshToken, deviceI
 		return nil, err
 	}
 
-	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, true, 15*time.Minute)
+	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, true, utils.GetAccessTokenTTL())
 	if err != nil {
 		result = "access_token_generation_failed"
 		failed = true

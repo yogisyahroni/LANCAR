@@ -23,6 +23,9 @@ const (
 	ScopeCustomerOTPVerify     AuthAbuseScope = "customer_otp_verify"
 	ScopeCustomer2FAComplete   AuthAbuseScope = "customer_2fa_complete"
 	ScopePasswordReset         AuthAbuseScope = "password_reset"
+	// S3-SEC-01: Multi-account fraud detection scopes
+	ScopeMultiAccount          AuthAbuseScope = "multi_account_device"
+	ScopePromoAbuse            AuthAbuseScope = "promo_abuse"
 )
 
 type AuthAbusePolicy struct {
@@ -310,4 +313,67 @@ func (p *AuthAbuseProtector) calculateLockout(failureCount int, failureLimit int
 		return p.policy.MaxLockout
 	}
 	return lockout
+}
+
+// S3-SEC-01: CheckMultiAccountDevice detects multiple accounts from the same device.
+// Returns true (blocked) if the device already has >= maxAccounts users registered.
+// Uses device_fingerprint_repo to count distinct users per device hash.
+func (p *AuthAbuseProtector) CheckMultiAccountDevice(deviceIDHash string, maxAccounts int, existingUserCount int) (blocked bool, reason string) {
+	if deviceIDHash == "" {
+		return false, ""
+	}
+
+	// If this device already has maxAccounts or more distinct users, flag it
+	if existingUserCount >= maxAccounts {
+		return true, fmt.Sprintf(
+			"device %s has %d users (max %d allowed)",
+			deviceIDHash[:min(8, len(deviceIDHash))],
+			existingUserCount,
+			maxAccounts,
+		)
+	}
+	return false, ""
+}
+
+// S3-SEC-02: CheckPromoAbuse detects mass promo claims from same device/IP.
+// Flags when same device or IP claims more than maxClaims promos.
+func (p *AuthAbuseProtector) CheckPromoAbuse(ctx context.Context, deviceIDHash string, ipAddress string, maxClaims int) (blocked bool, reason string) {
+	if p == nil || p.rdb == nil {
+		return false, ""
+	}
+
+	// Count promo claims per device in the last 24h
+	deviceKey := fmt.Sprintf("promo_abuse:device:%s", deviceIDHash)
+	deviceCount, err := p.rdb.Incr(ctx, deviceKey).Result()
+	if err != nil {
+		return false, ""
+	}
+	if deviceCount == 1 {
+		p.rdb.Expire(ctx, deviceKey, 24*time.Hour)
+	}
+	if int(deviceCount) > maxClaims {
+		return true, fmt.Sprintf("device claimed %d promos (max %d)", deviceCount, maxClaims)
+	}
+
+	// Count promo claims per IP in the last 24h
+	ipKey := fmt.Sprintf("promo_abuse:ip:%s", ipAddress)
+	ipCount, err := p.rdb.Incr(ctx, ipKey).Result()
+	if err != nil {
+		return false, ""
+	}
+	if ipCount == 1 {
+		p.rdb.Expire(ctx, ipKey, 24*time.Hour)
+	}
+	if int(ipCount) > maxClaims*2 {
+		return true, fmt.Sprintf("IP claimed %d promos (max %d)", ipCount, maxClaims*2)
+	}
+
+	return false, ""
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

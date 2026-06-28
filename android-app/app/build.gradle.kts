@@ -365,6 +365,10 @@ dependencies {
     // Play Services Location remains only for device GPS, not map rendering.
     val tomTomMapsSdkVersion = "1.26.6"
     implementation("com.tomtom.sdk.maps:map-display:$tomTomMapsSdkVersion")
+    // S2-COURIER-02: TomTom Navigation SDK for turn-by-turn voice-guided nav.
+    // Requires TomTom Navigation license. Falls back to Google Maps intent
+    // when SDK is not initialized or API key is missing.
+    implementation("com.tomtom.sdk.navigation:navigation-ui:$tomTomMapsSdkVersion")
     implementation("com.google.android.gms:play-services-location:21.1.0")
 
     // WebRTC audio for secure in-app courier-customer calls.

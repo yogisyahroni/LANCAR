@@ -103,7 +103,12 @@ func (r *relayRepository) GetCourierDispatchScoreStats(ctx context.Context, cour
 			ST_Distance(
 				cp.current_location::geography,
 				ST_SetSRID(ST_MakePoint($3, $2), 4326)::geography
-			)::float8 AS distance_meters
+			)::float8 AS distance_meters,
+			COALESCE(
+				EXTRACT(EPOCH FROM (NOW() - cp.last_location_updated_at)) / 60,
+				0
+			)::float8 AS idle_minutes,
+			COALESCE(cp.avg_courier_rating, 5.0)::float8 AS avg_rating
 		FROM courier_profiles cp
 		JOIN users u ON cp.user_id = u.id
 		WHERE (cp.id = $1 OR cp.user_id = $1)

@@ -611,6 +611,10 @@ private fun SecurityDialog(
 @Composable
 private fun HelpDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
+    // S2-CUSTOMER-04: WhatsApp CS deep link — nomor bisa diganti via env/config
+    val whatsappNumber = "6281234567890" // TODO: ganti dengan nomor CS produksi
+    val whatsappUrl = "https://wa.me/$whatsappNumber?text=Halo%20TEMBUS%2C%20saya%20butuh%20bantuan."
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Pusat Bantuan", fontWeight = FontWeight.Bold) },
@@ -618,24 +622,31 @@ private fun HelpDialog(onDismiss: () -> Unit) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Tim operasional TEMBUS siap membantu kendala akun, pembayaran, dan pengiriman.")
                 Text("Email: support@tembus.id", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("WhatsApp: +62 812-3456-7890", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {
+            // WhatsApp sebagai channel utama (lebih cepat)
             Button(
                 onClick = {
-                    val intent = Intent(Intent.ACTION_SENDTO).apply {
-                        data = Uri.parse("mailto:support@tembus.id")
-                        putExtra(Intent.EXTRA_SUBJECT, "Bantuan aplikasi customer TEMBUS")
+                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                        data = Uri.parse(whatsappUrl)
                     }
                     try {
                         context.startActivity(intent)
                     } catch (_: ActivityNotFoundException) {
-                        onDismiss()
+                        // Fallback ke email kalau WhatsApp tidak terinstall
+                        val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                            data = Uri.parse("mailto:support@tembus.id")
+                            putExtra(Intent.EXTRA_SUBJECT, "Bantuan aplikasi customer TEMBUS")
+                        }
+                        try { context.startActivity(emailIntent) } catch (_: Exception) { }
                     }
+                    onDismiss()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
             ) {
-                Text("Hubungi Support")
+                Text("Chat WhatsApp CS", color = Color.White)
             }
         },
         dismissButton = {

@@ -831,7 +831,7 @@ func (s *GoogleAuthService) issueGoogleSession(ctx context.Context, user *domain
 		return nil, fmt.Errorf("failed to fetch permissions: %w", err)
 	}
 
-	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, false, 15*time.Minute)
+	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, false, utils.GetAccessTokenTTL())
 	if err != nil {
 		return nil, fmt.Errorf("failed to issue access token: %w", err)
 	}
@@ -881,7 +881,7 @@ func (s *GoogleAuthService) issueOTPVerifySession(ctx context.Context, user *dom
 		return nil, fmt.Errorf("failed to fetch permissions: %w", err)
 	}
 
-	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, false, 15*time.Minute)
+	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, false, utils.GetAccessTokenTTL())
 	if err != nil {
 		return nil, fmt.Errorf("failed to issue access token: %w", err)
 	}

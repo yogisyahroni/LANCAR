@@ -54,7 +54,8 @@ fun TrackingScreen(
     viewModel: TrackingViewModel,
     onBackClick: () -> Unit,
     onChatClick: (String, String?) -> Unit,
-    onCallClick: (String, String?) -> Unit
+    onCallClick: (String, String?) -> Unit,
+    onSosClick: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -125,6 +126,27 @@ fun TrackingScreen(
             )
         }
 
+        // LAYER 3.5: SOS EMERGENCY FAB — hanya aktif saat kurir dalam perjalanan
+        // S2-CUSTOMER-01: Floating SOS button di pojok kanan bawah, sesuai skill 01 B.5 SHOULD
+        val isInTransit = uiState.detail?.order?.status in setOf("in_transit", "picked_up", "pickup_verified")
+        if (onSosClick != null && isInTransit) {
+            FloatingActionButton(
+                onClick = onSosClick,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = 160.dp),
+                containerColor = Color(0xFFFF3B30),
+                contentColor = Color.White,
+                shape = CircleShape
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = "Darurat",
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
         // LAYER 4: LIVE STATUS PANEL
         AnimatedVisibility(
             visible = uiState.courierLocation != null,
@@ -148,6 +170,18 @@ fun TrackingScreen(
                 },
                 hasUnreadMessage = uiState.hasUnreadMessage,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp)
+            )
+        }
+
+        // LAYER 5: SEARCH TIMEOUT RETRY SHEET
+        // S2-CUSTOMER-03: Muncul saat order cancelled karena no_driver_found
+        val showSearchTimeout = uiState.detail?.order?.status?.lowercase() in setOf("cancelled", "failed")
+            && uiState.detail?.order?.courierName == null
+        if (showSearchTimeout && uiState.courierLocation == null) {
+            SearchTimeoutSheet(
+                orderId = orderId,
+                viewModel = viewModel,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
             )
         }
     }
@@ -610,5 +644,76 @@ private fun bitmapDescriptorFromVector(
         BitmapDescriptorFactory.fromBitmap(bitmap)
     } catch (e: Exception) {
         BitmapDescriptorFactory.defaultMarker()
+    }
+}
+
+// S2-CUSTOMER-03: Search timeout retry sheet per skill 01 B.5
+@Composable
+private fun SearchTimeoutSheet(
+    orderId: String,
+    viewModel: TrackingViewModel,
+    modifier: Modifier = Modifier
+) {
+    var isRetrying by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Schedule, contentDescription = null, tint = Color(0xFFFF9500), modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(10.dp))
+                Text("Belum ada kurir tersedia", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            Text(
+                "Kami belum menemukan kurir di sekitar lokasi kamu. Pilih opsi di bawah:",
+                color = Color.Gray,
+                fontSize = 14.sp
+            )
+
+            Button(
+                onClick = {
+                    isRetrying = true
+                    viewModel.retrySearch(orderId)
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Primary),
+                enabled = !isRetrying
+            ) {
+                if (isRetrying) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(if (isRetrying) "Mencoba lagi..." else "Coba Lagi", fontWeight = FontWeight.Bold)
+            }
+
+            OutlinedButton(
+                onClick = {
+                    isRetrying = true
+                    viewModel.retryWithSurge(orderId)
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                enabled = !isRetrying
+            ) {
+                Icon(Icons.Default.TrendingUp, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Naikkan Tarif + Coba Lagi", fontWeight = FontWeight.Bold)
+            }
+
+            TextButton(
+                onClick = { viewModel.cancelSearch(orderId) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Batalkan Pesanan", color = Color(0xFFFF5252), fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }

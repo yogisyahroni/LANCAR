@@ -18,6 +18,8 @@ import (
 	"tembus/auth-service/internal/observability"
 	"tembus/auth-service/internal/repository"
 	"tembus/auth-service/internal/service"
+	"tembus/auth-service/pkg/logger"
+	"tembus/auth-service/pkg/sentry"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -123,10 +125,15 @@ func validateProductionSecrets() {
 func main() {
 	// Load environment variables
 	err := godotenv.Load("../../.env")
-	if err != nil {
-		log.Println("No .env file found, using system environment variables")
-	}
-	validateProductionSecrets()
+ if err != nil {
+ 	log.Println("No .env file found, using system environment variables")
+ }
+ validateProductionSecrets()
+
+ // LAUNCH-1+2: Logger & Sentry (both no-op if not configured)
+ logger.Info("Starting auth-service", "environment", os.Getenv("ENVIRONMENT"))
+ sentry.Init()
+ defer sentry.Flush()
 
 	shutdownTracing, err := observability.InitTracing(context.Background(), "auth-service")
 	if err != nil {

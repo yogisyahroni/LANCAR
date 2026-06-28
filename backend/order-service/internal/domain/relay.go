@@ -44,6 +44,9 @@ type CourierDispatchScoreStats struct {
 	MaxWeightCapacityKg *float64  `db:"max_weight_capacity_kg"`
 	MaxPackagesCapacity *int      `db:"max_packages_capacity"`
 	ProfilePhotoLocked  bool      `db:"profile_photo_locked"`
+	// S3-OS-01: Idle time & rating for fairness scoring
+	IdleMinutes float64 `db:"idle_minutes"`
+	AvgRating   float64 `db:"avg_rating"`
 }
 
 // CourierBankInfo holds bank account info needed for payout disbursement.
