@@ -108,15 +108,17 @@ fun RuntimeMapRenderer(
     ),
     routeColor: Color = Color(0xFF0B7A53),
     fallbackTitle: String = "Peta sedang disiapkan",
-    fallbackMessage: String = "Navigasi tetap memakai alamat dan koordinat order saat konfigurasi peta aktif."
+    fallbackMessage: String = "Navigasi tetap memakai alamat dan koordinat order saat konfigurasi peta aktif.",
+    forceFocus: Boolean = false
 ) {
     val validMarkers = remember(markers) { markers.filter { it.position.isValidLatLng() } }
     val validRoutePoints = remember(routePoints) { routePoints.filter { it.isValidLatLng() } }
-    val viewport = remember(validMarkers, validRoutePoints, followLocation) {
+    val viewport = remember(validMarkers, validRoutePoints, followLocation, forceFocus) {
         resolveViewport(
             markers = validMarkers,
             routePoints = validRoutePoints,
-            followLocation = followLocation
+            followLocation = followLocation,
+            forceFocus = forceFocus
         )
     }
 
@@ -541,13 +543,19 @@ private fun LatLng.toGeoPoint(): GeoPoint = GeoPoint(latitude, longitude)
 private fun resolveViewport(
     markers: List<RuntimeMapMarker>,
     routePoints: List<LatLng>,
-    followLocation: LatLng?
+    followLocation: LatLng?,
+    forceFocus: Boolean = false
 ): RuntimeMapViewport {
-    val allPoints = (routePoints + markers.map { it.position })
-        .filter { it.isValidLatLng() }
-        .distinctBy { point -> "${"%.6f".format(point.latitude)}:${"%.6f".format(point.longitude)}" }
+    if (forceFocus && followLocation?.isValidLatLng() == true) {
+        return RuntimeMapViewport(center = followLocation, zoom = 15)
+    }
 
-    if (allPoints.size >= 2) {
+    val validRoutePoints = routePoints.filter { it.isValidLatLng() }
+    
+    if (validRoutePoints.size >= 2) {
+        val allPoints = (validRoutePoints + if (followLocation?.isValidLatLng() == true) listOf(followLocation) else emptyList())
+            .distinctBy { point -> "${"%.6f".format(point.latitude)}:${"%.6f".format(point.longitude)}" }
+            
         var minLatitude = allPoints.first().latitude
         var maxLatitude = allPoints.first().latitude
         var minLongitude = allPoints.first().longitude
@@ -586,7 +594,8 @@ private fun resolveViewport(
     return RuntimeMapViewport(
         center = when {
             followLocation?.isValidLatLng() == true -> followLocation
-            allPoints.isNotEmpty() -> allPoints.first()
+            validRoutePoints.isNotEmpty() -> validRoutePoints.first()
+            markers.firstOrNull()?.position?.isValidLatLng() == true -> markers.first().position
             else -> LatLng(-6.2088, 106.8456)
         },
         zoom = 15

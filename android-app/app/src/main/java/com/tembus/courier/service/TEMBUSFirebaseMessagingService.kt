@@ -169,6 +169,24 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val fullScreenIntent = Intent(applicationContext, com.tembus.courier.ui.screens.IncomingOfferActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            data.forEach { (key, value) -> putExtra(key, value) }
+            putExtra(NotificationReceiver.EXTRA_ORDER_ID, data["order_id"] ?: data["orderId"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_DISPATCH_ID, data["dispatch_id"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_OFFER_EXPIRES_AT, data["offer_expires_at"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_OFFER_TTL_SECONDS, data["offer_ttl_seconds"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_PICKUP_ADDRESS, data["pickup_address"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_PICKUP_TIME, data["pickup_time"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_DROP_ADDRESS, data["drop_address"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_DISTANCE, data["distance"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_FEE, data["fee"] ?: "")
+            putExtra(NotificationReceiver.EXTRA_MODEL, data["model"] ?: "P2P")
+            putExtra(NotificationReceiver.EXTRA_LEG_NUMBER, data["leg_number"]?.toIntOrNull() ?: 1)
+            putExtra(NotificationReceiver.EXTRA_WORKFLOW_ROLE, data["workflow_role"] ?: "on_demand")
+            putExtra(NotificationReceiver.EXTRA_CUSTOMER_NAME, data["customer_name"] ?: "")
+        }
+
         val acceptIntent = Intent(applicationContext, NotificationReceiver::class.java).apply {
             action = NotificationReceiver.ACTION_ACCEPT
             putExtra(NotificationReceiver.EXTRA_ORDER_ID, data["order_id"] ?: "")
@@ -207,8 +225,15 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
 
         // 🔔 DYNAMIC SYSTEM BEHAVIOR MAPPING
         if (type == "order_assignment" || type == "on_demand_offer") {
+            val fullScreenPendingIntent = PendingIntent.getActivity(
+                applicationContext,
+                System.currentTimeMillis().toInt(),
+                fullScreenIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
             builder.setCategory(NotificationCompat.CATEGORY_ALARM)
-                .setFullScreenIntent(pendingIntent, true) // Bring screen alive!
+                .setFullScreenIntent(fullScreenPendingIntent, true) // Bring screen alive!
                 .addAction(
                     NotificationCompat.Action.Builder(
                         R.drawable.ic_dismiss,

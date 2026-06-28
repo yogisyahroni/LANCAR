@@ -14,8 +14,16 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.animation.core.Animatable
@@ -112,6 +120,7 @@ import com.tembus.courier.ui.screens.face.FaceVerificationScreen
 import com.tembus.courier.ui.security.LocalSecurityChallengeDialog
 import com.tembus.courier.ui.security.LocalSecuritySettingsPanel
 import com.tembus.courier.ui.security.SecureScreenEffect
+import com.tembus.courier.ui.components.BidirectionalSwipeSlider
 import com.tembus.courier.ui.theme.Accent
 import com.tembus.courier.ui.theme.AccentLight
 import com.tembus.courier.ui.theme.Background
@@ -138,6 +147,35 @@ import kotlin.math.min
 private val LogisticsOrange = Accent
 private val SageBase = Background
 private val DeepForest = PrimaryDark
+
+private fun acceptOrderViaReceiver(context: Context, order: Order) {
+    val acceptIntent = Intent(context, com.tembus.courier.receiver.NotificationReceiver::class.java).apply {
+        action = com.tembus.courier.receiver.NotificationReceiver.ACTION_ACCEPT
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_ORDER_ID, order.orderId)
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_DISPATCH_ID, order.dispatchId)
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_OFFER_EXPIRES_AT, order.offerExpiresAt?.toString())
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_OFFER_TTL_SECONDS, order.offerTtlSeconds?.toString())
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_PICKUP_ADDRESS, order.pickupAddress)
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_PICKUP_TIME, order.pickupTime)
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_DROP_ADDRESS, order.dropAddress)
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_DISTANCE, order.distance)
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_FEE, order.fee)
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_MODEL, order.model)
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_LEG_NUMBER, order.legNumber)
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_WORKFLOW_ROLE, order.workflowRole)
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_CUSTOMER_NAME, order.customerName)
+    }
+    context.sendBroadcast(acceptIntent)
+}
+
+private fun rejectOrderViaReceiver(context: Context, order: Order) {
+    val rejectIntent = Intent(context, com.tembus.courier.receiver.NotificationReceiver::class.java).apply {
+        action = com.tembus.courier.receiver.NotificationReceiver.ACTION_DISMISS
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_ORDER_ID, order.orderId)
+        putExtra(com.tembus.courier.receiver.NotificationReceiver.EXTRA_DISPATCH_ID, order.dispatchId)
+    }
+    context.sendBroadcast(rejectIntent)
+}
 
 private val CourierRouteStateSaver = Saver<CourierRouteState, List<String>>(
     save = { state ->
@@ -1368,6 +1406,13 @@ private fun OnDemandMapHome(
         }
     }
 
+    LaunchedEffect(mapFocusOverride) {
+        if (mapFocusOverride != null) {
+            delay(3_000)
+            mapFocusOverride = null
+        }
+    }
+
     val pickupPoint = focusOrder?.let { order ->
         val lat = order.pickupLatitude
         val lng = order.pickupLongitude
@@ -1461,10 +1506,10 @@ private fun OnDemandMapHome(
         }
     }
     val mapFocusLocation = when {
+        mapFocusOverride != null -> mapFocusOverride
         inAppNavigationActive && courierLocation != null -> courierLocation
         activeOrder != null -> navigationTargetPoint ?: pickupPoint ?: dropPoint
         leadingOffer != null -> pickupPoint ?: dropPoint ?: courierLocation
-        mapFocusOverride != null -> mapFocusOverride
         courierLocation != null -> courierLocation
         else -> mapMarkers.firstOrNull()?.position
     }
@@ -1504,6 +1549,7 @@ private fun OnDemandMapHome(
             markers = mapMarkers,
             routePoints = routePoints,
             followLocation = mapFocusLocation,
+            forceFocus = mapFocusOverride != null || inAppNavigationActive,
             mapUiSettings = MapUiSettings(
                 zoomControlsEnabled = false,
                 myLocationButtonEnabled = false,
@@ -1805,57 +1851,140 @@ private fun OnDemandMapDispatchCockpit(
     onServiceEnabledChange: (CourierServiceProduct, Boolean) -> Unit,
     onViewOrders: () -> Unit
 ) {
+    var isMinimized by rememberSaveable { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().animateContentSize(
+            animationSpec = spring(
+                dampingRatio = 0.8f,
+                stiffness = 400f
+            )
+        ),
         color = Color.White.copy(alpha = 0.96f),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(if (isMinimized) 50.dp else 18.dp),
         border = BorderStroke(1.dp, Primary.copy(alpha = 0.12f)),
-        shadowElevation = 10.dp
+        shadowElevation = if (isMinimized) 6.dp else 10.dp
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+        if (isMinimized) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { 
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        isMinimized = false 
+                    }
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Surface(
-                    color = if (isOnline) Success.copy(alpha = 0.12f) else PrimaryLight.copy(alpha = 0.72f),
-                    shape = RoundedCornerShape(12.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(
-                        imageVector = if (isOnline) Icons.Default.NearMe else Icons.Default.Map,
-                        contentDescription = null,
-                        tint = if (isOnline) Success else Primary,
-                        modifier = Modifier.padding(10.dp).size(22.dp)
+                    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                    val alpha by infiniteTransition.animateFloat(
+                        initialValue = 0.3f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1000),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "pulseAlpha"
                     )
-                }
-                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(if (isOnline) Success.copy(alpha = alpha) else Color.Gray)
+                    )
+                    
                     Text(
-                        text = if (isOnline) "Siap menerima order" else "Belum aktif",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
+                        text = if (isOnline) "Mencari order di sekitar..." else "Duty Nonaktif",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
                         color = DeepForest
                     )
-                    Text(
-                        text = if (isOnline) {
-                            "Tawaran akan muncul otomatis saat ada order terdekat."
-                        } else {
-                            "Peta tetap menampilkan posisi kamu. Aktifkan duty saat siap bekerja."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                
+                Surface(
+                    color = PrimaryLight.copy(alpha = 0.3f),
+                    shape = CircleShape
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ExpandLess,
+                        contentDescription = "Expand",
+                        tint = Primary,
+                        modifier = Modifier.padding(4.dp).size(20.dp)
                     )
                 }
-                TextButton(onClick = onViewOrders) {
-                    Text("Order", color = Primary, fontWeight = FontWeight.Black)
-                }
             }
+        } else {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        color = if (isOnline) Success.copy(alpha = 0.12f) else PrimaryLight.copy(alpha = 0.72f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isOnline) Icons.Default.NearMe else Icons.Default.Map,
+                            contentDescription = null,
+                            tint = if (isOnline) Success else Primary,
+                            modifier = Modifier.padding(10.dp).size(22.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            text = if (isOnline) "Siap menerima order" else "Belum aktif",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                            color = DeepForest
+                        )
+                        Text(
+                            text = if (isOnline) {
+                                "Tawaran akan muncul otomatis saat ada order terdekat."
+                            } else {
+                                "Peta tetap menampilkan posisi kamu. Aktifkan duty saat siap bekerja."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        IconButton(
+                            onClick = { 
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                isMinimized = true 
+                            },
+                            modifier = Modifier.size(28.dp).padding(bottom = 4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.ExpandMore,
+                                contentDescription = "Minimize",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(onClick = onViewOrders, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp), modifier = Modifier.height(32.dp)) {
+                            Text("Order", color = Primary, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
 
             if (leadingOffer != null) {
-                OnDemandIncomingOfferStrip(order = leadingOffer)
+                val context = LocalContext.current
+                OnDemandIncomingOfferSwipePanel(
+                    order = leadingOffer,
+                    onAccept = { acceptOrderViaReceiver(context, leadingOffer) },
+                    onReject = { rejectOrderViaReceiver(context, leadingOffer) }
+                )
             } else {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -1955,6 +2084,7 @@ private fun OnDemandMapDispatchCockpit(
                     }
                 }
             }
+            }
         }
     }
 }
@@ -2014,32 +2144,52 @@ private fun OnDemandCompactStatusItem(
 }
 
 @Composable
-private fun OnDemandIncomingOfferStrip(order: Order) {
+private fun OnDemandIncomingOfferSwipePanel(order: Order, onAccept: () -> Unit, onReject: () -> Unit) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = LogisticsOrange.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, LogisticsOrange.copy(alpha = 0.26f))
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(24.dp),
+        shadowElevation = 8.dp
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Surface(color = Color.White, shape = RoundedCornerShape(10.dp)) {
-                Icon(Icons.Default.Bolt, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(8.dp).size(18.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Surface(color = LogisticsOrange.copy(alpha = 0.12f), shape = CircleShape) {
+                    Icon(Icons.Default.Bolt, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.padding(12.dp).size(24.dp))
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Pekerjaan On-Demand Baru!", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = DeepForest)
+                    Text(
+                        "${order.displayServiceName()} • ${order.cleanPayoutIdr().toRupiahCompact()}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Tawaran masuk", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = DeepForest)
-                Text(
-                    "${order.displayServiceName()} • ${order.cleanPayoutIdr().toRupiahCompact()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            
+            // Details
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Place, contentDescription = null, tint = Primary, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(order.pickupAddress, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Navigation, contentDescription = null, tint = LogisticsOrange, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(order.dropAddress, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
-            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = LogisticsOrange)
+
+            BidirectionalSwipeSlider(
+                onAccept = onAccept,
+                onReject = onReject
+            )
         }
     }
 }

@@ -102,6 +102,16 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.screens.IncomingOfferActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.TEMBUSCourier"
+            android:turnScreenOn="true" />
+
         <!-- FCM Service - handles both foreground and background notifications -->
         <service
             android:name=".service.TEMBUSFirebaseMessagingService"
