@@ -179,6 +179,22 @@ class TrackingViewModel @Inject constructor(
         super.onCleared()
         stopTracking()
     }
+
+    fun triggerSos(orderId: String) {
+        // TODO: Implement SOS trigger
+    }
+
+    fun retrySearch(orderId: String) {
+        // TODO: Implement retry search logic
+    }
+
+    fun retryWithSurge(orderId: String) {
+        // TODO: Implement retry with surge logic
+    }
+
+    fun cancelSearch(orderId: String) {
+        // TODO: Implement cancel search logic
+    }
 }
 
 private fun decodeEncodedPolyline(encoded: String?): List<LatLng> {
