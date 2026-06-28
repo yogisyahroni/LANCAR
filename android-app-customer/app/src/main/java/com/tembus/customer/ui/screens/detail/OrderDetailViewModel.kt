@@ -98,7 +98,7 @@ class OrderDetailViewModel @Inject constructor(
         _disputeState.value = DisputeSubmitState.Idle
     }
 
-    fun cancelOrder(orderId: String) {
+    fun cancelOrder(orderId: String, reason: String) {
         // TODO: Implement cancel order logic
     }
 }
