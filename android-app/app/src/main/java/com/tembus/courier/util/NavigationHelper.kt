@@ -71,7 +71,7 @@ object NavigationHelper {
      * Uses the universal geo: intent with navigation mode.
      */
     fun navigateWithGoogleMaps(context: Context, lat: Double, lng: Double, label: String) {
-        val uri = Uri.parse("google.navigation:q=$lat,$lng&mode=d")
+        val uri = Uri.parse("geo:0,0?q=$lat,$lng")
         val intent = Intent(Intent.ACTION_VIEW, uri).apply {
             setPackage("com.google.android.apps.maps")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

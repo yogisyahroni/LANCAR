@@ -1889,7 +1889,7 @@ private fun openNavigation(
 
     // Fallback: address-based search via Google Maps intent
     try {
-        val gmmIntentUri = Uri.parse("google.navigation:q=${Uri.encode(address)}&mode=d")
+        val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(address)}")
         val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
         mapIntent.setPackage("com.google.android.apps.maps")
         val resolved = mapIntent.resolveActivity(context.packageManager)

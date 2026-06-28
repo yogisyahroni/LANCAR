@@ -76,8 +76,8 @@ func CaptureError(err error, context map[string]interface{}) {
 		return
 	}
 	sentry.WithScope(func(scope *sentry.Scope) {
-		for k, v := range context {
-			scope.SetExtra(k, v)
+		if len(context) > 0 {
+			scope.SetContext("Extra", context)
 		}
 		sentry.CaptureException(err)
 	})
@@ -90,11 +90,13 @@ var sensitiveFields = []string{
 }
 
 func redactEvent(event *sentry.Event) {
-	for key := range event.Extra {
-		for _, sensitive := range sensitiveFields {
-			if strings.Contains(strings.ToLower(key), sensitive) {
-				event.Extra[key] = "[REDACTED]"
-				break
+	for _, ctx := range event.Contexts {
+		for key := range ctx {
+			for _, sensitive := range sensitiveFields {
+				if strings.Contains(strings.ToLower(key), sensitive) {
+					ctx[key] = "[REDACTED]"
+					break
+				}
 			}
 		}
 	}
