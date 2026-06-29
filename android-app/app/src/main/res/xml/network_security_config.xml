@@ -8,6 +8,12 @@
 
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.bawain.my.id</domain>
+        <!-- Fix VULN-004: Certificate Pinning -->
+        <pin-set expiration="2027-06-28">
+            <!-- PLACEHOLDERS: Replace with actual Base64 SHA-256 hashes -->
+            <pin digest="SHA-256">YOUR_CURRENT_CERT_SHA256_BASE64=</pin>
+            <pin digest="SHA-256">YOUR_BACKUP_CERT_SHA256_BASE64=</pin>
+        </pin-set>
         <trust-anchors>
             <certificates src="system" />
             <certificates src="@raw/isrg_root_x2_cross_signed" />

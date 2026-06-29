@@ -325,16 +325,19 @@ func main() {
 	// Protected Routes (Wrapped in Auth + Base Middleware)
 	mux.HandleFunc("/api/v1/orders", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
-			middleware.ValidateBody(domain.CreateOrderRequest{})(orderHandler.CreateOrder).ServeHTTP(w, r)
+			// Apply rate limit to order creation
+			middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateOrderRequest{})(orderHandler.CreateOrder)).ServeHTTP(w, r)
 		} else if r.Method == http.MethodGet {
-			orderHandler.ListOrders(w, r)
+			// Apply global IP rate limit to order listing to prevent enumeration
+			middleware.LimitByIP(rdb)(orderHandler.ListOrders).ServeHTTP(w, r)
 		} else {
 			middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
 		}
 	})))
-	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetOrder)))
-	mux.HandleFunc("/api/v1/orders/bulk", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CreateBulkOrder)))
-	mux.HandleFunc("/api/v1/orders/poll", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.PollOrderUpdates)))
+	
+	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.GetOrder))))
+	mux.HandleFunc("/api/v1/orders/bulk", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitOrderCreation(rdb)(orderHandler.CreateBulkOrder))))
+	mux.HandleFunc("/api/v1/orders/poll", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.PollOrderUpdates))))
 	mux.HandleFunc("/api/v1/meeting-points/suggest", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.SuggestMeetingPoints)))
 
 	// Mock Chat Endpoint
@@ -350,7 +353,7 @@ func main() {
 
 	// Courier Workflow Routes
 	mux.HandleFunc("/api/v1/couriers/orders/accept", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AcceptOrder)))
-	mux.HandleFunc("/api/v1/orders/status", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.UpdateStatus)))
+	mux.HandleFunc("/api/v1/orders/status", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.UpdateStatus))))
 	mux.HandleFunc("/api/v1/orders/scan", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ScanPackage)))
 	mux.HandleFunc("/api/v1/orders/scans", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetPackageScans)))
 	mux.HandleFunc("/api/v1/orders/bags", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.CreateConsolidationBag)))

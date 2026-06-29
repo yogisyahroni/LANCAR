@@ -568,6 +568,13 @@ func (h *OrderHandler) StartMatching(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	role := middleware.GetRoleFromContext(r.Context())
+	if role != "admin" && role != "super_admin" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Hanya admin yang dapat melakukan pencarian kurir otomatis", correlationID)
+		return
+	}
+
 	id := r.URL.Query().Get("id")
 	if id == "" {
 		correlationID := middleware.GetCorrelationID(r.Context())
@@ -575,7 +582,20 @@ func (h *OrderHandler) StartMatching(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := h.orderSvc.StartMatching(r.Context(), id)
+	// Fix VULN-003: Check if order is eligible
+	order, err := h.orderSvc.GetOrder(r.Context(), id)
+	if err != nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Order tidak ditemukan", correlationID)
+		return
+	}
+	if order.Status != domain.StatusPendingAssignment {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusConflict, "ERR_CONFLICT", "Pencarian kurir hanya bisa dilakukan jika order dalam status pending_assignment", correlationID)
+		return
+	}
+
+	err = h.orderSvc.StartMatching(r.Context(), id)
 	if err != nil {
 		userSafeError(w, r, err, http.StatusInternalServerError)
 		return
@@ -680,6 +700,28 @@ func (h *OrderHandler) GetPackageScans(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fix VULN-001: Scans Auth Bypass
+	userID := middleware.GetUserIDFromContext(r.Context())
+	role := middleware.GetRoleFromContext(r.Context())
+	
+	if role == "customer" {
+		order, err := h.orderSvc.GetOrder(r.Context(), orderID)
+		if err != nil {
+			correlationID := middleware.GetCorrelationID(r.Context())
+			middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Order tidak ditemukan", correlationID)
+			return
+		}
+		if order.CustomerID != userID {
+			correlationID := middleware.GetCorrelationID(r.Context())
+			middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Akses ditolak", correlationID)
+			return
+		}
+	} else if role == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", correlationID)
+		return
+	}
+
 	scans, err := h.orderSvc.GetPackageScans(r.Context(), orderID)
 	if err != nil {
 		userSafeError(w, r, err, http.StatusInternalServerError)
@@ -704,9 +746,18 @@ func (h *OrderHandler) CreateConsolidationBag(w http.ResponseWriter, r *http.Req
 		return
 	}
 	createdBy := middleware.GetUserIDFromContext(r.Context())
-	if createdBy == "" {
+	role := middleware.GetRoleFromContext(r.Context())
+	
+	if createdBy == "" || role == "" {
 		correlationID := middleware.GetCorrelationID(r.Context())
 		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", correlationID)
+		return
+	}
+	
+	// Fix VULN-001: Bag Auth Bypass
+	if role != "admin" && role != "super_admin" && role != "courier" && role != "warehouse" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Hanya petugas yang dapat membuat kantong", correlationID)
 		return
 	}
 
@@ -745,9 +796,17 @@ func (h *OrderHandler) OpenConsolidationBag(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	unbaggedBy := middleware.GetUserIDFromContext(r.Context())
-	if unbaggedBy == "" {
+	role := middleware.GetRoleFromContext(r.Context())
+	if unbaggedBy == "" || role == "" {
 		correlationID := middleware.GetCorrelationID(r.Context())
 		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", correlationID)
+		return
+	}
+
+	// Fix VULN-001: Bag Auth Bypass
+	if role != "admin" && role != "super_admin" && role != "courier" && role != "warehouse" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Hanya petugas yang dapat membuka kantong", correlationID)
 		return
 	}
 
@@ -778,6 +837,14 @@ func (h *OrderHandler) GetConsolidationBag(w http.ResponseWriter, r *http.Reques
 	if bagNumber == "" {
 		correlationID := middleware.GetCorrelationID(r.Context())
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_MISSING_PARAM", "bag_number is required", correlationID)
+		return
+	}
+
+	// Fix VULN-001: Bag Auth Bypass
+	role := middleware.GetRoleFromContext(r.Context())
+	if role != "admin" && role != "super_admin" && role != "courier" && role != "warehouse" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Hanya petugas yang dapat mengakses data kantong", correlationID)
 		return
 	}
 

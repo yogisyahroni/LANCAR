@@ -909,7 +909,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
        LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
        LEFT JOIN users c ON c.id = o.customer_id
        WHERE ol.courier_id = $1
-       ORDER BY o.sequence_no ASC NULLS FIRST, o.created_at ASC, o.id
+       ORDER BY o.id, o.sequence_no ASC NULLS FIRST, o.created_at ASC
        LIMIT 100`,
       [req.user.id]
     );
@@ -918,7 +918,12 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
       success: true,
       data: result.rows
         .map(normalizeMobileOrder)
-        .sort((a, b) => b.created_at - a.created_at),
+        .sort((a, b) => {
+          if (a.sequence_no !== b.sequence_no) {
+            return (a.sequence_no ?? 999) - (b.sequence_no ?? 999);
+          }
+          return b.created_at - a.created_at;
+        }),
       message: 'Courier orders loaded',
     });
   } catch (error) {
