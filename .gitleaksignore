@@ -1,4 +1,4 @@
-﻿e2fcf5df82dc65532043b532755e55ad82077e8e:docs/smtp_configuration_guide.md:aws-access-token:41
+e2fcf5df82dc65532043b532755e55ad82077e8e:docs/smtp_configuration_guide.md:aws-access-token:41
 88f2fea207dcae117754a1c177af4ba1d4d39ca3:landing-page/src/app/docs/page.tsx:generic-api-key:23
 6e5c1f81e4f687b853a767cbc4f28a970d0392aa:backend/auth-service/internal/domain/google_auth.go:hashicorp-tf-password:81
 852e73a4168c08679237b30e9252004f7837c3fa:backend/admin-service/src/services/promoEngine.test.ts:generic-api-key:136
@@ -19,3 +19,10 @@ da2ef4eb81a5fd1f7d038cf0a3f5f7720c5af88c:frontend/src/components/PushNotificatio
 da2ef4eb81a5fd1f7d038cf0a3f5f7720c5af88c:frontend/src/components/PushNotificationPrompt.tsx:generic-api-key:62
 da2ef4eb81a5fd1f7d038cf0a3f5f7720c5af88c:frontend/src/app/(portal)/profil/page.tsx:generic-api-key:224
 da2ef4eb81a5fd1f7d038cf0a3f5f7720c5af88c:frontend/src/app/(portal)/profil/page.tsx:generic-api-key:230
+2b7f377ff22d2a8e4156c2b0de9433a79075fe72:ondemand-delivery-standards-audit/ondemand-delivery-standards-audit/SKILL.md:generic-api-key:38
+6675f9ceecb33ebdb295eae8e31dc26d88dc3693:android-app-customer/app/google-services.json:gcp-api-key:18
+301e547302f94af7df0781dd181bca5ed390ee25:backend/admin-service/src/controllers/couriers.controller.ts:generic-api-key:1036
+28415cc32ec5d35807ce2909c708f800b90c9ba5:android-app/app/google-services.json:gcp-api-key:18
+58bbac03cb1bcec9b3383a3ccf8e0356326efb7f:database/migrations/20240505000027_add_security_configs.sql:generic-api-key:8
+98c4884611855e86947cd475b2162729d7803606:.agent/skills/code-documentation-doc-generate/SKILL.md:curl-auth-header:536
+98c4884611855e86947cd475b2162729d7803606:.agent/skills/documentation-generation-doc-generate/SKILL.md:curl-auth-header:536
