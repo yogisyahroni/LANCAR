@@ -39,6 +39,7 @@ fun OrderDetailScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val disputeState by viewModel.disputeState.collectAsState()
+    val cancelState by viewModel.cancelState.collectAsState()
     val context = LocalContext.current
     var showDisputeDialog by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
@@ -60,6 +61,21 @@ fun OrderDetailScreen(
             Toast.makeText(context, "Laporan berhasil dikirim. Tim kami akan segera meninjau.", Toast.LENGTH_LONG).show()
             showDisputeDialog = false
             viewModel.resetDisputeState()
+        }
+    }
+
+    LaunchedEffect(cancelState) {
+        when (val cs = cancelState) {
+            is CancelOrderState.Success -> {
+                Toast.makeText(context, cs.message, Toast.LENGTH_LONG).show()
+                viewModel.resetCancelState()
+                onBackClick()
+            }
+            is CancelOrderState.Error -> {
+                Toast.makeText(context, cs.message, Toast.LENGTH_LONG).show()
+                viewModel.resetCancelState()
+            }
+            else -> Unit
         }
     }
 

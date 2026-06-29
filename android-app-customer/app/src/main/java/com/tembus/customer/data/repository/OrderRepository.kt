@@ -342,6 +342,23 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun cancelOrder(orderId: String, reason: String): Result<String> {
+        return try {
+            val response = apiService.cancelCustomerOrder(
+                id = orderId,
+                request = mapOf("reason" to reason)
+            )
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                Result.success(body.message ?: "Pesanan berhasil dibatalkan")
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal membatalkan pesanan")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun <T> Response<T>.readErrorMessage(fallback: String): String {
         return try {
             val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback.withRequestReference(this)

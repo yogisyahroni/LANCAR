@@ -122,6 +122,12 @@ interface TEMBUSApiService {
         @Body request: CustomerOrderCreateRequest
     ): Response<CustomerOrderCreateResponse>
 
+    @POST("api/v1/customer/orders/{id}/cancel")
+    suspend fun cancelCustomerOrder(
+        @Path("id") id: String,
+        @Body request: Map<String, @JvmSuppressWildcards Any>
+    ): Response<ApiResponse<Unit>>
+
     @GET("api/v1/customer/addresses")
     suspend fun getCustomerAddresses(
         @Query("kind") kind: String? = null

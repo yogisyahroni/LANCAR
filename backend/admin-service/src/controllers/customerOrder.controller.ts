@@ -1332,6 +1332,19 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     await client.query('COMMIT');
     client.release();
 
+    // Jika payment di-bypass, langsung dispatch ke kurir tanpa menunggu alur pembayaran
+    if (isPaymentBypassed) {
+      const dispatchClient = await db.connect();
+      try {
+        const createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
+        await notifyOnDemandOffers(createdOffers);
+      } catch (dispatchErr) {
+        console.error('[WARN] advanceOnDemandDispatchQueue after bypass failed:', dispatchErr);
+      } finally {
+        dispatchClient.release();
+      }
+    }
+
     res.status(201).json({
       success: true,
       order: newOrder,
@@ -1344,6 +1357,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       await releasePromoReservation(reservedPromoCustomerId, reservedPromoKey).catch(() => undefined);
     }
     client.release();
+    console.error("[DEBUG] Create Order Error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -4116,6 +4130,95 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
       await updateWebhookAuditEvent(db, auditEventId, 'failed', 'processing_failed').catch(() => undefined);
     }
     res.status(500).json({ success: false, error: 'Webhook processing failed' });
+  } finally {
+    client.release();
+  }
+};
+
+// ─── Customer Cancel Order ────────────────────────────────────────────────────
+export const cancelCustomerOrder = async (req: Request, res: Response): Promise<void> => {
+  const client = await db.connect();
+  try {
+    const customerId = req.user?.id;
+    if (!customerId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const orderId = String(req.params.id);
+    const reason = String(req.body?.reason || 'Dibatalkan oleh pelanggan');
+
+    // Statuses pelanggan boleh membatalkan (sebelum kurir pick up)
+    const cancellableStatuses = ['pending', 'pending_payment', 'paid', 'dispatching', 'offered', 'searching'];
+
+    await client.query('BEGIN');
+
+    // Lock baris order milik customer ini
+    const { rows: orderRows } = await client.query(
+      `SELECT id, status, order_number FROM orders
+       WHERE id = $1 AND customer_id = $2
+       FOR UPDATE`,
+      [orderId, customerId]
+    );
+
+    if (orderRows.length === 0) {
+      await client.query('ROLLBACK');
+      res.status(404).json({ success: false, error: 'Order tidak ditemukan' });
+      return;
+    }
+
+    const order = orderRows[0];
+
+    if (!cancellableStatuses.includes(order.status)) {
+      await client.query('ROLLBACK');
+      res.status(409).json({
+        success: false,
+        error: `Pesanan tidak dapat dibatalkan pada status "${order.status}". Hubungi CS jika memerlukan bantuan.`,
+      });
+      return;
+    }
+
+    // Expire semua dispatch yang sedang aktif agar kurir tidak menerimanya
+    await client.query(
+      `UPDATE courier_offer_dispatches
+       SET status = 'expired', updated_at = NOW()
+       WHERE order_id = $1 AND status IN ('offered', 'pending')`,
+      [orderId]
+    );
+
+    // Update status order → cancelled
+    await client.query(
+      `UPDATE orders
+       SET status = 'cancelled', updated_at = NOW()
+       WHERE id = $1`,
+      [orderId]
+    );
+
+    // Catat event pembatalan
+    await client.query(
+      `INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+       VALUES ($1, $2, 'cancelled', 'Dibatalkan oleh pelanggan', $3)`,
+      [orderId, customerId, JSON.stringify({ reason, cancelled_by: 'customer' })]
+    );
+
+    await client.query('COMMIT');
+
+    // Advance queue untuk order lain yang sedang menunggu kurir
+    const dispatchClient = await db.connect();
+    try {
+      const createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 5);
+      await notifyOnDemandOffers(createdOffers);
+    } catch (dispatchErr) {
+      console.error('[WARN] advanceOnDemandDispatchQueue after cancel failed:', dispatchErr);
+    } finally {
+      dispatchClient.release();
+    }
+
+    res.json({ success: true, message: `Pesanan ${order.order_number} berhasil dibatalkan.` });
+  } catch (error: any) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    console.error('[cancelCustomerOrder] error:', error);
+    res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();
   }

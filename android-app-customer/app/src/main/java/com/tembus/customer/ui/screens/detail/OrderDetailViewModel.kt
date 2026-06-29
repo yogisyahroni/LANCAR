@@ -23,6 +23,13 @@ sealed class DisputeSubmitState {
     data class Error(val message: String) : DisputeSubmitState()
 }
 
+sealed class CancelOrderState {
+    object Idle : CancelOrderState()
+    object Loading : CancelOrderState()
+    data class Success(val message: String) : CancelOrderState()
+    data class Error(val message: String) : CancelOrderState()
+}
+
 sealed class OrderDetailUiState {
     object Idle : OrderDetailUiState()
     object Loading : OrderDetailUiState()
@@ -40,6 +47,9 @@ class OrderDetailViewModel @Inject constructor(
 
     private val _disputeState = MutableStateFlow<DisputeSubmitState>(DisputeSubmitState.Idle)
     val disputeState: StateFlow<DisputeSubmitState> = _disputeState.asStateFlow()
+
+    private val _cancelState = MutableStateFlow<CancelOrderState>(CancelOrderState.Idle)
+    val cancelState: StateFlow<CancelOrderState> = _cancelState.asStateFlow()
 
     fun fetchOrderDetail(orderId: String) {
         viewModelScope.launch {
@@ -99,6 +109,19 @@ class OrderDetailViewModel @Inject constructor(
     }
 
     fun cancelOrder(orderId: String, reason: String) {
-        // TODO: Implement cancel order logic
+        viewModelScope.launch {
+            _cancelState.value = CancelOrderState.Loading
+            val result = repository.cancelOrder(orderId, reason)
+            result.onSuccess { message ->
+                _cancelState.value = CancelOrderState.Success(message)
+            }
+            result.onFailure { error ->
+                _cancelState.value = CancelOrderState.Error(error.localizedMessage ?: "Gagal membatalkan pesanan")
+            }
+        }
+    }
+
+    fun resetCancelState() {
+        _cancelState.value = CancelOrderState.Idle
     }
 }

@@ -79,6 +79,7 @@ import com.tembus.courier.ui.components.maps.MapMarker
 import com.tembus.courier.ui.components.maps.MarkerState
 import com.tembus.courier.ui.components.maps.MapPolyline
 import com.tembus.courier.ui.components.maps.rememberCameraPositionState
+import com.tembus.courier.ui.components.BatteryOptimizationCard
 import com.tembus.courier.data.model.CourierServiceProduct
 import com.tembus.courier.data.model.CourierHotspot
 import com.tembus.courier.data.model.CourierCapabilityProfile
@@ -1109,6 +1110,9 @@ fun MainScreen(
                         onDismiss = { inlineErrorMessage = null }
                     )
                 }
+                
+                BatteryOptimizationCard()
+                
                 when (selectedTab) {
                     0 -> HomeContent(
                     courierName = displayCourierName,

@@ -77,6 +77,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,6 +91,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.sp
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
@@ -115,7 +118,9 @@ import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryLight
 import com.tembus.customer.ui.theme.Secondary
 import com.tembus.customer.ui.theme.SecondaryLight
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -258,6 +263,9 @@ fun BookingScreen(
     var showReviewSheet by remember { mutableStateOf(false) }
     var lastAutoServiceKey by remember { mutableStateOf("") }
     val locationPermissionState = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         if (!locationPermissionState.status.isGranted) {
@@ -323,7 +331,14 @@ fun BookingScreen(
             !uiState.isPackageReady() -> Toast.makeText(context, "Pilih ukuran dan berat paket dulu.", Toast.LENGTH_SHORT).show()
             uiState.isCalculatingRoute -> Toast.makeText(context, "Sistem sedang menghitung rute jalan dan harga.", Toast.LENGTH_SHORT).show()
             uiState.priceBreakdowns.isEmpty() -> Toast.makeText(context, "Rute jalan sedang dihitung untuk alamat ini.", Toast.LENGTH_SHORT).show()
-            else -> showServiceSheet = true
+            else -> {
+                keyboardController?.hide()
+                focusManager.clearFocus()
+                scope.launch {
+                    delay(150)
+                    showServiceSheet = true
+                }
+            }
         }
     }
 
@@ -340,7 +355,14 @@ fun BookingScreen(
                         uiState.isCalculatingRoute -> Toast.makeText(context, "Sistem sedang menghitung rute jalan dan harga.", Toast.LENGTH_SHORT).show()
                         uiState.selectedPrice() == null -> openServicePicker()
                         !uiState.isRecipientReady() -> Toast.makeText(context, "Lengkapi detail penerima dan isi paket.", Toast.LENGTH_SHORT).show()
-                        else -> showReviewSheet = true
+                        else -> {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                            scope.launch {
+                                delay(150)
+                                showReviewSheet = true
+                            }
+                        }
                     }
                 }
             )
@@ -359,9 +381,21 @@ fun BookingScreen(
             item {
                 DeliveryDetailCard(
                     state = uiState,
-                    onPickupClick = { showPickupSheet = true },
-                    onDestinationClick = { showDestinationSheet = true },
-                    onRequestLocationClick = { showLocationRequestSheet = true }
+                    onPickupClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        scope.launch { delay(150); showPickupSheet = true }
+                    },
+                    onDestinationClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        scope.launch { delay(150); showDestinationSheet = true }
+                    },
+                    onRequestLocationClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        scope.launch { delay(150); showLocationRequestSheet = true }
+                    }
                 )
             }
             if (uiState.promoCode.isNotBlank()) {
@@ -435,7 +469,7 @@ fun BookingScreen(
     if (showServiceSheet) {
         ModalBottomSheet(
             onDismissRequest = { showServiceSheet = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            sheetState = rememberModalBottomSheetState(),
             containerColor = Color.White
         ) {
             ServicePickerSheet(
@@ -454,7 +488,7 @@ fun BookingScreen(
                 viewModel.clearLocationSearch()
                 showDestinationSheet = false
             },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            sheetState = rememberModalBottomSheetState(),
             containerColor = Color.White
         ) {
             LocationInputSheet(
@@ -502,7 +536,7 @@ fun BookingScreen(
                 viewModel.clearLocationSearch()
                 showPickupSheet = false
             },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            sheetState = rememberModalBottomSheetState(),
             containerColor = Color.White
         ) {
             LocationInputSheet(
@@ -547,7 +581,7 @@ fun BookingScreen(
     if (showLocationRequestSheet) {
         ModalBottomSheet(
             onDismissRequest = { showLocationRequestSheet = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            sheetState = rememberModalBottomSheetState(),
             containerColor = Color.White
         ) {
             RequestReceiverLocationSheet(
@@ -588,7 +622,7 @@ fun BookingScreen(
     if (showReviewSheet) {
         ModalBottomSheet(
             onDismissRequest = { showReviewSheet = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            sheetState = rememberModalBottomSheetState(),
             containerColor = Color.White
         ) {
             BookingReviewSheet(

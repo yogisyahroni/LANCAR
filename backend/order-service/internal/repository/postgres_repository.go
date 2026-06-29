@@ -357,7 +357,7 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
 				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, created_at, updated_at
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, created_at, updated_at
 			  FROM orders 
 			  WHERE status = 'searching' AND updated_at < $1`
 
@@ -377,7 +377,7 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 			&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
 			&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
 			&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.CreatedAt, &o.UpdatedAt,
+			&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CreatedAt, &o.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err

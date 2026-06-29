@@ -131,8 +131,10 @@ fun RuntimeMapRenderer(
         )
     }
 
+    val is64Bit = remember { android.os.Process.is64Bit() }
+
     when {
-        providerConfig.activeProvider == "tomtom_maps" && hasTomTomSdkKey() -> {
+        providerConfig.activeProvider == "tomtom_maps" && hasTomTomSdkKey() && is64Bit -> {
             TomTomSdkMapRenderer(
                 markers = validMarkers,
                 routePoints = validRoutePoints,
@@ -141,6 +143,15 @@ fun RuntimeMapRenderer(
                 routeColor = routeColor,
                 onMapClick = onMapClick,
                 statusMessage = null
+            )
+        }
+
+        providerConfig.activeProvider == "tomtom_maps" && hasTomTomSdkKey() && !is64Bit -> {
+            RuntimeMapFallback(
+                title = "Visual 3D Tidak Didukung",
+                message = "Sistem perangkat ini (32-bit) tidak mendukung modul Peta 3D TomTom terbaru. Namun jangan khawatir, pencarian lokasi dan order tetap berfungsi 100% normal.",
+                center = viewport.center,
+                modifier = modifier
             )
         }
 
