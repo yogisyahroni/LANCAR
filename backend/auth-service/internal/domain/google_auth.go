@@ -265,6 +265,7 @@ type CustomerOTPVerifyRequest struct {
 	TransactionID string `json:"transaction_id"`
 	ChallengeID   string `json:"challenge_id"`
 	OTPCode       string `json:"otp_code"`
+	PhoneNumber   string `json:"phone_number,omitempty"`
 	DeviceID      string `json:"device_id"`
 }
 
