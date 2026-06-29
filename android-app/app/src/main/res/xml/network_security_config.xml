@@ -10,9 +10,9 @@
         <domain includeSubdomains="true">api.bawain.my.id</domain>
         <!-- Fix VULN-004: Certificate Pinning -->
         <pin-set expiration="2027-06-28">
-            <!-- PLACEHOLDERS: Replace with actual Base64 SHA-256 hashes -->
-            <pin digest="SHA-256">YOUR_CURRENT_CERT_SHA256_BASE64=</pin>
-            <pin digest="SHA-256">YOUR_BACKUP_CERT_SHA256_BASE64=</pin>
+            <!-- PLACEHOLDERS: Replace with actual Base64 SHA-256 hashes (Must be 44 chars) -->
+            <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
+            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
         </pin-set>
         <trust-anchors>
             <certificates src="system" />
