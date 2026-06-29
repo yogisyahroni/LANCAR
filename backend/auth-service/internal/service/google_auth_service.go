@@ -374,7 +374,6 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 		return &domain.GoogleAuthCompleteResponse{Status: domain.GoogleAuthStatusBlocked}, errors.New("Registrasi dengan Google belum tersedia")
 	}
 
-	// Store claims in a pending transaction for the registration flow
 	txProvider := "google"
 	regTxStatus := domain.AuthTxPending
 	regTx := &domain.CustomerAuthTransaction{
@@ -394,9 +393,27 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 	regTx.Metadata = metaBytes
 	_ = s.repo.CreateAuthTransaction(ctx, regTx)
 
-	span.SetStatus(codes.Ok, "requires_phone")
-	
 	otpReq := s.repo.IsCustomerAuthOTPRequired(ctx)
+
+	// If OTP is not required, auto-complete the registration now
+	if !otpReq {
+		verifyResp, err := s.completeRegistration(ctx, regTx, req.DeviceID, deviceIDHash, deviceInfoJSON)
+		if err != nil {
+			return nil, err
+		}
+		_ = s.repo.ConsumeAuthTransaction(ctx, regTx.ID)
+		
+		return &domain.GoogleAuthCompleteResponse{
+			Status:        domain.GoogleAuthStatusAuthenticated,
+			AccessToken:   verifyResp.AccessToken,
+			RefreshToken:  verifyResp.RefreshToken,
+			ExpiresIn:     verifyResp.ExpiresIn,
+			User:          verifyResp.User,
+			TrustedDevice: true,
+		}, nil
+	}
+
+	span.SetStatus(codes.Ok, "requires_phone")
 	
 	return &domain.GoogleAuthCompleteResponse{
 		Status:        domain.GoogleAuthStatusRequiresPhone,
