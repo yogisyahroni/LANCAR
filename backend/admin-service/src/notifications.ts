@@ -1,6 +1,7 @@
 import { db } from './db';
 import { getIO } from './websocket';
-import * as admin from 'firebase-admin';
+import { App, initializeApp, getApps, cert, ServiceAccount } from 'firebase-admin/app';
+import { getMessaging, MulticastMessage, SendResponse, BatchResponse } from 'firebase-admin/messaging';
 import { recordPushDelivery, recordRealtimeMetric } from './services/realtimeObservability';
 import { securityLog } from './security/logRedaction';
 
@@ -10,8 +11,8 @@ type DeviceRecipient = {
   user_type: string;
 };
 
-const firebaseApps: Partial<Record<FirebaseTarget, admin.app.App>> = {};
-let firebaseApp: admin.app.App | null = null;
+const firebaseApps: Partial<Record<FirebaseTarget, App>> = {};
+let firebaseApp: App | null = null;
 const FCM_SEND_TIMEOUT_MS = Number(process.env.FCM_SEND_TIMEOUT_MS || 15000);
 
 const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> => {
@@ -40,7 +41,7 @@ const decodeBase64ServiceAccount = (encoded?: string): string | undefined => {
 const getServiceAccountJson = (raw?: string, encoded?: string): string | undefined =>
   raw && raw.trim() ? raw : decodeBase64ServiceAccount(encoded);
 
-const parseServiceAccountJson = (raw: string | undefined, label: string): admin.ServiceAccount | null => {
+const parseServiceAccountJson = (raw: string | undefined, label: string): ServiceAccount | null => {
   if (!raw || !raw.trim()) return null;
 
   try {
@@ -60,16 +61,16 @@ const initializeNamedFirebaseApp = (
   target: FirebaseTarget,
   appName: string,
   rawServiceAccount: string | undefined
-): admin.app.App | null => {
+): App | null => {
   const serviceAccount = parseServiceAccountJson(rawServiceAccount, target);
   if (!serviceAccount) return null;
 
-  const existingApp = admin.apps.find((app) => app?.name === appName);
+  const existingApp = getApps().find((app) => app?.name === appName);
   const app =
     existingApp ||
-    admin.initializeApp(
+    initializeApp(
       {
-        credential: admin.credential.cert(serviceAccount),
+        credential: cert(serviceAccount),
         projectId: serviceAccount.projectId
       },
       appName
@@ -80,7 +81,7 @@ const initializeNamedFirebaseApp = (
   return app;
 };
 
-export const getFirebaseAppForUserType = (userType?: string): admin.app.App | null => {
+export const getFirebaseAppForUserType = (userType?: string): App | null => {
   const normalized = (userType || '').toLowerCase();
   if (normalized === 'customer') return firebaseApps.customer || firebaseApps.default || null;
   if (normalized === 'courier') return firebaseApps.courier || firebaseApps.default || null;
@@ -327,27 +328,27 @@ export const createNotification = async (payload: NotificationPayload) => {
             existing.tokens.push(device.device_token);
             groups.set(key, existing);
             return groups;
-          }, new Map<string, { app: admin.app.App; tokens: string[] }>());
+          }, new Map<string, { app: App; tokens: string[] }>());
 
           let totalSuccessCount = 0;
           let totalFailureCount = 0;
           const invalidTokens: string[] = [];
 
           for (const group of groupedDevices.values()) {
-            const message: admin.messaging.MulticastMessage = {
+            const message: MulticastMessage = {
               ...baseMessage,
               tokens: group.tokens
             };
 
-            const fcmResponse = await withTimeout(
-              admin.messaging(group.app).sendEachForMulticast(message),
+            const fcmResponse = await withTimeout<BatchResponse>(
+              getMessaging(group.app).sendEachForMulticast(message),
               FCM_SEND_TIMEOUT_MS,
               `FCM send (${group.app.name})`
             );
             totalSuccessCount += fcmResponse.successCount;
             totalFailureCount += fcmResponse.failureCount;
 
-            fcmResponse.responses.forEach((resp, idx) => {
+            fcmResponse.responses.forEach((resp: SendResponse, idx: number) => {
               if (!resp.success && resp.error?.code === 'messaging/registration-token-not-registered') {
                 invalidTokens.push(group.tokens[idx]);
               }

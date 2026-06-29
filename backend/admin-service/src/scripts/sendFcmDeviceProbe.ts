@@ -1,5 +1,5 @@
 import { db } from '../db';
-import * as admin from 'firebase-admin';
+import { getMessaging, SendResponse } from 'firebase-admin/messaging';
 import { getFirebaseAppForUserType, initFirebase } from '../notifications';
 
 type ProbeRole = 'customer' | 'courier';
@@ -91,7 +91,7 @@ const sendProbePush = async ({
     throw new Error(`Firebase Admin app is not initialized for ${role}.`);
   }
 
-  const response = await admin.messaging(firebaseApp).sendEachForMulticast({
+  const response = await getMessaging(firebaseApp).sendEachForMulticast({
     tokens,
     notification: { title, body },
     data: {
@@ -114,8 +114,8 @@ const sendProbePush = async ({
   });
 
   const invalidTokens = response.responses
-    .map((item, index) => (!item.success && item.error?.code === 'messaging/registration-token-not-registered' ? tokens[index] : null))
-    .filter((token): token is string => Boolean(token));
+    .map((item: SendResponse, index: number) => (!item.success && item.error?.code === 'messaging/registration-token-not-registered' ? tokens[index] : null))
+    .filter((token: string | null): token is string => Boolean(token));
 
   if (invalidTokens.length > 0) {
     await db.query('DELETE FROM user_devices WHERE device_token = ANY($1)', [invalidTokens]);

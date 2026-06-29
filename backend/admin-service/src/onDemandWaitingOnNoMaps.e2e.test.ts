@@ -26,7 +26,8 @@ describe('waiting-on automation without TomTom Maps keys', () => {
 
   afterEach(() => {
     process.env = originalEnv;
-    jest.dontMock('firebase-admin');
+    jest.dontMock('firebase-admin/app');
+    jest.dontMock('firebase-admin/messaging');
     jest.dontMock('./db');
     jest.dontMock('./websocket');
     jest.dontMock('./services/realtimeObservability');
@@ -47,11 +48,13 @@ describe('waiting-on automation without TomTom Maps keys', () => {
     });
     const messaging = jest.fn((_app) => ({ sendEachForMulticast }));
 
-    jest.doMock('firebase-admin', () => ({
-      apps: initializedApps,
+    jest.doMock('firebase-admin/app', () => ({
+      getApps: () => initializedApps,
       initializeApp,
-      credential: { cert: credentialCert },
-      messaging,
+      cert: credentialCert,
+    }));
+    jest.doMock('firebase-admin/messaging', () => ({
+      getMessaging: messaging,
     }));
 
     const query = jest.fn()
