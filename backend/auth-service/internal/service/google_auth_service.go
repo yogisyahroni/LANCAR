@@ -397,7 +397,7 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 
 	// If OTP is not required, auto-complete the registration now
 	if !otpReq {
-		verifyResp, err := s.completeRegistration(ctx, regTx, req.DeviceID, deviceIDHash, deviceInfoJSON)
+		verifyResp, err := s.completeRegistration(ctx, regTx, "", req.DeviceID, deviceIDHash, deviceInfoJSON)
 		if err != nil {
 			return nil, err
 		}
@@ -694,7 +694,7 @@ func (s *GoogleAuthService) VerifyCustomerOTP(ctx context.Context, req *domain.C
 	// Determine what to do based on transaction type and purpose
 	switch challenge.Purpose {
 	case domain.OTPPurposeRegistrationPhone:
-		return s.completeRegistration(ctx, tx, req.DeviceID, deviceIDHash, deviceInfoJSON)
+		return s.completeRegistration(ctx, tx, req.PhoneNumber, req.DeviceID, deviceIDHash, deviceInfoJSON)
 	case domain.OTPPurposeNewDevice, domain.OTPPurposeStepUp:
 		return s.completeStepUp(ctx, tx, req.DeviceID, deviceIDHash, deviceInfoJSON)
 	case domain.OTPPurposeLinkGoogle:
@@ -708,7 +708,7 @@ func (s *GoogleAuthService) VerifyCustomerOTP(ctx context.Context, req *domain.C
 // Post-OTP completion helpers
 // ─────────────────────────────────────────────
 
-func (s *GoogleAuthService) completeRegistration(ctx context.Context, tx *domain.CustomerAuthTransaction, deviceID, deviceIDHash string, deviceInfoJSON []byte) (*domain.CustomerOTPVerifyResponse, error) {
+func (s *GoogleAuthService) completeRegistration(ctx context.Context, tx *domain.CustomerAuthTransaction, phoneNumber, deviceID, deviceIDHash string, deviceInfoJSON []byte) (*domain.CustomerOTPVerifyResponse, error) {
 	// Parse Google claims from transaction metadata
 	var meta map[string]string
 	_ = json.Unmarshal(tx.Metadata, &meta)
@@ -730,6 +730,12 @@ func (s *GoogleAuthService) completeRegistration(ctx context.Context, tx *domain
 	}
 	// ---------------------------------------------
 
+	// Use provided phone number, or generate a dummy one if empty (OTP bypassed)
+	phoneToSave := phoneNumber
+	if phoneToSave == "" {
+		phoneToSave = "G-" + uuid.New().String()[:12]
+	}
+
 	// Create user account
 	emailVal := googleEmail
 	randomPart, _ := utils.GenerateRandomString(6)
@@ -737,6 +743,7 @@ func (s *GoogleAuthService) completeRegistration(ctx context.Context, tx *domain
 
 	user := &domain.User{
 		ID:          uuid.New().String(),
+		PhoneNumber: phoneToSave,
 		Email:       &emailVal,
 		FullName:    fullName,
 		Role:        domain.RoleCustomer,
