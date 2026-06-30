@@ -156,6 +156,14 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		})
 	}
 
+	if !requirePayment {
+		if err := s.StartMatching(ctx, order.ID); err != nil {
+			log.Printf("Failed to start matching for order %s: %v", order.ID, err)
+		} else {
+			order.Status = domain.StatusSearching
+		}
+	}
+
 	return order, nil
 }
 
@@ -265,6 +273,14 @@ func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, r
 					"user_id":  order.CustomerID,
 				},
 			})
+		}
+
+		if !requirePayment {
+			if err := s.StartMatching(ctx, order.ID); err != nil {
+				log.Printf("Failed to start matching for bulk order %s: %v", order.ID, err)
+			} else {
+				order.Status = domain.StatusSearching
+			}
 		}
 
 		createdOrders = append(createdOrders, order)
