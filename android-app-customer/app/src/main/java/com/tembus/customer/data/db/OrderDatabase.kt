@@ -6,12 +6,6 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import com.tembus.customer.data.model.Location
-
-
-import com.tembus.customer.data.model.Order
-
-
-
 import com.tembus.customer.data.model.Order
 
 /**
@@ -71,6 +65,8 @@ abstract class OrderDatabase : RoomDatabase() {
         }
     }
 }
+
+/**
  * Type Converters for Room
  * 
  * Converts complex types (Uri, String) to database-compatible types.
