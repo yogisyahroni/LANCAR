@@ -738,7 +738,9 @@ const calculateCustomerPriceBreakdown = async ({
 
   const routeEta = routeSnapshot.eta_minutes || Math.ceil(20 + (distance * 3.5) + (service.batching_allowed ? 120 : 0));
   const etaMinutes = Math.min(service.max_eta_minutes, Math.max(20, routeEta));
-  const totalPrice = basePrice + volumetricSurcharge + insurancePremium + dynamicPrice;
+  const priceAfterSurge = basePrice + dynamicPrice;
+  const platformFee = Math.ceil(service.platform_fee_idr + (priceAfterSurge * service.platform_fee_pct));
+  const totalPrice = priceAfterSurge + volumetricSurcharge + insurancePremium + platformFee;
 
   return {
     service_code: service.code,
@@ -756,6 +758,7 @@ const calculateCustomerPriceBreakdown = async ({
     volumetric_surcharge_idr: volumetricSurcharge,
     insurance_premium_idr: insurancePremium,
     dynamic_price_idr: dynamicPrice,
+    platform_fee_idr: platformFee,
     delivery_model: service.route_model,
     eta_minutes: etaMinutes,
     total_price_idr: totalPrice,

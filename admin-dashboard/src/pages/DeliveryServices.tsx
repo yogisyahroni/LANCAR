@@ -57,6 +57,8 @@ type DeliveryService = {
   mdr_percent: number
   ppn_percent: number
   show_customer_price_to_courier: boolean
+  platform_fee_idr: number
+  platform_fee_pct: number
   size_tiers: any[]
   dimension_rules: Record<string, any>
   availability_rules: Record<string, any>
@@ -145,6 +147,8 @@ const emptyService: DeliveryService = {
   mdr_percent: 0.7,
   ppn_percent: 11,
   show_customer_price_to_courier: false,
+  platform_fee_idr: 1500,
+  platform_fee_pct: 0.015,
   size_tiers: [],
   dimension_rules: { volumetric_divisor: 6000, surcharge_threshold_kg: 20, surcharge_per_kg_idr: 2000 },
   availability_rules: {},
@@ -596,6 +600,8 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
               <NumberInput label="Courier Min Payout (Rp)" value={form.courier_min_payout_idr} onChange={(v) => updateField('courier_min_payout_idr', v)} />
               <NumberInput label="MDR Payment (%)" value={form.mdr_percent} onChange={(v) => updateField('mdr_percent', v)} step="0.01" />
               <NumberInput label="PPN (%)" value={form.ppn_percent} onChange={(v) => updateField('ppn_percent', v)} step="0.01" />
+              <NumberInput label="Platform Fee (Rp)" value={form.platform_fee_idr} onChange={(v) => updateField('platform_fee_idr', v)} />
+              <NumberInput label="Platform Fee Rate (%)" value={form.platform_fee_pct} onChange={(v) => updateField('platform_fee_pct', v)} step="0.001" />
               <Toggle label="Show Customer Price to Courier" checked={form.show_customer_price_to_courier} onChange={(v) => updateField('show_customer_price_to_courier', v)} />
             </div>
           </div>

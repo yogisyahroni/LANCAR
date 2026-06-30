@@ -28,8 +28,8 @@ type PricingEstimateResponse struct {
 	BasePriceIDR           int64     `json:"base_price_idr"`
 	VolumetricSurchargeIDR int64     `json:"volumetric_surcharge_idr"`
 	DynamicPriceIDR        int64     `json:"dynamic_price_idr"`
-	// PlatformFeeIDR adalah biaya layanan operasional (OTP, payment gateway, dll).
-	// Dikonfigurasi via admin panel (system_configs key: 'platform_fee_idr').
+	// PlatformFeeIDR adalah biaya layanan operasional.
+	// Dikonfigurasi dari tabel delivery_service_products (platform_fee_idr, platform_fee_pct).
 	// Tidak diekspos sebagai line-item ke customer — sudah tercakup dalam TotalPriceIDR.
 	PlatformFeeIDR         int64     `json:"platform_fee_idr"`
 	TotalPriceIDR          int64     `json:"total_price_idr"`
@@ -75,6 +75,8 @@ type DeliveryServiceProduct struct {
 	UsesSizeTier           bool    `json:"uses_size_tier"`
 	MaxDistanceKM          *float64 `json:"max_distance_km"`
 	MaxWeightKG            *float64 `json:"max_weight_kg"`
+	PlatformFeeIDR         float64 `json:"platform_fee_idr"`
+	PlatformFeePct         float64 `json:"platform_fee_pct"`
 }
 
 type PricingRepository interface {

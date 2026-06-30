@@ -79,7 +79,9 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 			included_distance_km,
 			uses_size_tier,
 			max_distance_km,
-			max_weight_kg
+			max_weight_kg,
+			platform_fee_idr,
+			platform_fee_pct
 		FROM delivery_service_products
 		WHERE code = $1 AND is_enabled = TRUE
 		LIMIT 1
@@ -95,6 +97,8 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 		&service.UsesSizeTier,
 		&service.MaxDistanceKM,
 		&service.MaxWeightKG,
+		&service.PlatformFeeIDR,
+		&service.PlatformFeePct,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {

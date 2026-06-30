@@ -161,15 +161,15 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	// Hybrid Platform Fee (Angka Flat + Persentase)
 	// Untuk menutupi fixed cost (Infra/OTP) dan variable cost (Payment Gateway %).
 	//
-	// Fee dikonfigurasi via Admin > System Config:
+	// Fee dikonfigurasi via Delivery Service:
 	// - "platform_fee_idr" (Default Rp 1.500)
 	// - "platform_fee_pct" (Default 0.015 atau 1.5%)
 	//
 	// Diterapkan SETELAH surge multiplier.
 	// Tidak ditampilkan sebagai line-item terpisah ke customer —
 	// sudah tercakup dalam TotalPriceIDR sebagai bagian dari harga layanan.
-	fixedPlatformFee := s.configRepo.GetFloatConfig(ctx, "platform_fee_idr", 1500.0)
-	pctPlatformFeeRate := s.configRepo.GetFloatConfig(ctx, "platform_fee_pct", 0.015)
+	fixedPlatformFee := serviceProduct.PlatformFeeIDR
+	pctPlatformFeeRate := serviceProduct.PlatformFeePct
 	
 	// Percentage portion based on the priceAfterSurge
 	variablePlatformFee := float64(priceAfterSurge) * pctPlatformFeeRate

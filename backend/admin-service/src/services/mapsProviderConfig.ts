@@ -1365,7 +1365,7 @@ const osmRoutingTimeoutMs = () => {
 
 const routeHasRoadGeometry = (route: RouteEtaSnapshot): boolean => {
   const encodedRoute = typeof route.route_polyline === 'string' ? route.route_polyline.trim() : '';
-  return encodedRoute.length > 0 && !route.provider.includes('haversine') && route.distance_meters > 0;
+  return encodedRoute.length > 0 && !route.provider.includes('haversine') && route.distance_meters >= 0;
 };
 
 const buildRoadRouteRequiredError = (reason?: string | null) => {
@@ -1469,7 +1469,7 @@ const routeFromTomTomRoutesApi = async (
     .filter((point: MapPoint) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
   const routePolyline = encodePolyline(points);
   if (!route) throw new Error('TOMTOM_ROUTING_NO_ROUTE');
-  if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) throw new Error('TOMTOM_ROUTING_DISTANCE_INVALID');
+  if (!Number.isFinite(distanceMeters) || distanceMeters < 0) throw new Error('TOMTOM_ROUTING_DISTANCE_INVALID');
   if (!routePolyline) throw new Error('TOMTOM_ROUTING_POLYLINE_MISSING');
 
   const normalizedDurationSeconds = Number.isFinite(durationSeconds) && durationSeconds > 0
@@ -1623,8 +1623,8 @@ const buildOpenStreetMapRoute = async (
 
     const durationSeconds = Number(route.duration);
     const distanceMeters = Number(route.distance);
-    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) throw new Error('OSM_ROUTE_DURATION_INVALID');
-    if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) throw new Error('OSM_ROUTE_DISTANCE_INVALID');
+    if (!Number.isFinite(durationSeconds) || durationSeconds < 0) throw new Error('OSM_ROUTE_DURATION_INVALID');
+    if (!Number.isFinite(distanceMeters) || distanceMeters < 0) throw new Error('OSM_ROUTE_DISTANCE_INVALID');
 
     const payload: RouteEtaSnapshot = enrichRouteSnapshot({
       eta: `${Math.max(1, Math.ceil(durationSeconds / 60))} menit`,
@@ -1748,6 +1748,7 @@ export const buildMapsRouteEtaSnapshot = async (
     });
     return route;
   } catch (error: any) {
+    const isDomainError = error?.message === 'ERR_ROAD_ROUTE_REQUIRED' || error?.code === 'ERR_ROAD_ROUTE_REQUIRED' || error?.name === 'ERR_ROAD_ROUTE_REQUIRED';
     const fallbackPayload = enrichRouteSnapshot(
       {
         ...fallback,
@@ -1769,10 +1770,11 @@ export const buildMapsRouteEtaSnapshot = async (
       latency_ms: Date.now() - startedAt,
       cache_hit: false,
       fallback_reason: error?.message || 'route_provider_failed',
-      error_message: error,
+      error_message: isDomainError ? null : error,
       ...routeObservationFields(fallbackPayload, context, requestId),
     });
     if (options.requireRoadRoute) {
+      if (isDomainError) throw error;
       throw buildRoadRouteRequiredError(error?.message || 'route_provider_failed');
     }
     return fallbackPayload;
@@ -1842,7 +1844,7 @@ export const buildMapsMultiWaypointRouteEtaSnapshot = async (
         .filter((point: MapPoint) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
       const routePolyline = encodePolyline(returnedPoints);
       if (!route) throw new Error('TOMTOM_ROUTING_NO_ROUTE');
-      if (!Number.isFinite(distanceMeters) || distanceMeters <= 0) throw new Error('TOMTOM_ROUTING_DISTANCE_INVALID');
+      if (!Number.isFinite(distanceMeters) || distanceMeters < 0) throw new Error('TOMTOM_ROUTING_DISTANCE_INVALID');
       if (!routePolyline) throw new Error('TOMTOM_ROUTING_POLYLINE_MISSING');
 
       const normalizedDurationSeconds = Number.isFinite(durationSeconds) && durationSeconds > 0

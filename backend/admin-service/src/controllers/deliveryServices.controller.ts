@@ -13,7 +13,8 @@ const numericFields = [
   'platform_commission_percent',
   'courier_payout_percent',
   'mdr_percent',
-  'ppn_percent'
+  'ppn_percent',
+  'platform_fee_pct'
 ];
 
 export type DeliveryServiceProduct = {
@@ -65,6 +66,8 @@ export type DeliveryServiceProduct = {
   courier_min_payout_idr: number;
   mdr_percent: number;
   ppn_percent: number;
+  platform_fee_idr: number;
+  platform_fee_pct: number;
   show_customer_price_to_courier: boolean;
   size_tiers: any[];
   dimension_rules: Record<string, any>;
@@ -83,6 +86,7 @@ const normalizeService = (row: any): DeliveryServiceProduct => {
   service.base_fare_idr = Number(service.base_fare_idr || 0);
   service.per_km_idr = Number(service.per_km_idr || 0);
   service.courier_min_payout_idr = Number(service.courier_min_payout_idr || 0);
+  service.platform_fee_idr = Number(service.platform_fee_idr || 0);
   service.display_order = Number(service.display_order || 0);
   service.max_eta_minutes = Number(service.max_eta_minutes || 0);
   service.max_packages_per_order = Number(service.max_packages_per_order || 1);
@@ -363,6 +367,8 @@ const servicePayload = (body: any) => ({
   courier_min_payout_idr: Number(body.courier_min_payout_idr ?? 8000),
   mdr_percent: Number(body.mdr_percent ?? 0.7),
   ppn_percent: Number(body.ppn_percent ?? 11),
+  platform_fee_idr: Number(body.platform_fee_idr ?? 1500),
+  platform_fee_pct: Number(body.platform_fee_pct ?? 0.015),
   show_customer_price_to_courier: Boolean(body.show_customer_price_to_courier),
   size_tiers: Array.isArray(body.size_tiers) ? body.size_tiers : [],
   dimension_rules: body.dimension_rules || {},
@@ -391,7 +397,7 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
         uses_size_tier, requires_dimension_scan, allows_manual_dimension, requires_pickup_verification,
         price_mode, base_fare_idr, included_distance_km, per_km_idr, service_multiplier,
         platform_commission_percent, courier_payout_percent, courier_min_payout_idr,
-        mdr_percent, ppn_percent, show_customer_price_to_courier,
+        mdr_percent, ppn_percent, platform_fee_idr, platform_fee_pct, show_customer_price_to_courier,
         size_tiers, dimension_rules, availability_rules, metadata
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8,
@@ -405,8 +411,10 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
         $34, $35, $36, $37,
         $38, $39, $40, $41, $42,
         $43, $44, $45,
-        $46, $47, $48,
-        $49, $50, $51, $52
+        $46, $47, $48, $49,
+        $50,
+        $51, $52,
+        $53, $54
       )
       RETURNING *`,
       [
@@ -488,11 +496,13 @@ export const updateAdminDeliveryService = async (req: Request, res: Response): P
         courier_min_payout_idr = $45,
         mdr_percent = $46,
         ppn_percent = $47,
-        show_customer_price_to_courier = $48,
-        size_tiers = $49,
-        dimension_rules = $50,
-        availability_rules = $51,
-        metadata = $52,
+        platform_fee_idr = $48,
+        platform_fee_pct = $49,
+        show_customer_price_to_courier = $50,
+        size_tiers = $51,
+        dimension_rules = $52,
+        availability_rules = $53,
+        metadata = $54,
         updated_at = NOW()
       WHERE code = $1
       RETURNING *`,
@@ -511,6 +521,7 @@ export const updateAdminDeliveryService = async (req: Request, res: Response): P
         payload.included_distance_km, payload.per_km_idr, payload.service_multiplier,
         payload.platform_commission_percent, payload.courier_payout_percent,
         payload.courier_min_payout_idr, payload.mdr_percent, payload.ppn_percent,
+        payload.platform_fee_idr, payload.platform_fee_pct,
         payload.show_customer_price_to_courier,
         JSON.stringify(payload.size_tiers), JSON.stringify(payload.dimension_rules),
         JSON.stringify(payload.availability_rules), JSON.stringify(payload.metadata)
