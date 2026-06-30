@@ -1913,6 +1913,7 @@ const toMobileCustomerOrderDto = (row: any) => {
   return {
     local_id: 0,
     order_id: row.id,
+    order_number: row.order_number || '',
     pickup_address: row.pickup_address || '',
     pickup_time: row.scheduled_at ? new Date(row.scheduled_at).toISOString() : '',
     drop_address: row.dropoff_address || '',
