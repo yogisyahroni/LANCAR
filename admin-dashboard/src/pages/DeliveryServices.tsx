@@ -604,6 +604,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
               <NumberInput label="PPN (%)" value={form.ppn_percent} onChange={(v) => updateField('ppn_percent', v)} step="0.01" />
               <NumberInput label="Platform Fee (Rp)" value={form.platform_fee_idr} onChange={(v) => updateField('platform_fee_idr', v)} />
               <NumberInput label="Platform Fee Rate (%)" value={form.platform_fee_pct} onChange={(v) => updateField('platform_fee_pct', v)} step="0.001" />
+              <NumberInput label="Extra Dropoff Fee (Rp)" value={form.extra_dropoff_fee_idr} onChange={(v) => updateField('extra_dropoff_fee_idr', v)} />
               <Toggle label="Show Customer Price to Courier" checked={form.show_customer_price_to_courier} onChange={(v) => updateField('show_customer_price_to_courier', v)} />
             </div>
           </div>
