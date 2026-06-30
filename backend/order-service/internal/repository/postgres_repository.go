@@ -359,9 +359,9 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 				id, order_number, customer_id, model, status, 
 				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
-				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
+				COALESCE(length, 0), COALESCE(width, 0), COALESCE(height, 0), COALESCE(weight, 0), item_description, COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, created_at, updated_at
+				dynamic_price_idr, total_price_idr, COALESCE(handover_token, ''), COALESCE(dispatch_expiry, NOW()), COALESCE(batch_id, ''), sequence_no, created_at, updated_at
 			  FROM orders 
 			  WHERE status IN ('searching', 'dispatching') AND updated_at < $1`
 
