@@ -282,7 +282,7 @@ func main() {
 	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB), configRepo)
 	go surgeWorker.Start(context.Background())
 
-	monitorWorker := worker.NewOrderMonitorWorker(pgRepo, 15*time.Minute)
+	monitorWorker := worker.NewOrderMonitorWorker(pgRepo, orderSvc, 15*time.Minute)
 	go monitorWorker.Start(context.Background())
 
 	paymentLinkWorker := worker.NewPaymentLinkWorker(paymentLinkSvc)

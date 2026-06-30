@@ -15,8 +15,12 @@ data class Order(
     val localId: Long = 0,
 
     @ColumnInfo(name = "order_id")
-    @SerialName("order_id")
+    @SerialName("id")
     val orderId: String = "",
+
+    @ColumnInfo(name = "order_number")
+    @SerialName("order_number")
+    val orderNumber: String = "",
 
     @ColumnInfo(name = "pickup_address")
     @SerialName("pickup_address")

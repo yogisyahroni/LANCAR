@@ -82,6 +82,11 @@ func (r *PostgresTrackingRepo) UpdateCourierLocation(ctx context.Context, courie
 	query := `
 		UPDATE courier_profiles 
 		SET current_location = ST_SetSRID(ST_MakePoint($2, $3), 4326), 
+		    current_zone_id = (
+		        SELECT id FROM zones z 
+		        WHERE is_active = TRUE AND ST_Covers(z.polygon, ST_SetSRID(ST_MakePoint($2, $3), 4326))
+		        LIMIT 1
+		    ),
 		    last_location_at = NOW(),
 		    last_active_at = NOW(),
 		    updated_at = NOW()

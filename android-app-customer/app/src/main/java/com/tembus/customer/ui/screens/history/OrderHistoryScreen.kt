@@ -119,7 +119,7 @@ fun OrderCardItem(order: Order, onClick: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("No. Resi ${order.orderId.take(10)}", fontSize = 12.sp, color = OnSurfaceVariant)
+                Text("No. Resi ${order.orderNumber}", fontSize = 12.sp, color = OnSurfaceVariant)
                 Card(
                     colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.1f)),
                     shape = RoundedCornerShape(8.dp)

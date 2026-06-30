@@ -10,6 +10,10 @@ import com.tembus.customer.data.model.Location
 
 import com.tembus.customer.data.model.Order
 
+
+
+import com.tembus.customer.data.model.Order
+
 /**
  * Order Database
  * 
@@ -18,7 +22,7 @@ import com.tembus.customer.data.model.Order
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class OrderDatabase : RoomDatabase() {
@@ -38,6 +42,12 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `order_number` TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         fun getDatabase(context: Context): OrderDatabase {
             return INSTANCE ?: synchronized(this) {
                 // 🔐 SECURITY: Implementation of SQLCipher SupportFactory for on-disk encryption
@@ -53,7 +63,7 @@ abstract class OrderDatabase : RoomDatabase() {
                     "order_database"
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                 INSTANCE = instance
                 instance
@@ -61,8 +71,6 @@ abstract class OrderDatabase : RoomDatabase() {
         }
     }
 }
-
-/**
  * Type Converters for Room
  * 
  * Converts complex types (Uri, String) to database-compatible types.

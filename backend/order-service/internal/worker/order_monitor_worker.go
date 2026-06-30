@@ -9,12 +9,14 @@ import (
 
 type OrderMonitorWorker struct {
 	orderRepo domain.OrderRepository
+	orderSvc  domain.OrderService
 	timeout   time.Duration
 }
 
-func NewOrderMonitorWorker(repo domain.OrderRepository, timeout time.Duration) *OrderMonitorWorker {
+func NewOrderMonitorWorker(repo domain.OrderRepository, svc domain.OrderService, timeout time.Duration) *OrderMonitorWorker {
 	return &OrderMonitorWorker{
 		orderRepo: repo,
+		orderSvc:  svc,
 		timeout:   timeout,
 	}
 }
@@ -38,15 +40,17 @@ func (w *OrderMonitorWorker) Start(ctx context.Context) {
 				log.Printf("Order monitor: cancelled %d expired orders", count)
 			}
 
-			// 2. Alert on orders 'pending_assignment' for too long (> 10 mins)
-			threshold := 10 * time.Minute
+			// 2. Cancel orders 'searching' for too long (> 15 mins)
+			threshold := 15 * time.Minute
 			pendingOrders, err := w.orderRepo.GetPendingAssignmentOrders(ctx, threshold)
 			if err != nil {
-				log.Printf("Order monitor (alert) error: %v", err)
+				log.Printf("Order monitor (cancel stuck dispatching) error: %v", err)
 			} else if len(pendingOrders) > 0 {
 				for _, o := range pendingOrders {
-					// In production, this would trigger an actual alert (PagerDuty, Slack, etc.)
-					log.Printf("🚨 [ADMIN_ALERT] Order %s (ID: %s) is stuck in 'searching' for > %v. Manual intervention may be required.", o.OrderNumber, o.ID, threshold)
+					log.Printf("🚨 [ADMIN_ALERT] Order %s (ID: %s) is stuck in 'searching' for > %v. Cancelling automatically.", o.OrderNumber, o.ID, threshold)
+					if err := w.orderSvc.UpdateStatus(ctx, o.ID, domain.StatusCancelled); err != nil {
+						log.Printf("Failed to auto-cancel stuck order %s: %v", o.ID, err)
+					}
 				}
 			}
 		}

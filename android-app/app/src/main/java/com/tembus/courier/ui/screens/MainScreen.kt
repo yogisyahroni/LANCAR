@@ -4043,7 +4043,7 @@ private fun OnDemandOfferQueueItem(
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(if (promoted) "Prioritas berikutnya" else order.orderId.ifBlank { "Tawaran lain" }, color = DeepForest, fontWeight = FontWeight.Black)
-                    Text(order.displayServiceName(), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                    Text(order.displayServiceName(), color = Color.DarkGray, style = MaterialTheme.typography.labelMedium)
                 }
                 Surface(color = if (expired) MaterialTheme.colorScheme.error.copy(alpha = 0.12f) else LogisticsOrange.copy(alpha = 0.16f), shape = RoundedCornerShape(10.dp)) {
                     Text(
@@ -4117,33 +4117,19 @@ private fun OnDemandOfferQueueItem(
                 Text(blockedReason, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                OutlinedButton(
-                    onClick = {
+            SwipeToAcceptTrack(
+                remainingSeconds = remainingSeconds,
+                trackColor = Color.Black.copy(alpha = 0.08f),
+                thumbColor = LogisticsOrange,
+                textColor = Color.DarkGray,
+                enabled = !expired && !acceptBlocked,
+                onAccept = {
+                    if (!expired && !acceptBlocked) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onReject()
-                    },
-                    modifier = Modifier.weight(1f).height(50.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Tolak", fontWeight = FontWeight.Black)
+                        onAccept()
+                    }
                 }
-                Button(
-                    onClick = {
-                        if (!expired && !acceptBlocked) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onAccept()
-                        }
-                    },
-                    enabled = !expired && !acceptBlocked,
-                    modifier = Modifier.weight(1f).height(50.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.White)
-                ) {
-                    Text("Terima", fontWeight = FontWeight.Black)
-                }
-            }
+            )
         }
     }
 }
@@ -4349,7 +4335,14 @@ private fun OnDemandOfferDialog(
  * @param onAccept Callback saat swipe mencapai threshold
  */
 @Composable
-private fun SwipeToAcceptTrack(remainingSeconds: Int, onAccept: () -> Unit) {
+private fun SwipeToAcceptTrack(
+    remainingSeconds: Int, 
+    trackColor: Color = Color.White.copy(alpha = 0.10f),
+    thumbColor: Color = Color.White,
+    textColor: Color = Color.White.copy(alpha = 0.55f),
+    enabled: Boolean = true,
+    onAccept: () -> Unit
+) {
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
     var trackWidthPx by remember { mutableFloatStateOf(0f) }
@@ -4361,9 +4354,7 @@ private fun SwipeToAcceptTrack(remainingSeconds: Int, onAccept: () -> Unit) {
     val trackPadding = 4.dp
     val threshold = 0.80f // 80% — standar industri (skill 02-courier-app-flow.md)
 
-    val trackColor = Color.White.copy(alpha = 0.10f)
     val progressColor = Primary
-    val thumbColor = Color.White
 
     Box(
         modifier = Modifier
@@ -4391,7 +4382,7 @@ private fun SwipeToAcceptTrack(remainingSeconds: Int, onAccept: () -> Unit) {
             Text(
                 text = "SWIPE UNTUK TERIMA  →",
                 modifier = Modifier.align(Alignment.Center),
-                color = Color.White.copy(alpha = 0.55f),
+                color = textColor,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
             )
@@ -4406,7 +4397,8 @@ private fun SwipeToAcceptTrack(remainingSeconds: Int, onAccept: () -> Unit) {
                 .size(thumbSize - trackPadding * 2)
                 .clip(CircleShape)
                 .background(thumbColor)
-                .pointerInput(remainingSeconds) {
+                .pointerInput(remainingSeconds, enabled) {
+                    if (!enabled) return@pointerInput
                     detectHorizontalDragGestures(
                         onDragEnd = {
                             scope.launch {
@@ -4474,8 +4466,8 @@ private fun OfferRouteRow(
     Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Icon(icon, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
         Column {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value.ifBlank { "-" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+            Text(value.ifBlank { "-" }, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Color.Black)
         }
     }
 }

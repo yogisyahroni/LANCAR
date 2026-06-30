@@ -363,7 +363,7 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, created_at, updated_at
 			  FROM orders 
-			  WHERE status = 'searching' AND updated_at < $1`
+			  WHERE status IN ('searching', 'dispatching') AND updated_at < $1`
 
 	thresholdTime := time.Now().Add(-threshold)
 	rows, err := r.readDB.QueryContext(ctx, query, thresholdTime)
