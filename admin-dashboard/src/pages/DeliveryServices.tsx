@@ -59,6 +59,7 @@ type DeliveryService = {
   show_customer_price_to_courier: boolean
   platform_fee_idr: number
   platform_fee_pct: number
+  extra_dropoff_fee_idr: number
   size_tiers: any[]
   dimension_rules: Record<string, any>
   availability_rules: Record<string, any>
@@ -149,6 +150,7 @@ const emptyService: DeliveryService = {
   show_customer_price_to_courier: false,
   platform_fee_idr: 1500,
   platform_fee_pct: 0.015,
+  extra_dropoff_fee_idr: 0,
   size_tiers: [],
   dimension_rules: { volumetric_divisor: 6000, surcharge_threshold_kg: 20, surcharge_per_kg_idr: 2000 },
   availability_rules: {},

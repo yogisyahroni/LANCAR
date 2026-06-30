@@ -77,6 +77,7 @@ type DeliveryServiceProduct struct {
 	MaxWeightKG            *float64 `json:"max_weight_kg"`
 	PlatformFeeIDR         float64 `json:"platform_fee_idr"`
 	PlatformFeePct         float64 `json:"platform_fee_pct"`
+	ExtraDropoffFeeIDR     float64 `json:"extra_dropoff_fee_idr"`
 }
 
 type PricingRepository interface {

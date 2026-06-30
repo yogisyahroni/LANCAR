@@ -370,9 +370,13 @@ const recalculateBulkJob = async (jobData: any, pLat: number, pLon: number, pick
 
         const distance = Number(route.distance_km || 0);
         const extraDistance = Math.max(0, distance - Number(service.included_distance_km || 0));
+        
+        const extraDropoffFeePerWaypoint = service.extra_dropoff_fee_idr || 0;
+        const customExtraDropoffFee = extraDropoffFeePerWaypoint * Math.max(0, chunk.length - 1);
+        
         const routeBasePrice = Math.ceil(
-          (Number(service.base_fare_idr || 0) + (Math.ceil(extraDistance) * Number(service.per_km_idr || 0))) *
-          Number(service.service_multiplier || 1)
+          ((Number(service.base_fare_idr || 0) + (Math.ceil(extraDistance) * Number(service.per_km_idr || 0))) *
+          Number(service.service_multiplier || 1)) + customExtraDropoffFee
         );
 
         // Distribute base price equally among packages in this chunk

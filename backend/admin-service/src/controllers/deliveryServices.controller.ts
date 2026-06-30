@@ -68,6 +68,7 @@ export type DeliveryServiceProduct = {
   ppn_percent: number;
   platform_fee_idr: number;
   platform_fee_pct: number;
+  extra_dropoff_fee_idr: number;
   show_customer_price_to_courier: boolean;
   size_tiers: any[];
   dimension_rules: Record<string, any>;
@@ -87,6 +88,7 @@ const normalizeService = (row: any): DeliveryServiceProduct => {
   service.per_km_idr = Number(service.per_km_idr || 0);
   service.courier_min_payout_idr = Number(service.courier_min_payout_idr || 0);
   service.platform_fee_idr = Number(service.platform_fee_idr || 0);
+  service.extra_dropoff_fee_idr = Number(service.extra_dropoff_fee_idr || 0);
   service.display_order = Number(service.display_order || 0);
   service.max_eta_minutes = Number(service.max_eta_minutes || 0);
   service.max_packages_per_order = Number(service.max_packages_per_order || 1);
@@ -358,17 +360,18 @@ const servicePayload = (body: any) => ({
   allows_manual_dimension: Boolean(body.allows_manual_dimension),
   requires_pickup_verification: body.requires_pickup_verification !== false,
   price_mode: body.price_mode || 'final',
-  base_fare_idr: Number(body.base_fare_idr || 0),
-  included_distance_km: Number(body.included_distance_km || 1),
-  per_km_idr: Number(body.per_km_idr || 0),
-  service_multiplier: Number(body.service_multiplier || 1),
-  platform_commission_percent: Number(body.platform_commission_percent ?? 20),
-  courier_payout_percent: Number(body.courier_payout_percent ?? 75),
-  courier_min_payout_idr: Number(body.courier_min_payout_idr ?? 8000),
-  mdr_percent: Number(body.mdr_percent ?? 0.7),
-  ppn_percent: Number(body.ppn_percent ?? 11),
-  platform_fee_idr: Number(body.platform_fee_idr ?? 1500),
-  platform_fee_pct: Number(body.platform_fee_pct ?? 0.015),
+  base_fare_idr: nonNegativeNumber(body.base_fare_idr, 8000),
+  included_distance_km: nonNegativeNumber(body.included_distance_km, 1),
+  per_km_idr: nonNegativeNumber(body.per_km_idr, 3200),
+  service_multiplier: nonNegativeNumber(body.service_multiplier, 1),
+  platform_commission_percent: nonNegativeNumber(body.platform_commission_percent, 20),
+  courier_payout_percent: nonNegativeNumber(body.courier_payout_percent, 80),
+  courier_min_payout_idr: nonNegativeNumber(body.courier_min_payout_idr, 8000),
+  mdr_percent: nonNegativeNumber(body.mdr_percent, 0),
+  ppn_percent: nonNegativeNumber(body.ppn_percent, 0),
+  platform_fee_idr: nonNegativeNumber(body.platform_fee_idr, 0),
+  platform_fee_pct: nonNegativeNumber(body.platform_fee_pct, 0),
+  extra_dropoff_fee_idr: nonNegativeNumber(body.extra_dropoff_fee_idr, 0),
   show_customer_price_to_courier: Boolean(body.show_customer_price_to_courier),
   size_tiers: Array.isArray(body.size_tiers) ? body.size_tiers : [],
   dimension_rules: body.dimension_rules || {},
@@ -397,7 +400,7 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
         uses_size_tier, requires_dimension_scan, allows_manual_dimension, requires_pickup_verification,
         price_mode, base_fare_idr, included_distance_km, per_km_idr, service_multiplier,
         platform_commission_percent, courier_payout_percent, courier_min_payout_idr,
-        mdr_percent, ppn_percent, platform_fee_idr, platform_fee_pct, show_customer_price_to_courier,
+        mdr_percent, ppn_percent, platform_fee_idr, platform_fee_pct, extra_dropoff_fee_idr, show_customer_price_to_courier,
         size_tiers, dimension_rules, availability_rules, metadata
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8,
@@ -411,10 +414,9 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
         $34, $35, $36, $37,
         $38, $39, $40, $41, $42,
         $43, $44, $45,
-        $46, $47, $48, $49,
-        $50,
-        $51, $52,
-        $53, $54
+        $46, $47, $48, $49, $50, $51,
+        $52, $53,
+        $54, $55
       )
       RETURNING *`,
       [
@@ -432,6 +434,7 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
         payload.included_distance_km, payload.per_km_idr, payload.service_multiplier,
         payload.platform_commission_percent, payload.courier_payout_percent,
         payload.courier_min_payout_idr, payload.mdr_percent, payload.ppn_percent,
+        payload.platform_fee_idr, payload.platform_fee_pct, payload.extra_dropoff_fee_idr,
         payload.show_customer_price_to_courier,
         JSON.stringify(payload.size_tiers), JSON.stringify(payload.dimension_rules),
         JSON.stringify(payload.availability_rules), JSON.stringify(payload.metadata)
