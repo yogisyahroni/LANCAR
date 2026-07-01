@@ -1,6 +1,7 @@
 -- Migration: Standardize courier tiers to standart, silver, gold, god_mode and add dynamic search radii
 -- Date: 2026-07-01
 
+-- +goose Up
 -- 1. Add search_radii_km column to delivery_service_products table
 ALTER TABLE delivery_service_products
 ADD COLUMN IF NOT EXISTS search_radii_km JSONB NOT NULL DEFAULT '[3, 5, 10]'::jsonb;
@@ -35,3 +36,9 @@ WHERE tier IS NOT NULL;
 
 -- Set default value for tier column
 ALTER TABLE courier_profiles ALTER COLUMN tier SET DEFAULT 'standart';
+
+-- +goose Down
+ALTER TABLE courier_profiles ALTER COLUMN tier SET DEFAULT 'regular';
+
+ALTER TABLE delivery_service_products
+DROP COLUMN IF EXISTS search_radii_km;
