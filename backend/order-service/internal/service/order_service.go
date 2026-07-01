@@ -1150,3 +1150,11 @@ func (s *orderServiceImpl) GetOrdersNeedingRatingReminder(ctx context.Context, c
 	const reminderIntervalHours = 12
 	return s.orderRepo.GetDeliveredUnratedOrders(ctx, customerID, maxReminder, reminderIntervalHours)
 }
+
+func (s *orderServiceImpl) GetCourierPerformanceStats(ctx context.Context, courierID string) (*domain.CourierPerformanceStats, error) {
+	uuidID, err := uuid.Parse(courierID)
+	if err != nil {
+		return nil, err
+	}
+	return s.relayRepo.GetCourierPerformanceStats(ctx, uuidID)
+}

@@ -292,6 +292,10 @@ func main() {
 	tierWorker := worker.NewTierEvaluatorWorker(db)
 	go tierWorker.Start(context.Background())
 
+	// Start rating reminder worker: runs every 15 mins, max 4 reminders, interval 12 hours
+	ratingReminderWorker := worker.NewRatingReminderWorker(pgRepo, notificationSvc, 15*time.Minute, 4, 12)
+	go ratingReminderWorker.Start(context.Background())
+
 	slaWorker := worker.NewSLAWorker(slaSvc)
 	slaWorker.Start()
 
@@ -410,10 +414,13 @@ func main() {
 	})))
 
 	// Insurance & Relay Score Routes
-	mux.HandleFunc("/api/v1/insurance/enroll-bpjs", middleware.BaseChain(middleware.AuthMiddleware(insuranceHandler.EnrollBPJSTK))) // Example mapping
+	mux.HandleFunc("/api/v1/insurance/enroll-bpjs", middleware.BaseChain(middleware.AuthMiddleware(insuranceHandler.EnrollBPJSTK))) 	// Insurance & Relay Score Routes
+	mux.HandleFunc("GET /api/v1/admin/couriers/performance", middleware.BaseChain(middleware.AuthMiddleware(relayHandler.ListCourierPerformance)))
+	mux.HandleFunc("PUT /api/v1/admin/couriers/{id}/tier", middleware.BaseChain(middleware.AuthMiddleware(relayHandler.AdminOverrideTier)))
 	mux.HandleFunc("/api/v1/admin/relay-score/override", middleware.BaseChain(middleware.AuthMiddleware(relayHandler.AdminOverrideScore)))
 
 	// Courier Payout Routes
+	mux.HandleFunc("/api/v1/couriers/me/performance", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetCourierPerformance)))
 	mux.HandleFunc("/api/v1/couriers/me/earnings", middleware.BaseChain(middleware.AuthMiddleware(payoutHandler.GetCourierEarnings)))
 
 	// Payment Routes

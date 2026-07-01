@@ -183,6 +183,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { icon: Package, label: "Orders", path: "/orders" },
     { icon: Layers, label: "Warehouse Ops", path: "/warehouse-operations" },
     { icon: Truck, label: "Couriers", path: "/couriers" },
+    { icon: TrendingUp, label: "Courier Performance", path: "/courier-performance" },
     { icon: ClipboardCheck, label: "Courier Review", path: "/courier-applications" },
     { icon: ShieldAlert, label: "Face Verifications", path: "/courier-face-verifications" },
     { icon: ShieldAlert, label: "Courier Safety", path: "/courier-safety-events" },

@@ -402,4 +402,8 @@ interface TEMBUSApiService {
     suspend fun markNotificationRead(
         @Path("id") id: String
     ): Response<ApiResponse<AppNotification>>
+
+    // PERFORMANCE & TIERING
+    @GET("api/v1/couriers/me/performance")
+    suspend fun getCourierPerformance(): Response<ApiResponse<com.tembus.courier.data.model.CourierPerformanceStats>>
 }

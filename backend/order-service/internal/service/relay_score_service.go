@@ -165,6 +165,18 @@ func (s *relayScoreService) AdminOverrideScore(ctx context.Context, courierID uu
 	return nil
 }
 
+func (s *relayScoreService) AdminOverrideTier(ctx context.Context, courierID uuid.UUID, newTier string, adminID uuid.UUID, note string) error {
+	err := s.relayRepo.UpdateCourierTier(ctx, courierID, newTier)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *relayScoreService) ListCourierPerformanceStats(ctx context.Context, limit, offset int, search string) ([]*domain.CourierPerformanceStats, error) {
+	return s.relayRepo.ListCourierPerformanceStats(ctx, limit, offset, search)
+}
+
 // CheckTierPromotion determines the new tier based on score thresholds and compares it
 // with the courier's current tier from the database.
 func (s *relayScoreService) CheckTierPromotion(ctx context.Context, courierID uuid.UUID, newScore float64) (string, bool) {

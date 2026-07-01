@@ -72,6 +72,7 @@ type RelayRepository interface {
 	// GetCourierPerformanceStats fetches real performance metrics from courier_profiles
 	// for accurate relay score calculation.
 	GetCourierPerformanceStats(ctx context.Context, courierID uuid.UUID) (*CourierPerformanceStats, error)
+	ListCourierPerformanceStats(ctx context.Context, limit, offset int, search string) ([]*CourierPerformanceStats, error)
 
 	// GetCourierDispatchScoreStats fetches DB-backed score, acceptance, and proximity
 	// metrics for matching. Missing profile/location data must fail closed.
@@ -79,6 +80,7 @@ type RelayRepository interface {
 
 	// UpdateCourierRelayScore persists the newly calculated score and tier to courier_profiles.
 	UpdateCourierRelayScore(ctx context.Context, courierID uuid.UUID, newScore float64, newTier string) error
+	UpdateCourierTier(ctx context.Context, courierID uuid.UUID, newTier string) error
 
 	// GetCourierBankInfo fetches bank account details for payout disbursement.
 	GetCourierBankInfo(ctx context.Context, courierID uuid.UUID) (*CourierBankInfo, error)
@@ -94,5 +96,7 @@ type RelayRepository interface {
 type RelayScoreService interface {
 	CalculateScore(ctx context.Context, courierID uuid.UUID, reason string, orderID *uuid.UUID) error
 	AdminOverrideScore(ctx context.Context, courierID uuid.UUID, newScore float64, adminID uuid.UUID, note string) error
+	AdminOverrideTier(ctx context.Context, courierID uuid.UUID, newTier string, adminID uuid.UUID, note string) error
 	CheckTierPromotion(ctx context.Context, courierID uuid.UUID, currentScore float64) (newTier string, changed bool)
+	ListCourierPerformanceStats(ctx context.Context, limit, offset int, search string) ([]*CourierPerformanceStats, error)
 }

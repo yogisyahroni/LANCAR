@@ -158,6 +158,31 @@ func (r *relayRepository) UpdateCourierRelayScore(ctx context.Context, courierID
 	return nil
 }
 
+func (r *relayRepository) UpdateCourierTier(ctx context.Context, courierID uuid.UUID, newTier string) error {
+	query := `
+		UPDATE courier_profiles
+		SET tier = $1,
+			updated_at = NOW()
+		WHERE id = $2
+	`
+
+	result, err := r.db.ExecContext(ctx, query, newTier, courierID)
+	if err != nil {
+		return fmt.Errorf("failed to update courier tier: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no courier profile found for ID %s", courierID.String())
+	}
+
+	return nil
+}
+
 // GetCourierBankInfo fetches bank account details for payout disbursement.
 // Returns nil fields when bank info has not been completed by the courier.
 func (r *relayRepository) GetCourierBankInfo(ctx context.Context, courierID uuid.UUID) (*domain.CourierBankInfo, error) {
@@ -218,4 +243,34 @@ func (r *relayRepository) ReleaseMatchLock(ctx context.Context, orderID uuid.UUI
 	}
 
 	return nil
+}
+
+func (r *relayRepository) ListCourierPerformanceStats(ctx context.Context, limit, offset int, search string) ([]*domain.CourierPerformanceStats, error) {
+	var query string
+	var args []interface{}
+	
+	if search != "" {
+		query = "SELECT id, ontime_deliveries_count, total_deliveries_count, docs_complete_pct, avg_partner_rating, complaint_ratio_pct, relay_score, tier FROM courier_profiles WHERE tier ILIKE $1 LIMIT $2 OFFSET $3"
+		args = []interface{}{"%" + search + "%", limit, offset}
+	} else {
+		query = "SELECT id, ontime_deliveries_count, total_deliveries_count, docs_complete_pct, avg_partner_rating, complaint_ratio_pct, relay_score, tier FROM courier_profiles LIMIT $1 OFFSET $2"
+		args = []interface{}{limit, offset}
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []*domain.CourierPerformanceStats
+	for rows.Next() {
+		var s domain.CourierPerformanceStats
+		if err := rows.Scan(&s.CourierID, &s.OntimeDeliveries, &s.TotalDeliveries, &s.DocsCompletePct, &s.AvgPartnerRating, &s.ComplaintRatioPct, &s.RelayScore, &s.Tier); err != nil {
+			return nil, err
+		}
+		stats = append(stats, &s)
+	}
+	
+	return stats, nil
 }

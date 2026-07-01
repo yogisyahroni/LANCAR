@@ -128,6 +128,7 @@ type OrderService interface {
 	// GetOrdersNeedingRatingReminder mengambil order delivered milik customer yang
 	// belum di-rating, reminder_count < 4, dan sudah 12 jam sejak terakhir diingatkan.
 	GetOrdersNeedingRatingReminder(ctx context.Context, customerID string) ([]*Order, error)
+	GetCourierPerformanceStats(ctx context.Context, courierID string) (*CourierPerformanceStats, error)
 }
 
 type OrderRepository interface {

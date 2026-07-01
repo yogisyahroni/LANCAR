@@ -9,6 +9,7 @@ import CourierApplications from './pages/CourierApplications'
 import CourierFaceVerifications from './pages/CourierFaceVerifications'
 import CourierSafetyEvents from './pages/CourierSafetyEvents'
 import CourierGrowthConfig from './pages/CourierGrowthConfig'
+import CourierPerformance from './pages/CourierPerformance'
 import CourierPublicRegistration from './pages/CourierPublicRegistration'
 import PricingConfig from './pages/PricingConfig'
 import Disputes from './pages/Disputes'
@@ -100,6 +101,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Couriers />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/courier-performance" 
+            element={
+              <ProtectedRoute>
+                <CourierPerformance />
               </ProtectedRoute>
             } 
           />

@@ -1113,3 +1113,32 @@ func (h *OrderHandler) GetRatingReminders(w http.ResponseWriter, r *http.Request
 		"data":    items,
 	})
 }
+
+// GetCourierPerformance godoc
+// @Summary Get courier performance stats
+// @Description Fetch current performance stats including tier, rating, and metrics for the logged-in courier
+// @Tags couriers
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} domain.CourierPerformanceStats
+// @Router /couriers/me/performance [get]
+func (h *OrderHandler) GetCourierPerformance(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	courierID := r.Context().Value("user_id").(string)
+
+	stats, err := h.orderSvc.GetCourierPerformanceStats(r.Context(), courierID)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    stats,
+	})
+}
