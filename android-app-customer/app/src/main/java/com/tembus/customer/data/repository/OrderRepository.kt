@@ -373,6 +373,34 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun getRatingReminders(): Result<List<RatingReminderItem>> {
+        return try {
+            val response = apiService.getRatingReminders()
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                Result.success(body.data)
+            } else {
+                Result.failure(Exception(response.readErrorMessage("Gagal mengambil rating reminders")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun submitCourierRating(orderId: String, request: SubmitRatingRequest): Result<String> {
+        return try {
+            val response = apiService.submitCourierRating(orderId, request)
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                Result.success(body.message ?: "Berhasil mengirim rating")
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal mengirim rating")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun <T> Response<T>.readErrorMessage(fallback: String): String {
         return try {
             val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback.withRequestReference(this)

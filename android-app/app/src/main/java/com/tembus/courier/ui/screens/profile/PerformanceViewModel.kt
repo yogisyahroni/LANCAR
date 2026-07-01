@@ -33,7 +33,7 @@ class PerformanceViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = PerformanceUiState.Loading
             try {
-                val response = apiService.getCourierPerformance()
+                val response = apiService.getMyPerformanceStats()
                 if (response.isSuccessful && response.body()?.success == true) {
                     val stats = response.body()?.data
                     if (stats != null) {

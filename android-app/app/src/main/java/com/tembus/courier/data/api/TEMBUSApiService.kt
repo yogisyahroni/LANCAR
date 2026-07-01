@@ -405,5 +405,5 @@ interface TEMBUSApiService {
 
     // PERFORMANCE & TIERING
     @GET("api/v1/couriers/me/performance")
-    suspend fun getCourierPerformance(): Response<ApiResponse<com.tembus.courier.data.model.CourierPerformanceStats>>
+    suspend fun getMyPerformanceStats(): Response<ApiResponse<com.tembus.courier.data.model.CourierPerformanceStats>>
 }
