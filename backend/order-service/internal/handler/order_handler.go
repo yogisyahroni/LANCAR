@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/middleware"
 	"tembus/order-service/pkg/utils"
@@ -530,7 +531,8 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 			if order.Status != domain.StatusPending &&
 				order.Status != domain.StatusPendingPayment &&
 				order.Status != domain.StatusPendingAssignment &&
-				order.Status != domain.StatusSearching {
+				order.Status != domain.StatusSearching &&
+				order.Status != domain.StatusNoCourierFound {
 				middleware.WriteError(w, http.StatusConflict, "ERR_CONFLICT",
 					"Order tidak dapat dibatalkan setelah proses pengambilan dimulai", correlationID)
 				return
@@ -601,6 +603,105 @@ func (h *OrderHandler) StartMatching(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
+}
+
+// RetryMatching triggers courier assignment retry for an order that timed out
+func (h *OrderHandler) RetryMatching(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		id = r.URL.Query().Get("id")
+	}
+	if id == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_MISSING_PARAM", "Order ID is required", correlationID)
+		return
+	}
+
+	userID := middleware.GetUserIDFromContext(r.Context())
+	role := middleware.GetRoleFromContext(r.Context())
+
+	order, err := h.orderSvc.GetOrder(r.Context(), id)
+	if err != nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Order tidak ditemukan", correlationID)
+		return
+	}
+
+	isAdmin := role == "admin" || role == "super_admin"
+	isOwner := order.CustomerID == userID
+	if !isAdmin && !isOwner {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Akses ditolak", correlationID)
+		return
+	}
+
+	if order.Status != domain.StatusNoCourierFound && order.Status != domain.StatusSearching {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusConflict, "ERR_CONFLICT", "Order hanya bisa di-retry dari status no_courier_found atau searching", correlationID)
+		return
+	}
+
+	err = h.orderSvc.RetryMatching(r.Context(), id)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
+}
+
+// InternalStartMatching triggers automated courier assignment from internal orchestration without JWT
+func (h *OrderHandler) InternalStartMatching(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		id = r.PathValue("id")
+	}
+	if id == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_MISSING_PARAM", "Order ID is required", correlationID)
+		return
+	}
+	err := h.orderSvc.StartMatching(r.Context(), id)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
+}
+
+// InternalRetryMatching triggers courier assignment retry from internal orchestration without JWT
+func (h *OrderHandler) InternalRetryMatching(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		id = r.PathValue("id")
+	}
+	if id == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_MISSING_PARAM", "Order ID is required", correlationID)
+		return
+	}
+	err := h.orderSvc.RetryMatching(r.Context(), id)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
 }
@@ -703,7 +804,7 @@ func (h *OrderHandler) GetPackageScans(w http.ResponseWriter, r *http.Request) {
 	// Fix VULN-001: Scans Auth Bypass
 	userID := middleware.GetUserIDFromContext(r.Context())
 	role := middleware.GetRoleFromContext(r.Context())
-	
+
 	if role == "customer" {
 		order, err := h.orderSvc.GetOrder(r.Context(), orderID)
 		if err != nil {
@@ -747,13 +848,13 @@ func (h *OrderHandler) CreateConsolidationBag(w http.ResponseWriter, r *http.Req
 	}
 	createdBy := middleware.GetUserIDFromContext(r.Context())
 	role := middleware.GetRoleFromContext(r.Context())
-	
+
 	if createdBy == "" || role == "" {
 		correlationID := middleware.GetCorrelationID(r.Context())
 		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", correlationID)
 		return
 	}
-	
+
 	// Fix VULN-001: Bag Auth Bypass
 	if role != "admin" && role != "super_admin" && role != "courier" && role != "warehouse" {
 		correlationID := middleware.GetCorrelationID(r.Context())
@@ -890,5 +991,125 @@ func (h *OrderHandler) AutoDetectScanType(w http.ResponseWriter, r *http.Request
 		"order_id":  req.OrderID,
 		"scan_type": scanType,
 		"status":    "success",
+	})
+}
+
+// SubmitCourierRating godoc
+// @Summary Submit courier rating
+// @Description Customer memberikan penilaian bintang (1-5) kepada kurir setelah order delivered.
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Param id path string true "Order ID"
+// @Param request body domain.SubmitRatingRequest true "Rating Request"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} middleware.ErrorResponse
+// @Failure 403 {object} middleware.ErrorResponse "Bukan pemilik order"
+// @Failure 409 {object} middleware.ErrorResponse "Order sudah di-rating sebelumnya"
+// @Router /api/v1/customer/orders/{id}/rating [post]
+func (h *OrderHandler) SubmitCourierRating(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	correlationID := middleware.GetCorrelationID(r.Context())
+
+	// Ambil customerID dari JWT context (sudah divalidasi middleware)
+	customerID := middleware.GetUserIDFromContext(r.Context())
+	if customerID == "" {
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Sesi tidak valid", correlationID)
+		return
+	}
+
+	// Ambil orderID dari URL path: /api/v1/customer/orders/{id}/rating
+	// Asumsi format: /api/v1/customer/orders/O-XYZ/rating
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 7 {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Order ID tidak ditemukan di URL", correlationID)
+		return
+	}
+	orderID := pathParts[5]
+	if orderID == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Order ID tidak valid", correlationID)
+		return
+	}
+
+	var req domain.SubmitRatingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Format request tidak valid", correlationID)
+		return
+	}
+
+	if err := h.orderSvc.SubmitRating(r.Context(), customerID, orderID, req); err != nil {
+		userSafeError(w, r, err, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":   "success",
+		"message":  "Terima kasih atas penilaian Anda!",
+		"order_id": orderID,
+	})
+}
+
+// GetRatingReminders godoc
+// @Summary Get orders that need rating reminder
+// @Description Mengambil list order delivered milik customer yang belum di-rating.
+// @Tags orders
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /api/v1/customer/rating-reminders [get]
+func (h *OrderHandler) GetRatingReminders(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	correlationID := middleware.GetCorrelationID(r.Context())
+
+	customerID := middleware.GetUserIDFromContext(r.Context())
+	if customerID == "" {
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Sesi tidak valid", correlationID)
+		return
+	}
+
+	orders, err := h.orderSvc.GetOrdersNeedingRatingReminder(r.Context(), customerID)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusInternalServerError)
+		return
+	}
+
+	// Format response: tampilkan data kurir yang relevan untuk UI dialog rating
+	type RatingReminderItem struct {
+		OrderID         string `json:"order_id"`
+		OrderNumber     string `json:"order_number"`
+		CourierName     string `json:"courier_name"`
+		CourierPhotoURL string `json:"courier_photo_url"`
+		CourierPlate    string `json:"courier_plate"`
+		ReminderCount   int    `json:"reminder_count"`
+	}
+
+	items := make([]RatingReminderItem, 0, len(orders))
+	for _, o := range orders {
+		item := RatingReminderItem{
+			OrderID:       o.ID,
+			OrderNumber:   o.OrderNumber,
+			ReminderCount: o.RatingReminderCount,
+		}
+		if o.Courier != nil {
+			item.CourierName = o.Courier.FullName
+			item.CourierPhotoURL = o.Courier.ProfilePhotoURL
+			item.CourierPlate = o.Courier.VehiclePlate
+		}
+		items = append(items, item)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    items,
 	})
 }

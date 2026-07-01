@@ -27,6 +27,7 @@ type orderServiceImpl struct {
 	flagReader      featureflags.FlagReader
 	notificationSvc domain.NotificationService
 	configRepo      domain.ConfigRepository
+	refundSvc       domain.RefundService
 }
 
 func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository) domain.OrderService {
@@ -42,6 +43,10 @@ func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r
 		notificationSvc: ns,
 		configRepo:      cr,
 	}
+}
+
+func (s *orderServiceImpl) SetRefundService(rs domain.RefundService) {
+	s.refundSvc = rs
 }
 
 func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req domain.CreateOrderRequest) (*domain.Order, error) {
@@ -347,6 +352,16 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 				},
 			})
 		}
+
+		if status == domain.StatusCancelled && s.refundSvc != nil {
+			if oid, errParse := uuid.Parse(orderID); errParse == nil {
+				log.Printf("[OrderService] Order %s cancelled, triggering automatic refund...", orderID)
+				_, errRefund := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, "Order cancelled")
+				if errRefund != nil {
+					log.Printf("[OrderService] Failed to trigger refund for order %s: %v", orderID, errRefund)
+				}
+			}
+		}
 	}
 
 	return nil
@@ -478,8 +493,11 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 		batchOrders = []*domain.Order{order}
 	}
 
-	// Cascading search radius: 3km, 5km, 10km
+	// Cascading search radius: dynamic from service product or default 3km, 5km, 10km
 	radii := []float64{3, 5, 10}
+	if serviceProduct, err := s.pricingRepo.GetDeliveryServiceByCode(ctx, order.Model); err == nil && len(serviceProduct.SearchRadiiKM) > 0 {
+		radii = serviceProduct.SearchRadiiKM
+	}
 
 	// S2-OS-02: Ganti time.Sleep(30s) blocking dengan polling loop
 	// (1 detik interval) + context cancellation. Ini mencegah goroutine
@@ -576,17 +594,18 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 	// If no courier found after all radii and batches
 	s.notifyCustomerNoCourier(ctx, order)
 
-	// Cancel order assignment if all declined/expired
+	// Set order status to no_courier_found if all declined/expired
 	for _, o := range batchOrders {
-		s.orderRepo.UpdateStatus(ctx, o.ID, domain.StatusCancelled)
+		s.orderRepo.UpdateStatus(ctx, o.ID, domain.StatusNoCourierFound)
 	}
 
 	return errors.New("no couriers accepted the order within the search window")
 }
 
 type scoredCourier struct {
-	ID    string
-	Score float64
+	ID       string
+	Score    float64
+	TierRank int
 }
 
 func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []string, order *domain.Order, totalWeight float64, packageCount int) []scoredCourier {
@@ -649,10 +668,26 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 			(acceptanceRate * acceptanceWeight) +
 			(idleScore * idleWeight) +
 			(ratingScore * ratingWeight)
-		scored = append(scored, scoredCourier{ID: id, Score: score})
+
+		tierRank := 1
+		switch stats.Tier {
+		case "god_mode":
+			tierRank = 4
+		case "gold":
+			tierRank = 3
+		case "silver":
+			tierRank = 2
+		default:
+			tierRank = 1
+		}
+
+		scored = append(scored, scoredCourier{ID: id, Score: score, TierRank: tierRank})
 	}
 
 	sort.SliceStable(scored, func(i, j int) bool {
+		if scored[i].TierRank != scored[j].TierRank {
+			return scored[i].TierRank > scored[j].TierRank
+		}
 		return scored[i].Score > scored[j].Score
 	})
 	return scored
@@ -1042,4 +1077,76 @@ func (s *orderServiceImpl) StartMatching(ctx context.Context, orderID string) er
 	}()
 
 	return nil
+}
+
+func (s *orderServiceImpl) RetryMatching(ctx context.Context, orderID string) error {
+	log.Printf("[OrderService] Retrying automated matching for order: %s", orderID)
+
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+	if order == nil {
+		return fmt.Errorf("order %s not found", orderID)
+	}
+
+	if order.Status != domain.StatusNoCourierFound && order.Status != domain.StatusSearching {
+		return fmt.Errorf("order cannot be retried from status: %s", order.Status)
+	}
+
+	return s.StartMatching(ctx, orderID)
+}
+
+// SubmitRating memproses penilaian customer terhadap kurir.
+// Security: customerID diambil dari JWT (middleware), bukan dari body request.
+// Validasi:
+//   1. Order harus dimiliki oleh customerID yang sedang login.
+//   2. Status order harus "delivered".
+//   3. Order belum pernah di-rating (courier_rating IS NULL).
+//   4. Rating antara 1.0 - 5.0.
+func (s *orderServiceImpl) SubmitRating(ctx context.Context, customerID string, orderID string, req domain.SubmitRatingRequest) error {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return domain.ErrNotFound
+	}
+
+	// Security: pastikan order milik customer yang sedang login
+	if order.CustomerID != customerID {
+		return domain.ErrForbidden
+	}
+
+	// Validasi status: hanya order yang sudah delivered yang bisa di-rating
+	if order.Status != domain.StatusDelivered {
+		return fmt.Errorf("rating hanya bisa diberikan untuk order yang sudah terkirim (status: %s)", order.Status)
+	}
+
+	// Idempotency: cegah double rating
+	if order.CourierRating != nil {
+		return domain.ErrConflict
+	}
+
+	// Validasi range rating
+	if req.Rating < 1.0 || req.Rating > 5.0 {
+		return fmt.Errorf("rating harus antara 1 sampai 5 bintang")
+	}
+
+	courierID := ""
+	if order.CourierID != nil {
+		courierID = *order.CourierID
+	}
+	if courierID == "" {
+		return fmt.Errorf("order tidak memiliki data kurir")
+	}
+
+	// Simpan rating ke DB, update avg_rating kurir secara atomik
+	return s.orderRepo.SaveOrderRating(ctx, orderID, courierID, req.Rating, req.Comment)
+}
+
+// GetOrdersNeedingRatingReminder mengembalikan order yang perlu mendapat notifikasi
+// reminder rating. Dipanggil saat customer membuka notifikasi atau oleh worker.
+// Constraint: max 4 reminder, interval minimal 12 jam.
+func (s *orderServiceImpl) GetOrdersNeedingRatingReminder(ctx context.Context, customerID string) ([]*domain.Order, error) {
+	const maxReminder = 4
+	const reminderIntervalHours = 12
+	return s.orderRepo.GetDeliveredUnratedOrders(ctx, customerID, maxReminder, reminderIntervalHours)
 }

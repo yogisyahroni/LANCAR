@@ -47,7 +47,7 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 
 	refundRatio := 0.0
 	switch order.Status {
-	case domain.StatusPendingPayment, domain.StatusPending, domain.StatusPendingAssignment, domain.StatusSearching:
+	case domain.StatusPendingPayment, domain.StatusPending, domain.StatusPendingAssignment, domain.StatusSearching, domain.StatusNoCourierFound, domain.StatusCancelled:
 		refundRatio = 1.0
 	case domain.StatusAccepted, domain.StatusPickingUp:
 		refundRatio = 0.8
@@ -92,8 +92,8 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 		return nil, fmt.Errorf("failed to create refund record: %w", err)
 	}
 
-	// For MVP, we'll try to process synchronously or via batch.
-	// We'll leave it pending and processing can happen by Trigger
+	// For MVP, we process synchronously immediately
+	_ = s.ProcessPendingRefunds(ctx)
 	return record, nil
 }
 
@@ -104,14 +104,18 @@ func (s *refundService) ProcessPendingRefunds(ctx context.Context) error {
 	}
 
 	for _, r := range pending {
-		// Get payment to find the gateway ref to refund
+		// Get payment to find the gateway ref to refund if available
 		payment, err := s.paymentRepo.GetByOrderID(ctx, r.OrderID.String())
-		if err != nil || payment.ProviderReference == nil {
-			log.Printf("Skipping refund %s, payment not found or no ref", r.ID)
+		if err != nil {
+			log.Printf("Skipping refund %s, payment not found: %v", r.ID, err)
 			continue
 		}
+		paymentRef := ""
+		if payment.ProviderReference != nil {
+			paymentRef = *payment.ProviderReference
+		}
 
-		ref, gatewayErr := s.gateway.ProcessRefund(ctx, *payment.ProviderReference, r.AmountIDR, r.Reason)
+		ref, gatewayErr := s.gateway.ProcessRefund(ctx, r.OrderID.String(), paymentRef, r.AmountIDR, r.Reason)
 
 		status := domain.RefundStatusProcessed
 		var errReason *string

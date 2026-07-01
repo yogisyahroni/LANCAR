@@ -249,7 +249,7 @@ fun OrderDetailScreen(
                                     ) {
                                         Icon(Icons.Default.Close, contentDescription = null)
                                         Spacer(Modifier.width(8.dp))
-                                        Text("Batalkan Pesanan", fontWeight = FontWeight.Bold)
+                                        Text(if (order.status.lowercase() == "no_courier_found") "Batalkan & Ajukan Refund" else "Batalkan Pesanan", fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
@@ -293,7 +293,8 @@ private fun canCancelOrder(status: String): Boolean {
         "accepted",
         "pending_assignment",
         "pending",
-        "pending_payment"
+        "pending_payment",
+        "no_courier_found"
     )
 }
 

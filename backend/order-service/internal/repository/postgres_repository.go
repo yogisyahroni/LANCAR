@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"tembus/order-service/internal/domain"
 	"time"
@@ -81,13 +82,15 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 			max_distance_km,
 			max_weight_kg,
 			platform_fee_idr,
-			platform_fee_pct
+			platform_fee_pct,
+			COALESCE(search_radii_km::text, '[3, 5, 10]') AS search_radii_km
 		FROM delivery_service_products
 		WHERE code = $1 AND is_enabled = TRUE
 		LIMIT 1
 	`
 
 	service := &domain.DeliveryServiceProduct{}
+	var searchRadiiJSON string
 	err := r.readDB.QueryRowContext(ctx, query, code).Scan(
 		&service.Code,
 		&service.Name,
@@ -99,12 +102,17 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 		&service.MaxWeightKG,
 		&service.PlatformFeeIDR,
 		&service.PlatformFeePct,
+		&searchRadiiJSON,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("active delivery service not found for code %s", code)
 		}
 		return nil, err
+	}
+
+	if err := json.Unmarshal([]byte(searchRadiiJSON), &service.SearchRadiiKM); err != nil || len(service.SearchRadiiKM) == 0 {
+		service.SearchRadiiKM = []float64{3, 5, 10}
 	}
 
 	return service, nil
@@ -742,3 +750,113 @@ func (r *postgresRepo) GetCourierInfo(ctx context.Context, courierID string) (*d
 	return info, nil
 }
 
+// SaveOrderRating menyimpan rating (1-5) dan comment ke tabel orders.
+// Juga menaikkan avg_rating kurir di tabel courier_profiles secara atomik.
+func (r *postgresRepo) SaveOrderRating(ctx context.Context, orderID string, courierID string, rating float64, comment string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	queryOrder := `
+		UPDATE orders 
+		SET courier_rating = $1, rating_comment = $2, updated_at = NOW() 
+		WHERE id = $3 AND courier_rating IS NULL`
+	
+	res, err := tx.ExecContext(ctx, queryOrder, rating, comment, orderID)
+	if err != nil {
+		return err
+	}
+	
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return fmt.Errorf("order not found or already rated")
+	}
+
+	queryCourier := `
+		UPDATE courier_profiles
+		SET avg_rating = ((COALESCE(avg_rating, 5.0) * COALESCE(rating_count, 0)) + $1) / (COALESCE(rating_count, 0) + 1),
+			rating_count = COALESCE(rating_count, 0) + 1,
+			updated_at = NOW()
+		WHERE user_id = $2
+	`
+	_, err = tx.ExecContext(ctx, queryCourier, rating, courierID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// GetDeliveredUnratedOrders mengambil order dengan status delivered, belum di-rating.
+func (r *postgresRepo) GetDeliveredUnratedOrders(ctx context.Context, customerID string, maxReminder int, reminderIntervalHours int) ([]*domain.Order, error) {
+	query := `
+		SELECT 
+			id, order_number, courier_id, courier_name, 
+			rating_reminder_count, last_rating_reminder_at 
+		FROM orders 
+		WHERE customer_id = $1 
+		AND status = 'delivered' 
+		AND courier_rating IS NULL 
+		AND COALESCE(rating_reminder_count, 0) < $2 
+		AND (last_rating_reminder_at IS NULL OR last_rating_reminder_at < NOW() - INTERVAL '1 hour' * $3)
+		ORDER BY created_at DESC 
+		LIMIT 10
+	`
+	rows, err := r.readDB.QueryContext(ctx, query, customerID, maxReminder, reminderIntervalHours)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []*domain.Order
+	for rows.Next() {
+		var o domain.Order
+		var cID, cName sql.NullString
+		var lra sql.NullTime
+		var rrc sql.NullInt32
+		
+		if err := rows.Scan(&o.ID, &o.OrderNumber, &cID, &cName, &rrc, &lra); err != nil {
+			return nil, err
+		}
+		
+		if cID.Valid { o.CourierID = &cID.String }
+		if cName.Valid {
+			o.Courier = &domain.CourierInfo{
+				FullName: cName.String,
+			}
+		}
+		if lra.Valid { o.LastRatingReminderAt = &lra.Time }
+		if rrc.Valid { o.RatingReminderCount = int(rrc.Int32) }
+		
+		orders = append(orders, &o)
+	}
+
+	for _, o := range orders {
+		if o.CourierID != nil {
+			info, err := r.GetCourierInfo(ctx, *o.CourierID)
+			if err == nil && info != nil {
+				o.Courier = info
+			}
+		}
+	}
+
+	return orders, nil
+}
+
+// IncrementRatingReminderCount menaikkan reminder_count.
+func (r *postgresRepo) IncrementRatingReminderCount(ctx context.Context, orderID string) error {
+	query := `
+		UPDATE orders 
+		SET rating_reminder_count = COALESCE(rating_reminder_count, 0) + 1,
+			last_rating_reminder_at = NOW(),
+			updated_at = NOW()
+		WHERE id = $1
+	`
+	_, err := r.db.ExecContext(ctx, query, orderID)
+	return err
+}

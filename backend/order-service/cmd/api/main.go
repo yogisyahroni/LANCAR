@@ -209,7 +209,7 @@ func main() {
 	}
 	paymentGw := payment_gateway.NewMidtransGateway(midtransConfig)
 	payoutGw := payment_gateway.NewUnavailablePayoutGateway()
-	refundGw := payment_gateway.NewUnavailableRefundGateway()
+	refundGw := payment_gateway.NewWalletRefundGateway(os.Getenv("PAYMENT_SERVICE_URL"), pgRepo)
 
 	// Feature Flags
 	flagReader := featureflags.NewFlagReader(db, readDB, rdb)
@@ -256,6 +256,7 @@ func main() {
 	paymentSvc := service.NewPaymentService(paymentRepo, pgRepo, paymentGw, configRepo)
 	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw, relayRepo)
 	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw)
+	orderSvc.SetRefundService(refundSvc)
 	slaSvc := service.NewSLAService(slaRepo, notificationSvc, payoutRepo)
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc, configRepo)
 	relayScoreSvc := service.NewRelayScoreService(relayRepo)
@@ -287,6 +288,9 @@ func main() {
 
 	paymentLinkWorker := worker.NewPaymentLinkWorker(paymentLinkSvc)
 	go paymentLinkWorker.Start(context.Background())
+
+	tierWorker := worker.NewTierEvaluatorWorker(db)
+	go tierWorker.Start(context.Background())
 
 	slaWorker := worker.NewSLAWorker(slaSvc)
 	slaWorker.Start()
@@ -338,6 +342,7 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.GetOrder))))
 	mux.HandleFunc("/api/v1/orders/bulk", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitOrderCreation(rdb)(orderHandler.CreateBulkOrder))))
 	mux.HandleFunc("/api/v1/orders/poll", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.PollOrderUpdates))))
+	mux.HandleFunc("/api/v1/orders/retry-matching", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.RetryMatching))))
 	mux.HandleFunc("/api/v1/meeting-points/suggest", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.SuggestMeetingPoints)))
 
 	// Mock Chat Endpoint
@@ -362,7 +367,26 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/scan/auto-detect", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AutoDetectScanType)))
 
 	// Internal Orchestration Routes (Should be IP-whitelisted or internally routed)
-	mux.HandleFunc("/api/v1/internal/orders/matching", orderHandler.StartMatching)
+	mux.HandleFunc("/api/v1/internal/orders/matching", orderHandler.InternalStartMatching)
+	mux.HandleFunc("/api/v1/internal/orders/retry-matching", orderHandler.InternalRetryMatching)
+
+	// Rating Endpoints
+	mux.HandleFunc("/api/v1/customer/orders/", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		// Manual routing for /api/v1/customer/orders/{id}/rating
+		if strings.HasSuffix(r.URL.Path, "/rating") && r.Method == http.MethodPost {
+			orderHandler.SubmitCourierRating(w, r)
+			return
+		}
+		// If other /orders/ routes exist, handle them here...
+		http.Error(w, "Not found", http.StatusNotFound)
+	})))
+	mux.HandleFunc("/api/v1/customer/rating-reminders", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetRatingReminders)))
+
+	mux.HandleFunc("/api/v1/internal/refunds/process", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			refundHandler.CreateRefund(w, r)
+		}
+	})
 
 	// Tracking Routes
 	mux.HandleFunc("/api/v1/tracking/location", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.UpdateLocation)))

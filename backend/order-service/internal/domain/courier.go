@@ -1,13 +1,24 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type CourierStatus string
+type CourierTier string
 
 const (
 	CourierStatusOnline  CourierStatus = "online"
 	CourierStatusOffline CourierStatus = "offline"
 	CourierStatusBusy    CourierStatus = "busy"
+)
+
+const (
+	CourierTierNewbie  CourierTier = "NEWBIE"
+	CourierTierSilver  CourierTier = "SILVER"
+	CourierTierGold    CourierTier = "GOLD"
+	CourierTierGodMode CourierTier = "GOD_MODE"
 )
 
 type Courier struct {
@@ -19,6 +30,8 @@ type Courier struct {
 	Status       CourierStatus `json:"status"`
 	CurrentLat   float64       `json:"current_lat"`
 	CurrentLng   float64       `json:"current_lng"`
+	Tier         CourierTier   `json:"tier"`
+	JoinDate     time.Time     `json:"join_date"`
 }
 
 type CourierRepository interface {

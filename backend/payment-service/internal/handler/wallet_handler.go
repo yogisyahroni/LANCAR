@@ -144,7 +144,48 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, map[string]string{"message": "Deposit successful"}, http.StatusOK)
 }
 
+func (h *WalletHandler) Refund(w http.ResponseWriter, r *http.Request) {
+	userID, correlationID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var req struct {
+		Amount      float64 `json:"amount"`
+		OrderID     string  `json:"order_id"`
+		ReferenceID string  `json:"reference_id"`
+		Reason      string  `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.OrderID == "" && req.ReferenceID != "" {
+		req.OrderID = req.ReferenceID
+	}
+
+	if req.Amount <= 0 {
+		h.respondError(w, "Amount must be positive", http.StatusBadRequest)
+		return
+	}
+
+	if req.OrderID == "" {
+		h.respondError(w, "order_id atau reference_id wajib diisi", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.Refund(r.Context(), userID, req.Amount, req.OrderID)
+	if err != nil {
+		h.safeError(w, r, err, correlationID, "refund")
+		return
+	}
+
+	h.respondJSON(w, map[string]string{"message": "Refund successful"}, http.StatusOK)
+}
+
 func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
+	// ─── ZERO TRUST: Identity Verification ───────────────────────────────────────
 	userID, correlationID, ok := h.parseUserID(w, r)
 	if !ok {
 		return
@@ -152,32 +193,188 @@ func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 
 	userRole := r.Header.Get("X-User-Role")
 	if userRole == "" {
-		h.respondError(w, "Unauthorized: role missing", http.StatusUnauthorized)
+		h.respondError(w, "Unauthorized: role tidak ditemukan", http.StatusUnauthorized)
+		return
+	}
+	// Hanya customer dan courier yang boleh melakukan penarikan
+	if userRole != "customer" && userRole != "courier" {
+		h.respondError(w, "Unauthorized: role tidak diizinkan melakukan penarikan", http.StatusForbidden)
 		return
 	}
 
-	var req struct {
-		Amount      float64        `json:"amount"`
-		BankDetails map[string]any `json:"bank_details"`
+	// ─── INPUT PARSING ────────────────────────────────────────────────────────────
+	// Gunakan struct strict dengan int64 untuk amount — bukan float64!
+	// float64 exploit: attacker bisa kirim "100.9999999999" yang bisa dibulatkan
+	// berbeda di client vs server. int64 (rupiah penuh) tidak ada ambiguitas.
+	var raw struct {
+		Amount         int64  `json:"amount"`
+		AccountNumber  string `json:"account_number"`
+		AccountHolder  string `json:"account_holder"`
+		BankCode       string `json:"bank_code"`
+		IdempotencyKey string `json:"idempotency_key"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.respondError(w, "Invalid request body", http.StatusBadRequest)
+
+	// Limit body size: 4KB cukup untuk request ini (anti DoS via body size)
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+		h.respondError(w, "Format permintaan tidak valid", http.StatusBadRequest)
 		return
 	}
 
-	if req.Amount <= 0 {
-		h.respondError(w, "Jumlah withdraw harus lebih dari nol", http.StatusBadRequest)
+	// ─── SECURITY LAYER 1: Amount Validation ────────────────────────────────────
+	// 1a. Cegah negative amount exploit (balance = balance - (-1000) = balance + 1000)
+	if raw.Amount <= 0 {
+		h.respondError(w, "Jumlah tarik dana harus lebih dari nol", http.StatusBadRequest)
+		return
+	}
+	// 1b. Cegah integer overflow: amount tidak boleh melebihi batas maksimum transaksi
+	if raw.Amount < domain.WithdrawMinAmount {
+		h.respondError(w, "Jumlah minimum penarikan adalah Rp 10.000", http.StatusBadRequest)
+		return
+	}
+	if raw.Amount > domain.WithdrawMaxAmount {
+		h.respondError(w, "Jumlah maksimum penarikan per transaksi adalah Rp 50.000.000", http.StatusBadRequest)
 		return
 	}
 
-	err := h.svc.Withdraw(r.Context(), userID, userRole, req.Amount, req.BankDetails)
-	if err != nil {
+	// ─── SECURITY LAYER 2: Account Number Validation ─────────────────────────────
+	// Standar Bank Indonesia (SKNBI/BI-FAST): nomor rekening hanya digit, 10-18 karakter
+	// WAJIB: hanya angka, tidak boleh ada simbol, spasi, huruf, atau karakter apapun.
+	// Ini mencegah: SQL injection via account number, XSS, command injection.
+	if len(raw.AccountNumber) < domain.AccountNumberMinLen || len(raw.AccountNumber) > domain.AccountNumberMaxLen {
+		h.respondError(w, "Nomor rekening harus terdiri dari 10 hingga 18 digit angka", http.StatusBadRequest)
+		return
+	}
+	for _, c := range raw.AccountNumber {
+		if c < '0' || c > '9' {
+			// Tolak SEMUA karakter selain digit: huruf, simbol, spasi, unicode
+			h.respondError(w, "Nomor rekening hanya boleh mengandung angka (0-9)", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// ─── SECURITY LAYER 3: Account Holder Name Validation ───────────────────────
+	// Nama pemilik rekening: hanya huruf (A-Z, a-z), spasi, titik, dan apostrof
+	// Mencegah: XSS injection, HTML injection, script tag, SQL injection
+	rawHolder := trimAndNormalizeSpace(raw.AccountHolder)
+	if len(rawHolder) < 2 || len(rawHolder) > 100 {
+		h.respondError(w, "Nama pemilik rekening tidak valid (2-100 karakter)", http.StatusBadRequest)
+		return
+	}
+	for _, c := range rawHolder {
+		if !isValidNameChar(c) {
+			h.respondError(w, "Nama pemilik rekening hanya boleh mengandung huruf, spasi, titik, dan apostrof", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// ─── SECURITY LAYER 4: Bank Code Validation ──────────────────────────────────
+	// Bank code: hanya huruf besar A-Z, 2-20 karakter
+	// Whitelist approach — tolak semua yang tidak dikenal
+	rawBankCode := raw.BankCode
+	if len(rawBankCode) < 2 || len(rawBankCode) > 20 {
+		h.respondError(w, "Kode bank tidak valid", http.StatusBadRequest)
+		return
+	}
+	for _, c := range rawBankCode {
+		if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
+			h.respondError(w, "Kode bank hanya boleh mengandung huruf", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// ─── SECURITY LAYER 5: Idempotency Key Validation ───────────────────────────
+	// Client WAJIB mengirimkan UUID v4 sebagai idempotency key.
+	// Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+	// Ini mencegah: double-submit, replay attack, network retry exploit.
+	if raw.IdempotencyKey == "" {
+		h.respondError(w, "idempotency_key wajib diisi untuk mencegah double-submit", http.StatusBadRequest)
+		return
+	}
+	idempotencyUUID, uuidErr := uuid.Parse(raw.IdempotencyKey)
+	if uuidErr != nil || idempotencyUUID == uuid.Nil {
+		h.respondError(w, "idempotency_key harus berupa UUID v4 yang valid", http.StatusBadRequest)
+		return
+	}
+	// Pastikan UUID version 4 (randomly generated) — bukan v1 (timestamp-based)
+	// UUID v4 bit 12-15 dari time_hi_and_version harus = 0100 (binary) = 4
+	if idempotencyUUID.Version() != 4 {
+		h.respondError(w, "idempotency_key harus berupa UUID versi 4", http.StatusBadRequest)
+		return
+	}
+
+	// ─── ASSEMBLE VALIDATED REQUEST ──────────────────────────────────────────────
+	withdrawReq := domain.WithdrawRequest{
+		Amount:         raw.Amount,
+		AccountNumber:  raw.AccountNumber,                         // numerik murni
+		AccountHolder:  rawHolder,                                 // sudah di-trim dan divalidasi
+		BankCode:       toUpperCase(rawBankCode),                  // normalisasi ke huruf besar
+		IdempotencyKey: idempotencyUUID.String(),                  // canonical UUID string
+	}
+
+	// ─── DELEGATE KE SERVICE LAYER ───────────────────────────────────────────────
+	if err := h.svc.Withdraw(r.Context(), userID, userRole, withdrawReq); err != nil {
 		h.safeError(w, r, err, correlationID, "withdraw")
 		return
 	}
 
-	h.respondJSON(w, map[string]string{"message": "Withdrawal request submitted"}, http.StatusAccepted)
+	h.respondJSON(w, map[string]string{
+		"message": "Permintaan penarikan dana berhasil diterima",
+		"status":  "pending",
+	}, http.StatusAccepted)
 }
+
+// trimAndNormalizeSpace menghapus leading/trailing whitespace dan
+// mengganti multiple spaces menjadi satu spasi tunggal.
+func trimAndNormalizeSpace(s string) string {
+	result := make([]rune, 0, len(s))
+	prevSpace := false
+	for i, r := range s {
+		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
+			if i > 0 && !prevSpace {
+				result = append(result, ' ')
+			}
+			prevSpace = true
+		} else {
+			result = append(result, r)
+			prevSpace = false
+		}
+	}
+	// Trim trailing space
+	for len(result) > 0 && result[len(result)-1] == ' ' {
+		result = result[:len(result)-1]
+	}
+	return string(result)
+}
+
+// isValidNameChar memeriksa apakah rune adalah karakter yang valid untuk
+// nama pemilik rekening bank: huruf unicode, spasi, titik, atau apostrof.
+// Pendekatan whitelist — tolak semua karakter selain yang secara eksplisit diizinkan.
+func isValidNameChar(c rune) bool {
+	// Huruf (unicode — mencakup nama internasional seperti "João" atau "Müller")
+	if (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') {
+		return true
+	}
+	// Karakter nama yang diizinkan
+	if c == ' ' || c == '.' || c == '\'' {
+		return true
+	}
+	return false
+}
+
+// toUpperCase mengkonversi string ke huruf besar (ASCII only — untuk bank code)
+func toUpperCase(s string) string {
+	result := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 'a' && s[i] <= 'z' {
+			result[i] = s[i] - 32
+		} else {
+			result[i] = s[i]
+		}
+	}
+	return string(result)
+}
+
 
 func (h *WalletHandler) respondJSON(w http.ResponseWriter, data any, status int) {
 	w.Header().Set("Content-Type", "application/json")

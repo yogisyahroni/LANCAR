@@ -185,15 +185,31 @@ class TrackingViewModel @Inject constructor(
     }
 
     fun retrySearch(orderId: String) {
-        // TODO: Implement retry search logic
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            orderRepository.retryOrderMatching(orderId).onSuccess {
+                fetchLatestOrder(orderId)
+            }.onFailure { exception ->
+                _uiState.update { it.copy(error = exception.message ?: "Gagal mengulang pencarian kurir") }
+            }
+            _uiState.update { it.copy(isLoading = false) }
+        }
     }
 
     fun retryWithSurge(orderId: String) {
-        // TODO: Implement retry with surge logic
+        retrySearch(orderId)
     }
 
     fun cancelSearch(orderId: String) {
-        // TODO: Implement cancel search logic
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            orderRepository.cancelOrder(orderId, "Pencarian kurir dibatalkan oleh pengguna").onSuccess {
+                fetchLatestOrder(orderId)
+            }.onFailure { exception ->
+                _uiState.update { it.copy(error = exception.message ?: "Gagal membatalkan pencarian") }
+            }
+            _uiState.update { it.copy(isLoading = false) }
+        }
     }
 }
 

@@ -108,6 +108,8 @@ routes.get('/auth/web/orders/:id/payment/status', verifyWebSession, (req, res) =
 routes.post('/auth/web/orders/:id/payment/check', verifyWebSession, requireIdempotencyKey('web.payment.confirm'), (req, res) => controllers.customerOrder.confirmCustomerOrderPayment(req, res));
 routes.get('/auth/web/orders/:id', verifyWebSession, (req, res) => controllers.customerOrder.getCustomerOrderById(req, res));
 routes.post('/auth/web/orders/:id/public-tracking-link', verifyWebSession, (req, res) => controllers.customerOrder.createCustomerPublicTrackingLink(req, res));
+routes.post('/auth/web/orders/:id/cancel', verifyWebSession, (req, res) => controllers.customerOrder.cancelCustomerOrder(req, res));
+routes.post('/auth/web/orders/:id/retry-matching', verifyWebSession, (req, res) => controllers.customerOrder.retryCustomerOrderMatching(req, res));
 routes.get('/auth/web/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));
 routes.post('/auth/web/orders/:id/chats', requireMobileOrWebAuth, communicationMessageRateLimiter, (req, res) => controllers.customerOrder.sendOrderChat(req, res));
 routes.get('/api/v1/mobile/chats/orders/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getOrderChats(req, res));
@@ -142,6 +144,7 @@ routes.post('/api/v1/customer/orders/:id/payment/check', requireMobileOrWebAuth,
 routes.get('/api/v1/customer/orders/:id', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.getMobileCustomerOrder(req, res));
 routes.post('/api/v1/customer/orders/:id/upload', requireMobileOrWebAuth, ...secureUploadSingle('file', 'customerAttachment'), (req, res) => controllers.customerOrder.uploadOrderFile(req, res));
 routes.post('/api/v1/customer/orders/:id/cancel', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.cancelCustomerOrder(req, res));
+routes.post('/api/v1/customer/orders/:id/retry-matching', requireMobileOrWebAuth, (req, res) => controllers.customerOrder.retryCustomerOrderMatching(req, res));
 routes.get('/api/v1/customer/disputes', requireMobileOrWebAuth, (req, res) => controllers.getCustomerDisputes(req, res));
 routes.post('/api/v1/customer/disputes', requireMobileOrWebAuth, (req, res) => controllers.createDispute(req, res));
 routes.get('/api/v1/customer/disputes/:id/chats', requireMobileOrWebAuth, (req, res) => controllers.getDisputeChats(req, res));

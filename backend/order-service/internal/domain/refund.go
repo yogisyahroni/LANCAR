@@ -35,7 +35,7 @@ type RefundRepository interface {
 }
 
 type RefundGateway interface {
-	ProcessRefund(ctx context.Context, paymentRef string, amount int, reason string) (string, error)
+	ProcessRefund(ctx context.Context, orderID string, paymentRef string, amount int, reason string) (string, error)
 }
 
 type RefundService interface {

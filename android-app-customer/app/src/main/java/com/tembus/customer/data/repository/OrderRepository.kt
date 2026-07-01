@@ -359,6 +359,20 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    suspend fun retryOrderMatching(orderId: String): Result<String> {
+        return try {
+            val response = apiService.retryCustomerOrderMatching(id = orderId)
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true) {
+                Result.success(body.message ?: "Pencarian kurir berhasil diulang")
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal mengulang pencarian kurir")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun <T> Response<T>.readErrorMessage(fallback: String): String {
         return try {
             val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback.withRequestReference(this)

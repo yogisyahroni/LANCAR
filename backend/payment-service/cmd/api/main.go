@@ -152,6 +152,8 @@ func main() {
 	mux.HandleFunc("/api/v1/wallet/topup", middleware.BaseChain(h.TopUp))
 	mux.HandleFunc("/api/v1/wallet/deposit", middleware.BaseChain(h.Deposit))
 	mux.HandleFunc("/api/v1/wallet/withdraw", middleware.BaseChain(h.Withdraw))
+	mux.HandleFunc("/api/v1/wallet/refund", middleware.BaseChain(h.Refund))
+	mux.HandleFunc("/api/internal/wallet/refund", middleware.BaseChain(h.Refund))
 
 	// Health Check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

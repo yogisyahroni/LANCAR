@@ -185,6 +185,85 @@ func (r *postgresWalletRepository) GetTransactions(ctx context.Context, walletID
 	return txs, nil
 }
 
+func (r *postgresWalletRepository) IsRefundProcessed(ctx context.Context, referenceID string) (bool, error) {
+	if referenceID == "" {
+		return false, nil
+	}
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM customer_wallet_transactions WHERE reference_id = $1 AND type = 'REFUND')`
+	err := r.readDB.QueryRowContext(ctx, query, referenceID).Scan(&exists)
+	if err != nil || exists {
+		return exists, err
+	}
+	query = `SELECT EXISTS(SELECT 1 FROM courier_wallet_transactions WHERE reference_id = $1 AND type = 'REFUND')`
+	err = r.readDB.QueryRowContext(ctx, query, referenceID).Scan(&exists)
+	return exists, err
+}
+
+// UpdateTransactionStatus memperbarui status transaksi (COMPLETED/FAILED) berdasarkan
+// reference_id. Dipanggil oleh walletService setelah disbursement selesai/gagal.
+// Mencoba customer_wallet_transactions terlebih dahulu, lalu courier_wallet_transactions.
+func (r *postgresWalletRepository) UpdateTransactionStatus(ctx context.Context, referenceID string, status domain.TransactionStatus) error {
+	if referenceID == "" {
+		return errors.New("UpdateTransactionStatus: referenceID wajib diisi")
+	}
+	query := `UPDATE customer_wallet_transactions
+	          SET status = $1, updated_at = NOW()
+	          WHERE reference_id = $2`
+	res, err := r.db.ExecContext(ctx, query, string(status), referenceID)
+	if err != nil {
+		return fmt.Errorf("UpdateTransactionStatus customer: %w", err)
+	}
+	if count, _ := res.RowsAffected(); count > 0 {
+		return nil
+	}
+	// Coba tabel kurir
+	query = `UPDATE courier_wallet_transactions
+	         SET status = $1, updated_at = NOW()
+	         WHERE reference_id = $2`
+	res, err = r.db.ExecContext(ctx, query, string(status), referenceID)
+	if err != nil {
+		return fmt.Errorf("UpdateTransactionStatus courier: %w", err)
+	}
+	if count, _ := res.RowsAffected(); count == 0 {
+		return fmt.Errorf("UpdateTransactionStatus: transaksi dengan reference_id %s tidak ditemukan", referenceID)
+	}
+	return nil
+}
+
+// IsWithdrawIdempotent memeriksa apakah idempotency_key sudah pernah dipakai
+// untuk permintaan WITHDRAWAL. Ini mencegah replay attack / double-submit.
+func (r *postgresWalletRepository) IsWithdrawIdempotent(ctx context.Context, idempotencyKey string) (bool, error) {
+	if idempotencyKey == "" {
+		return false, errors.New("IsWithdrawIdempotent: idempotencyKey wajib diisi")
+	}
+	var exists bool
+	// Cek di customer wallet
+	query := `SELECT EXISTS(
+	    SELECT 1 FROM customer_wallet_transactions
+	    WHERE metadata->>'idempotency_key' = $1
+	    AND type = 'WITHDRAWAL'
+	)`
+	err := r.readDB.QueryRowContext(ctx, query, idempotencyKey).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("IsWithdrawIdempotent customer: %w", err)
+	}
+	if exists {
+		return true, nil
+	}
+	// Cek di courier wallet
+	query = `SELECT EXISTS(
+	    SELECT 1 FROM courier_wallet_transactions
+	    WHERE metadata->>'idempotency_key' = $1
+	    AND type = 'WITHDRAWAL'
+	)`
+	err = r.readDB.QueryRowContext(ctx, query, idempotencyKey).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("IsWithdrawIdempotent courier: %w", err)
+	}
+	return exists, nil
+}
+
 // Settings Repository
 func (r *postgresWalletRepository) GetSetting(ctx context.Context, key string) (string, error) {
 	var value string

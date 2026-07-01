@@ -128,6 +128,31 @@ interface TEMBUSApiService {
         @Body request: Map<String, String>
     ): Response<ApiResponse<Unit>>
 
+    @POST("api/v1/customer/orders/{id}/retry-matching")
+    suspend fun retryCustomerOrderMatching(
+        @Path("id") id: String
+    ): Response<ApiResponse<Unit>>
+
+    /**
+     * Submit rating (1-5 bintang) dari customer ke kurir.
+     * Hanya bisa dilakukan untuk order berstatus 'delivered' dan belum di-rating.
+     * Backend memvalidasi ownership via JWT — tidak perlu kirim customer_id di body.
+     */
+    @POST("api/v1/customer/orders/{id}/rating")
+    suspend fun submitCourierRating(
+        @Path("id") id: String,
+        @Body request: SubmitRatingRequest
+    ): Response<ApiResponse<Unit>>
+
+    /**
+     * Ambil list order yang menunggu rating dari customer yang sedang login.
+     * Dipakai untuk menampilkan reminder rating di NotificationCenter dan TrackingScreen.
+     * Filter backend: status=delivered, courier_rating IS NULL, reminder_count < 4,
+     * last_rating_reminder_at >= 12 jam lalu.
+     */
+    @GET("api/v1/customer/rating-reminders")
+    suspend fun getRatingReminders(): Response<RatingReminderListResponse>
+
     @GET("api/v1/customer/addresses")
     suspend fun getCustomerAddresses(
         @Query("kind") kind: String? = null
@@ -277,10 +302,26 @@ interface TEMBUSApiService {
         @Query("contentType") contentType: String
     ): Response<PresignResponse>
 
-    // Payment Link Endpoints
     @POST("api/v1/payment-links")
     suspend fun createPaymentLink(
         @Header("X-User-ID") merchantId: String,
         @Body request: Map<String, @JvmSuppressWildcards Any>
     ): Response<com.tembus.customer.data.model.ApiResponse<com.tembus.customer.ui.screens.business.PaymentLinkResponse>>
+
+    // ─── Wallet: Tarik Dana (Withdraw) ─────────────────────────────────────────
+    /**
+     * Endpoint tarik dana customer ke rekening bank.
+     *
+     * KEAMANAN:
+     * - Header Idempotency-Key wajib diisi dengan UUID v4 (mencegah double-submit)
+     * - Body menggunakan WithdrawRequest yang sudah divalidasi di client
+     * - Backend melakukan validasi ulang (defense-in-depth / zero-trust)
+     * - Response HTTP 202 Accepted (proses async) atau 4xx jika validasi gagal
+     */
+    @POST("api/v1/payment/wallet/withdraw")
+    suspend fun requestWithdraw(
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Body request: WithdrawRequest
+    ): Response<ApiResponse<WithdrawResponse>>
 }
+

@@ -47,6 +47,7 @@ type CourierDispatchScoreStats struct {
 	// S3-OS-01: Idle time & rating for fairness scoring
 	IdleMinutes float64 `db:"idle_minutes"`
 	AvgRating   float64 `db:"avg_rating"`
+	Tier        string  `db:"tier"`
 }
 
 // CourierBankInfo holds bank account info needed for payout disbursement.

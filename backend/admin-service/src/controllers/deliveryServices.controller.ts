@@ -70,6 +70,7 @@ export type DeliveryServiceProduct = {
   platform_fee_pct: number;
   extra_dropoff_fee_idr: number;
   show_customer_price_to_courier: boolean;
+  search_radii_km: number[];
   size_tiers: any[];
   dimension_rules: Record<string, any>;
   availability_rules: Record<string, any>;
@@ -108,6 +109,7 @@ const normalizeService = (row: any): DeliveryServiceProduct => {
   service.service_family = service.service_family || 'regular';
   service.failed_delivery_policy = service.failed_delivery_policy || (service.service_category === 'regular' ? 'reschedule_then_return' : 'must_deliver');
   service.pod_label = service.pod_label || 'POD';
+  service.search_radii_km = Array.isArray(service.search_radii_km) ? service.search_radii_km.map(Number) : [3, 5, 10];
 
   return service;
 };
@@ -373,6 +375,7 @@ const servicePayload = (body: any) => ({
   platform_fee_pct: nonNegativeNumber(body.platform_fee_pct, 0),
   extra_dropoff_fee_idr: nonNegativeNumber(body.extra_dropoff_fee_idr, 0),
   show_customer_price_to_courier: Boolean(body.show_customer_price_to_courier),
+  search_radii_km: Array.isArray(body.search_radii_km) ? body.search_radii_km.map(Number).filter((n: number) => !isNaN(n) && n > 0) : [3, 5, 10],
   size_tiers: Array.isArray(body.size_tiers) ? body.size_tiers : [],
   dimension_rules: body.dimension_rules || {},
   availability_rules: body.availability_rules || {},
@@ -400,7 +403,7 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
         uses_size_tier, requires_dimension_scan, allows_manual_dimension, requires_pickup_verification,
         price_mode, base_fare_idr, included_distance_km, per_km_idr, service_multiplier,
         platform_commission_percent, courier_payout_percent, courier_min_payout_idr,
-        mdr_percent, ppn_percent, platform_fee_idr, platform_fee_pct, extra_dropoff_fee_idr, show_customer_price_to_courier,
+        mdr_percent, ppn_percent, platform_fee_idr, platform_fee_pct, extra_dropoff_fee_idr, show_customer_price_to_courier, search_radii_km,
         size_tiers, dimension_rules, availability_rules, metadata
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8,
@@ -414,9 +417,9 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
         $34, $35, $36, $37,
         $38, $39, $40, $41, $42,
         $43, $44, $45,
-        $46, $47, $48, $49, $50, $51,
-        $52, $53,
-        $54, $55
+        $46, $47, $48, $49, $50, $51, $52,
+        $53, $54,
+        $55, $56
       )
       RETURNING *`,
       [
@@ -435,7 +438,7 @@ export const createAdminDeliveryService = async (req: Request, res: Response): P
         payload.platform_commission_percent, payload.courier_payout_percent,
         payload.courier_min_payout_idr, payload.mdr_percent, payload.ppn_percent,
         payload.platform_fee_idr, payload.platform_fee_pct, payload.extra_dropoff_fee_idr,
-        payload.show_customer_price_to_courier,
+        payload.show_customer_price_to_courier, JSON.stringify(payload.search_radii_km),
         JSON.stringify(payload.size_tiers), JSON.stringify(payload.dimension_rules),
         JSON.stringify(payload.availability_rules), JSON.stringify(payload.metadata)
       ]
@@ -501,11 +504,13 @@ export const updateAdminDeliveryService = async (req: Request, res: Response): P
         ppn_percent = $47,
         platform_fee_idr = $48,
         platform_fee_pct = $49,
-        show_customer_price_to_courier = $50,
-        size_tiers = $51,
-        dimension_rules = $52,
-        availability_rules = $53,
-        metadata = $54,
+        extra_dropoff_fee_idr = $50,
+        show_customer_price_to_courier = $51,
+        search_radii_km = $52,
+        size_tiers = $53,
+        dimension_rules = $54,
+        availability_rules = $55,
+        metadata = $56,
         updated_at = NOW()
       WHERE code = $1
       RETURNING *`,
@@ -524,8 +529,8 @@ export const updateAdminDeliveryService = async (req: Request, res: Response): P
         payload.included_distance_km, payload.per_km_idr, payload.service_multiplier,
         payload.platform_commission_percent, payload.courier_payout_percent,
         payload.courier_min_payout_idr, payload.mdr_percent, payload.ppn_percent,
-        payload.platform_fee_idr, payload.platform_fee_pct,
-        payload.show_customer_price_to_courier,
+        payload.platform_fee_idr, payload.platform_fee_pct, payload.extra_dropoff_fee_idr,
+        payload.show_customer_price_to_courier, JSON.stringify(payload.search_radii_km),
         JSON.stringify(payload.size_tiers), JSON.stringify(payload.dimension_rules),
         JSON.stringify(payload.availability_rules), JSON.stringify(payload.metadata)
       ]

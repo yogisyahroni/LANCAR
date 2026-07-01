@@ -24,6 +24,7 @@ const (
 	StatusFailedDelivery    OrderStatus = "failed_delivery"
 	StatusReturnToSender    OrderStatus = "return_to_sender"
 	StatusCancelled         OrderStatus = "cancelled"
+	StatusNoCourierFound    OrderStatus = "no_courier_found"
 )
 
 type Order struct {
@@ -57,6 +58,10 @@ type Order struct {
 	SequenceNo             *int         `json:"sequence_no,omitempty"`
 	CourierID              *string      `json:"courier_id,omitempty"` // Added for S2-OS-01
 	Courier                *CourierInfo `json:"courier,omitempty"`    // Added for Courier Profile
+	CourierRating          *float64     `json:"courier_rating,omitempty"`  // Rating 1-5 diberikan customer setelah delivered
+	RatingComment          *string      `json:"rating_comment,omitempty"`  // Komentar opsional
+	RatingReminderCount    int          `json:"rating_reminder_count,omitempty"` // Sudah berapa kali diingatkan
+	LastRatingReminderAt   *time.Time   `json:"last_rating_reminder_at,omitempty"` // Kapan terakhir diingatkan
 	CreatedAt              time.Time    `json:"created_at"`
 	UpdatedAt              time.Time    `json:"updated_at"`
 }
@@ -77,6 +82,14 @@ type CreateOrderRequest struct {
 	ItemDescription string `json:"item_description" validate:"required,min=5"`
 	ItemImageURL    string `json:"item_image_url,omitempty"`
 	IsScheduled     bool   `json:"is_scheduled"`
+}
+
+// SubmitRatingRequest adalah request body dari customer untuk memberi rating ke kurir.
+// Rating bersifat opsional (1-5 bintang), kurir tidak bisa rating dirinya sendiri.
+// Backend wajib memvalidasi: OrderStatus == 'delivered' && CourierRating == nil.
+type SubmitRatingRequest struct {
+	Rating  float64 `json:"rating" validate:"required,min=1,max=5"`
+	Comment string  `json:"comment,omitempty"`
 }
 
 type BulkOrderDestination struct {
@@ -105,8 +118,16 @@ type OrderService interface {
 	CreateConsolidationBag(ctx context.Context, createdBy string, bag *ConsolidationBag) error
 	OpenConsolidationBag(ctx context.Context, unbaggedBy string, bagNumber string) error
 	StartMatching(ctx context.Context, orderID string) error
+	RetryMatching(ctx context.Context, orderID string) error
 	GetConsolidationBag(ctx context.Context, bagNumber string) (*ConsolidationBag, []*PackageScan, error)
 	AutoDetectScanType(ctx context.Context, orderID string, warehouseID string) (string, error)
+	SetRefundService(rs RefundService)
+	// SubmitRating menerima penilaian 1-5 bintang dari customer terhadap kurir.
+	// Validasi: order harus berstatus delivered, dan belum pernah di-rating.
+	SubmitRating(ctx context.Context, customerID string, orderID string, req SubmitRatingRequest) error
+	// GetOrdersNeedingRatingReminder mengambil order delivered milik customer yang
+	// belum di-rating, reminder_count < 4, dan sudah 12 jam sejak terakhir diingatkan.
+	GetOrdersNeedingRatingReminder(ctx context.Context, customerID string) ([]*Order, error)
 }
 
 type OrderRepository interface {
@@ -135,6 +156,15 @@ type OrderRepository interface {
 	UpdateConsolidationBagStatus(ctx context.Context, bagNumber string, status string) error
 	GetLatestScanForOrder(ctx context.Context, orderID string) (*PackageScan, error)
 	GetScansByBagNumber(ctx context.Context, bagNumber string) ([]*PackageScan, error)
+	// SaveOrderRating menyimpan rating (1-5) dan comment ke tabel orders.
+	// Juga menaikkan avg_rating kurir di tabel courier_profiles secara atomik.
+	SaveOrderRating(ctx context.Context, orderID string, courierID string, rating float64, comment string) error
+	// GetDeliveredUnratedOrders mengambil order dengan status delivered, belum di-rating
+	// (courier_rating IS NULL), reminder_count < maxReminder, dan last_rating_reminder_at
+	// lebih dari 12 jam yang lalu (atau NULL). Dipakai oleh worker notifikasi.
+	GetDeliveredUnratedOrders(ctx context.Context, customerID string, maxReminder int, reminderIntervalHours int) ([]*Order, error)
+	// IncrementRatingReminderCount menaikkan reminder_count dan update last_rating_reminder_at.
+	IncrementRatingReminderCount(ctx context.Context, orderID string) error
 }
 
 type MeetingPoint struct {

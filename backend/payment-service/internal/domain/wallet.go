@@ -52,6 +52,15 @@ type WalletRepository interface {
 	UpdateBalance(ctx context.Context, walletID uuid.UUID, amount float64, version int) error
 	CreateTransaction(ctx context.Context, tx *WalletTransaction) error
 	GetTransactions(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]*WalletTransaction, error)
+	IsRefundProcessed(ctx context.Context, referenceID string) (bool, error)
+
+	// UpdateTransactionStatus memperbarui status transaksi berdasarkan referenceID.
+	// Dipanggil setelah disbursement berhasil (COMPLETED) atau gagal (FAILED).
+	UpdateTransactionStatus(ctx context.Context, referenceID string, status TransactionStatus) error
+
+	// IsWithdrawIdempotent memeriksa apakah idempotency_key sudah pernah digunakan
+	// untuk mencegah double-submit dari client (replay attack).
+	IsWithdrawIdempotent(ctx context.Context, idempotencyKey string) (bool, error)
 }
 
 type SettingsRepository interface {
@@ -63,7 +72,9 @@ type WalletService interface {
 	GetBalance(ctx context.Context, userID uuid.UUID) (*Wallet, error)
 	CreateTopUp(ctx context.Context, userID uuid.UUID, amount float64) (string, error)
 	Deposit(ctx context.Context, userID uuid.UUID, amount float64, referenceID string) error
-	Withdraw(ctx context.Context, userID uuid.UUID, userRole string, amount float64, bankDetails map[string]any) error
+	// Withdraw menerima WithdrawRequest yang sudah tervalidasi penuh di handler layer.
+	// Tidak ada parameter map[string]any yang tidak tervalidasi — zero-trust.
+	Withdraw(ctx context.Context, userID uuid.UUID, userRole string, req WithdrawRequest) error
 	ProcessPayment(ctx context.Context, userID uuid.UUID, amount float64, orderID string) error
 	Refund(ctx context.Context, userID uuid.UUID, amount float64, orderID string) error
 }

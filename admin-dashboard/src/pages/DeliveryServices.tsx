@@ -31,6 +31,7 @@ type DeliveryService = {
   max_direction_deviation_degrees: number
   assignment_radius_pickup_km: number
   assignment_radius_delivery_km: number
+  search_radii_km?: number[]
   traffic_aware_assignment: boolean
   proof_geofence_radius_m: number
   proof_min_accuracy_m: number
@@ -122,6 +123,7 @@ const emptyService: DeliveryService = {
   max_direction_deviation_degrees: 45,
   assignment_radius_pickup_km: 2,
   assignment_radius_delivery_km: 3,
+  search_radii_km: [3, 5, 10],
   traffic_aware_assignment: true,
   proof_geofence_radius_m: 10,
   proof_min_accuracy_m: 50,
@@ -265,7 +267,8 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
     dimension_rules: '{}',
     proof_gps_override_policy: '{}',
     availability_rules: '{}',
-    metadata: '{}'
+    metadata: '{}',
+    search_radii_km: '[3, 5, 10]'
   })
 
   const { data, isLoading } = useQuery({
@@ -302,7 +305,8 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
         dimension_rules: JSON.stringify(selected.dimension_rules || {}, null, 2),
         proof_gps_override_policy: JSON.stringify(selected.proof_gps_override_policy || {}, null, 2),
         availability_rules: JSON.stringify(selected.availability_rules || {}, null, 2),
-        metadata: JSON.stringify(selected.metadata || {}, null, 2)
+        metadata: JSON.stringify(selected.metadata || {}, null, 2),
+        search_radii_km: JSON.stringify(selected.search_radii_km || [3, 5, 10], null, 2)
       })
       return
     }
@@ -320,7 +324,8 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
       dimension_rules: JSON.stringify(draft.dimension_rules || {}, null, 2),
       proof_gps_override_policy: JSON.stringify(draft.proof_gps_override_policy || {}, null, 2),
       availability_rules: JSON.stringify(draft.availability_rules || {}, null, 2),
-      metadata: JSON.stringify(draft.metadata || {}, null, 2)
+      metadata: JSON.stringify(draft.metadata || {}, null, 2),
+      search_radii_km: JSON.stringify(draft.search_radii_km || [3, 5, 10], null, 2)
     })
   }, [selected, selectedCategory, services, visibleServices])
 
@@ -386,7 +391,8 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
       dimension_rules: JSON.stringify(draft.dimension_rules || {}, null, 2),
       proof_gps_override_policy: JSON.stringify(draft.proof_gps_override_policy || {}, null, 2),
       availability_rules: JSON.stringify(draft.availability_rules || {}, null, 2),
-      metadata: JSON.stringify(draft.metadata || {}, null, 2)
+      metadata: JSON.stringify(draft.metadata || {}, null, 2),
+      search_radii_km: JSON.stringify(draft.search_radii_km || [3, 5, 10], null, 2)
     })
   }
 
@@ -409,7 +415,8 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
       dimension_rules: parseJson(jsonText.dimension_rules, {}),
       proof_gps_override_policy: parseJson(jsonText.proof_gps_override_policy, {}),
       availability_rules: parseJson(jsonText.availability_rules, {}),
-      metadata: parseJson(jsonText.metadata, {})
+      metadata: parseJson(jsonText.metadata, {}),
+      search_radii_km: parseJson(jsonText.search_radii_km, [3, 5, 10])
     })
   }
 
@@ -671,6 +678,7 @@ export default function DeliveryServices({ embedded = false }: { embedded?: bool
             <JsonInput label="GPS Override Policy JSON" value={jsonText.proof_gps_override_policy} onChange={(v) => setJsonText((current) => ({ ...current, proof_gps_override_policy: v }))} />
             <JsonInput label="Availability Rules JSON" value={jsonText.availability_rules} onChange={(v) => setJsonText((current) => ({ ...current, availability_rules: v }))} />
             <JsonInput label="Metadata JSON" value={jsonText.metadata} onChange={(v) => setJsonText((current) => ({ ...current, metadata: v }))} />
+            <JsonInput label="Search Radii KM JSON ([3, 5, 10])" value={jsonText.search_radii_km} onChange={(v) => setJsonText((current) => ({ ...current, search_radii_km: v }))} />
           </div>
         </div>
       </div>

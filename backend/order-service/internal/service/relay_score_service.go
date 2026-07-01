@@ -169,11 +169,13 @@ func (s *relayScoreService) AdminOverrideScore(ctx context.Context, courierID uu
 // with the courier's current tier from the database.
 func (s *relayScoreService) CheckTierPromotion(ctx context.Context, courierID uuid.UUID, newScore float64) (string, bool) {
 	// Determine new tier from score thresholds
-	newTier := "regular"
+	newTier := "standart"
 	if newScore >= 4.8 {
-		newTier = "elite"
+		newTier = "god_mode"
 	} else if newScore >= 4.5 {
-		newTier = "mitra"
+		newTier = "gold"
+	} else if newScore >= 4.0 {
+		newTier = "silver"
 	}
 
 	// Fetch current tier from DB to detect change

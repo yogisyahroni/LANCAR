@@ -47,9 +47,9 @@ func (w *OrderMonitorWorker) Start(ctx context.Context) {
 				log.Printf("Order monitor (cancel stuck dispatching) error: %v", err)
 			} else if len(pendingOrders) > 0 {
 				for _, o := range pendingOrders {
-					log.Printf("🚨 [ADMIN_ALERT] Order %s (ID: %s) is stuck in 'searching' for > %v. Cancelling automatically.", o.OrderNumber, o.ID, threshold)
-					if err := w.orderSvc.UpdateStatus(ctx, o.ID, domain.StatusCancelled); err != nil {
-						log.Printf("Failed to auto-cancel stuck order %s: %v", o.ID, err)
+					log.Printf("🚨 [ADMIN_ALERT] Order %s (ID: %s) is stuck in 'searching' for > %v. Setting to no_courier_found.", o.OrderNumber, o.ID, threshold)
+					if err := w.orderSvc.UpdateStatus(ctx, o.ID, domain.StatusNoCourierFound); err != nil {
+						log.Printf("Failed to update stuck order %s: %v", o.ID, err)
 					}
 				}
 			}

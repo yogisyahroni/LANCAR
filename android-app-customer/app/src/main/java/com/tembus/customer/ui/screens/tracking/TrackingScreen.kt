@@ -50,6 +50,9 @@ import com.tembus.customer.data.model.OrderTrackingDetail
 import com.tembus.customer.ui.components.maps.RuntimeMapMarker
 import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
 import com.tembus.customer.ui.theme.Primary
+import com.tembus.customer.ui.screens.rating.CourierRatingDialog
+import com.tembus.customer.ui.screens.rating.CourierRatingViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun TrackingScreen(
@@ -58,13 +61,35 @@ fun TrackingScreen(
     onBackClick: () -> Unit,
     onChatClick: (String, String?) -> Unit,
     onCallClick: (String, String?) -> Unit,
-    onSosClick: (() -> Unit)? = null
+    onSosClick: (() -> Unit)? = null,
+    ratingViewModel: CourierRatingViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val ratingState by ratingViewModel.uiState.collectAsState()
 
-    // Initialize polling when screen opens
+    // Tracking start
     LaunchedEffect(orderId) {
         viewModel.startTracking(orderId)
+    }
+
+    // Tampilkan dialog rating otomatis ketika order DELIVERED dan belum di-rating
+    // courierRating == null berarti customer belum memberikan penilaian
+    LaunchedEffect(uiState.detail?.order?.status, uiState.detail?.order?.courierRating) {
+        val order = uiState.detail?.order
+        if (order != null &&
+            order.status.lowercase() == "delivered" &&
+            order.courierRating == null &&
+            ratingState.pendingReminders.isEmpty() &&
+            !ratingState.isSubmitted
+        ) {
+            ratingViewModel.prepareFromTrackingOrder(
+                orderId = orderId,
+                orderNumber = order.orderNumber ?: "",
+                courierName = order.courierName ?: "",
+                courierPhotoUrl = order.courierPhotoUrl ?: "",
+                courierPlate = order.courierPlate ?: ""
+            )
+        }
     }
 
     val mapMarkers = remember(uiState.courierLocation, uiState.detail?.order?.courierName) {
@@ -185,6 +210,29 @@ fun TrackingScreen(
                 orderId = orderId,
                 viewModel = viewModel,
                 modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
+            )
+        }
+
+        // LAYER 6: RATING DIALOG
+        // Muncul otomatis saat order DELIVERED. Customer bisa skip (Ingatkan Nanti).
+        // Jika ada pending reminders atau baru saja di-prepare dari tracking, tampilkan dialog.
+        val showRatingDialog = ratingState.pendingReminders.isNotEmpty()
+        if (showRatingDialog) {
+            CourierRatingDialog(
+                courierName = ratingState.courierName,
+                courierPhotoUrl = ratingState.courierPhotoUrl,
+                courierPlate = ratingState.courierPlate,
+                orderNumber = ratingState.orderNumber,
+                isSubmitting = ratingState.isSubmitting,
+                isSubmitted = ratingState.isSubmitted,
+                errorMessage = ratingState.error,
+                onSubmit = { rating, comment ->
+                    val currentOrderId = ratingState.pendingReminders
+                        .getOrNull(ratingState.currentReminderIndex)?.orderId ?: orderId
+                    ratingViewModel.submitRating(currentOrderId, rating, comment)
+                },
+                onDismiss = { ratingViewModel.dismissCurrentReminder() },
+                onDismissError = { ratingViewModel.clearError() }
             )
         }
     }
@@ -715,7 +763,7 @@ private fun SearchTimeoutSheet(
                 onClick = { viewModel.cancelSearch(orderId) },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Batalkan Pesanan", color = Color(0xFFFF5252), fontWeight = FontWeight.Bold)
+                Text("Batalkan & Ajukan Refund", color = Color(0xFFFF5252), fontWeight = FontWeight.Bold)
             }
         }
     }

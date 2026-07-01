@@ -125,6 +125,9 @@ func (m *mockOrderRepo) GetCourierInfo(ctx context.Context, courierID string) (*
 func (m *mockOrderRepo) GetScansByBagNumber(ctx context.Context, bagNumber string) ([]*domain.PackageScan, error) {
 	return nil, nil
 }
+func (m *mockOrderRepo) SaveOrderRating(ctx context.Context, orderID string, courierID string, rating float64, comment string) error { return nil }
+func (m *mockOrderRepo) GetDeliveredUnratedOrders(ctx context.Context, customerID string, maxReminder int, reminderIntervalHours int) ([]*domain.Order, error) { return nil, nil }
+func (m *mockOrderRepo) IncrementRatingReminderCount(ctx context.Context, orderID string) error { return nil }
 
 type mockPaymentGateway struct{}
 

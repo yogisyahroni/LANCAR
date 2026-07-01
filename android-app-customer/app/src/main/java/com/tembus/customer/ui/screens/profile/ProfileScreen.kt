@@ -171,6 +171,7 @@ fun ProfileScreen(
                     onSettingsClick = { activeDialog = ProfileDialog.Settings },
                     onSecurityClick = { activeDialog = ProfileDialog.Security },
                     onHelpClick = { activeDialog = ProfileDialog.Help },
+                    onWithdrawClick = { activeDialog = ProfileDialog.Withdraw },
                     onLogout = { viewModel.logout(onLogout) }
                 )
             }
@@ -209,6 +210,16 @@ fun ProfileScreen(
             }
         )
         ProfileDialog.Help -> HelpDialog(onDismiss = { activeDialog = null })
+        ProfileDialog.Withdraw -> if (currentProfile != null) {
+            WithdrawDialog(
+                walletBalance = currentProfile.walletBalance,
+                onDismiss = { activeDialog = null },
+                onSuccess = {
+                    activeDialog = null
+                    viewModel.fetchProfile() // Refresh saldo setelah withdrawal
+                }
+            )
+        }
         null -> Unit
     }
 }
@@ -222,6 +233,7 @@ private fun ProfileContent(
     onSettingsClick: () -> Unit,
     onSecurityClick: () -> Unit,
     onHelpClick: () -> Unit,
+    onWithdrawClick: () -> Unit,
     onLogout: () -> Unit
 ) {
     val primaryContact = profile.email.ifBlank {
@@ -255,7 +267,10 @@ private fun ProfileContent(
         )
 
         Spacer(Modifier.height(24.dp))
-        WalletCard(balance = profile.walletBalance)
+        WalletCard(
+            balance = profile.walletBalance,
+            onWithdrawClick = onWithdrawClick
+        )
         Spacer(Modifier.height(18.dp))
         ProfileStatusCard(profile = profile)
         Spacer(Modifier.height(18.dp))
@@ -342,47 +357,66 @@ private fun AvatarBadge(name: String) {
 }
 
 @Composable
-private fun WalletCard(balance: Long) {
+private fun WalletCard(balance: Long, onWithdrawClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         shape = RoundedCornerShape(24.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .background(
                     Brush.linearGradient(
                         listOf(Color(0xFF0D6EFD), Color(0xFF008C5A))
                     )
                 )
-                .padding(22.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(22.dp)
         ) {
-            Column(Modifier.weight(1f)) {
-                Text("Saldo Dompet", color = Color.White.copy(alpha = 0.84f), fontSize = 14.sp)
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = formatRupiah(balance),
-                    color = Color.White,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 28.sp
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "Saldo tersinkron dari rekening dompet customer.",
-                    color = Color.White.copy(alpha = 0.78f),
-                    fontSize = 12.sp
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Saldo Dompet", color = Color.White.copy(alpha = 0.84f), fontSize = 14.sp)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = formatRupiah(balance),
+                        color = Color.White,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 28.sp
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.18f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Color.White)
+                }
             }
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = 0.18f)),
-                contentAlignment = Alignment.Center
+            Spacer(Modifier.height(16.dp))
+            // Tombol Tarik Dana — tampil hanya jika ada saldo
+            androidx.compose.material3.OutlinedButton(
+                onClick = onWithdrawClick,
+                enabled = balance > 0L,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color.White,
+                    disabledContentColor = Color.White.copy(alpha = 0.4f)
+                ),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    Color.White.copy(alpha = if (balance > 0L) 0.7f else 0.3f)
+                )
             ) {
-                Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Color.White)
+                Icon(
+                    Icons.Default.AccountBalanceWallet,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Tarik Dana", fontWeight = FontWeight.Bold, fontSize = 15.sp)
             }
         }
     }
@@ -737,5 +771,6 @@ private enum class ProfileDialog {
     Edit,
     Settings,
     Security,
-    Help
+    Help,
+    Withdraw
 }

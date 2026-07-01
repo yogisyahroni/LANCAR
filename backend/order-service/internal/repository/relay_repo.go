@@ -78,7 +78,7 @@ func (r *relayRepository) GetCourierPerformanceStats(ctx context.Context, courie
 			COALESCE(avg_partner_rating, 5.00)     AS avg_partner_rating,
 			COALESCE(complaint_ratio_pct, 0.0)     AS complaint_ratio_pct,
 			COALESCE(relay_score, 5.00)            AS relay_score,
-			COALESCE(tier, 'regular')              AS tier
+			COALESCE(tier, 'standart')             AS tier
 		FROM courier_profiles
 		WHERE id = $1
 	`
@@ -108,7 +108,8 @@ func (r *relayRepository) GetCourierDispatchScoreStats(ctx context.Context, cour
 				EXTRACT(EPOCH FROM (NOW() - cp.last_location_updated_at)) / 60,
 				0
 			)::float8 AS idle_minutes,
-			COALESCE(cp.avg_courier_rating, 5.0)::float8 AS avg_rating
+			COALESCE(cp.avg_courier_rating, 5.0)::float8 AS avg_rating,
+			COALESCE(cp.tier, 'standart') AS tier
 		FROM courier_profiles cp
 		JOIN users u ON cp.user_id = u.id
 		WHERE (cp.id = $1 OR cp.user_id = $1)

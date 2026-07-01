@@ -4153,7 +4153,7 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
     const reason = String(req.body?.reason || 'Dibatalkan oleh pelanggan');
 
     // Statuses pelanggan boleh membatalkan (sebelum kurir pick up)
-    const cancellableStatuses = ['pending', 'pending_payment', 'paid', 'dispatching', 'offered', 'searching'];
+    const cancellableStatuses = ['pending', 'pending_payment', 'paid', 'dispatching', 'offered', 'searching', 'no_courier_found'];
 
     await client.query('BEGIN');
 
@@ -4207,6 +4207,18 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
 
     await client.query('COMMIT');
 
+    // Trigger refund process in order-service
+    const orderServiceClientUrl = process.env.ORDER_SERVICE_URL || 'http://localhost:8083';
+    fetch(`${orderServiceClientUrl}/api/v1/internal/refunds/process`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_id: orderId, reason }),
+    }).then(res => {
+      if (!res.ok) console.warn(`[OrderService] Refund trigger returned status ${res.status} for ${orderId}`);
+    }).catch(err => {
+      console.error(`[OrderService] Failed to reach order-service for refund:`, err.message);
+    });
+
     // Advance queue untuk order lain yang sedang menunggu kurir
     const dispatchClient = await db.connect();
     try {
@@ -4222,6 +4234,56 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
   } catch (error: any) {
     await client.query('ROLLBACK').catch(() => undefined);
     console.error('[cancelCustomerOrder] error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  } finally {
+    client.release();
+  }
+};
+
+export const retryCustomerOrderMatching = async (req: Request, res: Response): Promise<void> => {
+  const client = await db.connect();
+  try {
+    const customerId = req.user?.id;
+    if (!customerId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    const orderId = String(req.params.id);
+
+    const { rows: orderRows } = await client.query(
+      `SELECT id, status, order_number FROM orders WHERE id = $1 AND customer_id = $2`,
+      [orderId, customerId]
+    );
+
+    if (orderRows.length === 0) {
+      res.status(404).json({ success: false, error: 'Order tidak ditemukan' });
+      return;
+    }
+
+    const order = orderRows[0];
+    if (order.status !== 'no_courier_found' && order.status !== 'searching') {
+      res.status(409).json({
+        success: false,
+        error: `Pesanan hanya dapat dicoba ulang (retry) pada status "no_courier_found" atau "searching".`,
+      });
+      return;
+    }
+
+    const orderServiceClientUrl = process.env.ORDER_SERVICE_URL || 'http://localhost:8083';
+    const response = await fetch(`${orderServiceClientUrl}/api/v1/internal/orders/retry-matching?id=${orderId}`, {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      res.status(response.status).json({ success: false, error: `Gagal memulai ulang pencarian kurir: ${errText || response.statusText}` });
+      return;
+    }
+
+    res.json({ success: true, message: `Pencarian kurir untuk pesanan ${order.order_number} telah dimulai kembali.` });
+  } catch (error: any) {
+    console.error('[retryCustomerOrderMatching] error:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();

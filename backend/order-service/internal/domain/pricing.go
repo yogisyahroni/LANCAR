@@ -76,8 +76,9 @@ type DeliveryServiceProduct struct {
 	MaxDistanceKM          *float64 `json:"max_distance_km"`
 	MaxWeightKG            *float64 `json:"max_weight_kg"`
 	PlatformFeeIDR         float64 `json:"platform_fee_idr"`
-	PlatformFeePct         float64 `json:"platform_fee_pct"`
-	ExtraDropoffFeeIDR     float64 `json:"extra_dropoff_fee_idr"`
+	PlatformFeePct         float64   `json:"platform_fee_pct"`
+	ExtraDropoffFeeIDR     float64   `json:"extra_dropoff_fee_idr"`
+	SearchRadiiKM          []float64 `json:"search_radii_km"`
 }
 
 type PricingRepository interface {

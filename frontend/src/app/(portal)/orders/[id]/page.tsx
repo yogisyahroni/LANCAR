@@ -8,7 +8,7 @@ import { useNotificationStore } from '@/store/useNotificationStore';
 import { useAuthStore } from '@/store/authStore';
 import { getSocket, joinOrderRoom, leaveOrderRoom } from '@/lib/socket';
 import { clientLog } from '@/lib/clientLogger';
-import { ArrowLeft, MapPin, Truck, Calendar, Phone, CheckCircle2, MessageSquare, Download, AlertTriangle, Send, Loader2, Sparkles, Navigation, Image as ImageIcon, X, Share2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Truck, Calendar, Phone, CheckCircle2, MessageSquare, Download, AlertTriangle, Send, Loader2, Sparkles, Navigation, Image as ImageIcon, X, Share2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { DisputeModal } from '@/components/orders/DisputeModal';
@@ -300,6 +300,9 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [chatsLoading, setChatsLoading] = useState(false);
   const [sharingTracking, setSharingTracking] = useState(false);
+  const [retryingMatching, setRetryingMatching] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   // For lightbox
   const [activePhoto, setActivePhoto] = useState<string | null>(null);
@@ -561,6 +564,53 @@ export default function OrderDetailPage() {
     setIsDisputeModalOpen(true);
   };
 
+  const handleRetryMatching = async () => {
+    if (!id) return;
+    setRetryingMatching(true);
+    try {
+      const res = await api.post(`/auth/web/orders/${id}/retry-matching`);
+      addNotification({
+        title: 'Pencarian Ulang Dimulai',
+        message: res.data?.message || 'Kami sedang mencari kurir untuk pesanan Anda kembali.',
+        type: 'success',
+      });
+      await fetchOrderDetail(false);
+    } catch (error: any) {
+      addNotification({
+        title: 'Gagal Mencari Ulang',
+        message: error?.response?.data?.error || 'Terjadi kesalahan saat memulai ulang pencarian kurir.',
+        type: 'error',
+      });
+    } finally {
+      setRetryingMatching(false);
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!id) return;
+    setCancellingOrder(true);
+    try {
+      const res = await api.post(`/auth/web/orders/${id}/cancel`, {
+        reason: 'Dibatalkan oleh pelanggan (Kurir tidak ditemukan)',
+      });
+      addNotification({
+        title: 'Pesanan Dibatalkan',
+        message: res.data?.message || 'Pesanan Anda telah dibatalkan. Pengembalian dana (refund) diproses secara otomatis.',
+        type: 'success',
+      });
+      setShowCancelModal(false);
+      await fetchOrderDetail(false);
+    } catch (error: any) {
+      addNotification({
+        title: 'Gagal Membatalkan',
+        message: error?.response?.data?.error || 'Pesanan tidak dapat dibatalkan saat ini.',
+        type: 'error',
+      });
+    } finally {
+      setCancellingOrder(false);
+    }
+  };
+
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -619,6 +669,8 @@ export default function OrderDetailPage() {
         return 'bg-green-500/10 text-green-500 border-green-500/20';
       case 'cancelled':
         return 'bg-red-500/10 text-red-500 border-red-500/20';
+      case 'no_courier_found':
+        return 'bg-orange-500/10 text-orange-400 border-orange-500/30 animate-pulse';
       default:
         return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
     }
@@ -666,7 +718,7 @@ export default function OrderDetailPage() {
                 order.status
               )}`}
             >
-              {order.status?.toUpperCase() || 'UNKNOWN'}
+              {order.status?.toUpperCase().replace(/_/g, ' ') || 'UNKNOWN'}
             </span>
           </div>
           <p className="text-muted-foreground text-sm">
@@ -688,7 +740,7 @@ export default function OrderDetailPage() {
                 onClick={handleDownloadResi}
                 className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-sm font-medium transition duration-200 flex items-center gap-2"
               >
-                <Download className="h-4 w-4" /> Unduh Resi
+                <Download className="h-4 w-4" /> Download Resi
               </button>
             </>
           )}
@@ -700,6 +752,52 @@ export default function OrderDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* No Courier Found Action Banner */}
+      {order.status.toLowerCase() === 'no_courier_found' && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="relative overflow-hidden rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-500/15 via-amber-500/10 to-background p-6 shadow-xl backdrop-blur-md"
+        >
+          <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-orange-500/10 blur-3xl" />
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-500/20 border border-orange-500/30 text-orange-400">
+                <AlertTriangle className="h-6 w-6 animate-pulse" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                  Belum Ada Kurir Ditemukan
+                  <span className="inline-flex items-center rounded-full bg-orange-500/20 px-2.5 py-0.5 text-[10px] font-semibold text-orange-300 border border-orange-500/30">
+                    Pencarian Berakhir
+                  </span>
+                </h3>
+                <p className="text-sm text-muted-foreground max-w-2xl">
+                  Pencarian otomatis telah selesai namun belum ada mitra kurir di sekitar area pick up yang menerima pesanan Anda. Anda dapat memulai ulang pencarian kurir sekarang atau membatalkan pesanan dengan pengembalian dana (refund) 100% secara otomatis.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
+              <button
+                onClick={handleRetryMatching}
+                disabled={retryingMatching || cancellingOrder}
+                className="px-5 py-2.5 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition duration-200 flex items-center gap-2 shadow-lg shadow-orange-500/20 active:scale-[0.98]"
+              >
+                {retryingMatching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Coba Cari Kurir Lagi
+              </button>
+              <button
+                onClick={() => setShowCancelModal(true)}
+                disabled={retryingMatching || cancellingOrder}
+                className="px-5 py-2.5 bg-red-500/10 hover:bg-red-500/20 disabled:opacity-50 border border-red-500/30 text-red-400 rounded-xl text-sm font-semibold transition duration-200 flex items-center gap-2 active:scale-[0.98]"
+              >
+                Batalkan & Ajukan Refund
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Main 2 Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -1158,6 +1256,72 @@ export default function OrderDetailPage() {
           addNotification({ title: 'Terkirim', message: 'Laporan Anda telah kami terima dan akan segera diproses.', type: 'success' });
         }}
       />
+
+      {/* Cancel Confirmation Modal */}
+      <AnimatePresence>
+        {showCancelModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-card p-6 shadow-2xl backdrop-blur-xl"
+            >
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10 border border-red-500/20 text-red-400">
+                    <AlertTriangle className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Konfirmasi Pembatalan</h3>
+                    <p className="text-xs text-muted-foreground">Pengembalian dana 100% otomatis</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowCancelModal(false)}
+                  disabled={cancellingOrder}
+                  className="rounded-lg p-1 text-muted-foreground hover:bg-white/5 hover:text-white transition"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="my-5 space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Apakah Anda yakin ingin membatalkan pesanan <strong className="text-white">{order.order_number}</strong>?
+                </p>
+                <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-400 text-xs font-semibold">
+                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                    Dana akan dikembalikan penuh (100%)
+                  </div>
+                  <p className="text-xs leading-relaxed text-slate-400">
+                    Proses refund ke metode pembayaran awal atau saldo dompet Anda akan diproses secara instan oleh sistem.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-white/10">
+                <button
+                  onClick={() => setShowCancelModal(false)}
+                  disabled={cancellingOrder}
+                  className="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-sm font-medium text-white hover:bg-white/10 transition disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handleCancelOrder}
+                  disabled={cancellingOrder}
+                  className="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-sm font-semibold text-white transition flex items-center gap-2 shadow-lg shadow-red-500/20 disabled:opacity-50"
+                >
+                  {cancellingOrder ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Ya, Batalkan Pesanan
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

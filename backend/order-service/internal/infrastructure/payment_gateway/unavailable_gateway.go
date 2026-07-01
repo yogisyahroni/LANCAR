@@ -21,6 +21,6 @@ func NewUnavailableRefundGateway() *UnavailableRefundGateway {
 	return &UnavailableRefundGateway{}
 }
 
-func (g *UnavailableRefundGateway) ProcessRefund(ctx context.Context, paymentRef string, amount int, reason string) (string, error) {
+func (g *UnavailableRefundGateway) ProcessRefund(ctx context.Context, orderID string, paymentRef string, amount int, reason string) (string, error) {
 	return "", errors.New("refund provider is not configured")
 }
