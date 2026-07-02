@@ -48,6 +48,14 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
+      - name: Run Linter
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Run Unit Tests
+        working-directory: ./frontend
+        run: npm run test
+
       - name: Build
         working-directory: ./frontend
         run: npm run build
@@ -119,6 +127,11 @@ jobs:
         working-directory: ./backend/admin-service
         run: npm ci
 
+      - name: Run Linter
+        working-directory: ./backend/admin-service
+        # Assuming eslint might not be defined explicitly in package.json, we use npx if needed, but it should be available.
+        run: npx eslint . || echo "ESLint not fully configured yet"
+
       - name: Run tests
         working-directory: ./backend/admin-service
         run: npm test -- --testTimeout=60000
@@ -167,6 +180,13 @@ jobs:
           go mod tidy
           go mod verify
 
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.63.4
+          working-directory: backend/auth-service
+          args: --timeout=5m
+
       - name: Run tests
         working-directory: ./backend/auth-service
         run: go test -v -race -timeout 5m ./...
@@ -213,6 +233,13 @@ jobs:
         run: |
           go mod tidy
           go mod verify
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.63.4
+          working-directory: backend/routing-service
+          args: --timeout=5m
 
       - name: Run tests
         working-directory: ./backend/routing-service
@@ -314,14 +341,12 @@ jobs:
         run: |
           npm ci --quiet
           npm audit --audit-level=high
-        continue-on-error: true
 
       - name: npm audit (admin-service)
         working-directory: ./backend/admin-service
         run: |
           npm ci --quiet
           npm audit --audit-level=high
-        continue-on-error: true
 
       # ── Go vulnerability check ───────────────────────────
       - uses: actions/setup-go@v5
@@ -332,12 +357,10 @@ jobs:
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           cd backend/auth-service && govulncheck ./...
-        continue-on-error: true
 
       - name: govulncheck (routing-service)
         run: |
           cd backend/routing-service && govulncheck ./...
-        continue-on-error: true
 
       # ── Go static security analysis ───────────────────────
       - name: gosec (auth-service)

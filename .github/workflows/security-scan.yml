@@ -230,7 +230,6 @@ jobs:
       # -------------------------------------------------------
       - name: Run Snyk to check for vulnerabilities
         uses: snyk/actions/node@master
-        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
@@ -248,15 +247,13 @@ jobs:
       - name: Run npm audit
         if: ${{ hashFiles('package.json') != '' }}
         run: |
-          npm audit --audit-level=high --json > npm-audit-report.json || true
-        continue-on-error: true
+          npm audit --audit-level=high --json > npm-audit-report.json
 
       - name: Run pip-audit
         if: ${{ hashFiles('requirements.txt') != '' }}
         run: |
           pip install pip-audit
-          pip-audit --format=json --output=pip-audit-report.json || true
-        continue-on-error: true
+          pip-audit --format=json --output=pip-audit-report.json
 
       # -------------------------------------------------------
       # Upload Reports
