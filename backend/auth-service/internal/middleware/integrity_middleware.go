@@ -1,11 +1,7 @@
 package middleware
 
 import (
-	"context"
-	"fmt"
-	"log"
 	"net/http"
-	"time"
 
 	"tembus/auth-service/internal/domain"
 )
