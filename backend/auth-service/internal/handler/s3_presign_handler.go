@@ -47,7 +47,7 @@ func (h *S3PresignHandler) GeneratePresignedURL(w http.ResponseWriter, r *http.R
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"url":     url,
 		"key":     key,
