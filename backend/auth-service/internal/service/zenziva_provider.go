@@ -70,7 +70,7 @@ func (p *ZenzivaOTPProvider) SendOTP(ctx context.Context, req domain.OTPSendRequ
 	}
 
 	err := p.doRequest(ctx, endpoint, payload)
-	
+
 	result := domain.OTPSendResult{
 		LatencyMS: time.Since(start).Milliseconds(),
 	}

@@ -633,7 +633,7 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 			log.Printf("Skipping courier %s: total batch weight (%f kg) exceeds max capacity (%f kg)", id, totalWeight, *stats.MaxWeightCapacityKg)
 			continue
 		}
-		
+
 		if stats.MaxPackagesCapacity != nil && packageCount > *stats.MaxPackagesCapacity {
 			log.Printf("Skipping courier %s: order packages (%d) exceeds max capacity (%d)", id, packageCount, *stats.MaxPackagesCapacity)
 			continue
@@ -707,12 +707,12 @@ func (s *orderServiceImpl) proximityScoreFromDistance(ctx context.Context, dista
 	if distanceMeters <= 0 {
 		return 1
 	}
-	
+
 	maxRadius := s.configRepo.GetFloatConfig(ctx, "max_proximity_radius_m", 10000.0)
 	if maxRadius <= 0 {
 		maxRadius = 10000.0
 	}
-	
+
 	score := 1 - (distanceMeters / maxRadius)
 	return clampFloat(score, 0, 1)
 }
@@ -1100,10 +1100,10 @@ func (s *orderServiceImpl) RetryMatching(ctx context.Context, orderID string) er
 // SubmitRating memproses penilaian customer terhadap kurir.
 // Security: customerID diambil dari JWT (middleware), bukan dari body request.
 // Validasi:
-//   1. Order harus dimiliki oleh customerID yang sedang login.
-//   2. Status order harus "delivered".
-//   3. Order belum pernah di-rating (courier_rating IS NULL).
-//   4. Rating antara 1.0 - 5.0.
+//  1. Order harus dimiliki oleh customerID yang sedang login.
+//  2. Status order harus "delivered".
+//  3. Order belum pernah di-rating (courier_rating IS NULL).
+//  4. Rating antara 1.0 - 5.0.
 func (s *orderServiceImpl) SubmitRating(ctx context.Context, customerID string, orderID string, req domain.SubmitRatingRequest) error {
 	order, err := s.orderRepo.GetByID(ctx, orderID)
 	if err != nil {

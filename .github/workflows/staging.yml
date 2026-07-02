@@ -181,11 +181,10 @@ jobs:
           go mod verify
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.63.4
-          working-directory: backend/auth-service
-          args: --timeout=5m
+        working-directory: backend/auth-service
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          golangci-lint run ./... --timeout=5m
 
       - name: Run tests
         working-directory: ./backend/auth-service
@@ -235,11 +234,10 @@ jobs:
           go mod verify
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          version: v1.63.4
-          working-directory: backend/routing-service
-          args: --timeout=5m
+        working-directory: backend/routing-service
+        run: |
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          golangci-lint run ./... --timeout=5m
 
       - name: Run tests
         working-directory: ./backend/routing-service

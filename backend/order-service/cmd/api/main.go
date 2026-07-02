@@ -21,7 +21,6 @@ import (
 	"tembus/order-service/internal/worker"
 	"time"
 
-
 	"tembus/order-service/pkg/logger"
 	"tembus/order-service/pkg/sentry"
 
@@ -344,7 +343,7 @@ func main() {
 			middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
 		}
 	})))
-	
+
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.GetOrder))))
 	mux.HandleFunc("/api/v1/orders/bulk", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitOrderCreation(rdb)(orderHandler.CreateBulkOrder))))
 	mux.HandleFunc("/api/v1/orders/poll", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.PollOrderUpdates))))
@@ -422,7 +421,7 @@ func main() {
 	})))
 
 	// Insurance & Relay Score Routes
-	mux.HandleFunc("/api/v1/insurance/enroll-bpjs", middleware.BaseChain(middleware.AuthMiddleware(insuranceHandler.EnrollBPJSTK))) 	// Insurance & Relay Score Routes
+	mux.HandleFunc("/api/v1/insurance/enroll-bpjs", middleware.BaseChain(middleware.AuthMiddleware(insuranceHandler.EnrollBPJSTK))) // Insurance & Relay Score Routes
 	mux.HandleFunc("GET /api/v1/admin/couriers/performance", middleware.BaseChain(middleware.AuthMiddleware(relayHandler.ListCourierPerformance)))
 	mux.HandleFunc("PUT /api/v1/admin/couriers/{id}/tier", middleware.BaseChain(middleware.AuthMiddleware(relayHandler.AdminOverrideTier)))
 	mux.HandleFunc("/api/v1/admin/relay-score/override", middleware.BaseChain(middleware.AuthMiddleware(relayHandler.AdminOverrideScore)))

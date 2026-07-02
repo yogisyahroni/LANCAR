@@ -8,74 +8,73 @@ import (
 type OrderStatus string
 
 const (
-	StatusPendingPayment    OrderStatus = "pending_payment"
-	StatusPending           OrderStatus = "pending"
-	StatusPendingAssignment OrderStatus = "pending_assignment"
-	StatusSearching         OrderStatus = "searching"
-	StatusAccepted          OrderStatus = "accepted"
-	StatusPickingUp         OrderStatus = "picking_up"
-	StatusPickedUp          OrderStatus = "picked_up"
-	StatusInboundOrigin     OrderStatus = "inbound_origin"
-	StatusOutboundOrigin    OrderStatus = "outbound_origin"
-	StatusInboundDestination OrderStatus = "inbound_destination"
+	StatusPendingPayment      OrderStatus = "pending_payment"
+	StatusPending             OrderStatus = "pending"
+	StatusPendingAssignment   OrderStatus = "pending_assignment"
+	StatusSearching           OrderStatus = "searching"
+	StatusAccepted            OrderStatus = "accepted"
+	StatusPickingUp           OrderStatus = "picking_up"
+	StatusPickedUp            OrderStatus = "picked_up"
+	StatusInboundOrigin       OrderStatus = "inbound_origin"
+	StatusOutboundOrigin      OrderStatus = "outbound_origin"
+	StatusInboundDestination  OrderStatus = "inbound_destination"
 	StatusOutboundDestination OrderStatus = "outbound_destination"
-	StatusDelivering        OrderStatus = "delivering"
-	StatusDelivered         OrderStatus = "delivered"
-	StatusFailedDelivery    OrderStatus = "failed_delivery"
-	StatusReturnToSender    OrderStatus = "return_to_sender"
-	StatusCancelled         OrderStatus = "cancelled"
-	StatusNoCourierFound    OrderStatus = "no_courier_found"
+	StatusDelivering          OrderStatus = "delivering"
+	StatusDelivered           OrderStatus = "delivered"
+	StatusFailedDelivery      OrderStatus = "failed_delivery"
+	StatusReturnToSender      OrderStatus = "return_to_sender"
+	StatusCancelled           OrderStatus = "cancelled"
+	StatusNoCourierFound      OrderStatus = "no_courier_found"
 )
 
 type Order struct {
-	ID                     string      `json:"id"`
-	OrderNumber            string      `json:"order_number"`
-	CustomerID             string      `json:"customer_id"`
-	Model                  string      `json:"model"`
-	Status                 OrderStatus `json:"status"`
-	PickupAddress          string      `json:"pickup_address"`
-	PickupLat              float64     `json:"pickup_lat"`
-	PickupLng              float64     `json:"pickup_lng"`
-	DropoffAddress         string      `json:"dropoff_address"`
-	DropoffLat             float64     `json:"dropoff_lat"`
-	DropoffLng             float64     `json:"dropoff_lng"`
-	Length                 float64     `json:"length,omitempty"`
-	Width                  float64     `json:"width,omitempty"`
-	Height                 float64     `json:"height,omitempty"`
-	Weight                 float64     `json:"weight,omitempty"`
-	ItemDescription        string      `json:"item_description,omitempty"`
-	ItemImageURL           string      `json:"item_image_url,omitempty"`
-	DistanceKM             float64     `json:"distance_km"`
-	BasePriceIDR           int64       `json:"base_price_idr"`
-	VolumetricSurchargeIDR int64       `json:"volumetric_surcharge_idr"`
-	DynamicPriceIDR        int64       `json:"dynamic_price_idr"`
-	TotalPriceIDR          int64       `json:"total_price_idr"`
-	HandoverToken          string      `json:"handover_token"`
-	QRCodeURL              string      `json:"qr_code_url,omitempty"`
-	CancellationReason     string      `json:"cancellation_reason,omitempty"`
-	DispatchExpiry         *time.Time  `json:"dispatch_expiry,omitempty"`
+	ID                     string       `json:"id"`
+	OrderNumber            string       `json:"order_number"`
+	CustomerID             string       `json:"customer_id"`
+	Model                  string       `json:"model"`
+	Status                 OrderStatus  `json:"status"`
+	PickupAddress          string       `json:"pickup_address"`
+	PickupLat              float64      `json:"pickup_lat"`
+	PickupLng              float64      `json:"pickup_lng"`
+	DropoffAddress         string       `json:"dropoff_address"`
+	DropoffLat             float64      `json:"dropoff_lat"`
+	DropoffLng             float64      `json:"dropoff_lng"`
+	Length                 float64      `json:"length,omitempty"`
+	Width                  float64      `json:"width,omitempty"`
+	Height                 float64      `json:"height,omitempty"`
+	Weight                 float64      `json:"weight,omitempty"`
+	ItemDescription        string       `json:"item_description,omitempty"`
+	ItemImageURL           string       `json:"item_image_url,omitempty"`
+	DistanceKM             float64      `json:"distance_km"`
+	BasePriceIDR           int64        `json:"base_price_idr"`
+	VolumetricSurchargeIDR int64        `json:"volumetric_surcharge_idr"`
+	DynamicPriceIDR        int64        `json:"dynamic_price_idr"`
+	TotalPriceIDR          int64        `json:"total_price_idr"`
+	HandoverToken          string       `json:"handover_token"`
+	QRCodeURL              string       `json:"qr_code_url,omitempty"`
+	CancellationReason     string       `json:"cancellation_reason,omitempty"`
+	DispatchExpiry         *time.Time   `json:"dispatch_expiry,omitempty"`
 	BatchID                *string      `json:"batch_id,omitempty"`
 	SequenceNo             *int         `json:"sequence_no,omitempty"`
-	CourierID              *string      `json:"courier_id,omitempty"` // Added for S2-OS-01
-	Courier                *CourierInfo `json:"courier,omitempty"`    // Added for Courier Profile
-	CourierRating          *float64     `json:"courier_rating,omitempty"`  // Rating 1-5 diberikan customer setelah delivered
-	RatingComment          *string      `json:"rating_comment,omitempty"`  // Komentar opsional
-	RatingReminderCount    int          `json:"rating_reminder_count,omitempty"` // Sudah berapa kali diingatkan
+	CourierID              *string      `json:"courier_id,omitempty"`              // Added for S2-OS-01
+	Courier                *CourierInfo `json:"courier,omitempty"`                 // Added for Courier Profile
+	CourierRating          *float64     `json:"courier_rating,omitempty"`          // Rating 1-5 diberikan customer setelah delivered
+	RatingComment          *string      `json:"rating_comment,omitempty"`          // Komentar opsional
+	RatingReminderCount    int          `json:"rating_reminder_count,omitempty"`   // Sudah berapa kali diingatkan
 	LastRatingReminderAt   *time.Time   `json:"last_rating_reminder_at,omitempty"` // Kapan terakhir diingatkan
 	CreatedAt              time.Time    `json:"created_at"`
 	UpdatedAt              time.Time    `json:"updated_at"`
 }
 
 type CourierInfo struct {
-	ID                 string `json:"id"`
-	FullName           string `json:"full_name"`
-	ProfilePhotoURL    string `json:"profile_photo_url"`
-	Initial            string `json:"initial"`
-	VehicleType        string `json:"vehicle_type"`
-	VehiclePlate       string `json:"vehicle_plate"`
-	AvgPartnerRating   float64 `json:"avg_partner_rating"`
+	ID               string  `json:"id"`
+	FullName         string  `json:"full_name"`
+	ProfilePhotoURL  string  `json:"profile_photo_url"`
+	Initial          string  `json:"initial"`
+	VehicleType      string  `json:"vehicle_type"`
+	VehiclePlate     string  `json:"vehicle_plate"`
+	AvgPartnerRating float64 `json:"avg_partner_rating"`
 }
-
 
 type CreateOrderRequest struct {
 	EstimateID      string `json:"estimate_id" validate:"required"`
@@ -169,15 +168,15 @@ type OrderRepository interface {
 }
 
 type MeetingPoint struct {
-	ID           string  `json:"id"`
-	Name         string  `json:"name"`
-	Latitude     float64 `json:"latitude"`
-	Longitude    float64 `json:"longitude"`
-	Category     string  `json:"category"` // hub, fuel_station, convenience_store
-	Address      string  `json:"address"`
-	IsActive     bool    `json:"is_active"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Latitude  float64   `json:"latitude"`
+	Longitude float64   `json:"longitude"`
+	Category  string    `json:"category"` // hub, fuel_station, convenience_store
+	Address   string    `json:"address"`
+	IsActive  bool      `json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type MeetingPointAnalytics struct {
@@ -235,5 +234,3 @@ type ConsolidationBag struct {
 	CreatedAt              time.Time `json:"created_at"`
 	UpdatedAt              time.Time `json:"updated_at"`
 }
-
-

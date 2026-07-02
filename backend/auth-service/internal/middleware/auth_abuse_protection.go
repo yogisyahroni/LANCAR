@@ -24,8 +24,8 @@ const (
 	ScopeCustomer2FAComplete   AuthAbuseScope = "customer_2fa_complete"
 	ScopePasswordReset         AuthAbuseScope = "password_reset"
 	// S3-SEC-01: Multi-account fraud detection scopes
-	ScopeMultiAccount          AuthAbuseScope = "multi_account_device"
-	ScopePromoAbuse            AuthAbuseScope = "promo_abuse"
+	ScopeMultiAccount AuthAbuseScope = "multi_account_device"
+	ScopePromoAbuse   AuthAbuseScope = "promo_abuse"
 )
 
 type AuthAbusePolicy struct {

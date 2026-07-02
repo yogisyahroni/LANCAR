@@ -88,18 +88,18 @@ type GoogleAuthService struct {
 	repo            GoogleAuthRepository
 	deviceFpRepo    domain.DeviceFingerprintRepository
 	tokenVerifier   *GoogleTokenVerifier
-	otpProvider     domain.OTPProvider  // selected at runtime (dry_run or zenziva)
+	otpProvider     domain.OTPProvider // selected at runtime (dry_run or zenziva)
 	fallbackChannel domain.OTPChannel
 }
 
 // OTP configuration from environment
 type otpConfig struct {
-	TTLSeconds        int
-	ResendCooldown    int
-	MaxAttempts       int
-	DefaultChannel    domain.OTPChannel
-	FallbackChannel   domain.OTPChannel
-	LockSeconds       int
+	TTLSeconds      int
+	ResendCooldown  int
+	MaxAttempts     int
+	DefaultChannel  domain.OTPChannel
+	FallbackChannel domain.OTPChannel
+	LockSeconds     int
 }
 
 func loadOTPConfig() otpConfig {
@@ -139,10 +139,10 @@ func NewGoogleAuthService(repo GoogleAuthRepository, df domain.DeviceFingerprint
 
 	// Default to dry-run; the live provider is initialized separately and injected.
 	return &GoogleAuthService{
-		repo:          repo,
-		deviceFpRepo:  df,
-		tokenVerifier: NewGoogleTokenVerifier(clientIDs),
-		otpProvider:   NewDryRunOTPProvider(),
+		repo:            repo,
+		deviceFpRepo:    df,
+		tokenVerifier:   NewGoogleTokenVerifier(clientIDs),
+		otpProvider:     NewDryRunOTPProvider(),
 		fallbackChannel: domain.OTPChannelSMS,
 	}
 }
@@ -305,12 +305,12 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 		// Check if device is trusted
 		isTrusted, _ := s.repo.IsTrustedDevice(ctx, user.ID, string(domain.RoleCustomer), deviceIDHash)
 		otpRequired := s.repo.IsCustomerAuthOTPRequired(ctx)
-		
+
 		if isTrusted || !otpRequired {
 			if isTrusted {
 				_ = s.repo.TouchTrustedDevice(ctx, user.ID, string(domain.RoleCustomer), deviceIDHash)
 			}
-			
+
 			// Record fingerprint
 			if s.deviceFpRepo != nil && req.DeviceID != "" {
 				fp := &domain.DeviceFingerprint{
@@ -385,10 +385,10 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 		ExpiresAt:    time.Now().Add(10 * time.Minute),
 	}
 	metaBytes, _ := json.Marshal(map[string]string{
-		"google_sub":    claims.Sub,
-		"google_email":  claims.Email,
-		"full_name":     claims.FullName,
-		"picture":       claims.Picture,
+		"google_sub":   claims.Sub,
+		"google_email": claims.Email,
+		"full_name":    claims.FullName,
+		"picture":      claims.Picture,
 	})
 	regTx.Metadata = metaBytes
 	_ = s.repo.CreateAuthTransaction(ctx, regTx)
@@ -402,7 +402,7 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 			return nil, err
 		}
 		_ = s.repo.ConsumeAuthTransaction(ctx, regTx.ID)
-		
+
 		return &domain.GoogleAuthCompleteResponse{
 			Status:        domain.GoogleAuthStatusAuthenticated,
 			AccessToken:   verifyResp.AccessToken,
@@ -414,7 +414,7 @@ func (s *GoogleAuthService) CompleteGoogleAuth(ctx context.Context, req *domain.
 	}
 
 	span.SetStatus(codes.Ok, "requires_phone")
-	
+
 	return &domain.GoogleAuthCompleteResponse{
 		Status:        domain.GoogleAuthStatusRequiresPhone,
 		TransactionID: regTx.ID,

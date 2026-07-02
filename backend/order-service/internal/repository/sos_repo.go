@@ -51,7 +51,7 @@ func (r *PostgresSosRepo) UpdateIncident(ctx context.Context, incident *domain.S
 	if err != nil {
 		return err
 	}
-	
+
 	rows, err := res.RowsAffected()
 	if err != nil {
 		return err
@@ -217,7 +217,6 @@ func (r *PostgresSosRepo) GetUserNameByID(ctx context.Context, userID uuid.UUID)
 	err := r.db.GetContext(ctx, &name, "SELECT full_name FROM users WHERE id = $1", userID)
 	return name, err
 }
-
 
 // GetFCMTokensByUserIDs mengambil semua FCM device token yang aktif (max 30 hari)
 // untuk sejumlah user ID sekaligus. Mengembalikan map[userID][]tokens.

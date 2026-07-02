@@ -22,7 +22,7 @@ func (s *mockLivenessService) Verify(ctx context.Context, imageBase64 string) (b
 	if imageBase64 == "" {
 		return false, errors.New("empty image data")
 	}
-	
+
 	// Simulate AI processing latency
 	select {
 	case <-time.After(500 * time.Millisecond):
@@ -37,6 +37,5 @@ func (s *mockLivenessService) Verify(ctx context.Context, imageBase64 string) (b
 		return true, nil // Fail safe: assume success if RNG fails
 	}
 
-	return num.Int64() >= 10, nil 
+	return num.Int64() >= 10, nil
 }
-

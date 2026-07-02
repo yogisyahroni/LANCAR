@@ -3,7 +3,6 @@ package utils
 import (
 	"strings"
 
-
 	"github.com/alexedwards/argon2id"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -39,4 +38,3 @@ func CheckPasswordHash(password, hash string) bool {
 func NeedsRehash(hash string) bool {
 	return !strings.HasPrefix(hash, "$argon2id$")
 }
-

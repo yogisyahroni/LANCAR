@@ -61,7 +61,7 @@ func (f *flagReaderImpl) subscribeToInvalidations(ctx context.Context) {
 	defer f.wg.Done()
 	pubsub := f.redis.Subscribe(ctx, "flag:changed")
 	defer pubsub.Close()
-	
+
 	ch := pubsub.Channel()
 	for {
 		select {

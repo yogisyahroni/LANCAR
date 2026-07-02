@@ -12,7 +12,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-
 // -------------------------------------------------------
 // Redis-backed Rate Limiter
 //
@@ -261,8 +260,9 @@ func CheckOTPPhoneLimit(ctx context.Context, rdb *redis.Client, phoneNumber stri
 // bypass per-IP rate limiting.
 //
 // Examples:
-//   TRUSTED_PROXY_IP=10.0.0.1      → single proxy
-//   TRUSTED_PROXY_IP=10.0.0.1,10.0.0.2 → multiple proxies
+//
+//	TRUSTED_PROXY_IP=10.0.0.1      → single proxy
+//	TRUSTED_PROXY_IP=10.0.0.1,10.0.0.2 → multiple proxies
 func realClientIP(r *http.Request) string {
 	remoteAddr := r.RemoteAddr
 	remoteHost := remoteAddr
@@ -301,7 +301,6 @@ func realClientIP(r *http.Request) string {
 	}
 	return remoteHost
 }
-
 
 // sanitizePhoneKey removes non-alphanumeric characters for safe Redis keys.
 func sanitizePhoneKey(phone string) string {

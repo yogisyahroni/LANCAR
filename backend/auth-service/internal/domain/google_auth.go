@@ -11,8 +11,8 @@ import "time"
 type CustomerAuthIdentity struct {
 	ID              string     `json:"id" db:"id"`
 	UserID          string     `json:"user_id" db:"user_id"`
-	Provider        string     `json:"provider" db:"provider"`        // "google"
-	ProviderSubject string     `json:"-" db:"provider_subject"`       // Google sub — never expose
+	Provider        string     `json:"provider" db:"provider"`  // "google"
+	ProviderSubject string     `json:"-" db:"provider_subject"` // Google sub — never expose
 	ProviderEmail   *string    `json:"provider_email" db:"provider_email"`
 	EmailVerified   bool       `json:"email_verified" db:"email_verified"`
 	LinkedAt        time.Time  `json:"linked_at" db:"linked_at"`
@@ -55,11 +55,11 @@ type CustomerAuthTransaction struct {
 	Status         CustomerAuthTransactionStatus `json:"status" db:"status"`
 	Provider       *string                       `json:"-" db:"provider"`
 	UserID         *string                       `json:"user_id,omitempty" db:"user_id"`
-	IdentifierHash *string                       `json:"-" db:"identifier_hash"`  // hash of email or phone
-	StateHash      *string                       `json:"-" db:"state_hash"`       // hash of OAuth state
-	NonceHash      *string                       `json:"-" db:"nonce_hash"`       // hash of OIDC nonce
-	DeviceIDHash   *string                       `json:"-" db:"device_id_hash"`   // hash of device_id
-	Platform       string                        `json:"platform" db:"platform"`  // "web", "android_customer"
+	IdentifierHash *string                       `json:"-" db:"identifier_hash"` // hash of email or phone
+	StateHash      *string                       `json:"-" db:"state_hash"`      // hash of OAuth state
+	NonceHash      *string                       `json:"-" db:"nonce_hash"`      // hash of OIDC nonce
+	DeviceIDHash   *string                       `json:"-" db:"device_id_hash"`  // hash of device_id
+	Platform       string                        `json:"platform" db:"platform"` // "web", "android_customer"
 	ExpiresAt      time.Time                     `json:"expires_at" db:"expires_at"`
 	ConsumedAt     *time.Time                    `json:"-" db:"consumed_at"`
 	Metadata       []byte                        `json:"-" db:"metadata"`
@@ -105,7 +105,7 @@ type CustomerOTPChallenge struct {
 	TransactionID  string          `json:"transaction_id" db:"transaction_id"`
 	UserID         *string         `json:"-" db:"user_id"`
 	Purpose        OTPPurpose      `json:"purpose" db:"purpose"`
-	IdentifierHash string          `json:"-" db:"identifier_hash"` // hash of phone number
+	IdentifierHash string          `json:"-" db:"identifier_hash"`             // hash of phone number
 	RecipientMask  string          `json:"recipient_mask" db:"recipient_mask"` // shown to user
 	Channel        OTPChannel      `json:"channel" db:"channel"`
 	Provider       OTPProviderName `json:"provider" db:"provider"`
@@ -186,13 +186,13 @@ type GoogleAuthStartResponse struct {
 
 // GoogleAuthCompleteRequest is the request body for POST /auth/customer/google/complete
 type GoogleAuthCompleteRequest struct {
-	Platform      string                     `json:"platform"`
-	TransactionID string                     `json:"transaction_id,omitempty"`
-	IDToken       string                     `json:"id_token"`
-	Nonce         string                     `json:"nonce,omitempty"`
-	DeviceID      string                     `json:"device_id"`
-	DeviceInfo    GoogleAuthDeviceInfo       `json:"device_info"`
-	IPAddress     string                     `json:"-"`
+	Platform      string               `json:"platform"`
+	TransactionID string               `json:"transaction_id,omitempty"`
+	IDToken       string               `json:"id_token"`
+	Nonce         string               `json:"nonce,omitempty"`
+	DeviceID      string               `json:"device_id"`
+	DeviceInfo    GoogleAuthDeviceInfo `json:"device_info"`
+	IPAddress     string               `json:"-"`
 }
 
 // GoogleAuthDeviceInfo carries device metadata from the client.
@@ -206,40 +206,40 @@ type GoogleAuthDeviceInfo struct {
 type GoogleAuthCompleteStatus string
 
 const (
-	GoogleAuthStatusAuthenticated    GoogleAuthCompleteStatus = "authenticated"
-	GoogleAuthStatusRequiresPhone    GoogleAuthCompleteStatus = "requires_phone"
-	GoogleAuthStatusRequiresStepUp   GoogleAuthCompleteStatus = "requires_step_up_otp"
-	GoogleAuthStatusRequiresLink     GoogleAuthCompleteStatus = "requires_link_confirmation"
-	GoogleAuthStatusBlocked          GoogleAuthCompleteStatus = "blocked"
+	GoogleAuthStatusAuthenticated  GoogleAuthCompleteStatus = "authenticated"
+	GoogleAuthStatusRequiresPhone  GoogleAuthCompleteStatus = "requires_phone"
+	GoogleAuthStatusRequiresStepUp GoogleAuthCompleteStatus = "requires_step_up_otp"
+	GoogleAuthStatusRequiresLink   GoogleAuthCompleteStatus = "requires_link_confirmation"
+	GoogleAuthStatusBlocked        GoogleAuthCompleteStatus = "blocked"
 )
 
 // GoogleAuthCompleteResponse is the polymorphic response from /google/complete
 type GoogleAuthCompleteResponse struct {
-	Status            GoogleAuthCompleteStatus `json:"status"`
+	Status GoogleAuthCompleteStatus `json:"status"`
 	// Populated when status == "authenticated"
-	AccessToken       string                   `json:"access_token,omitempty"`
-	RefreshToken      string                   `json:"refresh_token,omitempty"`
-	ExpiresIn         int64                    `json:"expires_in,omitempty"`
-	User              *GoogleAuthUser          `json:"user,omitempty"`
-	TrustedDevice     bool                     `json:"trusted_device,omitempty"`
+	AccessToken   string          `json:"access_token,omitempty"`
+	RefreshToken  string          `json:"refresh_token,omitempty"`
+	ExpiresIn     int64           `json:"expires_in,omitempty"`
+	User          *GoogleAuthUser `json:"user,omitempty"`
+	TrustedDevice bool            `json:"trusted_device,omitempty"`
 	// Populated when status == "requires_step_up_otp" or "requires_phone"
-	TransactionID     string                   `json:"transaction_id,omitempty"`
-	MaskedRecipient   string                   `json:"masked_recipient,omitempty"`
-	PreferredChannel  string                   `json:"preferred_channel,omitempty"`
-	FallbackChannel   string                   `json:"fallback_channel,omitempty"`
-	ExpiresInSeconds  int                      `json:"expires_in_seconds,omitempty"`
+	TransactionID    string `json:"transaction_id,omitempty"`
+	MaskedRecipient  string `json:"masked_recipient,omitempty"`
+	PreferredChannel string `json:"preferred_channel,omitempty"`
+	FallbackChannel  string `json:"fallback_channel,omitempty"`
+	ExpiresInSeconds int    `json:"expires_in_seconds,omitempty"`
 	// Populated when status == "requires_phone"
-	Email             string                   `json:"email,omitempty"`
-	FullName          string                   `json:"full_name,omitempty"`
-	OtpRequired       *bool                    `json:"otp_required,omitempty"`
+	Email       string `json:"email,omitempty"`
+	FullName    string `json:"full_name,omitempty"`
+	OtpRequired *bool  `json:"otp_required,omitempty"`
 }
 
 // GoogleAuthUser is a safe customer representation returned after auth.
 type GoogleAuthUser struct {
-	ID          string  `json:"id"`
-	Email       string  `json:"email,omitempty"`
-	PhoneNumber string  `json:"phone_number,omitempty"`
-	FullName    string  `json:"full_name"`
+	ID          string `json:"id"`
+	Email       string `json:"email,omitempty"`
+	PhoneNumber string `json:"phone_number,omitempty"`
+	FullName    string `json:"full_name"`
 }
 
 // CustomerOTPSendRequest is the request body for POST /auth/customer/otp/send

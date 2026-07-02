@@ -57,9 +57,9 @@ type PaymentGatewayResponse struct {
 }
 
 type SnapRequest struct {
-	OrderID     string
-	AmountIDR   int
-	ItemName    string
+	OrderID      string
+	AmountIDR    int
+	ItemName     string
 	CustomerName string
 }
 

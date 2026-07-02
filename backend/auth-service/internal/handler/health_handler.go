@@ -27,14 +27,14 @@ type HealthResponse struct {
 
 // ReadinessResponse is the response body for /ready.
 type ReadinessResponse struct {
-	Status   string                     `json:"status"`
-	Checks   map[string]CheckResult     `json:"checks"`
-	Timestamp string                    `json:"timestamp"`
+	Status    string                 `json:"status"`
+	Checks    map[string]CheckResult `json:"checks"`
+	Timestamp string                 `json:"timestamp"`
 }
 
 // CheckResult holds the result of a single dependency check.
 type CheckResult struct {
-	Status  string `json:"status"`           // "ok" | "degraded" | "down"
+	Status  string `json:"status"`            // "ok" | "degraded" | "down"
 	Latency string `json:"latency,omitempty"` // e.g. "2ms"
 	Error   string `json:"error,omitempty"`
 }

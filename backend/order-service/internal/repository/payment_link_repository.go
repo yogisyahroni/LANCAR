@@ -139,7 +139,7 @@ func (r *paymentLinkRepositoryImpl) ListByMerchantID(ctx context.Context, mercha
 		); err != nil {
 			return nil, err
 		}
-		
+
 		link.EstimateID = estimateID.String
 		link.PickupAddress = pickupAddress.String
 		link.PickupLat = pickupLat.Float64
@@ -178,4 +178,3 @@ func (r *paymentLinkRepositoryImpl) SoftDeleteExpiredLinks(ctx context.Context, 
 	}
 	return res.RowsAffected()
 }
-

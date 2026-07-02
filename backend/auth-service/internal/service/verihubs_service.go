@@ -11,11 +11,10 @@ import (
 	"time"
 )
 
-
 type VerihubsLiveness struct {
-	appID     string
-	apiKey    string
-	apiURL    string
+	appID      string
+	apiKey     string
+	apiURL     string
 	httpClient *http.Client
 }
 
@@ -34,7 +33,6 @@ func NewVerihubsLiveness(appID, apiKey string) *VerihubsLiveness {
 		},
 	}
 }
-
 
 type verihubsRequest struct {
 	Image string `json:"image"` // Base64

@@ -8,23 +8,23 @@ import "context"
 
 // OTPSendRequest carries everything a provider needs to send an OTP.
 type OTPSendRequest struct {
-	RecipientPhone  string          // E.164 normalized phone number
-	Channel         OTPChannel      // "whatsapp" or "sms"
-	Purpose         OTPPurpose      // reason for OTP
-	OTPCode         string          // the plaintext code — only lives in memory during send
-	TemplateID      string          // provider template id (may be empty for SMS)
-	IdempotencyKey  string          // unique key to prevent duplicate sends
-	CorrelationID   string          // tracing correlation id
+	RecipientPhone string     // E.164 normalized phone number
+	Channel        OTPChannel // "whatsapp" or "sms"
+	Purpose        OTPPurpose // reason for OTP
+	OTPCode        string     // the plaintext code — only lives in memory during send
+	TemplateID     string     // provider template id (may be empty for SMS)
+	IdempotencyKey string     // unique key to prevent duplicate sends
+	CorrelationID  string     // tracing correlation id
 }
 
 // OTPSendResult is what a provider returns after a send attempt.
 type OTPSendResult struct {
-	ProviderMessageID string          // provider's message reference id
-	Channel           OTPChannel      // channel actually used for delivery
+	ProviderMessageID string     // provider's message reference id
+	Channel           OTPChannel // channel actually used for delivery
 	Status            OTPDeliveryStatus
-	Retryable         bool            // true if the error is transient
-	NormalizedError   string          // internal error code (not for customer)
-	LatencyMS         int64           // roundtrip to provider in milliseconds
+	Retryable         bool   // true if the error is transient
+	NormalizedError   string // internal error code (not for customer)
+	LatencyMS         int64  // roundtrip to provider in milliseconds
 }
 
 // OTPDeliveryStatusResult is returned when polling delivery status.

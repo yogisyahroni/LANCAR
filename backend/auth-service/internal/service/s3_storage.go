@@ -71,13 +71,13 @@ func (s *S3Storage) GetURL(ctx context.Context, fileID string) (string, error) {
 
 func (s *S3Storage) GeneratePresignedURL(ctx context.Context, key string, contentType string, expiryMinutes int) (string, error) {
 	presignClient := s3.NewPresignClient(s.client)
-	
+
 	req, err := presignClient.PresignPutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(s.bucket),
 		Key:         aws.String(key),
 		ContentType: aws.String(contentType),
 	}, s3.WithPresignExpires(time.Duration(expiryMinutes)*time.Minute))
-	
+
 	if err != nil {
 		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
 	}

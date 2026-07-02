@@ -6,13 +6,13 @@ import (
 )
 
 type PricingEstimateRequest struct {
-	PickupLat  float64  `json:"pickup_lat" validate:"required"`
-	PickupLng  float64  `json:"pickup_lng" validate:"required"`
-	DropoffLat float64  `json:"dropoff_lat" validate:"required"`
-	DropoffLng float64  `json:"dropoff_lng" validate:"required"`
-	Length     float64  `json:"length" validate:"required"`
-	Width      float64  `json:"width" validate:"required"`
-	Height     float64  `json:"height" validate:"required"`
+	PickupLat    float64  `json:"pickup_lat" validate:"required"`
+	PickupLng    float64  `json:"pickup_lng" validate:"required"`
+	DropoffLat   float64  `json:"dropoff_lat" validate:"required"`
+	DropoffLng   float64  `json:"dropoff_lng" validate:"required"`
+	Length       float64  `json:"length" validate:"required"`
+	Width        float64  `json:"width" validate:"required"`
+	Height       float64  `json:"height" validate:"required"`
 	Weight       float64  `json:"weight" validate:"required"`
 	Models       []string `json:"models" validate:"required"` // Requested delivery models
 	IsARCore     bool     `json:"is_arcore"`
@@ -20,20 +20,20 @@ type PricingEstimateRequest struct {
 }
 
 type PricingEstimateResponse struct {
-	EstimateID             string    `json:"estimate_id"`
-	PickupAddress          string    `json:"pickup_address"`
-	DropoffAddress         string    `json:"dropoff_address"`
-	DistanceKM             float64   `json:"distance_km"`
-	DurationMin            float64   `json:"duration_min"`
-	BasePriceIDR           int64     `json:"base_price_idr"`
-	VolumetricSurchargeIDR int64     `json:"volumetric_surcharge_idr"`
-	DynamicPriceIDR        int64     `json:"dynamic_price_idr"`
+	EstimateID             string  `json:"estimate_id"`
+	PickupAddress          string  `json:"pickup_address"`
+	DropoffAddress         string  `json:"dropoff_address"`
+	DistanceKM             float64 `json:"distance_km"`
+	DurationMin            float64 `json:"duration_min"`
+	BasePriceIDR           int64   `json:"base_price_idr"`
+	VolumetricSurchargeIDR int64   `json:"volumetric_surcharge_idr"`
+	DynamicPriceIDR        int64   `json:"dynamic_price_idr"`
 	// PlatformFeeIDR adalah biaya layanan operasional.
 	// Dikonfigurasi dari tabel delivery_service_products (platform_fee_idr, platform_fee_pct).
 	// Tidak diekspos sebagai line-item ke customer — sudah tercakup dalam TotalPriceIDR.
-	PlatformFeeIDR         int64     `json:"platform_fee_idr"`
-	TotalPriceIDR          int64     `json:"total_price_idr"`
-	ExpiresAt              time.Time `json:"expires_at"`
+	PlatformFeeIDR int64     `json:"platform_fee_idr"`
+	TotalPriceIDR  int64     `json:"total_price_idr"`
+	ExpiresAt      time.Time `json:"expires_at"`
 
 	// Original coords for order creation
 	PickupLat  float64 `json:"pickup_lat"`
@@ -67,18 +67,18 @@ type PricingService interface {
 }
 
 type DeliveryServiceProduct struct {
-	Code                   string  `json:"code"`
-	Name                   string  `json:"name"`
-	BaseFareIDR            float64 `json:"base_fare_idr"`
-	PerKmIDR               float64 `json:"per_km_idr"`
-	IncludedDistanceKM     float64 `json:"included_distance_km"`
-	UsesSizeTier           bool    `json:"uses_size_tier"`
-	MaxDistanceKM          *float64 `json:"max_distance_km"`
-	MaxWeightKG            *float64 `json:"max_weight_kg"`
-	PlatformFeeIDR         float64 `json:"platform_fee_idr"`
-	PlatformFeePct         float64   `json:"platform_fee_pct"`
-	ExtraDropoffFeeIDR     float64   `json:"extra_dropoff_fee_idr"`
-	SearchRadiiKM          []float64 `json:"search_radii_km"`
+	Code               string    `json:"code"`
+	Name               string    `json:"name"`
+	BaseFareIDR        float64   `json:"base_fare_idr"`
+	PerKmIDR           float64   `json:"per_km_idr"`
+	IncludedDistanceKM float64   `json:"included_distance_km"`
+	UsesSizeTier       bool      `json:"uses_size_tier"`
+	MaxDistanceKM      *float64  `json:"max_distance_km"`
+	MaxWeightKG        *float64  `json:"max_weight_kg"`
+	PlatformFeeIDR     float64   `json:"platform_fee_idr"`
+	PlatformFeePct     float64   `json:"platform_fee_pct"`
+	ExtraDropoffFeeIDR float64   `json:"extra_dropoff_fee_idr"`
+	SearchRadiiKM      []float64 `json:"search_radii_km"`
 }
 
 type PricingRepository interface {

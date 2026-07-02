@@ -31,12 +31,12 @@ const (
 )
 
 type Alert struct {
-	Level    AlertLevel `json:"level"`
-	Title    string     `json:"title"`
-	Message  string     `json:"message"`
-	Metric   string     `json:"metric,omitempty"`
-	Value    float64    `json:"value,omitempty"`
-	Threshold float64   `json:"threshold,omitempty"`
+	Level     AlertLevel `json:"level"`
+	Title     string     `json:"title"`
+	Message   string     `json:"message"`
+	Metric    string     `json:"metric,omitempty"`
+	Value     float64    `json:"value,omitempty"`
+	Threshold float64    `json:"threshold,omitempty"`
 }
 
 var (
@@ -44,8 +44,8 @@ var (
 	telegramToken   string
 	telegramChatID  string
 
-	noDriverThreshold float64
-	latencyThreshold  float64
+	noDriverThreshold   float64
+	latencyThreshold    float64
 	circuitAlertEnabled bool
 )
 
@@ -77,9 +77,9 @@ func AlertNoDriverFound(ratePct float64, totalOrders int, failedOrders int) {
 		return
 	}
 	Send(Alert{
-		Level:     AlertCritical,
-		Title:     "🚨 No Driver Found Rate Critical",
-		Message:   fmt.Sprintf("%.1f%% orders (%d/%d) failed to find a courier in the last hour. Threshold: %.0f%%",
+		Level: AlertCritical,
+		Title: "🚨 No Driver Found Rate Critical",
+		Message: fmt.Sprintf("%.1f%% orders (%d/%d) failed to find a courier in the last hour. Threshold: %.0f%%",
 			ratePct, failedOrders, totalOrders, noDriverThreshold),
 		Metric:    "no_driver_found_rate",
 		Value:     ratePct,
@@ -125,16 +125,16 @@ func sendSlack(alert Alert) {
 	payload := map[string]interface{}{
 		"attachments": []map[string]interface{}{
 			{
-				"color":  color,
-				"title":  alert.Title,
-				"text":   alert.Message,
+				"color": color,
+				"title": alert.Title,
+				"text":  alert.Message,
 				"fields": []map[string]interface{}{
 					{"title": "Metric", "value": alert.Metric, "short": true},
 					{"title": "Value", "value": fmt.Sprintf("%.1f", alert.Value), "short": true},
 					{"title": "Threshold", "value": fmt.Sprintf("%.1f", alert.Threshold), "short": true},
 				},
-				"footer":     "TEMBUS Production Alerting",
-				"ts":         time.Now().Unix(),
+				"footer": "TEMBUS Production Alerting",
+				"ts":     time.Now().Unix(),
 			},
 		},
 	}

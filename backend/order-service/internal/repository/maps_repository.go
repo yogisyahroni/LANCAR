@@ -19,7 +19,7 @@ type mapsRepo struct {
 }
 
 func NewMapsRepository(apiKey string) (domain.MapsRepository, error) {
-	// apiKey is ignored because we hit the gateway, but we keep the signature 
+	// apiKey is ignored because we hit the gateway, but we keep the signature
 	// for backward compatibility with cmd/api/main.go.
 	gatewayURL := strings.TrimRight(os.Getenv("INTEGRATION_GATEWAY_URL"), "/")
 	if gatewayURL == "" {

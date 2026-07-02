@@ -56,8 +56,8 @@ func (h *RelayHandler) AdminOverrideScore(w http.ResponseWriter, r *http.Request
 }
 
 type AdminOverrideTierRequest struct {
-	NewTier   string    `json:"new_tier"`
-	Note      string    `json:"note"`
+	NewTier string `json:"new_tier"`
+	Note    string `json:"note"`
 }
 
 func (h *RelayHandler) AdminOverrideTier(w http.ResponseWriter, r *http.Request) {

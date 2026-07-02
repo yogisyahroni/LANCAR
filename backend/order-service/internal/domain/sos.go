@@ -43,7 +43,7 @@ type SosIncident struct {
 type SosHelper struct {
 	IncidentID      uuid.UUID  `json:"incident_id" db:"incident_id"`
 	HelperCourierID uuid.UUID  `json:"helper_courier_id" db:"helper_courier_id"`
-	Status          string     `json:"status" db:"status"` // ACCEPTED, ARRIVED, ABANDONED
+	Status          string     `json:"status" db:"status"`   // ACCEPTED, ARRIVED, ABANDONED
 	Verdict         *string    `json:"verdict" db:"verdict"` // PRANK, REAL
 	PhotoURL        *string    `json:"photo_url" db:"photo_url"`
 	ReportedAt      *time.Time `json:"reported_at" db:"reported_at"`

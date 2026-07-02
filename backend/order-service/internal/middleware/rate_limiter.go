@@ -128,7 +128,7 @@ func LimitOrderCreation(rdb interface{ Close() error }) func(http.HandlerFunc) h
 				// If not authenticated, use IP as fallback
 				userID = realClientIP(r)
 			}
-			
+
 			allowed, _, retryAfter := limiter.allow(ctx, userID)
 
 			if !allowed {

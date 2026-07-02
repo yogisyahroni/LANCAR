@@ -50,7 +50,6 @@ type AuthHandler struct {
 		VerifyCourierLiveness(ctx context.Context, userID string, imageBase64 string) (bool, error)
 		LogLocalSecurityEvent(ctx context.Context, userID string, actionType string, method string, orderID *string) error
 	}
-
 }
 
 func (h *AuthHandler) rejectIfAuthAbuseBlocked(w http.ResponseWriter, r *http.Request, scope middleware.AuthAbuseScope, identifier string) bool {
@@ -215,7 +214,7 @@ func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid request", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
-	
+
 	h.recordAuthSuccess(r, middleware.ScopeCustomerRegistration, normalizedEmail)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -864,7 +863,7 @@ func (h *AuthHandler) HandleAdminSetCourierProfilePhoto(w http.ResponseWriter, r
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid path", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
-	
+
 	// We'll extract the ID based on standard mux / chi path params if available,
 	// but since we don't have the router object directly, let's extract it manually for now.
 	// We know the pattern is /admin/couriers/{id}/profile-photo

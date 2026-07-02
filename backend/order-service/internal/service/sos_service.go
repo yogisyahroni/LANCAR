@@ -17,14 +17,14 @@ import (
 )
 
 type DefaultSosService struct {
-	sosRepo      domain.SosRepository
-	notifSvc     domain.NotificationService
+	sosRepo  domain.SosRepository
+	notifSvc domain.NotificationService
 }
 
 func NewSosService(sr domain.SosRepository, ns domain.NotificationService) *DefaultSosService {
 	return &DefaultSosService{
-		sosRepo:      sr,
-		notifSvc:     ns,
+		sosRepo:  sr,
+		notifSvc: ns,
 	}
 }
 
@@ -244,7 +244,7 @@ func (s *DefaultSosService) CheckAndResolveConsensus(ctx context.Context, incide
 	}
 
 	now := time.Now()
-	
+
 	// Timeout logic check (e.g. 30 mins)
 	isTimeout := now.Sub(incident.CreatedAt) > 30*time.Minute
 
@@ -376,7 +376,7 @@ func deductFakeSosPenalty(victimID uuid.UUID, amount float64, referenceID string
 
 	req, _ := http.NewRequest("POST", paymentServiceURL+"/api/internal/wallet/sos-penalty", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -401,7 +401,7 @@ func creditSosHelperReward(helperID uuid.UUID, amount float64, referenceID strin
 
 	req, _ := http.NewRequest("POST", paymentServiceURL+"/api/internal/wallet/sos-reward", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -477,7 +477,7 @@ func (s *DefaultSosService) MarkAsTampered(ctx context.Context, req domain.SosTa
 		return fmt.Errorf("incident is already resolved")
 	}
 
-	slog.WarnContext(ctx, "SUSPICIOUS: GPS TURNED OFF DURING SOS", 
+	slog.WarnContext(ctx, "SUSPICIOUS: GPS TURNED OFF DURING SOS",
 		"incident_id", req.IncidentID,
 		"victim_id", req.VictimID,
 	)

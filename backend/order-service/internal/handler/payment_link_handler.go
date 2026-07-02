@@ -55,7 +55,7 @@ func (h *PaymentLinkHandler) GetLink(w http.ResponseWriter, r *http.Request) {
 	// Extract ID from URL path, e.g. /api/v1/payment-links/{id}
 	parts := strings.Split(r.URL.Path, "/")
 	id := parts[len(parts)-1]
-	
+
 	if id == "" || id == "payment-links" {
 		http.Error(w, "Missing link ID", http.StatusBadRequest)
 		return
@@ -171,7 +171,7 @@ func (h *PaymentLinkHandler) HandleWebhook(w http.ResponseWriter, r *http.Reques
 
 	// Route to service
 	if err := h.svc.HandleWebhook(r.Context(), orderID, transactionStatus); err != nil {
-		// Log error, but usually webhooks should return 200 to acknowledge receipt 
+		// Log error, but usually webhooks should return 200 to acknowledge receipt
 		// unless we want Midtrans to retry. We'll return 400 for bad requests for now.
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

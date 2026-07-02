@@ -31,7 +31,6 @@ func NewPricingService(p domain.PricingRepository, m domain.MapsRepository, r do
 
 func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
 
-
 	// 0.1 Check Coverage for Pickup and Dropoff
 	pickupCovered, err := s.pricingRepo.CheckCoverage(ctx, req.PickupLat, req.PickupLng)
 	if err != nil {
@@ -108,7 +107,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	// 5. Calculate Base Prices
 	baseFare := int64(serviceProduct.BaseFareIDR)
 	var distanceFare int64 = 0
-	
+
 	if distKM > serviceProduct.IncludedDistanceKM {
 		chargeableDistance := distKM - serviceProduct.IncludedDistanceKM
 		distanceFare = int64(chargeableDistance * serviceProduct.PerKmIDR)
@@ -123,7 +122,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	if serviceProduct.UsesSizeTier {
 		tier1Surcharge := s.configRepo.GetFloatConfig(ctx, "weight_surcharge_tier1", 0.15)
 		tier2Surcharge := s.configRepo.GetFloatConfig(ctx, "weight_surcharge_tier2", 0.30)
-		
+
 		if effectiveWeight > 5 {
 			weightSurcharge = int64(float64(subtotal) * tier2Surcharge)
 		} else if effectiveWeight > 2 {
@@ -150,7 +149,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 
 	dynamicPrice := int64(float64(subtotal) * (multiplier - 1.0))
 	priceAfterSurge := int64(float64(subtotal) * multiplier)
-	
+
 	insuranceEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "package_insurance", false)
 	if insuranceEnabled {
 		// Biaya asuransi dapat dikonfigurasi via delivery_config dengan key "insurance_fee_idr".
@@ -173,10 +172,10 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	// sudah tercakup dalam TotalPriceIDR sebagai bagian dari harga layanan.
 	fixedPlatformFee := serviceProduct.PlatformFeeIDR
 	pctPlatformFeeRate := serviceProduct.PlatformFeePct
-	
+
 	// Percentage portion based on the priceAfterSurge
 	variablePlatformFee := float64(priceAfterSurge) * pctPlatformFeeRate
-	
+
 	platformFee := int64(fixedPlatformFee + variablePlatformFee)
 	totalPrice := priceAfterSurge + platformFee
 
@@ -211,8 +210,6 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 
 	return resp, nil
 }
-
-
 
 func (s *pricingServiceImpl) EstimatePrice(ctx context.Context, req *domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
 	return s.Estimate(ctx, *req)

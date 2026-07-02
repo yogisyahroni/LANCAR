@@ -117,7 +117,7 @@ func TestFlagReader_GetFlag_RedisDown_DBFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to start miniredis: %v", err)
 	}
-	
+
 	rdb := redis.NewClient(&redis.Options{Addr: s.Addr()})
 	s.Close() // close it immediately to simulate Redis down
 

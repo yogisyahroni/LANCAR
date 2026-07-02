@@ -2,11 +2,11 @@ package worker
 
 import (
 	"context"
+	"github.com/redis/go-redis/v9"
 	"log"
 	"math"
-	"time"
-	"github.com/redis/go-redis/v9"
 	"tembus/order-service/internal/domain"
+	"time"
 )
 
 type SurgeWorker struct {

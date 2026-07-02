@@ -24,12 +24,12 @@ type RevenueMetrics struct {
 }
 
 type SLAComplianceMetrics struct {
-	ReportDate         time.Time `json:"report_date"`
-	ZoneID             string    `json:"zone_id"`
-	CourierID          string    `json:"courier_id"`
-	TotalLegs          int       `json:"total_legs"`
-	OnTimeLegs         int       `json:"on_time_legs"`
-	ComplianceRatePct  float64   `json:"compliance_rate_pct"`
+	ReportDate        time.Time `json:"report_date"`
+	ZoneID            string    `json:"zone_id"`
+	CourierID         string    `json:"courier_id"`
+	TotalLegs         int       `json:"total_legs"`
+	OnTimeLegs        int       `json:"on_time_legs"`
+	ComplianceRatePct float64   `json:"compliance_rate_pct"`
 }
 
 type CourierUtilizationMetrics struct {
@@ -53,7 +53,7 @@ type ScanAccuracyMetrics struct {
 
 type ReportRequest struct {
 	Type      AnalyticsReportType `json:"type"`
-	StartDate time.Time          `json:"start_date"`
-	EndDate   time.Time          `json:"end_date"`
-	ZoneID    string             `json:"zone_id,omitempty"`
+	StartDate time.Time           `json:"start_date"`
+	EndDate   time.Time           `json:"end_date"`
+	ZoneID    string              `json:"zone_id,omitempty"`
 }

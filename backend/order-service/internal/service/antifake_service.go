@@ -125,16 +125,16 @@ func (s *AntiFakeGPSServiceImpl) EvaluateAndRespond(
 	// 5. Publish enforcement event for downstream systems (notification service, admin dashboard)
 	topic := fmt.Sprintf("security:gps_violation:%s", courierID.String())
 	s.eventBus.Publish(ctx, topic, map[string]interface{}{
-		"courier_id":         courierID.String(),
-		"action":             string(action),
-		"risk_score":         telemetry.RiskScore,
-		"risk_level":         telemetry.RiskLevel,
+		"courier_id":          courierID.String(),
+		"action":              string(action),
+		"risk_score":          telemetry.RiskScore,
+		"risk_level":          telemetry.RiskLevel,
 		"violation_count_24h": count24H,
 		"violation_count_7d":  count7D,
 		"violation_count_30d": count30D,
-		"message":            message,
-		"device_id":          deviceID,
-		"timestamp":          now.Format(time.RFC3339),
+		"message":             message,
+		"device_id":           deviceID,
+		"timestamp":           now.Format(time.RFC3339),
 	})
 
 	return &domain.GraduatedResponseResult{

@@ -118,7 +118,6 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 	return service, nil
 }
 
-
 // Order Repository Implementation
 func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 	query := `INSERT INTO orders (
@@ -140,7 +139,7 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 	// Default tax/fee for now
 	ppnRate := r.configRepo.GetFloatConfig(ctx, "payment_ppn_rate", 0.11)
 	ppn := int64(float64(o.TotalPriceIDR) * ppnRate)
-	
+
 	mdrFixed := r.configRepo.GetIntConfig(ctx, "payment_mdr_fixed", 2500)
 	mdr := int64(mdrFixed)
 
@@ -763,12 +762,12 @@ func (r *postgresRepo) SaveOrderRating(ctx context.Context, orderID string, cour
 		UPDATE orders 
 		SET courier_rating = $1, rating_comment = $2, updated_at = NOW() 
 		WHERE id = $3 AND courier_rating IS NULL`
-	
+
 	res, err := tx.ExecContext(ctx, queryOrder, rating, comment, orderID)
 	if err != nil {
 		return err
 	}
-	
+
 	affected, err := res.RowsAffected()
 	if err != nil {
 		return err
@@ -819,20 +818,26 @@ func (r *postgresRepo) GetDeliveredUnratedOrders(ctx context.Context, customerID
 		var cID, cName sql.NullString
 		var lra sql.NullTime
 		var rrc sql.NullInt32
-		
+
 		if err := rows.Scan(&o.ID, &o.OrderNumber, &cID, &cName, &rrc, &lra); err != nil {
 			return nil, err
 		}
-		
-		if cID.Valid { o.CourierID = &cID.String }
+
+		if cID.Valid {
+			o.CourierID = &cID.String
+		}
 		if cName.Valid {
 			o.Courier = &domain.CourierInfo{
 				FullName: cName.String,
 			}
 		}
-		if lra.Valid { o.LastRatingReminderAt = &lra.Time }
-		if rrc.Valid { o.RatingReminderCount = int(rrc.Int32) }
-		
+		if lra.Valid {
+			o.LastRatingReminderAt = &lra.Time
+		}
+		if rrc.Valid {
+			o.RatingReminderCount = int(rrc.Int32)
+		}
+
 		orders = append(orders, &o)
 	}
 

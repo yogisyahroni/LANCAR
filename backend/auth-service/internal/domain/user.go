@@ -24,21 +24,21 @@ const (
 )
 
 type User struct {
-	ID               string     `json:"id" db:"id"`
-	PhoneNumber      string     `json:"phone_number" db:"phone_number"`
-	Email            *string    `json:"email" db:"email"`
-	FullName         string     `json:"full_name" db:"full_name"`
-	PhotoURL         *string    `json:"photo_url" db:"photo_url"`
-	Role             UserRole   `json:"role" db:"role"`
-	Status           UserStatus `json:"status" db:"status"`
-	ReferralCode     *string    `json:"referral_code" db:"referral_code"`
-	ReferredBy       *string    `json:"referred_by" db:"referred_by"`
-	PasswordHash     *string    `json:"-" db:"password_hash"`
-	PINHash          *string    `json:"-" db:"pin_hash"`
-	IsVerified       bool       `json:"is_verified" db:"is_verified"`
-	TOTPSecret       *string    `json:"-" db:"totp_secret"`
-	Is2FAEnabled     bool       `json:"is_2fa_enabled" db:"is_2fa_enabled"`
-	TOTPBackupCodes  []string   `json:"-" db:"totp_backup_codes"`
+	ID                   string     `json:"id" db:"id"`
+	PhoneNumber          string     `json:"phone_number" db:"phone_number"`
+	Email                *string    `json:"email" db:"email"`
+	FullName             string     `json:"full_name" db:"full_name"`
+	PhotoURL             *string    `json:"photo_url" db:"photo_url"`
+	Role                 UserRole   `json:"role" db:"role"`
+	Status               UserStatus `json:"status" db:"status"`
+	ReferralCode         *string    `json:"referral_code" db:"referral_code"`
+	ReferredBy           *string    `json:"referred_by" db:"referred_by"`
+	PasswordHash         *string    `json:"-" db:"password_hash"`
+	PINHash              *string    `json:"-" db:"pin_hash"`
+	IsVerified           bool       `json:"is_verified" db:"is_verified"`
+	TOTPSecret           *string    `json:"-" db:"totp_secret"`
+	Is2FAEnabled         bool       `json:"is_2fa_enabled" db:"is_2fa_enabled"`
+	TOTPBackupCodes      []string   `json:"-" db:"totp_backup_codes"`
 	LastLoginAt          *time.Time `json:"last_login_at" db:"last_login_at"`
 	StoreName            *string    `json:"store_name" db:"store_name"`
 	DefaultPickupAddress *string    `json:"default_pickup_address" db:"default_pickup_address"`
@@ -49,7 +49,6 @@ type User struct {
 	UpdatedAt            time.Time  `json:"updated_at" db:"updated_at"`
 }
 
-
 type OTPLog struct {
 	ID          string    `json:"id" db:"id"`
 	PhoneNumber string    `json:"phone_number" db:"phone_number"`
@@ -58,4 +57,3 @@ type OTPLog struct {
 	IsUsed      bool      `json:"is_used" db:"is_used"`
 	CreatedAt   time.Time `json:"created_at" db:"created_at"`
 }
-

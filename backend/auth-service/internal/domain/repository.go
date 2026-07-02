@@ -20,7 +20,6 @@ type UserRepository interface {
 	Enable2FA(ctx context.Context, userID string) error
 }
 
-
 type SessionRepository interface {
 	CreateSession(ctx context.Context, session *Session) error
 	GetSessionByToken(ctx context.Context, token string) (*Session, error)

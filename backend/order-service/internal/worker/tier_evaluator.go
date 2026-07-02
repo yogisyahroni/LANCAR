@@ -35,7 +35,7 @@ func (w *TierEvaluatorWorker) Start(ctx context.Context) {
 
 func (w *TierEvaluatorWorker) runEvaluation(ctx context.Context) {
 	log.Println("[TierEvaluator] Running daily tier evaluation for all active couriers...")
-	
+
 	// Query aggregates last 30 days of performance.
 	// We check: Total Orders Delivered, Cancellation Rate, Acceptance Rate, Avg Rating.
 	// Tier thresholds (Example):
@@ -43,7 +43,7 @@ func (w *TierEvaluatorWorker) runEvaluation(ctx context.Context) {
 	// Gold: >= 50 orders, CR < 5%, AR > 80%, Rating >= 4.5
 	// Silver: default for active.
 	// Newbies (join date < 30 days) are evaluated but usually boosted at the dispatch level.
-	
+
 	query := `
 		WITH courier_stats AS (
 			SELECT 
@@ -68,13 +68,13 @@ func (w *TierEvaluatorWorker) runEvaluation(ctx context.Context) {
 		WHERE cp.user_id = cs.courier_id
 		  AND cp.created_at < NOW() - INTERVAL '30 days'; -- Only evaluate those who are not newbies (older than 30 days)
 	`
-	
+
 	res, err := w.db.ExecContext(ctx, query)
 	if err != nil {
 		log.Printf("[TierEvaluator] ERROR running evaluation: %v", err)
 		return
 	}
-	
+
 	affected, _ := res.RowsAffected()
 	log.Printf("[TierEvaluator] Evaluation completed. Updated %d couriers.", affected)
 }

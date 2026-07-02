@@ -13,8 +13,6 @@ import (
 
 var validate = validator.New()
 
-
-
 const ValidatedDataKey contextKey = "validated_data"
 
 // ValidateBody is a middleware that decodes the request body into a struct,

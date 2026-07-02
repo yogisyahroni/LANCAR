@@ -172,10 +172,10 @@ func (g *MidtransGateway) GenerateSnap(ctx context.Context, req domain.SnapReque
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return domain.SnapResponse{}, fmt.Errorf("failed to parse midtrans snap response: %w", err)
 	}
-	
+
 	token, _ := data["token"].(string)
 	redirectURL, _ := data["redirect_url"].(string)
-	
+
 	if token == "" {
 		errorMsg, _ := data["error_messages"].([]interface{})
 		return domain.SnapResponse{}, fmt.Errorf("midtrans snap rejected payment: %v", errorMsg)

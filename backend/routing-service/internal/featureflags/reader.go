@@ -60,7 +60,7 @@ func (f *flagReaderImpl) subscribeToInvalidations(ctx context.Context) {
 	defer f.wg.Done()
 	pubsub := f.redis.Subscribe(ctx, "flag:changed")
 	defer pubsub.Close()
-	
+
 	ch := pubsub.Channel()
 	for {
 		select {
@@ -150,7 +150,7 @@ func (f *flagReaderImpl) GetFlag(ctx context.Context, key string) (*FeatureFlag,
 // GetFlags retrieves multiple flags concurrently
 func (f *flagReaderImpl) GetFlags(ctx context.Context, keys []string) (map[string]*FeatureFlag, error) {
 	result := make(map[string]*FeatureFlag)
-	
+
 	// Fast path if only one key
 	if len(keys) == 1 {
 		flag, err := f.GetFlag(ctx, keys[0])

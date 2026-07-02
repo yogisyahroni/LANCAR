@@ -248,7 +248,7 @@ func (r *relayRepository) ReleaseMatchLock(ctx context.Context, orderID uuid.UUI
 func (r *relayRepository) ListCourierPerformanceStats(ctx context.Context, limit, offset int, search string) ([]*domain.CourierPerformanceStats, error) {
 	var query string
 	var args []interface{}
-	
+
 	if search != "" {
 		query = "SELECT id, ontime_deliveries_count, total_deliveries_count, docs_complete_pct, avg_partner_rating, complaint_ratio_pct, relay_score, tier FROM courier_profiles WHERE tier ILIKE $1 LIMIT $2 OFFSET $3"
 		args = []interface{}{"%" + search + "%", limit, offset}
@@ -271,6 +271,6 @@ func (r *relayRepository) ListCourierPerformanceStats(ctx context.Context, limit
 		}
 		stats = append(stats, &s)
 	}
-	
+
 	return stats, nil
 }
