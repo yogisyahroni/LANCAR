@@ -490,3 +490,77 @@ func (s *walletService) Refund(ctx context.Context, userID uuid.UUID, amount flo
 
 	return tx.Commit()
 }
+
+func (s *walletService) DeductFakeSosPenalty(ctx context.Context, victimID uuid.UUID, amount float64, referenceID string) error {
+	// Start Transaction
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	wallet, err := s.GetBalance(ctx, victimID)
+	if err != nil {
+		return err
+	}
+
+	// Update Balance (Allow negative balance)
+	err = s.repo.UpdateBalance(ctx, wallet.ID, -amount, wallet.Version)
+	if err != nil {
+		return err
+	}
+
+	// Create Transaction Log
+	walletTx := &domain.WalletTransaction{
+		WalletID:    wallet.ID,
+		Type:        domain.TypeAdjustment,
+		Amount:      amount,
+		Fee:         0,
+		Status:      domain.StatusCompleted,
+		ReferenceID: referenceID,
+		Metadata:    map[string]any{"source": "sos_fake_penalty", "incident_id": referenceID},
+	}
+	err = s.repo.CreateTransaction(ctx, walletTx)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (s *walletService) CreditSosHelperReward(ctx context.Context, helperID uuid.UUID, amount float64, referenceID string) error {
+	// Start Transaction
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	wallet, err := s.GetBalance(ctx, helperID)
+	if err != nil {
+		return err
+	}
+
+	// Update Balance
+	err = s.repo.UpdateBalance(ctx, wallet.ID, amount, wallet.Version)
+	if err != nil {
+		return err
+	}
+
+	// Create Transaction Log
+	walletTx := &domain.WalletTransaction{
+		WalletID:    wallet.ID,
+		Type:        domain.TypeAdjustment,
+		Amount:      amount,
+		Fee:         0,
+		Status:      domain.StatusCompleted,
+		ReferenceID: referenceID,
+		Metadata:    map[string]any{"source": "sos_helper_reward", "incident_id": referenceID},
+	}
+	err = s.repo.CreateTransaction(ctx, walletTx)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}

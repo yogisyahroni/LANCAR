@@ -3,7 +3,9 @@ package com.tembus.courier.data.api
 import com.tembus.courier.data.model.AppVersion
 import com.tembus.courier.data.model.ApiResponse
 import com.tembus.courier.data.model.RuntimeConfigResponse
-
+import com.tembus.courier.data.model.SosTamperRequest
+import com.tembus.courier.data.model.SosTriggerRequest
+import com.tembus.courier.data.model.SosTriggerResponse
 import com.tembus.courier.data.model.CourierProfile
 import com.tembus.courier.data.model.CourierCapabilityProfile
 import com.tembus.courier.data.model.CourierHotspot
@@ -196,6 +198,17 @@ interface TEMBUSApiService {
         @Part("message") message: RequestBody?,
         @Part photo: MultipartBody.Part
     ): Response<ApiResponse<CourierSafetyEventData>>
+
+
+    @POST("api/v1/couriers/sos/tamper")
+    suspend fun reportSosTamper(
+        @Body request: SosTamperRequest
+    ): Response<ApiResponse<Any>>
+
+    @POST("api/v1/couriers/sos/trigger")
+    suspend fun triggerSos(
+        @Body request: SosTriggerRequest
+    ): Response<ApiResponse<SosTriggerResponse>>
 
     @POST("api/v1/courier/trip-share")
     suspend fun createTripShare(

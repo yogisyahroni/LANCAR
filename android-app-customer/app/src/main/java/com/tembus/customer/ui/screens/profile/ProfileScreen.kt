@@ -646,7 +646,7 @@ private fun SecurityDialog(
 private fun HelpDialog(onDismiss: () -> Unit) {
     val context = LocalContext.current
     // S2-CUSTOMER-04: WhatsApp CS deep link — nomor bisa diganti via env/config
-    val whatsappNumber = "6281234567890" // TODO: ganti dengan nomor CS produksi
+    val whatsappNumber = "6285156448966"
     val whatsappUrl = "https://wa.me/$whatsappNumber?text=Halo%20TEMBUS%2C%20saya%20butuh%20bantuan."
 
     AlertDialog(
@@ -655,8 +655,8 @@ private fun HelpDialog(onDismiss: () -> Unit) {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Tim operasional TEMBUS siap membantu kendala akun, pembayaran, dan pengiriman.")
-                Text("Email: support@tembus.id", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("WhatsApp: +62 812-3456-7890", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Email: bantuan@tembus.com", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("WhatsApp: +62 851-5644-8966", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {

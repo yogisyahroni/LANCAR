@@ -61,7 +61,6 @@ fun TrackingScreen(
     onBackClick: () -> Unit,
     onChatClick: (String, String?) -> Unit,
     onCallClick: (String, String?) -> Unit,
-    onSosClick: (() -> Unit)? = null,
     ratingViewModel: CourierRatingViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -155,25 +154,7 @@ fun TrackingScreen(
         }
 
         // LAYER 3.5: SOS EMERGENCY FAB — hanya aktif saat kurir dalam perjalanan
-        // S2-CUSTOMER-01: Floating SOS button di pojok kanan bawah, sesuai skill 01 B.5 SHOULD
-        val isInTransit = uiState.detail?.order?.status in setOf("in_transit", "picked_up", "pickup_verified")
-        if (onSosClick != null && isInTransit) {
-            FloatingActionButton(
-                onClick = onSosClick,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 16.dp, bottom = 160.dp),
-                containerColor = Color(0xFFFF3B30),
-                contentColor = Color.White,
-                shape = CircleShape
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = "Darurat",
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-        }
+        // S2-CUSTOMER-01: SOS Button implementation removed as per decision
 
         // LAYER 4: LIVE STATUS PANEL
         AnimatedVisibility(

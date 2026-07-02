@@ -259,6 +259,29 @@ class MainActivity : FragmentActivity() {
         processIntentExtras(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 🚨 Cold/Warm Boot Anti-Tamper Check
+        val prefs = getSharedPreferences("sos_prefs", Context.MODE_PRIVATE)
+        val isSosActive = prefs.getBoolean("is_sos_active", false)
+        if (isSosActive) {
+            val locationManager = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+            val isGpsEnabled = locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
+            val isNetworkEnabled = locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+
+            val hasFineLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val hasCoarseLocation = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            
+            if (!(isGpsEnabled || isNetworkEnabled) || !(hasFineLocation || hasCoarseLocation)) {
+                Log.e("MainActivity", "Cold/Warm Boot Tamper Detected! Launching Alert.")
+                val tamperIntent = Intent(this, TamperAlertActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                }
+                startActivity(tamperIntent)
+            }
+        }
+    }
+
     private fun processIntentExtras(intent: Intent?) {
         val orderId = intent?.getStringExtra("selected_order_id")
         val chatOrderId = intent?.getStringExtra("chat_order_id")

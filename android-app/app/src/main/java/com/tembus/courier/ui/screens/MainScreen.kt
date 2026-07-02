@@ -749,7 +749,25 @@ fun MainScreen(
             },
             onSosClick = {
                 scope.launch {
-                    sendSafetyEvent(order, "sos", "critical", "Kurir membutuhkan bantuan segera di pekerjaan aktif.")
+                    val location = getLastKnownDutyLocation(context)
+                    if (location == null) {
+                        snackbarHostState.showSnackbar("Gagal memicu SOS: Lokasi GPS tidak tersedia. Pastikan GPS aktif.")
+                        return@launch
+                    }
+                    val result = orderViewModel.triggerSos(
+                        latitude = location.latitude,
+                        longitude = location.longitude
+                    )
+                    result.onSuccess { data ->
+                        val prefs = context.getSharedPreferences("sos_prefs", android.content.Context.MODE_PRIVATE)
+                        prefs.edit()
+                            .putBoolean("is_sos_active", true)
+                            .putString("active_incident_id", data.incidentId)
+                            .apply()
+                        snackbarHostState.showSnackbar("Panggilan Darurat (SOS) telah dikirim ke pusat komando.")
+                    }.onFailure {
+                        snackbarHostState.showSnackbar("Gagal memicu SOS: ${it.message}")
+                    }
                 }
             },
             onReportIssue = { eventType, severity, message, photoFile ->

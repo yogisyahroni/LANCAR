@@ -153,7 +153,10 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	
 	insuranceEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "package_insurance", false)
 	if insuranceEnabled {
-		priceAfterSurge += 5000 // Mock 5000 IDR insurance
+		// Biaya asuransi dapat dikonfigurasi via delivery_config dengan key "insurance_fee_idr".
+		// Default: 5000 IDR. Admin dapat mengubah via config tanpa deploy ulang.
+		insuranceFee := s.configRepo.GetIntConfig(ctx, "insurance_fee_idr", 5000)
+		priceAfterSurge += int64(insuranceFee)
 	}
 
 	// 7. Apply Platform Fee (Biaya Layanan Operasional)

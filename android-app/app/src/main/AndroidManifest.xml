@@ -164,6 +164,27 @@
             </intent-filter>
         </receiver>
 
+        <!-- GPS Tamper Receiver (SOS Anti-Fraud) -->
+        <receiver
+            android:name=".receiver.GpsTamperReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.location.PROVIDERS_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- UI Lock for GPS Tamper -->
+        <activity
+            android:name=".ui.TamperAlertActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.TEMBUSCourier" />
+
     </application>
 
 </manifest>

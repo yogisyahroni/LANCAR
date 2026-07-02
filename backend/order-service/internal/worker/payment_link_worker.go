@@ -23,8 +23,9 @@ func (w *PaymentLinkWorker) Start(ctx context.Context) {
 	defer cleanupTicker.Stop()
 
 	if w.svc == nil {
-		log.Println("Payment Link worker started without service instance (mock mode)")
-		return
+		log.Fatal("[PaymentLinkWorker] FATAL: PaymentLinkService tidak diinisialisasi. " +
+			"Worker tidak bisa berjalan — link payment tidak akan pernah expire. " +
+			"Periksa dependency injection di main.go.")
 	}
 
 	log.Println("Payment Link worker started")

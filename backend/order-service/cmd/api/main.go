@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -234,6 +233,7 @@ func main() {
 
 	notifRepo := repository.NewPostgresNotificationRepo(sqlx.NewDb(db, "postgres"))
 	trackingRepo := repository.NewPostgresTrackingRepo(sqlx.NewDb(db, "postgres"))
+	sosRepo := repository.NewPostgresSosRepo(sqlx.NewDb(db, "postgres"))
 
 	var datalakePub domain.GPSDatalakePublisher
 	if rabbitmqURL != "" {
@@ -248,6 +248,7 @@ func main() {
 
 	notificationSvc := service.NewNotificationService(notifRepo, tq)
 	trackingSvc := service.NewTrackingService(trackingRepo, pgRepo, pgRepo, eb, datalakePub)
+	sosSvc := service.NewSosService(sosRepo, notificationSvc)
 
 	// Services
 	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo, flagReader, configRepo)
@@ -278,6 +279,7 @@ func main() {
 	relayHandler := handler.NewRelayHandler(relayScoreSvc)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsSvc)
 	paymentLinkHandler := handler.NewPaymentLinkHandler(paymentLinkSvc)
+	sosHandler := handler.NewSosHandler(sosSvc)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB), configRepo)
@@ -349,15 +351,14 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/retry-matching", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.RetryMatching))))
 	mux.HandleFunc("/api/v1/meeting-points/suggest", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.SuggestMeetingPoints)))
 
-	// Mock Chat Endpoint
+	// Mock Chat Endpoint - In-App Chat sedang dalam pengembangan
 	mux.HandleFunc("/api/v1/chat/send", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		chatEnabled, _ := flagReader.IsFeatureFlagEnabled(r.Context(), "in_app_chat", false)
 		if !chatEnabled {
 			middleware.WriteError(w, http.StatusForbidden, "ERR_FEATURE_DISABLED", "Feature In-App Chat is disabled", middleware.GetCorrelationID(r.Context()))
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"status": "success", "message": "Message sent (mock)"})
+		middleware.WriteError(w, http.StatusServiceUnavailable, "FEATURE_COMING_SOON", "Fitur In-App Chat sedang dalam pengembangan.", middleware.GetCorrelationID(r.Context()))
 	})))
 
 	// Courier Workflow Routes
@@ -369,6 +370,13 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/bags/open", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.OpenConsolidationBag)))
 	mux.HandleFunc("/api/v1/orders/bags/detail", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetConsolidationBag)))
 	mux.HandleFunc("/api/v1/orders/scan/auto-detect", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AutoDetectScanType)))
+
+	// SOS Endpoints
+	mux.HandleFunc("/api/v1/couriers/sos/trigger", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.TriggerSOS)))
+	mux.HandleFunc("/api/v1/couriers/sos/accept", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.AcceptSOS)))
+	mux.HandleFunc("/api/v1/couriers/sos/arrive", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.ArriveAtSOS)))
+	mux.HandleFunc("/api/v1/couriers/sos/report", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.SubmitHelperReport)))
+	mux.HandleFunc("/api/v1/couriers/sos/tamper", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.ReportTamper)))
 
 	// Internal Orchestration Routes (Should be IP-whitelisted or internally routed)
 	mux.HandleFunc("/api/v1/internal/orders/matching", orderHandler.InternalStartMatching)
@@ -421,7 +429,9 @@ func main() {
 
 	// Courier Payout Routes
 	mux.HandleFunc("/api/v1/couriers/me/performance", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetCourierPerformance)))
+	// Note: We register both routes to support older clients, but the official one is earnings-ledger
 	mux.HandleFunc("/api/v1/couriers/me/earnings", middleware.BaseChain(middleware.AuthMiddleware(payoutHandler.GetCourierEarnings)))
+	mux.HandleFunc("/api/v1/courier/earnings-ledger", middleware.BaseChain(middleware.AuthMiddleware(payoutHandler.GetCourierEarnings)))
 
 	// Payment Routes
 	mux.HandleFunc("/api/v1/payments/create", middleware.BaseChain(middleware.AuthMiddleware(paymentHandler.CreatePayment)))
@@ -482,6 +492,18 @@ func main() {
 	mux.HandleFunc("/api/v1/admin/analytics/dashboard", middleware.BaseChain(middleware.AuthMiddleware(analyticsHandler.GetDashboardMetrics)))
 	mux.HandleFunc("/api/v1/admin/analytics/reports", middleware.BaseChain(middleware.AuthMiddleware(analyticsHandler.GetReport)))
 	mux.HandleFunc("/api/v1/admin/analytics/refresh", middleware.BaseChain(middleware.AuthMiddleware(analyticsHandler.RefreshData)))
+
+	// Background job for SOS Timeout
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		ctx := context.Background()
+		for range ticker.C {
+			if err := sosSvc.CloseStaleIncidents(ctx); err != nil {
+				log.Printf("Error closing stale SOS incidents: %v", err)
+			}
+		}
+	}()
 
 	// Server
 	port := os.Getenv("ORDER_PORT")

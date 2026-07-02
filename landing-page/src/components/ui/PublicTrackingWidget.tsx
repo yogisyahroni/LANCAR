@@ -61,14 +61,7 @@ export default function PublicTrackingWidget() {
     setData(null);
 
     try {
-      const res = await fetch(`https://api.tembus.com/api/v1/tracking/public?resi=${encodeURIComponent(resi)}`);
-      // Note: In development we might need to point this to the correct local proxy or backend URL.
-      // Assuming Next.js proxy or standard base URL setup. Let's use relative path if we can, but since this is a microservices arch, let's use the local API if needed.
-      // Wait, let's use a relative URL if there is an API gateway, or hardcode local port 8080 for now if no gateway.
-      // I'll check how other parts of landing-page call the backend. But actually, landing page is mostly static. 
-      // Let's use `/api/tracking` and we can set up a rewrite in next.config.mjs.
-      
-      const response = await fetch(`http://localhost:8080/api/v1/tracking/public?resi=${encodeURIComponent(resi)}`);
+      const response = await fetch(`/api/v1/tracking/public?resi=${encodeURIComponent(resi)}`);
       
       if (!response.ok) {
         throw new Error("Nomor resi tidak ditemukan atau terjadi kesalahan server");
@@ -100,13 +93,6 @@ export default function PublicTrackingWidget() {
     }
   };
 
-  // Dummy fallback timeline if no data
-  const fallbackTimeline = [
-    { desc: "Pesanan Dibuat", time: "15 Jun 2026, 08:30" },
-    { desc: "Kurir Pickup", time: "15 Jun 2026, 09:15" },
-    { desc: "Dalam Pengiriman", time: "15 Jun 2026, 10:20" },
-    { desc: "Sampai Tujuan", time: "15 Jun 2026, 11:45" },
-  ];
 
   return (
     <div className="flex-1 lg:flex w-full flex-col md:flex-row gap-8 items-start">
@@ -187,23 +173,11 @@ export default function PublicTrackingWidget() {
             )}
           </div>
         ) : (
-          <div className="space-y-5">
-            {fallbackTimeline.map((item, index) => (
-              <div key={item.desc} className="flex items-start gap-4 opacity-50">
-                <span className="relative flex shrink-0 items-center justify-center mt-0.5">
-                  {index < fallbackTimeline.length - 1 && (
-                    <span className="absolute left-1/2 top-6 bottom-[-20px] w-0 -translate-x-1/2 border-l-2 border-dashed border-[#ffb47d]/40" />
-                  )}
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#ffb47d]/30 bg-[#153423]">
-                    <MapPin className="h-3.5 w-3.5 text-[#ffb47d]" />
-                  </span>
-                </span>
-                <div>
-                  <strong className="block text-[13px] font-bold text-white">{item.desc}</strong>
-                  <span className="text-[11px] text-white/60">{item.time}</span>
-                </div>
-              </div>
-            ))}
+          <div className="flex h-full min-h-[300px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/10 bg-white/5 p-8 text-center">
+            <Package className="h-10 w-10 text-white/20 mb-3" />
+            <p className="text-sm font-medium text-white/40">
+              Masukkan nomor resi untuk melihat status pengiriman.
+            </p>
           </div>
         )}
       </div>

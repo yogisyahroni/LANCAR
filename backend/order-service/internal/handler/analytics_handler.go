@@ -1,17 +1,20 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
+	"time"
 
 	"tembus/order-service/internal/middleware"
+	"tembus/order-service/internal/service"
 )
 
 type AnalyticsHandler struct {
-	service interface{}
+	svc service.AnalyticsService
 }
 
-func NewAnalyticsHandler(svc interface{}) *AnalyticsHandler {
-	return &AnalyticsHandler{service: svc}
+func NewAnalyticsHandler(svc service.AnalyticsService) *AnalyticsHandler {
+	return &AnalyticsHandler{svc: svc}
 }
 
 func (h *AnalyticsHandler) GetDashboardMetrics(w http.ResponseWriter, r *http.Request) {
@@ -20,7 +23,32 @@ func (h *AnalyticsHandler) GetDashboardMetrics(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	middleware.WriteError(w, http.StatusNotImplemented, "TODO_ANALYTICS", "Analytics metrics will be available once the analytics data pipeline is wired.", middleware.GetCorrelationID(r.Context()))
+	zoneID := r.URL.Query().Get("zone_id")
+	startStr := r.URL.Query().Get("start")
+	endStr := r.URL.Query().Get("end")
+
+	now := time.Now()
+	start := now.AddDate(0, 0, -30) // default 30 hari terakhir
+	end := now
+
+	if startStr != "" {
+		if t, err := time.Parse("2006-01-02", startStr); err == nil {
+			start = t
+		}
+	}
+	if endStr != "" {
+		if t, err := time.Parse("2006-01-02", endStr); err == nil {
+			end = t
+		}
+	}
+
+	metrics, err := h.svc.GetDashboardMetrics(r.Context(), start, end, zoneID)
+	if err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_ANALYTICS", err.Error(), middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	middleware.WriteSuccess(w, http.StatusOK, metrics)
 }
 
 func (h *AnalyticsHandler) GetReport(w http.ResponseWriter, r *http.Request) {
@@ -31,11 +59,44 @@ func (h *AnalyticsHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 
 	format := r.URL.Query().Get("format")
 	if format != "" && format != "csv" {
-		middleware.WriteError(w, http.StatusNotImplemented, "TODO_REPORT_FORMAT", "Only CSV reports are implemented; PDF support is not implemented yet.", middleware.GetCorrelationID(r.Context()))
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_UNSUPPORTED_FORMAT", "Hanya format CSV yang didukung saat ini.", middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
-	middleware.WriteError(w, http.StatusNotImplemented, "TODO_REPORT", "Report generation is not wired to the analytics store yet.", middleware.GetCorrelationID(r.Context()))
+	reportType := r.URL.Query().Get("type")
+	if reportType == "" {
+		reportType = "revenue"
+	}
+
+	zoneID := r.URL.Query().Get("zone_id")
+	startStr := r.URL.Query().Get("start")
+	endStr := r.URL.Query().Get("end")
+
+	now := time.Now()
+	start := now.AddDate(0, 0, -30)
+	end := now
+
+	if startStr != "" {
+		if t, err := time.Parse("2006-01-02", startStr); err == nil {
+			start = t
+		}
+	}
+	if endStr != "" {
+		if t, err := time.Parse("2006-01-02", endStr); err == nil {
+			end = t
+		}
+	}
+
+	csvBytes, err := h.svc.GenerateCSVReport(r.Context(), start, end, zoneID, reportType)
+	if err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_REPORT", err.Error(), middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"report.csv\"")
+	w.WriteHeader(http.StatusOK)
+	w.Write(csvBytes)
 }
 
 func (h *AnalyticsHandler) RefreshData(w http.ResponseWriter, r *http.Request) {
@@ -44,5 +105,10 @@ func (h *AnalyticsHandler) RefreshData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	middleware.WriteError(w, http.StatusNotImplemented, "TODO_ANALYTICS_REFRESH", "Analytics refresh is not wired to the analytics data pipeline yet.", middleware.GetCorrelationID(r.Context()))
+	if err := h.svc.RefreshData(r.Context()); err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_REFRESH", err.Error(), middleware.GetCorrelationID(r.Context()))
+		return
+	}
+
+	middleware.WriteSuccess(w, http.StatusOK, json.RawMessage(`{"status":"refreshed"}`))
 }

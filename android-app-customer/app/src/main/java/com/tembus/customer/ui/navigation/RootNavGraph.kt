@@ -365,10 +365,6 @@ fun RootNavGraph(
                 },
                 onCallClick = { id, name ->
                     navController.navigate(Screen.InAppCall.createRoute(id, name, "outgoing"))
-                },
-                onSosClick = {
-                    // S2-CUSTOMER-01: SOS triggers safety event via ViewModel
-                    trackingViewModel.triggerSos(orderId)
                 }
             )
         }

@@ -77,4 +77,6 @@ type WalletService interface {
 	Withdraw(ctx context.Context, userID uuid.UUID, userRole string, req WithdrawRequest) error
 	ProcessPayment(ctx context.Context, userID uuid.UUID, amount float64, orderID string) error
 	Refund(ctx context.Context, userID uuid.UUID, amount float64, orderID string) error
+	DeductFakeSosPenalty(ctx context.Context, victimID uuid.UUID, amount float64, referenceID string) error
+	CreditSosHelperReward(ctx context.Context, helperID uuid.UUID, amount float64, referenceID string) error
 }

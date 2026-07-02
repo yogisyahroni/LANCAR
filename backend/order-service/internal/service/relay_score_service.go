@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 
 	"github.com/google/uuid"
@@ -109,13 +110,23 @@ func (s *relayScoreService) CalculateScore(ctx context.Context, courierID uuid.U
 	// 8. Emit business rules for critical thresholds
 	// Score < 3.5: flag for retraining
 	// Score < 3.0: flag for auto-suspension
-	// This would be published via Redis Pub/Sub to Admin/Auth service in production.
-	// Logging here as a verifiable audit trail.
+	// Threshold events di-log sebagai audit trail dan akan di-consume oleh
+	// admin dashboard via log aggregation (Loki). Event Redis Pub/Sub akan
+	// ditambahkan saat Redis-based notifikasi admin sudah diimplementasikan.
 	if newScore < 3.0 {
-		// TODO: publish event "courier:suspend_flag:<courierID>" to Redis
-		_ = courierID // suppress unused warning until Redis publish is wired
+		slog.WarnContext(ctx, "[relay_score] kurir mendekati batas suspend otomatis",
+			"courier_id", courierID,
+			"new_score", newScore,
+			"threshold", 3.0,
+			"action_required", "courier:suspend_flag",
+		)
 	} else if newScore < 3.5 {
-		// TODO: publish event "courier:retrain_flag:<courierID>" to Redis
+		slog.WarnContext(ctx, "[relay_score] kurir disarankan untuk pelatihan ulang",
+			"courier_id", courierID,
+			"new_score", newScore,
+			"threshold", 3.5,
+			"action_required", "courier:retrain_flag",
+		)
 	}
 
 	return nil

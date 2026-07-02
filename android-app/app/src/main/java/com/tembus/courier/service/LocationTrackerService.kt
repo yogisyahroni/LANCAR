@@ -119,6 +119,9 @@ class LocationTrackerService : Service() {
 
         // Start tracking if courier is logged in AND online
         checkAndStartTracking()
+        
+        // Start Tamper Watchdog
+        startTamperWatchdog()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -163,6 +166,44 @@ class LocationTrackerService : Service() {
         MAIN_THREAD.launch {
             authSessionManager.setOnlineStatus(false)
             debugLog("Courier duty status set to OFFLINE via notification action")
+        }
+    }
+
+    /**
+     * Start the Tamper Watchdog which runs as long as the service is alive.
+     * It actively monitors Location Permissions and GPS Provider if SOS is active.
+     */
+    private fun startTamperWatchdog() {
+        MAIN_THREAD.launch {
+            while (isActive) {
+                val prefs = getSharedPreferences("sos_prefs", Context.MODE_PRIVATE)
+                val isSosActive = prefs.getBoolean("is_sos_active", false)
+                
+                if (isSosActive) {
+                    val locationManager = getSystemService(Context.LOCATION_SERVICE) as android.location.LocationManager
+                    val isGpsEnabled = locationManager.isProviderEnabled(android.location.LocationManager.GPS_PROVIDER)
+                    val isNetworkEnabled = locationManager.isProviderEnabled(android.location.LocationManager.NETWORK_PROVIDER)
+
+                    val hasFineLocation = androidx.core.content.ContextCompat.checkSelfPermission(
+                        this@LocationTrackerService,
+                        android.Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                    val hasCoarseLocation = androidx.core.content.ContextCompat.checkSelfPermission(
+                        this@LocationTrackerService,
+                        android.Manifest.permission.ACCESS_COARSE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+                    
+                    if (!(isGpsEnabled || isNetworkEnabled) || !(hasFineLocation || hasCoarseLocation)) {
+                        Log.e(TAG, "TAMPER WATCHDOG TRIGGERED: Missing GPS or Permissions while SOS is active.")
+                        val tamperIntent = Intent(this@LocationTrackerService, com.tembus.courier.ui.TamperAlertActivity::class.java).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        }
+                        startActivity(tamperIntent)
+                    }
+                }
+                delay(3000) // check every 3 seconds
+            }
         }
     }
 

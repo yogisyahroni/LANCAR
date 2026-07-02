@@ -460,11 +460,13 @@ func (s *GoogleAuthService) SendCustomerOTP(ctx context.Context, req *domain.Cus
 		return nil, fmt.Errorf("failed to generate OTP: %w", err)
 	}
 
-	// DEV MODE: Log OTP to console so developer can test the flow even if SMS provider fails
-	log.Printf("==============================================")
-	log.Printf("📱 [MOCK OTP] OTP CODE FOR %s: %s", phone, code)
-	log.Printf("==============================================")
-
+	// DEV MODE: Hanya tampilkan OTP di log jika DEBUG_OTP=true.
+	// JANGAN aktifkan di production — OTP bisa terbaca di log aggregation (Loki/Datadog).
+	if os.Getenv("DEBUG_OTP") == "true" {
+		log.Printf("==============================================")
+		log.Printf("📱 [DEBUG OTP] OTP CODE FOR %s: %s", phone, code)
+		log.Printf("==============================================")
+	}
 	// Hash the code before storing
 	codeHash, err := HashOTPCode(code)
 	if err != nil {

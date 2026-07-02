@@ -155,6 +155,10 @@ func main() {
 	mux.HandleFunc("/api/v1/wallet/refund", middleware.BaseChain(h.Refund))
 	mux.HandleFunc("/api/internal/wallet/refund", middleware.BaseChain(h.Refund))
 
+	// Internal SOS wallet handlers
+	mux.HandleFunc("/api/internal/wallet/sos-penalty", middleware.BaseChain(h.SosPenalty))
+	mux.HandleFunc("/api/internal/wallet/sos-reward", middleware.BaseChain(h.SosReward))
+
 	// Health Check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

@@ -24,6 +24,8 @@ import com.tembus.courier.data.model.OrderStatusTransition
 import com.tembus.courier.data.model.StatusUpdateRequest
 import com.tembus.courier.data.model.TripShareRequest
 import com.tembus.courier.data.model.CancelPickupReason
+import com.tembus.courier.data.model.SosTriggerRequest
+import com.tembus.courier.data.model.SosTriggerResponse
 import com.tembus.courier.data.model.SecurityLogRequest
 import com.tembus.courier.data.repository.OrderRepository
 import com.tembus.courier.data.config.RemoteConfigManager
@@ -545,6 +547,30 @@ class OrderViewModel @Inject constructor(
                 }
             } catch (_: Exception) {
             }
+        }
+    }
+    suspend fun triggerSos(
+        latitude: Double,
+        longitude: Double
+    ): Result<SosTriggerResponse> {
+        return try {
+            val request = SosTriggerRequest(latitude, longitude)
+            val response = apiService.triggerSos(request)
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.data != null) {
+                Result.success(body.data)
+            } else {
+                Result.failure(
+                    Exception(
+                        response.errorMessage(
+                            serverMessage = body?.message,
+                            fallback = "Gagal memicu SOS ke pusat."
+                        )
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 

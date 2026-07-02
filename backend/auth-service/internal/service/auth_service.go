@@ -991,8 +991,9 @@ func (s *AuthService) VerifyCourier(ctx context.Context, userID string) error {
 	}
 
 	// Create Audit Log
+	actorID := getActorIDFromContext(ctx)
 	_ = s.auditRepo.CreateAuditLog(ctx, &domain.AuditLog{
-		ActorID:  "admin", // TODO: Get from context
+		ActorID:  actorID,
 		Action:   "verify_courier",
 		TargetID: userID,
 		Payload:  "{}",
@@ -1017,8 +1018,9 @@ func (s *AuthService) SuspendCourier(ctx context.Context, userID string) error {
 	_ = s.userRepo.Update(ctx, &domain.User{ID: userID, Status: domain.StatusSuspended})
 
 	// Create Audit Log
+	actorID := getActorIDFromContext(ctx)
 	_ = s.auditRepo.CreateAuditLog(ctx, &domain.AuditLog{
-		ActorID:  "admin", // TODO: Get from context
+		ActorID:  actorID,
 		Action:   "suspend_courier",
 		TargetID: userID,
 		Payload:  "{}",
@@ -1039,8 +1041,9 @@ func (s *AuthService) AssignCourierZone(ctx context.Context, userID string, zone
 	}
 
 	// Create Audit Log
+	actorID := getActorIDFromContext(ctx)
 	_ = s.auditRepo.CreateAuditLog(ctx, &domain.AuditLog{
-		ActorID:  "admin", // TODO: Get from context
+		ActorID:  actorID,
 		Action:   "assign_courier_zone",
 		TargetID: userID,
 		Payload:  fmt.Sprintf(`{"zone_id": "%s"}`, zoneID),
@@ -1258,4 +1261,17 @@ func (s *AuthService) LogLocalSecurityEvent(ctx context.Context, userID string, 
 	}
 
 	return s.courierRepo.LogLocalSecurityEvent(ctx, log)
+}
+
+// getActorIDFromContext membaca user ID dari JWT context yang di-set oleh AuthMiddleware.
+// Digunakan di audit log agar actorID mencerminkan admin yang benar-benar melakukan aksi,
+// bukan hardcoded "admin".
+// Fallback ke "system" jika context tidak mengandung user ID (misal: background job).
+func getActorIDFromContext(ctx context.Context) string {
+	type contextKey string
+	const userIDKey contextKey = "user_id"
+	if v, ok := ctx.Value(userIDKey).(string); ok && v != "" {
+		return v
+	}
+	return "system"
 }

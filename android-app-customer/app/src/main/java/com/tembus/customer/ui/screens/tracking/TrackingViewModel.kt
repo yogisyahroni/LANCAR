@@ -180,9 +180,6 @@ class TrackingViewModel @Inject constructor(
         stopTracking()
     }
 
-    fun triggerSos(orderId: String) {
-        // TODO: Implement SOS trigger
-    }
 
     fun retrySearch(orderId: String) {
         viewModelScope.launch {

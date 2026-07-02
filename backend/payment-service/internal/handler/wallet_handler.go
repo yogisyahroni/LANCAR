@@ -184,6 +184,56 @@ func (h *WalletHandler) Refund(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, map[string]string{"message": "Refund successful"}, http.StatusOK)
 }
 
+func (h *WalletHandler) SosPenalty(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		VictimID    uuid.UUID `json:"victim_id"`
+		Amount      float64   `json:"amount"`
+		ReferenceID string    `json:"reference_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Amount <= 0 {
+		h.respondError(w, "Amount must be positive", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.DeductFakeSosPenalty(r.Context(), req.VictimID, req.Amount, req.ReferenceID)
+	if err != nil {
+		h.respondError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.respondJSON(w, map[string]string{"message": "Penalty deducted"}, http.StatusOK)
+}
+
+func (h *WalletHandler) SosReward(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		HelperID    uuid.UUID `json:"helper_id"`
+		Amount      float64   `json:"amount"`
+		ReferenceID string    `json:"reference_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Amount <= 0 {
+		h.respondError(w, "Amount must be positive", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.CreditSosHelperReward(r.Context(), req.HelperID, req.Amount, req.ReferenceID)
+	if err != nil {
+		h.respondError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.respondJSON(w, map[string]string{"message": "Reward credited"}, http.StatusOK)
+}
+
 func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 	// ─── ZERO TRUST: Identity Verification ───────────────────────────────────────
 	userID, correlationID, ok := h.parseUserID(w, r)

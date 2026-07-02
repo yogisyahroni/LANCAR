@@ -118,6 +118,24 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
                 val body = data["body"] ?: "Ketuk untuk membalas pesan customer."
                 showNotification(title, body, data)
             }
+            "sos_emergency_dispatch" -> {
+                val title = data["title"] ?: "⚠️ PANGGILAN DARURAT (SOS)"
+                val body = data["body"] ?: "Rekan Anda membutuhkan bantuan! Ketuk untuk menerima."
+                showNotification(title, body, data)
+            }
+            "sos_resolved" -> {
+                val title = data["title"] ?: "🚨 SOS Selesai"
+                val body = data["body"] ?: "Insiden SOS telah ditutup. Sistem peringatan dinormalkan kembali."
+                
+                // CLEAR the local SOS flag so Tamper checks are disabled
+                val prefs = applicationContext.getSharedPreferences("sos_prefs", Context.MODE_PRIVATE)
+                prefs.edit()
+                    .putBoolean("is_sos_active", false)
+                    .remove("active_incident_id")
+                    .apply()
+                    
+                showNotification(title, body, data)
+            }
             else -> {
                 val title = data["title"] ?: "TEMBUS Update"
                 val body = data["body"] ?: ""
@@ -224,7 +242,7 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
 
         // 🔔 DYNAMIC SYSTEM BEHAVIOR MAPPING
-        if (type == "order_assignment" || type == "on_demand_offer") {
+        if (type == "order_assignment" || type == "on_demand_offer" || type == "sos_emergency_dispatch") {
             val fullScreenPendingIntent = PendingIntent.getActivity(
                 applicationContext,
                 System.currentTimeMillis().toInt(),

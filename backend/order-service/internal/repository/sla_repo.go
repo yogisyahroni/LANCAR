@@ -70,24 +70,49 @@ func (r *PostgresSLARepo) SaveSLALog(ctx context.Context, log *domain.SLALog) er
 }
 
 func (r *PostgresSLARepo) GetComplianceRate(ctx context.Context, zoneID string, date string) (float64, error) {
-	// Mock implementation for dashboard
-	// Real implementation would calculate: 1.0 - (breaches / total_completed_legs)
-	query := `
-		SELECT 
-			COALESCE(
-				1.0 - (
-					CAST(COUNT(DISTINCT s.leg_id) AS FLOAT) / 
-					NULLIF(COUNT(DISTINCT ol.id), 0)
-				), 
-				1.0
-			) as compliance_rate
-		FROM order_legs ol
-		LEFT JOIN sla_logs s ON ol.id = s.leg_id
-		-- In real app, we would join with orders to filter by zoneID and date
-		WHERE DATE(ol.created_at) = $1
-	`
-	var rate float64
-	err := r.replicaDB.GetContext(ctx, &rate, query, date)
+	// Hitung compliance rate: 1.0 - (total breach legs / total completed legs)
+	// Filter per zone_id (dari tabel orders) dan tanggal (dari created_at order_leg).
+	// Jika zoneID kosong, hitung global (semua zona).
+	var (
+		query string
+		rate  float64
+		err   error
+	)
+
+	if zoneID != "" {
+		query = `
+			SELECT 
+				COALESCE(
+					1.0 - (
+						CAST(COUNT(DISTINCT s.leg_id) AS FLOAT) / 
+						NULLIF(COUNT(DISTINCT ol.id), 0)
+					), 
+					1.0
+				) as compliance_rate
+			FROM order_legs ol
+			JOIN orders o ON ol.order_id = o.id
+			LEFT JOIN sla_logs s ON ol.id = s.leg_id AND s.status = 'breached'
+			WHERE DATE(ol.created_at) = $1
+			  AND o.zone_id = $2
+		`
+		err = r.replicaDB.GetContext(ctx, &rate, query, date, zoneID)
+	} else {
+		query = `
+			SELECT 
+				COALESCE(
+					1.0 - (
+						CAST(COUNT(DISTINCT s.leg_id) AS FLOAT) / 
+						NULLIF(COUNT(DISTINCT ol.id), 0)
+					), 
+					1.0
+				) as compliance_rate
+			FROM order_legs ol
+			LEFT JOIN sla_logs s ON ol.id = s.leg_id AND s.status = 'breached'
+			WHERE DATE(ol.created_at) = $1
+		`
+		err = r.replicaDB.GetContext(ctx, &rate, query, date)
+	}
+
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 1.0, nil
