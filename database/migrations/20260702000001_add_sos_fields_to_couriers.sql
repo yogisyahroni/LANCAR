@@ -4,8 +4,7 @@ ALTER TABLE courier_profiles
 ADD COLUMN priority_multiplier_until TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 
 -- Create an index to quickly find couriers with active priority multipliers
-CREATE INDEX IF NOT EXISTS idx_courier_profiles_priority_until ON courier_profiles (priority_multiplier_until)
-WHERE priority_multiplier_until > NOW();
+CREATE INDEX IF NOT EXISTS idx_courier_profiles_priority_until ON courier_profiles (priority_multiplier_until);
 
 -- Create table to record SOS incidents
 CREATE TABLE IF NOT EXISTS courier_sos_incidents (
