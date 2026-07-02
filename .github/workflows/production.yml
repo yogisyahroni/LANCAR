@@ -670,6 +670,11 @@ jobs:
   #   R2_SECRET_ACCESS_KEY → dari Cloudflare R2 (bisa dikosongkan dulu)
   #   R2_ENDPOINT          → dari Cloudflare R2 (bisa dikosongkan dulu)
   #
+  #   TELEGRAM_BOT_TOKEN   → Token bot Telegram untuk notifikasi
+  #   TELEGRAM_CHAT_ID     → ID Grup/User Telegram untuk menerima notifikasi
+  #   CLOUDFLARE_ZONE_ID   → ID Zone Cloudflare (untuk purge cache)
+  #   CLOUDFLARE_API_TOKEN → API Token Cloudflare (berhak Purge Cache)
+  #
   # GitHub Environment "production" WAJIB dikonfigurasi dengan:
   #   Required reviewers → sehingga deployment hanya terjadi setelah
   #   ada yang menyetujui secara manual.
@@ -761,6 +766,9 @@ jobs:
           sed -i "s|^R2_SECRET_ACCESS_KEY=.*|R2_SECRET_ACCESS_KEY=\"${SECRET_R2_SECRET}\"|" .env
           sed -i "s|^R2_ENDPOINT=.*|R2_ENDPOINT=\"${SECRET_R2_ENDPOINT}\"|" .env
 
+          echo "📋 Step 3.5: Auto-Backup Database..."
+          docker run --rm postgres:15-alpine pg_dump "\${SECRET_DB_URL}" > "/tmp/lancar_prod_backup_\$(date +%Y%m%d%H%M%S).sql" || echo "⚠️ Backup failed, but continuing..."
+
           echo "📋 Step 4: Starting Traefik (if not running)..."
           docker-compose up -d traefik
 
@@ -780,6 +788,20 @@ jobs:
             # Wait for the new container to become healthy
             echo "  ⏳ Waiting 30s for \${svc} healthcheck to pass..."
             sleep 30
+            
+            # Auto-Rollback check
+            NEW_CONTAINER=\$(docker-compose ps -q \${svc} | grep -v "^\${OLD_CONTAINER}\$" | head -n 1 || true)
+            if [ -n "\${NEW_CONTAINER}" ]; then
+              IS_HEALTHY=\$(docker inspect --format='{{json .State.Health.Status}}' \${NEW_CONTAINER} 2>/dev/null || echo '"healthy"')
+              if [ "\${IS_HEALTHY}" == '"unhealthy"' ]; then
+                 echo "  🚨 CRITICAL: \${svc} is unhealthy! Initiating Auto-Rollback..."
+                 docker stop \${NEW_CONTAINER} || true
+                 docker rm \${NEW_CONTAINER} || true
+                 docker-compose up -d --no-deps --scale \${svc}=1 --no-recreate \${svc} || true
+                 echo "❌ Deployment failed for \${svc}. Rollback applied."
+                 exit 1
+              fi
+            fi
             
             # Stop and remove the old container
             if [ -n "\${OLD_CONTAINER}" ]; then
@@ -801,6 +823,22 @@ jobs:
 
           echo "🎉 Deployment complete! SHA: ${SHA}"
           EOF
+
+      - name: Invalidate CDN Cache (Cloudflare)
+        if: success() && steps.check_secrets.outputs.has_ssh == 'true'
+        env:
+          CF_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "${CF_ZONE_ID}" ] && [ -n "${CF_TOKEN}" ]; then
+            echo "🧹 Purging Cloudflare CDN Cache..."
+            curl -X POST "https://api.cloudflare.com/client/v4/zones/${CF_ZONE_ID}/purge_cache" \
+                 -H "Authorization: Bearer ${CF_TOKEN}" \
+                 -H "Content-Type: application/json" \
+                 --data '{"purge_everything":true}'
+          else
+            echo "⏭️ Cloudflare secrets not set. Skipping cache invalidation."
+          fi
 
   # ═══════════════════════════════════════════════════════════
   # PHASE 6: E2E SMOKE TEST (post-deploy validation)
@@ -874,3 +912,41 @@ jobs:
             SHA: `${{ github.sha }}`
             Lihat report: [Playwright Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
             ⚠️ Pertimbangkan untuk rollback jika ada fitur kritis yang rusak.
+
+  # ═══════════════════════════════════════════════════════════
+  # PHASE 7: NOTIFICATION (Telegram)
+  # ═══════════════════════════════════════════════════════════
+
+  notify:
+    name: Notification
+    needs: [deploy, e2e-smoke-test]
+    runs-on: ubuntu-latest
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Send Telegram Notification
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "⏭️ Telegram credentials not set, skipping notification."
+            exit 0
+          fi
+
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            STATUS="✅ *SUCCESS*"
+            MESSAGE="🚀 Rilis baru berhasil di-deploy ke Production tanpa down-time!\n\nSHA: \`${{ github.sha }}\`"
+          else
+            STATUS="🚨 *FAILED*"
+            MESSAGE="⚠️ Deploy ke Production gagal, Auto-Rollback dijalankan jika gagal di tahap kontainer!\n\nMohon periksa log di GitHub Actions.\nSHA: \`${{ github.sha }}\`"
+          fi
+
+          if [ "${{ needs.e2e-smoke-test.result }}" == "failure" ]; then
+             STATUS="⚠️ *E2E TEST FAILED*"
+             MESSAGE="✅ Deploy sukses, namun E2E Smoke Test gagal di Production. Mohon cek fungsionalitas."
+          fi
+
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+               -d chat_id="${TELEGRAM_CHAT_ID}" \
+               -d text="*LANCAR Production Deployment* - ${STATUS}%0A%0A${MESSAGE}" \
+               -d parse_mode="Markdown"

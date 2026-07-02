@@ -620,16 +620,111 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Deploy Placeholder
+      - name: Check required secrets
+        id: check_secrets
         run: |
-          echo "🚀 Deploying to Staging Server..."
-          echo "  Auth:    ghcr.io/${GITHUB_REPOSITORY,,}/auth-service:staging-${GITHUB_SHA}"
-          echo "  Admin:   ghcr.io/${GITHUB_REPOSITORY,,}/admin-service:staging-${GITHUB_SHA}"
-          echo "  Routing: ghcr.io/${GITHUB_REPOSITORY,,}/routing-service:staging-${GITHUB_SHA}"
-          echo "  Frontend: ghcr.io/${GITHUB_REPOSITORY,,}/frontend:staging-${GITHUB_SHA}"
-          echo "  Admin UI: ghcr.io/${GITHUB_REPOSITORY,,}/admin-dashboard:staging-${GITHUB_SHA}"
-          echo ""
-          echo "⏳ When server is ready: replace this with SSH deploy or docker-compose pull + up"
+          if [ -z "${{ secrets.STAGING_SSH_HOST }}" ]; then
+            echo "⚠️  STAGING_SSH_HOST belum di-set. Deploy di-skip."
+            echo "   Tambahkan di: Settings → Secrets and Variables → Actions"
+            echo "has_ssh=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ SSH secrets configured. Proceeding with deploy."
+            echo "has_ssh=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Write SSH private key
+        if: steps.check_secrets.outputs.has_ssh == 'true'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p ${{ secrets.STAGING_SSH_PORT || '22' }} ${{ secrets.STAGING_SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy via SSH
+        if: steps.check_secrets.outputs.has_ssh == 'true'
+        env:
+          REPO_LOWER: ${{ github.repository }}
+          SHA: staging-${{ github.sha }}
+          STAGING_APP_DIR: ${{ secrets.STAGING_APP_DIR || '/opt/lancar-staging' }}
+          STAGING_SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          STAGING_SSH_USER: ${{ secrets.STAGING_SSH_USER || 'root' }}
+          STAGING_SSH_PORT: ${{ secrets.STAGING_SSH_PORT || '22' }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO_LOWER_LC="${REPO_LOWER,,}"
+
+          ssh -i ~/.ssh/id_rsa -p "${STAGING_SSH_PORT}" "${STAGING_SSH_USER}@${STAGING_SSH_HOST}" bash -s << EOF
+          set -euo pipefail
+          cd "${STAGING_APP_DIR}"
+
+          echo "📋 Step 1: Log in to GHCR..."
+          echo "${GHCR_TOKEN}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+          echo "📋 Step 2: Pull new images..."
+          docker pull ghcr.io/${REPO_LOWER_LC}/auth-service:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/routing-service:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/admin-service:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/order-service:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/datalake-worker:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/payment-service:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/api-gateway:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/frontend:${SHA}
+          docker pull ghcr.io/${REPO_LOWER_LC}/admin-dashboard:${SHA}
+
+          echo "📋 Step 3: Starting Traefik (if not running)..."
+          docker-compose up -d traefik
+
+          echo "📋 Step 4: Rolling update services (Zero Downtime)..."
+          export CURRENT_SHA="${SHA}"
+          export REPO="${REPO_LOWER_LC}"
+
+          for svc in auth-service routing-service admin-service order-service datalake-worker payment-service api-gateway frontend admin-dashboard; do
+            echo "  ↻ Rolling update for \${svc}..."
+            
+            # Find the old container ID
+            OLD_CONTAINER=\$(docker-compose ps -q \${svc} | head -n 1 || true)
+            
+            # Scale up to 2 instances to create the new container alongside the old one
+            docker-compose up -d --no-deps --scale \${svc}=2 --no-recreate \${svc} || true
+            
+            # Wait for the new container to become healthy
+            echo "  ⏳ Waiting 30s for \${svc} healthcheck to pass..."
+            sleep 30
+            
+            # Auto-Rollback check
+            NEW_CONTAINER=\$(docker-compose ps -q \${svc} | grep -v "^\${OLD_CONTAINER}\$" | head -n 1 || true)
+            if [ -n "\${NEW_CONTAINER}" ]; then
+              IS_HEALTHY=\$(docker inspect --format='{{json .State.Health.Status}}' \${NEW_CONTAINER} 2>/dev/null || echo '"healthy"')
+              if [ "\${IS_HEALTHY}" == '"unhealthy"' ]; then
+                 echo "  🚨 CRITICAL: \${svc} is unhealthy! Initiating Auto-Rollback..."
+                 docker stop \${NEW_CONTAINER} || true
+                 docker rm \${NEW_CONTAINER} || true
+                 docker-compose up -d --no-deps --scale \${svc}=1 --no-recreate \${svc} || true
+                 echo "❌ Deployment failed for \${svc}. Rollback applied."
+                 exit 1
+              fi
+            fi
+            
+            # Stop and remove the old container
+            if [ -n "\${OLD_CONTAINER}" ]; then
+              echo "  ⏹️ Stopping old \${svc} container (\${OLD_CONTAINER})..."
+              docker stop \${OLD_CONTAINER} || true
+              docker rm \${OLD_CONTAINER} || true
+            fi
+            
+            # Reconcile compose state back to 1 instance
+            docker-compose up -d --no-deps --scale \${svc}=1 --no-recreate \${svc} || true
+          done
+
+          echo "📋 Step 5: Health check (Traefik Gateway)..."
+          sleep 5
+          curl -sf http://localhost:8080/health && echo "✅ API Gateway healthy" || echo "⚠️ Health check failed — check logs"
+
+          echo "📋 Step 6: Cleanup old images..."
+          docker image prune -f --filter "until=24h" || true
+
+          echo "🎉 Staging deployment complete!"
+          EOF
 
   e2e-browser-validation:
     name: E2E Browser Validation
@@ -698,3 +793,41 @@ jobs:
           message: |
             ❌ **E2E Test Failed** - ada error di browser staging.
             Lihat report: [Playwright Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+  # ═══════════════════════════════════════════════════════════
+  # PHASE 6: NOTIFICATION (Telegram)
+  # ═══════════════════════════════════════════════════════════
+
+  notify:
+    name: Notification
+    needs: [deploy, e2e-browser-validation]
+    runs-on: ubuntu-latest
+    if: always() && github.ref == 'refs/heads/staging'
+    steps:
+      - name: Send Telegram Notification
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN}" ] || [ -z "${TELEGRAM_CHAT_ID}" ]; then
+            echo "⏭️ Telegram credentials not set, skipping notification."
+            exit 0
+          fi
+
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            STATUS="✅ *SUCCESS*"
+            MESSAGE="🚀 Update terbaru telah di-deploy ke *Staging*.\n\nSHA: \`${{ github.sha }}\`"
+          else
+            STATUS="🚨 *FAILED*"
+            MESSAGE="⚠️ Deploy ke Staging gagal atau tertunda.\n\nMohon periksa log di GitHub Actions.\nSHA: \`${{ github.sha }}\`"
+          fi
+
+          if [ "${{ needs.e2e-browser-validation.result }}" == "failure" ]; then
+             STATUS="⚠️ *E2E TEST FAILED*"
+             MESSAGE="✅ Deploy sukses, namun E2E Test gagal di Staging. Mohon cek fungsionalitas."
+          fi
+
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+               -d chat_id="${TELEGRAM_CHAT_ID}" \
+               -d text="*LANCAR Staging Deployment* - ${STATUS}%0A%0A${MESSAGE}" \
+               -d parse_mode="Markdown"
