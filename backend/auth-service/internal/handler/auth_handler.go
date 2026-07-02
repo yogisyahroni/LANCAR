@@ -218,7 +218,7 @@ func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r
 	h.recordAuthSuccess(r, middleware.ScopeCustomerRegistration, normalizedEmail)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(res)
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 func NewAuthHandler(svc *service.AuthService, abuse ...*middleware.AuthAbuseProtector) *AuthHandler {
@@ -263,7 +263,7 @@ func (h *AuthHandler) RequestOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "OTP sent successfully"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "OTP sent successfully"})
 }
 
 // VerifyOTP godoc
@@ -305,7 +305,7 @@ func (h *AuthHandler) VerifyOTP(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(res)
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 // RefreshToken godoc
@@ -335,7 +335,7 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(res)
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 // Logout godoc
@@ -363,7 +363,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Logged out successfully"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Logged out successfully"})
 }
 
 // Register godoc
@@ -401,7 +401,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Profile updated successfully"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Profile updated successfully"})
 }
 
 func (h *AuthHandler) SetPIN(w http.ResponseWriter, r *http.Request) {
@@ -431,7 +431,7 @@ func (h *AuthHandler) SetPIN(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "PIN set successfully"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "PIN set successfully"})
 }
 
 func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
@@ -449,7 +449,7 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
 }
 
 func (h *AuthHandler) UpdatePhoto(w http.ResponseWriter, r *http.Request) {
@@ -486,7 +486,7 @@ func (h *AuthHandler) UpdatePhoto(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"message":   "Photo updated successfully",
 		"photo_url": url,
 	})
@@ -510,7 +510,7 @@ func (h *AuthHandler) UpdateUserRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "User role updated successfully"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "User role updated successfully"})
 }
 
 // RegisterCourier godoc
@@ -546,7 +546,7 @@ func (h *AuthHandler) RegisterCourier(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Courier profile created successfully"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Courier profile created successfully"})
 }
 
 // UploadCourierDocument godoc
@@ -600,7 +600,7 @@ func (h *AuthHandler) UploadCourierDocument(w http.ResponseWriter, r *http.Reque
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"message":      "Document uploaded successfully",
 		"document_url": url,
 	})
@@ -615,7 +615,7 @@ func (h *AuthHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(logs)
+	_ = json.NewEncoder(w).Encode(logs)
 }
 
 func (h *AuthHandler) GetCourierProfile(w http.ResponseWriter, r *http.Request) {
@@ -632,7 +632,7 @@ func (h *AuthHandler) GetCourierProfile(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(profile)
+	_ = json.NewEncoder(w).Encode(profile)
 }
 
 func (h *AuthHandler) ListCouriers(w http.ResponseWriter, r *http.Request) {
@@ -643,7 +643,7 @@ func (h *AuthHandler) ListCouriers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(profiles)
+	_ = json.NewEncoder(w).Encode(profiles)
 }
 
 func (h *AuthHandler) VerifyCourier(w http.ResponseWriter, r *http.Request) {
@@ -662,7 +662,7 @@ func (h *AuthHandler) VerifyCourier(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Courier verified successfully"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Courier verified successfully"})
 }
 
 func (h *AuthHandler) SuspendCourier(w http.ResponseWriter, r *http.Request) {
@@ -681,7 +681,7 @@ func (h *AuthHandler) SuspendCourier(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Courier suspended successfully"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Courier suspended successfully"})
 }
 
 func (h *AuthHandler) AssignCourierZone(w http.ResponseWriter, r *http.Request) {
@@ -701,7 +701,7 @@ func (h *AuthHandler) AssignCourierZone(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Zone assigned successfully"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Zone assigned successfully"})
 }
 
 func (h *AuthHandler) Setup2FA(w http.ResponseWriter, r *http.Request) {
@@ -718,7 +718,7 @@ func (h *AuthHandler) Setup2FA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"secret": secret,
 		"qr_url": qrURL,
 	})
@@ -746,7 +746,7 @@ func (h *AuthHandler) Verify2FA(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "2FA verified successfully"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "2FA verified successfully"})
 }
 
 func (h *AuthHandler) Complete2FALogin(w http.ResponseWriter, r *http.Request) {
@@ -775,7 +775,7 @@ func (h *AuthHandler) Complete2FALogin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(res)
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 func (h *AuthHandler) CreateAdminUser(w http.ResponseWriter, r *http.Request) {
@@ -803,7 +803,7 @@ func (h *AuthHandler) CreateAdminUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
+	_ = json.NewEncoder(w).Encode(user)
 }
 
 // VerifyLiveness godoc
@@ -839,12 +839,12 @@ func (h *AuthHandler) VerifyLiveness(w http.ResponseWriter, r *http.Request) {
 
 	if !success {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		json.NewEncoder(w).Encode(map[string]string{"message": "Liveness verification failed. Please try again."})
+		_ = json.NewEncoder(w).Encode(map[string]string{"message": "Liveness verification failed. Please try again."})
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Liveness verification successful"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Liveness verification successful"})
 }
 
 // HandleAdminSetCourierProfilePhoto handles admin requests to set and lock a courier's profile photo
@@ -915,7 +915,7 @@ func (h *AuthHandler) HandleAdminSetCourierProfilePhoto(w http.ResponseWriter, r
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"message":   "Profile photo updated successfully and locked.",
 		"photo_url": photoURL,
 	})
@@ -960,5 +960,5 @@ func (h *AuthHandler) LogLocalSecurity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"message": "Local security event logged successfully"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Local security event logged successfully"})
 }
