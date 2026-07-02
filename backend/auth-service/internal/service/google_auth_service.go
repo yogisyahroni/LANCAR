@@ -551,7 +551,7 @@ func (s *GoogleAuthService) SendCustomerOTP(ctx context.Context, req *domain.Cus
 		_ = s.repo.RecordOTPDelivery(ctx, delivery)
 
 		// Fallback: if WhatsApp failed, try SMS
-		if sendErr != nil && channel == domain.OTPChannelWhatsApp && result.Retryable == false {
+		if sendErr != nil && channel == domain.OTPChannelWhatsApp && !result.Retryable {
 			span.SetAttributes(attribute.Bool("auth.channel.fallback", true))
 			smsReq := sendReq
 			smsReq.Channel = domain.OTPChannelSMS

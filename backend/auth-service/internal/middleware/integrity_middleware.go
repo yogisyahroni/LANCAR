@@ -30,25 +30,3 @@ func DeviceIntegrityMiddleware(auditRepo domain.AuditRepository, next http.Handl
 		next.ServeHTTP(w, r)
 	}
 }
-
-// recordIntegrityViolation logs a device integrity violation to the audit table.
-// Kept for future use when real Play Integrity API verification is implemented.
-func recordIntegrityViolation(repo domain.AuditRepository, r *http.Request, violationType string) {
-	if repo == nil {
-		return
-	}
-
-	actorID := "ANONYMOUS_DRIVER"
-
-	audit := &domain.AuditLog{
-		ActorID:   actorID,
-		Action:    "DEVICE_INTEGRITY_VIOLATION",
-		TargetID:  r.RemoteAddr,
-		Payload:   fmt.Sprintf(`{"type":"%s","path":"%s","user_agent":"%s"}`, violationType, r.URL.Path, r.UserAgent()),
-		CreatedAt: time.Now(),
-	}
-
-	if err := repo.CreateAuditLog(context.Background(), audit); err != nil {
-		log.Printf("[ERROR] Failed to save integrity violation audit log: %v", err)
-	}
-}

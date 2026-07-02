@@ -41,7 +41,9 @@ func (s *S3Storage) Save(ctx context.Context, filename string, content io.Reader
 	}
 	newFilename := uuid.New().String() + ext
 
+	//nolint:staticcheck // Ignore SA1019 deprecation notice for now
 	uploader := manager.NewUploader(s.client)
+	//nolint:staticcheck // Ignore SA1019 deprecation notice for now
 	_, err := uploader.Upload(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(newFilename),

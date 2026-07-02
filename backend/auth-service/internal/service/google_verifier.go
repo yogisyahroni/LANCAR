@@ -17,26 +17,6 @@ import (
 // Google ID Token Verifier
 // ─────────────────────────────────────────────
 
-// googleJWKSCache is the cached Google public key set.
-type googleJWKSCache struct {
-	keys      []googleJWK
-	fetchedAt time.Time
-	mu        sync.RWMutex
-}
-
-// googleJWK represents a single JSON Web Key from Google's JWKS endpoint.
-type googleJWK struct {
-	Kid string `json:"kid"`
-	N   string `json:"n"`
-	E   string `json:"e"`
-	Alg string `json:"alg"`
-	Use string `json:"use"`
-	Kty string `json:"kty"`
-}
-
-type googleJWKSResponse struct {
-	Keys []googleJWK `json:"keys"`
-}
 
 // GoogleIDTokenClaims contains the verified claims from a Google ID token.
 type GoogleIDTokenClaims struct {
@@ -57,8 +37,6 @@ type GoogleTokenVerifier struct {
 	allowedClientIDs []string
 	jwksURL          string
 	httpClient       *http.Client
-	cache            *googleJWKSCache
-	cacheTTL         time.Duration
 }
 
 const googleJWKSEndpoint = "https://www.googleapis.com/oauth2/v3/certs"
@@ -72,8 +50,6 @@ func NewGoogleTokenVerifier(clientIDs []string) *GoogleTokenVerifier {
 		httpClient: &http.Client{
 			Timeout: 5 * time.Second,
 		},
-		cache:    &googleJWKSCache{},
-		cacheTTL: 60 * time.Minute,
 	}
 }
 
@@ -200,55 +176,7 @@ func (v *GoogleTokenVerifier) nonceMatches(tokenNonce, expectedNonce string) boo
 	return tokenNonce == expectedHash
 }
 
-// getJWKS returns cached JWKS or fetches fresh from Google.
-func (v *GoogleTokenVerifier) getJWKS(ctx context.Context) ([]googleJWK, error) {
-	v.cache.mu.RLock()
-	if time.Since(v.cache.fetchedAt) < v.cacheTTL && len(v.cache.keys) > 0 {
-		keys := v.cache.keys
-		v.cache.mu.RUnlock()
-		return keys, nil
-	}
-	v.cache.mu.RUnlock()
 
-	v.cache.mu.Lock()
-	defer v.cache.mu.Unlock()
-
-	// Re-check after acquiring write lock
-	if time.Since(v.cache.fetchedAt) < v.cacheTTL && len(v.cache.keys) > 0 {
-		return v.cache.keys, nil
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, v.jwksURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := v.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("JWKS fetch failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("JWKS fetch returned HTTP %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 32768))
-	if err != nil {
-		return nil, err
-	}
-
-	var jwksResp googleJWKSResponse
-	if err := json.Unmarshal(body, &jwksResp); err != nil {
-		return nil, fmt.Errorf("failed to parse JWKS: %w", err)
-	}
-	if len(jwksResp.Keys) == 0 {
-		return nil, fmt.Errorf("JWKS response contains no keys")
-	}
-
-	v.cache.keys = jwksResp.Keys
-	v.cache.fetchedAt = time.Now()
-	return v.cache.keys, nil
-}
 
 // verifyViaTokenInfo validates the token using Google's tokeninfo endpoint.
 // This is our signature verification method (avoids dependency on RSA library).

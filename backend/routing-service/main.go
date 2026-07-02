@@ -385,7 +385,7 @@ func main() {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "UP", "service": "routing-service"}`))
+		_, _ = w.Write([]byte(`{"status": "UP", "service": "routing-service"}`))
 	})
 	mux.HandleFunc("/api/v1/routing/model", routeModelHandler(routingEngine))
 

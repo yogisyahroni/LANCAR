@@ -127,7 +127,7 @@ func (h *AuthHandler) StartCustomerPasswordLogin(w http.ResponseWriter, r *http.
 	h.recordAuthSuccess(r, middleware.ScopeCustomerPasswordLogin, normalizedEmail)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(res)
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 func (h *AuthHandler) RequestCustomerPasswordReset(w http.ResponseWriter, r *http.Request) {
@@ -152,7 +152,7 @@ func (h *AuthHandler) RequestCustomerPasswordReset(w http.ResponseWriter, r *htt
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"message": "Jika email terdaftar, kode reset sudah dikirim.",
 	})
@@ -183,7 +183,7 @@ func (h *AuthHandler) ConfirmCustomerPasswordReset(w http.ResponseWriter, r *htt
 	h.recordAuthSuccess(r, middleware.ScopePasswordReset, email)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"message": "Password berhasil diperbarui. Silakan masuk kembali.",
 	})

@@ -106,7 +106,7 @@ func (r *postgresRepo) RevokeIdentityByUserProvider(ctx context.Context, userID,
 
 func (r *postgresRepo) CreateAuthTransaction(ctx context.Context, tx *domain.CustomerAuthTransaction) error {
 	metadataJSON := []byte("{}")
-	if tx.Metadata != nil && len(tx.Metadata) > 0 {
+	if len(tx.Metadata) > 0 {
 		metadataJSON = tx.Metadata
 	}
 
