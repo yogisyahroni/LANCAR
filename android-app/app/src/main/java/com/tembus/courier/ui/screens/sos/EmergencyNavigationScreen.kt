@@ -46,18 +46,17 @@ fun EmergencyNavigationScreen(
                 )
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = {
-                    val uri = android.net.Uri.parse("google.navigation:q=$victimLat,$victimLng")
+                    val uri = android.net.Uri.parse("geo:0,0?q=$victimLat,$victimLng(Lokasi+Darurat)")
                     val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
-                    intent.setPackage("com.google.android.apps.maps")
                     if (intent.resolveActivity(context.packageManager) != null) {
                         context.startActivity(intent)
                     } else {
-                        val fallbackUri = android.net.Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$victimLat,$victimLng")
+                        val fallbackUri = android.net.Uri.parse("https://www.openstreetmap.org/?mlat=$victimLat&mlon=$victimLng#map=18/$victimLat/$victimLng")
                         val fallbackIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, fallbackUri)
                         context.startActivity(fallbackIntent)
                     }
                 }) {
-                    Text("Buka Navigasi di Google Maps")
+                    Text("Buka Navigasi Peta")
                 }
             }
         }
