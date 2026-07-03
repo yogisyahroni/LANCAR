@@ -136,8 +136,8 @@ export default function Zones() {
   });
 
   const filteredZones = zones?.filter((z: any) => 
-    z.name.toLowerCase().includes(search.toLowerCase()) ||
-    z.code.toLowerCase().includes(search.toLowerCase())
+    String(z?.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    String(z?.code || '').toLowerCase().includes(search.toLowerCase())
   );
 
   if (isLoading) {

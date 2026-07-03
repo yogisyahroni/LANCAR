@@ -112,8 +112,8 @@ SELECT
     WHEN COALESCE(cp.vehicle_category, cp.vehicle_type, '') IN ('mobil', 'car', 'box') THEN 200
     ELSE 20
   END,
-  CASE WHEN cp.verification_status = 'approved' THEN 'approved' ELSE 'pending' END,
-  CASE WHEN cp.verification_status = 'approved' THEN COALESCE(cp.reviewed_at, NOW()) ELSE NULL END
+  CASE WHEN cp.is_verified = TRUE THEN 'approved' ELSE 'pending' END,
+  CASE WHEN cp.is_verified = TRUE THEN COALESCE(cp.reviewed_at, NOW()) ELSE NULL END
 FROM courier_profiles cp
 ON CONFLICT (courier_profile_id, plate_number) DO UPDATE SET
   vehicle_type = EXCLUDED.vehicle_type,
@@ -141,13 +141,13 @@ SELECT
   cv.id,
   dsp.code,
   cp.application_channel,
-  CASE WHEN cp.verification_status = 'approved' THEN 'enabled' ELSE 'pending_review' END,
+  CASE WHEN cp.is_verified = TRUE THEN 'enabled' ELSE 'pending_review' END,
   CASE
     WHEN dsp.service_category = 'on_demand' THEN 'Eligible for on-demand product based on active vehicle profile.'
     ELSE 'Eligible for non on-demand operational product based on active vehicle profile.'
   END,
   COALESCE(dsp.max_weight_kg, cv.max_weight_kg),
-  CASE WHEN cp.verification_status = 'approved' THEN COALESCE(cp.reviewed_at, NOW()) ELSE NULL END
+  CASE WHEN cp.is_verified = TRUE THEN COALESCE(cp.reviewed_at, NOW()) ELSE NULL END
 FROM courier_profiles cp
 JOIN courier_vehicles cv ON cv.courier_profile_id = cp.id AND cv.is_primary = TRUE
 JOIN delivery_service_products dsp ON dsp.is_enabled = TRUE

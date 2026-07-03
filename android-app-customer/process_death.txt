@@ -1,0 +1,116 @@
+﻿
+06-30 00:42:57.370 10641 10641 D SessionsDependencies: Dependency to CRASHLYTICS added.
+06-30 00:42:57.564 10641 10663 V DynamiteModule: Dynamite loader version >= 2, using loadModule2NoCrashUtils
+06-30 00:42:57.888 10641 10641 I FirebaseCrashlytics: Initializing Firebase Crashlytics 18.6.0 for com.tembus.customer
+06-30 00:42:57.924 10641 10641 D SessionsDependencies: Subscriber CRASHLYTICS registered.
+06-30 00:42:58.034 10641 10684 E OpenGLRenderer: Device claims wide gamut support, cannot find matching config, error 
+= EGL_SUCCESS
+06-30 00:42:58.049 10641 10677 I FirebaseCrashlytics: No version control information found
+06-30 00:43:00.123 10641 10682 D SessionLifecycleClient: Notified CRASHLYTICS of new session 
+c87b556b79744aad9ab95bbac9783588
+06-30 00:43:00.200 10641 10679 D EventGDTLogger: Session Event: {"eventType":1,"sessionData":{"sessionId":"c87b556b7974
+4aad9ab95bbac9783588","firstSessionId":"c87b556b79744aad9ab95bbac9783588","sessionIndex":0,"eventTimestampUs":178275498
+0079000,"dataCollectionStatus":{"performance":1,"crashlytics":2,"sessionSamplingRate":1.0},"firebaseInstallationId":"cE
+SItFYlR-idrfBlLWi-MX"},"applicationInfo":{"appId":"1:1093082342918:android:f6868dec592a53b7898587","deviceModel":"SM-A1
+35F","sessionSdkVersion":"1.2.0","osVersion":"14","logEnvironment":3,"androidAppInfo":{"packageName":"com.tembus.custom
+er","versionName":"v1.0.141","appBuildVersion":"405","deviceManufacturer":"samsung","currentProcessDetails":{"processNa
+me":"com.tembus.customer","pid":10641,"importance":100,"defaultProcess":true},"appProcessDetails":[{"processName":"com.
+tembus.customer","pid":10641,"importance":100,"defaultProcess":true}]}}}
+06-30 00:43:03.327 10641 10727 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: 
+ERROR_PACKAGE_NOT_FOUND: package com.android.libcore cannot be found on the device
+06-30 00:43:03.327 10641 10725 E FeatureFlagsImplExport: android.os.flagging.AconfigStorageReadException: 
+ERROR_PACKAGE_NOT_FOUND: package com.android.libcore cannot be found on the device
+06-30 00:44:31.136  1075  1075 I Layer   : id=32996 Destroyed 
+com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641#32993 (Mirror)#32996
+06-30 00:45:19.342 10641 10641 D InputTransport: Input channel destroyed: 'b7e034c', fd=161
+06-30 00:45:19.644  1368  1396 I WindowManager: Destroying surface 
+Surface(name=com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641)/@0x20cc67 called by 
+com.android.server.wm.WindowStateAnimator.destroySurface:804 
+com.android.server.wm.WindowStateAnimator.destroySurfaceLocked:473 
+com.android.server.wm.WindowState.destroySurfaceUnchecked:4208 com.android.server.wm.WindowState.destroySurface:4182 
+com.android.server.wm.WindowState.onExitAnimationDone:5767 
+com.android.server.wm.WindowStateAnimator.onAnimationFinished:209 
+com.android.server.wm.WindowState.onAnimationFinished:5998 
+com.android.server.wm.WindowContainer$$ExternalSyntheticLambda4.onAnimationFinished:0 
+06-30 00:45:19.663  1075  1075 I Layer   : id=33114 Destroyed 
+com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641#33113 (Mirror)#33114
+06-30 00:45:19.675  1075  1075 I Layer   : id=33113 Destroyed 
+com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641#33113
+06-30 00:45:22.403 10641 10641 D InputTransport: Input channel destroyed: 'f47f52d', fd=149
+06-30 00:45:22.697  1368  1396 I WindowManager: Destroying surface 
+Surface(name=com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641)/@0x39a7b3f called by 
+com.android.server.wm.WindowStateAnimator.destroySurface:804 
+com.android.server.wm.WindowStateAnimator.destroySurfaceLocked:473 
+com.android.server.wm.WindowState.destroySurfaceUnchecked:4208 com.android.server.wm.WindowState.destroySurface:4182 
+com.android.server.wm.WindowState.onExitAnimationDone:5767 
+com.android.server.wm.WindowStateAnimator.onAnimationFinished:209 
+com.android.server.wm.WindowState.onAnimationFinished:5998 
+com.android.server.wm.WindowContainer$$ExternalSyntheticLambda4.onAnimationFinished:0 
+06-30 00:45:22.719  1075  1075 I Layer   : id=33134 Destroyed 
+com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641#33133 (Mirror)#33134
+06-30 00:45:22.730  1075  1075 I Layer   : id=33133 Destroyed 
+com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641#33133
+06-30 00:45:25.409 10641 10641 D InputTransport: Input channel destroyed: '7c6603c', fd=153
+06-30 00:45:25.702  1368  1396 I WindowManager: Destroying surface 
+Surface(name=com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641)/@0xb580758 called by 
+com.android.server.wm.WindowStateAnimator.destroySurface:804 
+com.android.server.wm.WindowStateAnimator.destroySurfaceLocked:473 
+com.android.server.wm.WindowState.destroySurfaceUnchecked:4208 com.android.server.wm.WindowState.destroySurface:4182 
+com.android.server.wm.WindowState.onExitAnimationDone:5767 
+com.android.server.wm.WindowStateAnimator.onAnimationFinished:209 
+com.android.server.wm.WindowState.onAnimationFinished:5998 
+com.android.server.wm.WindowContainer$$ExternalSyntheticLambda4.onAnimationFinished:0 
+06-30 00:45:25.726  1075  1075 I Layer   : id=33154 Destroyed 
+com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641#33153 (Mirror)#33154
+06-30 00:45:25.734  1075  1075 I Layer   : id=33153 Destroyed 
+com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641#33153
+06-30 00:45:34.510 10641 10647 D InputTransport: Input channel destroyed: 'ClientS', fd=180
+06-30 00:45:34.510 10641 10647 D InputTransport: Input channel destroyed: 'ClientS', fd=146
+06-30 00:45:34.511 10641 10647 D InputTransport: Input channel destroyed: 'ClientS', fd=186
+06-30 00:45:34.511 10641 10647 D InputTransport: Input channel destroyed: 'ClientS', fd=151
+06-30 00:45:34.512 10641 10647 D InputTransport: Input channel destroyed: 'ClientS', fd=187
+06-30 00:45:34.512 10641 10647 D InputTransport: Input channel destroyed: 'ClientS', fd=162
+06-30 00:45:34.514 10641 10647 D InputTransport: Input channel destroyed: 'ClientS', fd=167
+06-30 00:45:34.746 10641 10641 D InputTransport: Input channel destroyed: '5ea11b8', fd=156
+06-30 00:45:35.054  1368  1396 I WindowManager: Destroying surface 
+Surface(name=com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641)/@0xae56e32 called by 
+com.android.server.wm.WindowStateAnimator.destroySurface:804 
+com.android.server.wm.WindowStateAnimator.destroySurfaceLocked:473 
+com.android.server.wm.WindowState.destroySurfaceUnchecked:4208 com.android.server.wm.WindowState.destroySurface:4182 
+com.android.server.wm.WindowState.onExitAnimationDone:5767 
+com.android.server.wm.WindowStateAnimator.onAnimationFinished:209 
+com.android.server.wm.WindowState.onAnimationFinished:5998 
+com.android.server.wm.WindowContainer$$ExternalSyntheticLambda4.onAnimationFinished:0 
+06-30 00:45:35.070  1075  1075 I Layer   : id=33174 Destroyed 
+com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641#33173 (Mirror)#33174
+06-30 00:45:35.082  1075  1075 I Layer   : id=33173 Destroyed 
+com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641#33173
+06-30 00:46:01.957 10641 10647 D InputTransport: Input channel destroyed: 'ClientS', fd=149
+06-30 00:46:01.958 10641 10647 D InputTransport: Input channel destroyed: 'ClientS', fd=146
+06-30 00:46:01.958 10641 10647 D InputTransport: Input channel destroyed: 'ClientS', fd=154
+06-30 00:46:01.959 10641 10647 D InputTransport: Input channel destroyed: 'ClientS', fd=152
+06-30 00:46:01.960 10641 10647 D InputTransport: Input channel destroyed: 'ClientS', fd=157
+06-30 00:46:02.518 10641 10641 W System.err: java.lang.UnsatisfiedLinkError: dlopen failed: library 
+"libtomtom-navsdk.so" not found
+06-30 00:46:02.600  1368  2032 I ActivityManager: Process com.tembus.customer (pid 10641) has died: fg  TOP (258,1407)
+06-30 00:46:02.601  1368  5530 V WindowManager: Remove Window{8e51294 u0 
+com.tembus.customer/com.tembus.customer.ui.MainActivity}: 
+mSurfaceController=Surface(name=com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641)/@0x70b36c 
+mAnimatingExit=false mRemoveOnExit=false mHasSurface=true surfaceShowing=true animating=false app-animation=false 
+mDisplayFrozen=false callers=com.android.server.wm.WindowState$DeathRecipient.binderDied:3689 
+android.os.IBinder$DeathRecipient.binderDied:325 android.os.BinderProxy.sendDeathNotice:781 <bottom of call stack> 
+<bottom of call stack> <bottom of call stack> 
+06-30 00:46:02.601  1368  1403 I libprocessgroup: Successfully killed process cgroup uid 10407 pid 10641 in 0ms
+06-30 00:46:02.601  1368  5530 I WindowManager: Destroying surface 
+Surface(name=com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641)/@0x70b36c called by 
+com.android.server.wm.WindowStateAnimator.destroySurface:804 
+com.android.server.wm.WindowStateAnimator.destroySurfaceLocked:473 
+com.android.server.wm.WindowState.removeImmediately:2939 com.android.server.wm.WindowState.removeIfPossible:3210 
+com.android.server.wm.WindowState$DeathRecipient.binderDied:3689 android.os.IBinder$DeathRecipient.binderDied:325 
+android.os.BinderProxy.sendDeathNotice:781 <bottom of call stack> 
+06-30 00:46:02.629  1075  1075 I Layer   : id=33046 Destroyed 
+com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641#32993 (Mirror)#33046
+06-30 00:46:02.642  1075  1075 I Layer   : id=32993 Destroyed 
+com.tembus.customer/com.tembus.customer.ui.MainActivity$_10641#32993
+
+

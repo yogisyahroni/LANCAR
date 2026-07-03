@@ -156,6 +156,7 @@ func main() {
 		log.Fatal("Failed to connect to primary database:", err)
 	}
 	defer db.Close()
+	middleware.SetDB(db)
 
 	readDB, err := sql.Open("postgres", readDbConn)
 	if err != nil {
@@ -233,6 +234,7 @@ func main() {
 	notifRepo := repository.NewPostgresNotificationRepo(sqlx.NewDb(db, "postgres"))
 	trackingRepo := repository.NewPostgresTrackingRepo(sqlx.NewDb(db, "postgres"))
 	sosRepo := repository.NewPostgresSosRepo(sqlx.NewDb(db, "postgres"))
+	chatRepo := repository.NewChatRepository(sqlx.NewDb(db, "postgres"))
 
 	var datalakePub domain.GPSDatalakePublisher
 	if rabbitmqURL != "" {
@@ -262,6 +264,7 @@ func main() {
 	relayScoreSvc := service.NewRelayScoreService(relayRepo)
 	analyticsSvc := service.NewAnalyticsService(analyticsRepo)
 	paymentLinkSvc := service.NewPaymentLinkService(paymentLinkRepo, pricingSvc, orderSvc, paymentGw, notificationSvc)
+	chatSvc := service.NewChatService(chatRepo, eb)
 	// matchingSvc := service.NewRelayMatchingService(relayRepo, pgRepo, redisRepo) // Can be used later
 
 	// Handlers
@@ -278,6 +281,7 @@ func main() {
 	relayHandler := handler.NewRelayHandler(relayScoreSvc)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsSvc)
 	paymentLinkHandler := handler.NewPaymentLinkHandler(paymentLinkSvc)
+	chatHandler := handler.NewChatHandler(chatSvc)
 	sosHandler := handler.NewSosHandler(sosSvc)
 
 	// Background Workers
@@ -350,15 +354,10 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/retry-matching", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.RetryMatching))))
 	mux.HandleFunc("/api/v1/meeting-points/suggest", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.SuggestMeetingPoints)))
 
-	// Mock Chat Endpoint - In-App Chat sedang dalam pengembangan
-	mux.HandleFunc("/api/v1/chat/send", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
-		chatEnabled, _ := flagReader.IsFeatureFlagEnabled(r.Context(), "in_app_chat", false)
-		if !chatEnabled {
-			middleware.WriteError(w, http.StatusForbidden, "ERR_FEATURE_DISABLED", "Feature In-App Chat is disabled", middleware.GetCorrelationID(r.Context()))
-			return
-		}
-		middleware.WriteError(w, http.StatusServiceUnavailable, "FEATURE_COMING_SOON", "Fitur In-App Chat sedang dalam pengembangan.", middleware.GetCorrelationID(r.Context()))
-	})))
+	// Chat Endpoints
+	mux.HandleFunc("/api/v1/orders/{id}/chats", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(chatHandler.HandleChats))))
+	mux.HandleFunc("/api/v1/orders/{id}/conversation", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(chatHandler.HandleChats))))
+	mux.HandleFunc("/api/v1/orders/{id}/conversation/read", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(chatHandler.HandleChats))))
 
 	// Courier Workflow Routes
 	mux.HandleFunc("/api/v1/couriers/orders/accept", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AcceptOrder)))

@@ -26,9 +26,9 @@ export const getPendingFaceVerifications = async (req: Request, res: Response) =
          cfv.liveness_score,
          cfv.image_url,
          cfv.created_at,
-         cp.full_name,
+         u.full_name AS full_name,
          cp.nik,
-         u.phone
+         u.phone_number AS phone
        FROM courier_face_verifications cfv
        JOIN courier_profiles cp ON cp.user_id = cfv.courier_id
        JOIN users u ON u.id = cfv.courier_id

@@ -36,9 +36,9 @@ export default function AuditLogs() {
   })
 
   const filteredLogs = logs.filter((log: any) => {
-    const matchesSearch = log.key.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          log.change_reason?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = categoryFilter === 'all' || log.category === categoryFilter
+    const matchesSearch = String(log?.key || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          String(log?.change_reason || '').toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCategory = categoryFilter === 'all' || log?.category === categoryFilter
     return matchesSearch && matchesCategory
   })
 

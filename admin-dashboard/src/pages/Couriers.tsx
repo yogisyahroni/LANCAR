@@ -150,20 +150,50 @@ export default function Couriers() {
   const [isWebcamActive, setIsWebcamActive] = useState(false)
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('')
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  const startWebcam = async () => {
+  const startWebcam = async (targetDeviceId?: string) => {
     try {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const oldStream = videoRef.current.srcObject as MediaStream
+        oldStream.getTracks().forEach(track => track.stop())
+      }
+
       setIsWebcamActive(true)
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+      const deviceIdToUse = typeof targetDeviceId === 'string' ? targetDeviceId : selectedDeviceId
+      const constraints: MediaStreamConstraints = {
+        video: deviceIdToUse ? { deviceId: { exact: deviceIdToUse } } : { width: { ideal: 1280 }, height: { ideal: 720 } }
+      }
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
       if (videoRef.current) {
         videoRef.current.srcObject = stream
       }
+
+      if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        const devices = await navigator.mediaDevices.enumerateDevices()
+        const cameras = devices.filter(d => d.kind === 'videoinput')
+        setVideoDevices(cameras)
+        
+        const activeTrack = stream.getVideoTracks()[0]
+        const activeSettings = activeTrack?.getSettings()
+        if (activeSettings?.deviceId && !selectedDeviceId) {
+          setSelectedDeviceId(activeSettings.deviceId)
+        } else if (!selectedDeviceId && cameras.length > 0) {
+          setSelectedDeviceId(cameras[0].deviceId)
+        }
+      }
     } catch (err) {
-      toast.error('Tidak dapat mengakses webcam')
+      toast.error('Tidak dapat mengakses kamera atau webcam. Pastikan izin kamera telah diberikan.')
       setIsWebcamActive(false)
     }
+  }
+
+  const switchCamera = async (deviceId: string) => {
+    setSelectedDeviceId(deviceId)
+    await startWebcam(deviceId)
   }
 
   const stopWebcam = () => {
@@ -847,7 +877,7 @@ export default function Couriers() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => { setSelectedCourierId(null); setDetailTab('profile') }}
+              onClick={() => { stopWebcam(); setSelectedCourierId(null); setDetailTab('profile') }}
               className="absolute inset-0 bg-black/80 backdrop-blur-sm"
             />
             <motion.div
@@ -862,7 +892,7 @@ export default function Couriers() {
                   {(['profile', 'history', 'photo'] as const).map(tab => (
                     <button
                       key={tab}
-                      onClick={() => setDetailTab(tab)}
+                      onClick={() => { if (detailTab === 'photo' && tab !== 'photo') stopWebcam(); setDetailTab(tab); }}
                       className={cn(
                         'px-6 py-3 text-sm font-bold capitalize transition-all relative flex items-center gap-2',
                         detailTab === tab ? 'text-primary-light' : 'text-zinc-500 hover:text-zinc-300'
@@ -1132,7 +1162,7 @@ export default function Couriers() {
                       {!isWebcamActive && !capturedPhoto && (
                         <>
                           <button
-                            onClick={startWebcam}
+                            onClick={() => startWebcam()}
                             className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-primary/10 text-primary-light border border-primary/20 hover:bg-primary/20 transition-all font-bold"
                           >
                             <Camera size={20} />
@@ -1152,6 +1182,52 @@ export default function Couriers() {
                             </div>
                           </div>
                         </>
+                      )}
+
+                      {isWebcamActive && (
+                        <div className="flex flex-col gap-4 justify-center w-full">
+                          <div className="p-4 rounded-2xl bg-zinc-900/80 border border-white/10 space-y-3">
+                            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                              <Camera size={14} className="text-primary" />
+                              Pilih Perangkat Kamera
+                            </label>
+                            {videoDevices.length === 0 ? (
+                              <div className="text-xs text-zinc-500 py-1 font-medium">
+                                Mendeteksi kamera eksternal & webcam...
+                              </div>
+                            ) : (
+                              <select
+                                value={selectedDeviceId}
+                                onChange={(e) => switchCamera(e.target.value)}
+                                className="w-full rounded-xl border border-white/10 bg-black/60 px-3 py-2.5 text-sm font-semibold text-zinc-100 focus:border-primary focus:outline-none transition-all cursor-pointer"
+                              >
+                                {videoDevices.map((device, idx) => (
+                                  <option key={device.deviceId || idx} value={device.deviceId}>
+                                    {device.label || `Kamera / Webcam ${idx + 1}`}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                            <p className="text-[11px] text-zinc-500 leading-relaxed">
+                              Mendukung kamera eksternal (USB Webcam / kamera eksternal) atau kamera bawaan laptop/PC.
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={capturePhoto}
+                            className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all font-bold"
+                          >
+                            <Camera size={20} />
+                            Jepret Foto Sekarang
+                          </button>
+
+                          <button
+                            onClick={stopWebcam}
+                            className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-zinc-400 hover:text-white transition-all font-semibold text-sm"
+                          >
+                            Tutup Kamera
+                          </button>
+                        </div>
                       )}
 
                       {capturedPhoto && (

@@ -79,7 +79,8 @@ WHERE ol.courier_id IS NOT NULL
     WHERE cel.order_id = ol.order_id
       AND cel.courier_id = ol.courier_id
       AND cel.source = 'delivery'
-  );
+  )
+ON CONFLICT DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS courier_hotspot_rollups (
   zone_id UUID PRIMARY KEY REFERENCES zones(id) ON DELETE CASCADE,

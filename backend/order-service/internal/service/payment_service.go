@@ -100,10 +100,12 @@ func (s *DefaultPaymentService) CreatePayment(ctx context.Context, orderID strin
 	ppnRate := s.configRepo.GetFloatConfig(ctx, "payment_ppn_rate", 0.11)
 	ppn := int(float64(mdr) * ppnRate)
 
+	weatherReserve := s.configRepo.GetIntConfig(ctx, "weather_reserve_idr", 0)
+	insuranceReserve := s.configRepo.GetIntConfig(ctx, "insurance_fee_idr", 0)
+
 	// netOp adalah amount yang masuk ke operasional setelah dikurangi biaya gateway (MDR + PPN).
-	// Catatan: weatherReserve dan insuranceReserve sengaja tidak dimasukkan ke sini
-	// karena komponen tersebut tercermin dalam TotalPriceIDR yang sudah dihitung oleh pricing_service.
-	netOp := amount - mdr - ppn
+	// Komponen reserve dipisahkan pencatatannya agar net_operational riil
+	netOp := amount - mdr - ppn - weatherReserve - insuranceReserve
 
 	paymentNumber := generatePaymentNumber()
 
@@ -129,8 +131,8 @@ func (s *DefaultPaymentService) CreatePayment(ctx context.Context, orderID strin
 		AmountIDR:           amount,
 		MDRAmountIDR:        mdr,
 		PPNAmountIDR:        ppn,
-		WeatherReserveIDR:   0,
-		InsuranceReserveIDR: 0,
+		WeatherReserveIDR:   weatherReserve,
+		InsuranceReserveIDR: insuranceReserve,
 		NetOperationalIDR:   netOp,
 		ProviderReference:   &gwResp.ProviderReference,
 		QRCodeURL:           &gwResp.QRCodeURL,

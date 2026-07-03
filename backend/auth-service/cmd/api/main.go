@@ -307,7 +307,7 @@ func main() {
 		middleware.OTPSendChain(rdb, h.RequestOTP))
 
 	mux.HandleFunc("/api/v1/auth/otp/verify",
-		middleware.OTPVerifyChain(rdb, middleware.DeviceIntegrityMiddleware(repo, h.VerifyOTP)))
+		middleware.OTPVerifyChain(rdb, middleware.DeviceIntegrityMiddleware(repo, repo, h.VerifyOTP)))
 
 	mux.HandleFunc("/api/v1/auth/customer/login/start",
 		middleware.AuthRateLimitedChain(rdb, h.StartCustomerPasswordLogin))
@@ -377,11 +377,11 @@ func main() {
 	// ─────────────────────────────────────────────
 	// API v1 — Courier Endpoints (requires JWT auth)
 	// ─────────────────────────────────────────────
-	mux.HandleFunc("/api/v1/couriers/register", middleware.MobileAuthIntegrityChain(repo, h.RegisterCourier))
-	mux.HandleFunc("/api/v1/couriers/documents", middleware.MobileAuthIntegrityChain(repo, h.UploadCourierDocument))
-	mux.HandleFunc("/api/v1/couriers/me", middleware.MobileAuthIntegrityChain(repo, h.GetCourierProfile))
-	mux.HandleFunc("/api/v1/couriers/verify-liveness", middleware.MobileAuthIntegrityChain(repo, h.VerifyLiveness))
-	mux.HandleFunc("/api/v1/couriers/local-security-log", middleware.MobileAuthIntegrityChain(repo, h.LogLocalSecurity))
+	mux.HandleFunc("/api/v1/couriers/register", middleware.MobileAuthIntegrityChain(repo, repo, h.RegisterCourier))
+	mux.HandleFunc("/api/v1/couriers/documents", middleware.MobileAuthIntegrityChain(repo, repo, h.UploadCourierDocument))
+	mux.HandleFunc("/api/v1/couriers/me", middleware.MobileAuthIntegrityChain(repo, repo, h.GetCourierProfile))
+	mux.HandleFunc("/api/v1/couriers/verify-liveness", middleware.MobileAuthIntegrityChain(repo, repo, h.VerifyLiveness))
+	mux.HandleFunc("/api/v1/couriers/local-security-log", middleware.MobileAuthIntegrityChain(repo, repo, h.LogLocalSecurity))
 
 	// ─────────────────────────────────────────────
 	// API v1 — Admin Endpoints (requires JWT + role + 2FA for sensitive)

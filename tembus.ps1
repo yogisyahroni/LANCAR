@@ -27,7 +27,7 @@ $MIGRATIONS_DIR = "database/migrations"
 # Helper function to run docker compose
 function Invoke-Compose {
     param([string]$Arguments)
-    docker compose -f $COMPOSE_FILE $Arguments
+    Invoke-Expression "docker compose -f $COMPOSE_FILE $Arguments"
 }
 
 # Cek apakah Docker running

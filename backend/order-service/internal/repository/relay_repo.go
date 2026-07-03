@@ -71,16 +71,18 @@ func (r *relayRepository) GetCourierPerformanceStats(ctx context.Context, courie
 	var stats domain.CourierPerformanceStats
 	query := `
 		SELECT 
-			id,
-			COALESCE(ontime_deliveries_count, 0)   AS ontime_deliveries_count,
-			COALESCE(total_deliveries_count, 0)    AS total_deliveries_count,
-			COALESCE(docs_complete_pct, 100.0)     AS docs_complete_pct,
-			COALESCE(avg_partner_rating, 5.00)     AS avg_partner_rating,
-			COALESCE(complaint_ratio_pct, 0.0)     AS complaint_ratio_pct,
-			COALESCE(relay_score, 5.00)            AS relay_score,
-			COALESCE(tier, 'standart')             AS tier
-		FROM courier_profiles
-		WHERE id = $1
+			cp.id,
+			COALESCE(u.full_name, 'Courier ' || LEFT(cp.id::text, 8)) AS courier_name,
+			COALESCE(cp.ontime_deliveries_count, 0)   AS ontime_deliveries_count,
+			COALESCE(cp.total_deliveries_count, 0)    AS total_deliveries_count,
+			COALESCE(cp.docs_complete_pct, 100.0)     AS docs_complete_pct,
+			COALESCE(cp.avg_partner_rating, 5.00)     AS avg_partner_rating,
+			COALESCE(cp.complaint_ratio_pct, 0.0)     AS complaint_ratio_pct,
+			COALESCE(cp.relay_score, 5.00)            AS relay_score,
+			COALESCE(cp.tier, 'standart')             AS tier
+		FROM courier_profiles cp
+		LEFT JOIN users u ON cp.user_id = u.id OR cp.id = u.id
+		WHERE cp.id = $1
 	`
 
 	if err := r.db.GetContext(ctx, &stats, query, courierID); err != nil {
@@ -250,10 +252,10 @@ func (r *relayRepository) ListCourierPerformanceStats(ctx context.Context, limit
 	var args []interface{}
 
 	if search != "" {
-		query = "SELECT id, ontime_deliveries_count, total_deliveries_count, docs_complete_pct, avg_partner_rating, complaint_ratio_pct, relay_score, tier FROM courier_profiles WHERE tier ILIKE $1 LIMIT $2 OFFSET $3"
+		query = "SELECT cp.id, COALESCE(u.full_name, 'Courier ' || LEFT(cp.id::text, 8)) as courier_name, cp.ontime_deliveries_count, cp.total_deliveries_count, cp.docs_complete_pct, cp.avg_partner_rating, cp.complaint_ratio_pct, cp.relay_score, cp.tier FROM courier_profiles cp LEFT JOIN users u ON cp.user_id = u.id OR cp.id = u.id WHERE cp.tier ILIKE $1 OR u.full_name ILIKE $1 OR cp.id::text ILIKE $1 LIMIT $2 OFFSET $3"
 		args = []interface{}{"%" + search + "%", limit, offset}
 	} else {
-		query = "SELECT id, ontime_deliveries_count, total_deliveries_count, docs_complete_pct, avg_partner_rating, complaint_ratio_pct, relay_score, tier FROM courier_profiles LIMIT $1 OFFSET $2"
+		query = "SELECT cp.id, COALESCE(u.full_name, 'Courier ' || LEFT(cp.id::text, 8)) as courier_name, cp.ontime_deliveries_count, cp.total_deliveries_count, cp.docs_complete_pct, cp.avg_partner_rating, cp.complaint_ratio_pct, cp.relay_score, cp.tier FROM courier_profiles cp LEFT JOIN users u ON cp.user_id = u.id OR cp.id = u.id LIMIT $1 OFFSET $2"
 		args = []interface{}{limit, offset}
 	}
 
@@ -263,10 +265,10 @@ func (r *relayRepository) ListCourierPerformanceStats(ctx context.Context, limit
 	}
 	defer rows.Close()
 
-	var stats []*domain.CourierPerformanceStats
+	stats := []*domain.CourierPerformanceStats{}
 	for rows.Next() {
 		var s domain.CourierPerformanceStats
-		if err := rows.Scan(&s.CourierID, &s.OntimeDeliveries, &s.TotalDeliveries, &s.DocsCompletePct, &s.AvgPartnerRating, &s.ComplaintRatioPct, &s.RelayScore, &s.Tier); err != nil {
+		if err := rows.Scan(&s.CourierID, &s.CourierName, &s.OntimeDeliveries, &s.TotalDeliveries, &s.DocsCompletePct, &s.AvgPartnerRating, &s.ComplaintRatioPct, &s.RelayScore, &s.Tier); err != nil {
 			return nil, err
 		}
 		stats = append(stats, &s)

@@ -695,10 +695,6 @@ export const getAllCouriers = async (req: Request, res: Response) => {
         cp.vehicle_type,
         cp.vehicle_plate,
         cp.vehicle_cc,
-        cp.engine_type,
-        cp.sim_active,
-        cp.skpd_tax_active,
-        cp.nik,
         cp.relay_score as avg_rating,
         cp.verification_status,
         cp.application_channel,
@@ -761,6 +757,7 @@ export const getAllCouriers = async (req: Request, res: Response) => {
       limit
     });
   } catch (error: any) {
+    console.error('ERROR in getAllCouriers:', error);
     res.status(500).json({ error: error.message });
   }
 };

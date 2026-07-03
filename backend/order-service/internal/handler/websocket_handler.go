@@ -205,7 +205,7 @@ func (h *WSHandler) listenToEvents() {
 	ctx := context.Background()
 
 	// Topics to listen to
-	topics := []string{"order.updates", "courier.locations"}
+	topics := []string{"order.updates", "courier.locations", "order.chats"}
 
 	for _, topic := range topics {
 		ch, err := h.eventBus.Subscribe(ctx, topic)

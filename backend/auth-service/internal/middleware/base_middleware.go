@@ -558,12 +558,12 @@ func baseChainWithRateLimit(h http.HandlerFunc, rateLimitMW func(http.HandlerFun
 
 // MobileIntegrityChain applies BaseChain + Device Integrity check.
 // Use this for sensitive routes used by the Driver/Mobile app.
-func MobileIntegrityChain(auditRepo domain.AuditRepository, h http.HandlerFunc) http.HandlerFunc {
-	return BaseChain(DeviceIntegrityMiddleware(auditRepo, h))
+func MobileIntegrityChain(auditRepo domain.AuditRepository, configRepo domain.ConfigRepository, h http.HandlerFunc) http.HandlerFunc {
+	return BaseChain(DeviceIntegrityMiddleware(auditRepo, configRepo, h))
 }
 
 // MobileAuthIntegrityChain applies BaseChain + Auth + Device Integrity check.
 // Use this for authenticated sensitive routes used by the Driver/Mobile app.
-func MobileAuthIntegrityChain(auditRepo domain.AuditRepository, h http.HandlerFunc) http.HandlerFunc {
-	return BaseChain(AuthMiddleware(DeviceIntegrityMiddleware(auditRepo, h)))
+func MobileAuthIntegrityChain(auditRepo domain.AuditRepository, configRepo domain.ConfigRepository, h http.HandlerFunc) http.HandlerFunc {
+	return BaseChain(AuthMiddleware(DeviceIntegrityMiddleware(auditRepo, configRepo, h)))
 }

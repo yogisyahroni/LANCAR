@@ -25,7 +25,6 @@ WHERE model IN ('two_legs', 'three_legs');
 
 UPDATE pricing_configs
 SET is_active = TRUE,
-    max_distance_km = NULL,
     updated_at = NOW()
 WHERE model = 'p2p';
 
@@ -91,13 +90,13 @@ SELECT
   cv.id,
   dsp.code,
   cp.application_channel,
-  CASE WHEN cp.verification_status = 'approved' THEN 'enabled' ELSE 'pending_review' END,
+  CASE WHEN cp.is_verified = TRUE THEN 'enabled' ELSE 'pending_review' END,
   CASE
     WHEN cp.application_channel = 'on_demand' THEN 'Eligible for on-demand P2P product based on active vehicle profile.'
     ELSE 'Eligible for regular P2P pickup and delivery product based on active vehicle profile.'
   END,
   COALESCE(dsp.max_weight_kg, cv.max_weight_kg),
-  CASE WHEN cp.verification_status = 'approved' THEN COALESCE(cp.reviewed_at, NOW()) ELSE NULL END,
+  CASE WHEN cp.is_verified = TRUE THEN COALESCE(cp.reviewed_at, NOW()) ELSE NULL END,
   NOW()
 FROM courier_profiles cp
 JOIN courier_vehicles cv ON cv.courier_profile_id = cp.id AND cv.is_primary = TRUE

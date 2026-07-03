@@ -48,3 +48,7 @@ type CourierRepository interface {
 	UpdateLivenessStatus(ctx context.Context, id string, status bool) error
 	LogLocalSecurityEvent(ctx context.Context, log *CourierLocalSecurityLog) error
 }
+
+type ConfigRepository interface {
+	GetBoolConfig(ctx context.Context, key string, defaultValue bool) bool
+}

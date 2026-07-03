@@ -786,6 +786,46 @@ app.use(createProxyMiddleware({
 // Admin routes use cookie-based sessions (withCredentials:true), making them
 // susceptible to CSRF. The middleware verifies X-CSRF-Token header === cookie.
 app.use('/api/v1/admin', verifyCsrfToken);
+
+// Order Service Admin Routes (Domain-specific management APIs: courier performance, meeting points, relay scores, etc.)
+app.use(createProxyMiddleware({
+  pathFilter: (pathname: string, req: any) => {
+    return pathname.startsWith('/api/v1/admin/couriers/performance') ||
+           (pathname.startsWith('/api/v1/admin/couriers/') && pathname.endsWith('/tier')) ||
+           pathname.startsWith('/api/v1/admin/relay-score/override') ||
+           pathname.startsWith('/api/v1/admin/payouts/trigger') ||
+           pathname.startsWith('/api/v1/admin/refunds/process') ||
+           pathname === '/api/v1/admin/sla/dashboard' ||
+           pathname.startsWith('/api/v1/admin/meeting-points') ||
+           pathname.startsWith('/api/v1/admin/pricing/config') ||
+           pathname.startsWith('/api/v1/admin/pricing/simulate');
+  },
+  target: ORDER_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('orders_admin', req, ORDER_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    },
+    proxyRes: (proxyRes: any) => {
+      if (proxyRes.statusCode >= 500) {
+        orderBreaker.fire(null);
+      }
+    },
+    error: (err: Error, req: any, res: any) => {
+      orderBreaker.fire(null);
+      logProxyError('orders_admin', ORDER_SERVICE_URL, err, req as Request);
+      if (res && typeof res.status === 'function') {
+        res.status(502).json({
+          status: 'error',
+          code: 'ERR_BAD_GATEWAY',
+          message: 'Order service is currently unavailable',
+        });
+      }
+    }
+  }
+}));
+
 app.use(createProxyMiddleware({
   pathFilter: '/api/v1/admin',
   target: ADMIN_SERVICE_URL,
@@ -853,24 +893,34 @@ app.use('/docs/orders', protectDocs, createProxyMiddleware({
 }));
 
 // ─────────────────────────────────────────────
-// Mobile Chat API Bridge to Admin Service (Authenticated via JWT)
+// Mobile Chat & Conversation API Bridge to Admin Service
 // ─────────────────────────────────────────────
-app.use(
-  '/api/v1/mobile/chats/orders',
-  authenticateJWT,
-  createProxyMiddleware({
-    target: ADMIN_SERVICE_URL,
-    changeOrigin: true,
-    pathRewrite: {
-      '^/api/v1/mobile/chats/orders': '/auth/web/orders'
-    },
-    on: {
-      proxyReq: (proxyReq: any, req: any) => {
-        prepareProxyRequest(proxyReq, req);
-      }
+app.use('/api/v1/mobile/chats/orders', authenticateJWT);
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/mobile/chats/orders',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      prepareProxyRequest(proxyReq, req);
     }
-  })
-);
+  }
+}));
+
+// ====================================================================================================
+// Mobile Orders API Bridge to Admin Service (For Chat Conversation/Calls)
+// ====================================================================================================
+app.use('/api/v1/mobile/orders', authenticateJWT);
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/mobile/orders',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      prepareProxyRequest(proxyReq, req);
+    }
+  }
+}));
 
 // ─────────────────────────────────────────────
 // Wallet Routes (Payment Service)

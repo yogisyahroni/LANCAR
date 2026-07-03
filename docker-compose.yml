@@ -313,7 +313,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
       RECEIVER_LOCATION_PUBLIC_URL: ${RECEIVER_LOCATION_PUBLIC_URL:-http://localhost:3000/location-requests}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3002}}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3002,https://admin.bawain.my.id,https://bawain.my.id}}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
       TOMTOM_SERVER_API_KEY: ${TOMTOM_SERVER_API_KEY:-}
       TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
@@ -525,7 +525,7 @@ services:
       ROUTING_SERVICE_URL: "http://routing-service:8082"
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
       GATEWAY_PORT: 8080
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3002}}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3002,https://admin.bawain.my.id,https://bawain.my.id}}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_SERVICE_NAME: ${GATEWAY_OTEL_SERVICE_NAME:-api-gateway}

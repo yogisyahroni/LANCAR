@@ -50,8 +50,8 @@ SELECT
   right(regexp_replace(cp.bank_account_number, '\D', '', 'g'), 4),
   encode(digest(upper(trim(cp.bank_code)) || ':' || regexp_replace(cp.bank_account_number, '\D', '', 'g'), 'sha256'), 'hex'),
   'legacy:courier_profiles:' || cp.id::text,
-  CASE WHEN cp.verification_status = 'approved' THEN 'verified' ELSE 'pending_review' END,
-  CASE WHEN cp.verification_status = 'approved' THEN COALESCE(cp.reviewed_at, NOW()) ELSE NULL END,
+  CASE WHEN cp.is_verified = TRUE THEN 'verified' ELSE 'pending_review' END,
+  CASE WHEN cp.is_verified = TRUE THEN COALESCE(cp.reviewed_at, NOW()) ELSE NULL END,
   jsonb_build_object('source', 'courier_profiles_backfill')
 FROM courier_profiles cp
 WHERE NULLIF(trim(COALESCE(cp.bank_code, '')), '') IS NOT NULL

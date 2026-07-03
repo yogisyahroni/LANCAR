@@ -895,10 +895,53 @@ export default function Settings() {
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all appearance-none"
                       >
                         <option>Internal / Managed</option>
-                        <option>PasarPolis Integration</option>
-                        <option>AXA Mandiri</option>
                       </select>
                       <p className="text-[10px] text-zinc-600 font-bold italic">Active partner for claim settlements.</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-12 border-t border-white/5 space-y-8">
+                    <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                      <Umbrella className="text-primary-light" size={24} />
+                      BPJSTK Integration Config
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                      <div className="space-y-3">
+                        <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Coverage (IDR)</label>
+                        <input 
+                          type="number" 
+                          defaultValue={getConfig('bpjstk_coverage_idr', 50000000)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'bpjstk_coverage_idr', value: Number(e.target.value) })}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Monthly Premium (IDR)</label>
+                        <input 
+                          type="number" 
+                          defaultValue={getConfig('bpjstk_premium_monthly_idr', 16800)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'bpjstk_premium_monthly_idr', value: Number(e.target.value) })}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Company Share (IDR)</label>
+                        <input 
+                          type="number" 
+                          defaultValue={getConfig('bpjstk_company_share_idr', 10000)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'bpjstk_company_share_idr', value: Number(e.target.value) })}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        />
+                      </div>
+                      <div className="space-y-3">
+                        <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Courier Share (IDR)</label>
+                        <input 
+                          type="number" 
+                          defaultValue={getConfig('bpjstk_courier_share_idr', 6800)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'bpjstk_courier_share_idr', value: Number(e.target.value) })}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -982,7 +1025,74 @@ export default function Settings() {
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       />
                     </div>
+                  </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-4">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Platform Fee (IDR)</label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('platform_fee_idr', 1500)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'platform_fee_idr', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Platform Fee Pct (%)</label>
+                      <input 
+                        type="number" 
+                        step="0.001"
+                        defaultValue={getConfig('platform_fee_pct', 0.015)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'platform_fee_pct', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Merchant Fee Pct (%)</label>
+                      <input 
+                        type="number" 
+                        step="0.001"
+                        defaultValue={getConfig('merchant_transaction_fee_pct', 0.025)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'merchant_transaction_fee_pct', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Gateway Fees */}
+                <div className="pt-12 border-t border-white/5 space-y-8">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <DollarSign className="text-primary-light" size={24} />
+                    Payment Gateway Fees
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-4">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">MDR Rate (%)</label>
+                      <div className="relative">
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">%</span>
+                        <input 
+                          type="number" 
+                          step="0.001"
+                          defaultValue={getConfig('payment_mdr_rate', 0.007)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'payment_mdr_rate', value: Number(e.target.value) })}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">PPN Rate (%)</label>
+                      <div className="relative">
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">%</span>
+                        <input 
+                          type="number" 
+                          step="0.001"
+                          defaultValue={getConfig('payment_ppn_rate', 0.11)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'payment_ppn_rate', value: Number(e.target.value) })}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1069,6 +1179,45 @@ export default function Settings() {
                       />
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mt-4">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Relay Score Wt</label>
+                      <input 
+                        type="number" step="0.01"
+                        defaultValue={getConfig('relay_score_weight', 0.4)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'relay_score_weight', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Proximity Score Wt</label>
+                      <input 
+                        type="number" step="0.01"
+                        defaultValue={getConfig('proximity_score_weight', 0.25)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'proximity_score_weight', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Acceptance Score Wt</label>
+                      <input 
+                        type="number" step="0.01"
+                        defaultValue={getConfig('acceptance_score_weight', 0.15)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'acceptance_score_weight', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Idle Time Wt</label>
+                      <input 
+                        type="number" step="0.01"
+                        defaultValue={getConfig('idle_time_weight', 0.1)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'idle_time_weight', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Safety & Finance Params */}
@@ -1102,6 +1251,21 @@ export default function Settings() {
                         type="number" 
                         defaultValue={getConfig('admin_fee_pct', 5)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'admin_fee_pct', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+                        <Umbrella size={14} />
+                        Weather Reserve Fund (IDR)
+                      </label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('weather_reserve_idr', 0)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'weather_reserve_idr', value: Number(e.target.value) })}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       />
                     </div>
@@ -1147,6 +1311,7 @@ export default function Settings() {
                       { label: 'Force 2FA for Admins', key: 'security_force_2fa' },
                       { label: 'Session Timeout (h)', key: 'security_session_timeout_h' },
                       { label: 'IP Whitelisting', key: 'security_ip_whitelisting' },
+                      { label: 'Enable App Integrity (Fraud Check)', key: 'security_enable_play_integrity' },
                     ].map((rule) => {
                       const value = getConfig(rule.key, false);
                       const isToggle = typeof value === 'boolean' && rule.key !== 'security_session_timeout_h';

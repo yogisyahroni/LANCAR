@@ -24,38 +24,39 @@ type RelayScoreHistory struct {
 // CourierPerformanceStats holds real-time performance metrics fetched from courier_profiles.
 // These are updated by analytics workers and used in relay score calculation.
 type CourierPerformanceStats struct {
-	CourierID         uuid.UUID `db:"id"`
-	OntimeDeliveries  int       `db:"ontime_deliveries_count"`
-	TotalDeliveries   int       `db:"total_deliveries_count"`
-	DocsCompletePct   float64   `db:"docs_complete_pct"`
-	AvgPartnerRating  float64   `db:"avg_partner_rating"`
-	ComplaintRatioPct float64   `db:"complaint_ratio_pct"`
-	RelayScore        float64   `db:"relay_score"`
-	Tier              string    `db:"tier"`
+	CourierID         uuid.UUID `json:"courier_id" db:"id"`
+	CourierName       string    `json:"courier_name" db:"courier_name"`
+	OntimeDeliveries  int       `json:"ontime_deliveries_count" db:"ontime_deliveries_count"`
+	TotalDeliveries   int       `json:"total_deliveries_count" db:"total_deliveries_count"`
+	DocsCompletePct   float64   `json:"docs_complete_pct" db:"docs_complete_pct"`
+	AvgPartnerRating  float64   `json:"avg_partner_rating" db:"avg_partner_rating"`
+	ComplaintRatioPct float64   `json:"complaint_ratio_pct" db:"complaint_ratio_pct"`
+	RelayScore        float64   `json:"relay_score" db:"relay_score"`
+	Tier              string    `json:"tier" db:"tier"`
 }
 
 // CourierDispatchScoreStats holds the runtime metrics required to rank a courier
 // for a specific pickup point. All values are read from operational DB state.
 type CourierDispatchScoreStats struct {
-	CourierID           uuid.UUID `db:"id"`
-	RelayScore          float64   `db:"relay_score"`
-	AcceptanceRatePct   float64   `db:"acceptance_rate_pct"`
-	DistanceMeters      float64   `db:"distance_meters"`
-	MaxWeightCapacityKg *float64  `db:"max_weight_capacity_kg"`
-	MaxPackagesCapacity *int      `db:"max_packages_capacity"`
-	ProfilePhotoLocked  bool      `db:"profile_photo_locked"`
+	CourierID           uuid.UUID `json:"courier_id" db:"id"`
+	RelayScore          float64   `json:"relay_score" db:"relay_score"`
+	AcceptanceRatePct   float64   `json:"acceptance_rate_pct" db:"acceptance_rate_pct"`
+	DistanceMeters      float64   `json:"distance_meters" db:"distance_meters"`
+	MaxWeightCapacityKg *float64  `json:"max_weight_capacity_kg" db:"max_weight_capacity_kg"`
+	MaxPackagesCapacity *int      `json:"max_packages_capacity" db:"max_packages_capacity"`
+	ProfilePhotoLocked  bool      `json:"profile_photo_locked" db:"profile_photo_locked"`
 	// S3-OS-01: Idle time & rating for fairness scoring
-	IdleMinutes float64 `db:"idle_minutes"`
-	AvgRating   float64 `db:"avg_rating"`
-	Tier        string  `db:"tier"`
+	IdleMinutes float64 `json:"idle_minutes" db:"idle_minutes"`
+	AvgRating   float64 `json:"avg_rating" db:"avg_rating"`
+	Tier        string  `json:"tier" db:"tier"`
 }
 
 // CourierBankInfo holds bank account info needed for payout disbursement.
 type CourierBankInfo struct {
-	CourierID         uuid.UUID `db:"id"`
-	BankCode          *string   `db:"bank_code"`
-	BankAccountNumber *string   `db:"bank_account_number"`
-	BankAccountName   *string   `db:"bank_account_name"`
+	CourierID         uuid.UUID `json:"courier_id" db:"id"`
+	BankCode          *string   `json:"bank_code" db:"bank_code"`
+	BankAccountNumber *string   `json:"bank_account_number" db:"bank_account_number"`
+	BankAccountName   *string   `json:"bank_account_name" db:"bank_account_name"`
 }
 
 type RelayMatch struct {

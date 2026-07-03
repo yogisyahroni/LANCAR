@@ -467,3 +467,13 @@ func (r *postgresRepo) LogLocalSecurityEvent(ctx context.Context, log *domain.Co
 	_, err := r.db.ExecContext(ctx, query, log.CourierID, log.ActionType, log.Method, log.OrderID, log.CreatedAt)
 	return err
 }
+
+func (r *postgresRepo) GetBoolConfig(ctx context.Context, key string, defaultValue bool) bool {
+	var valString string
+	err := r.readDB.QueryRowContext(ctx, "SELECT value FROM system_configs WHERE key = $1 LIMIT 1", key).Scan(&valString)
+	if err != nil {
+		return defaultValue
+	}
+	return valString == "true" || valString == "1" || valString == "yes"
+}
+

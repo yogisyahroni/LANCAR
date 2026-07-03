@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"strings"
 	"tembus/order-service/pkg/utils"
@@ -12,30 +13,54 @@ const (
 	RoleKey   contextKey = "role"
 )
 
+var globalDB *sql.DB
+
+func SetDB(db *sql.DB) {
+	globalDB = db
+}
+
 func AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, "Authorization header required", http.StatusUnauthorized)
-			return
+		if authHeader != "" {
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				claims, err := utils.ValidateToken(parts[1])
+				if err == nil {
+					ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
+					ctx = context.WithValue(ctx, RoleKey, claims.Role)
+					r.Header.Set("X-User-ID", claims.UserID)
+					r.Header.Set("X-User-Role", claims.Role)
+					next.ServeHTTP(w, r.WithContext(ctx))
+					return
+				}
+			}
 		}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
-			return
+		// Support web admin session cookie authentication
+		cookie, err := r.Cookie("admin_session")
+		if err == nil && cookie.Value != "" && globalDB != nil {
+			var userID, role string
+			query := `
+				SELECT s.user_id, u.role 
+				FROM web_sessions s
+				JOIN users u ON s.user_id = u.id
+				WHERE s.session_token = $1
+				  AND s.expires_at > NOW()
+				  AND u.deleted_at IS NULL
+			`
+			err := globalDB.QueryRowContext(r.Context(), query, cookie.Value).Scan(&userID, &role)
+			if err == nil && userID != "" {
+				ctx := context.WithValue(r.Context(), UserIDKey, userID)
+				ctx = context.WithValue(ctx, RoleKey, role)
+				r.Header.Set("X-User-ID", userID)
+				r.Header.Set("X-User-Role", role)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
 		}
 
-		claims, err := utils.ValidateToken(parts[1])
-		if err != nil {
-			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
-		ctx = context.WithValue(ctx, RoleKey, claims.Role)
-
-		next.ServeHTTP(w, r.WithContext(ctx))
+		http.Error(w, "Authorization required", http.StatusUnauthorized)
 	}
 }
 
@@ -52,3 +77,4 @@ func GetRoleFromContext(ctx context.Context) string {
 	}
 	return ""
 }
+

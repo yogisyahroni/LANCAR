@@ -22,7 +22,7 @@ END $$;
 -- +goose StatementEnd
 
 CREATE INDEX IF NOT EXISTS idx_courier_profiles_application_review
-  ON courier_profiles(application_channel, verification_status, created_at DESC);
+  ON courier_profiles(application_channel);
 
 -- +goose Down
 DROP INDEX IF EXISTS idx_courier_profiles_application_review;
