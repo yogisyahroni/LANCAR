@@ -441,14 +441,14 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
               <select 
                 value={formData.service_code}
                 onChange={e => setFormData({ ...formData, service_code: e.target.value })}
-                className="w-full bg-background border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                className="w-full bg-zinc-900/90 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer shadow-sm"
                 disabled={isLoadingServices}
               >
                 {isLoadingServices ? (
-                  <option value="">Loading services...</option>
+                  <option value="" className="bg-zinc-900 text-zinc-100 py-1.5">Loading services...</option>
                 ) : (
                   services?.map((svc: any) => (
-                    <option key={svc.code} value={svc.code}>
+                    <option key={svc.code} value={svc.code} className="bg-zinc-900 text-zinc-100 font-medium py-1.5">
                       {svc.name}
                     </option>
                   ))

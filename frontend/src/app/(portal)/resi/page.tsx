@@ -47,6 +47,10 @@ export default function ResiPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [model, setModel] = useState('all');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   
   // ZIP Download Polling Simulation
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
@@ -91,6 +95,12 @@ export default function ResiPage() {
     const matchesModel = model === 'all' || order.model === model;
     return matchesSearch && matchesStatus && matchesModel;
   });
+
+  const totalPages = Math.ceil(filteredOrders.length / pageSize) || 1;
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
 
   const toggleSelectOrder = (id: string) => {
     if (selectedOrderIds.includes(id)) {
@@ -254,7 +264,7 @@ export default function ResiPage() {
             type="text"
             placeholder="Cari No. Resi atau nama penerima..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
             className="w-full bg-card/60 backdrop-blur-md border border-border/40 pl-10 pr-4 py-2.5 rounded-xl text-sm text-foreground focus:outline-none focus:border-primary/60 transition-all select-none"
           />
         </div>
@@ -264,14 +274,14 @@ export default function ResiPage() {
           <Filter className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none select-none" />
           <select
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full bg-card/60 backdrop-blur-md border border-border/40 pl-10 pr-4 py-2.5 rounded-xl text-sm text-foreground focus:outline-none focus:border-primary/60 transition-all select-none appearance-none cursor-pointer"
+            onChange={(e) => { setStatus(e.target.value); setCurrentPage(1); }}
+            className="w-full bg-zinc-900/90 border border-white/10 pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all select-none appearance-none cursor-pointer shadow-sm"
           >
-            <option value="all">Semua Status</option>
-            <option value="pickup">Pickup</option>
-            <option value="in_transit">Dalam Perjalanan</option>
-            <option value="completed">Selesai</option>
-            <option value="cancelled">Dibatalkan</option>
+            <option value="all" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Semua Status</option>
+            <option value="pickup" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Pickup</option>
+            <option value="in_transit" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Dalam Perjalanan</option>
+            <option value="completed" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Selesai</option>
+            <option value="cancelled" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Dibatalkan</option>
           </select>
         </div>
 
@@ -280,13 +290,13 @@ export default function ResiPage() {
           <Layers className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none select-none" />
           <select
             value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="w-full bg-card/60 backdrop-blur-md border border-border/40 pl-10 pr-4 py-2.5 rounded-xl text-sm text-foreground focus:outline-none focus:border-primary/60 transition-all select-none appearance-none cursor-pointer"
+            onChange={(e) => { setModel(e.target.value); setCurrentPage(1); }}
+            className="w-full bg-zinc-900/90 border border-white/10 pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60 transition-all select-none appearance-none cursor-pointer shadow-sm"
           >
-            <option value="all">Semua Jenis Layanan</option>
-            <option value="instant">Instant (GoSend/Grab)</option>
-            <option value="same_day">Same Day</option>
-            <option value="standard">Reguler / Standard</option>
+            <option value="all" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Semua Jenis Layanan</option>
+            <option value="instant" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Instant (GoSend/Grab)</option>
+            <option value="same_day" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Same Day</option>
+            <option value="standard" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Reguler / Standard</option>
           </select>
         </div>
       </div>
@@ -319,7 +329,7 @@ export default function ResiPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border/40 text-sm font-medium text-foreground select-none">
-              {filteredOrders.map((order) => {
+              {paginatedOrders.map((order) => {
                 const isSelected = selectedOrderIds.includes(order.id);
                 return (
                   <tr
@@ -377,6 +387,62 @@ export default function ResiPage() {
           </table>
         </div>
       </motion.div>
+
+      {/* Premium Pagination */}
+      {filteredOrders.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-border/40 rounded-2xl p-4 bg-card/20 backdrop-blur-sm select-none">
+          <p className="text-xs font-medium text-muted-foreground tracking-wider uppercase">
+            Showing {Math.min((currentPage - 1) * pageSize + 1, filteredOrders.length)} - {Math.min(currentPage * pageSize, filteredOrders.length)} of {filteredOrders.length} resi
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              className="px-3.5 py-2 border border-border/40 bg-card/40 rounded-xl text-sm font-semibold text-foreground hover:bg-card hover:border-primary/40 transition duration-200 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <ChevronLeft className="h-4 w-4" /> Prev
+            </button>
+            
+            <div className="flex items-center gap-1 px-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-8 h-8 rounded-xl text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                        currentPage === page
+                          ? 'bg-primary text-white shadow-md shadow-primary/20 scale-105'
+                          : 'bg-card/40 border border-border/40 text-muted-foreground hover:text-foreground hover:bg-card'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                } else if (
+                  (page === currentPage - 2 && page > 1) ||
+                  (page === currentPage + 2 && page < totalPages)
+                ) {
+                  return <span key={page} className="text-muted-foreground text-xs px-1">...</span>;
+                }
+                return null;
+              })}
+            </div>
+
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              className="px-3.5 py-2 border border-border/40 bg-card/40 rounded-xl text-sm font-semibold text-foreground hover:bg-card hover:border-primary/40 transition duration-200 disabled:opacity-40 disabled:pointer-events-none flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ZIP download progress polling modal */}
       <AnimatePresence>

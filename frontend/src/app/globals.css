@@ -69,3 +69,17 @@ body {
   from { opacity: 1; transform: translateY(0); }
   to { opacity: 0; transform: translateY(10px); }
 }
+
+/* Ensure select and option dropdown menus render properly in dark mode without white flash/background */
+select option {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-weight: 500;
+  padding: 8px 12px;
+}
+
+.dark select option {
+  background-color: #18181b;
+  color: #f4f4f5;
+}
+

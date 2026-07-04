@@ -232,13 +232,13 @@ function OrderListContent() {
             <select
               value={status}
               onChange={(e) => updateFilters({ status: e.target.value })}
-              className="w-full bg-background/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+              className="w-full bg-zinc-900/90 border border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer shadow-sm"
             >
-              <option value="all">Semua Status</option>
-              <option value="pending">Pending</option>
-              <option value="in_transit">Dalam Perjalanan</option>
-              <option value="completed">Selesai</option>
-              <option value="cancelled">Dibatalkan</option>
+              <option value="all" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Semua Status</option>
+              <option value="pending" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Pending</option>
+              <option value="in_transit" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Dalam Perjalanan</option>
+              <option value="completed" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Selesai</option>
+              <option value="cancelled" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Dibatalkan</option>
             </select>
           </div>
 
@@ -250,10 +250,10 @@ function OrderListContent() {
             <select
               value={model}
               onChange={(e) => updateFilters({ model: e.target.value })}
-              className="w-full bg-background/50 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+              className="w-full bg-zinc-900/90 border border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer shadow-sm"
             >
-              <option value="all">Semua Model</option>
-              <option value="p2p">P2P Point-to-point</option>
+              <option value="all" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Semua Model</option>
+              <option value="p2p" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">P2P Point-to-point</option>
             </select>
           </div>
         </div>
