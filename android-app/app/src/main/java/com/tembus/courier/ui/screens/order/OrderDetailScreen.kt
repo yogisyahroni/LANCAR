@@ -24,13 +24,27 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -63,6 +77,7 @@ import com.tembus.courier.ui.theme.Secondary
 import com.tembus.courier.ui.theme.Success
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -794,15 +809,26 @@ private fun CourierNextActionPanel(
                 }
             }
             if (hasAction) {
-                Button(
-                    onClick = onClick,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black)
-                ) {
-                    Icon(courierActionIcon(action.type), contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(action.label, fontWeight = FontWeight.Black)
+                val isSwipeAction = action.type == CourierNextActionType.START_DELIVERY ||
+                    action.type == CourierNextActionType.COMPLETE_DELIVERY ||
+                    action.type == CourierNextActionType.ACCEPT_OFFER
+                if (isSwipeAction) {
+                    SwipeToActionTrack(
+                        label = "SWIPE UNTUK ${action.label.uppercase()}  →",
+                        icon = courierActionIcon(action.type),
+                        onAction = onClick
+                    )
+                } else {
+                    Button(
+                        onClick = onClick,
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = LogisticsOrange, contentColor = Color.Black)
+                    ) {
+                        Icon(courierActionIcon(action.type), contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(action.label, fontWeight = FontWeight.Black)
+                    }
                 }
                 // S2-OS-03: Secondary action for on-demand failed delivery
                 if (secondary != null && onSecondaryClick != null) {
@@ -821,6 +847,105 @@ private fun CourierNextActionPanel(
             } else {
                 Text(action.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black, color = Success)
             }
+        }
+    }
+}
+
+@Composable
+private fun SwipeToActionTrack(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onAction: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    var trackWidthPx by remember { mutableFloatStateOf(0f) }
+    val swipeProgress = remember { Animatable(0f) }
+    var hasTriggered by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    val thumbSize = 52.dp
+    val trackPadding = 4.dp
+    val threshold = 0.80f
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(thumbSize + trackPadding * 2)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color.White)
+            .border(BorderStroke(2.dp, LogisticsOrange), RoundedCornerShape(8.dp))
+            .onSizeChanged { size -> trackWidthPx = size.width.toFloat() }
+    ) {
+        val progressWidth by swipeProgress.asState()
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxHeight()
+                .width(with(density) { (progressWidth * trackWidthPx).toDp() }.coerceAtMost(
+                    with(density) { trackWidthPx.toDp() }
+                ))
+                .clip(RoundedCornerShape(8.dp))
+                .background(LogisticsOrange.copy(alpha = 0.35f))
+        )
+
+        if (progressWidth < 0.05f) {
+            Text(
+                text = label,
+                modifier = Modifier.align(Alignment.Center),
+                color = DeepForest,
+                fontWeight = FontWeight.Black,
+                fontSize = 14.sp
+            )
+        }
+
+        val thumbOffsetPx = swipeProgress.value * (trackWidthPx - with(density) { thumbSize.toPx() })
+        Box(
+            modifier = Modifier
+                .offset { IntOffset(thumbOffsetPx.toInt(), 0) }
+                .padding(trackPadding)
+                .size(thumbSize - trackPadding * 2)
+                .clip(RoundedCornerShape(6.dp))
+                .background(LogisticsOrange)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            scope.launch {
+                                if (swipeProgress.value >= threshold && !hasTriggered) {
+                                    hasTriggered = true
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    swipeProgress.animateTo(
+                                        1f,
+                                        animationSpec = tween(150, easing = FastOutSlowInEasing)
+                                    )
+                                    onAction()
+                                } else if (!hasTriggered) {
+                                    swipeProgress.animateTo(
+                                        0f,
+                                        animationSpec = tween(300, easing = FastOutSlowInEasing)
+                                    )
+                                }
+                            }
+                        },
+                        onHorizontalDrag = { _, dragAmount ->
+                            if (!hasTriggered) {
+                                scope.launch {
+                                    val delta = dragAmount / (trackWidthPx - with(density) { thumbSize.toPx() })
+                                    val newValue = (swipeProgress.value + delta).coerceIn(0f, 1f)
+                                    swipeProgress.snapTo(newValue)
+                                }
+                            }
+                        }
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = Color.Black,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }
