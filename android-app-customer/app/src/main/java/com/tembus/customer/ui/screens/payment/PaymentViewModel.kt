@@ -56,7 +56,7 @@ class PaymentViewModel @Inject constructor(
             result.onSuccess { payment ->
                 val status = payment.paymentStatus.ifBlank { payment.status }
                 when {
-                    status == "paid" || payment.orderStatus == "pending" -> _uiState.value = PaymentUiState.Paid
+                    isPaidOrBypassed(status, payment.orderStatus) -> _uiState.value = PaymentUiState.Paid
                     status == "expired" -> _uiState.value = PaymentUiState.Choosing(
                         selectedMethod = selected,
                         amountIdr = payment.amountIdr,
@@ -109,7 +109,7 @@ class PaymentViewModel @Inject constructor(
                     val status = payment.paymentStatus.ifBlank { payment.status }
                     val url = payment.redirectUrl
                     when {
-                        status == "paid" || payment.orderStatus == "pending" -> _uiState.value = PaymentUiState.Paid
+                        isPaidOrBypassed(status, payment.orderStatus) -> _uiState.value = PaymentUiState.Paid
                         status == "expired" -> _uiState.value = PaymentUiState.Expired(
                             message = "Sesi pembayaran sudah kedaluwarsa. Silakan buat sesi baru.",
                             selectedMethod = selected
@@ -145,7 +145,7 @@ class PaymentViewModel @Inject constructor(
             val result = repository.confirmCustomerPayment(orderId)
             result.onSuccess { payment ->
                 val status = payment.paymentStatus.ifBlank { payment.status }
-                if (status == "paid" || payment.orderStatus == "pending") {
+                if (isPaidOrBypassed(status, payment.orderStatus)) {
                     _uiState.value = PaymentUiState.Paid
                 } else {
                     _uiState.value = PaymentUiState.Ready(payment.redirectUrl.orEmpty(), status)
@@ -156,7 +156,7 @@ class PaymentViewModel @Inject constructor(
                 statusResult.onSuccess { payment ->
                     val status = payment.paymentStatus.ifBlank { payment.status }
                     when {
-                        status == "paid" || payment.orderStatus == "pending" -> {
+                        isPaidOrBypassed(status, payment.orderStatus) -> {
                             _uiState.value = PaymentUiState.Paid
                         }
                         status == "expired" -> _uiState.value = PaymentUiState.Expired(
@@ -202,5 +202,9 @@ class PaymentViewModel @Inject constructor(
             is PaymentUiState.Choosing -> state.walletBalanceIdr
             else -> 0L
         }
+    }
+
+    private fun isPaidOrBypassed(status: String, orderStatus: String): Boolean {
+        return status == "paid" || (orderStatus.isNotBlank() && orderStatus != "pending_payment" && orderStatus != "payment_failed")
     }
 }

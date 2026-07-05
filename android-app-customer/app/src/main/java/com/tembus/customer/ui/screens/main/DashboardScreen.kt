@@ -28,10 +28,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Navigation
@@ -43,6 +45,7 @@ import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.TwoWheeler
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Button
@@ -87,6 +90,7 @@ import com.tembus.customer.ui.theme.AccentLight
 import com.tembus.customer.ui.theme.Background
 import com.tembus.customer.ui.theme.CustomerHeroEnd
 import com.tembus.customer.ui.theme.CustomerHeroStart
+import com.tembus.customer.ui.theme.Error
 import com.tembus.customer.ui.theme.OnSurface
 import com.tembus.customer.ui.theme.OnSurfaceVariant
 import com.tembus.customer.ui.theme.Outline
@@ -611,7 +615,10 @@ private fun ActiveOrderCard(
     onClick: () -> Unit,
     onChatClick: () -> Unit
 ) {
-    val canOpenChat = status.lowercase() in setOf(
+    val statusLower = status.lowercase()
+    val isCancelled = statusLower in setOf("cancelled", "canceled", "failed", "rejected", "payment_failed") || statusLower.contains("cancel")
+    val isDelivered = statusLower in setOf("delivered", "completed", "arrived")
+    val canOpenChat = !isCancelled && !isDelivered && statusLower in setOf(
         "assigned",
         "accepted",
         "picking_up",
@@ -619,6 +626,31 @@ private fun ActiveOrderCard(
         "in_transit",
         "delivering"
     )
+
+    val displayTitle = when {
+        isCancelled -> if (statusLower == "failed" || statusLower == "payment_failed") "⚠️ Pengiriman Gagal" else "⚠️ Pengiriman Dibatalkan"
+        isDelivered -> "✅ Pengiriman Selesai"
+        else -> title
+    }
+    
+    val statusColor = when {
+        isCancelled -> Error
+        isDelivered -> Color(0xFF22C55E)
+        else -> LcGreen
+    }
+    
+    val iconVector = when {
+        isCancelled -> Icons.Default.Warning
+        isDelivered -> Icons.Default.CheckCircle
+        else -> Icons.Default.Navigation
+    }
+    
+    val ctaText = when {
+        isCancelled -> "Detail ➔"
+        isDelivered -> "Detail ➔"
+        else -> "Lacak"
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -633,14 +665,14 @@ private fun ActiveOrderCard(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(RoundedCornerShape(17.dp))
-                    .background(MaterialTheme.colorScheme.surface),
+                    .background(statusColor.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Navigation, contentDescription = null, tint = LcGreen)
+                Icon(iconVector, contentDescription = null, tint = statusColor)
             }
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, color = Ink, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp, fontSize = 17.sp)
+                Text(displayTitle, color = Ink, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp, fontSize = 17.sp)
                 Text(
                     subtitle,
                     color = Muted,
@@ -648,10 +680,10 @@ private fun ActiveOrderCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(status.replace("_", " ").uppercase(), color = LcGreen, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                Text(status.replace("_", " ").uppercase(), color = statusColor, fontWeight = FontWeight.Bold, fontSize = 11.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text("Lacak", color = LcGreen, fontWeight = FontWeight.ExtraBold)
+                Text(ctaText, color = statusColor, fontWeight = FontWeight.ExtraBold)
                 if (canOpenChat) {
                     Spacer(Modifier.height(8.dp))
                     Surface(
@@ -735,13 +767,20 @@ private fun IncomingPackageCard(
     onChatClick: () -> Unit
 ) {
     val normalizedStatus = order.status.lowercase()
-    val canOpenChat = normalizedStatus in setOf(
+    val isCancelled = normalizedStatus in setOf("cancelled", "canceled", "failed", "rejected", "payment_failed") || normalizedStatus.contains("cancel")
+    val isDelivered = normalizedStatus in setOf("delivered", "completed", "arrived")
+    val canOpenChat = !isCancelled && !isDelivered && normalizedStatus in setOf(
         "picked_up",
         "in_transit",
         "delivering",
         "delivered",
         "completed"
     )
+    val statusColor = when {
+        isCancelled -> Error
+        isDelivered -> Color(0xFF22C55E)
+        else -> LcGreen
+    }
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -757,10 +796,10 @@ private fun IncomingPackageCard(
                     modifier = Modifier
                         .size(46.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.secondaryContainer),
+                        .background(statusColor.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.LocalShipping, contentDescription = null, tint = LcGreen)
+                    Icon(if (isCancelled) Icons.Default.Warning else Icons.Default.LocalShipping, contentDescription = null, tint = statusColor)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -783,7 +822,7 @@ private fun IncomingPackageCard(
                 }
                 Text(
                     text = order.status.replace("_", " ").uppercase(),
-                    color = LcGreen,
+                    color = statusColor,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.ExtraBold
                 )

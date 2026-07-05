@@ -61,8 +61,15 @@ class DashboardViewModel @Inject constructor(
             orderRepository.getOrderHistory().collectLatest { result ->
                 _isLoading.value = false
                 result.onSuccess { orders ->
-                    // Find the most recent active order (pending/transit/etc)
-                    _activeOrder.value = orders.firstOrNull { it.status != "delivered" && it.status != "failed" }
+                    // Find ongoing order first; if none, show latest non-delivered order (e.g. cancelled/failed) for user awareness
+                    val ongoing = orders.firstOrNull { 
+                        val s = it.status.lowercase()
+                        s !in setOf("delivered", "completed", "cancelled", "canceled", "failed", "rejected", "payment_failed") && !s.contains("cancel")
+                    }
+                    _activeOrder.value = ongoing ?: orders.firstOrNull {
+                        val s = it.status.lowercase()
+                        s != "delivered" && s != "completed" && s != "arrived"
+                    }
                 }.onFailure { error ->
                     _activeOrder.value = null
                     _dataError.value = userSafeMessage(

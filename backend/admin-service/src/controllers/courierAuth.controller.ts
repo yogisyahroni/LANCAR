@@ -2434,7 +2434,7 @@ export const updateAdminCourierIncentive = async (req: Request, res: Response) =
 };
 
 const ON_DEMAND_OFFER_TTL_SECONDS = 15;
-const ON_DEMAND_OPEN_ORDER_STATUSES = ['pending', 'pending_payment', 'paid', 'matched', 'offered', 'dispatching'];
+const ON_DEMAND_OPEN_ORDER_STATUSES = ['pending', 'pending_payment', 'paid', 'matched', 'offered', 'dispatching', 'pending_assignment', 'searching'];
 
 type CreatedDispatchOffer = {
   dispatch_id: string;

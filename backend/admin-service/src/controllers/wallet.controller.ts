@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 
 const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://payment-service:8084';
 
@@ -36,7 +37,7 @@ export const createTopUp = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { amount } = req.body;
+    const { amount, idempotency_key } = req.body;
     if (!amount || amount <= 0) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
@@ -45,12 +46,13 @@ export const createTopUp = async (req: Request, res: Response) => {
       method: 'POST',
       headers: {
         'X-User-ID': user.id,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': idempotency_key || crypto.randomUUID()
       },
       body: JSON.stringify({ amount })
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({ error: 'Invalid response from payment service' }));
     return res.status(response.status).json(data);
   } catch (error: any) {
     console.error('Error creating top up:', error);
@@ -65,25 +67,33 @@ export const requestWithdrawal = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { amount, bank_name, account_number, account_holder } = req.body;
-    if (!amount || amount <= 0 || !bank_name || !account_number || !account_holder) {
+    const { amount, bank_name, bank_code, account_number, account_holder, idempotency_key } = req.body;
+    const finalBankCode = (bank_code || bank_name || '').toUpperCase().trim();
+    
+    if (!amount || amount <= 0 || !finalBankCode || !account_number || !account_holder) {
       return res.status(400).json({ error: 'Missing or invalid withdrawal details' });
     }
+
+    const finalIdempotencyKey = idempotency_key || req.headers['x-idempotency-key'] || crypto.randomUUID();
 
     const response = await fetch(`${PAYMENT_SERVICE_URL}/api/v1/wallet/withdraw`, {
       method: 'POST',
       headers: {
         'X-User-ID': user.id,
-        'X-User-Role': user.role,
-        'Content-Type': 'application/json'
+        'X-User-Role': user.role || 'customer',
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': finalIdempotencyKey as string
       },
       body: JSON.stringify({ 
-        amount, 
-        bank_details: { bank_name, account_number, account_holder } 
+        amount: Number(amount),
+        bank_code: finalBankCode,
+        account_number: String(account_number).replace(/[^0-9]/g, ''),
+        account_holder: String(account_holder).trim(),
+        idempotency_key: finalIdempotencyKey
       })
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({ error: 'Invalid response from payment service' }));
     return res.status(response.status).json(data);
   } catch (error: any) {
     console.error('Error requesting withdrawal:', error);

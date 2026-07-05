@@ -7,8 +7,15 @@ interface WalletState {
   isLoading: boolean;
   error: string | null;
   fetchBalance: () => Promise<void>;
-  topUp: (amount: number) => Promise<{ snap_token: string }>;
-  withdraw: (details: { amount: number; bank_name: string; account_number: string; account_holder: string }) => Promise<void>;
+  topUp: (amount: number, idempotencyKey?: string) => Promise<{ snap_token: string }>;
+  withdraw: (details: { 
+    amount: number; 
+    bank_name?: string; 
+    bank_code: string; 
+    account_number: string; 
+    account_holder: string;
+    idempotency_key?: string;
+  }) => Promise<void>;
 }
 
 export const useWalletStore = create<WalletState>((set, get) => ({
@@ -32,10 +39,16 @@ export const useWalletStore = create<WalletState>((set, get) => ({
       });
     }
   },
-  topUp: async (amount: number) => {
+  topUp: async (amount: number, idempotencyKey?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.post('/auth/web/wallet/topup', { amount });
+      const key = idempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `topup-${Date.now()}-${Math.random()}`);
+      const response = await api.post('/auth/web/wallet/topup', { 
+        amount,
+        idempotency_key: key 
+      }, {
+        headers: { 'X-Idempotency-Key': key }
+      });
       set({ isLoading: false });
       return response.data;
     } catch (err: any) {
@@ -47,7 +60,13 @@ export const useWalletStore = create<WalletState>((set, get) => ({
   withdraw: async (details) => {
     set({ isLoading: true, error: null });
     try {
-      await api.post('/auth/web/wallet/withdraw', details);
+      const key = details.idempotency_key || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `withdraw-${Date.now()}-${Math.random()}`);
+      await api.post('/auth/web/wallet/withdraw', {
+        ...details,
+        idempotency_key: key
+      }, {
+        headers: { 'X-Idempotency-Key': key }
+      });
       set({ isLoading: false });
       // Refresh balance after withdrawal request (balance will be deducted)
       get().fetchBalance();

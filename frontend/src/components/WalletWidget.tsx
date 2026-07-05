@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useWalletStore } from '@/store/useWalletStore';
-import { Wallet, Plus, ArrowUpRight, RefreshCw, X, Loader2, Landmark, User, CreditCard } from 'lucide-react';
+import { Wallet, Plus, ArrowUpRight, RefreshCw, X, Loader2, Landmark, User, CreditCard, CheckCircle2, AlertCircle, Info, ShieldCheck, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { clientLog } from '@/lib/clientLogger';
@@ -17,20 +17,47 @@ declare global {
   }
 }
 
+const BANK_OPTIONS = [
+  { code: 'BCA', name: 'Bank BCA (Bank Central Asia)', type: 'BANK' },
+  { code: 'MANDIRI', name: 'Bank Mandiri', type: 'BANK' },
+  { code: 'BNI', name: 'Bank BNI', type: 'BANK' },
+  { code: 'BRI', name: 'Bank BRI', type: 'BANK' },
+  { code: 'BSI', name: 'Bank BSI (Syariah Indonesia)', type: 'BANK' },
+  { code: 'CIMB', name: 'Bank CIMB Niaga', type: 'BANK' },
+  { code: 'PERMATA', name: 'Bank Permata', type: 'BANK' },
+  { code: 'GOPAY', name: 'GoPay E-Wallet', type: 'EWALLET' },
+  { code: 'OVO', name: 'OVO E-Wallet', type: 'EWALLET' },
+  { code: 'DANA', name: 'DANA E-Wallet', type: 'EWALLET' },
+  { code: 'SHOPEEPAY', name: 'ShopeePay E-Wallet', type: 'EWALLET' },
+];
+
 export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
   const { balance, currency, isLoading, fetchBalance, topUp, withdraw, error } = useWalletStore();
   const [showTopUp, setShowTopUp] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
-  const [amount, setAmount] = useState('');
+  const [amountRaw, setAmountRaw] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Floating notification state (replaces browser alert())
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info';
+    message: string;
+  } | null>(null);
 
   // Withdrawal form state
   const [withdrawForm, setWithdrawForm] = useState({
-    amount: '',
-    bank_name: '',
+    amountRaw: '',
+    bank_code: 'BCA',
     account_number: '',
     account_holder: ''
   });
+
+  const showNotification = (type: 'success' | 'error' | 'info', message: string) => {
+    setNotification({ type, message });
+    setTimeout(() => {
+      setNotification(null);
+    }, 4500);
+  };
 
   useEffect(() => {
     fetchBalance();
@@ -46,10 +73,14 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
     }).format(value);
   };
 
+  const formatNumberInput = (raw: string) => {
+    return raw.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
   const handleTopUp = async () => {
-    const numAmount = parseInt(amount);
+    const numAmount = parseInt(amountRaw, 10);
     if (isNaN(numAmount) || numAmount < 10000) {
-      alert('Minimal top up adalah Rp 10.000');
+      showNotification('error', 'Minimal top up saldo adalah Rp 10.000');
       return;
     }
 
@@ -59,66 +90,76 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
       if (window.snap) {
         window.snap.pay(result.snap_token, {
           onSuccess: function() {
-            alert('Top up berhasil!');
+            showNotification('success', 'Top up saldo berhasil ditambahkan!');
             fetchBalance();
             setShowTopUp(false);
-            setAmount('');
+            setAmountRaw('');
           },
           onPending: function() {
-            alert('Menunggu pembayaran...');
+            showNotification('info', 'Menunggu penyelesaian pembayaran oleh sistem...');
             setShowTopUp(false);
           },
           onError: function() {
-            alert('Top up gagal!');
+            showNotification('error', 'Transaksi top up gagal atau dibatalkan.');
           },
           onClose: function() {
             clientLog.debug('Snap popup closed');
           }
         });
       } else {
-        alert('Payment Gateway belum siap. Silakan coba lagi.');
+        showNotification('error', 'Payment Gateway belum siap. Silakan coba beberapa saat lagi.');
       }
-    } catch (err) {
+    } catch (err: any) {
       clientLog.error('Top up request failed', { error: err });
+      showNotification('error', err.message || 'Gagal memulai transaksi top up.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleWithdraw = async () => {
-    const numAmount = parseInt(withdrawForm.amount);
+    const numAmount = parseInt(withdrawForm.amountRaw, 10);
     if (isNaN(numAmount) || numAmount < 50000) {
-      alert('Minimal penarikan adalah Rp 50.000');
+      showNotification('error', 'Minimal penarikan dana adalah Rp 50.000');
       return;
     }
     
-    if (!withdrawForm.bank_name || !withdrawForm.account_number || !withdrawForm.account_holder) {
-      alert('Harap isi semua detail rekening');
+    if (!withdrawForm.account_number.trim() || !withdrawForm.account_holder.trim()) {
+      showNotification('error', 'Harap lengkapi nomor rekening dan nama pemilik rekening.');
       return;
     }
 
     if (numAmount + 5000 > balance) {
-      alert('Saldo tidak cukup (termasuk biaya admin Rp 5.000)');
+      showNotification('error', 'Saldo tidak mencukupi (termasuk biaya admin BI-FAST Rp 5.000).');
       return;
     }
+
+    const selectedBank = BANK_OPTIONS.find(b => b.code === withdrawForm.bank_code) || BANK_OPTIONS[0];
 
     setIsSubmitting(true);
     try {
       await withdraw({
         amount: numAmount,
-        bank_name: withdrawForm.bank_name,
+        bank_code: selectedBank.code,
+        bank_name: selectedBank.name,
         account_number: withdrawForm.account_number,
         account_holder: withdrawForm.account_holder
       });
-      alert('Permintaan penarikan berhasil diajukan dan sedang diproses.');
+      showNotification('success', 'Permintaan penarikan berhasil diajukan dan sedang diproses via BI-FAST.');
       setShowWithdraw(false);
-      setWithdrawForm({ amount: '', bank_name: '', account_number: '', account_holder: '' });
-    } catch (err) {
+      setWithdrawForm({ amountRaw: '', bank_code: 'BCA', account_number: '', account_holder: '' });
+    } catch (err: any) {
       clientLog.error('Withdraw request failed', { error: err });
+      showNotification('error', err.message || 'Gagal memproses penarikan dana.');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const numWithdrawAmount = parseInt(withdrawForm.amountRaw || '0', 10);
+  const adminFee = numWithdrawAmount > 0 ? 5000 : 0;
+  const totalDeduction = numWithdrawAmount + adminFee;
+  const isInsufficientBalance = totalDeduction > balance && numWithdrawAmount > 0;
 
   if (isCollapsed) {
     return (
@@ -165,7 +206,9 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
           <h3 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
             {formatCurrency(balance)}
           </h3>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Saldo Tersedia</p>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
+            <ShieldCheck size={12} className="text-emerald-500" /> Saldo Terverifikasi (BI-FAST)
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -186,6 +229,43 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
         </div>
       </motion.div>
 
+      {/* Floating Notification Toast */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-6 right-6 z-[200] max-w-sm w-full p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-black/10 dark:border-white/10 shadow-2xl flex items-start gap-3 backdrop-blur-xl"
+          >
+            <div className={cn(
+              "p-2 rounded-xl flex-shrink-0",
+              notification.type === 'success' && "bg-emerald-500/10 text-emerald-500",
+              notification.type === 'error' && "bg-rose-500/10 text-rose-500",
+              notification.type === 'info' && "bg-blue-500/10 text-blue-500"
+            )}>
+              {notification.type === 'success' && <CheckCircle2 size={18} />}
+              {notification.type === 'error' && <AlertCircle size={18} />}
+              {notification.type === 'info' && <Info size={18} />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white">
+                {notification.type === 'success' ? 'Berhasil' : notification.type === 'error' ? 'Perhatian' : 'Informasi'}
+              </h4>
+              <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5 leading-relaxed">
+                {notification.message}
+              </p>
+            </div>
+            <button 
+              onClick={() => setNotification(null)}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1"
+            >
+              <X size={14} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Top Up Modal */}
       <AnimatePresence>
         {showTopUp && (
@@ -201,56 +281,68 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-sm bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-2xl border border-black/5 dark:border-white/10"
+              className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-black/5 dark:border-white/10 overflow-hidden"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Top Up Saldo</h2>
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                    <Sparkles size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-none">Top Up Saldo</h2>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Sistem Otomatis Instant 24 Jam</p>
+                  </div>
+                </div>
                 <button onClick={() => setShowTopUp(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
-                  <X size={20} className="text-gray-500" />
+                  <X size={18} className="text-gray-500" />
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Pilih atau Input Nominal</label>
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 block">Pilih Nominal Cepat</label>
                   <div className="grid grid-cols-3 gap-2 mb-4">
-                    {['50000', '100000', '200000'].map((val) => (
+                    {['20000', '50000', '100000', '200000', '500000', '1000000'].map((val) => (
                       <button 
                         key={val}
-                        onClick={() => setAmount(val)}
+                        onClick={() => setAmountRaw(val)}
                         className={cn(
-                          "py-2 rounded-xl border text-xs font-bold transition-all",
-                          amount === val 
-                            ? "bg-primary/10 border-primary text-primary" 
-                            : "border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:border-primary/50"
+                          "py-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center gap-0.5",
+                          amountRaw === val 
+                            ? "bg-primary/10 border-primary text-primary shadow-sm" 
+                            : "border-gray-200 dark:border-zinc-800 text-gray-700 dark:text-gray-300 hover:border-primary/50 dark:bg-zinc-800/50"
                         )}
                       >
-                        {parseInt(val) / 1000}rb
+                        <span>{parseInt(val, 10) >= 1000000 ? `${parseInt(val, 10)/1000000} Juta` : `${parseInt(val, 10)/1000} Ribu`}</span>
                       </button>
                     ))}
                   </div>
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">Atau Ketik Nominal Lain (Rp)</label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Rp</span>
                     <input 
-                      type="number"
+                      type="text"
                       placeholder="0"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="w-full pl-12 pr-4 py-4 rounded-2xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/50 text-lg font-bold"
+                      value={formatNumberInput(amountRaw)}
+                      onChange={(e) => setAmountRaw(e.target.value.replace(/\D/g, ''))}
+                      className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-gray-50 dark:bg-zinc-800/80 border border-gray-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/50 text-lg font-bold text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
 
-                <p className="text-[10px] text-gray-400 text-center italic">
-                  * Minimal top up Rp 10.000. Metode pembayaran tersedia: QRIS, VA, E-Wallet.
-                </p>
+                <div className="p-3.5 rounded-2xl bg-blue-50/50 dark:bg-blue-500/10 border border-blue-100 dark:border-blue-500/20 flex items-start gap-2.5">
+                  <ShieldCheck size={16} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-blue-700 dark:text-blue-300 leading-relaxed">
+                    Mendukung pembayaran via **QRIS**, Virtual Account (BCA, Mandiri, BNI, BRI), dan E-Wallet (GoPay, OVO, DANA).
+                  </p>
+                </div>
 
                 <button 
                   onClick={handleTopUp}
-                  disabled={isSubmitting || !amount}
+                  disabled={isSubmitting || !amountRaw || parseInt(amountRaw, 10) < 10000}
                   className="w-full py-4 rounded-2xl bg-primary text-white font-bold text-sm shadow-lg shadow-primary/25 disabled:opacity-50 disabled:shadow-none hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
-                  {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : 'Lanjutkan Pembayaran'}
+                  {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : `Bayar ${amountRaw ? formatCurrency(parseInt(amountRaw, 10)) : ''}`}
                 </button>
               </div>
             </motion.div>
@@ -271,82 +363,118 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-sm bg-white dark:bg-gray-900 rounded-3xl p-6 shadow-2xl border border-black/5 dark:border-white/10 overflow-y-auto max-h-[90vh]"
+              className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-2xl border border-black/5 dark:border-white/10 overflow-y-auto max-h-[90vh]"
             >
               <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Tarik Saldo</h2>
-                  <p className="text-xs text-gray-500 mt-1">Saldo: {formatCurrency(balance)}</p>
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                    <ArrowUpRight size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-none">Tarik Dana BI-FAST</h2>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Saldo Tersedia: {formatCurrency(balance)}</p>
+                  </div>
                 </div>
                 <button onClick={() => setShowWithdraw(false)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-white/10 transition-colors">
-                  <X size={20} className="text-gray-500" />
+                  <X size={18} className="text-gray-500" />
                 </button>
               </div>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Nominal Penarikan</label>
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">Nominal Penarikan</label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">Rp</span>
                     <input 
-                      type="number"
+                      type="text"
                       placeholder="0"
-                      value={withdrawForm.amount}
-                      onChange={(e) => setWithdrawForm({...withdrawForm, amount: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/50 font-bold"
+                      value={formatNumberInput(withdrawForm.amountRaw)}
+                      onChange={(e) => setWithdrawForm({...withdrawForm, amountRaw: e.target.value.replace(/\D/g, '')})}
+                      className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-zinc-800/80 border border-gray-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-primary/50 font-bold text-gray-900 dark:text-white"
                     />
                   </div>
+                  <p className="text-[10px] text-gray-400 mt-1">* Minimal pencairan Rp 50.000</p>
                 </div>
 
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 block">Informasi Rekening</label>
+                  <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 block">Tujuan Pencairan (Bank / E-Wallet)</label>
                   
                   <div className="relative">
-                    <Landmark size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <input 
-                      type="text"
-                      placeholder="Nama Bank (BCA, Mandiri, dll)"
-                      value={withdrawForm.bank_name}
-                      onChange={(e) => setWithdrawForm({...withdrawForm, bank_name: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm focus:outline-none"
-                    />
+                    <Landmark size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <select 
+                      value={withdrawForm.bank_code}
+                      onChange={(e) => setWithdrawForm({...withdrawForm, bank_code: e.target.value})}
+                      className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-zinc-800/80 border border-gray-200 dark:border-white/10 text-sm font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 appearance-none cursor-pointer"
+                    >
+                      <optgroup label="Bank Nasional & Syariah">
+                        {BANK_OPTIONS.filter(b => b.type === 'BANK').map(bank => (
+                          <option key={bank.code} value={bank.code} className="bg-white dark:bg-zinc-900 text-gray-900 dark:text-white py-1">
+                            {bank.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="E-Wallet">
+                        {BANK_OPTIONS.filter(b => b.type === 'EWALLET').map(ewallet => (
+                          <option key={ewallet.code} value={ewallet.code} className="bg-white dark:bg-zinc-900 text-gray-900 dark:text-white py-1">
+                            {ewallet.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
                   </div>
 
                   <div className="relative">
-                    <CreditCard size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <CreditCard size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input 
                       type="text"
-                      placeholder="Nomor Rekening"
+                      placeholder="Nomor Rekening / No. HP E-Wallet"
                       value={withdrawForm.account_number}
-                      onChange={(e) => setWithdrawForm({...withdrawForm, account_number: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm focus:outline-none"
+                      onChange={(e) => setWithdrawForm({...withdrawForm, account_number: e.target.value.replace(/\D/g, '')})}
+                      className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-zinc-800/80 border border-gray-200 dark:border-white/10 text-sm font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
                     />
                   </div>
 
                   <div className="relative">
-                    <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input 
                       type="text"
-                      placeholder="Nama Pemilik Rekening"
+                      placeholder="Nama Pemilik Rekening (Sesuai Buku Tabungan / KTP)"
                       value={withdrawForm.account_holder}
                       onChange={(e) => setWithdrawForm({...withdrawForm, account_holder: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 text-sm focus:outline-none"
+                      className="w-full pl-10 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-zinc-800/80 border border-gray-200 dark:border-white/10 text-sm font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
                     />
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50">
-                  <p className="text-[10px] text-amber-700 dark:text-amber-400 leading-relaxed">
-                    * Penarikan akan diproses dalam 1-3 hari kerja. Biaya admin flat **Rp 5.000** per transaksi.
-                  </p>
+                {/* Interactive Fee Breakdown Card */}
+                <div className="p-3.5 rounded-2xl bg-gray-50 dark:bg-zinc-800/50 border border-black/5 dark:border-white/10 space-y-2">
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>Nominal Penarikan</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(numWithdrawAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>Biaya Admin (BI-FAST Flat)</span>
+                    <span className="font-semibold text-amber-600 dark:text-amber-400">{formatCurrency(adminFee)}</span>
+                  </div>
+                  <div className="pt-2 border-t border-black/5 dark:border-white/10 flex justify-between text-xs font-bold text-gray-900 dark:text-white">
+                    <span>Total Potongan Saldo</span>
+                    <span className={isInsufficientBalance ? "text-rose-500" : "text-emerald-500"}>
+                      {formatCurrency(totalDeduction)}
+                    </span>
+                  </div>
+                  {isInsufficientBalance && (
+                    <p className="text-[10px] text-rose-500 font-medium pt-1 flex items-center gap-1">
+                      <AlertCircle size={12} /> Saldo tidak cukup untuk penarikan + biaya admin.
+                    </p>
+                  )}
                 </div>
 
                 <button 
                   onClick={handleWithdraw}
-                  disabled={isSubmitting || !withdrawForm.amount}
+                  disabled={isSubmitting || !withdrawForm.amountRaw || isInsufficientBalance || parseInt(withdrawForm.amountRaw, 10) < 50000}
                   className="w-full py-4 rounded-2xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold text-sm shadow-xl disabled:opacity-50 hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                 >
-                  {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : 'Ajukan Penarikan'}
+                  {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : `Ajukan Penarikan ${numWithdrawAmount ? formatCurrency(numWithdrawAmount) : ''}`}
                 </button>
               </div>
             </motion.div>

@@ -262,6 +262,7 @@ fun BookingScreen(
     var showLocationRequestSheet by remember { mutableStateOf(false) }
     var showReviewSheet by remember { mutableStateOf(false) }
     var lastAutoServiceKey by remember { mutableStateOf("") }
+    var currentStep by remember { mutableStateOf(1) }
     val locationPermissionState = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -344,9 +345,19 @@ fun BookingScreen(
 
     Scaffold(
         containerColor = Background,
+        topBar = {
+            BookingHeader(onBackClick = {
+                if (currentStep > 1) {
+                    currentStep = 1
+                } else {
+                    onBackClick()
+                }
+            })
+        },
         bottomBar = {
             SelectedServiceBar(
                 state = uiState,
+                currentStep = currentStep,
                 onChooseService = { openServicePicker() },
                 onContinue = {
                     when {
@@ -354,6 +365,10 @@ fun BookingScreen(
                         !uiState.isPackageReady() -> Toast.makeText(context, "Pilih ukuran dan berat paket dulu.", Toast.LENGTH_SHORT).show()
                         uiState.isCalculatingRoute -> Toast.makeText(context, "Sistem sedang menghitung rute jalan dan harga.", Toast.LENGTH_SHORT).show()
                         uiState.selectedPrice() == null -> openServicePicker()
+                        currentStep == 1 -> {
+                            currentStep = 2
+                            Toast.makeText(context, "Langkah 2: Lengkapi detail penerima & barang.", Toast.LENGTH_SHORT).show()
+                        }
                         !uiState.isRecipientReady() -> Toast.makeText(context, "Lengkapi detail penerima dan isi paket.", Toast.LENGTH_SHORT).show()
                         else -> {
                             keyboardController?.hide()
@@ -372,95 +387,143 @@ fun BookingScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(bottom = 20.dp),
+            contentPadding = PaddingValues(top = 14.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             item {
-                BookingHeader(onBackClick = onBackClick)
-            }
-            item {
-                DeliveryDetailCard(
+                BookingProgressPills(
                     state = uiState,
-                    onPickupClick = {
-                        keyboardController?.hide()
-                        focusManager.clearFocus()
-                        scope.launch { delay(150); showPickupSheet = true }
-                    },
-                    onDestinationClick = {
-                        keyboardController?.hide()
-                        focusManager.clearFocus()
-                        scope.launch { delay(150); showDestinationSheet = true }
-                    },
-                    onRequestLocationClick = {
-                        keyboardController?.hide()
-                        focusManager.clearFocus()
-                        scope.launch { delay(150); showLocationRequestSheet = true }
+                    currentStep = currentStep,
+                    onStepSelect = { step ->
+                        if (step == 1) {
+                            currentStep = 1
+                        } else if (step == 2) {
+                            if (uiState.isRouteComplete() && uiState.isPackageReady() && uiState.selectedPrice() != null) {
+                                currentStep = 2
+                            } else {
+                                Toast.makeText(context, "Lengkapi rute dan layanan pada Langkah 1 terlebih dahulu.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 )
             }
-            if (uiState.promoCode.isNotBlank()) {
+            if (currentStep == 1) {
                 item {
-                    PreselectedPromoCard(
-                        promoCode = uiState.promoCode,
-                        onClear = viewModel::clearPromoCode
-                    )
-                }
-            }
-            item {
-                BookingProgressPills(state = uiState)
-            }
-            if (uiState.isRouteComplete()) {
-                item {
-                    PackageCard(
+                    DeliveryDetailCard(
                         state = uiState,
-                        onTierSelected = { code, weight, dimensions ->
-                            viewModel.setSizeTier(code, weight, dimensions)
+                        onPickupClick = {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                            scope.launch { delay(150); showPickupSheet = true }
+                        },
+                        onDestinationClick = {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                            scope.launch { delay(150); showDestinationSheet = true }
+                        },
+                        onRequestLocationClick = {
+                            keyboardController?.hide()
+                            focusManager.clearFocus()
+                            scope.launch { delay(150); showLocationRequestSheet = true }
                         }
                     )
                 }
+                if (uiState.promoCode.isNotBlank()) {
+                    item {
+                        PreselectedPromoCard(
+                            promoCode = uiState.promoCode,
+                            onClear = viewModel::clearPromoCode
+                        )
+                    }
+                }
+                if (uiState.isRouteComplete()) {
+                    item {
+                        PackageCard(
+                            state = uiState,
+                            onTierSelected = { code, weight, dimensions ->
+                                viewModel.setSizeTier(code, weight, dimensions)
+                            }
+                        )
+                    }
+                    item {
+                        ServiceInlinePreview(
+                            state = uiState,
+                            onChooseService = { openServicePicker() }
+                        )
+                    }
+                    if (uiState.isCalculatingRoute) {
+                        item {
+                            RoutePricingProgressCard()
+                        }
+                    } else if (uiState.selectedPrice() != null) {
+                        item {
+                            RoutePreviewCard(
+                                state = uiState,
+                                locationEnabled = locationPermissionState.status.isGranted
+                            )
+                        }
+                    } else if (uiState.isPackageReady() && uiState.priceBreakdowns.isEmpty()) {
+                        item {
+                            RouteUnavailableCard()
+                        }
+                    }
+                } else {
+                    item {
+                        BookingStepHintCard()
+                    }
+                }
+            } else if (currentStep == 2) {
                 item {
-                    ServiceInlinePreview(
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F5FF)),
+                        border = BorderStroke(1.dp, Color(0xFFDCE6F8))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Rute & Layanan Terpilih", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Primary)
+                                Spacer(Modifier.height(4.dp))
+                                Text("${uiState.pickupAddress.take(22)}... ➔ ${uiState.destinationAddress.take(22)}...", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Ink)
+                                Text("${uiState.selectedService()?.name ?: "TEMBUS"} • ${uiState.selectedSizeTier()?.name ?: ""} (${uiState.packageWeight} kg)", fontSize = 12.sp, color = Muted)
+                            }
+                            TextButton(onClick = { currentStep = 1 }) {
+                                Text("Ubah", fontWeight = FontWeight.ExtraBold, color = Primary)
+                            }
+                        }
+                    }
+                }
+                item {
+                    RecipientCard(
                         state = uiState,
-                        onChooseService = { openServicePicker() }
+                        onNameChange = viewModel::setRecipientName,
+                        onPhoneChange = viewModel::setRecipientPhone,
+                        onItemChange = viewModel::setItemDescription
                     )
                 }
-                if (uiState.selectedPrice() != null) {
-                    item {
-                        RecipientCard(
-                            state = uiState,
-                            onNameChange = viewModel::setRecipientName,
-                            onPhoneChange = viewModel::setRecipientPhone,
-                            onItemChange = viewModel::setItemDescription
-                        )
-                    }
-                    item {
-                        AddOnCard(
-                            deliveryCodeEnabled = uiState.deliveryCodeEnabled,
-                            insuranceEnabled = uiState.insuranceEnabled,
-                            onDeliveryCodeChange = viewModel::toggleDeliveryCode,
-                            onInsuranceChange = viewModel::toggleInsurance
-                        )
-                    }
-                }
-                if (uiState.isCalculatingRoute) {
-                    item {
-                        RoutePricingProgressCard()
-                    }
-                } else if (uiState.selectedPrice() != null) {
-                    item {
-                        RoutePreviewCard(
-                            state = uiState,
-                            locationEnabled = locationPermissionState.status.isGranted
-                        )
-                    }
-                } else if (uiState.isPackageReady() && uiState.priceBreakdowns.isEmpty()) {
-                    item {
-                        RouteUnavailableCard()
-                    }
-                }
-            } else {
                 item {
-                    BookingStepHintCard()
+                    AddOnCard(
+                        deliveryCodeEnabled = uiState.deliveryCodeEnabled,
+                        insuranceEnabled = uiState.insuranceEnabled,
+                        onDeliveryCodeChange = viewModel::toggleDeliveryCode,
+                        onInsuranceChange = viewModel::toggleInsurance
+                    )
+                }
+                if (uiState.promoCode.isNotBlank()) {
+                    item {
+                        PreselectedPromoCard(
+                            promoCode = uiState.promoCode,
+                            onClear = viewModel::clearPromoCode
+                        )
+                    }
                 }
             }
         }
@@ -791,11 +854,7 @@ private fun DeliveryDetailCard(
                 Spacer(Modifier.width(10.dp))
                 Text("Minta lokasi dari penerima", color = LcGreen, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
-                Text("Baru", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Color(0xFFE8294D))
-                    .padding(horizontal = 8.dp, vertical = 3.dp))
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = LcGreen)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = LcGreen)
             }
         }
     }
@@ -884,42 +943,77 @@ private fun BookingStepHintCard() {
 }
 
 @Composable
-private fun BookingProgressPills(state: BookingState) {
+private fun BookingProgressPills(
+    state: BookingState,
+    currentStep: Int = 1,
+    onStepSelect: (Int) -> Unit = {}
+) {
     val steps = listOf(
-        Triple("Alamat", state.isRouteComplete(), Icons.Default.Place),
-        Triple("Berat", state.isPackageReady(), Icons.Default.Scale),
-        Triple("Layanan", state.selectedPrice() != null, Icons.Default.LocalShipping),
-        Triple("Detail", state.isRecipientReady(), Icons.Default.CheckCircle)
+        Triple(1, "1. Rute & Armada", state.isRouteComplete() && state.selectedPrice() != null),
+        Triple(2, "2. Detail Penerima", state.isRecipientReady())
     )
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 16.dp),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(steps) { step ->
-            val done = step.second
+        steps.forEach { step ->
+            val stepNum = step.first
+            val stepLabel = step.second
+            val done = step.third
+            val active = (currentStep == stepNum)
+
             Row(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(if (done) SoftGreen else Color.White)
-                    .border(
-                        BorderStroke(1.dp, if (done) LcGreen.copy(alpha = 0.35f) else Color(0xFFE1E7F0)),
-                        RoundedCornerShape(999.dp)
+                    .weight(1f)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        when {
+                            active -> Primary.copy(alpha = 0.12f)
+                            done -> SoftGreen
+                            else -> Color.White
+                        }
                     )
-                    .padding(horizontal = 12.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .border(
+                        BorderStroke(
+                            width = if (active) 1.5.dp else 1.dp,
+                            color = when {
+                                active -> Primary
+                                done -> LcGreen.copy(alpha = 0.4f)
+                                else -> Color(0xFFE1E7F0)
+                            }
+                        ),
+                        RoundedCornerShape(14.dp)
+                    )
+                    .clickable { onStepSelect(stepNum) }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    step.third,
+                    imageVector = when {
+                        done && !active -> Icons.Default.CheckCircle
+                        stepNum == 1 -> Icons.Default.LocalShipping
+                        else -> Icons.Default.Place
+                    },
                     contentDescription = null,
-                    tint = if (done) LcGreen else Muted,
-                    modifier = Modifier.size(17.dp)
+                    tint = when {
+                        active -> Primary
+                        done -> LcGreen
+                        else -> Muted
+                    },
+                    modifier = Modifier.size(16.dp)
                 )
-                Spacer(Modifier.width(7.dp))
+                Spacer(Modifier.width(6.dp))
                 Text(
-                    step.first,
-                    color = if (done) LcGreen else Muted,
-                    fontWeight = FontWeight.ExtraBold,
+                    text = stepLabel,
+                    color = when {
+                        active -> Primary
+                        done -> LcGreen
+                        else -> Muted
+                    },
+                    fontWeight = if (active) FontWeight.Black else FontWeight.Bold,
                     fontSize = 12.sp
                 )
             }
@@ -1350,6 +1444,7 @@ private fun ServiceInlinePreview(
 @Composable
 private fun SelectedServiceBar(
     state: BookingState,
+    currentStep: Int = 1,
     onChooseService: () -> Unit,
     onContinue: () -> Unit
 ) {
@@ -1364,8 +1459,9 @@ private fun SelectedServiceBar(
         !packageReady -> "Pilih ukuran paket"
         state.isCalculatingRoute -> "Menghitung harga..."
         price == null -> "Pilih layanan"
+        currentStep == 1 -> "Lanjut Isi Pengiriman • ${formatRupiah(price.totalPriceIdr)}"
         !recipientReady -> "Tambah detail pengiriman"
-        else -> "Kirim ${selected?.name ?: "TEMBUS"} • ${formatRupiah(price.totalPriceIdr)}"
+        else -> "Review & Bayar • ${formatRupiah(price.totalPriceIdr)}"
     }
     Column(
         modifier = Modifier
@@ -1402,6 +1498,7 @@ private fun SelectedServiceBar(
                         !packageReady -> "Pilih berat agar harga layanan tampil"
                         state.isCalculatingRoute -> "Rute jalan sedang dihitung"
                         price == null -> "Pilih service setelah harga tampil"
+                        currentStep == 1 -> "Langkah 1 selesai. Tekan untuk isi data penerima."
                         !recipientReady -> "Lengkapi penerima dan isi paket"
                         else -> "Review sebelum order dikirim"
                     },

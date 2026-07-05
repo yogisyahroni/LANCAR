@@ -348,7 +348,7 @@ export default function NewOrderPage() {
         orderDataRef.current = order;
       }
 
-      if (orderDataRef.current?.status === 'pending_assignment') {
+      if (orderDataRef.current?.status !== 'pending_payment') {
         clearCustomerOrderDraft();
         addNotification({
           title: "Order Berhasil",
