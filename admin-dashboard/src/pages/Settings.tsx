@@ -541,7 +541,6 @@ export default function Settings() {
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       />
                     </div>
-                    </div>
                   </div>
 
                   <div className="space-y-3 mt-8">
