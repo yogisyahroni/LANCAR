@@ -21,6 +21,7 @@ type JNEProvider struct {
 	username   string
 	baseURL    string
 	httpClient *http.Client
+	cb         *CircuitBreaker
 }
 
 func NewJNEProvider() *JNEProvider {
@@ -28,11 +29,13 @@ func NewJNEProvider() *JNEProvider {
 	if baseURL == "" {
 		baseURL = "https://apiv2.jne.co.id:10102"
 	}
+	fail, succ, to := getCircuitBreakerConfig("JNE")
 	return &JNEProvider{
 		apiKey:     os.Getenv("JNE_API_KEY"),
 		username:   os.Getenv("JNE_USERNAME"),
 		baseURL:    strings.TrimRight(baseURL, "/"),
 		httpClient: &http.Client{Timeout: 15 * time.Second},
+		cb:         NewCircuitBreaker("jne_api", fail, succ, to),
 	}
 }
 
@@ -56,11 +59,22 @@ func (p *JNEProvider) CheckTariff(ctx context.Context, req domain.TariffRequest)
 	}
 	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	if err := p.cb.Allow(); err != nil {
+		return nil, fmt.Errorf("JNE circuit breaker open: %w", err)
+	}
+
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
+		p.cb.RecordFailure()
 		return nil, fmt.Errorf("JNE tariff HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 500 {
+		p.cb.RecordFailure()
+	} else {
+		p.cb.RecordSuccess()
+	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -96,7 +110,7 @@ func (p *JNEProvider) CheckTariff(ctx context.Context, req domain.TariffRequest)
 		services = append(services, domain.TariffServiceOption{
 			ServiceCode:   item.ServiceCode,
 			ServiceName:   item.ServiceDisplay,
-			TariffAmount:  priceVal,
+			TariffGross:   int64(priceVal), // Konversi float64 → int64 (IDR, tidak ada desimal)
 			EstimatedDays: etd,
 		})
 	}
@@ -139,11 +153,22 @@ func (p *JNEProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 	}
 	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	if err := p.cb.Allow(); err != nil {
+		return nil, fmt.Errorf("JNE circuit breaker open: %w", err)
+	}
+
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
+		p.cb.RecordFailure()
 		return nil, fmt.Errorf("JNE order HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 500 {
+		p.cb.RecordFailure()
+	} else {
+		p.cb.RecordSuccess()
+	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -203,11 +228,22 @@ func (p *JNEProvider) TrackOrder(ctx context.Context, awb string) (*domain.Track
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
+	if err := p.cb.Allow(); err != nil {
+		return nil, fmt.Errorf("JNE circuit breaker open: %w", err)
+	}
+
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
+		p.cb.RecordFailure()
 		return nil, fmt.Errorf("JNE track HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 500 {
+		p.cb.RecordFailure()
+	} else {
+		p.cb.RecordSuccess()
+	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {

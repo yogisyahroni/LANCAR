@@ -51,8 +51,8 @@ func TestJNEProvider_CheckTariff(t *testing.T) {
 	if len(resp.Services) == 0 {
 		t.Fatalf("Expected at least one service option, got none")
 	}
-	if resp.Services[0].TariffAmount != 15000 {
-		t.Errorf("Expected tariff 15000, got %f", resp.Services[0].TariffAmount)
+	if resp.Services[0].TariffGross != 15000 {
+		t.Errorf("Expected tariff 15000, got %d", resp.Services[0].TariffGross)
 	}
 	if resp.Provider != "JNE" {
 		t.Errorf("Expected provider JNE, got %s", resp.Provider)

@@ -23,6 +23,7 @@ type JNTProvider struct {
 	customerCode string
 	baseURL      string
 	httpClient   *http.Client
+	cb         *CircuitBreaker
 }
 
 func NewJNTProvider() *JNTProvider {
@@ -30,12 +31,14 @@ func NewJNTProvider() *JNTProvider {
 	if baseURL == "" {
 		baseURL = "https://vipapi.jntexpress.co.id:10101"
 	}
+	fail, succ, to := getCircuitBreakerConfig("JNT")
 	return &JNTProvider{
 		apiAccount:   os.Getenv("JNT_API_ACCOUNT"),
 		privateKey:   os.Getenv("JNT_PRIVATE_KEY"),
 		customerCode: os.Getenv("JNT_CUSTOMER_CODE"),
 		baseURL:      strings.TrimRight(baseURL, "/"),
 		httpClient:   &http.Client{Timeout: 15 * time.Second},
+		cb:           NewCircuitBreaker("jnt_api", fail, succ, to),
 	}
 }
 
@@ -74,11 +77,22 @@ func (p *JNTProvider) CheckTariff(ctx context.Context, req domain.TariffRequest)
 	}
 	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	if err := p.cb.Allow(); err != nil {
+		return nil, fmt.Errorf("J&T circuit breaker open: %w", err)
+	}
+
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
+		p.cb.RecordFailure()
 		return nil, fmt.Errorf("J&T tariff HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 500 {
+		p.cb.RecordFailure()
+	} else {
+		p.cb.RecordSuccess()
+	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -112,7 +126,7 @@ func (p *JNTProvider) CheckTariff(ctx context.Context, req domain.TariffRequest)
 		services = append(services, domain.TariffServiceOption{
 			ServiceCode:   item.ProductType,
 			ServiceName:   item.ProductType,
-			TariffAmount:  priceVal,
+			TariffGross:   int64(priceVal), // Konversi float64 → int64 (IDR)
 			EstimatedDays: "1-3 hari",
 		})
 	}
@@ -169,11 +183,22 @@ func (p *JNTProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 	}
 	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	if err := p.cb.Allow(); err != nil {
+		return nil, fmt.Errorf("J&T circuit breaker open: %w", err)
+	}
+
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
+		p.cb.RecordFailure()
 		return nil, fmt.Errorf("J&T order HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 500 {
+		p.cb.RecordFailure()
+	} else {
+		p.cb.RecordSuccess()
+	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -240,11 +265,22 @@ func (p *JNTProvider) TrackOrder(ctx context.Context, awb string) (*domain.Track
 	}
 	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
+	if err := p.cb.Allow(); err != nil {
+		return nil, fmt.Errorf("J&T circuit breaker open: %w", err)
+	}
+
 	resp, err := p.httpClient.Do(httpReq)
 	if err != nil {
+		p.cb.RecordFailure()
 		return nil, fmt.Errorf("J&T track HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode >= 500 {
+		p.cb.RecordFailure()
+	} else {
+		p.cb.RecordSuccess()
+	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {

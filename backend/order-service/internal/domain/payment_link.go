@@ -49,6 +49,11 @@ type PaymentLinkRepository interface {
 	Create(ctx context.Context, link *PaymentLink) error
 	GetByID(ctx context.Context, id string) (*PaymentLink, error)
 	UpdateStatus(ctx context.Context, id string, status PaymentLinkStatus) error
+	// AtomicMarkPaid mengubah status PENDING → PAID secara atomik menggunakan
+	// UPDATE WHERE status='PENDING' RETURNING id. Mengembalikan (true, nil) jika
+	// berhasil (link ditemukan & statusnya PENDING), atau (false, nil) jika link
+	// sudah diproses sebelumnya (idempotent). Error jika terjadi DB failure.
+	AtomicMarkPaid(ctx context.Context, id string) (bool, error)
 	UpdateOrderID(ctx context.Context, id string, orderID string) error
 	ListByMerchantID(ctx context.Context, merchantID string, limit, offset int) ([]*PaymentLink, error)
 	MarkExpired(ctx context.Context, before time.Time) (int64, error)

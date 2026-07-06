@@ -283,26 +283,30 @@ func (s *paymentLinkServiceImpl) HandleWebhook(ctx context.Context, id string, e
 		return nil
 	}
 
-	// 1. Get the Link
+	// KRITIS-3: Atomic idempotency — UPDATE WHERE status='PENDING' RETURNING id
+	// Jika 0 rows affected → link sudah diproses (idempotent, aman untuk retry)
+	// Ini menghilangkan race condition antara check dan update yang terpisah.
+	marked, err := s.repo.AtomicMarkPaid(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to atomically mark payment link as paid: %w", err)
+	}
+	if !marked {
+		// Sudah diproses sebelumnya — idempotent skip
+		slog.InfoContext(ctx, "payment_link: webhook skipped (already processed or not pending)",
+			"link_id", id, "event", event)
+		return nil
+	}
+
+	// 1. Get the Link (setelah status sudah PAID, aman dibaca)
 	link, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("failed to get payment link: %w", err)
+		return fmt.Errorf("failed to get payment link after marking paid: %w", err)
 	}
 	if link == nil {
-		return fmt.Errorf("payment link %s not found", id)
+		return fmt.Errorf("payment link %s not found after atomic mark", id)
 	}
 
-	// Idempotency check
-	if link.Status == domain.PaymentLinkStatusPaid {
-		return nil // Already handled
-	}
-
-	// 2. Update Status to PAID
-	if err := s.repo.UpdateStatus(ctx, id, domain.PaymentLinkStatusPaid); err != nil {
-		return fmt.Errorf("failed to update payment link status: %w", err)
-	}
-
-	// 2.5 Send Notification to Merchant
+	// 2. Send Notification to Merchant
 	_ = s.notificationSvc.Send(ctx, domain.NotificationRequest{
 		UserID:  link.MerchantID,
 		Title:   "Pembayaran Berhasil!",
@@ -404,6 +408,14 @@ func (s *paymentLinkServiceImpl) HandleWebhook(ctx context.Context, id string, e
 
 		// AWB hanya di-generate jika origin & dest code dikonfigurasi di system_configs
 		if awbOriginCode != "" && awbDestCode != "" {
+			// KRITIS-1: Idempotency check — cegah double connote jika webhook dikirim ulang.
+			// GetByID order sudah dilakukan di atas. Jika AWB sudah ada, skip.
+			if order.AWB != "" {
+				slog.InfoContext(ctx, "payment_link: AWB already exists, skipping generation",
+					"order_id", order.ID, "awb_number", order.AWB)
+				return nil
+			}
+
 			awbReq := domain.AWBRequest{
 				Provider:        awbProvider,
 				ReferenceID:     order.ID,

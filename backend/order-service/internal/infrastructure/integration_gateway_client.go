@@ -188,11 +188,14 @@ func (c *IntegrationGatewayClient) SendWhatsApp(ctx context.Context, to, message
 }
 
 // CheckTariff meminta integration-gateway untuk mengecek tarif logistik.
+// Response dari integration-gateway dibungkus dalam envelope {success, data}.
 func (c *IntegrationGatewayClient) CheckTariff(ctx context.Context, req domain.CheckTariffRequest) (*domain.CheckTariffResponse, error) {
-	url := fmt.Sprintf("%s/api/internal/logistics/tariff?provider=%s&origin=%s&destination=%s&weight=%f",
+	// Query params harus sesuai dengan logistics_handler.go:
+	// handler menggunakan: provider, origin, destination, weight
+	tariffURL := fmt.Sprintf("%s/api/internal/logistics/tariff?provider=%s&origin=%s&destination=%s&weight=%.2f",
 		c.baseURL, req.Provider, req.OriginCode, req.DestinationCode, req.WeightKG)
-	
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, tariffURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("awb_client: create tariff http request: %w", err)
 	}
@@ -216,10 +219,46 @@ func (c *IntegrationGatewayClient) CheckTariff(ctx context.Context, req domain.C
 		return nil, fmt.Errorf("awb_client: integration-gateway error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 
-	var parsedResp domain.CheckTariffResponse
-	if err := json.Unmarshal(respBody, &parsedResp); err != nil {
-		return nil, fmt.Errorf("awb_client: unmarshal tariff response: %w", err)
+	// integration-gateway membungkus respons dalam envelope {success, data}
+	// Struktur data di dalam envelope menggunakan TariffResponse dari domain gateway
+	// yang sudah menggunakan TariffGross int64 dengan JSON tag "tariff_gross".
+	var envelope struct {
+		Success bool `json:"success"`
+		Message string `json:"message"`
+		Data    *struct {
+			Provider string `json:"provider"`
+			Services []struct {
+				ServiceCode   string `json:"service_code"`
+				ServiceName   string `json:"service_name"`
+				TariffGross   int64  `json:"tariff_gross"`   // ← field name setelah fix domain
+				EstimatedDays string `json:"estimated_days"`
+			} `json:"services"`
+		} `json:"data"`
 	}
 
-	return &parsedResp, nil
+	if err := json.Unmarshal(respBody, &envelope); err != nil {
+		return nil, fmt.Errorf("awb_client: unmarshal tariff envelope: %w", err)
+	}
+
+	if !envelope.Success || envelope.Data == nil {
+		return nil, fmt.Errorf("awb_client: tariff check failed: %s", envelope.Message)
+	}
+
+	// Map ke domain.CheckTariffResponse (order-service domain)
+	result := &domain.CheckTariffResponse{
+		Provider: envelope.Data.Provider,
+		Origin:   req.OriginCode,
+		Dest:     req.DestinationCode,
+		Weight:   req.WeightKG,
+	}
+	for _, svc := range envelope.Data.Services {
+		result.Services = append(result.Services, domain.TariffServiceOption{
+			ServiceCode: svc.ServiceCode,
+			ServiceName: svc.ServiceName,
+			TariffGross: svc.TariffGross, // int64 sudah sesuai
+			ETD:         svc.EstimatedDays,
+		})
+	}
+
+	return result, nil
 }

@@ -104,6 +104,36 @@ func (r *paymentLinkRepositoryImpl) UpdateStatus(ctx context.Context, id string,
 	return err
 }
 
+// AtomicMarkPaid mengubah status PENDING → PAID secara atomik.
+// Menggunakan single UPDATE WHERE status='PENDING' RETURNING id untuk menghindari
+// race condition pada concurrent webhook. Jika rows affected = 0, berarti link
+// sudah diproses sebelumnya (idempotent safe).
+func (r *paymentLinkRepositoryImpl) AtomicMarkPaid(ctx context.Context, id string) (bool, error) {
+	query := `
+		UPDATE payment_links 
+		SET status = $1, updated_at = NOW() 
+		WHERE id = $2 AND status = $3
+		RETURNING id
+	`
+	var returnedID string
+	err := r.db.QueryRowContext(ctx, query,
+		domain.PaymentLinkStatusPaid,
+		id,
+		domain.PaymentLinkStatusPending,
+	).Scan(&returnedID)
+
+	if err == sql.ErrNoRows {
+		// Link tidak ditemukan ATAU statusnya bukan PENDING (sudah diproses)
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("atomic_mark_paid: db error: %w", err)
+	}
+
+	return true, nil // Berhasil diupdate dari PENDING → PAID
+}
+
+
 func (r *paymentLinkRepositoryImpl) UpdateOrderID(ctx context.Context, id string, orderID string) error {
 	query := `UPDATE payment_links SET order_id = $1, updated_at = NOW() WHERE id = $2`
 	_, err := r.db.ExecContext(ctx, query, orderID, id)

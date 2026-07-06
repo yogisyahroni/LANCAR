@@ -30,6 +30,18 @@ Status: P0-P5 code migration selesai secara lokal; staging/production tetap waji
 - [x] DB migration mengunci runtime provider ke `tomtom_maps` dan menonaktifkan credential provider lama.
 - [x] Backend admin-service memakai TomTom Routing API untuk ETA/polyline/traffic-aware route.
 - [x] Backend admin-service memakai TomTom Search API untuk geocode/reverse geocode via backend proxy.
+- [x] KRITIS-1: AWB Idempotency
+    - [x] Check `order.AWB` inside `HandleWebhook` before triggering `CreateAWB`.
+- [x] KRITIS-2: Tariff Type Mismatch
+    - [x] Rename `TariffAmount` to `TariffGross` (int64) in `domain.TariffServiceOption`.
+    - [x] Update JNE & J&T adapters in `integration-gateway` to cast API string values to `int64`.
+    - [x] Update `integration_gateway_client.go` in `order-service` to correctly read the success payload and parse the gross tariff value.
+- [x] KRITIS-3: Webhook Race Condition
+    - [x] Implement `AtomicMarkPaid` inside `PaymentLinkRepository` using `UPDATE ... RETURNING`.
+    - [x] Refactor `HandleWebhook` to use atomic operation instead of separate read & update statements.
+- [x] KRITIS-4: Resiliency/Circuit Breaker for Logistics
+    - [x] Add `CircuitBreaker` reference in JNE & J&T Providers.
+    - [x] Wrap external API requests (`httpClient.Do`) with Circuit Breaker `Allow()`, `RecordSuccess()`, and `RecordFailure()`.
 - [x] OSM/haversine fallback tetap aktif untuk timeout, quota, failure, dan circuit breaker.
 - [x] Credential validation TomTom server key tidak log/return plaintext key.
 - [x] Production readiness memakai TomTom key inventory, restrictions, expected APIs, quota, dan rotation metadata.

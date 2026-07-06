@@ -77,10 +77,10 @@ type TariffResponse struct {
 }
 
 type TariffServiceOption struct {
-	ServiceCode   string  `json:"service_code"`
-	ServiceName   string  `json:"service_name"`
-	TariffAmount  float64 `json:"tariff_amount"`
-	EstimatedDays string  `json:"estimated_days"`
+	ServiceCode   string `json:"service_code"`
+	ServiceName   string `json:"service_name"`
+	TariffGross   int64  `json:"tariff_gross"`   // Harga kotor dari provider (dalam IDR)
+	EstimatedDays string `json:"estimated_days"`
 }
 
 type LogisticsOrderRequest struct {
