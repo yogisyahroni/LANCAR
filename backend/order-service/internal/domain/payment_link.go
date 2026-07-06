@@ -59,7 +59,9 @@ type CreatePaymentLinkRequest struct {
 	ItemName       string  `json:"item_name" validate:"required"`
 	ItemPrice      int64   `json:"item_price" validate:"required,gt=0"`
 	ItemImageURL   string  `json:"item_image_url" validate:"required"`
-	ServiceCode    string  `json:"service_code" validate:"required"`
+	// ServiceCode wajib untuk mode on-demand (kode layanan kurir p2p).
+	// Untuk mode 3PL, field ini boleh kosong — yang dipakai adalah LogisticsServiceType.
+	ServiceCode    string  `json:"service_code,omitempty"`
 	PickupAddress  string  `json:"pickup_address" validate:"required"`
 	PickupLat      float64 `json:"pickup_lat" validate:"required"`
 	PickupLng      float64 `json:"pickup_lng" validate:"required"`
@@ -68,10 +70,13 @@ type CreatePaymentLinkRequest struct {
 	DropoffLng     float64 `json:"dropoff_lng" validate:"required"`
 	StoreName      string  `json:"store_name,omitempty"`
 	// RecipientPhone (opsional) — nomor HP konsignee untuk notifikasi WhatsApp.
-	RecipientPhone       string `json:"recipient_phone,omitempty"`
-	RecipientName        string `json:"recipient_name,omitempty"`
-	LogisticsProvider    string `json:"logistics_provider" validate:"required"`
-	LogisticsServiceType string `json:"logistics_service_type" validate:"required"`
+	RecipientPhone string `json:"recipient_phone,omitempty"`
+	RecipientName  string `json:"recipient_name,omitempty"`
+	// LogisticsProvider & LogisticsServiceType hanya wajib jika menggunakan mode 3PL.
+	// Untuk mode on-demand (kurir internal), kedua field ini dikosongkan.
+	// Validasi mode 3PL dilakukan di service layer.
+	LogisticsProvider    string `json:"logistics_provider,omitempty"`
+	LogisticsServiceType string `json:"logistics_service_type,omitempty"`
 }
 
 // AWBRequest adalah request pembuatan AWB ke integration-gateway.

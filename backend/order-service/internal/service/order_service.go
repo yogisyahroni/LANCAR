@@ -51,6 +51,18 @@ func (s *orderServiceImpl) SetRefundService(rs domain.RefundService) {
 }
 
 func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req domain.CreateOrderRequest) (*domain.Order, error) {
+	// ─────────────────────────────────────────────────────────────────────────
+	// PATH A: 3PL Aggregator Order (LogisticsProvider != "")
+	// Bypass Redis estimate — data comes directly from CreateOrderRequest.
+	// ─────────────────────────────────────────────────────────────────────────
+	if req.LogisticsProvider != "" {
+		return s.createAggregatorOrder(ctx, userID, req)
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// PATH B: On-Demand Order (original flow)
+	// ─────────────────────────────────────────────────────────────────────────
+
 	// 1. Get cached estimate from Redis
 	estimate, err := s.redisRepo.GetEstimate(ctx, req.EstimateID)
 	if err != nil {
@@ -172,6 +184,73 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 
 	return order, nil
 }
+
+// createAggregatorOrder membuat order untuk pengiriman 3PL (JNE/J&T).
+// Tidak membutuhkan Redis estimate — semua data diambil langsung dari CreateOrderRequest.
+// Status awal: pending_assignment (AWB akan di-generate terpisah oleh payment_link webhook).
+func (s *orderServiceImpl) createAggregatorOrder(ctx context.Context, userID string, req domain.CreateOrderRequest) (*domain.Order, error) {
+	orderNum := fmt.Sprintf("TMBS%s", strings.ToUpper(uuid.New().String()[:6]))
+	handoverToken := uuid.New().String()
+
+	qrURL, err := utils.GenerateQRCodeDataURI(handoverToken, 256)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate qr code: %w", err)
+	}
+
+	order := &domain.Order{
+		ID:                   uuid.New().String(),
+		OrderNumber:          orderNum,
+		CustomerID:           userID,
+		Model:                "aggregator", // Model khusus untuk 3PL
+		Status:               domain.StatusPendingAssignment,
+		PickupAddress:        req.PickupAddress,
+		PickupLat:            req.PickupLat,
+		PickupLng:            req.PickupLng,
+		DropoffAddress:       req.DropoffAddress,
+		DropoffLat:           req.DropoffLat,
+		DropoffLng:           req.DropoffLng,
+		Weight:               1.0, // Default untuk paket UMKM
+		ItemDescription:      req.ItemDescription,
+		ItemImageURL:         req.ItemImageURL,
+		LogisticsProvider:    req.LogisticsProvider,
+		LogisticsServiceType: req.LogisticsServiceType,
+		LogisticsTariffIDR:   req.LogisticsTariffIDR,
+		LogisticsNetCostIDR:  req.LogisticsNetCostIDR,
+		TotalPriceIDR:        req.LogisticsTariffIDR, // Harga yang dibayar user = tariff user
+		HandoverToken:        handoverToken,
+		QRCodeURL:            qrURL,
+		CreatedAt:            time.Now(),
+		UpdatedAt:            time.Now(),
+	}
+
+	if err := s.orderRepo.Create(ctx, order); err != nil {
+		return nil, fmt.Errorf("failed to save aggregator order: %w", err)
+	}
+
+	event := domain.OrderEvent{
+		OrderID:   order.ID,
+		UserID:    order.CustomerID,
+		Status:    order.Status,
+		Message:   fmt.Sprintf("Order 3PL dibuat via %s", req.LogisticsProvider),
+		CreatedAt: time.Now(),
+	}
+	s.eventRepo.SaveEvent(ctx, event)
+	s.eventBus.Publish(ctx, "order.updates", event)
+
+	if s.taskQueue != nil {
+		s.taskQueue.Push(ctx, queue.Task{
+			Type: "order.created",
+			Payload: map[string]interface{}{
+				"order_id":           order.ID,
+				"user_id":            order.CustomerID,
+				"logistics_provider": req.LogisticsProvider,
+			},
+		})
+	}
+
+	return order, nil
+}
+
 
 func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, req domain.CreateBulkOrderRequest) ([]*domain.Order, string, error) {
 	if len(req.Destinations) < 2 {

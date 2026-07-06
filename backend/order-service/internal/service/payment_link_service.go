@@ -46,6 +46,19 @@ func NewPaymentLinkService(
 }
 
 func (s *paymentLinkServiceImpl) CreateLink(ctx context.Context, merchantID string, req domain.CreatePaymentLinkRequest) (*domain.PaymentLink, error) {
+	// 0. Mode-aware validation
+	// Mode 3PL: LogisticsProvider diisi → LogisticsServiceType wajib
+	// Mode On-Demand: LogisticsProvider kosong → ServiceCode wajib
+	if req.LogisticsProvider != "" {
+		if req.LogisticsServiceType == "" {
+			return nil, fmt.Errorf("logistics_service_type is required when using 3PL provider")
+		}
+	} else {
+		if req.ServiceCode == "" {
+			return nil, fmt.Errorf("service_code is required for on-demand delivery mode")
+		}
+	}
+
 	// 1. Calculate merchant fee
 	merchantFee := s.pricingSvc.CalculateMerchantFee(ctx, req.ItemPrice)
 

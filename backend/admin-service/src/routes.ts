@@ -169,6 +169,9 @@ routes.get('/api/v1/payment-links', requireMobileOrWebAuth, (req, res) => contro
 routes.post('/api/v1/payment-links', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.createLink(req, res));
 routes.get('/api/v1/payment-links/:id', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.getLink(req, res));
 routes.post('/api/v1/payment-links/:id/checkout', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.checkoutLink(req, res));
+// Logistics 3PL: check tariff (ongkir) sebelum buat payment link
+// Query params: provider, origin_code, destination_code, weight_kg
+routes.get('/api/v1/logistics/check-tariff', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.checkTariff(req, res));
 
 // Bulk Order Routes
 routes.post('/auth/web/orders/bulk/upload', verifyWebSession, ...secureUploadSingle('file', 'bulkCsv'), (req, res) => controllers.bulkOrder.uploadBulkExcel(req, res));
