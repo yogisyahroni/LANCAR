@@ -1,11 +1,14 @@
 package com.tembus.courier.ui.screens.auth
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.tembus.courier.data.api.TEMBUSApiService
 import com.tembus.courier.data.model.CourierRegistrationRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,9 +23,13 @@ import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
 import javax.inject.Inject
 
 data class CourierRegistrationUiState(
+    val currentStep: Int = 1,
+    val hasUnsavedDraft: Boolean = false,
+    val isOcrVerified: Boolean = false,
     val fullName: String = "",
     val nik: String = "",
     val phoneNumber: String = "",
@@ -63,8 +70,180 @@ class CourierRegistrationViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(CourierRegistrationUiState())
     val uiState: StateFlow<CourierRegistrationUiState> = _uiState.asStateFlow()
 
+    private val sharedPrefs: SharedPreferences by lazy {
+        val masterKey = MasterKey.Builder(appContext)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        EncryptedSharedPreferences.create(
+            appContext,
+            "courier_registration_draft",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
+    init {
+        restoreDraft()
+    }
+
     fun update(transform: CourierRegistrationUiState.() -> CourierRegistrationUiState) {
-        _uiState.update { current -> current.transform().copy(error = null) }
+        _uiState.update { current ->
+            val next = current.transform().copy(error = null)
+            saveDraftToPrefs(next)
+            next
+        }
+    }
+
+    fun nextStep() {
+        val state = _uiState.value
+        when (state.currentStep) {
+            1 -> {
+                if (state.nik.isBlank() || state.fullName.isBlank() || state.phoneNumber.isBlank() || state.email.isBlank() || state.password.isBlank()) {
+                    _uiState.update { it.copy(error = "Harap lengkapi Data Diri terlebih dahulu") }
+                    return
+                }
+                if (state.nik.length != 16) {
+                    _uiState.update { it.copy(error = "NIK harus 16 digit") }
+                    return
+                }
+                if (state.password.length < 8) {
+                    _uiState.update { it.copy(error = "Password minimal 8 karakter") }
+                    return
+                }
+            }
+            2 -> {
+                if (state.vehiclePlate.isBlank() || state.vehicleBrand.isBlank() || state.vehicleModel.isBlank() || state.vehicleYear.isBlank() || state.vehicleCc.isBlank()) {
+                    _uiState.update { it.copy(error = "Harap lengkapi detail Kendaraan") }
+                    return
+                }
+            }
+            3 -> {
+                if (state.bankCode.isBlank() || state.bankAccountNumber.isBlank() || state.bankAccountName.isBlank()) {
+                    _uiState.update { it.copy(error = "Harap lengkapi Rekening Bank") }
+                    return
+                }
+            }
+        }
+        _uiState.update { current ->
+            val next = current.copy(currentStep = (current.currentStep + 1).coerceAtMost(4), error = null)
+            saveDraftToPrefs(next)
+            next
+        }
+    }
+
+    fun previousStep() {
+        _uiState.update { current ->
+            val next = current.copy(currentStep = (current.currentStep - 1).coerceAtLeast(1), error = null)
+            saveDraftToPrefs(next)
+            next
+        }
+    }
+
+    fun setStep(step: Int) {
+        if (step in 1..4) {
+            _uiState.update { current ->
+                val next = current.copy(currentStep = step, error = null)
+                saveDraftToPrefs(next)
+                next
+            }
+        }
+    }
+
+    private fun saveDraftToPrefs(state: CourierRegistrationUiState) {
+        if (state.isSubmitted) return
+        try {
+            val json = JSONObject().apply {
+                put("currentStep", state.currentStep)
+                put("fullName", state.fullName)
+                put("nik", state.nik)
+                put("phoneNumber", state.phoneNumber)
+                put("email", state.email)
+                put("password", state.password)
+                put("vehiclePlate", state.vehiclePlate)
+                put("vehicleBrand", state.vehicleBrand)
+                put("vehicleModel", state.vehicleModel)
+                put("vehicleYear", state.vehicleYear)
+                put("vehicleCc", state.vehicleCc)
+                put("vehicleCategory", state.vehicleCategory)
+                put("bankCode", state.bankCode)
+                put("bankAccountNumber", state.bankAccountNumber)
+                put("bankAccountName", state.bankAccountName)
+                put("ktpRef", state.ktpRef)
+                put("simRef", state.simRef)
+                put("stnkRef", state.stnkRef)
+                put("skpdRef", state.skpdRef)
+                put("vehiclePhotoRef", state.vehiclePhotoRef)
+                put("skckRef", state.skckRef)
+                put("bankRef", state.bankRef)
+                put("faceEnrollmentRef", state.faceEnrollmentRef)
+                put("simActive", state.simActive)
+                put("skpdTaxActive", state.skpdTaxActive)
+                put("fourStroke", state.fourStroke)
+                put("isOcrVerified", state.isOcrVerified)
+                val docNamesJson = JSONObject(state.documentFileNames as Map<*, *>)
+                put("documentFileNames", docNamesJson)
+            }
+            sharedPrefs.edit().putString("draft_json", json.toString()).apply()
+        } catch (e: Exception) {
+            // ignore save errors
+        }
+    }
+
+    private fun restoreDraft() {
+        try {
+            val jsonStr = sharedPrefs.getString("draft_json", null) ?: return
+            val json = JSONObject(jsonStr)
+            val docNamesJson = json.optJSONObject("documentFileNames")
+            val docNamesMap = mutableMapOf<String, String>()
+            if (docNamesJson != null) {
+                docNamesJson.keys().forEach { key ->
+                    docNamesMap[key] = docNamesJson.optString(key)
+                }
+            }
+            _uiState.update { current ->
+                current.copy(
+                    currentStep = json.optInt("currentStep", 1),
+                    fullName = json.optString("fullName", ""),
+                    nik = json.optString("nik", ""),
+                    phoneNumber = json.optString("phoneNumber", ""),
+                    email = json.optString("email", ""),
+                    password = json.optString("password", ""),
+                    vehiclePlate = json.optString("vehiclePlate", ""),
+                    vehicleBrand = json.optString("vehicleBrand", ""),
+                    vehicleModel = json.optString("vehicleModel", ""),
+                    vehicleYear = json.optString("vehicleYear", ""),
+                    vehicleCc = json.optString("vehicleCc", ""),
+                    vehicleCategory = json.optString("vehicleCategory", "matic"),
+                    bankCode = json.optString("bankCode", ""),
+                    bankAccountNumber = json.optString("bankAccountNumber", ""),
+                    bankAccountName = json.optString("bankAccountName", ""),
+                    ktpRef = json.optString("ktpRef", ""),
+                    simRef = json.optString("simRef", ""),
+                    stnkRef = json.optString("stnkRef", ""),
+                    skpdRef = json.optString("skpdRef", ""),
+                    vehiclePhotoRef = json.optString("vehiclePhotoRef", ""),
+                    skckRef = json.optString("skckRef", ""),
+                    bankRef = json.optString("bankRef", ""),
+                    faceEnrollmentRef = json.optString("faceEnrollmentRef", ""),
+                    simActive = json.optBoolean("simActive", true),
+                    skpdTaxActive = json.optBoolean("skpdTaxActive", true),
+                    fourStroke = json.optBoolean("fourStroke", true),
+                    isOcrVerified = json.optBoolean("isOcrVerified", false),
+                    documentFileNames = docNamesMap,
+                    hasUnsavedDraft = true
+                )
+            }
+        } catch (e: Exception) {
+            // ignore restore errors
+        }
+    }
+
+    fun clearDraft() {
+        try {
+            sharedPrefs.edit().clear().apply()
+        } catch (e: Exception) {}
+        _uiState.update { CourierRegistrationUiState() }
     }
 
     fun uploadDocument(docType: String, uri: Uri) {
@@ -97,7 +276,7 @@ class CourierRegistrationViewModel @Inject constructor(
 
                 _uiState.update { state ->
                     val fileNames = state.documentFileNames + (docType to uploaded.originalFileName.ifBlank { uploaded.fileUrl })
-                    when (docType) {
+                    val nextState = when (docType) {
                         "ktp" -> state.copy(ktpRef = uploaded.fileUrl, documentFileNames = fileNames, uploadingDocType = null)
                         "sim" -> state.copy(simRef = uploaded.fileUrl, documentFileNames = fileNames, uploadingDocType = null)
                         "stnk" -> state.copy(stnkRef = uploaded.fileUrl, documentFileNames = fileNames, uploadingDocType = null)
@@ -108,6 +287,8 @@ class CourierRegistrationViewModel @Inject constructor(
                         "face_enrollment" -> state.copy(faceEnrollmentRef = uploaded.fileUrl, documentFileNames = fileNames, uploadingDocType = null)
                         else -> state.copy(documentFileNames = fileNames, uploadingDocType = null)
                     }
+                    saveDraftToPrefs(nextState)
+                    nextState
                 }
             } catch (e: Exception) {
                 _uiState.update {
@@ -142,7 +323,9 @@ class CourierRegistrationViewModel @Inject constructor(
                 val uploaded = response.body()!!.data!!
                 _uiState.update { state ->
                     val fileNames = state.documentFileNames + ("face_enrollment" to "Foto wajah terupload")
-                    state.copy(faceEnrollmentRef = uploaded.fileUrl, documentFileNames = fileNames, uploadingDocType = null)
+                    val nextState = state.copy(faceEnrollmentRef = uploaded.fileUrl, documentFileNames = fileNames, uploadingDocType = null)
+                    saveDraftToPrefs(nextState)
+                    nextState
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(uploadingDocType = null, error = e.message ?: "Upload foto wajah gagal") }
@@ -175,13 +358,16 @@ class CourierRegistrationViewModel @Inject constructor(
                 val uploaded = response.body()!!.data!!
                 _uiState.update { state ->
                     val fileNames = state.documentFileNames + ("ktp" to "KTP terupload")
-                    state.copy(
+                    val nextState = state.copy(
                         ktpRef = uploaded.fileUrl, 
                         documentFileNames = fileNames, 
                         uploadingDocType = null,
                         nik = nik ?: state.nik,
-                        fullName = if (name.isNullOrBlank()) state.fullName else name
+                        fullName = if (name.isNullOrBlank()) state.fullName else name,
+                        isOcrVerified = !nik.isNullOrBlank() || !name.isNullOrBlank()
                     )
+                    saveDraftToPrefs(nextState)
+                    nextState
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(uploadingDocType = null, error = e.message ?: "Upload KTP gagal") }
@@ -270,6 +456,7 @@ class CourierRegistrationViewModel @Inject constructor(
                 )
                 val response = apiService.registerCourier(request)
                 if (response.isSuccessful && response.body()?.success == true) {
+                    try { sharedPrefs.edit().clear().apply() } catch (e: Exception) {}
                     _uiState.update { it.copy(isLoading = false, isSubmitted = true) }
                 } else {
                     _uiState.update {
