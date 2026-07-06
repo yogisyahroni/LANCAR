@@ -1,5 +1,6 @@
 -- 20260706000004_create_resi_templates.sql
 
+-- +goose Up
 CREATE TABLE IF NOT EXISTS resi_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
@@ -21,3 +22,6 @@ VALUES (
     true
 )
 ON CONFLICT DO NOTHING;
+
+-- +goose Down
+DROP TABLE IF EXISTS resi_templates;

@@ -1,4 +1,4 @@
--- Up
+-- +goose Up
 CREATE TABLE IF NOT EXISTS logistics_providers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(50) UNIQUE NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS routing_rules (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Down
+-- +goose Down
 DROP TABLE IF EXISTS routing_rules;
 DROP TABLE IF EXISTS provider_services;
 DROP TABLE IF EXISTS logistics_providers;
