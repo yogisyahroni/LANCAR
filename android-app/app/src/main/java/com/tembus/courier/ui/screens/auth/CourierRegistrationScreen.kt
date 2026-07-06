@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.RestorePage
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +31,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -402,7 +406,7 @@ private fun Step1ProfileContent(
         AppTextField("Nama lengkap sesuai KTP ${if (state.isOcrVerified) "[✔ OCR]" else ""}", state.fullName) { viewModel.update { copy(fullName = it) } }
         AppTextField("Nomor WhatsApp aktif", state.phoneNumber, KeyboardType.Phone) { viewModel.update { copy(phoneNumber = it) } }
         AppTextField("Alamat email aktif", state.email, KeyboardType.Email) { viewModel.update { copy(email = it) } }
-        AppTextField("Password login setelah disetujui", state.password, KeyboardType.Password) { viewModel.update { copy(password = it) } }
+        AppPasswordField("Password login setelah disetujui", state.password) { viewModel.update { copy(password = it) } }
     }
 }
 
@@ -510,6 +514,40 @@ private fun AppTextField(
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp)
+    )
+}
+
+@Composable
+private fun AppPasswordField(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    onChange: (String) -> Unit
+) {
+    var passwordVisible by remember { mutableStateOf(false) }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onChange,
+        label = { Text(label) },
+        singleLine = true,
+        trailingIcon = {
+            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                Icon(
+                    imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = if (passwordVisible) "Sembunyikan password" else "Tampilkan password"
+                )
+            }
+        },
+        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        supportingText = {
+            val isValid = value.length >= 8
+            val color = if (value.isEmpty()) MaterialTheme.colorScheme.onSurfaceVariant else if (isValid) Primary else MaterialTheme.colorScheme.error
+            val text = if (value.isEmpty()) "Minimal 8 karakter agar akun aman & mudah diingat" else if (isValid) "✔ Kekuatan password: Kuat & Aman" else "❌ Terlalu pendek (minimal 8 karakter)"
+            Text(text = text, style = MaterialTheme.typography.bodySmall, color = color)
+        }
     )
 }
 
