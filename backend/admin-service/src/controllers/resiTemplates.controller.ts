@@ -6,14 +6,16 @@ const createTemplateSchema = z.object({
   name: z.string().min(1).max(255),
   paper_size: z.string().min(1).max(50),
   layout_config: z.object({}).passthrough(),
-  is_active: z.boolean().default(true)
+  is_active: z.boolean().default(true),
+  provider_code: z.string().nullable().optional()
 });
 
 const updateTemplateSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   paper_size: z.string().min(1).max(50).optional(),
   layout_config: z.object({}).passthrough().optional(),
-  is_active: z.boolean().optional()
+  is_active: z.boolean().optional(),
+  provider_code: z.string().nullable().optional()
 });
 
 export const createResiTemplate = async (req: Request, res: Response) => {
@@ -23,10 +25,10 @@ export const createResiTemplate = async (req: Request, res: Response) => {
     
     try {
       const result = await client.query(`
-        INSERT INTO resi_templates (name, paper_size, layout_config, is_active)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO resi_templates (name, paper_size, layout_config, is_active, provider_code)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING *
-      `, [data.name, data.paper_size, data.layout_config, data.is_active]);
+      `, [data.name, data.paper_size, data.layout_config, data.is_active, data.provider_code || null]);
       
       res.status(201).json(result.rows[0]);
     } finally {
@@ -95,10 +97,10 @@ export const updateResiTemplate = async (req: Request, res: Response) => {
       
       const result = await client.query(`
         UPDATE resi_templates 
-        SET name = $1, paper_size = $2, layout_config = $3, is_active = $4, updated_at = NOW()
-        WHERE id = $5
+        SET name = $1, paper_size = $2, layout_config = $3, is_active = $4, provider_code = $5, updated_at = NOW()
+        WHERE id = $6
         RETURNING *
-      `, [updated.name, updated.paper_size, updated.layout_config, updated.is_active, id]);
+      `, [updated.name, updated.paper_size, updated.layout_config, updated.is_active, updated.provider_code || null, id]);
       
       await client.query('COMMIT');
       res.json(result.rows[0]);

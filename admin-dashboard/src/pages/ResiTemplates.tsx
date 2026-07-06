@@ -11,8 +11,15 @@ interface ResiTemplate {
   name: string
   content: string
   is_active: boolean
+  provider_code?: string
   created_at: string
   updated_at: string
+}
+
+interface LogisticsProvider {
+  id: string
+  code: string
+  name: string
 }
 
 type ElementType = 'text' | 'qrcode' | 'barcode' | 'logo'
@@ -46,6 +53,8 @@ const ResiTemplates = () => {
   
   const [name, setName] = useState('')
   const [isActive, setIsActive] = useState(false)
+  const [providerCode, setProviderCode] = useState<string>('')
+  const [providers, setProviders] = useState<LogisticsProvider[]>([])
   const [elements, setElements] = useState<DesignElement[]>([])
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null)
 
@@ -53,7 +62,17 @@ const ResiTemplates = () => {
 
   useEffect(() => {
     fetchTemplates()
+    fetchProviders()
   }, [])
+
+  const fetchProviders = async () => {
+    try {
+      const res = await api.get('/admin/logistics-providers')
+      setProviders(res.data)
+    } catch (err: any) {
+      console.error('Failed to fetch providers', err)
+    }
+  }
 
   const fetchTemplates = async () => {
     try {
@@ -72,6 +91,7 @@ const ResiTemplates = () => {
       setEditingTemplate(t)
       setName(t.name)
       setIsActive(t.is_active)
+      setProviderCode(t.provider_code || '')
       try {
         const parsed = JSON.parse(t.content)
         setElements(parsed.elements || [])
@@ -82,6 +102,7 @@ const ResiTemplates = () => {
       setEditingTemplate(null)
       setName('')
       setIsActive(false)
+      setProviderCode('')
       setElements([])
     }
     setSelectedElementId(null)
@@ -104,7 +125,8 @@ const ResiTemplates = () => {
     const payload = {
       name,
       content,
-      is_active: isActive
+      is_active: isActive,
+      provider_code: providerCode === '' ? null : providerCode
     }
 
     try {
@@ -229,7 +251,19 @@ const ResiTemplates = () => {
                 </div>
               )}
               
-              <h3 className="text-xl font-bold text-white mb-2 truncate pr-16">{t.name}</h3>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-xl font-bold text-white truncate">{t.name}</h3>
+                {t.provider_code && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-zinc-800 text-zinc-300 uppercase">
+                    {t.provider_code}
+                  </span>
+                )}
+                {!t.provider_code && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/20 text-primary uppercase border border-primary/20">
+                    DEFAULT
+                  </span>
+                )}
+              </div>
               
               <div className="bg-zinc-950 p-3 rounded-lg mb-4 text-xs font-mono text-zinc-400 h-32 overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-zinc-950 pointer-events-none" />
@@ -273,13 +307,25 @@ const ResiTemplates = () => {
               className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-6xl z-10 overflow-hidden flex flex-col h-[90vh]"
             >
               <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/5">
-                <input 
-                  type="text" 
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  className="bg-transparent text-xl font-bold text-white focus:outline-none border-b border-transparent focus:border-primary px-2 py-1"
-                  placeholder="Template Name..."
-                />
+                <div className="flex items-center gap-4 flex-1">
+                  <input 
+                    type="text" 
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    className="bg-transparent text-xl font-bold text-white focus:outline-none border-b border-transparent focus:border-primary px-2 py-1 flex-1 max-w-sm"
+                    placeholder="Template Name..."
+                  />
+                  <select
+                    value={providerCode}
+                    onChange={e => setProviderCode(e.target.value)}
+                    className="bg-zinc-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-primary"
+                  >
+                    <option value="">(Default) Semua Provider</option>
+                    {providers.map(p => (
+                      <option key={p.id} value={p.code}>{p.name} ({p.code})</option>
+                    ))}
+                  </select>
+                </div>
                 <button onClick={handleCloseModal} className="text-zinc-400 hover:text-white">
                   <XCircle className="w-6 h-6" />
                 </button>

@@ -35,7 +35,11 @@ func (s *resiService) RenderResiByAWB(ctx context.Context, awb string) (map[stri
 	}
 
 	// 2. Get Active Template
-	template, err := s.templateRepo.GetActiveTemplate(ctx)
+	providerCode := ""
+	if order.LogisticsProvider != nil {
+		providerCode = *order.LogisticsProvider
+	}
+	template, err := s.templateRepo.GetActiveTemplateByProvider(ctx, providerCode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get active template: %w", err)
 	}

@@ -15,22 +15,27 @@ func NewResiTemplateRepository(db *sql.DB) domain.ResiTemplateRepository {
 	return &resiTemplateRepo{db: db}
 }
 
-func (r *resiTemplateRepo) GetActiveTemplate(ctx context.Context) (*domain.ResiTemplate, error) {
+func (r *resiTemplateRepo) GetActiveTemplateByProvider(ctx context.Context, providerCode string) (*domain.ResiTemplate, error) {
+	// Priority 1: Match provider_code exactly
+	// Priority 2: provider_code IS NULL (fallback)
 	query := `
-		SELECT id, name, paper_size, layout_config
+		SELECT id, name, paper_size, layout_config, provider_code
 		FROM resi_templates
-		WHERE is_active = true
-		ORDER BY created_at DESC
+		WHERE is_active = true 
+		AND (provider_code = $1 OR provider_code IS NULL)
+		ORDER BY 
+			CASE WHEN provider_code = $1 THEN 1 ELSE 2 END ASC,
+			created_at DESC
 		LIMIT 1
 	`
 	
 	var t domain.ResiTemplate
 	var layoutConfigBytes []byte
 	
-	err := r.db.QueryRowContext(ctx, query).Scan(&t.ID, &t.Name, &t.PaperSize, &layoutConfigBytes)
+	err := r.db.QueryRowContext(ctx, query, providerCode).Scan(&t.ID, &t.Name, &t.PaperSize, &layoutConfigBytes, &t.ProviderCode)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no active resi template found")
+			return nil, fmt.Errorf("no active resi template found for provider %s or default", providerCode)
 		}
 		return nil, err
 	}

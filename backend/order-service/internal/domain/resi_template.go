@@ -7,8 +7,9 @@ type ResiTemplate struct {
 	Name         string `json:"name"`
 	PaperSize    string `json:"paper_size"`
 	LayoutConfig string `json:"layout_config"`
+	ProviderCode *string `json:"provider_code"`
 }
 
 type ResiTemplateRepository interface {
-	GetActiveTemplate(ctx context.Context) (*ResiTemplate, error)
+	GetActiveTemplateByProvider(ctx context.Context, providerCode string) (*ResiTemplate, error)
 }
