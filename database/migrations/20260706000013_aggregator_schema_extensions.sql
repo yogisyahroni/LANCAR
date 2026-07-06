@@ -14,19 +14,12 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS logistics_net_cost_idr BIGINT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS awb_sender_name VARCHAR(100);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS awb_sender_code VARCHAR(50);
 
--- Make awb_sender_name unique
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'unique_awb_sender_name'
-    ) THEN
-        ALTER TABLE users ADD CONSTRAINT unique_awb_sender_name UNIQUE (awb_sender_name);
-    END IF;
-END $$;
+-- Make awb_sender_name unique via index (idempotent, no PL/pgSQL needed)
+CREATE UNIQUE INDEX IF NOT EXISTS unique_awb_sender_name ON users(awb_sender_name) WHERE awb_sender_name IS NOT NULL;
 
 -- +goose Down
 -- Revert Phase A6
-ALTER TABLE users DROP CONSTRAINT IF EXISTS unique_awb_sender_name;
+DROP INDEX IF EXISTS unique_awb_sender_name;
 ALTER TABLE users DROP COLUMN IF EXISTS awb_sender_code;
 ALTER TABLE users DROP COLUMN IF EXISTS awb_sender_name;
 
