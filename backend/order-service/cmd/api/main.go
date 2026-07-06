@@ -11,6 +11,7 @@ import (
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/featureflags"
 	"tembus/order-service/internal/handler"
+	"tembus/order-service/internal/infrastructure"
 	"tembus/order-service/internal/infrastructure/eventbus"
 	notificationinfra "tembus/order-service/internal/infrastructure/notification"
 	"tembus/order-service/internal/infrastructure/payment_gateway"
@@ -201,7 +202,7 @@ func main() {
 	relayRepo := repository.NewRelayRepository(sqlx.NewDb(db, "postgres"), rdb)
 	analyticsRepo := repository.NewAnalyticsRepository(sqlx.NewDb(readDB, "postgres")) // Analytics uses read replica
 	paymentLinkRepo := repository.NewPaymentLinkRepository(db)
-
+	resiTemplateRepo := repository.NewResiTemplateRepository(db)
 	midtransConfig := payment_gateway.MidtransConfig{
 		ServerKey: os.Getenv("MIDTRANS_SERVER_KEY"),
 		IsProd:    os.Getenv("MIDTRANS_ENV") == "production",
@@ -263,8 +264,18 @@ func main() {
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc, configRepo)
 	relayScoreSvc := service.NewRelayScoreService(relayRepo)
 	analyticsSvc := service.NewAnalyticsService(analyticsRepo)
-	paymentLinkSvc := service.NewPaymentLinkService(paymentLinkRepo, pricingSvc, orderSvc, paymentGw, notificationSvc)
+	paymentLinkSvc := service.NewPaymentLinkService(
+		paymentLinkRepo,
+		pricingSvc,
+		orderSvc,
+		pgRepo,                                        // orderRepo — untuk UpdateOrderAWB
+		paymentGw,
+		notificationSvc,
+		infrastructure.NewIntegrationGatewayClient(), // awbClient — HTTP ke integration-gateway
+		configRepo,
+	)
 	chatSvc := service.NewChatService(chatRepo, eb)
+	resiSvc := service.NewResiService(pgRepo, resiTemplateRepo)
 	// matchingSvc := service.NewRelayMatchingService(relayRepo, pgRepo, redisRepo) // Can be used later
 
 	// Handlers
@@ -280,9 +291,10 @@ func main() {
 	insuranceHandler := handler.NewInsuranceHandler(insuranceSvc)
 	relayHandler := handler.NewRelayHandler(relayScoreSvc)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsSvc)
-	paymentLinkHandler := handler.NewPaymentLinkHandler(paymentLinkSvc)
+	paymentLinkHandler := handler.NewPaymentLinkHandler(paymentLinkSvc, configRepo)
 	chatHandler := handler.NewChatHandler(chatSvc)
 	sosHandler := handler.NewSosHandler(sosSvc)
+	resiHandler := handler.NewResiHandler(resiSvc)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB), configRepo)
@@ -334,6 +346,7 @@ func main() {
 	mux.HandleFunc("/api/v1/pricing/estimate", middleware.LimitByIP(rdb)(middleware.BaseChain(
 		middleware.ValidateBody(domain.PricingEstimateRequest{})(orderHandler.Estimate),
 	)))
+	mux.HandleFunc("/api/resi/render/{awb}", middleware.LimitByIP(rdb)(middleware.BaseChain(resiHandler.RenderResi)))
 
 	// Protected Routes (Wrapped in Auth + Base Middleware)
 	mux.HandleFunc("/api/v1/orders", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
@@ -441,6 +454,15 @@ func main() {
 	mux.HandleFunc("/api/v1/payment-links", middleware.BaseChain(paymentLinkHandler.HandleRequest))
 	mux.HandleFunc("/api/v1/payment-links/", middleware.BaseChain(paymentLinkHandler.HandleRequest))
 	mux.HandleFunc("/api/v1/payment-links/webhook", middleware.BaseChain(paymentLinkHandler.HandleWebhook))
+
+	// Logistics Routes
+	mux.HandleFunc("/api/v1/logistics/tariff", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			paymentLinkHandler.CheckTariff(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
 
 	// Admin Routes (Protected by Auth and Admin Role)
 	mux.HandleFunc("/api/v1/admin/payouts/trigger", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {

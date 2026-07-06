@@ -122,6 +122,53 @@ func TestSelectModel(t *testing.T) {
 	}
 }
 
+func TestSelectModel3PL(t *testing.T) {
+	flags := map[string]*featureflags.FeatureFlag{
+		"model_p2p": {
+			IsEnabled: true,
+			Config: map[string]interface{}{
+				"active_zones": []interface{}{"JAK-SEL"},
+			},
+		},
+		"model_jne": {
+			IsEnabled: true,
+		},
+		"model_jnt": {
+			IsEnabled: true,
+		},
+	}
+
+	reader := &mockFlagReader{flags: flags}
+	zoneResolver := &fakeZoneResolver{zones: map[Coordinate]string{
+		{Lat: -6.10, Lng: 106.80}: "JAK-SEL",
+		{Lat: -6.50, Lng: 106.80}: "JAK-SEL", // ~44km distance
+		{Lat: -6.10, Lng: 107.50}: "BANDUNG",
+		{Lat: -6.20, Lng: 107.50}: "BANDUNG",
+	}}
+	engine := NewRoutingEngineWithZoneResolver(reader, zoneResolver)
+	ctx := context.Background()
+
+	// 1. Long distance (>= 30km) should select JNE first
+	model, err := engine.SelectModel(ctx, OrderRequest{
+		Pickup:  Coordinate{Lat: -6.10, Lng: 106.80},
+		Dropoff: Coordinate{Lat: -6.50, Lng: 106.80},
+		UserID:  "user1",
+	})
+	if err != nil || model != Model3PL_JNE {
+		t.Errorf("Expected JNE for long distance, got %v, err %v", model, err)
+	}
+
+	// 2. Out of P2P zone should fallback to JNE
+	model, err = engine.SelectModel(ctx, OrderRequest{
+		Pickup:  Coordinate{Lat: -6.10, Lng: 107.50},
+		Dropoff: Coordinate{Lat: -6.20, Lng: 107.50},
+		UserID:  "user1",
+	})
+	if err != nil || model != Model3PL_JNE {
+		t.Errorf("Expected JNE for out of zone fallback, got %v, err %v", model, err)
+	}
+}
+
 func BenchmarkSelectModel(b *testing.B) {
 	flags := map[string]*featureflags.FeatureFlag{
 		"model_p2p": {

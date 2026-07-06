@@ -25,13 +25,14 @@ type AuthHandler struct {
 		RequestCustomerPasswordReset(ctx context.Context, email string) error
 		ConfirmCustomerPasswordReset(ctx context.Context, email, code, newPassword string) error
 		StartCustomerPasswordLogin(ctx context.Context, email, password, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
-		StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password, deviceID string, deviceInfo []byte) (*service.AuthResponse, error)
+		StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password, deviceID string, deviceInfo []byte, awbSenderName string) (*service.AuthResponse, error)
 		VerifyOTP(ctx context.Context, phoneNumber, code, deviceID string, deviceInfo []byte, ipAddress string) (*service.AuthResponse, error)
 		RefreshToken(ctx context.Context, oldRefreshToken, deviceID string) (*service.AuthResponse, error)
 		Logout(ctx context.Context, refreshToken string) error
-		Register(ctx context.Context, userID, fullName, email, storeName, defaultPickupAddress string) error
+		Register(ctx context.Context, userID, fullName, email, storeName, defaultPickupAddress, awbSenderName string) error
 		SetPIN(ctx context.Context, userID string, pin string) error
 		GetUserByID(ctx context.Context, id string) (*domain.User, error)
+		CheckSenderName(ctx context.Context, senderName string) error
 		UpdateProfilePhoto(ctx context.Context, userID string, filename string, content io.Reader) (string, error)
 		AdminSetCourierProfilePhoto(ctx context.Context, adminID, courierUserID string, filename string, content io.Reader) (string, error)
 		UpdateUserRole(ctx context.Context, userID string, role string) error
@@ -194,9 +195,10 @@ func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r
 		FullName    string          `json:"full_name"`
 		Email       string          `json:"email"`
 		PhoneNumber string          `json:"phone_number"`
-		Password    string          `json:"password"`
-		DeviceID    string          `json:"device_id"`
-		DeviceInfo  json.RawMessage `json:"device_info"`
+		Password      string          `json:"password"`
+		DeviceID      string          `json:"device_id"`
+		DeviceInfo    json.RawMessage `json:"device_info"`
+		AWBSenderName string          `json:"awb_sender_name,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -208,7 +210,7 @@ func (h *AuthHandler) StartCustomerPasswordRegistration(w http.ResponseWriter, r
 		return
 	}
 
-	res, err := h.svc.StartCustomerPasswordRegistration(r.Context(), req.FullName, req.Email, req.PhoneNumber, req.Password, req.DeviceID, req.DeviceInfo)
+	res, err := h.svc.StartCustomerPasswordRegistration(r.Context(), req.FullName, req.Email, req.PhoneNumber, req.Password, req.DeviceID, req.DeviceInfo, req.AWBSenderName)
 	if err != nil {
 		h.recordAuthFailure(r, middleware.ScopeCustomerRegistration, normalizedEmail, "registration_failed")
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid request", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
@@ -388,13 +390,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Email                string `json:"email"`
 		StoreName            string `json:"store_name"`
 		DefaultPickupAddress string `json:"default_pickup_address"`
+		AWBSenderName        string `json:"awb_sender_name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	err := h.svc.Register(r.Context(), userID, req.FullName, req.Email, req.StoreName, req.DefaultPickupAddress)
+	err := h.svc.Register(r.Context(), userID, req.FullName, req.Email, req.StoreName, req.DefaultPickupAddress, req.AWBSenderName)
 	if err != nil {
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Internal server error", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
@@ -432,6 +435,35 @@ func (h *AuthHandler) SetPIN(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(map[string]string{"message": "PIN set successfully"})
+}
+
+// CheckSenderName godoc
+// @Summary Check AWB Sender Name (Mobile)
+// @Description Check if AWB Sender Name is available
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body object true "Sender Name Request"
+// @Success 200 {object} map[string]bool
+// @Router /auth/check-sender-name [post]
+func (h *AuthHandler) CheckSenderName(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		SenderName string `json:"sender_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.CheckSenderName(r.Context(), req.SenderName)
+	if err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_SENDER_NAME", err.Error(), middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]bool{"available": true})
 }
 
 func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {

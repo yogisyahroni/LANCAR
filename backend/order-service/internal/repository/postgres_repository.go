@@ -162,7 +162,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
 				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, created_at, updated_at
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''), created_at, updated_at
 			  FROM orders WHERE id = $1`
 
 	o := &domain.Order{}
@@ -172,7 +172,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
 		&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
 		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.CreatedAt, &o.UpdatedAt,
+		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -190,7 +190,7 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
 				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, created_at, updated_at
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''), created_at, updated_at
 			  FROM orders WHERE order_number = $1`
 
 	o := &domain.Order{}
@@ -200,7 +200,35 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
 		&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
 		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.CreatedAt, &o.UpdatedAt,
+		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return o, nil
+}
+
+func (r *postgresRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order, error) {
+	query := `SELECT 
+				id, order_number, customer_id, model, status, 
+				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
+				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
+				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
+				distance_km, base_price_idr, volumetric_surcharge_idr, 
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''), created_at, updated_at
+			  FROM orders WHERE awb_number = $1`
+
+	o := &domain.Order{}
+	err := r.readDB.QueryRowContext(ctx, query, awb).Scan(
+		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
+		&o.PickupLat, &o.PickupLng, &o.PickupAddress,
+		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+		&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
+		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
+		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -289,6 +317,16 @@ func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domai
 	_, err := r.db.ExecContext(ctx, query, status, time.Now(), id)
 	return err
 }
+
+// UpdateOrderAWB menyimpan nomor AWB dan URL tracking ke tabel orders.
+// Dipanggil oleh payment_link_service setelah AWB berhasil dibuat via integration-gateway.
+func (r *postgresRepo) UpdateOrderAWB(ctx context.Context, orderID, awbNumber, trackingURL string) error {
+	query := `UPDATE orders SET awb_number = $1, tracking_url = $2, updated_at = $3 WHERE id = $4`
+	_, err := r.db.ExecContext(ctx, query, awbNumber, trackingURL, time.Now(), orderID)
+	return err
+}
+
+
 
 func (r *postgresRepo) UpdateDimensions(ctx context.Context, id string, length, width, height, weight float64) error {
 	query := `UPDATE orders SET length = $1, width = $2, height = $3, weight = $4, updated_at = $5 WHERE id = $6`
@@ -864,4 +902,19 @@ func (r *postgresRepo) IncrementRatingReminderCount(ctx context.Context, orderID
 	`
 	_, err := r.db.ExecContext(ctx, query, orderID)
 	return err
+}
+
+// Logistics Extensions
+func (r *postgresRepo) GetLogisticsProviderConfig(ctx context.Context, provider string) (float64, float64, error) {
+	query := `SELECT COALESCE(discount_pct, 0), COALESCE(markup_pct, 0) FROM logistics_providers WHERE code = $1`
+	var discountPct, markupPct float64
+	err := r.db.QueryRowContext(ctx, query, provider).Scan(&discountPct, &markupPct)
+	return discountPct, markupPct, err
+}
+
+func (r *postgresRepo) GetUserSenderName(ctx context.Context, userID string) (string, error) {
+	query := `SELECT COALESCE(awb_sender_name, '') FROM users WHERE id = $1`
+	var senderName string
+	err := r.db.QueryRowContext(ctx, query, userID).Scan(&senderName)
+	return senderName, err
 }

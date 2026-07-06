@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://bawain.my.id"),
+  metadataBase: new URL(appUrl),
   title: {
     default: "TEMBUS - Kirim Cepat, Aman, Sampai Tujuan",
     template: "%s | TEMBUS"
@@ -10,13 +12,13 @@ export const metadata: Metadata = {
   description:
     "TEMBUS adalah layanan pengiriman hyperlocal untuk customer, bisnis, dan mitra kurir dengan tracking real-time dan proses kirim yang praktis.",
   alternates: {
-    canonical: "https://bawain.my.id"
+    canonical: appUrl
   },
   openGraph: {
     title: "TEMBUS - Kirim Cepat, Aman, Sampai Tujuan",
     description:
       "Pengiriman hyperlocal untuk customer, bisnis, dan mitra kurir dengan tracking real-time.",
-    url: "https://bawain.my.id",
+    url: appUrl,
     siteName: "TEMBUS",
     locale: "id_ID",
     type: "website"

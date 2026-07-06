@@ -11,6 +11,7 @@ const (
 	StatusPendingPayment      OrderStatus = "pending_payment"
 	StatusPending             OrderStatus = "pending"
 	StatusPendingAssignment   OrderStatus = "pending_assignment"
+	StatusReadyForPickup      OrderStatus = "ready_for_pickup"
 	StatusSearching           OrderStatus = "searching"
 	StatusAccepted            OrderStatus = "accepted"
 	StatusPickingUp           OrderStatus = "picking_up"
@@ -57,6 +58,12 @@ type Order struct {
 	BatchID                *string      `json:"batch_id,omitempty"`
 	SequenceNo             *int         `json:"sequence_no,omitempty"`
 	CourierID              *string      `json:"courier_id,omitempty"`              // Added for S2-OS-01
+	LogisticsProvider      string       `json:"logistics_provider,omitempty"`
+	LogisticsServiceType   string       `json:"logistics_service_type,omitempty"`
+	LogisticsTariffIDR     int64        `json:"logistics_tariff_idr,omitempty"`
+	LogisticsNetCostIDR    int64        `json:"logistics_net_cost_idr,omitempty"`
+	AWB                    string       `json:"awb_number,omitempty"`
+	TrackingURL            string       `json:"tracking_url,omitempty"`
 	Courier                *CourierInfo `json:"courier,omitempty"`                 // Added for Courier Profile
 	CourierRating          *float64     `json:"courier_rating,omitempty"`          // Rating 1-5 diberikan customer setelah delivered
 	RatingComment          *string      `json:"rating_comment,omitempty"`          // Komentar opsional
@@ -77,10 +84,27 @@ type CourierInfo struct {
 }
 
 type CreateOrderRequest struct {
-	EstimateID      string `json:"estimate_id" validate:"required"`
-	ItemDescription string `json:"item_description" validate:"required,min=5"`
-	ItemImageURL    string `json:"item_image_url,omitempty"`
-	IsScheduled     bool   `json:"is_scheduled"`
+	EstimateID             string  `json:"estimate_id" validate:"required"` // For on-demand, or tariff ID for 3PL
+	ItemDescription        string  `json:"item_description" validate:"required,min=5"`
+	ItemImageURL           string  `json:"item_image_url,omitempty"`
+	IsScheduled            bool    `json:"is_scheduled"`
+	// Logistics fields (optional if using on-demand)
+	LogisticsProvider      string  `json:"logistics_provider,omitempty"`
+	LogisticsServiceType   string  `json:"logistics_service_type,omitempty"`
+	LogisticsTariffIDR     int64   `json:"logistics_tariff_idr,omitempty"`
+	LogisticsNetCostIDR    int64   `json:"logistics_net_cost_idr,omitempty"`
+	PickupAddress          string  `json:"pickup_address,omitempty"`
+	PickupLat              float64 `json:"pickup_lat,omitempty"`
+	PickupLng              float64 `json:"pickup_lng,omitempty"`
+	DropoffAddress         string  `json:"dropoff_address,omitempty"`
+	DropoffLat             float64 `json:"dropoff_lat,omitempty"`
+	DropoffLng             float64 `json:"dropoff_lng,omitempty"`
+	Length                 float64 `json:"length,omitempty"`
+	Width                  float64 `json:"width,omitempty"`
+	Height                 float64 `json:"height,omitempty"`
+	Weight                 float64 `json:"weight,omitempty"`
+	ReceiverName           string  `json:"receiver_name,omitempty"`
+	ReceiverPhone          string  `json:"receiver_phone,omitempty"`
 }
 
 // SubmitRatingRequest adalah request body dari customer untuk memberi rating ke kurir.
@@ -134,9 +158,12 @@ type OrderRepository interface {
 	Create(ctx context.Context, order *Order) error
 	GetByID(ctx context.Context, id string) (*Order, error)
 	GetByOrderNumber(ctx context.Context, orderNumber string) (*Order, error)
+	GetByAWB(ctx context.Context, awb string) (*Order, error)
 	GetByBatchID(ctx context.Context, batchID string) ([]*Order, error)
 	ListByUserID(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, id string, status OrderStatus) error
+	// UpdateOrderAWB menyimpan nomor AWB dan tracking URL ke order setelah AWB berhasil dibuat.
+	UpdateOrderAWB(ctx context.Context, orderID, awbNumber, trackingURL string) error
 	UpdateDimensions(ctx context.Context, id string, length, width, height, weight float64) error
 	CancelExpiredOrders(ctx context.Context, timeout time.Duration) (int64, error)
 	AssignCourier(ctx context.Context, orderID string, courierID string) error
@@ -165,6 +192,10 @@ type OrderRepository interface {
 	GetDeliveredUnratedOrders(ctx context.Context, customerID string, maxReminder int, reminderIntervalHours int) ([]*Order, error)
 	// IncrementRatingReminderCount menaikkan reminder_count dan update last_rating_reminder_at.
 	IncrementRatingReminderCount(ctx context.Context, orderID string) error
+
+	// Logistics Extensions
+	GetLogisticsProviderConfig(ctx context.Context, provider string) (discountPct float64, markupPct float64, err error)
+	GetUserSenderName(ctx context.Context, userID string) (string, error)
 }
 
 type MeetingPoint struct {

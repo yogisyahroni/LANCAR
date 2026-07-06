@@ -34,8 +34,15 @@ type PaymentLink struct {
 	PickupLng         float64           `json:"pickup_lng,omitempty"`
 	DeliveryFeeAmount int64             `json:"delivery_fee_amount"`
 	StoreName         string            `json:"store_name,omitempty"`
-	CreatedAt         time.Time         `json:"created_at"`
-	UpdatedAt         time.Time         `json:"updated_at"`
+	// RecipientPhone adalah nomor HP konsignee (penerima paket) — opsional.
+	// Dipakai untuk broadcast WhatsApp saat link pembayaran berhasil dibuat.
+	RecipientPhone       string `json:"recipient_phone,omitempty"`
+	RecipientName        string `json:"recipient_name,omitempty"`
+	LogisticsProvider    string `json:"logistics_provider,omitempty"`
+	LogisticsServiceType string `json:"logistics_service_type,omitempty"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+	PaymentURL           string    `json:"payment_url,omitempty"`
 }
 
 type PaymentLinkRepository interface {
@@ -60,6 +67,72 @@ type CreatePaymentLinkRequest struct {
 	DropoffLat     float64 `json:"dropoff_lat" validate:"required"`
 	DropoffLng     float64 `json:"dropoff_lng" validate:"required"`
 	StoreName      string  `json:"store_name,omitempty"`
+	// RecipientPhone (opsional) — nomor HP konsignee untuk notifikasi WhatsApp.
+	RecipientPhone       string `json:"recipient_phone,omitempty"`
+	RecipientName        string `json:"recipient_name,omitempty"`
+	LogisticsProvider    string `json:"logistics_provider" validate:"required"`
+	LogisticsServiceType string `json:"logistics_service_type" validate:"required"`
+}
+
+// AWBRequest adalah request pembuatan AWB ke integration-gateway.
+type AWBRequest struct {
+	Provider        string  `json:"provider"` // "jne" atau "jnt"
+	ReferenceID     string  `json:"reference_id"`
+	SenderAlias     string  `json:"sender_alias"` // dari users.awb_sender_name
+	SenderName      string  `json:"sender_name"`
+	SenderPhone     string  `json:"sender_phone"`
+	SenderAddress   string  `json:"sender_address"`
+	ReceiverName    string  `json:"receiver_name"`
+	ReceiverPhone   string  `json:"receiver_phone"`
+	ReceiverAddress string  `json:"receiver_address"`
+	OriginCode      string  `json:"origin_code"`
+	DestinationCode string  `json:"destination_code"`
+	WeightKG        float64 `json:"weight_kg"`
+	ItemDescription string  `json:"item_description"`
+	ItemValue       float64 `json:"item_value"`
+	ServiceType     string  `json:"service_type"`
+}
+
+// AWBResponse adalah respons dari integration-gateway setelah AWB dibuat.
+type AWBResponse struct {
+	AWBNumber   string `json:"awb_number"`
+	Provider    string `json:"provider"`
+	ServiceType string `json:"service_type"`
+	BookingCode string `json:"booking_code"`
+	TrackingURL string `json:"tracking_url"`
+}
+
+// AWBClient adalah port (interface) untuk komunikasi ke integration-gateway.
+// Implementasi nyata melakukan HTTP call. Test dapat menggunakan mock.
+type AWBClient interface {
+	CreateAWB(ctx context.Context, req AWBRequest) (*AWBResponse, error)
+	SendWhatsApp(ctx context.Context, to, message string) error
+	CheckTariff(ctx context.Context, req CheckTariffRequest) (*CheckTariffResponse, error)
+}
+
+type CheckTariffRequest struct {
+	Provider        string  `json:"provider"`
+	OriginCode      string  `json:"origin"`
+	DestinationCode string  `json:"destination"`
+	WeightKG        float64 `json:"weight"`
+}
+
+type CheckTariffResponse struct {
+	Provider string                `json:"provider"`
+	Origin   string                `json:"origin"`
+	Dest     string                `json:"destination"`
+	Weight   float64               `json:"weight"`
+	Services []TariffServiceOption `json:"services"`
+}
+
+type TariffServiceOption struct {
+	ServiceCode string  `json:"service_code"`
+	ServiceName string  `json:"service_name"`
+	TariffGross int64   `json:"tariff_gross"`
+	TariffNet   int64   `json:"tariff_net"`
+	DiscountPct float64 `json:"discount_pct"`
+	MarkupPct   float64 `json:"markup_pct"`
+	ETD         string  `json:"etd"`
 }
 
 type PaymentLinkCheckoutResponse struct {
@@ -72,6 +145,7 @@ type PaymentLinkService interface {
 	GetLink(ctx context.Context, id string) (*PaymentLink, error)
 	ListLinks(ctx context.Context, merchantID string, limit, offset int) ([]*PaymentLink, error)
 	CheckoutLink(ctx context.Context, id string) (*PaymentLinkCheckoutResponse, error)
+	CheckTariff(ctx context.Context, provider, origin, dest string, weight float64) (*CheckTariffResponse, error)
 	HandleWebhook(ctx context.Context, id string, event string) error
 	AutoExpireLinks(ctx context.Context) error
 	CleanupExpiredLinks(ctx context.Context) error

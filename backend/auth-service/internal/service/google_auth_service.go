@@ -732,11 +732,10 @@ func (s *GoogleAuthService) completeRegistration(ctx context.Context, tx *domain
 	}
 	// ---------------------------------------------
 
-	// Use provided phone number, or generate a dummy one if empty (OTP bypassed)
-	phoneToSave := phoneNumber
-	if phoneToSave == "" {
-		phoneToSave = "G-" + uuid.New().String()[:12]
+	if phoneNumber == "" {
+		return nil, errors.New("phone number is required for registration")
 	}
+	phoneToSave := phoneNumber
 
 	// Create user account
 	emailVal := googleEmail

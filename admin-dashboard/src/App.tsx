@@ -29,6 +29,8 @@ import HRJobs from './pages/HRJobs'
 import HRApplications from './pages/HRApplications'
 import News from './pages/News'
 import PaymentLinks from './pages/PaymentLinks'
+import ResiTemplates from './pages/ResiTemplates'
+import LogisticsDiscount from './pages/LogisticsDiscount'
 import DashboardLayout from './components/DashboardLayout'
 
 import { useEffect } from 'react'
@@ -270,6 +272,22 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['super_admin', 'admin', 'ops_admin']}>
                 <Settings />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/resi-templates" 
+            element={
+              <ProtectedRoute allowedRoles={['super_admin', 'admin']}>
+                <ResiTemplates />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/logistics-discount" 
+            element={
+              <ProtectedRoute allowedRoles={['super_admin', 'admin', 'finance_admin']}>
+                <LogisticsDiscount />
               </ProtectedRoute>
             } 
           />

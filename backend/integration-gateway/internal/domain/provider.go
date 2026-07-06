@@ -56,3 +56,69 @@ type OptimizedRouteResult struct {
 	DurationMin      float64 `json:"duration_min"`
 	OptimizedIndices []int   `json:"optimized_indices"`
 }
+
+// Logistics3PLProvider defines the interface for an external 3PL logistics provider (e.g. JNE, J&T Express)
+type Logistics3PLProvider interface {
+	CheckTariff(ctx context.Context, req TariffRequest) (*TariffResponse, error)
+	CreateOrder(ctx context.Context, req LogisticsOrderRequest) (*LogisticsOrderResponse, error)
+	TrackOrder(ctx context.Context, awb string) (*TrackingResponse, error)
+}
+
+type TariffRequest struct {
+	OriginCode      string  `json:"origin_code"`
+	DestinationCode string  `json:"destination_code"`
+	WeightKG        float64 `json:"weight_kg"`
+	ServiceType     string  `json:"service_type"` // e.g., REG, YES, EZ
+}
+
+type TariffResponse struct {
+	Provider string                `json:"provider"`
+	Services []TariffServiceOption `json:"services"`
+}
+
+type TariffServiceOption struct {
+	ServiceCode   string  `json:"service_code"`
+	ServiceName   string  `json:"service_name"`
+	TariffAmount  float64 `json:"tariff_amount"`
+	EstimatedDays string  `json:"estimated_days"`
+}
+
+type LogisticsOrderRequest struct {
+	ReferenceID     string  `json:"reference_id"`
+	SenderName      string  `json:"sender_name"`
+	SenderPhone     string  `json:"sender_phone"`
+	SenderAddress   string  `json:"sender_address"`
+	ReceiverName    string  `json:"receiver_name"`
+	ReceiverPhone   string  `json:"receiver_phone"`
+	ReceiverAddress string  `json:"receiver_address"`
+	OriginCode      string  `json:"origin_code"`
+	DestinationCode string  `json:"destination_code"`
+	WeightKG        float64 `json:"weight_kg"`
+	ItemDescription string  `json:"item_description"`
+	ItemValue       float64 `json:"item_value"`
+	ServiceType     string  `json:"service_type"`
+}
+
+type LogisticsOrderResponse struct {
+	ReferenceID string  `json:"reference_id"`
+	AWBNumber   string  `json:"awb_number"`
+	Provider    string  `json:"provider"`
+	ServiceType string  `json:"service_type"`
+	BookingCode string  `json:"booking_code"`
+	TotalAmount float64 `json:"total_amount"`
+}
+
+type TrackingResponse struct {
+	AWBNumber    string          `json:"awb_number"`
+	Provider     string          `json:"provider"`
+	Status       string          `json:"status"` // e.g., MANIFESTED, IN_TRANSIT, DELIVERED
+	StatusDetail string          `json:"status_detail"`
+	History      []TrackingEvent `json:"history"`
+}
+
+type TrackingEvent struct {
+	Timestamp string `json:"timestamp"`
+	Status    string `json:"status"`
+	Location  string `json:"location"`
+	Note      string `json:"note"`
+}

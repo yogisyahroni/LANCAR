@@ -5,6 +5,7 @@
 
 // Admin Users
 export * from './admin.controller';
+export * from './resiTemplates.controller';
 
 // Orders
 export * from './orders.controller';
@@ -66,3 +67,4 @@ export * as businessApiRequest from './businessApiRequest';
 // HR Careers
 export * as hr from './hrController';
 export * as news from './newsController';
+export * from './logisticsProviders.controller';

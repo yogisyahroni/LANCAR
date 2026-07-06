@@ -140,7 +140,9 @@ ALTER TABLE courier_profiles
   ADD COLUMN IF NOT EXISTS face_liveness_score NUMERIC(5,4);
 
 ALTER TABLE courier_documents
-  DROP CONSTRAINT IF EXISTS courier_documents_doc_type_check,
+  DROP CONSTRAINT IF EXISTS courier_documents_doc_type_check;
+
+ALTER TABLE courier_documents
   ADD CONSTRAINT courier_documents_doc_type_check
     CHECK (doc_type IN ('ktp','sim','stnk','skpd','selfie','skck','vehicle_photo','bank_account','face_enrollment'));
 

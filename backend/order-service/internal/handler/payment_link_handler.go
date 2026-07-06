@@ -1,19 +1,23 @@
 package handler
 
 import (
+	"crypto/sha512"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"tembus/order-service/internal/domain"
 )
 
 type PaymentLinkHandler struct {
-	svc domain.PaymentLinkService
+	svc        domain.PaymentLinkService
+	configRepo domain.ConfigRepository
 }
 
-func NewPaymentLinkHandler(svc domain.PaymentLinkService) *PaymentLinkHandler {
-	return &PaymentLinkHandler{svc: svc}
+func NewPaymentLinkHandler(svc domain.PaymentLinkService, configRepo domain.ConfigRepository) *PaymentLinkHandler {
+	return &PaymentLinkHandler{svc: svc, configRepo: configRepo}
 }
 
 func (h *PaymentLinkHandler) CreateLink(w http.ResponseWriter, r *http.Request) {
@@ -163,9 +167,25 @@ func (h *PaymentLinkHandler) HandleWebhook(w http.ResponseWriter, r *http.Reques
 
 	orderID, _ := data["order_id"].(string)
 	transactionStatus, _ := data["transaction_status"].(string)
+	statusCode, _ := data["status_code"].(string)
+	grossAmount, _ := data["gross_amount"].(string)
+	signatureKey, _ := data["signature_key"].(string)
 
-	if orderID == "" || transactionStatus == "" {
+	if orderID == "" || transactionStatus == "" || signatureKey == "" {
 		http.Error(w, "Missing required fields", http.StatusBadRequest)
+		return
+	}
+
+	serverKey := h.configRepo.GetStringConfig(r.Context(), "midtrans_server_key", os.Getenv("MIDTRANS_SERVER_KEY"))
+	
+	// Validate signature
+	// SHA512(order_id + status_code + gross_amount + server_key)
+	hash := sha512.New()
+	hash.Write([]byte(orderID + statusCode + grossAmount + serverKey))
+	expectedSignature := hex.EncodeToString(hash.Sum(nil))
+
+	if signatureKey != expectedSignature {
+		http.Error(w, "Invalid signature", http.StatusUnauthorized)
 		return
 	}
 
@@ -179,4 +199,38 @@ func (h *PaymentLinkHandler) HandleWebhook(w http.ResponseWriter, r *http.Reques
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
+}
+
+func (h *PaymentLinkHandler) CheckTariff(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	provider := r.URL.Query().Get("provider")
+	if provider == "" {
+		http.Error(w, "provider parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	origin := r.URL.Query().Get("origin_code")
+	dest := r.URL.Query().Get("destination_code")
+	
+	weightStr := r.URL.Query().Get("weight_kg")
+	weight, _ := strconv.ParseFloat(weightStr, 64)
+	if weight <= 0 {
+		weight = 1.0 // default 1kg
+	}
+
+	resp, err := h.svc.CheckTariff(r.Context(), provider, origin, dest, weight)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"data":    resp,
+	})
 }

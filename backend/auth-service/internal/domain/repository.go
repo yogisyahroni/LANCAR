@@ -18,6 +18,7 @@ type UserRepository interface {
 	GetPermissionsByRole(ctx context.Context, role string) ([]string, error)
 	UpdateTOTP(ctx context.Context, userID string, secret string, backupCodes []string) error
 	Enable2FA(ctx context.Context, userID string) error
+	CheckAWBSenderName(ctx context.Context, name string) (bool, error)
 }
 
 type SessionRepository interface {
@@ -51,4 +52,5 @@ type CourierRepository interface {
 
 type ConfigRepository interface {
 	GetBoolConfig(ctx context.Context, key string, defaultValue bool) bool
+	GetStringConfig(ctx context.Context, key string, defaultValue string) string
 }

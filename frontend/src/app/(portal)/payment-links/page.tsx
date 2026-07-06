@@ -19,13 +19,16 @@ import {
   Package,
   UploadCloud,
   Navigation,
-  Store
+  Store,
+  Weight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/useNotificationStore';
+import { ShippingSelector } from '@/components/ShippingSelector';
+import { TariffRequest, TariffResponse } from '@/hooks/useLogisticsTariff';
 
 const queryErrorMessage = (error: any, fallback: string) =>
   error?.response?.data?.error || error?.response?.data?.message || error?.message || fallback;
@@ -86,17 +89,17 @@ export default function PaymentLinksPage() {
       addNotification({ title: 'Success', message: 'Payment Link created successfully!', type: 'success' });
       setIsModalOpen(false);
       
-      const linkId = data.data?.data?.id || data.data?.id;
-      if (linkId) {
-        navigator.clipboard.writeText(`https://pay.tembus.my.id/inv/${linkId}`);
+      const paymentUrl = data.data?.data?.payment_url || data.data?.payment_url;
+      if (paymentUrl) {
+        navigator.clipboard.writeText(paymentUrl);
         addNotification({ title: 'Copied', message: 'Link copied to clipboard!', type: 'info' });
       }
     },
     onError: (err: any) => addNotification({ title: 'Error', message: `Failed to create link: ${queryErrorMessage(err, 'Unknown error')}`, type: 'error' })
   });
 
-  const handleCopy = (id: string) => {
-    navigator.clipboard.writeText(`https://pay.tembus.my.id/inv/${id}`);
+  const handleCopy = (id: string, paymentUrl: string) => {
+    navigator.clipboard.writeText(paymentUrl);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
     addNotification({ title: 'Copied', message: 'Link copied to clipboard!', type: 'info' });
@@ -226,7 +229,7 @@ export default function PaymentLinksPage() {
 
               <div className="flex items-center gap-3 mt-8 relative z-10">
                  <button 
-                   onClick={() => handleCopy(link.id)}
+                   onClick={() => handleCopy(link.id, link.payment_url)}
                    disabled={isExpired || isPaid}
                    className={cn(
                        "flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border flex items-center justify-center gap-2",
@@ -270,38 +273,34 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
     item_image_url: '',
     pickup_address: '',
     dropoff_address: '',
-    service_code: '',
+    weight: 1,
   });
   
+  const [step, setStep] = useState<1 | 2>(1);
+  const [tariffRequest, setTariffRequest] = useState<TariffRequest | null>(null);
+  const [selectedTariff, setSelectedTariff] = useState<TariffResponse | null>(null);
+
   const [geocodeError, setGeocodeError] = useState<string>('');
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const { data: services, isLoading: isLoadingServices } = useQuery({
-    queryKey: ['active-delivery-services'],
-    queryFn: async () => {
-      const res = await api.get('/auth/web/delivery-services');
-      return (res.data.services as any[]).filter((s: any) => s.is_enabled);
-    },
-    enabled: isOpen
-  });
-
   useEffect(() => {
-    if (isOpen && user) {
-      setFormData((prev: any) => ({
-        ...prev,
-        store_name: user.store_name || '',
-        pickup_address: user.default_pickup_address || '',
-      }));
+    if (isOpen) {
+      setFormData({
+        store_name: user?.name || '',
+        item_name: '',
+        item_image_url: '',
+        pickup_address: '',
+        dropoff_address: '',
+        weight: 1,
+      });
+      setStep(1);
+      setTariffRequest(null);
+      setSelectedTariff(null);
+      setSelectedFile(null);
     }
   }, [isOpen, user]);
-
-  useEffect(() => {
-    if (services && services.length > 0 && formData.service_code === '') {
-      setFormData((prev: any) => ({ ...prev, service_code: services[0].code }));
-    }
-  }, [services, formData.service_code]);
 
   if (!isOpen) return null;
 
@@ -336,26 +335,11 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
     );
   };
 
-  const handleGenerateLink = async () => {
+  const handleNextStep = async () => {
     setGeocodeError('');
     setIsGeocoding(true);
     
     try {
-      let finalImageUrl = formData.item_image_url;
-
-      if (selectedFile) {
-        const presignRes = await api.get(`/auth/presign?filename=${encodeURIComponent(selectedFile.name)}&contentType=${encodeURIComponent(selectedFile.type)}`);
-        const { url } = presignRes.data;
-
-        await fetch(url, {
-          method: 'PUT',
-          body: selectedFile,
-          headers: { 'Content-Type': selectedFile.type },
-        });
-        
-        finalImageUrl = url.split('?')[0]; 
-      }
-
       if (!formData.pickup_address) throw new Error('Alamat Pickup tidak boleh kosong.');
       
       const pickupRes = await api.get(`/maps/geocode?query=${encodeURIComponent(formData.pickup_address.trim())}`);
@@ -376,16 +360,57 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
         throw new Error('Alamat Customer tidak spesifik. Tambahkan patokan, jalan, kota.');
       }
 
-      // localStorage operations removed. Data persistence is now handled via Profile page -> backend.
+      setTariffRequest({
+        origin_lat: Number(pickupLoc.latitude),
+        origin_lng: Number(pickupLoc.longitude),
+        dest_lat: Number(dropoffLoc.latitude),
+        dest_lng: Number(dropoffLoc.longitude),
+        weight: Number(formData.weight) || 1,
+      });
+
+      setStep(2);
+    } catch (err: any) {
+      setGeocodeError(err.response?.data?.error || err.message || 'Gagal mengecek alamat.');
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
+  const handleGenerateLink = async () => {
+    setGeocodeError('');
+    setIsGeocoding(true);
+    
+    try {
+      let finalImageUrl = formData.item_image_url;
+
+      if (selectedFile) {
+        const presignRes = await api.get(`/auth/presign?filename=${encodeURIComponent(selectedFile.name)}&contentType=${encodeURIComponent(selectedFile.type)}`);
+        const { url } = presignRes.data;
+
+        await fetch(url, {
+          method: 'PUT',
+          body: selectedFile,
+          headers: { 'Content-Type': selectedFile.type },
+        });
+        
+        finalImageUrl = url.split('?')[0]; 
+      }
+
+      if (!tariffRequest || !selectedTariff) {
+        throw new Error('Silakan pilih layanan kurir terlebih dahulu.');
+      }
 
       onSave({
         ...formData,
         item_price: 0,
         item_image_url: finalImageUrl,
-        pickup_lat: Number(pickupLoc.latitude),
-        pickup_lng: Number(pickupLoc.longitude),
-        dropoff_lat: Number(dropoffLoc.latitude),
-        dropoff_lng: Number(dropoffLoc.longitude),
+        pickup_lat: tariffRequest.origin_lat,
+        pickup_lng: tariffRequest.origin_lng,
+        dropoff_lat: tariffRequest.dest_lat,
+        dropoff_lng: tariffRequest.dest_lng,
+        service_code: selectedTariff.service_code,
+        provider_code: selectedTariff.provider_code,
+        delivery_fee_amount: selectedTariff.price,
       });
 
     } catch (err: any) {
@@ -425,123 +450,146 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-8">
-            <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><Package size={14}/> Item Name</label>
-              <input 
-                value={formData.item_name}
-                onChange={e => setFormData({ ...formData, item_name: e.target.value })}
-                placeholder="e.g. Kue Kering Lebaran"
-                className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
-              />
-            </div>
+          {step === 1 ? (
+            <>
+              <div className="grid grid-cols-2 gap-8">
+                <div className="space-y-2 col-span-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><Package size={14}/> Item Name</label>
+                  <input 
+                    value={formData.item_name}
+                    onChange={e => setFormData({ ...formData, item_name: e.target.value })}
+                    placeholder="e.g. Kue Kering Lebaran"
+                    className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Pilihan Layanan</label>
-              <select 
-                value={formData.service_code}
-                onChange={e => setFormData({ ...formData, service_code: e.target.value })}
-                className="w-full bg-zinc-900/90 border border-white/10 rounded-2xl py-4 px-6 text-zinc-100 font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer shadow-sm"
-                disabled={isLoadingServices}
-              >
-                {isLoadingServices ? (
-                  <option value="" className="bg-zinc-900 text-zinc-100 py-1.5">Loading services...</option>
-                ) : (
-                  services?.map((svc: any) => (
-                    <option key={svc.code} value={svc.code} className="bg-zinc-900 text-zinc-100 font-medium py-1.5">
-                      {svc.name}
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><Weight size={14}/> Berat (kg)</label>
+                  <input 
+                    type="number"
+                    min="1"
+                    value={formData.weight}
+                    onChange={e => setFormData({ ...formData, weight: parseFloat(e.target.value) || 1 })}
+                    className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                  />
+                </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><UploadCloud size={14}/> Item Image</label>
-              <label className="flex items-center justify-center w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 border-dashed rounded-2xl py-4 px-6 cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-all text-sm font-semibold text-muted-foreground hover:text-foreground">
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) setSelectedFile(e.target.files[0]);
-                  }} 
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><UploadCloud size={14}/> Item Image</label>
+                  <label className="flex items-center justify-center w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 border-dashed rounded-2xl py-4 px-6 cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-all text-sm font-semibold text-muted-foreground hover:text-foreground">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) setSelectedFile(e.target.files[0]);
+                      }} 
+                    />
+                    {selectedFile ? selectedFile.name : (formData.item_image_url ? 'Image Selected (Click to change)' : 'Choose File')}
+                  </label>
+                </div>
+
+                <div className="space-y-2 col-span-2 border-t border-black/10 dark:border-white/10 pt-6">
+                  <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">Origin & Destination</h3>
+                </div>
+
+                <div className="space-y-2 col-span-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center justify-between">
+                    <span className="flex items-center gap-2"><MapPin size={14}/> Pickup Address (Your Store)</span>
+                    <button 
+                      type="button" 
+                      onClick={handleGetCurrentLocation}
+                      disabled={isLocating}
+                      className="text-primary hover:text-primary-light flex items-center gap-1 font-bold bg-primary/10 px-3 py-1.5 rounded-lg transition-all"
+                    >
+                      {isLocating ? <Loader2 size={12} className="animate-spin" /> : <Navigation size={12} />}
+                      Gunakan Lokasi Saat Ini
+                    </button>
+                  </label>
+                  <textarea 
+                    value={formData.pickup_address}
+                    onChange={e => { setFormData({ ...formData, pickup_address: e.target.value }); setGeocodeError(''); }}
+                    placeholder="Alamat lengkap tokomu beserta patokan..."
+                    rows={2}
+                    className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2 col-span-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14}/> Dropoff Address (Customer)</label>
+                  <textarea 
+                    value={formData.dropoff_address}
+                    onChange={e => { setFormData({ ...formData, dropoff_address: e.target.value }); setGeocodeError(''); }}
+                    placeholder="Alamat lengkap pembeli beserta patokan..."
+                    rows={3}
+                    className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
+                  />
+                </div>
+              </div>
+
+              {geocodeError && (
+                <div className="px-6 py-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500 mt-6">
+                  <AlertCircle size={18} />
+                  <p className="text-xs font-bold">{geocodeError}</p>
+                </div>
+              )}
+
+              <div className="pt-8 border-t border-black/10 dark:border-white/10 flex items-center justify-end mt-8">
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => { setStep(1); onClose(); }}
+                    className="px-8 py-4 rounded-2xl bg-black/5 dark:bg-white/5 text-zinc-500 font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleNextStep}
+                    disabled={isGeocoding || !formData.item_name || !formData.dropoff_address || !formData.pickup_address || (!selectedFile && !formData.item_image_url)}
+                    className="px-10 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isGeocoding ? <Loader2 className="animate-spin" size={16} /> : null}
+                    {isGeocoding ? 'Loading...' : 'Lanjut Pilih Kurir'}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mb-6">
+                <ShippingSelector
+                  request={tariffRequest}
+                  onSelect={setSelectedTariff}
+                  selectedCode={selectedTariff?.service_code}
                 />
-                {selectedFile ? selectedFile.name : (formData.item_image_url ? 'Image Selected (Click to change)' : 'Choose File')}
-              </label>
-            </div>
+              </div>
 
-            <div className="space-y-2 col-span-2 border-t border-black/10 dark:border-white/10 pt-6">
-              <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-4">Origin & Destination</h3>
-            </div>
+              {geocodeError && (
+                <div className="px-6 py-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500 mb-6">
+                  <AlertCircle size={18} />
+                  <p className="text-xs font-bold">{geocodeError}</p>
+                </div>
+              )}
 
-            <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center justify-between">
-                <span className="flex items-center gap-2"><MapPin size={14}/> Pickup Address (Your Store)</span>
+              <div className="pt-8 border-t border-black/10 dark:border-white/10 flex items-center justify-between">
                 <button 
-                  type="button" 
-                  onClick={handleGetCurrentLocation}
-                  disabled={isLocating}
-                  className="text-primary hover:text-primary-light flex items-center gap-1 font-bold bg-primary/10 px-3 py-1.5 rounded-lg transition-all"
+                  onClick={() => setStep(1)}
+                  className="px-8 py-4 rounded-2xl bg-black/5 dark:bg-white/5 text-zinc-500 font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
                 >
-                  {isLocating ? <Loader2 size={12} className="animate-spin" /> : <Navigation size={12} />}
-                  Gunakan Lokasi Saat Ini
+                  Kembali
                 </button>
-              </label>
-              <textarea 
-                value={formData.pickup_address}
-                onChange={e => { setFormData({ ...formData, pickup_address: e.target.value }); setGeocodeError(''); }}
-                placeholder="Alamat lengkap tokomu beserta patokan..."
-                rows={2}
-                className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
-              />
-            </div>
-
-            <div className="space-y-2 col-span-2">
-              <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><MapPin size={14}/> Dropoff Address (Customer)</label>
-              <textarea 
-                value={formData.dropoff_address}
-                onChange={e => { setFormData({ ...formData, dropoff_address: e.target.value }); setGeocodeError(''); }}
-                placeholder="Alamat lengkap pembeli beserta patokan..."
-                rows={3}
-                className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none"
-              />
-            </div>
-          </div>
-
-          {geocodeError && (
-            <div className="px-6 py-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500">
-              <AlertCircle size={18} />
-              <p className="text-xs font-bold">{geocodeError}</p>
-            </div>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={handleGenerateLink}
+                    disabled={isSaving || isGeocoding || !selectedTariff}
+                    className="px-10 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {(isSaving || isGeocoding) ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+                    {(isSaving || isGeocoding) ? 'Loading...' : 'Generate Link'}
+                  </button>
+                </div>
+              </div>
+            </>
           )}
-
-          <div className="pt-8 border-t border-black/10 dark:border-white/10 flex items-center justify-end">
-            <div className="flex gap-4">
-              <button 
-                onClick={onClose}
-                className="px-8 py-4 rounded-2xl bg-black/5 dark:bg-white/5 text-zinc-500 font-black text-xs uppercase tracking-widest hover:text-foreground transition-all"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleGenerateLink}
-                disabled={
-                  isSaving || 
-                  isGeocoding ||
-                  !formData.item_name || 
-                  !formData.dropoff_address || 
-                  !formData.pickup_address || 
-                  !formData.service_code ||
-                  (!selectedFile && !formData.item_image_url)
-                }
-                className="px-10 py-4 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-primary/20 hover:bg-primary-light hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {(isSaving || isGeocoding) ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
-                {isGeocoding ? 'Loading...' : 'Generate Link'}
-              </button>
-            </div>
-          </div>
         </div>
       </motion.div>
     </div>

@@ -15,6 +15,7 @@ import {
   User 
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import Barcode from 'react-barcode';
 import Link from 'next/link';
 
 interface Order {
@@ -31,6 +32,7 @@ interface Order {
   distance_km: number;
   total_price_idr: number;
   created_at: string;
+  awb_number?: string;
 }
 
 export default function ResiDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -39,6 +41,7 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [templateData, setTemplateData] = useState<any>(null);
 
   // Copy success indicator
   const [isCopied, setIsCopied] = useState(false);
@@ -49,6 +52,14 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
       const res = await api.get(`/auth/web/orders/${resolvedParams.id}`);
       if (res.data && res.data.success && res.data.order) {
         setOrder(res.data.order);
+        if (res.data.order.awb_number) {
+          try {
+            const tmplRes = await api.get(`/resi/render/${res.data.order.awb_number}`);
+            setTemplateData(tmplRes.data);
+          } catch (e) {
+            clientLog.error('Failed to fetch template data', { error: e });
+          }
+        }
       } else {
         setOrder(null);
         addNotification({ title: 'Gagal', message: 'Resi tidak ditemukan pada database.', type: 'error' });
@@ -81,7 +92,8 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
 
   const handleShareWA = () => {
     if (!order) return;
-    const text = `Halo, berikut rincian Resi Pengiriman TEMBUS: \n\nNo. Resi: ${order.order_number}\nPenerima: ${order.recipient_name}\nLayanan: ${order.model.toUpperCase()}\nStatus: ${order.status.replace('_', ' ')}\n\nLihat rincian lengkapnya di: ${window.location.origin}/resi/${order.id}`;
+    const noResi = order.awb_number ? `${order.awb_number} (No. Pesanan: ${order.order_number})` : order.order_number;
+    const text = `Halo, berikut rincian Resi Pengiriman: \n\nNo. Resi: ${noResi}\nPenerima: ${order.recipient_name}\nLayanan: ${order.model.toUpperCase()}\nStatus: ${order.status.replace('_', ' ')}\n\nLihat rincian lengkapnya di: ${window.location.origin}/resi/${order.id}`;
     const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -116,6 +128,19 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
       </div>
     );
   }
+
+  const elements = templateData?.layout_config?.elements || [];
+
+  const resolveValue = (val: string, currentOrder: Order) => {
+    if (!val) return '';
+    return val
+      .replace(/{{order_number}}/g, currentOrder.order_number || '')
+      .replace(/{{awb_number}}/g, currentOrder.awb_number || '')
+      .replace(/{{provider_name}}/g, currentOrder.model.toUpperCase() || '')
+      .replace(/{{service_type}}/g, currentOrder.model.toUpperCase() || '')
+      .replace(/{{customer_name}}/g, currentOrder.recipient_name || '')
+      .replace(/{{tracking_url}}/g, `${window.location.origin}/resi/${currentOrder.id}`);
+  };
 
   return (
     <div className="space-y-6 select-none">
@@ -156,81 +181,121 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="max-w-4xl mx-auto bg-white text-black p-8 border border-slate-200 rounded-2xl shadow-sm print:shadow-none print:border-none print:p-0 flex flex-col justify-between min-h-[580px] select-none"
+        className="max-w-4xl mx-auto flex flex-col justify-center min-h-[580px] select-none print:p-0"
       >
-        {/* Top visual header of resi */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 border-dashed border-slate-200 pb-6 gap-6">
-          <div>
-            <h2 className="text-2xl font-black tracking-tighter text-primary">TEMBUS DELIVERY</h2>
-            <p className="text-xs text-slate-500 font-medium select-none">PT TEMBUS LINTAS TEKNOLOGI</p>
+        {templateData && elements.length > 0 ? (
+          <div 
+            className="relative bg-white shadow-sm border border-slate-200 overflow-hidden mx-auto print:shadow-none print:border-none"
+            style={{ width: 384, height: 576 }} // A6 scaling matches designer
+          >
+            {elements.map((el: any) => (
+              <div 
+                key={el.id}
+                className="absolute"
+                style={{ left: el.x, top: el.y }}
+              >
+                {el.type === 'text' && <span style={{ fontSize: el.fontSize || 14, color: '#000', whiteSpace: 'nowrap' }}>{resolveValue(el.value, order)}</span>}
+                {el.type === 'qrcode' && (
+                  <QRCodeSVG value={resolveValue(el.value, order) || order.awb_number || order.id} size={80} />
+                )}
+                {el.type === 'barcode' && (
+                  <Barcode value={resolveValue(el.value, order) || order.awb_number || order.id} width={1.5} height={40} fontSize={12} displayValue={false} />
+                )}
+                {el.type === 'logo' && (
+                  <img src={resolveValue(el.value, order)} alt="Logo" className="w-16 h-auto" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                )}
+              </div>
+            ))}
           </div>
-          <div className="text-left md:text-right flex flex-col items-start md:items-end select-none">
-            <span className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary font-bold rounded-full uppercase shadow-sm select-none">
-              {order.status.replace('_', ' ')}
-            </span>
-            <span className="text-xs font-bold mt-2 font-mono select-none">{order.order_number}</span>
-            <span className="text-[10px] text-slate-400 select-none">
-              Date: {new Date(order.created_at).toLocaleDateString('id-ID')}
-            </span>
-          </div>
-        </div>
-
-        {/* Dynamic content grid (Addresses + Receipt info + QR Code) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 my-8 flex-1">
-          {/* Address layout info */}
-          <div className="md:col-span-2 space-y-6">
-            <div>
-              <h4 className="text-xs font-bold uppercase text-slate-400 flex items-center gap-1 select-none">
-                <User className="h-3.5 w-3.5 text-primary" /> Pengirim (Sender)
-              </h4>
-              <p className="text-sm font-extrabold text-slate-800 mt-1">{order.sender_name || 'Customer'}</p>
-              <p className="text-xs text-slate-600 mt-0.5">{order.sender_phone || '-'}</p>
-              <div className="flex items-start gap-2 mt-2 select-none">
-                <MapPin className="h-4 w-4 shrink-0 text-primary mt-0.5" />
-                <p className="text-xs text-slate-600 leading-relaxed font-medium">{order.pickup_address}</p>
+        ) : (
+          <div className="bg-white p-8 border border-slate-200 rounded-2xl">
+            {/* Top visual header of resi */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b-2 border-dashed border-slate-200 pb-6 gap-6">
+              <div>
+                <h2 className="text-2xl font-black tracking-tighter text-primary">TEMBUS DELIVERY</h2>
+                <p className="text-xs text-slate-500 font-medium select-none">PT TEMBUS LINTAS TEKNOLOGI</p>
+              </div>
+              <div className="text-left md:text-right flex flex-col items-start md:items-end select-none">
+                <span className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary font-bold rounded-full uppercase shadow-sm select-none">
+                  {order.status.replace('_', ' ')}
+                </span>
+                {order.awb_number ? (
+                  <>
+                    <span className="text-[10px] font-bold text-slate-400 mt-2">No. Resi Kurir</span>
+                    <span className="text-xs font-bold font-mono select-none text-slate-800">{order.awb_number}</span>
+                    <span className="text-[10px] font-bold text-slate-400 mt-1">No. Pesanan</span>
+                    <span className="text-[10px] font-mono select-none text-slate-500">{order.order_number}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[10px] font-bold text-slate-400 mt-2">No. Resi TEMBUS</span>
+                    <span className="text-xs font-bold font-mono select-none text-slate-800">{order.order_number}</span>
+                  </>
+                )}
+                <span className="text-[10px] text-slate-400 select-none mt-1">
+                  Date: {new Date(order.created_at).toLocaleDateString('id-ID')}
+                </span>
               </div>
             </div>
 
-            <div className="border-t border-slate-100 pt-4">
-              <h4 className="text-xs font-bold uppercase text-slate-400 flex items-center gap-1 select-none">
-                <User className="h-3.5 w-3.5 text-emerald-500" /> Penerima (Recipient)
-              </h4>
-              <p className="text-sm font-extrabold text-slate-800 mt-1">{order.recipient_name}</p>
-              <p className="text-xs text-slate-600 mt-0.5">{order.recipient_phone || '-'}</p>
-              <div className="flex items-start gap-2 mt-2 select-none">
-                <MapPin className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
-                <p className="text-xs text-slate-600 leading-relaxed font-medium">{order.dropoff_address}</p>
+            {/* Dynamic content grid (Addresses + Receipt info + QR Code) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 my-8 flex-1">
+              {/* Address layout info */}
+              <div className="md:col-span-2 space-y-6">
+                <div>
+                  <h4 className="text-xs font-bold uppercase text-slate-400 flex items-center gap-1 select-none">
+                    <User className="h-3.5 w-3.5 text-primary" /> Pengirim (Sender)
+                  </h4>
+                  <p className="text-sm font-extrabold text-slate-800 mt-1">{order.sender_name || 'Customer'}</p>
+                  <p className="text-xs text-slate-600 mt-0.5">{order.sender_phone || '-'}</p>
+                  <div className="flex items-start gap-2 mt-2 select-none">
+                    <MapPin className="h-4 w-4 shrink-0 text-primary mt-0.5" />
+                    <p className="text-xs text-slate-600 leading-relaxed font-medium">{order.pickup_address}</p>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-100 pt-4">
+                  <h4 className="text-xs font-bold uppercase text-slate-400 flex items-center gap-1 select-none">
+                    <User className="h-3.5 w-3.5 text-emerald-500" /> Penerima (Recipient)
+                  </h4>
+                  <p className="text-sm font-extrabold text-slate-800 mt-1">{order.recipient_name}</p>
+                  <p className="text-xs text-slate-600 mt-0.5">{order.recipient_phone || '-'}</p>
+                  <div className="flex items-start gap-2 mt-2 select-none">
+                    <MapPin className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
+                    <p className="text-xs text-slate-600 leading-relaxed font-medium">{order.dropoff_address}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* QRCode & Cost details panel */}
+              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-center select-none">
+                <QRCodeSVG
+                  value={`${window.location.origin}/resi/${order.id}`}
+                  size={140}
+                  level="H"
+                  includeMargin={true}
+                  className="bg-white p-2 rounded-xl border border-slate-100 shadow-sm"
+                />
+                <p className="text-[10px] font-mono font-bold text-slate-400 mt-3 select-none">
+                  Scan untuk lacak status resi
+                </p>
+
+                {/* Total display price */}
+                <div className="border-t border-slate-200/60 w-full mt-4 pt-4 text-center">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase select-none">Harga Total</p>
+                  <h3 className="text-xl font-black text-slate-800 mt-1">{formatIDR(order.total_price_idr)}</h3>
+                  <p className="text-[10px] text-slate-400 mt-0.5 select-none">{order.distance_km} km • {order.model.toUpperCase()}</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* QRCode & Cost details panel */}
-          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-center select-none">
-            <QRCodeSVG
-              value={`${window.location.origin}/resi/${order.id}`}
-              size={140}
-              level="H"
-              includeMargin={true}
-              className="bg-white p-2 rounded-xl border border-slate-100 shadow-sm"
-            />
-            <p className="text-[10px] font-mono font-bold text-slate-400 mt-3 select-none">
-              Scan untuk lacak status resi
-            </p>
-
-            {/* Total display price */}
-            <div className="border-t border-slate-200/60 w-full mt-4 pt-4 text-center">
-              <p className="text-[10px] font-bold text-slate-400 uppercase select-none">Harga Total</p>
-              <h3 className="text-xl font-black text-slate-800 mt-1">{formatIDR(order.total_price_idr)}</h3>
-              <p className="text-[10px] text-slate-400 mt-0.5 select-none">{order.distance_km} km • {order.model.toUpperCase()}</p>
+            {/* Footer of the resi document */}
+            <div className="border-t border-slate-200/60 pt-4 flex flex-col md:flex-row md:items-center justify-between text-slate-400 text-[10px] select-none gap-2">
+              <p className="font-medium select-none">Thank you for shipping with us! Keep this receipt for any disputes or tracking.</p>
+              <p className="font-mono select-none font-bold">TEMBUS v1.0 • System Generated Receipt</p>
             </div>
           </div>
-        </div>
-
-        {/* Footer of the resi document */}
-        <div className="border-t border-slate-200/60 pt-4 flex flex-col md:flex-row md:items-center justify-between text-slate-400 text-[10px] select-none gap-2">
-          <p className="font-medium select-none">Thank you for shipping with us! Keep this receipt for any disputes or tracking.</p>
-          <p className="font-mono select-none font-bold">TEMBUS v1.0 • System Generated Receipt</p>
-        </div>
+        )}
       </motion.div>
 
     </div>

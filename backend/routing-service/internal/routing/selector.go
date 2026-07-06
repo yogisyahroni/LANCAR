@@ -17,7 +17,9 @@ import (
 type ModelType string
 
 const (
-	ModelP2P ModelType = "P2P"
+	ModelP2P     ModelType = "P2P"
+	Model3PL_JNE ModelType = "JNE"
+	Model3PL_JNT ModelType = "JNT"
 )
 
 var routingTracer = otel.Tracer("tembus/routing-service")
@@ -94,7 +96,7 @@ func (e *RoutingEngine) SelectModel(ctx context.Context, req OrderRequest) (Mode
 		return "", fmt.Errorf("routing zone resolver is not configured")
 	}
 
-	keys := []string{"model_p2p"}
+	keys := []string{"model_p2p", "model_jne", "model_jnt"}
 	flags, err := e.flagReader.GetFlags(ctx, keys)
 	if err != nil {
 		setRoutingSpanError(span, "routing feature flag lookup failed")
@@ -102,6 +104,8 @@ func (e *RoutingEngine) SelectModel(ctx context.Context, req OrderRequest) (Mode
 	}
 
 	p2pFlag := flags["model_p2p"]
+	jneFlag := flags["model_jne"]
+	jntFlag := flags["model_jnt"]
 
 	pickupZone, err := e.zoneResolver.ResolveZoneCode(ctx, req.Pickup)
 	if err != nil {
@@ -117,13 +121,41 @@ func (e *RoutingEngine) SelectModel(ctx context.Context, req OrderRequest) (Mode
 	}
 	span.SetAttributes(attribute.Bool("zone.resolved", true))
 
+	distBucket := distanceBucket(req.Pickup, req.Dropoff)
+	// For long distance (15_30km, gte_30km) check JNE/JNT flags first
+	if distBucket == "15_30km" || distBucket == "gte_30km" {
+		if jneFlag != nil && jneFlag.IsEnabled && inRollout(jneFlag, req.UserID) {
+			span.SetAttributes(attribute.String("route.model", string(Model3PL_JNE)))
+			span.SetStatus(codes.Ok, "")
+			return Model3PL_JNE, nil
+		}
+		if jntFlag != nil && jntFlag.IsEnabled && inRollout(jntFlag, req.UserID) {
+			span.SetAttributes(attribute.String("route.model", string(Model3PL_JNT)))
+			span.SetStatus(codes.Ok, "")
+			return Model3PL_JNT, nil
+		}
+	}
+
 	if p2pFlag != nil && p2pFlag.IsEnabled && inRollout(p2pFlag, req.UserID) && zonesActive(p2pFlag, pickupZone, dropoffZone) {
 		span.SetAttributes(attribute.String("route.model", string(ModelP2P)))
 		span.SetStatus(codes.Ok, "")
 		return ModelP2P, nil
 	}
-	setRoutingSpanError(span, "p2p unavailable")
-	return "", ErrModelUnavailable("P2P", "MSG_P2P_UNAVAILABLE")
+
+	// Fallback to 3PL if P2P is inactive in this zone
+	if jneFlag != nil && jneFlag.IsEnabled {
+		span.SetAttributes(attribute.String("route.model", string(Model3PL_JNE)))
+		span.SetStatus(codes.Ok, "")
+		return Model3PL_JNE, nil
+	}
+	if jntFlag != nil && jntFlag.IsEnabled {
+		span.SetAttributes(attribute.String("route.model", string(Model3PL_JNT)))
+		span.SetStatus(codes.Ok, "")
+		return Model3PL_JNT, nil
+	}
+
+	setRoutingSpanError(span, "no delivery model available")
+	return "", ErrModelUnavailable("ALL", "MSG_NO_MODEL_AVAILABLE")
 }
 
 func setRoutingSpanError(span trace.Span, description string) {

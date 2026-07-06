@@ -37,6 +37,10 @@ func main() {
 	}
 	log.Println("[integration-gateway] Maps provider initialized successfully")
 
+	jneProv := provider.NewJNEProvider()
+	jntProv := provider.NewJNTProvider()
+	log.Println("[integration-gateway] Logistics 3PL providers initialized successfully")
+
 	// ─────────────────────────────────────────────
 	// Handlers & Router Setup
 	// ─────────────────────────────────────────────
@@ -60,6 +64,7 @@ func main() {
 	otpHandler := handler.NewOTPHandler(otpProv)
 	paymentHandler := handler.NewPaymentHandler()
 	mapsHandler := handler.NewMapsHandler(mapsProv)
+	logisticsHandler := handler.NewLogisticsHandler(jneProv, jntProv)
 
 	// Routes
 	mux.Handle("/api/internal/otp/send-wa", authMiddleware(http.HandlerFunc(otpHandler.SendWA)))
@@ -70,6 +75,9 @@ func main() {
 
 	mux.Handle("/api/internal/maps/distance-matrix", authMiddleware(http.HandlerFunc(mapsHandler.GetDistanceMatrix)))
 	mux.Handle("/api/internal/maps/optimize-waypoints", authMiddleware(http.HandlerFunc(mapsHandler.OptimizeWaypoints)))
+
+	mux.Handle("/api/internal/logistics/create-order", authMiddleware(http.HandlerFunc(logisticsHandler.CreateOrder)))
+	mux.Handle("/api/internal/logistics/tariff", authMiddleware(http.HandlerFunc(logisticsHandler.CheckTariff)))
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

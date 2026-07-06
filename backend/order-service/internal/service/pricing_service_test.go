@@ -108,6 +108,15 @@ func (m *MockConfigRepo) GetFloatConfig(ctx context.Context, key string, fallbac
 func (m *MockConfigRepo) GetIntConfig(ctx context.Context, key string, fallback int) int {
 	return fallback
 }
+func (m *MockConfigRepo) GetStringConfig(ctx context.Context, key string, fallback string) string {
+	if val, ok := m.Configs[key]; ok {
+		if s, ok := val.(string); ok {
+			return s
+		}
+	}
+	return fallback
+}
+
 
 type MockFlagReader struct {
 	Flags map[string]*featureflags.FeatureFlag

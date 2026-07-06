@@ -81,6 +81,7 @@ export default function ProfilPage() {
   const [phone, setPhone] = useState('');
   const [storeName, setStoreName] = useState('');
   const [defaultPickupAddress, setDefaultPickupAddress] = useState('');
+  const [awbSenderName, setAwbSenderName] = useState('');
   const [profilePic, setProfilePic] = useState<string | null>(null);
 
   // Crop Photo Modal State
@@ -125,6 +126,7 @@ export default function ProfilPage() {
         setReferralCode(profile.referral_code || null);
         setStoreName(profile.store_name || '');
         setDefaultPickupAddress(profile.default_pickup_address || '');
+        setAwbSenderName(profile.awb_sender_name || '');
       })
       .catch(() => {
         addNotification({ title: 'Info', message: 'Profil customer belum dapat dimuat dari server.', type: 'info' });
@@ -238,11 +240,12 @@ export default function ProfilPage() {
         name, 
         phone_number: phone, 
         store_name: storeName, 
-        default_pickup_address: defaultPickupAddress 
+        default_pickup_address: defaultPickupAddress,
+        awb_sender_name: awbSenderName
       })
       .then(() => {
         if (user) {
-          setAuth(true, { ...user, name, email, store_name: storeName, default_pickup_address: defaultPickupAddress });
+          setAuth(true, { ...user, name, email, store_name: storeName, default_pickup_address: defaultPickupAddress, awb_sender_name: awbSenderName });
         }
         addNotification({ title: 'Sukses', message: 'Pengaturan akun berhasil disimpan.', type: 'success' });
       })
@@ -413,7 +416,7 @@ export default function ProfilPage() {
                 <div className="relative group flex-shrink-0 select-none">
                   <div className="h-32 w-32 rounded-3xl bg-primary/10 border-2 border-primary/20 flex items-center justify-center text-3xl font-extrabold text-primary overflow-hidden shadow-sm relative">
                     {profilePic ? (
-                      <img src={profilePic.startsWith('/') ? `https://api.bawain.my.id${profilePic}` : profilePic} alt="Profile preview" className="h-full w-full object-cover select-none" />
+                      <img src={profilePic.startsWith('/') ? `${customerApiRootUrl}${profilePic}` : profilePic} alt="Profile preview" className="h-full w-full object-cover select-none" />
                     ) : (
                       name.charAt(0).toUpperCase() || 'C'
                     )}
@@ -471,15 +474,29 @@ export default function ProfilPage() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-muted-foreground select-none">Default Pickup Address</label>
+                      <label className="text-xs font-bold text-muted-foreground select-none">Nama Pengirim (Resi)</label>
                       <input
                         type="text"
-                        value={defaultPickupAddress}
-                        onChange={(e) => setDefaultPickupAddress(e.target.value)}
-                        placeholder="Alamat penjemputan default"
+                        value={awbSenderName}
+                        onChange={(e) => setAwbSenderName(e.target.value)}
+                        placeholder="Nama Pengirim di Resi JNE/JNT"
                         className="w-full bg-muted/40 border border-border/40 p-2.5 rounded-xl text-sm focus:outline-none focus:border-primary/60 mt-1 select-none font-semibold text-foreground"
                       />
+                      <p className="text-[10px] text-muted-foreground mt-1 select-none">
+                        Nama ini akan muncul sebagai nama pengirim di resi JNE/JNT. Harus unik dan tidak boleh sama dengan akun lain.
+                      </p>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground select-none">Default Pickup Address</label>
+                    <input
+                      type="text"
+                      value={defaultPickupAddress}
+                      onChange={(e) => setDefaultPickupAddress(e.target.value)}
+                      placeholder="Alamat penjemputan default"
+                      className="w-full bg-muted/40 border border-border/40 p-2.5 rounded-xl text-sm focus:outline-none focus:border-primary/60 mt-1 select-none font-semibold text-foreground"
+                    />
                   </div>
 
                   {/* Loyalty tier info visual element */}

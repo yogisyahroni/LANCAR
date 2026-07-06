@@ -321,6 +321,9 @@ func main() {
 	mux.HandleFunc("/api/v1/auth/password-reset/confirm",
 		middleware.AuthRateLimitedChain(rdb, h.ConfirmCustomerPasswordReset))
 
+	mux.HandleFunc("/api/v1/auth/check-sender-name",
+		middleware.AuthRateLimitedChain(rdb, h.CheckSenderName))
+
 	// ─────────────────────────────────────────────
 	// API v1 — Customer Google Auth (public + rate limited)
 	// Enforces AuthAbuseProtector inside GoogleAuthHandler itself.

@@ -81,17 +81,24 @@ export default function PaymentLinks() {
       toast.success('Payment Link created successfully!');
       setIsModalOpen(false);
       // Automatically copy to clipboard if we know the domain. For now we just show toast.
-      const linkId = data.data?.data?.id || data.data?.id;
-      if (linkId) {
-        navigator.clipboard.writeText(`https://pay.tembus.my.id/inv/${linkId}`);
+      const linkData = data.data?.data || data.data;
+      if (linkData && linkData.payment_url) {
+        navigator.clipboard.writeText(linkData.payment_url);
+        toast.info('Link copied to clipboard!');
+      } else if (linkData && linkData.id) {
+        navigator.clipboard.writeText(`${window.location.origin}/inv/${linkData.id}`);
         toast.info('Link copied to clipboard!');
       }
     },
     onError: (err: any) => toast.error(`Failed to create link: ${queryErrorMessage(err, 'Unknown error')}`)
   });
 
-  const handleCopy = (id: string) => {
-    navigator.clipboard.writeText(`https://pay.tembus.my.id/inv/${id}`);
+  const handleCopy = (id: string, url?: string) => {
+    if (url) {
+      navigator.clipboard.writeText(url);
+    } else {
+      navigator.clipboard.writeText(`${window.location.origin}/inv/${id}`);
+    }
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
     toast.success('Link copied!');
@@ -222,7 +229,7 @@ export default function PaymentLinks() {
 
               <div className="flex items-center gap-3 mt-8 relative z-10">
                  <button 
-                   onClick={() => handleCopy(link.id)}
+                   onClick={() => handleCopy(link.id, link.payment_url)}
                    disabled={isExpired || isPaid}
                    className={cn(
                        "flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all border flex items-center justify-center gap-2",

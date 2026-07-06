@@ -27,7 +27,8 @@ import {
   Loader2,
   Mail,
   X,
-  Map
+  Map,
+  Truck
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '../lib/utils'
@@ -80,6 +81,7 @@ export default function Settings() {
     { id: 'Security', icon: Shield },
     { id: 'Team', icon: Users },
     { id: 'Audit Logs', icon: History },
+    { id: 'Logistics AWB', icon: Truck },
   ]
 
   // Fetch Feature Flags
@@ -416,6 +418,107 @@ export default function Settings() {
                         </div>
                       </div>
                     ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'Logistics AWB' && (
+              <motion.div 
+                key="logistics-awb"
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -10 }}
+                className="glass-card p-10 rounded-[48px] border-white/5 space-y-10"
+              >
+                <div className="space-y-6">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <Truck className="text-primary-light" size={24} />
+                    Logistics & AWB Configuration
+                  </h3>
+                  <p className="text-sm text-zinc-400">Configure default sender information, payment link URLs, and origin/destination codes. These settings apply globally and are read dynamically.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Payment Link Base URL</label>
+                      <input 
+                        type="text" 
+                        defaultValue={getConfig('payment_link_base_url', 'https://pay.tembus.my.id/inv')}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'payment_link_base_url', value: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        placeholder="e.g. https://pay.tembus.my.id/inv"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Default Provider</label>
+                      <input 
+                        type="text" 
+                        defaultValue={getConfig('awb_default_provider', 'jne')}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_default_provider', value: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        placeholder="e.g. jne, jnt"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Sender Name</label>
+                      <input 
+                        type="text" 
+                        defaultValue={getConfig('awb_sender_name', 'Tembus Logistics')}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_sender_name', value: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Sender Phone</label>
+                      <input 
+                        type="text" 
+                        defaultValue={getConfig('awb_sender_phone', '081234567890')}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_sender_phone', value: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Service Type</label>
+                      <input 
+                        type="text" 
+                        defaultValue={getConfig('awb_service_type', 'REG')}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_service_type', value: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Sender Address</label>
+                    <textarea 
+                      defaultValue={getConfig('awb_sender_address', 'Jl. Contoh No 123, Jakarta')}
+                      onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_sender_address', value: e.target.value })}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all min-h-[100px]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Origin Code</label>
+                      <input 
+                        type="text" 
+                        defaultValue={getConfig('awb_origin_code', 'CGK10000')}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_origin_code', value: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Destination Code</label>
+                      <input 
+                        type="text" 
+                        defaultValue={getConfig('awb_destination_code', 'BDO10000')}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_destination_code', value: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
                   </div>
                 </div>
               </motion.div>

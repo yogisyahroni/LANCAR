@@ -584,7 +584,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               >
                 <div className="text-right hidden sm:block">
                   <p className="text-sm font-bold text-foreground group-hover:text-primary-light transition-colors">{user?.name || 'Customer Tembus'}</p>
-                  <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">Standard Tier</p>
+                  <p className="text-[10px] tracking-widest text-zinc-500 font-bold">
+                    {user?.awb_sender_name ? `PENGIRIM: ${user.awb_sender_name.toUpperCase()}` : 'STANDARD TIER'}
+                  </p>
                 </div>
                 <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-emerald-600 p-[1px] shadow-lg shadow-primary/10">
                   <div className="h-full w-full rounded-[11px] bg-background flex items-center justify-center overflow-hidden">

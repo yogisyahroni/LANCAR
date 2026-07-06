@@ -9,6 +9,7 @@ interface User {
   role?: string;
   store_name?: string;
   default_pickup_address?: string;
+  awb_sender_name?: string;
 }
 
 interface AuthState {

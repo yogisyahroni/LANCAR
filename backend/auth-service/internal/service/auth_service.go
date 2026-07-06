@@ -403,7 +403,7 @@ func (s *AuthService) StartCustomerPasswordLogin(ctx context.Context, email, pas
 	}, nil
 }
 
-func (s *AuthService) StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password, deviceID string, deviceInfo []byte) (*AuthResponse, error) {
+func (s *AuthService) StartCustomerPasswordRegistration(ctx context.Context, fullName, email, phoneNumber, password, deviceID string, deviceInfo []byte, awbSenderName string) (*AuthResponse, error) {
 	fullName = strings.TrimSpace(fullName)
 	email = strings.TrimSpace(strings.ToLower(email))
 	phoneNumber = strings.TrimSpace(phoneNumber)
@@ -412,6 +412,17 @@ func (s *AuthService) StartCustomerPasswordRegistration(ctx context.Context, ful
 	}
 	if strings.TrimSpace(deviceID) == "" {
 		return nil, errors.New("device_id is required")
+	}
+
+	awbSenderName = strings.TrimSpace(awbSenderName)
+	if awbSenderName != "" {
+		exists, err := s.userRepo.CheckAWBSenderName(ctx, awbSenderName)
+		if err != nil {
+			return nil, errors.New("failed to check awb sender name availability")
+		}
+		if exists {
+			return nil, errors.New("nama pengirim awb sudah digunakan, silakan pilih yang lain")
+		}
 	}
 
 	if existing, err := s.userRepo.GetByPhoneNumber(ctx, email); err == nil && existing.ID != "" {
@@ -437,6 +448,9 @@ func (s *AuthService) StartCustomerPasswordRegistration(ctx context.Context, ful
 		PasswordHash: &passwordHash,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
+	}
+	if awbSenderName != "" {
+		user.AWBSenderName = &awbSenderName
 	}
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, err
@@ -768,7 +782,7 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 	return s.sessionRepo.RevokeSession(ctx, refreshToken)
 }
 
-func (s *AuthService) Register(ctx context.Context, userID string, fullName, email, storeName, defaultPickupAddress string) error {
+func (s *AuthService) Register(ctx context.Context, userID string, fullName, email, storeName, defaultPickupAddress, awbSenderName string) error {
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return errors.New("user not found")
@@ -784,10 +798,56 @@ func (s *AuthService) Register(ctx context.Context, userID string, fullName, ema
 	if defaultPickupAddress != "" {
 		user.DefaultPickupAddress = &defaultPickupAddress
 	}
+	
+	awbSenderName = strings.TrimSpace(awbSenderName)
+	if awbSenderName != "" {
+		if user.AWBSenderName == nil || *user.AWBSenderName != awbSenderName {
+			exists, err := s.userRepo.CheckAWBSenderName(ctx, awbSenderName)
+			if err != nil {
+				return errors.New("failed to check awb sender name availability")
+			}
+			if exists {
+				return errors.New("nama pengirim awb sudah digunakan, silakan pilih yang lain")
+			}
+		}
+		user.AWBSenderName = &awbSenderName
+	}
+
 	user.Status = domain.StatusActive
 	user.UpdatedAt = time.Now()
 
 	return s.userRepo.Update(ctx, user)
+}
+
+func (s *AuthService) CheckSenderName(ctx context.Context, senderName string) error {
+	senderName = strings.TrimSpace(senderName)
+	if senderName == "" {
+		return errors.New("nama pengirim awb tidak boleh kosong")
+	}
+	if len(senderName) < 3 || len(senderName) > 50 {
+		return errors.New("nama pengirim awb harus 3-50 karakter")
+	}
+	
+	// Check alphanumeric + space only
+	isAlphaNumericSpace := true
+	for _, char := range senderName {
+		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') && (char < '0' || char > '9') && char != ' ' && char != '-' {
+			isAlphaNumericSpace = false
+			break
+		}
+	}
+	if !isAlphaNumericSpace {
+		return errors.New("nama pengirim awb hanya boleh berisi huruf, angka, spasi, dan strip")
+	}
+
+	exists, err := s.userRepo.CheckAWBSenderName(ctx, senderName)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return errors.New("nama pengirim awb sudah digunakan, silakan pilih yang lain")
+	}
+	return nil
 }
 
 func (s *AuthService) SetPIN(ctx context.Context, userID string, pin string) error {

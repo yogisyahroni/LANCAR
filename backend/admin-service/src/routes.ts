@@ -240,6 +240,14 @@ routes.get('/admin/courier-growth-configs', (req, res) => controllers.listAdminC
 routes.patch('/admin/courier-tier-configs/:id', (req, res) => controllers.updateAdminCourierTierConfig(req, res));
 routes.patch('/admin/courier-incentive-campaigns/:id', (req, res) => controllers.updateAdminCourierIncentive(req, res));
 
+// Resi Templates Designer
+routes.get('/admin/resi-templates', (req, res) => controllers.listResiTemplates(req, res));
+routes.post('/admin/resi-templates', (req, res) => controllers.createResiTemplate(req, res));
+routes.get('/admin/resi-templates/:id', (req, res) => controllers.getResiTemplate(req, res));
+routes.put('/admin/resi-templates/:id', (req, res) => controllers.updateResiTemplate(req, res));
+routes.delete('/admin/resi-templates/:id', (req, res) => controllers.deleteResiTemplate(req, res));
+
+
 // HR Careers Management
 routes.get('/admin/hr/jobs', (req, res) => controllers.hr.getAdminJobs(req, res));
 routes.post('/admin/hr/jobs', (req, res) => controllers.hr.createAdminJob(req, res));
@@ -290,6 +298,10 @@ routes.post('/admin/maps-provider-credentials/:id/deactivate', requireRole(['sup
 routes.get('/admin/admins', (req, res) => controllers.getAllAdmins(req, res));
 routes.post('/admin/admins', (req, res) => controllers.inviteAdmin(req, res));
 routes.delete('/admin/admins/:id', (req, res) => controllers.deleteAdmin(req, res));
+
+// Logistics Providers Management
+routes.get('/admin/logistics-providers', (req, res) => controllers.getLogisticsProviders(req, res));
+routes.put('/admin/logistics-providers/:code', (req, res) => controllers.updateLogisticsProvider(req, res));
 
 // Delivery Services Catalog
 routes.get('/admin/delivery-services', (req, res) => controllers.deliveryServices.listAdminDeliveryServices(req, res));

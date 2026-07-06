@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/domain/queue"
 	"tembus/order-service/internal/featureflags"
@@ -82,8 +83,8 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		}
 	}
 
-	// 3. Generate Order Number (RLY-YYYYMMDD-XXXX)
-	orderNum := fmt.Sprintf("RLY-%s-%s", time.Now().Format("20060102"), uuid.New().String()[:5])
+	// 3. Generate Order Number (TMBS + 6 Alphanumeric)
+	orderNum := fmt.Sprintf("TMBS%s", strings.ToUpper(uuid.New().String()[:6]))
 	handoverToken := uuid.New().String()
 
 	// 4. Generate QR Code Data URI
@@ -209,7 +210,8 @@ func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, r
 			}
 		}
 
-		orderNum := fmt.Sprintf("RLY-BLK-%s-%s-%d", time.Now().Format("20060102"), batchID[:5], i+1)
+		// Generate Order Number (TMBS + 6 Alphanumeric)
+		orderNum := fmt.Sprintf("TMBS%s", strings.ToUpper(uuid.New().String()[:6]))
 		handoverToken := uuid.New().String()
 		qrURL, _ := utils.GenerateQRCodeDataURI(handoverToken, 256)
 

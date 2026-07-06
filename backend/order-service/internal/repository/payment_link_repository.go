@@ -22,19 +22,22 @@ func (r *paymentLinkRepositoryImpl) Create(ctx context.Context, link *domain.Pay
 			id, merchant_id, item_name, item_price, item_image_url, 
 			merchant_fee_amount, dropoff_address, dropoff_lat, dropoff_lng, 
 			status, expired_at, estimate_id, pickup_address, pickup_lat, pickup_lng,
-			delivery_fee_amount, service_code, order_id, created_at, updated_at
+			delivery_fee_amount, service_code, order_id, recipient_phone, recipient_name,
+			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, 
 			$6, $7, $8, $9, 
 			$10, $11, $12, $13, $14, $15,
-			$16, $17, $18, $19, $20
+			$16, $17, $18, $19, $20,
+			$21, $22
 		)
 	`
 	_, err := r.db.ExecContext(ctx, query,
 		link.ID, link.MerchantID, link.ItemName, link.ItemPrice, link.ItemImageURL,
 		link.MerchantFeeAmount, link.DropoffAddress, link.DropoffLat, link.DropoffLng,
 		link.Status, link.ExpiredAt, link.EstimateID, link.PickupAddress, link.PickupLat, link.PickupLng,
-		link.DeliveryFeeAmount, link.ServiceCode, link.OrderID, link.CreatedAt, link.UpdatedAt,
+		link.DeliveryFeeAmount, link.ServiceCode, link.OrderID, link.RecipientPhone, link.RecipientName,
+		link.CreatedAt, link.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create payment link: %w", err)
@@ -47,7 +50,9 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 		SELECT pl.id, pl.merchant_id, pl.item_name, pl.item_price, pl.item_image_url, 
 		       pl.merchant_fee_amount, pl.dropoff_address, pl.dropoff_lat, pl.dropoff_lng, 
 		       pl.status, pl.expired_at, pl.deleted_at, pl.estimate_id, pl.pickup_address, pl.pickup_lat, pl.pickup_lng,
-		       pl.delivery_fee_amount, pl.service_code, pl.order_id, pl.created_at, pl.updated_at, u.store_name
+		       pl.delivery_fee_amount, pl.service_code, pl.order_id,
+		       COALESCE(pl.recipient_phone, ''), COALESCE(pl.recipient_name, ''),
+		       pl.created_at, pl.updated_at, u.store_name
 		FROM payment_links pl
 		LEFT JOIN users u ON pl.merchant_id = u.id
 		WHERE pl.id = $1
@@ -69,7 +74,8 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 		&link.ID, &link.MerchantID, &link.ItemName, &link.ItemPrice, &link.ItemImageURL,
 		&link.MerchantFeeAmount, &link.DropoffAddress, &link.DropoffLat, &link.DropoffLng,
 		&link.Status, &link.ExpiredAt, &link.DeletedAt, &estimateID, &pickupAddress, &pickupLat, &pickupLng,
-		&deliveryFee, &serviceCode, &orderID, &link.CreatedAt, &link.UpdatedAt, &storeName,
+		&deliveryFee, &serviceCode, &orderID, &link.RecipientPhone, &link.RecipientName,
+		&link.CreatedAt, &link.UpdatedAt, &storeName,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {

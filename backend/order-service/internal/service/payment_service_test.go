@@ -63,12 +63,17 @@ func (m *mockOrderRepo) GetByOrderNumber(ctx context.Context, orderNumber string
 func (m *mockOrderRepo) ListByUserID(ctx context.Context, userID string, filter map[string]interface{}) ([]*domain.Order, error) {
 	return nil, nil
 }
+func (m *mockOrderRepo) GetByAWB(ctx context.Context, awb string) (*domain.Order, error) { return nil, nil }
 func (m *mockOrderRepo) UpdateStatus(ctx context.Context, id string, status domain.OrderStatus) error {
 	if m.order != nil && m.order.ID == id {
 		m.order.Status = status
 	}
 	return nil
 }
+func (m *mockOrderRepo) UpdateOrderAWB(ctx context.Context, orderID, awbNumber, trackingURL string) error {
+	return nil
+}
+
 func (m *mockOrderRepo) UpdateDimensions(ctx context.Context, id string, length, width, height, weight float64) error {
 	return nil
 }
@@ -134,6 +139,12 @@ func (m *mockOrderRepo) GetDeliveredUnratedOrders(ctx context.Context, customerI
 func (m *mockOrderRepo) IncrementRatingReminderCount(ctx context.Context, orderID string) error {
 	return nil
 }
+func (m *mockOrderRepo) GetLogisticsProviderConfig(ctx context.Context, provider string) (float64, float64, error) {
+	return 0, 0, nil
+}
+func (m *mockOrderRepo) GetUserSenderName(ctx context.Context, userID string) (string, error) {
+	return "", nil
+}
 
 type mockPaymentGateway struct{}
 
@@ -166,6 +177,10 @@ func (m *mockConfigRepo) GetFloatConfig(ctx context.Context, key string, fallbac
 func (m *mockConfigRepo) GetIntConfig(ctx context.Context, key string, fallback int) int {
 	return fallback
 }
+func (m *mockConfigRepo) GetStringConfig(ctx context.Context, key string, fallback string) string {
+	return fallback
+}
+
 
 func TestPaymentService_CreatePayment(t *testing.T) {
 	orderID := uuid.NewString()

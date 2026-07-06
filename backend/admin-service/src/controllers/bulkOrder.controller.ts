@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
+import axios from 'axios';
 import { db } from '../db';
 import { redis } from '../redis';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../midtrans';
@@ -780,98 +781,59 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
       ];
 
       const result = await client.query(insertQuery, values);
+      const orderId = result.rows[0].id;
       createdOrders.push(result.rows[0]);
+
+      // Phase 2: Create Payment Link for this order directly
+      const linkId = crypto.randomUUID().replace(/-/g, '').substring(0, 12);
+      const itemName = `Pengiriman Bulk ke ${row.recipient_name}`;
+      const itemPrice = row.price_breakdown.total_price_idr;
+
       await client.query(`
-        INSERT INTO payments (
-          order_id, payment_number, provider, method, status, amount_idr,
-          mdr_amount_idr, ppn_amount_idr, weather_reserve_idr, insurance_reserve_idr,
-          net_operational_idr, provider_reference, batch_id, expires_at
-        ) VALUES ($1, $2, 'midtrans', 'snap', 'pending', $3, $4, $5, 0, $6, $7, $8, $9, NOW() + INTERVAL '30 minutes')
-        ON CONFLICT (order_id) DO UPDATE SET
-          status = 'pending',
-          amount_idr = EXCLUDED.amount_idr,
-          provider_reference = EXCLUDED.provider_reference,
-          expires_at = EXCLUDED.expires_at,
-          updated_at = NOW()
+        INSERT INTO payment_links (
+          id, merchant_id, item_name, item_price, item_image_url, merchant_fee_amount,
+          pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng,
+          status, expired_at, order_id, service_code, delivery_fee_amount,
+          recipient_name, recipient_phone, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW() + INTERVAL '10 minutes', $14, $15, $16, $17, $18, NOW(), NOW())
       `, [
-        result.rows[0].id,
-        `PAY-${order_number}`,
-        row.price_breakdown.total_price_idr,
-        settlement.mdr_idr,
-        settlement.ppn_idr,
-        settlement.insurance_reserve_idr,
-        settlement.net_operational_idr,
-        `PENDING-BULK-${job_id}`,
-        row.batch_id
+        linkId, customer_id, itemName, itemPrice, '', 0,
+        row.pickup_address, row.pickup_location.lat, row.pickup_location.lng,
+        row.dropoff_address, row.dropoff_location.lat, row.dropoff_location.lng,
+        'PENDING', orderId, bulkService.code, 0,
+        row.recipient_name, row.recipient_phone
       ]);
 
       await client.query(`
         INSERT INTO order_events (order_id, user_id, event_type, description)
-        VALUES ($1, $2, 'created', 'Customer created order via Web Portal Bulk Upload')
-      `, [result.rows[0].id, customer_id]);
+        VALUES ($1, $2, 'created', 'Customer created order via Web Portal Bulk Upload (Payment Link Generated)')
+      `, [orderId, customer_id]);
+
+      // Task 2.2: Broadcast WA automatically (async)
+      if (row.recipient_phone) {
+        const paymentUrl = process.env.PAYMENT_LINK_BASE_URL || 'https://tembus.id/pay';
+        const waMsg = `Halo ${row.recipient_name}! 👋\n\n*Merchant* telah membuat link pembayaran untuk pengiriman paket Anda:\n\n📦 *Produk:* ${itemName}\n📍 *Alamat Pengiriman:* ${row.dropoff_address}\n\n🔗 *Link Pembayaran:*\n${paymentUrl}/${linkId}\n\n_Link berlaku 10 menit. Harap segera lakukan pembayaran._`;
+        
+        axios.post(`${process.env.INTEGRATION_GATEWAY_URL || 'http://integration-gateway:8085'}/api/internal/otp/send-wa`, {
+          to: row.recipient_phone,
+          message: waMsg
+        }, {
+          headers: { 'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || 'dev-internal-key-super-secret' }
+        }).catch(err => {
+          console.error(`[bulkOrder] Failed to send WA to ${row.recipient_phone}:`, err.message);
+        });
+      }
     }
-
-    if (!requirePayment) {
-      await client.query('COMMIT');
-      await redis.del(job_id);
-
-      res.status(201).json({
-        success: true,
-        processed_count: validRows.length,
-        total_amount_idr: totalAmount,
-        payment: null
-      });
-      return;
-    }
-
-    const midtransOrderId = `TMB-BULK-${crypto.randomUUID()}`;
-    const snap = await createSnapTransaction({
-      orderId: midtransOrderId,
-      grossAmount: totalAmount,
-      itemDetails: [
-        {
-          id: `BULK-${job_id.slice(-12)}`,
-          price: totalAmount,
-          quantity: 1,
-          name: `TEMBUS Bulk Delivery (${validRows.length} paket)`
-        }
-      ],
-      customerDetails: {
-        first_name: 'TEMBUS Customer'
-      },
-      customFields: {
-        custom_field1: batchIds.join(',').slice(0, 255),
-        custom_field2: 'bulk_order',
-        custom_field3: String(customer_id || '')
-      },
-      expiryMinutes: 30
-    });
-
-    await client.query(
-      `UPDATE payments SET provider_reference = $1, expires_at = $2, updated_at = NOW()
-       WHERE order_id = ANY($3::uuid[])`,
-      [snap.midtrans_order_id, snap.expires_at, createdOrders.map((order: any) => order.id)]
-    );
 
     await client.query('COMMIT');
-    
-    // Clear Redis job
     await redis.del(job_id);
 
     res.status(201).json({
       success: true,
       processed_count: validRows.length,
       total_amount_idr: totalAmount,
-      payment: {
-        method: 'MIDTRANS_SNAP',
-        snap_token: snap.token,
-        redirect_url: snap.redirect_url,
-        midtrans_order_id: snap.midtrans_order_id,
-        client_key: getMidtransClientKey(),
-        snap_js_url: getMidtransSnapJsUrl(),
-        expires_in: 1800,
-        expires_at: snap.expires_at
-      }
+      message: 'Payment Links generated successfully and WhatsApp sent to consignees.',
+      payment: null
     });
 
   } catch (error: any) {

@@ -93,3 +93,16 @@ func (r *PostgresConfigRepo) GetIntConfig(ctx context.Context, key string, fallb
 	}
 	return intVal
 }
+
+func (r *PostgresConfigRepo) GetStringConfig(ctx context.Context, key string, fallback string) string {
+	config, err := r.GetConfig(ctx, key)
+	if err != nil || config == nil {
+		return fallback
+	}
+
+	var strVal string
+	if err := json.Unmarshal(config.Value, &strVal); err != nil {
+		return fallback
+	}
+	return strVal
+}

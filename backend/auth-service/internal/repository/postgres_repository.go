@@ -26,7 +26,7 @@ func NewPostgresRepository(db, readDB *sql.DB) *postgresRepo {
 func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string) (*domain.User, error) {
 	query := `
 		SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
-			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, store_name, default_pickup_address,
+			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, store_name, default_pickup_address, awb_sender_name, awb_sender_code,
 			   profile_photo_locked_at, profile_photo_set_by, created_at, updated_at 
 		FROM users
 		WHERE phone_number = $1 OR email = $1
@@ -42,7 +42,7 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 	err := r.readDB.QueryRowContext(ctx, query, phoneNumber).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status,
 		&user.ReferralCode, &user.ReferredBy, &user.PasswordHash, &user.PINHash, &user.IsVerified,
-		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.StoreName, &user.DefaultPickupAddress,
+		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.StoreName, &user.DefaultPickupAddress, &user.AWBSenderName, &user.AWBSenderCode,
 		&user.ProfilePhotoLockedAt, &user.ProfilePhotoSetBy, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
@@ -54,7 +54,7 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.User, error) {
 	query := `
 		SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
-			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, store_name, default_pickup_address,
+			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, store_name, default_pickup_address, awb_sender_name, awb_sender_code,
 			   profile_photo_locked_at, profile_photo_set_by, created_at, updated_at 
 		FROM users
 		WHERE id = $1`
@@ -62,7 +62,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.User, er
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status,
 		&user.ReferralCode, &user.ReferredBy, &user.PasswordHash, &user.PINHash, &user.IsVerified,
-		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.StoreName, &user.DefaultPickupAddress,
+		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.StoreName, &user.DefaultPickupAddress, &user.AWBSenderName, &user.AWBSenderCode,
 		&user.ProfilePhotoLockedAt, &user.ProfilePhotoSetBy, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
@@ -72,16 +72,16 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.User, er
 }
 
 func (r *postgresRepo) Create(ctx context.Context, user *domain.User) error {
-	query := `INSERT INTO users (phone_number, email, full_name, role, status, is_verified, referral_code, password_hash, store_name, default_pickup_address, created_at, updated_at) 
-			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`
+	query := `INSERT INTO users (phone_number, email, full_name, role, status, is_verified, referral_code, password_hash, store_name, default_pickup_address, awb_sender_name, awb_sender_code, created_at, updated_at) 
+			  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`
 	return r.db.QueryRowContext(ctx, query,
-		user.PhoneNumber, user.Email, user.FullName, user.Role, user.Status, user.IsVerified, user.ReferralCode, user.PasswordHash, user.StoreName, user.DefaultPickupAddress, time.Now(), time.Now(),
+		user.PhoneNumber, user.Email, user.FullName, user.Role, user.Status, user.IsVerified, user.ReferralCode, user.PasswordHash, user.StoreName, user.DefaultPickupAddress, user.AWBSenderName, user.AWBSenderCode, time.Now(), time.Now(),
 	).Scan(&user.ID)
 }
 
 func (r *postgresRepo) Update(ctx context.Context, user *domain.User) error {
-	query := `UPDATE users SET full_name = $1, email = $2, photo_url = $3, store_name = $4, default_pickup_address = $5, updated_at = $6 WHERE id = $7`
-	res, err := r.db.ExecContext(ctx, query, user.FullName, user.Email, user.PhotoURL, user.StoreName, user.DefaultPickupAddress, time.Now(), user.ID)
+	query := `UPDATE users SET full_name = $1, email = $2, photo_url = $3, store_name = $4, default_pickup_address = $5, awb_sender_name = $6, awb_sender_code = $7, updated_at = $8 WHERE id = $9`
+	res, err := r.db.ExecContext(ctx, query, user.FullName, user.Email, user.PhotoURL, user.StoreName, user.DefaultPickupAddress, user.AWBSenderName, user.AWBSenderCode, time.Now(), user.ID)
 	if err != nil {
 		return err
 	}
@@ -202,6 +202,13 @@ func (r *postgresRepo) Enable2FA(ctx context.Context, userID string) error {
 	query := `UPDATE users SET is_2fa_enabled = true, updated_at = $1 WHERE id = $2`
 	_, err := r.db.ExecContext(ctx, query, time.Now(), userID)
 	return err
+}
+
+func (r *postgresRepo) CheckAWBSenderName(ctx context.Context, name string) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM users WHERE LOWER(awb_sender_name) = LOWER($1))`
+	var exists bool
+	err := r.readDB.QueryRowContext(ctx, query, name).Scan(&exists)
+	return exists, err
 }
 
 // Session Repository Implementation
@@ -477,3 +484,11 @@ func (r *postgresRepo) GetBoolConfig(ctx context.Context, key string, defaultVal
 	return valString == "true" || valString == "1" || valString == "yes"
 }
 
+func (r *postgresRepo) GetStringConfig(ctx context.Context, key string, defaultValue string) string {
+	var valString string
+	err := r.readDB.QueryRowContext(ctx, "SELECT value FROM system_configs WHERE key = $1 LIMIT 1", key).Scan(&valString)
+	if err != nil {
+		return defaultValue
+	}
+	return valString
+}
