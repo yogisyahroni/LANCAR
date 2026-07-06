@@ -23,13 +23,15 @@ func (r *paymentLinkRepositoryImpl) Create(ctx context.Context, link *domain.Pay
 			merchant_fee_amount, dropoff_address, dropoff_lat, dropoff_lng, 
 			status, expired_at, estimate_id, pickup_address, pickup_lat, pickup_lng,
 			delivery_fee_amount, service_code, order_id, recipient_phone, recipient_name,
+			logistics_provider, logistics_service_type,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, 
 			$6, $7, $8, $9, 
 			$10, $11, $12, $13, $14, $15,
 			$16, $17, $18, $19, $20,
-			$21, $22
+			$21, $22,
+			$23, $24
 		)
 	`
 	_, err := r.db.ExecContext(ctx, query,
@@ -37,6 +39,7 @@ func (r *paymentLinkRepositoryImpl) Create(ctx context.Context, link *domain.Pay
 		link.MerchantFeeAmount, link.DropoffAddress, link.DropoffLat, link.DropoffLng,
 		link.Status, link.ExpiredAt, link.EstimateID, link.PickupAddress, link.PickupLat, link.PickupLng,
 		link.DeliveryFeeAmount, link.ServiceCode, link.OrderID, link.RecipientPhone, link.RecipientName,
+		link.LogisticsProvider, link.LogisticsServiceType,
 		link.CreatedAt, link.UpdatedAt,
 	)
 	if err != nil {
@@ -52,6 +55,7 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 		       pl.status, pl.expired_at, pl.deleted_at, pl.estimate_id, pl.pickup_address, pl.pickup_lat, pl.pickup_lng,
 		       pl.delivery_fee_amount, pl.service_code, pl.order_id,
 		       COALESCE(pl.recipient_phone, ''), COALESCE(pl.recipient_name, ''),
+		       COALESCE(pl.logistics_provider, ''), COALESCE(pl.logistics_service_type, ''),
 		       pl.created_at, pl.updated_at, u.store_name
 		FROM payment_links pl
 		LEFT JOIN users u ON pl.merchant_id = u.id
@@ -59,8 +63,6 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 	`
 	row := r.db.QueryRowContext(ctx, query, id)
 	var link domain.PaymentLink
-	// Use pointers for potentially null string columns if we didn't use COALESCE,
-	// but let's assume they might be null so we need to handle them.
 	var estimateID sql.NullString
 	var pickupAddress sql.NullString
 	var pickupLat sql.NullFloat64
@@ -75,11 +77,12 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 		&link.MerchantFeeAmount, &link.DropoffAddress, &link.DropoffLat, &link.DropoffLng,
 		&link.Status, &link.ExpiredAt, &link.DeletedAt, &estimateID, &pickupAddress, &pickupLat, &pickupLng,
 		&deliveryFee, &serviceCode, &orderID, &link.RecipientPhone, &link.RecipientName,
+		&link.LogisticsProvider, &link.LogisticsServiceType,
 		&link.CreatedAt, &link.UpdatedAt, &storeName,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil // Or return a specific ErrNotFound
+			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get payment link: %w", err)
 	}
@@ -108,13 +111,13 @@ func (r *paymentLinkRepositoryImpl) UpdateOrderID(ctx context.Context, id string
 }
 
 func (r *paymentLinkRepositoryImpl) ListByMerchantID(ctx context.Context, merchantID string, limit, offset int) ([]*domain.PaymentLink, error) {
-	// Exclude expired ones that are older than 24 hours (soft-hide logic applied at query or service layer)
-	// For repo, we just return based on merchantID
 	query := `
 		SELECT id, merchant_id, item_name, item_price, item_image_url, 
 		       merchant_fee_amount, dropoff_address, dropoff_lat, dropoff_lng, 
 		       status, expired_at, deleted_at, estimate_id, pickup_address, pickup_lat, pickup_lng,
-		       delivery_fee_amount, service_code, order_id, created_at, updated_at
+		       delivery_fee_amount, service_code, order_id,
+		       COALESCE(logistics_provider, ''), COALESCE(logistics_service_type, ''),
+		       created_at, updated_at
 		FROM payment_links
 		WHERE merchant_id = $1 AND deleted_at IS NULL
 		ORDER BY created_at DESC
@@ -141,7 +144,9 @@ func (r *paymentLinkRepositoryImpl) ListByMerchantID(ctx context.Context, mercha
 			&link.ID, &link.MerchantID, &link.ItemName, &link.ItemPrice, &link.ItemImageURL,
 			&link.MerchantFeeAmount, &link.DropoffAddress, &link.DropoffLat, &link.DropoffLng,
 			&link.Status, &link.ExpiredAt, &link.DeletedAt, &estimateID, &pickupAddress, &pickupLat, &pickupLng,
-			&deliveryFee, &serviceCode, &orderID, &link.CreatedAt, &link.UpdatedAt,
+			&deliveryFee, &serviceCode, &orderID,
+			&link.LogisticsProvider, &link.LogisticsServiceType,
+			&link.CreatedAt, &link.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
