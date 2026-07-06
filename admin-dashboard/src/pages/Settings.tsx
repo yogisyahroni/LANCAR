@@ -461,7 +461,29 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Link Expiry (Minutes)</label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('payment_link_expiry_minutes', 10)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'payment_link_expiry_minutes', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Default Weight (KG)</label>
+                      <input 
+                        type="number" 
+                        step="0.1"
+                        defaultValue={getConfig('payment_link_default_weight_kg', 1.0)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'payment_link_default_weight_kg', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-8">
                     <div className="space-y-3">
                       <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Sender Name</label>
                       <input 
@@ -519,6 +541,18 @@ export default function Settings() {
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       />
                     </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 mt-8">
+                    <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Tracking URL Template</label>
+                    <input 
+                      type="text" 
+                      defaultValue={getConfig('awb_tracking_url_template', 'https://cekresi.com/?noresi=%s')}
+                      onBlur={(e) => updateConfigMutation.mutate({ key: 'awb_tracking_url_template', value: e.target.value })}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      placeholder="e.g. https://cekresi.com/?noresi=%s"
+                    />
                   </div>
                 </div>
               </motion.div>

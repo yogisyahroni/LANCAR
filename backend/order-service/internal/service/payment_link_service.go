@@ -69,11 +69,12 @@ func (s *paymentLinkServiceImpl) CreateLink(ctx context.Context, merchantID stri
 		// Use 3PL
 		awbOriginCode := s.configRepo.GetStringConfig(ctx, "awb_origin_code", "")
 		awbDestCode := s.configRepo.GetStringConfig(ctx, "awb_destination_code", "")
+		defaultWeight := s.configRepo.GetFloatConfig(ctx, "payment_link_default_weight_kg", 1.0)
 		tariffReq := domain.CheckTariffRequest{
 			Provider:        req.LogisticsProvider,
 			OriginCode:      awbOriginCode,
 			DestinationCode: awbDestCode,
-			WeightKG:        1.0,
+			WeightKG:        defaultWeight,
 		}
 		
 		tariffResp, err := s.awbClient.CheckTariff(ctx, tariffReq)
@@ -151,7 +152,7 @@ func (s *paymentLinkServiceImpl) CreateLink(ctx context.Context, merchantID stri
 		RecipientPhone:    req.RecipientPhone,
 		RecipientName:     req.RecipientName,
 		Status:            domain.PaymentLinkStatusPending,
-		ExpiredAt:         time.Now().Add(10 * time.Minute), // 10 minutes expiry
+		ExpiredAt:         time.Now().Add(time.Duration(s.configRepo.GetIntConfig(ctx, "payment_link_expiry_minutes", 10)) * time.Minute),
 		CreatedAt:         time.Now(),
 		UpdatedAt:         time.Now(),
 		PaymentURL:        s.configRepo.GetStringConfig(ctx, "payment_link_base_url", "https://tembus.id/pay") + "/" + idStr,
@@ -184,7 +185,7 @@ func (s *paymentLinkServiceImpl) CreateLink(ctx context.Context, merchantID stri
 			"🔗 *Link Pembayaran:*",
 			paymentURL,
 			"",
-			"_Link berlaku 10 menit. Harap segera lakukan pembayaran._",
+			fmt.Sprintf("_Link berlaku %d menit. Harap segera lakukan pembayaran._", s.configRepo.GetIntConfig(ctx, "payment_link_expiry_minutes", 10)),
 		}
 		waMsg := strings.Join(waMsgParts, "\n")
 		if waErr := s.awbClient.SendWhatsApp(ctx, req.RecipientPhone, waMsg); waErr != nil {
@@ -428,7 +429,7 @@ func (s *paymentLinkServiceImpl) HandleWebhook(ctx context.Context, id string, e
 				ReceiverAddress: receiverAddress,
 				OriginCode:      awbOriginCode,
 				DestinationCode: awbDestCode,
-				WeightKG:        1.0, // Default untuk paket UMKM
+				WeightKG:        s.configRepo.GetFloatConfig(ctx, "payment_link_default_weight_kg", 1.0),
 				ItemDescription: link.ItemName,
 				ItemValue:       float64(link.ItemPrice),
 				ServiceType:     awbServiceType,

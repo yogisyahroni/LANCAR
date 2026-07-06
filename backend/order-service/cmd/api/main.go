@@ -271,7 +271,7 @@ func main() {
 		pgRepo,                                        // orderRepo — untuk UpdateOrderAWB
 		paymentGw,
 		notificationSvc,
-		infrastructure.NewIntegrationGatewayClient(), // awbClient — HTTP ke integration-gateway
+		infrastructure.NewIntegrationGatewayClient(configRepo), // awbClient — HTTP ke integration-gateway
 		configRepo,
 	)
 	chatSvc := service.NewChatService(chatRepo, eb)

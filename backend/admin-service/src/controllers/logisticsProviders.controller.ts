@@ -25,6 +25,11 @@ export const updateLogisticsProvider = async (req: Request, res: Response): Prom
     return;
   }
 
+  if (discount_pct < 0 || discount_pct > 100 || markup_pct < 0 || markup_pct > 100) {
+    res.status(400).json({ error: 'Percentage values must be between 0 and 100' });
+    return;
+  }
+
   try {
     const result = await db.query(
       `UPDATE logistics_providers 

@@ -21,12 +21,13 @@ type IntegrationGatewayClient struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
+	configRepo domain.ConfigRepository
 }
 
 // NewIntegrationGatewayClient membuat client baru.
 // baseURL diambil dari env INTEGRATION_GATEWAY_URL.
 // apiKey diambil dari env INTERNAL_API_KEY.
-func NewIntegrationGatewayClient() *IntegrationGatewayClient {
+func NewIntegrationGatewayClient(configRepo domain.ConfigRepository) *IntegrationGatewayClient {
 	baseURL := os.Getenv("INTEGRATION_GATEWAY_URL")
 	if baseURL == "" {
 		baseURL = "http://integration-gateway:8085"
@@ -34,8 +35,9 @@ func NewIntegrationGatewayClient() *IntegrationGatewayClient {
 	apiKey := os.Getenv("INTERNAL_API_KEY")
 
 	return &IntegrationGatewayClient{
-		baseURL: baseURL,
-		apiKey:  apiKey,
+		baseURL:    baseURL,
+		apiKey:     apiKey,
+		configRepo: configRepo,
 		httpClient: &http.Client{
 			Timeout: 15 * time.Second,
 		},
@@ -134,7 +136,8 @@ func (c *IntegrationGatewayClient) CreateAWB(ctx context.Context, req domain.AWB
 		return nil, fmt.Errorf("awb_client: integration-gateway reported failure: %s", envelope.Message)
 	}
 
-	trackingURL := fmt.Sprintf("https://cekresi.com/?noresi=%s", envelope.Data.AWBNumber)
+	trackingURLTemplate := c.configRepo.GetStringConfig(ctx, "awb_tracking_url_template", "https://cekresi.com/?noresi=%s")
+	trackingURL := fmt.Sprintf(trackingURLTemplate, envelope.Data.AWBNumber)
 
 	return &domain.AWBResponse{
 		AWBNumber:   envelope.Data.AWBNumber,
