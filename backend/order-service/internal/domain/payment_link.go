@@ -21,6 +21,8 @@ type PaymentLink struct {
 	ItemImageURL      string            `json:"item_image_url"`
 	MerchantFeeAmount int64             `json:"merchant_fee_amount"`
 	DropoffAddress    string            `json:"dropoff_address"`
+	DropoffCity       string            `json:"dropoff_city,omitempty"`
+	DropoffZipCode    string            `json:"dropoff_zip_code,omitempty"`
 	DropoffLat        float64           `json:"dropoff_lat"`
 	DropoffLng        float64           `json:"dropoff_lng"`
 	Status            PaymentLinkStatus `json:"status"`
@@ -30,6 +32,8 @@ type PaymentLink struct {
 	OrderID           string            `json:"order_id,omitempty"`
 	ServiceCode       string            `json:"service_code,omitempty"`
 	PickupAddress     string            `json:"pickup_address,omitempty"`
+	PickupCity        string            `json:"pickup_city,omitempty"`
+	PickupZipCode     string            `json:"pickup_zip_code,omitempty"`
 	PickupLat         float64           `json:"pickup_lat,omitempty"`
 	PickupLng         float64           `json:"pickup_lng,omitempty"`
 	DeliveryFeeAmount int64             `json:"delivery_fee_amount"`
@@ -68,9 +72,13 @@ type CreatePaymentLinkRequest struct {
 	// Untuk mode 3PL, field ini boleh kosong — yang dipakai adalah LogisticsServiceType.
 	ServiceCode    string  `json:"service_code,omitempty"`
 	PickupAddress  string  `json:"pickup_address" validate:"required"`
+	PickupCity     string  `json:"pickup_city,omitempty"`
+	PickupZipCode  string  `json:"pickup_zip_code,omitempty"`
 	PickupLat      float64 `json:"pickup_lat" validate:"required"`
 	PickupLng      float64 `json:"pickup_lng" validate:"required"`
 	DropoffAddress string  `json:"dropoff_address" validate:"required"`
+	DropoffCity    string  `json:"dropoff_city,omitempty"`
+	DropoffZipCode string  `json:"dropoff_zip_code,omitempty"`
 	DropoffLat     float64 `json:"dropoff_lat" validate:"required"`
 	DropoffLng     float64 `json:"dropoff_lng" validate:"required"`
 	StoreName      string  `json:"store_name,omitempty"`
@@ -92,9 +100,13 @@ type AWBRequest struct {
 	SenderName      string  `json:"sender_name"`
 	SenderPhone     string  `json:"sender_phone"`
 	SenderAddress   string  `json:"sender_address"`
+	SenderCity      string  `json:"sender_city"`
+	SenderZipCode   string  `json:"sender_zip_code"`
 	ReceiverName    string  `json:"receiver_name"`
 	ReceiverPhone   string  `json:"receiver_phone"`
 	ReceiverAddress string  `json:"receiver_address"`
+	ReceiverCity    string  `json:"receiver_city"`
+	ReceiverZipCode string  `json:"receiver_zip_code"`
 	OriginCode      string  `json:"origin_code"`
 	DestinationCode string  `json:"destination_code"`
 	WeightKG        float64 `json:"weight_kg"`

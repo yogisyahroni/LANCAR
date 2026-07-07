@@ -232,6 +232,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Payment Links', href: '/payment-links', icon: LinkIcon },
+    { name: 'Katalog Produk', href: '/products', icon: Package },
     { name: 'Kirim Paket', href: '/orders/new', icon: Package },
     { name: 'Kirim Massal', href: '/orders/bulk', icon: Layers },
     { name: 'Riwayat Order', href: '/orders', icon: Package },

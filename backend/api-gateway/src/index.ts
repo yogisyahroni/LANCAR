@@ -633,14 +633,14 @@ app.use(createProxyMiddleware({
   }
 }));
 
-// Payment Links Service (Routed via Admin Service for Session Verification)
+// Payment Links & Products Service (Routed via Admin Service for Session Verification)
 app.use(createProxyMiddleware({
-  pathFilter: '/api/v1/payment-links',
+  pathFilter: ['/api/v1/payment-links', '/api/v1/products'],
   target: ADMIN_SERVICE_URL,
   changeOrigin: true,
   on: {
     proxyReq: (proxyReq: any, req: any) => {
-      logProxyForward('payment_links', req, ADMIN_SERVICE_URL);
+      logProxyForward('admin_session_proxy', req, ADMIN_SERVICE_URL);
       prepareProxyRequest(proxyReq, req);
     },
     proxyRes: (proxyRes: any) => {

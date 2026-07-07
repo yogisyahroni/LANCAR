@@ -20,24 +20,24 @@ func (r *paymentLinkRepositoryImpl) Create(ctx context.Context, link *domain.Pay
 	query := `
 		INSERT INTO payment_links (
 			id, merchant_id, item_name, item_price, item_image_url, 
-			merchant_fee_amount, dropoff_address, dropoff_lat, dropoff_lng, 
-			status, expired_at, estimate_id, pickup_address, pickup_lat, pickup_lng,
+			merchant_fee_amount, dropoff_address, dropoff_city, dropoff_zip_code, dropoff_lat, dropoff_lng, 
+			status, expired_at, estimate_id, pickup_address, pickup_city, pickup_zip_code, pickup_lat, pickup_lng,
 			delivery_fee_amount, service_code, order_id, recipient_phone, recipient_name,
 			logistics_provider, logistics_service_type,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, 
-			$6, $7, $8, $9, 
-			$10, $11, $12, $13, $14, $15,
-			$16, $17, $18, $19, $20,
-			$21, $22,
-			$23, $24
+			$6, $7, $8, $9, $10, $11, 
+			$12, $13, $14, $15, $16, $17, $18, $19,
+			$20, $21, $22, $23, $24,
+			$25, $26,
+			$27, $28
 		)
 	`
 	_, err := r.db.ExecContext(ctx, query,
 		link.ID, link.MerchantID, link.ItemName, link.ItemPrice, link.ItemImageURL,
-		link.MerchantFeeAmount, link.DropoffAddress, link.DropoffLat, link.DropoffLng,
-		link.Status, link.ExpiredAt, link.EstimateID, link.PickupAddress, link.PickupLat, link.PickupLng,
+		link.MerchantFeeAmount, link.DropoffAddress, link.DropoffCity, link.DropoffZipCode, link.DropoffLat, link.DropoffLng,
+		link.Status, link.ExpiredAt, link.EstimateID, link.PickupAddress, link.PickupCity, link.PickupZipCode, link.PickupLat, link.PickupLng,
 		link.DeliveryFeeAmount, link.ServiceCode, link.OrderID, link.RecipientPhone, link.RecipientName,
 		link.LogisticsProvider, link.LogisticsServiceType,
 		link.CreatedAt, link.UpdatedAt,
@@ -51,8 +51,8 @@ func (r *paymentLinkRepositoryImpl) Create(ctx context.Context, link *domain.Pay
 func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*domain.PaymentLink, error) {
 	query := `
 		SELECT pl.id, pl.merchant_id, pl.item_name, pl.item_price, pl.item_image_url, 
-		       pl.merchant_fee_amount, pl.dropoff_address, pl.dropoff_lat, pl.dropoff_lng, 
-		       pl.status, pl.expired_at, pl.deleted_at, pl.estimate_id, pl.pickup_address, pl.pickup_lat, pl.pickup_lng,
+		       pl.merchant_fee_amount, pl.dropoff_address, COALESCE(pl.dropoff_city, ''), COALESCE(pl.dropoff_zip_code, ''), pl.dropoff_lat, pl.dropoff_lng, 
+		       pl.status, pl.expired_at, pl.deleted_at, pl.estimate_id, pl.pickup_address, COALESCE(pl.pickup_city, ''), COALESCE(pl.pickup_zip_code, ''), pl.pickup_lat, pl.pickup_lng,
 		       pl.delivery_fee_amount, pl.service_code, pl.order_id,
 		       COALESCE(pl.recipient_phone, ''), COALESCE(pl.recipient_name, ''),
 		       COALESCE(pl.logistics_provider, ''), COALESCE(pl.logistics_service_type, ''),
@@ -65,6 +65,8 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 	var link domain.PaymentLink
 	var estimateID sql.NullString
 	var pickupAddress sql.NullString
+	var pickupCity sql.NullString
+	var pickupZipCode sql.NullString
 	var pickupLat sql.NullFloat64
 	var pickupLng sql.NullFloat64
 	var deliveryFee sql.NullInt64
@@ -74,8 +76,8 @@ func (r *paymentLinkRepositoryImpl) GetByID(ctx context.Context, id string) (*do
 
 	err := row.Scan(
 		&link.ID, &link.MerchantID, &link.ItemName, &link.ItemPrice, &link.ItemImageURL,
-		&link.MerchantFeeAmount, &link.DropoffAddress, &link.DropoffLat, &link.DropoffLng,
-		&link.Status, &link.ExpiredAt, &link.DeletedAt, &estimateID, &pickupAddress, &pickupLat, &pickupLng,
+		&link.MerchantFeeAmount, &link.DropoffAddress, &link.DropoffCity, &link.DropoffZipCode, &link.DropoffLat, &link.DropoffLng,
+		&link.Status, &link.ExpiredAt, &link.DeletedAt, &estimateID, &pickupAddress, &pickupCity, &pickupZipCode, &pickupLat, &pickupLng,
 		&deliveryFee, &serviceCode, &orderID, &link.RecipientPhone, &link.RecipientName,
 		&link.LogisticsProvider, &link.LogisticsServiceType,
 		&link.CreatedAt, &link.UpdatedAt, &storeName,
@@ -140,11 +142,11 @@ func (r *paymentLinkRepositoryImpl) UpdateOrderID(ctx context.Context, id string
 	return err
 }
 
-func (r *paymentLinkRepositoryImpl) ListByMerchantID(ctx context.Context, merchantID string, limit, offset int) ([]*domain.PaymentLink, error) {
+	func (r *paymentLinkRepositoryImpl) ListByMerchantID(ctx context.Context, merchantID string, limit, offset int) ([]*domain.PaymentLink, error) {
 	query := `
 		SELECT id, merchant_id, item_name, item_price, item_image_url, 
-		       merchant_fee_amount, dropoff_address, dropoff_lat, dropoff_lng, 
-		       status, expired_at, deleted_at, estimate_id, pickup_address, pickup_lat, pickup_lng,
+		       merchant_fee_amount, dropoff_address, COALESCE(dropoff_city, ''), COALESCE(dropoff_zip_code, ''), dropoff_lat, dropoff_lng, 
+		       status, expired_at, deleted_at, estimate_id, pickup_address, COALESCE(pickup_city, ''), COALESCE(pickup_zip_code, ''), pickup_lat, pickup_lng,
 		       delivery_fee_amount, service_code, order_id,
 		       COALESCE(logistics_provider, ''), COALESCE(logistics_service_type, ''),
 		       created_at, updated_at
@@ -164,6 +166,8 @@ func (r *paymentLinkRepositoryImpl) ListByMerchantID(ctx context.Context, mercha
 		var link domain.PaymentLink
 		var estimateID sql.NullString
 		var pickupAddress sql.NullString
+		var pickupCity sql.NullString
+		var pickupZipCode sql.NullString
 		var pickupLat sql.NullFloat64
 		var pickupLng sql.NullFloat64
 		var deliveryFee sql.NullInt64
@@ -172,8 +176,8 @@ func (r *paymentLinkRepositoryImpl) ListByMerchantID(ctx context.Context, mercha
 
 		if err := rows.Scan(
 			&link.ID, &link.MerchantID, &link.ItemName, &link.ItemPrice, &link.ItemImageURL,
-			&link.MerchantFeeAmount, &link.DropoffAddress, &link.DropoffLat, &link.DropoffLng,
-			&link.Status, &link.ExpiredAt, &link.DeletedAt, &estimateID, &pickupAddress, &pickupLat, &pickupLng,
+			&link.MerchantFeeAmount, &link.DropoffAddress, &link.DropoffCity, &link.DropoffZipCode, &link.DropoffLat, &link.DropoffLng,
+			&link.Status, &link.ExpiredAt, &link.DeletedAt, &estimateID, &pickupAddress, &pickupCity, &pickupZipCode, &pickupLat, &pickupLng,
 			&deliveryFee, &serviceCode, &orderID,
 			&link.LogisticsProvider, &link.LogisticsServiceType,
 			&link.CreatedAt, &link.UpdatedAt,
@@ -181,10 +185,24 @@ func (r *paymentLinkRepositoryImpl) ListByMerchantID(ctx context.Context, mercha
 			return nil, err
 		}
 
-		link.EstimateID = estimateID.String
-		link.PickupAddress = pickupAddress.String
-		link.PickupLat = pickupLat.Float64
-		link.PickupLng = pickupLng.Float64
+		if estimateID.Valid {
+			link.EstimateID = estimateID.String
+		}
+		if pickupAddress.Valid {
+			link.PickupAddress = pickupAddress.String
+		}
+		if pickupCity.Valid {
+			link.PickupCity = pickupCity.String
+		}
+		if pickupZipCode.Valid {
+			link.PickupZipCode = pickupZipCode.String
+		}
+		if pickupLat.Valid {
+			link.PickupLat = pickupLat.Float64
+		}
+		if pickupLng.Valid {
+			link.PickupLng = pickupLng.Float64
+		}
 		link.DeliveryFeeAmount = deliveryFee.Int64
 		link.ServiceCode = serviceCode.String
 		link.OrderID = orderID.String

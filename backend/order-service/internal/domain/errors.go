@@ -20,6 +20,7 @@ var (
 	ErrInternal           = errors.New("INTERNAL_SERVER_ERROR")
 	ErrNotFound           = errors.New("NOT_FOUND")
 	ErrForbidden          = errors.New("FORBIDDEN")
+	ErrUnauthorized       = errors.New("UNAUTHORIZED")
 	ErrConflict           = errors.New("CONFLICT")
 	ErrLocationNotCovered = errors.New("LOCATION_NOT_COVERED")
 )

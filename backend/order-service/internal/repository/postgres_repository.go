@@ -122,18 +122,18 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 	query := `INSERT INTO orders (
 				id, order_number, customer_id, model, status, 
-				pickup_location, pickup_address, 
-				dropoff_location, dropoff_address, 
+				pickup_location, pickup_address, pickup_city, pickup_zip_code,
+				dropoff_location, dropoff_address, dropoff_city, dropoff_zip_code,
 				length, width, height, weight, item_description, item_image_url,
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, ppn_idr, mdr_idr, handover_token,
-				dispatch_expiry, batch_id, sequence_no, created_at, updated_at
+				dispatch_expiry, batch_id, sequence_no, receiver_name, receiver_phone, routing_code, created_at, updated_at
 			  ) VALUES (
 				$1, $2, $3, $4, $5, 
-				ST_SetSRID(ST_MakePoint($6, $7), 4326), $8, 
-				ST_SetSRID(ST_MakePoint($9, $10), 4326), $11, 
-				$12, $13, $14, $15, $16, $17,
-				$18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30
+				ST_SetSRID(ST_MakePoint($6, $7), 4326), $8, $9, $10,
+				ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15,
+				$16, $17, $18, $19, $20, $21,
+				$22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37
 			  )`
 
 	// Default tax/fee for now
@@ -145,12 +145,12 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 
 	_, err := r.db.ExecContext(ctx, query,
 		o.ID, o.OrderNumber, o.CustomerID, o.Model, o.Status,
-		o.PickupLng, o.PickupLat, o.PickupAddress,
-		o.DropoffLng, o.DropoffLat, o.DropoffAddress,
+		o.PickupLng, o.PickupLat, o.PickupAddress, o.PickupCity, o.PickupZipCode,
+		o.DropoffLng, o.DropoffLat, o.DropoffAddress, o.DropoffCity, o.DropoffZipCode,
 		o.Length, o.Width, o.Height, o.Weight, o.ItemDescription, o.ItemImageURL,
 		o.DistanceKM, o.BasePriceIDR, o.VolumetricSurchargeIDR,
 		o.DynamicPriceIDR, o.TotalPriceIDR, ppn, mdr, o.HandoverToken,
-		o.DispatchExpiry, o.BatchID, o.SequenceNo, o.CreatedAt, o.UpdatedAt,
+		o.DispatchExpiry, o.BatchID, o.SequenceNo, o.ReceiverName, o.ReceiverPhone, o.RoutingCode, o.CreatedAt, o.UpdatedAt,
 	)
 	return err
 }
@@ -158,21 +158,25 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, error) {
 	query := `SELECT 
 				id, order_number, customer_id, model, status, 
-				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
-				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
+				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, COALESCE(pickup_city, ''), COALESCE(pickup_zip_code, ''),
+				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, COALESCE(dropoff_city, ''), COALESCE(dropoff_zip_code, ''),
 				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''), created_at, updated_at
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''),
+				COALESCE(receiver_name, ''), COALESCE(receiver_phone, ''), COALESCE(routing_code, ''),
+				created_at, updated_at
 			  FROM orders WHERE id = $1`
 
 	o := &domain.Order{}
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
 		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
-		&o.PickupLat, &o.PickupLng, &o.PickupAddress,
-		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+		&o.PickupLat, &o.PickupLng, &o.PickupAddress, &o.PickupCity, &o.PickupZipCode,
+		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress, &o.DropoffCity, &o.DropoffZipCode,
 		&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
 		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
+		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL,
+		&o.ReceiverName, &o.ReceiverPhone, &o.RoutingCode,
+		&o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -186,21 +190,25 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string) (*domain.Order, error) {
 	query := `SELECT 
 				id, order_number, customer_id, model, status, 
-				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, 
-				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, 
+				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, COALESCE(pickup_city, ''), COALESCE(pickup_zip_code, ''),
+				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, COALESCE(dropoff_city, ''), COALESCE(dropoff_zip_code, ''),
 				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''), created_at, updated_at
+				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''),
+				COALESCE(receiver_name, ''), COALESCE(receiver_phone, ''), COALESCE(routing_code, ''),
+				created_at, updated_at
 			  FROM orders WHERE order_number = $1`
 
 	o := &domain.Order{}
 	err := r.readDB.QueryRowContext(ctx, query, orderNumber).Scan(
 		&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
-		&o.PickupLat, &o.PickupLng, &o.PickupAddress,
-		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress,
+		&o.PickupLat, &o.PickupLng, &o.PickupAddress, &o.PickupCity, &o.PickupZipCode,
+		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress, &o.DropoffCity, &o.DropoffZipCode,
 		&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
 		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL, &o.CreatedAt, &o.UpdatedAt,
+		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL,
+		&o.ReceiverName, &o.ReceiverPhone, &o.RoutingCode,
+		&o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {

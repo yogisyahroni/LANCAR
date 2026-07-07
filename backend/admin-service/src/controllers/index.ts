@@ -68,3 +68,4 @@ export * as businessApiRequest from './businessApiRequest';
 export * as hr from './hrController';
 export * as news from './newsController';
 export * from './logisticsProviders.controller';
+export * as productCatalog from './productCatalog.controller';

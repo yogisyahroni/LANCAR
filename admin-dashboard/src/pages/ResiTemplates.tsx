@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Code2, Play, Eye, GripVertical, Image as ImageIcon, Type, QrCode, Barcode as BarcodeIcon } from 'lucide-react'
+import { Plus, Edit2, Trash2, CheckCircle2, XCircle, Code2, Play, Eye, GripVertical, Image as ImageIcon, Type, QrCode, Barcode as BarcodeIcon, Leaf, AlertTriangle, Square, Minus } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
 import { Button } from '../components/Button'
@@ -9,7 +9,7 @@ import Barcode from 'react-barcode'
 interface ResiTemplate {
   id: string
   name: string
-  content: string
+  layout_config: any
   is_active: boolean
   provider_code?: string
   created_at: string
@@ -22,7 +22,7 @@ interface LogisticsProvider {
   name: string
 }
 
-type ElementType = 'text' | 'qrcode' | 'barcode' | 'logo'
+type ElementType = 'text' | 'qrcode' | 'barcode' | 'logo' | 'image' | 'eco_icon' | 'fragile_badge' | 'box' | 'h_line' | 'v_line' | 'tembus_logo'
 
 interface DesignElement {
   id: string
@@ -33,13 +33,21 @@ interface DesignElement {
   height?: number
   value: string
   fontSize?: number
+  fontWeight?: string
+  barWidth?: number
 }
 
 const TOOLBOX_ITEMS = [
   { type: 'text', label: 'Teks', icon: Type, defaultVal: '{{awb_number}}' },
   { type: 'barcode', label: 'Barcode', icon: BarcodeIcon, defaultVal: '{{awb_number}}' },
   { type: 'qrcode', label: 'QR Code', icon: QrCode, defaultVal: '{{tracking_url}}' },
-  { type: 'logo', label: 'Logo', icon: ImageIcon, defaultVal: '/logo.png' }
+  { type: 'logo', label: 'Logo Provider (Otomatis)', icon: ImageIcon, defaultVal: 'provider_logo' },
+  { type: 'image', label: 'Gambar/Logo URL', icon: ImageIcon, defaultVal: 'https://placehold.co/200x80?text=LOGO', width: 100, height: 40 },
+  { type: 'eco_icon', label: 'Eco Badge', icon: Leaf, defaultVal: '' },
+  { type: 'fragile_badge', label: 'Fragile Badge', icon: AlertTriangle, defaultVal: '' },
+  { type: 'box', label: 'Kotak (Box)', icon: Square, defaultVal: '', width: 200, height: 100 },
+  { type: 'h_line', label: 'Garis Horisontal', icon: Minus, defaultVal: '', width: 200, height: 2 },
+  { type: 'v_line', label: 'Garis Vertikal', icon: Minus, defaultVal: '', width: 2, height: 200 }
 ]
 
 const CANVAS_WIDTH = 384 // A6 approximate scaled (384px width e.g. for thermal)
@@ -59,6 +67,30 @@ const ResiTemplates = () => {
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null)
 
   const canvasRef = useRef<HTMLDivElement>(null)
+
+  const resolvePreviewValue = (val: string) => {
+    if (!val) return '';
+    return val
+      .replace(/{{order_number}}/g, 'ORD-2026-00123')
+      .replace(/{{awb_number}}/g, 'JP1234567890')
+      .replace(/{{provider_name}}/g, 'JNE EXPRESS')
+      .replace(/{{service_type}}/g, 'REG / EZ')
+      .replace(/{{service_name}}/g, 'REGULAR')
+      .replace(/{{total_price}}/g, 'Rp 25.000')
+      .replace(/{{total_price_idr}}/g, '25.000')
+      .replace(/{{customer_name}}/g, 'Andi Wijaya')
+      .replace(/{{sender_name}}/g, 'Toko TEMBUS Official')
+      .replace(/{{sender_phone}}/g, '0812-3456-7890')
+      .replace(/{{sender_address}}/g, 'Jl. Sudirman No. 45, Jakarta Pusat 10210')
+      .replace(/{{receiver_name}}/g, 'Andi Wijaya')
+      .replace(/{{receiver_phone}}/g, '0857-9876-5432')
+      .replace(/{{receiver_address}}/g, 'Jl. Gatot Subroto No. 88, Blok C2, Bandung 40123')
+      .replace(/{{item_names}}/g, '1x Kemeja Batik Pria (L), 2x Kaos Polos')
+      .replace(/{{total_weight}}/g, '1.2')
+      .replace(/{{total_items}}/g, '3')
+      .replace(/{{order_id}}/g, 'ORD-2026-00123')
+      .replace(/{{tracking_url}}/g, 'https://tembus.id/track/JP1234567890');
+  };
 
   useEffect(() => {
     fetchTemplates()
@@ -93,8 +125,7 @@ const ResiTemplates = () => {
       setIsActive(t.is_active)
       setProviderCode(t.provider_code || '')
       try {
-        const parsed = JSON.parse(t.content)
-        setElements(parsed.elements || [])
+        setElements(t.layout_config?.elements || [])
       } catch(e) {
         setElements([])
       }
@@ -116,15 +147,14 @@ const ResiTemplates = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    const content = JSON.stringify({
+    const layout_config = {
       layout: 'standard',
       elements
-    }, null, 2)
+    }
 
     const payload = {
       name,
-      content,
+      layout_config,
       is_active: isActive,
       provider_code: providerCode === '' ? null : providerCode
     }
@@ -161,7 +191,7 @@ const ResiTemplates = () => {
       if (!t) return
       await api.put(`/admin/resi-templates/${id}`, {
         name: t.name,
-        content: t.content,
+        layout_config: t.layout_config,
         is_active: true
       })
       toast.success('Template set as active')
@@ -267,7 +297,7 @@ const ResiTemplates = () => {
               
               <div className="bg-zinc-950 p-3 rounded-lg mb-4 text-xs font-mono text-zinc-400 h-32 overflow-hidden relative">
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-zinc-950 pointer-events-none" />
-                {t.content}
+                {JSON.stringify(t.layout_config, null, 2)}
               </div>
 
               <div className="flex items-center gap-2">
@@ -393,21 +423,59 @@ const ResiTemplates = () => {
                           updateElement(el.id, { x: newX, y: newY });
                         }}
                       >
-                        {el.type === 'text' && <span style={{ fontSize: el.fontSize || 14, color: '#000', whiteSpace: 'nowrap' }}>{el.value}</span>}
+                        {el.type === 'text' && <span style={{ fontSize: el.fontSize || 14, color: '#000', whiteSpace: 'nowrap', fontWeight: el.fontWeight || 'normal' }}>{resolvePreviewValue(el.value)}</span>}
                         {el.type === 'qrcode' && (
-                          <div className="w-24 h-24 bg-zinc-200 border border-zinc-300 flex items-center justify-center text-xs text-zinc-500">
-                            [QR: {el.value}]
+                          <div style={{ width: el.width || 80, height: el.height || 80 }} className="bg-white border border-zinc-900 flex flex-col items-center justify-center p-1 text-center font-mono overflow-hidden">
+                            <QrCode style={{ width: (el.width || 80) - 20, height: (el.height || 80) - 20 }} className="text-zinc-900" />
                           </div>
                         )}
                         {el.type === 'barcode' && (
-                          <div className="bg-white flex items-center justify-center">
-                            <Barcode value={el.value} width={1.5} height={40} fontSize={12} displayValue={false} />
+                          <div style={{ width: el.width, height: el.height }} className="bg-white flex items-center justify-center overflow-hidden">
+                            <Barcode value={resolvePreviewValue(el.value) || 'JP1234567890'} width={el.barWidth || 1.5} height={el.height || 40} fontSize={10} displayValue={false} margin={0} />
                           </div>
                         )}
                         {el.type === 'logo' && (
-                          <div className="w-16 h-16 bg-zinc-200 border border-zinc-300 flex items-center justify-center text-xs text-zinc-500">
-                            [LOGO]
+                          <div style={{ width: el.width || 120, height: el.height || 32 }} className="bg-zinc-100 border border-zinc-400 flex items-center justify-center text-[11px] text-zinc-700 font-bold tracking-wide rounded">
+                            LOGO KURIR
                           </div>
+                        )}
+                        {el.type === 'image' && (
+                          <img 
+                            src={el.value} 
+                            alt="Custom Image"
+                            style={{ width: el.width || 100, height: el.height || 40, objectFit: 'contain' }}
+                            draggable={false}
+                          />
+                        )}
+                        {el.type === 'eco_icon' && (
+                          <div className="w-10 h-10 bg-green-100 border border-green-500 rounded-full flex items-center justify-center text-green-600">
+                            <Leaf className="w-6 h-6" />
+                          </div>
+                        )}
+                        {el.type === 'fragile_badge' && (
+                          <div className="w-10 h-10 bg-red-100 border border-red-500 rounded-full flex items-center justify-center text-red-600">
+                            <AlertTriangle className="w-6 h-6" />
+                          </div>
+                        )}
+                        {el.type === 'box' && (
+                          <div style={{ width: el.width || 100, height: el.height || 50 }} className="border-2 border-black bg-transparent">
+                          </div>
+                        )}
+                        {el.type === 'h_line' && (
+                          <div style={{ width: el.width || 200, height: Math.max(1, el.height || 2) }} className="bg-black">
+                          </div>
+                        )}
+                        {el.type === 'v_line' && (
+                          <div style={{ width: Math.max(1, el.width || 2), height: el.height || 200 }} className="bg-black">
+                          </div>
+                        )}
+                        {el.type === 'tembus_logo' && (
+                          <img
+                            src="/tembusweb-resi.svg"
+                            alt="TEMBUS Logo"
+                            style={{ width: el.width || 120, height: el.height || 30, objectFit: 'contain' }}
+                            draggable={false}
+                          />
                         )}
                       </div>
                     ))}
@@ -437,6 +505,40 @@ const ResiTemplates = () => {
                               type="number"
                               value={el.fontSize || 14}
                               onChange={(e) => updateElement(el.id, { fontSize: parseInt(e.target.value) })}
+                              className="w-full bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+                            />
+                          </div>
+                        )}
+                        {['box', 'h_line', 'v_line', 'image', 'qrcode', 'barcode', 'logo', 'tembus_logo'].includes(el.type) && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-xs font-medium text-zinc-400 mb-1">Width (px)</label>
+                              <input 
+                                type="number"
+                                value={el.width || 100}
+                                onChange={(e) => updateElement(el.id, { width: parseInt(e.target.value) })}
+                                className="w-full bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-zinc-400 mb-1">Height (px)</label>
+                              <input 
+                                type="number"
+                                value={el.height || 50}
+                                onChange={(e) => updateElement(el.id, { height: parseInt(e.target.value) })}
+                                className="w-full bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-sm text-white"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        {el.type === 'barcode' && (
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-400 mb-1">Bar Width (1.0 - 3.0)</label>
+                            <input 
+                              type="number"
+                              step="0.1"
+                              value={el.barWidth || 1.5}
+                              onChange={(e) => updateElement(el.id, { barWidth: parseFloat(e.target.value) })}
                               className="w-full bg-zinc-900 border border-white/10 rounded px-2 py-1.5 text-sm text-white"
                             />
                           </div>
@@ -474,12 +576,24 @@ const ResiTemplates = () => {
 
                   <div className="mt-8 pt-4 border-t border-white/5">
                     <h4 className="text-[10px] font-bold text-zinc-500 uppercase mb-2 tracking-wider">Available Variables</h4>
-                    <ul className="text-[10px] text-zinc-400 space-y-1 font-mono">
+                    <ul className="text-[10px] text-zinc-400 space-y-1 font-mono h-40 overflow-y-auto">
                       <li>{'{'}{'{'}order_number{'}'}{'}'}</li>
                       <li>{'{'}{'{'}awb_number{'}'}{'}'}</li>
                       <li>{'{'}{'{'}provider_name{'}'}{'}'}</li>
                       <li>{'{'}{'{'}service_type{'}'}{'}'}</li>
-                      <li>{'{'}{'{'}customer_name{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}sender_name{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}sender_phone{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}pickup_address{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}receiver_name{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}receiver_phone{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}dropoff_address{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}item_description{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}weight{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}routing_code{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}total_price_idr{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}cod_amount{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}payment_type{'}'}{'}'}</li>
+                      <li>{'{'}{'{'}tracking_url{'}'}{'}'}</li>
                     </ul>
                   </div>
                 </div>

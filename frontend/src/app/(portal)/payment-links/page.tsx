@@ -285,6 +285,9 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
   const [isLocating, setIsLocating] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  const [products, setProducts] = useState<any[]>([]);
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       setFormData({
@@ -299,6 +302,13 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
       setTariffRequest(null);
       setSelectedTariff(null);
       setSelectedFile(null);
+      
+      // Load products catalog
+      api.get('/products')
+        .then(res => {
+          setProducts(res.data?.data || []);
+        })
+        .catch(err => console.error('Failed to load products:', err));
     }
   }, [isOpen, user]);
 
@@ -453,14 +463,58 @@ function CreateLinkModal({ isOpen, onClose, onSave, isSaving }: any) {
           {step === 1 ? (
             <>
               <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-2 col-span-2">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><Package size={14}/> Item Name</label>
+                <div className="space-y-2 col-span-2 relative">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2"><Package size={14}/> Item Name</label>
+                    <a href="/products" target="_blank" className="text-[10px] font-black text-primary hover:underline flex items-center gap-1">
+                      + Kelola Katalog / Excel Bulk
+                    </a>
+                  </div>
                   <input 
                     value={formData.item_name}
-                    onChange={e => setFormData({ ...formData, item_name: e.target.value })}
+                    onChange={e => {
+                      setFormData({ ...formData, item_name: e.target.value });
+                      setShowProductDropdown(true);
+                    }}
+                    onFocus={() => setShowProductDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowProductDropdown(false), 200)}
                     placeholder="e.g. Kue Kering Lebaran"
                     className="w-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 rounded-2xl py-4 px-6 text-foreground font-bold focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                   />
+                  {showProductDropdown && products.filter(p => p.item_name.toLowerCase().includes(formData.item_name.toLowerCase())).length > 0 && (
+                    <div className="absolute z-10 w-full mt-2 bg-card border border-border rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                      {products.filter(p => p.item_name.toLowerCase().includes(formData.item_name.toLowerCase())).map(product => (
+                        <div 
+                          key={product.id}
+                          className="px-4 py-3 hover:bg-muted/50 cursor-pointer flex items-center gap-3 border-b border-border last:border-0"
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              item_name: product.item_name,
+                              weight: product.weight_kg,
+                              item_image_url: product.image_url || formData.item_image_url
+                            });
+                            setShowProductDropdown(false);
+                          }}
+                        >
+                          {product.image_url ? (
+                            <img src={product.image_url} alt={product.item_name} className="w-10 h-10 object-cover rounded-md border border-border" />
+                          ) : (
+                            <div className="w-10 h-10 bg-muted flex items-center justify-center rounded-md border border-border text-muted-foreground shrink-0">
+                              <Package size={16} />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm truncate">{product.item_name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {product.sku && <span className="mr-2">SKU: {product.sku}</span>}
+                              <span>Berat: {product.weight_kg}kg</span>
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">

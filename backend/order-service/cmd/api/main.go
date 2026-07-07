@@ -276,6 +276,8 @@ func main() {
 	)
 	chatSvc := service.NewChatService(chatRepo, eb)
 	resiSvc := service.NewResiService(pgRepo, resiTemplateRepo)
+	productCatalogRepo := repository.NewProductCatalogRepository(db)
+	productCatalogSvc := service.NewProductCatalogService(productCatalogRepo, configRepo)
 	// matchingSvc := service.NewRelayMatchingService(relayRepo, pgRepo, redisRepo) // Can be used later
 
 	// Handlers
@@ -295,6 +297,7 @@ func main() {
 	chatHandler := handler.NewChatHandler(chatSvc)
 	sosHandler := handler.NewSosHandler(sosSvc)
 	resiHandler := handler.NewResiHandler(resiSvc)
+	productCatalogHandler := handler.NewProductCatalogHandler(productCatalogSvc)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB), configRepo)
@@ -454,6 +457,18 @@ func main() {
 	mux.HandleFunc("/api/v1/payment-links", middleware.BaseChain(paymentLinkHandler.HandleRequest))
 	mux.HandleFunc("/api/v1/payment-links/", middleware.BaseChain(paymentLinkHandler.HandleRequest))
 	mux.HandleFunc("/api/v1/payment-links/webhook", middleware.BaseChain(paymentLinkHandler.HandleWebhook))
+
+	// Product Catalog Routes
+	mux.HandleFunc("/api/v1/products", middleware.BaseChain(productCatalogHandler.HandleProducts))
+	mux.HandleFunc("/api/v1/products/bulk", middleware.BaseChain(productCatalogHandler.HandleBulkUpload))
+	mux.HandleFunc("/api/v1/products/", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		id := strings.TrimPrefix(r.URL.Path, "/api/v1/products/")
+		if id == "" || id == "bulk" {
+			http.Error(w, "Not found", http.StatusNotFound)
+			return
+		}
+		productCatalogHandler.HandleProductByID(w, r, id)
+	}))
 
 	// Logistics Routes
 	mux.HandleFunc("/api/v1/logistics/tariff", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {

@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -127,7 +126,7 @@ func (p *JNEProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 		return nil, errors.New("JNE API credentials are not configured")
 	}
 
-	endpoint := fmt.Sprintf("%s/tracing/api/generateconnote", p.baseURL)
+	endpoint := fmt.Sprintf("%s/tracing/api/generatecnote", p.baseURL)
 
 	formData := url.Values{}
 	formData.Set("username", p.username)
@@ -137,15 +136,25 @@ func (p *JNEProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 	formData.Set("OLSHOP_ORDERID", req.ReferenceID)
 	formData.Set("OLSHOP_SHIPPER_NAME", req.SenderName)
 	formData.Set("OLSHOP_SHIPPER_ADDR1", req.SenderAddress)
+	formData.Set("OLSHOP_SHIPPER_CITY", req.SenderCity)
+	formData.Set("OLSHOP_SHIPPER_ZIP", req.SenderZipCode)
 	formData.Set("OLSHOP_SHIPPER_PHONE", req.SenderPhone)
 	formData.Set("OLSHOP_RECEIVER_NAME", req.ReceiverName)
 	formData.Set("OLSHOP_RECEIVER_ADDR1", req.ReceiverAddress)
+	formData.Set("OLSHOP_RECEIVER_CITY", req.ReceiverCity)
+	formData.Set("OLSHOP_RECEIVER_ZIP", req.ReceiverZipCode)
 	formData.Set("OLSHOP_RECEIVER_PHONE", req.ReceiverPhone)
 	formData.Set("OLSHOP_QTY", "1")
 	formData.Set("OLSHOP_WEIGHT", fmt.Sprintf("%.2f", req.WeightKG))
-	formData.Set("OLSHOP_GOODS_DESCR", req.ItemDescription)
-	formData.Set("OLSHOP_GOODS_VALUE", fmt.Sprintf("%.2f", req.ItemValue))
+	formData.Set("OLSHOP_GOODSDESC", req.ItemDescription)
+	formData.Set("OLSHOP_GOODSVALUE", fmt.Sprintf("%.2f", req.ItemValue))
+	formData.Set("OLSHOP_GOODSTYPE", "1")
+	formData.Set("OLSHOP_INS_FLAG", "N")
+	formData.Set("OLSHOP_ORIG", req.OriginCode)
+	formData.Set("OLSHOP_DEST", req.DestinationCode)
 	formData.Set("OLSHOP_SERVICE", req.ServiceType)
+	formData.Set("OLSHOP_COD_FLAG", "N")
+	formData.Set("OLSHOP_COD_AMOUNT", "0")
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
 	if err != nil {
@@ -216,17 +225,15 @@ func (p *JNEProvider) TrackOrder(ctx context.Context, awb string) (*domain.Track
 
 	endpoint := fmt.Sprintf("%s/tracing/api/list/v1/cnote/%s", p.baseURL, awb)
 	
-	payload := map[string]string{
-		"username": p.username,
-		"api_key":  p.apiKey,
-	}
-	jsonBody, _ := json.Marshal(payload)
+	formData := url.Values{}
+	formData.Set("username", p.username)
+	formData.Set("api_key", p.apiKey)
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(jsonBody))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(formData.Encode()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create JNE track request: %w", err)
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	if err := p.cb.Allow(); err != nil {
 		return nil, fmt.Errorf("JNE circuit breaker open: %w", err)

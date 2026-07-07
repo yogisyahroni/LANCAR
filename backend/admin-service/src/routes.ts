@@ -169,6 +169,15 @@ routes.get('/api/v1/payment-links', requireMobileOrWebAuth, (req, res) => contro
 routes.post('/api/v1/payment-links', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.createLink(req, res));
 routes.get('/api/v1/payment-links/:id', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.getLink(req, res));
 routes.post('/api/v1/payment-links/:id/checkout', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.checkoutLink(req, res));
+
+// Product Catalog Proxy
+routes.get('/api/v1/products', requireMobileOrWebAuth, (req, res) => controllers.productCatalog.listProducts(req, res));
+routes.post('/api/v1/products', requireMobileOrWebAuth, (req, res) => controllers.productCatalog.createProduct(req, res));
+routes.get('/api/v1/products/:id', requireMobileOrWebAuth, (req, res) => controllers.productCatalog.getProduct(req, res));
+routes.put('/api/v1/products/:id', requireMobileOrWebAuth, (req, res) => controllers.productCatalog.updateProduct(req, res));
+routes.delete('/api/v1/products/:id', requireMobileOrWebAuth, (req, res) => controllers.productCatalog.deleteProduct(req, res));
+routes.post('/api/v1/products/bulk', requireMobileOrWebAuth, ...secureUploadSingle('file', 'bulkCsv'), (req, res) => controllers.productCatalog.bulkUpload(req, res));
+
 // Logistics 3PL: check tariff (ongkir) sebelum buat payment link
 // Query params: provider, origin_code, destination_code, weight_kg
 routes.get('/api/v1/logistics/check-tariff', requireMobileOrWebAuth, (req, res) => controllers.paymentLink.checkTariff(req, res));

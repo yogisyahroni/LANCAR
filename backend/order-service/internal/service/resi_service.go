@@ -50,14 +50,32 @@ func (s *resiService) RenderResiByAWB(ctx context.Context, awb string) (map[stri
 	// Replace placeholders in the layout config string, then unmarshal again
 	// We can do simple string replacement for now.
 	layoutStr := template.LayoutConfig
+	
+	// Get sender name if possible
+	senderName, _ := s.orderRepo.GetUserSenderName(ctx, order.CustomerID)
+	if senderName == "" {
+		senderName = "Pengirim Tembus"
+	}
+
 	replacements := map[string]string{
 		"{{awb_number}}":       order.AWB,
 		"{{order_number}}":     order.OrderNumber,
-		"{{recipient_name}}":   "", // Wait, recipient_name is not in Order domain, it is in PaymentLink. But for Bulk it might be saved somewhere else? 
+		"{{provider_name}}":    order.LogisticsProvider,
+		"{{service_type}}":     order.LogisticsServiceType,
+		"{{service_name}}":     fmt.Sprintf("%s %s", strings.ToUpper(order.LogisticsProvider), strings.ToUpper(order.LogisticsServiceType)),
+		"{{sender_name}}":      senderName,
+		"{{sender_phone}}":     "-", // TBD from customer profile
 		"{{pickup_address}}":   order.PickupAddress,
+		"{{receiver_name}}":    order.ReceiverName,
+		"{{receiver_phone}}":   order.ReceiverPhone,
 		"{{dropoff_address}}":  order.DropoffAddress,
-		"{{item_description}}": order.ItemDescription,
-		"{{weight_kg}}":        fmt.Sprintf("%.1f", order.Weight),
+		"{{item_names}}":       order.ItemDescription,
+		"{{total_weight}}":     fmt.Sprintf("%.1f", order.Weight),
+		"{{total_items}}":      "1", // Currently single package assumption
+		"{{payment_type}}":     "CASHLESS", // Since no COD is allowed
+		"{{total_price_idr}}":  fmt.Sprintf("%d", order.TotalPriceIDR),
+		"{{total_price}}":      fmt.Sprintf("%d", order.TotalPriceIDR),
+		"{{routing_code}}":     order.RoutingCode,
 	}
 
 	for k, v := range replacements {

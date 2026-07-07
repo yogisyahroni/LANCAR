@@ -141,6 +141,8 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		VolumetricSurchargeIDR: estimate.VolumetricSurchargeIDR,
 		DynamicPriceIDR:        estimate.DynamicPriceIDR,
 		TotalPriceIDR:          estimate.TotalPriceIDR,
+		ReceiverName:           req.ReceiverName,
+		ReceiverPhone:          req.ReceiverPhone,
 		HandoverToken:          handoverToken,
 		QRCodeURL:              qrURL,
 		CreatedAt:              time.Now(),
@@ -204,9 +206,13 @@ func (s *orderServiceImpl) createAggregatorOrder(ctx context.Context, userID str
 		Model:                "aggregator", // Model khusus untuk 3PL
 		Status:               domain.StatusPendingAssignment,
 		PickupAddress:        req.PickupAddress,
+		PickupCity:           req.PickupCity,
+		PickupZipCode:        req.PickupZipCode,
 		PickupLat:            req.PickupLat,
 		PickupLng:            req.PickupLng,
 		DropoffAddress:       req.DropoffAddress,
+		DropoffCity:          req.DropoffCity,
+		DropoffZipCode:       req.DropoffZipCode,
 		DropoffLat:           req.DropoffLat,
 		DropoffLng:           req.DropoffLng,
 		Weight:               1.0, // Default untuk paket UMKM
@@ -217,6 +223,8 @@ func (s *orderServiceImpl) createAggregatorOrder(ctx context.Context, userID str
 		LogisticsTariffIDR:   req.LogisticsTariffIDR,
 		LogisticsNetCostIDR:  req.LogisticsNetCostIDR,
 		TotalPriceIDR:        req.LogisticsTariffIDR, // Harga yang dibayar user = tariff user
+		ReceiverName:         req.ReceiverName,
+		ReceiverPhone:        req.ReceiverPhone,
 		HandoverToken:        handoverToken,
 		QRCodeURL:            qrURL,
 		CreatedAt:            time.Now(),

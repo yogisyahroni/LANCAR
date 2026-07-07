@@ -137,6 +137,21 @@ func (p *JNTProvider) CheckTariff(ctx context.Context, req domain.TariffRequest)
 	}, nil
 }
 
+func mapJNTExpressType(serviceType string) string {
+	svc := strings.ToUpper(strings.TrimSpace(serviceType))
+	switch svc {
+	case "J&T ECO", "ECO":
+		return "2"
+	case "J&T SUPER", "SUPER":
+		return "3"
+	case "EZ", "REG", "REGULAR":
+		return "1"
+	default:
+		// Default to EZ if unknown
+		return "1"
+	}
+}
+
 // CreateOrder registers a shipment with J&T Express and retrieves airwaybill
 func (p *JNTProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrderRequest) (*domain.LogisticsOrderResponse, error) {
 	if p.apiAccount == "" || p.privateKey == "" {
@@ -145,10 +160,13 @@ func (p *JNTProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 
 	endpoint := fmt.Sprintf("%s/jts-id-open-api/api/order/create", p.baseURL)
 
+	expressType := mapJNTExpressType(req.ServiceType)
+
 	payloadObj := map[string]any{
 		"txlogisticid": req.ReferenceID,
 		"actiontype":   "add",
 		"sendertype":   "0",
+		"ordertype":    "1",
 		"sender": map[string]any{
 			"name":     req.SenderName,
 			"mobile":   req.SenderPhone,
@@ -164,7 +182,8 @@ func (p *JNTProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 		"weight":       req.WeightKG,
 		"itemname":     req.ItemDescription,
 		"itemvalue":    req.ItemValue,
-		"servicetype":  req.ServiceType,
+		"servicetype":  "1",
+		"expresstype":  expressType,
 		"customerCode": p.customerCode,
 	}
 	payloadBytes, _ := json.Marshal(payloadObj)

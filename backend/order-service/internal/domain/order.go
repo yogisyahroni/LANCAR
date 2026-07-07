@@ -35,9 +35,13 @@ type Order struct {
 	Model                  string       `json:"model"`
 	Status                 OrderStatus  `json:"status"`
 	PickupAddress          string       `json:"pickup_address"`
+	PickupCity             string       `json:"pickup_city,omitempty"`
+	PickupZipCode          string       `json:"pickup_zip_code,omitempty"`
 	PickupLat              float64      `json:"pickup_lat"`
 	PickupLng              float64      `json:"pickup_lng"`
 	DropoffAddress         string       `json:"dropoff_address"`
+	DropoffCity            string       `json:"dropoff_city,omitempty"`
+	DropoffZipCode         string       `json:"dropoff_zip_code,omitempty"`
 	DropoffLat             float64      `json:"dropoff_lat"`
 	DropoffLng             float64      `json:"dropoff_lng"`
 	Length                 float64      `json:"length,omitempty"`
@@ -64,6 +68,9 @@ type Order struct {
 	LogisticsNetCostIDR    int64        `json:"logistics_net_cost_idr,omitempty"`
 	AWB                    string       `json:"awb_number,omitempty"`
 	TrackingURL            string       `json:"tracking_url,omitempty"`
+	ReceiverName           string       `json:"receiver_name,omitempty"`
+	ReceiverPhone          string       `json:"receiver_phone,omitempty"`
+	RoutingCode            string       `json:"routing_code,omitempty"`
 	Courier                *CourierInfo `json:"courier,omitempty"`                 // Added for Courier Profile
 	CourierRating          *float64     `json:"courier_rating,omitempty"`          // Rating 1-5 diberikan customer setelah delivered
 	RatingComment          *string      `json:"rating_comment,omitempty"`          // Komentar opsional
@@ -94,9 +101,13 @@ type CreateOrderRequest struct {
 	LogisticsTariffIDR     int64   `json:"logistics_tariff_idr,omitempty"`
 	LogisticsNetCostIDR    int64   `json:"logistics_net_cost_idr,omitempty"`
 	PickupAddress          string  `json:"pickup_address,omitempty"`
+	PickupCity             string  `json:"pickup_city,omitempty"`
+	PickupZipCode          string  `json:"pickup_zip_code,omitempty"`
 	PickupLat              float64 `json:"pickup_lat,omitempty"`
 	PickupLng              float64 `json:"pickup_lng,omitempty"`
 	DropoffAddress         string  `json:"dropoff_address,omitempty"`
+	DropoffCity            string  `json:"dropoff_city,omitempty"`
+	DropoffZipCode         string  `json:"dropoff_zip_code,omitempty"`
 	DropoffLat             float64 `json:"dropoff_lat,omitempty"`
 	DropoffLng             float64 `json:"dropoff_lng,omitempty"`
 	Length                 float64 `json:"length,omitempty"`

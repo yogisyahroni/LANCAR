@@ -138,7 +138,20 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
       .replace(/{{awb_number}}/g, currentOrder.awb_number || '')
       .replace(/{{provider_name}}/g, currentOrder.model.toUpperCase() || '')
       .replace(/{{service_type}}/g, currentOrder.model.toUpperCase() || '')
+      .replace(/{{service_name}}/g, currentOrder.model.toUpperCase() || '')
+      .replace(/{{total_price}}/g, formatIDR(currentOrder.total_price_idr || 0))
+      .replace(/{{total_price_idr}}/g, formatIDR(currentOrder.total_price_idr || 0))
       .replace(/{{customer_name}}/g, currentOrder.recipient_name || '')
+      .replace(/{{sender_name}}/g, currentOrder.sender_name || 'Toko TEMBUS Official')
+      .replace(/{{sender_phone}}/g, currentOrder.sender_phone || '0812-3456-7890')
+      .replace(/{{sender_address}}/g, currentOrder.pickup_address || 'Jakarta Pusat')
+      .replace(/{{receiver_name}}/g, currentOrder.recipient_name || 'Penerima Paket')
+      .replace(/{{receiver_phone}}/g, currentOrder.recipient_phone || '-')
+      .replace(/{{receiver_address}}/g, currentOrder.dropoff_address || '-')
+      .replace(/{{item_names}}/g, (currentOrder as any).item_names || 'Paket Logistik (Regular)')
+      .replace(/{{total_weight}}/g, String((currentOrder as any).total_weight || 1.0))
+      .replace(/{{total_items}}/g, String((currentOrder as any).total_items || 1))
+      .replace(/{{order_id}}/g, currentOrder.order_number || currentOrder.id || '')
       .replace(/{{tracking_url}}/g, `${window.location.origin}/resi/${currentOrder.id}`);
   };
 
@@ -194,15 +207,35 @@ export default function ResiDetailPage({ params }: { params: Promise<{ id: strin
                 className="absolute"
                 style={{ left: el.x, top: el.y }}
               >
-                {el.type === 'text' && <span style={{ fontSize: el.fontSize || 14, color: '#000', whiteSpace: 'nowrap' }}>{resolveValue(el.value, order)}</span>}
+                {el.type === 'text' && <span style={{ fontSize: el.fontSize || 14, color: '#000', whiteSpace: 'nowrap', fontWeight: el.fontWeight || 'normal' }}>{resolveValue(el.value, order)}</span>}
                 {el.type === 'qrcode' && (
-                  <QRCodeSVG value={resolveValue(el.value, order) || order.awb_number || order.id} size={80} />
+                  <QRCodeSVG value={resolveValue(el.value, order) || order.awb_number || order.id} size={el.width || 80} />
                 )}
                 {el.type === 'barcode' && (
-                  <Barcode value={resolveValue(el.value, order) || order.awb_number || order.id} width={1.5} height={40} fontSize={12} displayValue={false} />
+                  <Barcode
+                    value={resolveValue(el.value, order) || order.awb_number || order.id}
+                    width={el.barWidth || 1.5}
+                    height={el.height || 40}
+                    fontSize={9}
+                    displayValue={false}
+                    margin={0}
+                  />
                 )}
                 {el.type === 'logo' && (
-                  <img src={resolveValue(el.value, order)} alt="Logo" className="w-16 h-auto" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  el.value && el.value.startsWith('http') ? (
+                    <img src={resolveValue(el.value, order)} alt="Logo" style={{ width: el.width || 100, height: el.height || 32, objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  ) : (
+                    <div style={{ width: el.width || 120, height: el.height || 32 }} className="bg-zinc-100 border border-zinc-400 flex items-center justify-center text-[11px] text-zinc-700 font-bold tracking-wide rounded">
+                      {order.model ? order.model.toUpperCase() : 'LOGO KURIR'}
+                    </div>
+                  )
+                )}
+                {el.type === 'tembus_logo' && (
+                  <img
+                    src="/tembusweb-resi.svg"
+                    alt="TEMBUS Logo"
+                    style={{ width: el.width || 120, height: el.height || 30, objectFit: 'contain' }}
+                  />
                 )}
               </div>
             ))}

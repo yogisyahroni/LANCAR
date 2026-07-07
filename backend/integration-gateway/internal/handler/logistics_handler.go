@@ -29,9 +29,13 @@ type CreateLogisticsOrderRequest struct {
 	SenderName      string  `json:"sender_name"`
 	SenderPhone     string  `json:"sender_phone"`
 	SenderAddress   string  `json:"sender_address"`
+	SenderCity      string  `json:"sender_city"`
+	SenderZipCode   string  `json:"sender_zip_code"`
 	ReceiverName    string  `json:"receiver_name"`
 	ReceiverPhone   string  `json:"receiver_phone"`
 	ReceiverAddress string  `json:"receiver_address"`
+	ReceiverCity    string  `json:"receiver_city"`
+	ReceiverZipCode string  `json:"receiver_zip_code"`
 	OriginCode      string  `json:"origin_code"`
 	DestinationCode string  `json:"destination_code"`
 	WeightKG        float64 `json:"weight_kg"`
@@ -79,9 +83,13 @@ func (h *LogisticsHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		SenderName:      req.SenderName,
 		SenderPhone:     req.SenderPhone,
 		SenderAddress:   req.SenderAddress,
+		SenderCity:      req.SenderCity,
+		SenderZipCode:   req.SenderZipCode,
 		ReceiverName:    req.ReceiverName,
 		ReceiverPhone:   req.ReceiverPhone,
 		ReceiverAddress: req.ReceiverAddress,
+		ReceiverCity:    req.ReceiverCity,
+		ReceiverZipCode: req.ReceiverZipCode,
 		OriginCode:      req.OriginCode,
 		DestinationCode: req.DestinationCode,
 		WeightKG:        req.WeightKG,
