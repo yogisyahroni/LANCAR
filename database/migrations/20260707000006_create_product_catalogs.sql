@@ -1,3 +1,4 @@
+-- +goose Up
 -- Migration for Product Catalogs
 
 CREATE TABLE IF NOT EXISTS product_catalogs (
@@ -19,3 +20,6 @@ INSERT INTO system_configs (key, value, description, updated_at)
 VALUES ('product_catalog_max_items', '1000', 'Maximum number of items a UMKM can have in their product catalog', CURRENT_TIMESTAMP)
 ON CONFLICT (key) DO UPDATE 
 SET value = EXCLUDED.value, description = EXCLUDED.description, updated_at = CURRENT_TIMESTAMP;
+
+-- +goose Down
+DROP TABLE IF EXISTS product_catalogs;
