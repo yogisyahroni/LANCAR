@@ -78,7 +78,7 @@ func (r *productCatalogRepo) List(ctx context.Context, req domain.ProductCatalog
 	}
 	defer rows.Close()
 
-	var items []domain.ProductCatalog
+	items := make([]domain.ProductCatalog, 0)
 	for rows.Next() {
 		var p domain.ProductCatalog
 		if err := rows.Scan(

@@ -66,7 +66,15 @@ export default function ProductsPage() {
     setLoadError(null);
     try {
       const response = await api.get('/products');
-      setProducts(response.data?.data || []);
+      const rawList = response.data?.items || response.data?.data || [];
+      const normalizedList = Array.isArray(rawList) ? rawList.map((item: any) => ({
+        ...item,
+        item_name: item.item_name || item.name || '',
+        item_value: Number(item.item_value ?? item.price ?? 0),
+        image_url: item.image_url || item.item_image || '',
+        weight_kg: Number(item.weight_kg ?? 1),
+      })) : [];
+      setProducts(normalizedList);
     } catch (error: any) {
       const message = error?.response?.data?.error || 'Katalog produk belum bisa dimuat.';
       setLoadError(message);

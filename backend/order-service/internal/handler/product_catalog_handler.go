@@ -7,7 +7,85 @@ import (
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/service"
 	"strconv"
+	"time"
 )
+
+type productDTO struct {
+	ID         string    `json:"id"`
+	CustomerID string    `json:"customer_id"`
+	Name       string    `json:"name"`
+	ItemName   string    `json:"item_name"`
+	SKU        *string   `json:"sku,omitempty"`
+	WeightKG   float64   `json:"weight_kg"`
+	ItemImage  *string   `json:"item_image,omitempty"`
+	ImageURL   *string   `json:"image_url,omitempty"`
+	Price      *float64  `json:"price,omitempty"`
+	ItemValue  *float64  `json:"item_value,omitempty"`
+	IsActive   bool      `json:"is_active"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+func toProductDTO(p domain.ProductCatalog) productDTO {
+	return productDTO{
+		ID:         p.ID,
+		CustomerID: p.CustomerID,
+		Name:       p.Name,
+		ItemName:   p.Name,
+		SKU:        p.SKU,
+		WeightKG:   p.WeightKG,
+		ItemImage:  p.ItemImage,
+		ImageURL:   p.ItemImage,
+		Price:      p.Price,
+		ItemValue:  p.Price,
+		IsActive:   p.IsActive,
+		CreatedAt:  p.CreatedAt,
+		UpdatedAt:  p.UpdatedAt,
+	}
+}
+
+type productPayload struct {
+	Name      string   `json:"name"`
+	ItemName  string   `json:"item_name"`
+	SKU       *string  `json:"sku"`
+	WeightKG  float64  `json:"weight_kg"`
+	Price     *float64 `json:"price"`
+	ItemValue *float64 `json:"item_value"`
+	ItemImage *string  `json:"item_image"`
+	ImageURL  *string  `json:"image_url"`
+	IsActive  *bool    `json:"is_active"`
+}
+
+func payloadToDomain(payload productPayload) domain.ProductCatalog {
+	name := payload.Name
+	if name == "" {
+		name = payload.ItemName
+	}
+	price := payload.Price
+	if price == nil {
+		price = payload.ItemValue
+	}
+	img := payload.ItemImage
+	if img == nil {
+		img = payload.ImageURL
+	}
+	isActive := true
+	if payload.IsActive != nil {
+		isActive = *payload.IsActive
+	}
+	weight := payload.WeightKG
+	if weight <= 0 {
+		weight = 1.0
+	}
+	return domain.ProductCatalog{
+		Name:      name,
+		SKU:       payload.SKU,
+		WeightKG:  weight,
+		ItemImage: img,
+		Price:     price,
+		IsActive:  isActive,
+	}
+}
 
 type ProductCatalogHandler struct {
 	productService *service.ProductCatalogService
@@ -95,7 +173,19 @@ func (h *ProductCatalogHandler) ListProducts(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	h.WriteJSON(w, http.StatusOK, res)
+	dtos := make([]productDTO, 0, len(res.Items))
+	for _, item := range res.Items {
+		dtos = append(dtos, toProductDTO(item))
+	}
+
+	h.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"status":      "success",
+		"items":       dtos,
+		"data":        dtos,
+		"total_count": res.TotalCount,
+		"page":        res.Page,
+		"limit":       res.Limit,
+	})
 }
 
 func (h *ProductCatalogHandler) CreateProduct(w http.ResponseWriter, r *http.Request) {
@@ -105,12 +195,13 @@ func (h *ProductCatalogHandler) CreateProduct(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var p domain.ProductCatalog
-	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+	var payload productPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		h.WriteError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
+	p := payloadToDomain(payload)
 	p.CustomerID = customerID
 
 	if err := h.productService.CreateProduct(r.Context(), &p); err != nil {
@@ -118,7 +209,7 @@ func (h *ProductCatalogHandler) CreateProduct(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	h.WriteJSON(w, http.StatusCreated, p)
+	h.WriteJSON(w, http.StatusCreated, toProductDTO(p))
 }
 
 func (h *ProductCatalogHandler) GetProduct(w http.ResponseWriter, r *http.Request, id string) {
@@ -134,7 +225,7 @@ func (h *ProductCatalogHandler) GetProduct(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	h.WriteJSON(w, http.StatusOK, p)
+	h.WriteJSON(w, http.StatusOK, toProductDTO(*p))
 }
 
 func (h *ProductCatalogHandler) UpdateProduct(w http.ResponseWriter, r *http.Request, id string) {
@@ -144,12 +235,13 @@ func (h *ProductCatalogHandler) UpdateProduct(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var p domain.ProductCatalog
-	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+	var payload productPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		h.WriteError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
+	p := payloadToDomain(payload)
 	p.ID = id
 	p.CustomerID = customerID
 
@@ -158,7 +250,7 @@ func (h *ProductCatalogHandler) UpdateProduct(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	h.WriteJSON(w, http.StatusOK, p)
+	h.WriteJSON(w, http.StatusOK, toProductDTO(p))
 }
 
 func (h *ProductCatalogHandler) DeleteProduct(w http.ResponseWriter, r *http.Request, id string) {
