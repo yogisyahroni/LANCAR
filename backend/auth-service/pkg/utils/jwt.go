@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"os"
 	"strconv"
@@ -77,8 +79,17 @@ func GenerateToken(userID string, role string, permissions []string, totpVerifie
 	return token.SignedString([]byte(secret))
 }
 
+// generateJTI menghasilkan JWT ID yang unik secara kriptografis.
+// SECURITY 2026: time.Now().UnixNano() collision-prone di multi-instance deployment
+// (dua goroutine di pod berbeda bisa menghasilkan nano yang sama).
+// crypto/rand memberikan 128 bit entropi — tidak bisa ditebak dan unik secara global.
 func generateJTI() string {
-	return strconv.FormatInt(time.Now().UnixNano(), 36)
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback ke nano jika crypto/rand gagal (sangat jarang)
+		return strconv.FormatInt(time.Now().UnixNano(), 36)
+	}
+	return hex.EncodeToString(b)
 }
 
 func getEnv(key, fallback string) string {

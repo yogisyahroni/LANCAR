@@ -7,6 +7,12 @@
 
 name: tembus
 
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
 
   # ─────────────────────────────────────────────
@@ -16,8 +22,9 @@ services:
     image: postgis/postgis:15-3.4-alpine
     container_name: tembus-db
     restart: unless-stopped
+    logging: *default-logging
     # ─── PostgreSQL tuning untuk VPS. Sesuaikan postgres-tuning.conf ───────
-    # File: database/postgres-tuning.conf (asumsi VPS 8GB RAM, SSD storage)
+    # File: database/postgres-tuning.conf (asumsi VPS 4GB RAM, SSD storage)
     command: >
       postgres
       -c config_file=/etc/postgresql/tuning.conf
@@ -63,7 +70,7 @@ services:
   # Enable with: docker compose --profile scale up -d pgbouncer
   # ─────────────────────────────────────────────
   pgbouncer:
-    image: bitnami/pgbouncer:1.24.0
+    image: edoburu/pgbouncer:latest
     container_name: tembus-pgbouncer
     restart: unless-stopped
     # ─── PgBouncer WAJIB aktif di VPS untuk menghemat RAM ─────────────────
@@ -73,6 +80,14 @@ services:
       db:
         condition: service_healthy
     environment:
+      DB_HOST: db
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+      DB_NAME: ${POSTGRES_DB:-tembus}
+      LISTEN_PORT: 6432
+      POOL_MODE: transaction
+      AUTH_TYPE: scram-sha-256
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits,search_path,statement_timeout,options
       POSTGRESQL_HOST: db
       POSTGRESQL_PORT: 5432
       POSTGRESQL_USERNAME: ${POSTGRES_USER:-postgres}
@@ -285,6 +300,7 @@ services:
       dockerfile: Dockerfile
     container_name: tembus-admin
     restart: unless-stopped
+    logging: *default-logging
     depends_on:
       pgbouncer:
         condition: service_healthy

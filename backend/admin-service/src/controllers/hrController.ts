@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
 import { db } from '../db';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
@@ -36,7 +37,7 @@ export const getPublicJobs = async (req: Request, res: Response) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error("Error fetching public jobs:", error);
+    securityLog.error("Error fetching public jobs:", error);
     res.status(500).json({ error: "Failed to fetch jobs" });
   }
 };
@@ -70,7 +71,7 @@ export const applyForJob = async (req: Request, res: Response) => {
 
     res.status(201).json({ message: "Application submitted successfully", id: appId });
   } catch (error) {
-    console.error("Error applying for job:", error);
+    securityLog.error("Error applying for job:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: (error as any).errors });
     }
@@ -88,7 +89,7 @@ export const getAdminJobs = async (req: Request, res: Response) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error("Error fetching admin jobs:", error);
+    securityLog.error("Error fetching admin jobs:", error);
     res.status(500).json({ error: "Failed to fetch jobs" });
   }
 };
@@ -103,7 +104,7 @@ export const getAdminJobById = async (req: Request, res: Response) => {
     }
     res.json(result.rows[0]);
   } catch (error) {
-    console.error("Error fetching job:", error);
+    securityLog.error("Error fetching job:", error);
     res.status(500).json({ error: "Failed to fetch job" });
   }
 };
@@ -134,7 +135,7 @@ export const createAdminJob = async (req: Request, res: Response) => {
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error("Error creating job:", error);
+    securityLog.error("Error creating job:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: (error as any).errors });
     }
@@ -170,7 +171,7 @@ export const updateAdminJob = async (req: Request, res: Response) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    console.error("Error updating job:", error);
+    securityLog.error("Error updating job:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: (error as any).errors });
     }
@@ -190,7 +191,7 @@ export const deleteAdminJob = async (req: Request, res: Response) => {
     
     res.json({ message: "Job deleted successfully" });
   } catch (error) {
-    console.error("Error deleting job:", error);
+    securityLog.error("Error deleting job:", error);
     res.status(500).json({ error: "Failed to delete job" });
   }
 };
@@ -206,7 +207,7 @@ export const getAdminApplications = async (req: Request, res: Response) => {
     `);
     res.json(result.rows);
   } catch (error) {
-    console.error("Error fetching applications:", error);
+    securityLog.error("Error fetching applications:", error);
     res.status(500).json({ error: "Failed to fetch applications" });
   }
 };
@@ -231,7 +232,7 @@ export const updateAdminApplicationStatus = async (req: Request, res: Response) 
 
     res.json(result.rows[0]);
   } catch (error) {
-    console.error("Error updating application status:", error);
+    securityLog.error("Error updating application status:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: (error as any).errors });
     }

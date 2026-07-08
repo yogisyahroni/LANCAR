@@ -69,3 +69,5 @@ export * as hr from './hrController';
 export * as news from './newsController';
 export * from './logisticsProviders.controller';
 export * as productCatalog from './productCatalog.controller';
+export * as costIntelligence from './costIntelligence.controller';
+export * as merchantSettlement from './merchantSettlement.controller';

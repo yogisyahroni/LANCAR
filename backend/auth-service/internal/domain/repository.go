@@ -19,6 +19,7 @@ type UserRepository interface {
 	UpdateTOTP(ctx context.Context, userID string, secret string, backupCodes []string) error
 	Enable2FA(ctx context.Context, userID string) error
 	CheckAWBSenderName(ctx context.Context, name string) (bool, error)
+	UpdateBankProfile(ctx context.Context, userID, bankName, accountNumber, accountHolder string) error
 }
 
 type SessionRepository interface {

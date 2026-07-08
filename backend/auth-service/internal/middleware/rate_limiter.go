@@ -290,14 +290,18 @@ func realClientIP(r *http.Request) string {
 	}
 
 	// No trusted proxy configured: fall back to direct TCP connection IP.
-	// This is safe for direct-to-internet services but XFF won't work.
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// Still read XFF as fallback when no trusted proxy is configured
-		// (backward compatibility), but log a warning in production.
-		return strings.TrimSpace(strings.Split(xff, ",")[0])
-	}
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return strings.TrimSpace(xri)
+	// SECURITY 2026 — X-Forwarded-For Spoofing Risk:
+	// Membaca XFF tanpa trusted proxy = siapapun bisa inject IP palsu.
+	// Saat penyerang kirim: X-Forwarded-For: 1.2.3.4 → rate limiter melihat 1.2.3.4
+	// bukan IP asli penyerang. Ini memungkinkan brute force melewati per-IP throttle.
+	// Real breach: serangan login massal dengan rotasi XFF header (terjadi di fintech 2024).
+	//
+	// MITIGASI: Selalu set TRUSTED_PROXY_IP di environment production.
+	// Jika tidak di-set, HANYA gunakan RemoteAddr (tidak baca XFF).
+	if os.Getenv("TRUSTED_PROXY_IP") == "" {
+		// Tidak ada trusted proxy — jangan percaya XFF
+		// Log warning hanya sekali via sync.Once di startup (tidak di sini untuk avoid spam)
+		return remoteHost
 	}
 	return remoteHost
 }

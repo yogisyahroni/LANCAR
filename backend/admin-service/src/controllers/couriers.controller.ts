@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
+import { getActorId } from '../utils/authUtils';
 import { db, readDb } from '../db';
 import crypto from 'crypto';
 import { saveSecureUploadBuffer } from '../security/uploadSecurity';
@@ -233,7 +235,7 @@ export const createCourierRegistrationLink = async (req: Request, res: Response)
         token_hash, application_channel, title, notes, max_uses, expires_at, created_by
        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, application_channel, title, notes, max_uses, use_count, expires_at, status, created_at`,
-      [tokenHash(token), applicationChannel, title, notes, maxUses, expiresAt, req.user?.id || null]
+      [tokenHash(token), applicationChannel, title, notes, maxUses, expiresAt, getActorId(req)]
     );
 
     res.status(201).json({
@@ -757,7 +759,7 @@ export const getAllCouriers = async (req: Request, res: Response) => {
       limit
     });
   } catch (error: any) {
-    console.error('ERROR in getAllCouriers:', error);
+    securityLog.error('ERROR in getAllCouriers:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -900,16 +902,16 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
     if (status === 'Active') {
       await client.query(
         'UPDATE courier_profiles SET verification_status = $1, reviewed_at = NOW(), reviewed_by = $3, updated_at = NOW() WHERE id = $2',
-        ['approved', id, req.user?.id || null]
+        ['approved', id, getActorId(req)]
       );
       await upsertCourierVehicleAndCapabilities(client, id, {
         approveEligible: true,
-        approvedBy: req.user?.id || null
+        approvedBy: getActorId(req)
       });
     } else if (status === 'Rejected') {
       await client.query(
         'UPDATE courier_profiles SET verification_status = $1, rejection_reason = $3, reviewed_at = NOW(), reviewed_by = $4, updated_at = NOW() WHERE id = $2',
-        ['rejected', id, req.body.reason || 'Tidak memenuhi persyaratan onboarding', req.user?.id || null]
+        ['rejected', id, req.body.reason || 'Tidak memenuhi persyaratan onboarding', getActorId(req)]
       );
     } else if (status === 'Pending') {
       await client.query(
@@ -938,7 +940,7 @@ export const updateCourierStatus = async (req: Request, res: Response): Promise<
       return;
     }
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, category) 
        VALUES ($1, $2, $3, $4, $5)`,
@@ -1095,7 +1097,7 @@ export const updateCourierServiceCapabilities = async (req: Request, res: Respon
     await client.query('BEGIN');
     await upsertCourierVehicleAndCapabilities(client, id, {
       approveEligible: false,
-      approvedBy: req.user?.id || null
+      approvedBy: getActorId(req)
     });
 
     for (const capability of capabilities) {
@@ -1115,7 +1117,7 @@ export const updateCourierServiceCapabilities = async (req: Request, res: Respon
           status,
           capability.eligibility_reason || capability.reason || null,
           capability.max_weight_kg ?? null,
-          req.user?.id || null,
+          getActorId(req),
           id,
           serviceCode
         ]
@@ -1231,7 +1233,7 @@ export const updateCourierProfilePhoto = async (req: Request, res: Response): Pr
     res.json(result.rows[0]);
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('[COURIER PHOTO UPDATE ERROR]', error);
+    securityLog.error('[COURIER PHOTO UPDATE ERROR]', error);
     res.status(500).json({ error: error.message });
   } finally {
     client.release();
@@ -1278,7 +1280,7 @@ export const broadcastOnboardingInvite = async (req: Request, res: Response) => 
 
     return res.status(200).json({ success: true, message: `Broadcast sent to ${couriers.length} couriers` });
   } catch (error) {
-    console.error('Error broadcasting onboarding invite:', error);
+    securityLog.error('Error broadcasting onboarding invite:', error);
     return res.status(500).json({ error: 'Failed to broadcast onboarding invite' });
   }
 };

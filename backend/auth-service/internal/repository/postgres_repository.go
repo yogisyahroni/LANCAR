@@ -27,7 +27,7 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 	query := `
 		SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
 			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, store_name, default_pickup_address, awb_sender_name, awb_sender_code,
-			   profile_photo_locked_at, profile_photo_set_by, created_at, updated_at 
+			   profile_photo_locked_at, profile_photo_set_by, bank_code, bank_account_number, bank_account_name, bank_verified, created_at, updated_at 
 		FROM users
 		WHERE phone_number = $1 OR email = $1
 		ORDER BY
@@ -43,7 +43,7 @@ func (r *postgresRepo) GetByPhoneNumber(ctx context.Context, phoneNumber string)
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status,
 		&user.ReferralCode, &user.ReferredBy, &user.PasswordHash, &user.PINHash, &user.IsVerified,
 		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.StoreName, &user.DefaultPickupAddress, &user.AWBSenderName, &user.AWBSenderCode,
-		&user.ProfilePhotoLockedAt, &user.ProfilePhotoSetBy, &user.CreatedAt, &user.UpdatedAt,
+		&user.ProfilePhotoLockedAt, &user.ProfilePhotoSetBy, &user.BankName, &user.BankAccountNumber, &user.BankAccountHolder, &user.BankVerified, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -55,7 +55,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.User, er
 	query := `
 		SELECT id, phone_number, email, full_name, photo_url, role, status, referral_code, referred_by, password_hash, pin_hash, is_verified, 
 			   totp_secret, is_2fa_enabled, totp_backup_codes, last_login_at, store_name, default_pickup_address, awb_sender_name, awb_sender_code,
-			   profile_photo_locked_at, profile_photo_set_by, created_at, updated_at 
+			   profile_photo_locked_at, profile_photo_set_by, bank_code, bank_account_number, bank_account_name, bank_verified, created_at, updated_at 
 		FROM users
 		WHERE id = $1`
 	user := &domain.User{}
@@ -63,7 +63,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.User, er
 		&user.ID, &user.PhoneNumber, &user.Email, &user.FullName, &user.PhotoURL, &user.Role, &user.Status,
 		&user.ReferralCode, &user.ReferredBy, &user.PasswordHash, &user.PINHash, &user.IsVerified,
 		&user.TOTPSecret, &user.Is2FAEnabled, pq.Array(&user.TOTPBackupCodes), &user.LastLoginAt, &user.StoreName, &user.DefaultPickupAddress, &user.AWBSenderName, &user.AWBSenderCode,
-		&user.ProfilePhotoLockedAt, &user.ProfilePhotoSetBy, &user.CreatedAt, &user.UpdatedAt,
+		&user.ProfilePhotoLockedAt, &user.ProfilePhotoSetBy, &user.BankName, &user.BankAccountNumber, &user.BankAccountHolder, &user.BankVerified, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -491,4 +491,24 @@ func (r *postgresRepo) GetStringConfig(ctx context.Context, key string, defaultV
 		return defaultValue
 	}
 	return valString
+}
+
+func (r *postgresRepo) UpdateBankProfile(ctx context.Context, userID, bankName, accountNumber, accountHolder string) error {
+	query := `
+		UPDATE users
+		SET bank_code = $1, bank_account_number = $2, bank_account_name = $3, bank_verified = false, updated_at = $4
+		WHERE id = $5
+	`
+	res, err := r.db.ExecContext(ctx, query, bankName, accountNumber, accountHolder, time.Now(), userID)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }

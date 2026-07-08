@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
 import { readDb } from '../db';
 import { db } from '../db';
 
@@ -87,7 +88,7 @@ export const getDashboardStats = async (req: Request, res: Response) => {
       sla_growth: slaGrowth
     });
   } catch (error: any) {
-    console.error('Error fetching dashboard stats:', error);
+    securityLog.error('Error fetching dashboard stats:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -105,7 +106,7 @@ export const getDashboardEvents = async (req: Request, res: Response) => {
     `);
     res.json(result.rows);
   } catch (error: any) {
-    console.error('Error fetching dashboard events:', error);
+    securityLog.error('Error fetching dashboard events:', error);
     res.status(500).json({ error: error.message });
   }
 };

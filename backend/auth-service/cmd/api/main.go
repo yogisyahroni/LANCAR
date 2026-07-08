@@ -120,7 +120,20 @@ func validateProductionSecrets() {
 	requireProductionURL("REDIS_URL")
 	requireStrongSecret("JWT_SECRET", 32)
 	requireStrongSecret("OTP_HASH_PEPPER", 32)
+
+	// SECURITY 2026 \u2014 Wajibkan TRUSTED_PROXY_IP di production:
+	// Tanpa ini, rate limiter menerima X-Forwarded-For yang di-forge penyerang
+	// \u2192 brute force login/OTP tidak bisa diblokir per-IP.
+	// Referensi: XFF spoofing bypass di fintech 2024 \u2014 login massal tak terdeteksi.
+	if strings.TrimSpace(os.Getenv("TRUSTED_PROXY_IP")) == "" {
+		log.Fatalf(
+			"[SECURITY] TRUSTED_PROXY_IP harus dikonfigurasi di production. " +
+				"Tanpa ini, X-Forwarded-For rate limiting rentan dispoofing. " +
+				"Set ke IP nginx/load balancer Anda (contoh: TRUSTED_PROXY_IP=10.0.0.1)",
+		)
+	}
 }
+
 
 func main() {
 	// Load environment variables
@@ -371,6 +384,7 @@ func main() {
 	mux.HandleFunc("/api/v1/auth/2fa/verify", middleware.AuthChain(h.Verify2FA))
 	mux.HandleFunc("/api/v1/users/me", middleware.AuthChain(h.GetMe))
 	mux.HandleFunc("/api/v1/users/me/photo", middleware.AuthChain(h.UpdatePhoto))
+	mux.HandleFunc("PATCH /api/v1/profile/bank", middleware.AuthChain(h.UpdateBankProfile))
 
 	// ─────────────────────────────────────────────
 	// API v1 — Storage Endpoints (requires JWT auth)

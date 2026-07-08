@@ -11,6 +11,7 @@ import {
   promoMutationRateLimiter,
   promoReadRateLimiter,
   toggleRateLimiter,
+  publicEndpointRateLimiter,
 } from './rateLimit';
 import { requireIdempotencyKey } from './middleware/idempotencyRequirement';
 import { requireCookieCsrfProtection } from './middleware/csrfProtection';
@@ -29,7 +30,7 @@ routes.post('/auth/web/refresh-token', (req, res) => controllers.refreshToken(re
 // Courier Mobile Auth Routes
 routes.post('/api/v1/auth/courier/login', (req, res) => controllers.loginCourier(req, res));
 routes.post('/api/v1/auth/courier/otp/verify', (req, res) => controllers.verifyCourierLoginOtp(req, res));
-routes.post('/api/v1/auth/courier/documents/upload', ...secureUploadSingle('file', 'courierDocument'), (req, res) => controllers.uploadCourierOnDemandDocument(req, res));
+routes.post('/api/v1/auth/courier/documents/upload', publicEndpointRateLimiter, ...secureUploadSingle('file', 'courierDocument'), (req, res) => controllers.uploadCourierOnDemandDocument(req, res));
 routes.post('/api/v1/auth/courier/register', (req, res) => controllers.submitOnDemandCourierApplication(req, res));
 routes.get('/api/v1/auth/courier/registration-links/:token', (req, res) => controllers.getPublicCourierRegistrationLink(req, res));
 routes.post('/api/v1/auth/courier/register/:token', (req, res) => controllers.submitCourierApplicationByRegistrationLink(req, res));
@@ -195,7 +196,7 @@ routes.post('/auth/web/orders/bulk/pay', verifyWebSession, (req, res) => control
 
 // Public HR Careers routes
 routes.get('/api/v1/public/jobs', (req, res) => controllers.hr.getPublicJobs(req, res));
-routes.post('/api/v1/public/jobs/:id/apply', (req, res) => controllers.hr.applyForJob(req, res));
+routes.post('/api/v1/public/jobs/:id/apply', publicEndpointRateLimiter, (req, res) => controllers.hr.applyForJob(req, res));
 
 // Public News routes
 routes.get('/api/v1/public/news', (req, res) => controllers.news.getPublicNews(req, res));
@@ -307,9 +308,12 @@ routes.post('/admin/maps-provider-credentials', requireRole(['super_admin', 'ops
 routes.post('/admin/maps-provider-credentials/:id/validate', requireRole(['super_admin', 'ops_security']), requireTotp, (req, res) => controllers.validateAdminMapsProviderCredential(req, res));
 routes.post('/admin/maps-provider-credentials/:id/activate', requireRole(['super_admin', 'ops_security']), requireTotp, (req, res) => controllers.activateAdminMapsProviderCredential(req, res));
 routes.post('/admin/maps-provider-credentials/:id/deactivate', requireRole(['super_admin', 'ops_security']), requireTotp, (req, res) => controllers.deactivateAdminMapsProviderCredential(req, res));
+// SECURITY 2026: inviteAdmin dan deleteAdmin tanpa super_admin role restriction.
+// Celah: ops_admin bisa membuat akun super_admin baru atau menghapus admin lain.
+// Real incident: privilege escalation via admin management endpoint (2023 crypto exchange breach).
 routes.get('/admin/admins', (req, res) => controllers.getAllAdmins(req, res));
-routes.post('/admin/admins', (req, res) => controllers.inviteAdmin(req, res));
-routes.delete('/admin/admins/:id', (req, res) => controllers.deleteAdmin(req, res));
+routes.post('/admin/admins', requireRole(['super_admin']), requireTotp, (req, res) => controllers.inviteAdmin(req, res));
+routes.delete('/admin/admins/:id', requireRole(['super_admin']), requireTotp, (req, res) => controllers.deleteAdmin(req, res));
 
 // Logistics Providers Management
 routes.get('/admin/logistics-providers', (req, res) => controllers.getLogisticsProviders(req, res));
@@ -384,12 +388,22 @@ routes.get('/admin/finance/payouts', (req, res) => controllers.getPayouts(req, r
 routes.get('/admin/finance/payouts/export', (req, res) => controllers.exportPayouts(req, res));
 routes.get('/admin/finance/payout-risk-audit/export', (req, res) => controllers.exportCourierPayoutRiskAudit(req, res));
 routes.get('/admin/finance/payout-ops-dashboard', (req, res) => controllers.getCourierPayoutOpsDashboard(req, res));
-routes.post('/admin/finance/payouts/batch-release', (req, res) => controllers.batchReleasePayouts(req, res));
+// SECURITY 2026: batch-release memindahkan SEMUA payout 'pending' ke 'completed'
+// tanpa verifikasi per-payout. Wajib TOTP + role finance.
+// Real breach: insider threat melakukan batch release fiktif tanpa MFA (Pix 2024).
+routes.post('/admin/finance/payouts/batch-release', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.batchReleasePayouts(req, res));
 routes.post('/admin/finance/payouts/dispatch-approved', requireTotp, (req, res) => controllers.runCourierPayoutDispatcher(req, res));
 routes.post('/admin/finance/payouts/reconcile', requireTotp, (req, res) => controllers.runCourierPayoutReconciliation(req, res));
-routes.patch('/admin/finance/payouts/:id', (req, res) => controllers.updatePayoutStatus(req, res));
-routes.post('/admin/finance/emergency-fund/top-up', (req, res) => controllers.topUpEmergencyFund(req, res));
+routes.patch('/admin/finance/payouts/:id', requireTotp, (req, res) => controllers.updatePayoutStatus(req, res));
+// SECURITY 2026: Top-up emergency fund tanpa TOTP + role restriction
+// = siapapun yang dapat akses admin panel bisa memindahkan dana besar.
+// Wajib super_admin atau finance_admin + TOTP.
+routes.post('/admin/finance/emergency-fund/top-up', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.topUpEmergencyFund(req, res));
 routes.get('/admin/finance/masa-report/export', (req, res) => controllers.exportMasaReport(req, res));
+routes.get('/admin/finance/merchant-settlements', (req, res) => controllers.merchantSettlement.listMerchantSettlements(req, res));
+routes.get('/admin/finance/merchant-settlements/configs', (req, res) => controllers.merchantSettlement.getSettlementConfigs(req, res));
+routes.put('/admin/finance/merchant-settlements/configs', requireTotp, (req, res) => controllers.merchantSettlement.updateSettlementConfigs(req, res));
+routes.patch('/admin/finance/merchant-settlements/merchants/:merchantId/verify-bank', requireTotp, (req, res) => controllers.merchantSettlement.verifyMerchantBank(req, res));
 
 
 // Customer Management
@@ -449,13 +463,16 @@ routes.post('/admin/promos/:id/publish', requireRole(['super_admin', 'finance_ad
 routes.post('/admin/promos/:id/pause', requireRole(['super_admin', 'finance_admin', 'ops_admin']), requireTotp, promoMutationRateLimiter, (req, res) => controllers.pauseAdminPromoCampaign(req, res));
 routes.post('/admin/promos/:id/notify', requireRole(['super_admin', 'finance_admin']), requireTotp, promoMutationRateLimiter, (req, res) => controllers.notifyAdminPromoCampaign(req, res));
 
-// Pricing Configuration
+// SECURITY 2026: updatePricingConfig tanpa TOTP = pricing manipulation attack.
+// Penyerang yang hijack admin session bisa ubah per_km_rate ke 0 = semua order gratis.
+// Wajib TOTP + super_admin only.
 routes.get('/admin/pricing', (req, res) => controllers.getPricingConfig(req, res));
-routes.put('/admin/pricing', (req, res) => controllers.updatePricingConfig(req, res));
+routes.put('/admin/pricing', requireRole(['super_admin']), requireTotp, (req, res) => controllers.updatePricingConfig(req, res));
 
-// SLA Configuration
+// SECURITY 2026: updateSLAConfig tanpa TOTP = SLA manipulation attack.
+// Penyerang bisa set max_minutes ke nilai sangat besar = tidak ada alert keterlambatan.
 routes.get('/admin/sla-configs', (req, res) => controllers.getSLAConfigs(req, res));
-routes.patch('/admin/sla-configs', (req, res) => controllers.updateSLAConfig(req, res));
+routes.patch('/admin/sla-configs', requireRole(['super_admin', 'ops_admin']), requireTotp, (req, res) => controllers.updateSLAConfig(req, res));
 
 // Analytics
 routes.get('/admin/analytics/kpis', (req, res) => controllers.getAnalyticsKPIs(req, res));
@@ -495,4 +512,17 @@ routes.get('/admin/finance/pph-report', (req, res) => controllers.getPphReport(r
 routes.get('/admin/finance/tax-efaktur/export', (req, res) => controllers.exportTaxEfakturCSV(req, res));
 routes.get('/admin/finance/tax-pph23/export', (req, res) => controllers.exportTaxPPh23CSV(req, res));
 routes.get('/admin/finance/ledger', (req, res) => controllers.getLedgerReport(req, res));
+
+// Cost Intelligence & Auto-Pricing Engine (OPEX/CAPEX) — Super Admin only
+routes.get('/admin/cost-configs', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.listCostConfigs(req, res));
+routes.get('/admin/cost-configs/active', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.getActiveCostConfig(req, res));
+routes.get('/admin/cost-configs/:id', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.getCostConfig(req, res));
+routes.post('/admin/cost-configs', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.createCostConfig(req, res));
+routes.put('/admin/cost-configs/:id', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.updateCostConfig(req, res));
+routes.post('/admin/cost-configs/:id/activate', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.activateCostConfig(req, res));
+routes.get('/admin/cost-configs/:id/breakdown', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.getCostBreakdown(req, res));
+routes.post('/admin/cost-configs/:id/generate-recommendation', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.generateRecommendation(req, res));
+routes.get('/admin/pricing-recommendations', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.listRecommendations(req, res));
+routes.post('/admin/pricing-recommendations/:id/approve', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.approveRecommendation(req, res));
+routes.post('/admin/pricing-recommendations/:id/reject', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.rejectRecommendation(req, res));
 

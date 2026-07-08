@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
+import { getActorId } from '../utils/authUtils';
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
@@ -299,7 +301,7 @@ export const testAdminMapsProviderCredential = async (req: Request, res: Respons
 
 export const createAdminMapsProviderCredential = async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await createMapsRuntimeCredential(req.body || {}, req.user?.id || null);
+    const result = await createMapsRuntimeCredential(req.body || {}, getActorId(req));
     res.status(201).json(result);
   } catch (error) {
     sendMapsCredentialError(res, error);
@@ -309,7 +311,7 @@ export const createAdminMapsProviderCredential = async (req: Request, res: Respo
 export const validateAdminMapsProviderCredential = async (req: Request, res: Response): Promise<void> => {
   try {
     const credentialId = requireMapsCredentialIdParam(req.params.id);
-    const result = await validateStoredMapsRuntimeCredential(credentialId, req.user?.id || null);
+    const result = await validateStoredMapsRuntimeCredential(credentialId, getActorId(req));
     res.status(result.validation.status === 'valid' ? 200 : 422).json(result);
   } catch (error) {
     sendMapsCredentialError(res, error);
@@ -319,7 +321,7 @@ export const validateAdminMapsProviderCredential = async (req: Request, res: Res
 export const activateAdminMapsProviderCredential = async (req: Request, res: Response): Promise<void> => {
   try {
     const credentialId = requireMapsCredentialIdParam(req.params.id);
-    const result = await activateMapsRuntimeCredential(credentialId, req.user?.id || null);
+    const result = await activateMapsRuntimeCredential(credentialId, getActorId(req));
     getIO().emit('config:changed', { key: 'maps_provider_credential', action: 'activated', updated_at: new Date() });
     res.json(result);
   } catch (error) {
@@ -332,7 +334,7 @@ export const deactivateAdminMapsProviderCredential = async (req: Request, res: R
     const credentialId = requireMapsCredentialIdParam(req.params.id);
     const result = await deactivateMapsRuntimeCredential(
       credentialId,
-      req.user?.id || null,
+      getActorId(req),
       req.body?.reactivate_previous !== false
     );
     getIO().emit('config:changed', { key: 'maps_provider_credential', action: 'deactivated', updated_at: new Date() });
@@ -349,7 +351,7 @@ export const updateSystemConfig = async (req: Request, res: Response): Promise<v
   console.log(`[updateSystemConfig] key: ${key}, value: ${value}`);
 
   if (typeof value === 'number' && isNaN(value)) {
-    console.error(`[updateSystemConfig] ERROR: Invalid config value (NaN) for key=${key}`);
+    securityLog.error(`[updateSystemConfig] ERROR: Invalid config value (NaN) for key=${key}`);
     res.status(400).json({ error: 'Invalid config value: NaN' });
     return;
   }
@@ -372,7 +374,7 @@ export const updateSystemConfig = async (req: Request, res: Response): Promise<v
       [JSON.stringify(value), description, category, key]
     );
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
 
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
@@ -386,7 +388,7 @@ export const updateSystemConfig = async (req: Request, res: Response): Promise<v
 
     res.json(updateRes.rows[0]);
   } catch (error: any) {
-    console.error(`[updateSystemConfig] FATAL ERROR: ${error.message}`, error.stack);
+    securityLog.error(`[updateSystemConfig] FATAL ERROR: ${error.message}`, error.stack);
     await client.query('ROLLBACK');
     res.status(500).json({ error: error.message });
   } finally {

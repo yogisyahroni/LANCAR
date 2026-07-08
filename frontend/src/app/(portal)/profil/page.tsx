@@ -24,7 +24,9 @@ import {
   Globe, 
   Award,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  Building2,
+  Wallet
 } from 'lucide-react';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -72,8 +74,8 @@ export default function ProfilPage() {
   const { user, setAuth } = useAuthStore();
   const { addNotification } = useNotificationStore();
 
-  // Active Tab: 'akun' | 'keamanan' | 'notifikasi' | 'referral'
-  const [activeTab, setActiveTab] = useState<'akun' | 'keamanan' | 'notifikasi' | 'referral'>('akun');
+  // Active Tab: 'akun' | 'rekening' | 'keamanan' | 'notifikasi' | 'referral'
+  const [activeTab, setActiveTab] = useState<'akun' | 'rekening' | 'keamanan' | 'notifikasi' | 'referral'>('akun');
 
   // Tab Akun fields
   const [name, setName] = useState(user?.name || '');
@@ -83,6 +85,12 @@ export default function ProfilPage() {
   const [defaultPickupAddress, setDefaultPickupAddress] = useState('');
   const [awbSenderName, setAwbSenderName] = useState('');
   const [profilePic, setProfilePic] = useState<string | null>(null);
+
+  // Tab Rekening Bank fields
+  const [bankName, setBankName] = useState('');
+  const [bankAccountNumber, setBankAccountNumber] = useState('');
+  const [bankAccountHolder, setBankAccountHolder] = useState('');
+  const [isSavingBank, setIsSavingBank] = useState(false);
 
   // Crop Photo Modal State
   const [isCropOpen, setIsCropOpen] = useState(false);
@@ -127,6 +135,9 @@ export default function ProfilPage() {
         setStoreName(profile.store_name || '');
         setDefaultPickupAddress(profile.default_pickup_address || '');
         setAwbSenderName(profile.awb_sender_name || '');
+        setBankName(profile.bank_name || '');
+        setBankAccountNumber(profile.bank_account_number || '');
+        setBankAccountHolder(profile.bank_account_holder || '');
       })
       .catch(() => {
         addNotification({ title: 'Info', message: 'Profil customer belum dapat dimuat dari server.', type: 'info' });
@@ -357,6 +368,30 @@ export default function ProfilPage() {
     }
   };
 
+  const handleSaveBank = async () => {
+    try {
+      setIsSavingBank(true);
+      await api.patch('/api/v1/profile/bank', {
+        bank_name: bankName,
+        bank_account_number: bankAccountNumber,
+        bank_account_holder: bankAccountHolder,
+      });
+      addNotification({
+        title: 'Rekening Berhasil Disimpan',
+        message: 'Informasi rekening pencairan settlement merchant telah diperbarui.',
+        type: 'success',
+      });
+    } catch (err: any) {
+      addNotification({
+        title: 'Gagal Menyimpan Rekening',
+        message: err?.response?.data?.error || 'Terjadi kesalahan sistem saat memperbarui rekening.',
+        type: 'error',
+      });
+    } finally {
+      setIsSavingBank(false);
+    }
+  };
+
   return (
     <div className="space-y-6 select-none">
       <motion.div
@@ -376,6 +411,7 @@ export default function ProfilPage() {
       <div className="flex border-b border-border/40 gap-1 select-none overflow-x-auto">
         {[
           { id: 'akun', label: 'Informasi Akun', icon: User },
+          { id: 'rekening', label: 'Rekening Bank', icon: Building2 },
           { id: 'keamanan', label: 'Keamanan & Login', icon: ShieldCheck },
           { id: 'notifikasi', label: 'Preferensi Notif', icon: BellRing },
           { id: 'referral', label: 'Referral & Reward', icon: Gift },
@@ -528,7 +564,84 @@ export default function ProfilPage() {
             </motion.div>
           )}
 
-          {/* TAB 2: KEAMANAN */}
+          {/* TAB 2: REKENING BANK SETTLEMENT */}
+          {activeTab === 'rekening' && (
+            <motion.div
+              key="rekening"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6 select-none"
+            >
+              <div className="p-6 rounded-2xl border border-border/40 bg-card/60 backdrop-blur-sm space-y-6">
+                <div>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <Wallet className="h-5 w-5 text-primary" />
+                    Rekening Bank Pencairan (Settlement & Escrow)
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Rekening tujuan pencairan dana dari pesanan COD/Agregator maupun penahanan Escrow setelah paket sukses terkirim dan terverifikasi POD.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground">Nama Bank</label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: BCA / Mandiri / BRI / BNI"
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      className="w-full bg-muted/40 border border-border/40 p-3 rounded-xl text-sm font-medium focus:outline-none focus:border-primary/60 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground">Nomor Rekening</label>
+                    <input
+                      type="text"
+                      placeholder="Contoh: 1234567890"
+                      value={bankAccountNumber}
+                      onChange={(e) => setBankAccountNumber(e.target.value)}
+                      className="w-full bg-muted/40 border border-border/40 p-3 rounded-xl text-sm font-mono font-semibold focus:outline-none focus:border-primary/60 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground">Atas Nama Pemilik Rekening</label>
+                    <input
+                      type="text"
+                      placeholder="Nama sesuai buku rekening"
+                      value={bankAccountHolder}
+                      onChange={(e) => setBankAccountHolder(e.target.value)}
+                      className="w-full bg-muted/40 border border-border/40 p-3 rounded-xl text-sm font-medium focus:outline-none focus:border-primary/60 mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveBank}
+                    disabled={isSavingBank}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSavingBank ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Menyimpan...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-4 w-4" />
+                        Simpan Rekening Pencairan
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* TAB 3: KEAMANAN */}
           {activeTab === 'keamanan' && (
             <motion.div
               key="keamanan"

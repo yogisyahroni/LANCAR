@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
 import crypto from 'crypto';
 import axios from 'axios';
 import { db } from '../db';
@@ -516,7 +517,7 @@ export const uploadBulkExcel = async (req: Request, res: Response): Promise<void
     })();
 
   } catch (error: any) {
-    console.error('Bulk Upload Error:', error);
+    securityLog.error('Bulk Upload Error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -820,7 +821,7 @@ export const processBulkPayment = async (req: Request, res: Response): Promise<v
         }, {
           headers: { 'X-Internal-Api-Key': process.env.INTERNAL_API_KEY || 'dev-internal-key-super-secret' }
         }).catch(err => {
-          console.error(`[bulkOrder] Failed to send WA to ${row.recipient_phone}:`, err.message);
+          securityLog.error(`[bulkOrder] Failed to send WA to ${row.recipient_phone}:`, err.message);
         });
       }
     }

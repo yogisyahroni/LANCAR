@@ -731,9 +731,6 @@ func (s *AuthService) RefreshToken(ctx context.Context, oldRefreshToken, deviceI
 	span.SetAttributes(attribute.String("auth.user_role", string(user.Role)))
 
 	// Generate New Pair
-	// Note: We'll assume the session was verified if it exists and 2FA was required.
-	// For now, if role is SuperAdmin/Finance, we should check if they actually verified.
-	// We'll pass true if the user's role doesn't require 2FA, or if the session is valid.
 	permissions, err := s.userRepo.GetPermissionsByRole(ctx, string(user.Role))
 	if err != nil {
 		result = "permissions_fetch_failed"
@@ -741,7 +738,18 @@ func (s *AuthService) RefreshToken(ctx context.Context, oldRefreshToken, deviceI
 		return nil, err
 	}
 
-	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, true, utils.GetAccessTokenTTL())
+	// SECURITY 2026 — MFA State Preservation pada Token Refresh:
+	// Sebelumnya: totp_verified=true selalu di-hardcode → admin yang 2FA-nya dinonaktifkan
+	// tetap mendapat token dengan totp_verified=true setelah refresh.
+	// Fix: totp_verified di token baru harus mencerminkan apakah user SAAT INI memiliki
+	// 2FA aktif (is_2fa_enabled=true). Jika 2FA disabled, token baru tidak boleh
+	// mengklaim totp_verified=true.
+	// Catatan: Kita tidak meminta TOTP ulang saat refresh (itu adalah UX yang benar
+	// untuk session yang masih valid), tapi kita tidak bisa "meminta" verifikasi
+	// yang tidak pernah dilakukan.
+	totpVerified := user.Is2FAEnabled // Hanya true jika user memang aktif pakai 2FA
+
+	accessToken, err := utils.GenerateToken(user.ID, string(user.Role), permissions, totpVerified, utils.GetAccessTokenTTL())
 	if err != nil {
 		result = "access_token_generation_failed"
 		failed = true
@@ -1334,4 +1342,17 @@ func getActorIDFromContext(ctx context.Context) string {
 		return v
 	}
 	return "system"
+}
+
+// UpdateBankProfile memperbarui data rekening bank penjual/kurir untuk pencairan dana/settlement.
+func (s *AuthService) UpdateBankProfile(ctx context.Context, userID, bankName, accountNumber, accountHolder string) error {
+	bankName = strings.TrimSpace(bankName)
+	accountNumber = strings.TrimSpace(accountNumber)
+	accountHolder = strings.TrimSpace(accountHolder)
+
+	if bankName == "" || accountNumber == "" || accountHolder == "" {
+		return errors.New("bank_name, bank_account_number, and bank_account_holder are required")
+	}
+
+	return s.userRepo.UpdateBankProfile(ctx, userID, bankName, accountNumber, accountHolder)
 }

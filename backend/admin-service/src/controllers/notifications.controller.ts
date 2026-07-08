@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
+import { getActorId } from '../utils/authUtils';
 import { db, readDb } from '../db';
 
 export const getNotificationTemplates = async (req: Request, res: Response): Promise<void> => {
@@ -16,7 +18,7 @@ export const getNotificationTemplates = async (req: Request, res: Response): Pro
     `);
     res.json(result.rows);
   } catch (error: any) {
-    console.error('Error fetching notification templates:', error);
+    securityLog.error('Error fetching notification templates:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -41,7 +43,7 @@ export const getNotificationTemplateById = async (req: Request, res: Response): 
     }
     res.json(result.rows[0]);
   } catch (error: any) {
-    console.error('Error fetching notification template by ID:', error);
+    securityLog.error('Error fetching notification template by ID:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -64,7 +66,7 @@ export const createNotificationTemplate = async (req: Request, res: Response): P
       [trigger, subject, content, Array.isArray(channels) ? channels[0] : 'email']
     );
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -75,7 +77,7 @@ export const createNotificationTemplate = async (req: Request, res: Response): P
     res.status(201).json(result.rows[0]);
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error creating notification template:', error);
+    securityLog.error('Error creating notification template:', error);
     res.status(500).json({ error: error.message });
   } finally {
     client.release();
@@ -102,7 +104,7 @@ export const updateNotificationTemplate = async (req: Request, res: Response): P
       [subject, content, Array.isArray(channels) ? channels[0] : null, id]
     );
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -113,7 +115,7 @@ export const updateNotificationTemplate = async (req: Request, res: Response): P
     res.json(result.rows[0]);
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error updating notification template:', error);
+    securityLog.error('Error updating notification template:', error);
     res.status(500).json({ error: error.message });
   } finally {
     client.release();
@@ -137,7 +139,7 @@ export const deleteNotificationTemplate = async (req: Request, res: Response): P
 
     await client.query("DELETE FROM notification_templates WHERE id = $1", [id]);
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, category) 
        VALUES ($1, $2, $3, $4, $5)`,
@@ -148,7 +150,7 @@ export const deleteNotificationTemplate = async (req: Request, res: Response): P
     res.json({ message: 'Template deleted successfully' });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error deleting notification template:', error);
+    securityLog.error('Error deleting notification template:', error);
     res.status(500).json({ error: error.message });
   } finally {
     client.release();

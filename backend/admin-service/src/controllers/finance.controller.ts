@@ -1,12 +1,14 @@
 import { Request, Response } from 'express';
+import { getActorId } from '../utils/authUtils';
 import { db, readDb } from '../db';
 import { applyProviderCallback, dispatchApprovedPayouts, sha256Hex, verifyProviderWebhookSignature } from '../services/payoutProviderDispatcher';
 import { getPayoutOpsDashboard, runPayoutReconciliation } from '../services/payoutReconciliation';
 import { activePayoutStatuses, decoratePayoutRequest } from '../services/payoutStatusPolicy';
 import { evaluatePayoutAlerts, writePayoutAuditEvent } from '../utils/payoutObservability';
 import { insertWebhookAuditEvent, updateWebhookAuditEvent } from '../security/webhookSecurity';
+import { securityLog } from '../security/logRedaction';
 
-const adminActorId = (req: Request) => req.user?.id || '9b6a89d7-ab83-4df9-86fa-dd714ea50be0';
+const adminActorId = (req: Request) => getActorId(req);
 
 const writeFinanceAudit = async (
   client: any,
@@ -154,7 +156,7 @@ export const getFinancialStats = async (req: Request, res: Response): Promise<vo
       ]
     });
   } catch (error: any) {
-    console.error('Error fetching financial stats:', error);
+    securityLog.error('Error fetching financial stats:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -170,7 +172,7 @@ export const getPayouts = async (req: Request, res: Response): Promise<void> => 
     `);
     res.json(result.rows);
   } catch (error: any) {
-    console.error('Error fetching payouts:', error);
+    securityLog.error('Error fetching payouts:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -222,7 +224,7 @@ export const getCourierPayoutAccounts = async (req: Request, res: Response): Pro
 
     res.json({ success: true, data: result.rows });
   } catch (error: any) {
-    console.error('Error fetching courier payout accounts:', error);
+    securityLog.error('Error fetching courier payout accounts:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -297,7 +299,7 @@ export const updateCourierPayoutAccountStatus = async (req: Request, res: Respon
     res.json({ success: true, data: result.rows[0] });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error updating courier payout account:', error);
+    securityLog.error('Error updating courier payout account:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();
@@ -396,7 +398,7 @@ export const getCourierPayoutRequests = async (req: Request, res: Response): Pro
       },
     });
   } catch (error: any) {
-    console.error('Error fetching courier payout requests:', error);
+    securityLog.error('Error fetching courier payout requests:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -551,7 +553,7 @@ export const updateCourierPayoutRequestStatus = async (req: Request, res: Respon
     res.json({ success: true, data: result.rows[0] });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error updating courier payout request:', error);
+    securityLog.error('Error updating courier payout request:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();
@@ -627,7 +629,7 @@ export const getCourierPayoutReviewQueue = async (req: Request, res: Response): 
       },
     });
   } catch (error: any) {
-    console.error('Error fetching courier payout review queue:', error);
+    securityLog.error('Error fetching courier payout review queue:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -774,7 +776,7 @@ export const getCourierPayoutRequestDetail = async (req: Request, res: Response)
       },
     });
   } catch (error: any) {
-    console.error('Error fetching courier payout request detail:', error);
+    securityLog.error('Error fetching courier payout request detail:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -954,7 +956,7 @@ export const reviewCourierPayoutRequestAction = async (req: Request, res: Respon
     res.json({ success: true, data: decoratePayoutRequest(updated.rows[0]) });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error reviewing courier payout request:', error);
+    securityLog.error('Error reviewing courier payout request:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();
@@ -992,7 +994,7 @@ export const updatePayoutStatus = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -1003,7 +1005,7 @@ export const updatePayoutStatus = async (req: Request, res: Response): Promise<v
     res.json(result.rows[0]);
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error updating payout status:', error);
+    securityLog.error('Error updating payout status:', error);
     res.status(500).json({ error: error.message });
   } finally {
     client.release();
@@ -1011,6 +1013,14 @@ export const updatePayoutStatus = async (req: Request, res: Response): Promise<v
 };
 
 export const batchReleasePayouts = async (req: Request, res: Response): Promise<void> => {
+  // SECURITY 2026: Wajib aktor yang teridentifikasi untuk audit trail.
+  // Fallback UUID statis membuat audit log tidak berguna — tidak bisa trace siapa yang approve.
+  const actorId = req.user?.id;
+  if (!actorId) {
+    res.status(401).json({ error: 'Unauthorized: Actor identity required for financial operations' });
+    return;
+  }
+
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -1025,19 +1035,19 @@ export const batchReleasePayouts = async (req: Request, res: Response): Promise<
       RETURNING id
     `);
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      ['payout:batch_release', true, changedBy, `Batch released ${result.rows.length} payouts`, JSON.stringify({ count: result.rows.length }), 'finance']
+      ['payout:batch_release', true, actorId, `Batch released ${result.rows.length} payouts`, JSON.stringify({ count: result.rows.length }), 'finance']
     );
 
     await client.query('COMMIT');
     res.json({ success: true, count: result.rows.length });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error batch releasing payouts:', error);
-    res.status(500).json({ error: error.message });
+    // SECURITY: Jangan expose error.message ke client — bisa bocorkan struktur DB
+    securityLog.error('batchReleasePayouts failed', { error: error?.message, actorId });
+    res.status(500).json({ error: 'Internal server error during batch release' });
   } finally {
     client.release();
   }
@@ -1048,7 +1058,7 @@ export const runCourierPayoutDispatcher = async (req: Request, res: Response): P
     const result = await dispatchApprovedPayouts(db, req);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error running courier payout dispatcher:', error);
+    securityLog.error('Error running courier payout dispatcher:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -1059,7 +1069,7 @@ export const runCourierPayoutReconciliation = async (req: Request, res: Response
     await evaluatePayoutAlerts(db);
     res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error('Error running courier payout reconciliation:', error);
+    securityLog.error('Error running courier payout reconciliation:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -1069,7 +1079,7 @@ export const getCourierPayoutOpsDashboard = async (req: Request, res: Response):
     const data = await getPayoutOpsDashboard(readDb);
     res.json({ success: true, data });
   } catch (error: any) {
-    console.error('Error fetching courier payout ops dashboard:', error);
+    securityLog.error('Error fetching courier payout ops dashboard:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -1203,7 +1213,7 @@ export const handleCourierPayoutProviderWebhook = async (req: Request, res: Resp
     res.json({ success: true, data: result });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error handling payout provider webhook:', error);
+    securityLog.error('Error handling payout provider webhook:', error);
     if (auditEventId) {
       await updateWebhookAuditEvent(db, auditEventId, 'failed', 'processing_failed').catch(() => undefined);
     }
@@ -1242,7 +1252,7 @@ export const exportPayouts = async (req: Request, res: Response): Promise<void> 
     res.setHeader('Content-Disposition', 'attachment; filename=payouts_export.csv');
     res.send(csvRows);
   } catch (error: any) {
-    console.error('Error exporting payouts:', error);
+    securityLog.error('Error exporting payouts:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -1294,12 +1304,20 @@ export const exportCourierPayoutRiskAudit = async (req: Request, res: Response):
     res.setHeader('Content-Disposition', 'attachment; filename=courier_payout_risk_audit.csv');
     res.send(csvRows);
   } catch (error: any) {
-    console.error('Error exporting courier payout risk audit:', error);
+    securityLog.error('Error exporting courier payout risk audit:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 };
 
 export const topUpEmergencyFund = async (req: Request, res: Response): Promise<void> => {
+  // SECURITY 2026: Wajib aktor teridentifikasi — fallback UUID statis membuat
+  // audit trail tidak berguna untuk investigasi forensik.
+  const actorId = req.user?.id;
+  if (!actorId) {
+    res.status(401).json({ error: 'Unauthorized: Actor identity required for financial operations' });
+    return;
+  }
+
   const { amount, reason } = req.body;
 
   if (!amount || amount <= 0) {
@@ -1328,19 +1346,19 @@ export const topUpEmergencyFund = async (req: Request, res: Response): Promise<v
       [configKey, JSON.stringify(newBase), 'Base emergency fund balance']
     );
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      ['finance:emergency_fund_topup', true, changedBy, reason || `Top up emergency fund by ${amount}`, JSON.stringify({ amount, newTotal: newBase }), 'finance']
+      ['finance:emergency_fund_topup', true, actorId, reason || `Top up emergency fund by ${amount}`, JSON.stringify({ amount, newTotal: newBase }), 'finance']
     );
 
     await client.query('COMMIT');
     res.json({ success: true, newTotal: newBase });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error topping up emergency fund:', error);
-    res.status(500).json({ error: error.message });
+    // SECURITY: Jangan expose error.message — bisa bocorkan struktur DB
+    securityLog.error('topUpEmergencyFund failed', { error: error?.message, actorId });
+    res.status(500).json({ error: 'Internal server error during emergency fund top-up' });
   } finally {
     client.release();
   }
@@ -1474,7 +1492,7 @@ export const getCashPosition = async (req: Request, res: Response): Promise<void
       cash_ratio: inflow30d > 0 ? parseFloat(((inflow30d - outflow30d) / inflow30d * 100).toFixed(1)) : 0,
     });
   } catch (error: any) {
-    console.error('[getCashPosition] error:', error.message);
+    securityLog.error('[getCashPosition] error:', error.message);
     res.status(500).json({ error: error.message });
   }
 };
@@ -1588,7 +1606,7 @@ export const getPnlReport = async (req: Request, res: Response): Promise<void> =
       })),
     });
   } catch (error: any) {
-    console.error('[getPnlReport] error:', error.message);
+    securityLog.error('[getPnlReport] error:', error.message);
     res.status(500).json({ error: error.message });
   }
 };
@@ -1638,7 +1656,7 @@ export const getTaxDashboard = async (req: Request, res: Response): Promise<void
       })),
     });
   } catch (error: any) {
-    console.error('[getTaxDashboard] error:', error.message);
+    securityLog.error('[getTaxDashboard] error:', error.message);
     res.status(500).json({ error: error.message });
   }
 };
@@ -1700,7 +1718,7 @@ export const getPphReport = async (req: Request, res: Response): Promise<void> =
       })),
     });
   } catch (error: any) {
-    console.error('[getPphReport] error:', error.message);
+    securityLog.error('[getPphReport] error:', error.message);
     res.status(500).json({ error: error.message });
   }
 };
@@ -1739,7 +1757,7 @@ export const exportTaxEfakturCSV = async (req: Request, res: Response): Promise<
     res.setHeader('Content-Disposition', `attachment; filename="eFaktur_Keluaran_${period}.csv"`);
     res.status(200).send(csvContent);
   } catch (error: any) {
-    console.error('[exportTaxEfakturCSV] error:', error.message);
+    securityLog.error('[exportTaxEfakturCSV] error:', error.message);
     res.status(500).json({ error: error.message });
   }
 };
@@ -1778,7 +1796,7 @@ export const exportTaxPPh23CSV = async (req: Request, res: Response): Promise<vo
     res.setHeader('Content-Disposition', `attachment; filename="BuktiPotong_PPh21_${period}.csv"`);
     res.status(200).send(csvContent);
   } catch (error: any) {
-    console.error('[exportTaxPPh23CSV] error:', error.message);
+    securityLog.error('[exportTaxPPh23CSV] error:', error.message);
     res.status(500).json({ error: error.message });
   }
 };
@@ -1803,7 +1821,7 @@ export const getLedgerReport = async (req: Request, res: Response): Promise<void
       total_count: mockLedgerEntries.length
     });
   } catch (error: any) {
-    console.error('[getLedgerReport] error:', error.message);
+    securityLog.error('[getLedgerReport] error:', error.message);
     res.status(500).json({ error: error.message });
   }
 };

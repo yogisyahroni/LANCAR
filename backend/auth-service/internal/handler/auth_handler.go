@@ -50,6 +50,7 @@ type AuthHandler struct {
 		CreateAdminUser(ctx context.Context, actorID string, fullName, phoneNumber, role string) (*domain.User, error)
 		VerifyCourierLiveness(ctx context.Context, userID string, imageBase64 string) (bool, error)
 		LogLocalSecurityEvent(ctx context.Context, userID string, actionType string, method string, orderID *string) error
+		UpdateBankProfile(ctx context.Context, userID, bankName, accountNumber, accountHolder string) error
 	}
 }
 
@@ -993,4 +994,79 @@ func (h *AuthHandler) LogLocalSecurity(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(map[string]string{"message": "Local security event logged successfully"})
+}
+
+// UpdateBankProfile handles PATCH /api/v1/profile/bank
+// @Summary Update User Bank Account Profile
+// @Description Update bank name, account number, and account holder for payout settlements
+// @Tags Profile
+// @Accept json
+// @Produce json
+// @Param request body object true "Bank Profile Payload"
+// @Success 200 {object} map[string]string
+// @Router /profile/bank [patch]
+func (h *AuthHandler) UpdateBankProfile(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Missing or invalid token", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	var req struct {
+		BankName          string `json:"bank_name"`
+		BankCode          string `json:"bank_code"`
+		BankAccountNumber string `json:"bank_account_number"`
+		BankAccountHolder string `json:"bank_account_holder"`
+		BankAccountName   string `json:"bank_account_name"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Invalid request body", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	bankName := strings.TrimSpace(req.BankName)
+	if bankName == "" {
+		bankName = strings.TrimSpace(req.BankCode)
+	}
+	accountHolder := strings.TrimSpace(req.BankAccountHolder)
+	if accountHolder == "" {
+		accountHolder = strings.TrimSpace(req.BankAccountName)
+	}
+	accountNumber := strings.TrimSpace(req.BankAccountNumber)
+
+	if bankName == "" || accountNumber == "" || accountHolder == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "All bank profile fields are required", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	// OWASP 2026 Strict Input Validation & Sanitization
+	if len(accountNumber) < 6 || len(accountNumber) > 30 {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Bank account number must be between 6 and 30 characters", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+	for _, ch := range accountNumber {
+		if !(ch >= '0' && ch <= '9') && !(ch >= 'A' && ch <= 'Z') && !(ch >= 'a' && ch <= 'z') && ch != '-' {
+			middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Bank account number contains invalid characters", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			return
+		}
+	}
+	if len(bankName) > 50 || len(accountHolder) > 100 {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Bank name or account holder name exceeds maximum allowed length", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+	// Strip dangerous HTML/script characters
+	bankName = strings.ReplaceAll(strings.ReplaceAll(bankName, "<", ""), ">", "")
+	accountHolder = strings.ReplaceAll(strings.ReplaceAll(accountHolder, "<", ""), ">", "")
+
+	if err := h.svc.UpdateBankProfile(r.Context(), userID, bankName, accountNumber, accountHolder); err != nil {
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to update bank profile: "+err.Error(), middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status":  "success",
+		"message": "Bank profile updated successfully",
+	})
 }

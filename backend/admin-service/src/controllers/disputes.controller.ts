@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
 import { db, readDb } from '../db';
 import { createNotification } from '../notifications';
 import { getIO } from '../websocket';
@@ -44,7 +45,7 @@ export const getDisputes = async (req: Request, res: Response) => {
     const result = await readDb.query(dataQuery, params);
     res.json({ data: result.rows, total, page, limit });
   } catch (error: any) {
-    console.error('Error fetching disputes:', error);
+    securityLog.error('Error fetching disputes:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -61,7 +62,7 @@ export const getDisputeStats = async (req: Request, res: Response) => {
     `);
     res.json(stats.rows[0]);
   } catch (error: any) {
-    console.error('Error fetching dispute stats:', error);
+    securityLog.error('Error fetching dispute stats:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -121,7 +122,7 @@ export const updateDisputeStatus = async (req: Request, res: Response) => {
 
     res.json(dispute);
   } catch (error: any) {
-    console.error('Error updating dispute status:', error);
+    securityLog.error('Error updating dispute status:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -146,7 +147,7 @@ export const assignDispute = async (req: Request, res: Response) => {
 
     res.json(result.rows[0]);
   } catch (error: any) {
-    console.error('Error assigning dispute:', error);
+    securityLog.error('Error assigning dispute:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -209,7 +210,7 @@ export const createDispute = async (req: Request, res: Response) => {
 
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (error: any) {
-    console.error('Error creating dispute:', error);
+    securityLog.error('Error creating dispute:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -255,7 +256,7 @@ export const uploadDisputeFile = async (req: Request, res: Response) => {
     const savedUpload = saveSecureUploadBuffer(req.file, 'disputes');
     res.json({ success: true, url: savedUpload.fileUrl });
   } catch (error: any) {
-    console.error('Error uploading dispute file:', error);
+    securityLog.error('Error uploading dispute file:', error);
     res.status(500).json({ error: error.message });
   }
 };

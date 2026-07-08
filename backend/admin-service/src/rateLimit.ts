@@ -205,3 +205,37 @@ export const promoReadRateLimiter = createAuthenticatedMutationRateLimiter(
   'promo_read',
   promoReadLimit,
 );
+
+export const publicEndpointRateLimiter = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const key = `rate_limit:public:${req.path}:${ip}`;
+    const limit = 20; // 20 requests per hour
+    const windowSeconds = 3600;
+
+    const current = await redis.get(key);
+    const currentCount = current ? Number.parseInt(current, 10) : 0;
+
+    if (currentCount >= limit) {
+      res.status(429).json({
+        success: false,
+        error: 'Too Many Requests',
+        message: 'Telah mencapai batas percobaan. Silakan coba beberapa saat lagi.',
+        code: 'ERR_RATE_LIMITED'
+      });
+      return;
+    }
+
+    const multi = redis.multi();
+    multi.incr(key);
+    if (!current) {
+      multi.expire(key, windowSeconds);
+    }
+    await multi.exec();
+
+    next();
+  } catch (error) {
+    console.error('Public endpoint rate limiter error:', error);
+    next();
+  }
+};

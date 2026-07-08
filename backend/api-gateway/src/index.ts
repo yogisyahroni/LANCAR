@@ -132,6 +132,19 @@ app.use((req, res, next) => {
   next();
 });
 
+// Block external access to internal routes
+app.use((req, res, next) => {
+  if (req.path.includes('/api/v1/internal/')) {
+    logger.logger.warn({ path: req.path, ip: req.ip }, 'Blocked external access to internal route');
+    return res.status(403).json({
+      status: 'error',
+      code: 'ERR_FORBIDDEN',
+      message: 'Access to internal routes is forbidden from external gateway'
+    });
+  }
+  next();
+});
+
 // --- ENTERPRISE RESILIENCE (Circuit Breakers) ---
 const breakerOptions = {
   timeout: 5000, // If service takes longer than 5s, trigger failure
@@ -291,12 +304,20 @@ app.use(generalLimiter);
 app.use(stripInternalIdentityHeaders);
 
 // JWT Authentication Middleware
+// SECURITY 2026 (CVE-2025-30144 / Algorithm Confusion):
+// jwt.verify tanpa opsi 'algorithms' rentan terhadap Algorithm Confusion Attack:
+// penyerang yang menguasai key RS256 sendiri bisa forge token jika library
+// fall-back ke algoritma lain. Tambah pin algorithms:['HS256'] dan validasi issuer.
 const authenticateJWT = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (authHeader) {
     const token = authHeader.split(' ')[1];
-    
-    jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+    const expectedIssuer = process.env.JWT_ISSUER || 'tembus-auth-service';
+
+    jwt.verify(token, JWT_SECRET, {
+      algorithms: ['HS256'],   // Algorithm pinning — tolak RS256/none/HS384 dsb
+      issuer: expectedIssuer,  // Validasi klaim 'iss' — cegah token cross-service
+    }, (err: any, user: any) => {
       if (err) {
         return res.status(403).json({ 
           status: 'error', 

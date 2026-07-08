@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
+import { getActorId } from '../utils/authUtils';
 import { db, readDb } from '../db';
 
 export const getVouchers = async (req: Request, res: Response): Promise<void> => {
@@ -6,8 +8,8 @@ export const getVouchers = async (req: Request, res: Response): Promise<void> =>
     const result = await readDb.query("SELECT * FROM vouchers ORDER BY created_at DESC");
     res.json(result.rows);
   } catch (error: any) {
-    console.error('Error fetching vouchers:', error);
-    console.error('VOUCHER DELETE ERROR:', error); res.status(500).json({ error: error.message });
+    securityLog.error('Error fetching vouchers:', error);
+    securityLog.error('VOUCHER DELETE ERROR:', error); res.status(500).json({ error: error.message });
   }
 };
 
@@ -22,7 +24,7 @@ export const getVoucherStats = async (req: Request, res: Response): Promise<void
       revenueImpact: 0
     });
   } catch (error: any) {
-    console.error('Error fetching voucher stats:', error);
+    securityLog.error('Error fetching voucher stats:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -52,7 +54,7 @@ export const createVoucher = async (req: Request, res: Response) => {
       [code, name, type, value, max_discount_idr, min_order_idr, quota, valid_from, valid_until, applicable_models, req.user?.id]
     );
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -90,7 +92,7 @@ export const updateVoucher = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Voucher not found' });
     }
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -123,7 +125,7 @@ export const deleteVoucher = async (req: Request, res: Response) => {
 
     await client.query('DELETE FROM vouchers WHERE id = $1', [id]);
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
        VALUES ($1, $2, $3, $4, $5, $6)`,

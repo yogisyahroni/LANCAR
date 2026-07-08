@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
 import { db, readDb } from '../db';
 
 export const getLogisticsProviders = async (req: Request, res: Response): Promise<void> => {
@@ -11,7 +12,7 @@ export const getLogisticsProviders = async (req: Request, res: Response): Promis
     `);
     res.json(result.rows);
   } catch (error: any) {
-    console.error('Error fetching logistics providers:', error);
+    securityLog.error('Error fetching logistics providers:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -47,7 +48,7 @@ export const updateLogisticsProvider = async (req: Request, res: Response): Prom
 
     res.json(result.rows[0]);
   } catch (error: any) {
-    console.error('Error updating logistics provider:', error);
+    securityLog.error('Error updating logistics provider:', error);
     res.status(500).json({ error: error.message });
   }
 };

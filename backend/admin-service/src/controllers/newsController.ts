@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
 import { db } from '../db';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
@@ -28,7 +29,7 @@ export const getPublicNews = async (req: Request, res: Response) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error("Error fetching public news:", error);
+    securityLog.error("Error fetching public news:", error);
     res.status(500).json({ error: "Failed to fetch news" });
   }
 };
@@ -48,7 +49,7 @@ export const getPublicNewsBySlug = async (req: Request, res: Response) => {
     
     res.json(result.rows[0]);
   } catch (error) {
-    console.error("Error fetching news by slug:", error);
+    securityLog.error("Error fetching news by slug:", error);
     res.status(500).json({ error: "Failed to fetch news details" });
   }
 };
@@ -63,7 +64,7 @@ export const getAdminNews = async (req: Request, res: Response) => {
     );
     res.json(result.rows);
   } catch (error) {
-    console.error("Error fetching admin news:", error);
+    securityLog.error("Error fetching admin news:", error);
     res.status(500).json({ error: "Failed to fetch news" });
   }
 };
@@ -78,7 +79,7 @@ export const getAdminNewsById = async (req: Request, res: Response) => {
     }
     res.json(result.rows[0]);
   } catch (error) {
-    console.error("Error fetching news:", error);
+    securityLog.error("Error fetching news:", error);
     res.status(500).json({ error: "Failed to fetch news" });
   }
 };
@@ -118,7 +119,7 @@ export const createAdminNews = async (req: Request, res: Response) => {
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error("Error creating news:", error);
+    securityLog.error("Error creating news:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: (error as any).errors });
     }
@@ -169,7 +170,7 @@ export const updateAdminNews = async (req: Request, res: Response) => {
 
     res.json(result.rows[0]);
   } catch (error) {
-    console.error("Error updating news:", error);
+    securityLog.error("Error updating news:", error);
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: (error as any).errors });
     }
@@ -189,7 +190,7 @@ export const deleteAdminNews = async (req: Request, res: Response) => {
     
     res.json({ message: "News deleted successfully" });
   } catch (error) {
-    console.error("Error deleting news:", error);
+    securityLog.error("Error deleting news:", error);
     res.status(500).json({ error: "Failed to delete news" });
   }
 };

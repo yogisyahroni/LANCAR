@@ -21,6 +21,7 @@ import {
   History,
   Activity,
   ChevronRight,
+  ChevronDown,
   Layers,
   ShieldAlert,
   TrendingUp,
@@ -28,6 +29,7 @@ import {
   Briefcase,
   FileText,
   Newspaper,
+  Calculator,
   Link as LinkIcon
 } from 'lucide-react'
 import { cn } from '../lib/utils'
@@ -93,6 +95,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isNotifOpen, setIsNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState<DBNotification[]>([])
   const [activeToasts, setActiveToasts] = useState<DBNotification[]>([])
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    "UTAMA": true,
+    "LOGISTIK & KURIR": true,
+    "KEUANGAN, PAJAK (VAT) & TARIF": true,
+    "MARKETING & PROMOSI": false,
+    "ZONA & PEMETAAN": false,
+    "PELANGGAN & B2B": false,
+    "HR & REKRUTMEN": false,
+    "SISTEM & AUDIT": false,
+  })
+
+  const toggleGroup = (title: string) => {
+    setOpenGroups(prev => ({ ...prev, [title]: !prev[title] }))
+  }
 
   const fetchNotifications = async () => {
     try {
@@ -171,43 +188,136 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [])
 
-  const allNavItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-    { icon: Map, label: "Zones", path: "/zones" },
-    { icon: Map, label: "Maps Runtime", path: "/maps-runtime", restrictedRoles: ['finance', 'finance_admin'] },
-    { icon: Ticket, label: "Vouchers", path: "/vouchers" },
-    { icon: BadgePercent, label: "Promos", path: "/promos" },
-    { icon: ShieldAlert, label: "API Requests", path: "/business-api-requests", restrictedRoles: ['cs_agent', 'finance', 'finance_admin'] },
-    { icon: Bell, label: "Notifications", path: "/notifications" },
-    { icon: LinkIcon, label: "Payment Links", path: "/payment-links", restrictedRoles: ['cs_agent'] },
-    { icon: FileText, label: "Resi Templates", path: "/resi-templates", restrictedRoles: ['cs_agent', 'finance', 'finance_admin'] },
-    { icon: Package, label: "Orders", path: "/orders" },
-    { icon: Layers, label: "Warehouse Ops", path: "/warehouse-operations" },
-    { icon: Truck, label: "Couriers", path: "/couriers" },
-    { icon: BadgePercent, label: "Logistics Margin", path: "/logistics-discount", restrictedRoles: ['cs_agent'] },
-    { icon: TrendingUp, label: "Courier Performance", path: "/courier-performance" },
-    { icon: ClipboardCheck, label: "Courier Review", path: "/courier-applications" },
-    { icon: ShieldAlert, label: "Face Verifications", path: "/courier-face-verifications" },
-    { icon: ShieldAlert, label: "Courier Safety", path: "/courier-safety-events" },
-    { icon: TrendingUp, label: "Courier Growth", path: "/courier-growth" },
-    { icon: DollarSign, label: "Pricing", path: "/pricing" },
-    { icon: AlertTriangle, label: "Disputes", path: "/disputes" },
-    { icon: Users, label: "Customers", path: "/customers" },
-    { icon: Briefcase, label: "HR - Jobs", path: "/hr/jobs", restrictedRoles: ['cs_agent'] },
-    { icon: FileText, label: "HR - Applicants", path: "/hr/applications", restrictedRoles: ['cs_agent'] },
-    { icon: Newspaper, label: "Berita", path: "/news", restrictedRoles: ['cs_agent'] },
-    { icon: DollarSign, label: "Finance", path: "/finance" },
-    { icon: BarChart3, label: "Analytics", path: "/analytics" },
-    { icon: History, label: "Audit Logs", path: "/audit-logs", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },
-    { icon: Settings, label: "Settings", path: "/settings", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },
+  const allNavGroups = [
+    {
+      title: "UTAMA",
+      items: [
+        { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
+        { icon: Package, label: "Orders", path: "/orders" },
+        { icon: Layers, label: "Warehouse Ops", path: "/warehouse-operations" },
+        { icon: AlertTriangle, label: "Disputes", path: "/disputes" },
+      ]
+    },
+    {
+      title: "LOGISTIK & KURIR",
+      items: [
+        { icon: Truck, label: "Couriers", path: "/couriers" },
+        { icon: ClipboardCheck, label: "Courier Review", path: "/courier-applications" },
+        { icon: TrendingUp, label: "Courier Performance", path: "/courier-performance" },
+        { icon: ShieldAlert, label: "Face Verifications", path: "/courier-face-verifications" },
+        { icon: ShieldAlert, label: "Courier Safety", path: "/courier-safety-events" },
+        { icon: TrendingUp, label: "Courier Growth", path: "/courier-growth" },
+      ]
+    },
+    {
+      title: "KEUANGAN, PAJAK (VAT) & TARIF",
+      items: [
+        { icon: DollarSign, label: "Finance & Payouts", path: "/finance" },
+        { icon: DollarSign, label: "Merchant Escrow", path: "/merchant-settlements" },
+        { icon: DollarSign, label: "Pricing & Tariffs", path: "/pricing" },
+        { icon: Calculator, label: "OPEX / CAPEX (AI)", path: "/cost-intelligence", allowedRoles: ['super_admin'] },
+        { icon: BadgePercent, label: "Logistics Margin", path: "/logistics-discount", restrictedRoles: ['cs_agent'] },
+        { icon: LinkIcon, label: "Payment Links", path: "/payment-links", restrictedRoles: ['cs_agent'] },
+      ]
+    },
+    {
+      title: "MARKETING & PROMOSI",
+      items: [
+        { icon: Ticket, label: "Vouchers", path: "/vouchers" },
+        { icon: BadgePercent, label: "Promos", path: "/promos" },
+        { icon: Newspaper, label: "Berita & Artikel", path: "/news", restrictedRoles: ['cs_agent'] },
+        { icon: FileText, label: "Resi Templates", path: "/resi-templates", restrictedRoles: ['cs_agent', 'finance', 'finance_admin'] },
+      ]
+    },
+    {
+      title: "ZONA & PEMETAAN",
+      items: [
+        { icon: Map, label: "Zones", path: "/zones" },
+        { icon: Map, label: "Maps Runtime", path: "/maps-runtime", restrictedRoles: ['finance', 'finance_admin'] },
+      ]
+    },
+    {
+      title: "PELANGGAN & B2B",
+      items: [
+        { icon: Users, label: "Customers", path: "/customers" },
+        { icon: ShieldAlert, label: "API Requests", path: "/business-api-requests", restrictedRoles: ['cs_agent', 'finance', 'finance_admin'] },
+      ]
+    },
+    {
+      title: "HR & REKRUTMEN",
+      items: [
+        { icon: Briefcase, label: "HR - Jobs", path: "/hr/jobs", restrictedRoles: ['cs_agent'] },
+        { icon: FileText, label: "HR - Applicants", path: "/hr/applications", restrictedRoles: ['cs_agent'] },
+      ]
+    },
+    {
+      title: "SISTEM & AUDIT",
+      items: [
+        { icon: BarChart3, label: "Analytics", path: "/analytics" },
+        { icon: Bell, label: "Notifications", path: "/notifications" },
+        { icon: History, label: "Audit Logs", path: "/audit-logs", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },
+        { icon: Settings, label: "Settings", path: "/settings", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },
+      ]
+    }
   ]
 
-  const navItems = allNavItems.filter(item => {
-    if (item.restrictedRoles && user?.role) {
-      return !item.restrictedRoles.includes(user.role);
-    }
-    return true;
-  });
+  useEffect(() => {
+    allNavGroups.forEach(group => {
+      if (group.items.some(item => item.path === location.pathname)) {
+        setOpenGroups(prev => ({ ...prev, [group.title]: true }))
+      }
+    })
+  }, [location.pathname])
+
+  const renderNavGroups = (collapsed: boolean) => {
+    return allNavGroups.map((group) => {
+      const filteredItems = group.items.filter((item: any) => {
+        if (item.allowedRoles && user?.role) {
+          return item.allowedRoles.includes(user.role)
+        }
+        if (item.restrictedRoles && user?.role) {
+          return !item.restrictedRoles.includes(user.role)
+        }
+        return true
+      })
+
+      if (filteredItems.length === 0) return null
+
+      const isOpen = openGroups[group.title] ?? true
+
+      return (
+        <div key={group.title} className="mb-2">
+          {!collapsed ? (
+            <div
+              onClick={() => toggleGroup(group.title)}
+              className="flex items-center justify-between px-3 py-2 cursor-pointer rounded-lg hover:bg-white/5 transition-colors select-none group"
+            >
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400 group-hover:text-zinc-200">
+                {group.title}
+              </span>
+              <ChevronDown
+                size={14}
+                className={cn(
+                  "text-zinc-500 transition-transform duration-200",
+                  !isOpen && "-rotate-90"
+                )}
+              />
+            </div>
+          ) : (
+            <div className="my-2 px-2 border-t border-white/10" />
+          )}
+
+          {(!collapsed ? isOpen : true) && (
+            <div className={cn(!collapsed && "mt-1 space-y-0.5")}>
+              {filteredItems.map((item) => (
+                <SidebarItem key={item.path} {...item} collapsed={collapsed} />
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    })
+  }
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex overflow-hidden">
@@ -292,13 +402,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
         </div>
 
-        <nav className="flex-1 px-4 space-y-1 mt-6">
-          {navItems.map((item) => (
-            <SidebarItem key={item.path} {...item} collapsed={isCollapsed} />
-          ))}
-          <div className="pt-4 mt-4 border-t border-white/5">
-            <SidebarItem icon={Settings} label="Settings" path="/settings" collapsed={isCollapsed} />
-          </div>
+        <nav className="flex-1 px-3 space-y-1 mt-4 overflow-y-auto overflow-x-hidden">
+          {renderNavGroups(isCollapsed)}
         </nav>
 
         <div className="p-4 border-t border-white/5">
@@ -326,9 +431,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               animate={{ x: 0 }}
               exit={{ x: -280 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 left-0 bottom-0 w-[280px] bg-zinc-950 z-[101] lg:hidden flex flex-col p-6"
+              className="fixed top-0 left-0 bottom-0 w-[280px] bg-zinc-950 z-[101] lg:hidden flex flex-col p-6 overflow-y-auto"
             >
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <img src="/tembusweb.svg" alt="Tembus Logo" className="h-10 object-contain drop-shadow-md" />
                 </div>
@@ -336,10 +441,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <X size={24} />
                 </button>
               </div>
-              <nav className="space-y-2">
-                {navItems.map((item) => (
-                  <SidebarItem key={item.path} {...item} collapsed={false} />
-                ))}
+              <nav className="space-y-1">
+                {renderNavGroups(false)}
               </nav>
             </motion.aside>
           </>

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
 import type { PoolClient } from 'pg';
 import { db } from '../db';
 import { createNotification } from '../notifications';
@@ -733,7 +734,7 @@ const calculateCustomerPriceBreakdown = async ({
       }
     }
   } catch (error) {
-    console.error('Failed to apply weather surge:', error);
+    securityLog.error('Failed to apply weather surge:', error);
   }
 
   const routeEta = routeSnapshot.eta_minutes || Math.ceil(20 + (distance * 3.5) + (service.batching_allowed ? 120 : 0));
@@ -1342,7 +1343,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         const createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
         await notifyOnDemandOffers(createdOffers);
       } catch (dispatchErr) {
-        console.error('[WARN] advanceOnDemandDispatchQueue after bypass failed:', dispatchErr);
+        securityLog.error('[WARN] advanceOnDemandDispatchQueue after bypass failed:', dispatchErr);
       } finally {
         dispatchClient.release();
       }
@@ -1360,7 +1361,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       await releasePromoReservation(reservedPromoCustomerId, reservedPromoKey).catch(() => undefined);
     }
     client.release();
-    console.error("[DEBUG] Create Order Error:", error);
+    securityLog.error("[DEBUG] Create Order Error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -2048,7 +2049,7 @@ export const getMobileCustomerProfile = async (req: Request, res: Response): Pro
       message: 'Profil customer berhasil dimuat.'
     });
   } catch (error: any) {
-    console.error('Error in getMobileCustomerProfile:', error);
+    securityLog.error('Error in getMobileCustomerProfile:', error);
     res.status(500).json({
       success: false,
       data: null,
@@ -2129,7 +2130,7 @@ export const updateMobileCustomerProfile = async (req: Request, res: Response): 
       });
       return;
     }
-    console.error('Error in updateMobileCustomerProfile:', error);
+    securityLog.error('Error in updateMobileCustomerProfile:', error);
     res.status(500).json({
       success: false,
       data: null,
@@ -3967,7 +3968,7 @@ export const uploadOrderFile = async (req: Request, res: Response) => {
     const savedUpload = saveSecureUploadBuffer(req.file, 'orders');
     res.json({ success: true, url: savedUpload.fileUrl });
   } catch (error: any) {
-    console.error('Error uploading order file:', error);
+    securityLog.error('Error uploading order file:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -4122,7 +4123,7 @@ export const handleMidtransNotification = async (req: Request, res: Response): P
         }).then(response => {
           if (!response.ok) console.warn(`[OrderService] Matching trigger returned status ${response.status} for ${orderId}`);
         }).catch(err => {
-          console.error(`[OrderService] Failed to reach order-service for matching:`, err.message);
+          securityLog.error(`[OrderService] Failed to reach order-service for matching:`, err.message);
         });
       }
     }
@@ -4216,7 +4217,7 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
     }).then(res => {
       if (!res.ok) console.warn(`[OrderService] Refund trigger returned status ${res.status} for ${orderId}`);
     }).catch(err => {
-      console.error(`[OrderService] Failed to reach order-service for refund:`, err.message);
+      securityLog.error(`[OrderService] Failed to reach order-service for refund:`, err.message);
     });
 
     // Advance queue untuk order lain yang sedang menunggu kurir
@@ -4225,7 +4226,7 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
       const createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 5);
       await notifyOnDemandOffers(createdOffers);
     } catch (dispatchErr) {
-      console.error('[WARN] advanceOnDemandDispatchQueue after cancel failed:', dispatchErr);
+      securityLog.error('[WARN] advanceOnDemandDispatchQueue after cancel failed:', dispatchErr);
     } finally {
       dispatchClient.release();
     }
@@ -4233,7 +4234,7 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
     res.json({ success: true, message: `Pesanan ${order.order_number} berhasil dibatalkan.` });
   } catch (error: any) {
     await client.query('ROLLBACK').catch(() => undefined);
-    console.error('[cancelCustomerOrder] error:', error);
+    securityLog.error('[cancelCustomerOrder] error:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();
@@ -4283,7 +4284,7 @@ export const retryCustomerOrderMatching = async (req: Request, res: Response): P
 
     res.json({ success: true, message: `Pencarian kurir untuk pesanan ${order.order_number} telah dimulai kembali.` });
   } catch (error: any) {
-    console.error('[retryCustomerOrderMatching] error:', error);
+    securityLog.error('[retryCustomerOrderMatching] error:', error);
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();

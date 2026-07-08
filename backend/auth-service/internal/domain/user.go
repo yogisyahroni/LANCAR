@@ -47,6 +47,10 @@ type User struct {
 	// Profile photo lock — hanya admin yang bisa set, kurir tidak bisa update sendiri setelah dikunci
 	ProfilePhotoLockedAt *time.Time `json:"profile_photo_locked_at,omitempty" db:"profile_photo_locked_at"`
 	ProfilePhotoSetBy    *string    `json:"profile_photo_set_by,omitempty" db:"profile_photo_set_by"`
+	BankName             *string    `json:"bank_name,omitempty" db:"bank_code"`
+	BankAccountNumber    *string    `json:"bank_account_number,omitempty" db:"bank_account_number"`
+	BankAccountHolder    *string    `json:"bank_account_holder,omitempty" db:"bank_account_name"`
+	BankVerified         bool       `json:"bank_verified" db:"bank_verified"`
 	CreatedAt            time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt            time.Time  `json:"updated_at" db:"updated_at"`
 }

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
 import { db } from '../db';
 import { createNotification } from '../notifications';
 import crypto from 'crypto';
@@ -366,7 +367,7 @@ export const loginCourier = async (req: Request, res: Response) => {
       return;
     }
 
-    console.error('Courier login error:', error);
+    securityLog.error('Courier login error:', error);
     res.status(500).json({
       success: false,
       data: null,
@@ -453,7 +454,7 @@ export const verifyCourierLoginOtp = async (req: Request, res: Response) => {
       return;
     }
 
-    console.error('Courier OTP verification error:', error);
+    securityLog.error('Courier OTP verification error:', error);
     res.status(500).json({
       success: false,
       data: null,
@@ -529,7 +530,7 @@ export const getMobileCourierProfile = async (req: Request, res: Response) => {
       message: 'Courier profile loaded',
     });
   } catch (error) {
-    console.error('Get mobile courier profile error:', error);
+    securityLog.error('Get mobile courier profile error:', error);
     res.status(500).json({
       success: false,
       data: null,
@@ -709,7 +710,7 @@ export const updateMobileCourierDuty = async (req: Request, res: Response) => {
         : 'Status Off Duty berhasil diperbarui',
     });
   } catch (error) {
-    console.error('Update mobile courier duty error:', error);
+    securityLog.error('Update mobile courier duty error:', error);
     res.status(500).json({
       success: false,
       data: null,
@@ -772,7 +773,7 @@ export const updateMobileCourierCapacity = async (req: Request, res: Response) =
       message: 'Kapasitas maksimal berhasil diperbarui',
     });
   } catch (error) {
-    console.error('Update mobile courier capacity error:', error);
+    securityLog.error('Update mobile courier capacity error:', error);
     res.status(500).json({
       success: false,
       data: null,
@@ -927,7 +928,7 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
       message: 'Courier orders loaded',
     });
   } catch (error) {
-    console.error('Get mobile courier orders error:', error);
+    securityLog.error('Get mobile courier orders error:', error);
     res.status(500).json({
       success: false,
       data: null,
@@ -1128,7 +1129,7 @@ export const getMobileCourierOnDemandServices = async (_req: Request, res: Respo
       message: 'On-demand services loaded',
     });
   } catch (error) {
-    console.error('Get mobile courier on-demand services error:', error);
+    securityLog.error('Get mobile courier on-demand services error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
@@ -1406,7 +1407,7 @@ export const createMobileCourierSafetyEvent = async (req: Request, res: Response
         : 'Laporan terkirim ke tim operasional.',
     });
   } catch (error) {
-    console.error('Create mobile courier safety event error:', error);
+    securityLog.error('Create mobile courier safety event error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
@@ -1457,7 +1458,7 @@ export const createMobileCourierTripShare = async (req: Request, res: Response) 
       message: 'Link live trip dibuat.',
     });
   } catch (error) {
-    console.error('Create mobile courier trip share error:', error);
+    securityLog.error('Create mobile courier trip share error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
@@ -1505,7 +1506,7 @@ export const getPublicTripShare = async (req: Request, res: Response) => {
 
     res.json({ success: true, data: row, message: 'Trip tracking loaded' });
   } catch (error) {
-    console.error('Get public trip share error:', error);
+    securityLog.error('Get public trip share error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
@@ -1538,7 +1539,7 @@ export const getMobileCourierHotspots = async (_req: Request, res: Response) => 
 
     res.json({ success: true, data: result.rows, message: 'On-demand hotspots loaded' });
   } catch (error) {
-    console.error('Get mobile courier hotspots error:', error);
+    securityLog.error('Get mobile courier hotspots error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
@@ -1650,7 +1651,7 @@ export const getMobileCourierEarningsLedger = async (req: Request, res: Response
       message: 'Courier earnings ledger loaded',
     });
   } catch (error) {
-    console.error('Get mobile courier earnings ledger error:', error);
+    securityLog.error('Get mobile courier earnings ledger error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
@@ -1776,7 +1777,7 @@ export const getMobileCourierPayoutSummary = async (req: Request, res: Response)
       message: 'Courier payout summary loaded',
     });
   } catch (error) {
-    console.error('Get mobile courier payout summary error:', error);
+    securityLog.error('Get mobile courier payout summary error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
@@ -1818,7 +1819,7 @@ export const getMobileCourierPayoutRequests = async (req: Request, res: Response
       message: 'Courier payout requests loaded',
     });
   } catch (error) {
-    console.error('Get mobile courier payout requests error:', error);
+    securityLog.error('Get mobile courier payout requests error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
@@ -2074,7 +2075,7 @@ export const getMobileCourierRoutePreview = async (req: Request, res: Response) 
       message: 'Route preview loaded',
     });
   } catch (error) {
-    console.error('Get mobile courier route preview error:', error);
+    securityLog.error('Get mobile courier route preview error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
@@ -2221,7 +2222,7 @@ export const getMobileCourierActiveRoutePlan = async (req: Request, res: Respons
       message: 'Route aktif kurir tersedia.',
     });
   } catch (error) {
-    console.error('Get mobile courier active route plan error:', error);
+    securityLog.error('Get mobile courier active route plan error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
@@ -2315,7 +2316,7 @@ export const getMobileCourierPerformance = async (req: Request, res: Response) =
       message: 'Courier performance loaded',
     });
   } catch (error) {
-    console.error('Get mobile courier performance error:', error);
+    securityLog.error('Get mobile courier performance error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   }
 };
@@ -2333,7 +2334,7 @@ export const listAdminCourierSafetyEvents = async (_req: Request, res: Response)
 
     res.json({ success: true, data: result.rows, events: result.rows });
   } catch (error) {
-    console.error('List admin courier safety events error:', error);
+    securityLog.error('List admin courier safety events error:', error);
     res.status(500).json({ success: false, data: [], events: [], message: 'Internal Server Error' });
   }
 };
@@ -2356,7 +2357,7 @@ export const listAdminCourierGrowthConfigs = async (_req: Request, res: Response
     ]);
     res.json({ success: true, data: { tiers: tiers.rows, incentives: incentives.rows } });
   } catch (error) {
-    console.error('List courier growth configs error:', error);
+    securityLog.error('List courier growth configs error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error' });
   }
 };
@@ -2905,7 +2906,7 @@ export const getMobileCourierOffers = async (req: Request, res: Response) => {
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Get mobile courier offers error:', error);
+    securityLog.error('Get mobile courier offers error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   } finally {
     client.release();
@@ -3216,7 +3217,7 @@ export const acceptMobileCourierOffer = async (req: Request, res: Response) => {
     res.json({ success: true, data: normalizeMobileOrder(accepted.rows[0]), message: 'Offer accepted' });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Accept mobile courier offer error:', error);
+    securityLog.error('Accept mobile courier offer error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   } finally {
     client.release();
@@ -3273,7 +3274,7 @@ export const rejectMobileCourierOffer = async (req: Request, res: Response) => {
     res.json({ success: true, data: true, message: 'Offer rejected' });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Reject mobile courier offer error:', error);
+    securityLog.error('Reject mobile courier offer error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   } finally {
     client.release();
@@ -3523,7 +3524,7 @@ export const verifyMobileCourierFace = async (req: Request, res: Response) => {
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Verify mobile courier face error:', error);
+    securityLog.error('Verify mobile courier face error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   } finally {
     client.release();
@@ -4197,7 +4198,7 @@ const verifyOnDemandStep = async ({
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Verify on-demand courier step error:', error);
+    securityLog.error('Verify on-demand courier step error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   } finally {
     client.release();
@@ -4636,7 +4637,7 @@ export const updateMobileCourierOrderStatus = async (req: Request, res: Response
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Update mobile courier order status error:', error);
+    securityLog.error('Update mobile courier order status error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   } finally {
     client.release();
@@ -4910,7 +4911,7 @@ export const cancelMobileCourierOnDemandPickup = async (req: Request, res: Respo
     });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Cancel mobile courier on-demand pickup error:', error);
+    securityLog.error('Cancel mobile courier on-demand pickup error:', error);
     res.status(500).json({ success: false, data: null, message: 'Internal Server Error', code: 'ERR_INTERNAL_SERVER' });
   } finally {
     client.release();

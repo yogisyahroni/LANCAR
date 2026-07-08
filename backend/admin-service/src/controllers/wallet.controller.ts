@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
 import crypto from 'crypto';
 
 const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://payment-service:8084';
@@ -25,7 +26,7 @@ export const getWalletBalance = async (req: Request, res: Response) => {
     const data = await response.json();
     return res.json(data);
   } catch (error: any) {
-    console.error('Error fetching wallet balance:', error);
+    securityLog.error('Error fetching wallet balance:', error);
     return res.status(500).json({ error: 'Failed to communicate with payment service' });
   }
 };
@@ -55,7 +56,7 @@ export const createTopUp = async (req: Request, res: Response) => {
     const data = await response.json().catch(() => ({ error: 'Invalid response from payment service' }));
     return res.status(response.status).json(data);
   } catch (error: any) {
-    console.error('Error creating top up:', error);
+    securityLog.error('Error creating top up:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -96,7 +97,7 @@ export const requestWithdrawal = async (req: Request, res: Response) => {
     const data = await response.json().catch(() => ({ error: 'Invalid response from payment service' }));
     return res.status(response.status).json(data);
   } catch (error: any) {
-    console.error('Error requesting withdrawal:', error);
+    securityLog.error('Error requesting withdrawal:', error);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
 };

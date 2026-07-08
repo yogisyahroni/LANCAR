@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
 import { db } from '../db';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
@@ -161,7 +162,7 @@ export const loginWeb = async (req: Request, res: Response) => {
       return;
     }
 
-    console.error('Login error:', error);
+    securityLog.error('Login error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -213,7 +214,7 @@ export const exchangeCustomerJwtForWebSession = async (req: Request, res: Respon
     res.cookie('customer_session', sessionToken, customerCookieOptions(expiresAt));
     res.json({ message: 'Customer web session created', user });
   } catch (error) {
-    console.error('Customer JWT exchange error:', error);
+    securityLog.error('Customer JWT exchange error:', error);
     res.status(401).json({ error: 'Invalid or expired customer token' });
   }
 };
@@ -284,7 +285,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     res.json({ message: 'Session refreshed' });
   } catch (error) {
-    console.error('Refresh token error:', error);
+    securityLog.error('Refresh token error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -297,7 +298,7 @@ export const logoutWeb = async (req: Request, res: Response) => {
       // Clean up from both tables to be safe
       await db.query('DELETE FROM web_sessions WHERE session_token = $1', [sessionToken]);
     } catch (error) {
-      console.error('Logout error:', error);
+      securityLog.error('Logout error:', error);
     }
   }
 
@@ -326,7 +327,7 @@ export const me = async (req: Request, res: Response) => {
 
     res.json({ user: result.rows[0] });
   } catch (error) {
-    console.error('Me error:', error);
+    securityLog.error('Me error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -347,7 +348,7 @@ export const subscribePush = async (req: Request, res: Response) => {
     );
     res.json({ success: true, message: 'Push subscription saved successfully' });
   } catch (error: any) {
-    console.error('Subscribe push error:', error);
+    securityLog.error('Subscribe push error:', error);
     res.status(500).json({ error: error.message || 'Internal Server Error' });
   }
 };
@@ -363,7 +364,7 @@ export const unsubscribePush = async (req: Request, res: Response) => {
     await db.query('DELETE FROM web_push_subscriptions WHERE user_id = $1 AND endpoint = $2', [req.user?.id, endpoint]);
     res.json({ success: true, message: 'Push subscription removed successfully' });
   } catch (error: any) {
-    console.error('Unsubscribe push error:', error);
+    securityLog.error('Unsubscribe push error:', error);
     res.status(500).json({ error: error.message || 'Internal Server Error' });
   }
 };

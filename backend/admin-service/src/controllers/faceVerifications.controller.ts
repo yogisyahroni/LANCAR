@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
 import { db, readDb } from '../db';
 
 export const getPendingFaceVerifications = async (req: Request, res: Response) => {
@@ -49,7 +50,7 @@ export const getPendingFaceVerifications = async (req: Request, res: Response) =
       }
     });
   } catch (error: any) {
-    console.error('[GET FACE VERIFICATIONS ERROR]', error);
+    securityLog.error('[GET FACE VERIFICATIONS ERROR]', error);
     return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
   }
 };
@@ -108,7 +109,7 @@ export const reviewFaceVerification = async (req: Request, res: Response) => {
     return res.status(200).json({ success: true, message: `Verification successfully ${action}d` });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('[REVIEW FACE VERIFICATION ERROR]', error);
+    securityLog.error('[REVIEW FACE VERIFICATION ERROR]', error);
     return res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
   } finally {
     client.release();

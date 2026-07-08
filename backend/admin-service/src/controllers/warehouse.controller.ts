@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
 import { db, readDb } from '../db';
 import crypto from 'crypto';
 
@@ -21,7 +22,7 @@ export const getConsolidationBags = async (req: Request, res: Response): Promise
     `);
     res.json(result.rows);
   } catch (error: any) {
-    console.error('Error fetching consolidation bags:', error);
+    securityLog.error('Error fetching consolidation bags:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -60,7 +61,7 @@ export const getConsolidationBagDetail = async (req: Request, res: Response): Pr
       scanned_packages: packageScansRes.rows
     });
   } catch (error: any) {
-    console.error('Error fetching consolidation bag detail:', error);
+    securityLog.error('Error fetching consolidation bag detail:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -97,7 +98,7 @@ export const createConsolidationBag = async (req: Request, res: Response): Promi
     res.status(201).json(result.rows[0]);
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error creating consolidation bag:', error);
+    securityLog.error('Error creating consolidation bag:', error);
     res.status(500).json({ error: error.message });
   } finally {
     client.release();
@@ -141,7 +142,7 @@ export const openConsolidationBag = async (req: Request, res: Response): Promise
     res.json({ message: 'Consolidation bag successfully unbagged', bag: result.rows[0] });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error opening consolidation bag:', error);
+    securityLog.error('Error opening consolidation bag:', error);
     res.status(500).json({ error: error.message });
   } finally {
     client.release();
@@ -229,7 +230,7 @@ export const scanPackageInboundOutbound = async (req: Request, res: Response): P
     res.json({ message: `Package successfully scanned as ${scan_type}`, order_id, status: newStatus });
   } catch (error: any) {
     await client.query('ROLLBACK');
-    console.error('Error scanning package:', error);
+    securityLog.error('Error scanning package:', error);
     res.status(500).json({ error: error.message });
   } finally {
     client.release();
@@ -294,7 +295,7 @@ export const autoDetectScanType = async (req: Request, res: Response): Promise<v
       suggested_label: label
     });
   } catch (error: any) {
-    console.error('Error auto-detecting scan type:', error);
+    securityLog.error('Error auto-detecting scan type:', error);
     res.status(500).json({ error: error.message });
   }
 };

@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
+import { getActorId } from '../utils/authUtils';
 import { db, readDb } from '../db';
 import { redis } from '../redis';
 import { sendEmailAlert, sendSlackAlert } from '../notifications';
@@ -30,7 +32,7 @@ export const exportAuditLogs = async (req: Request, res: Response): Promise<void
     res.setHeader('Content-Disposition', 'attachment; filename=system_audit_export.csv');
     res.send(csvRows);
   } catch (error: any) {
-    console.error('Error exporting audit logs:', error);
+    securityLog.error('Error exporting audit logs:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -67,7 +69,7 @@ export const exportMasaReport = async (req: Request, res: Response): Promise<voi
     res.setHeader('Content-Disposition', `attachment; filename=masa_ppn_report_${new Date().toISOString().split('T')[0]}.csv`);
     res.send(csvRows + summary);
   } catch (error: any) {
-    console.error('Error exporting masa report:', error);
+    securityLog.error('Error exporting masa report:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -137,7 +139,7 @@ export const toggleFlag = async (req: Request, res: Response): Promise<void> => 
       [new_enabled, key]
     );
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
     if (!req.user?.id) {
       console.warn('[AuditLog] No user ID found in request for flag update! Using fallback.');
     }
@@ -206,7 +208,7 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
       [validConfig, key]
     );
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
 
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
@@ -288,7 +290,7 @@ export const createFlag = async (req: Request, res: Response): Promise<void> => 
       [key, category, description || '', config || {}, is_enabled || false]
     );
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
 
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, description, category, require_checklist) 

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { getActorId } from '../utils/authUtils';
 import { db, readDb } from '../db';
 
 export const getAllOrders = async (req: Request, res: Response) => {
@@ -295,7 +296,7 @@ export const reassignOrder = async (req: Request, res: Response): Promise<void> 
       WHERE order_id = $2
     `, [courier_id, id]);
 
-    const adminId = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const adminId = getActorId(req);
     await client.query(`
       INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
       VALUES ($1, $2, 'reassigned', $3, $4)
@@ -324,7 +325,7 @@ export const flagOrderIssue = async (req: Request, res: Response): Promise<void>
       VALUES ($1, $2, $3, 'pending', NOW())
     `, [id, type || 'general', description]);
 
-    const adminId = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const adminId = getActorId(req);
     await client.query(`
       INSERT INTO order_events (order_id, user_id, event_type, description)
       VALUES ($1, $2, 'flagged', $3)
@@ -354,7 +355,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       VALUES ($1, $2, $3, $4, $5, 'pending', NOW()) RETURNING *
     `, [customer_id, pickup_address, delivery_address, total_price_idr, 'p2p']);
 
-    const adminId = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const adminId = getActorId(req);
     await client.query(`
       INSERT INTO order_events (order_id, user_id, event_type, description)
       VALUES ($1, $2, 'created', 'Manual order created by admin')

@@ -1,4 +1,6 @@
 import { Request, Response } from 'express';
+import { securityLog } from '../security/logRedaction';
+import { getActorId } from '../utils/authUtils';
 import {
   approvePromoCampaign,
   createPromoCampaign,
@@ -17,7 +19,7 @@ import {
   validatePromoForCheckout,
 } from '../services/promoEngine';
 
-const respondError = (res: Response, error: unknown) => { console.error('PROMO ERROR:', error);
+const respondError = (res: Response, error: unknown) => { securityLog.error('PROMO ERROR:', error);
   const safeError = safePromoError(error);
   res.status(safeError.status).json({
     success: false,
@@ -142,7 +144,7 @@ export const pauseAdminPromoCampaign = async (req: Request, res: Response): Prom
 
 export const simulateAdminPromoCampaign = async (req: Request, res: Response): Promise<void> => {
   try {
-    const result = await validatePromoForCheckout(String(req.user?.id || 'admin-preview'), req.body || {}, 'quote');
+    const result = await validatePromoForCheckout(String(getActorId(req)), req.body || {}, 'quote');
     res.json({ success: true, data: result });
   } catch (error) {
     respondError(res, error);

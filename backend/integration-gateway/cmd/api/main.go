@@ -65,6 +65,7 @@ func main() {
 	paymentHandler := handler.NewPaymentHandler()
 	mapsHandler := handler.NewMapsHandler(mapsProv)
 	logisticsHandler := handler.NewLogisticsHandler(jneProv, jntProv)
+	trackingWebhookHandler := handler.NewTrackingWebhookHandler()
 
 	// Routes
 	mux.Handle("/api/internal/otp/send-wa", authMiddleware(http.HandlerFunc(otpHandler.SendWA)))
@@ -78,6 +79,10 @@ func main() {
 
 	mux.Handle("/api/internal/logistics/create-order", authMiddleware(http.HandlerFunc(logisticsHandler.CreateOrder)))
 	mux.Handle("/api/internal/logistics/tariff", authMiddleware(http.HandlerFunc(logisticsHandler.CheckTariff)))
+
+	// Webhook dari 3PL eksternal (verifikasi signature di dalam handler)
+	mux.HandleFunc("/api/v1/logistics/webhook", trackingWebhookHandler.HandleProviderWebhook)
+	mux.HandleFunc("/api/v1/logistics/webhook/", trackingWebhookHandler.HandleProviderWebhook)
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

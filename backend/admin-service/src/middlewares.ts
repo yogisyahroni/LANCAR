@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { db } from './db';
 import { verifyInternalGatewayAuth } from './internalAuth';
 import { securityLog } from './security/logRedaction';
+import jwt from 'jsonwebtoken';
 // Extend Express Request interface to include mock user
 declare module 'express-serve-static-core' {
   interface Request {
@@ -73,33 +74,48 @@ export const requireMobileOrWebAuth = async (req: Request, res: Response, next: 
   const bearerPrefix = 'Bearer ';
   if (authHeader.startsWith(bearerPrefix)) {
     const token = authHeader.slice(bearerPrefix.length).trim();
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!jwtSecret) {
+      securityLog.error('JWT_SECRET not configured for mobile auth', requestLogMeta(req));
+      res.status(500).json({ error: 'Internal Server Error' });
+      return;
+    }
 
     try {
+      const decoded = jwt.verify(token, jwtSecret) as any;
+      
+      const userId = decoded.user_id || decoded.id;
+      
+      if (!userId) {
+        throw new Error('Invalid JWT payload missing user ID');
+      }
+
+      // Validate against users table to get latest role and 2fa status
       const result = await db.query(
-        `SELECT s.user_id, u.role, u.full_name
-         FROM user_sessions s
-         JOIN users u ON s.user_id = u.id
-         WHERE s.refresh_token = $1
-           AND s.expires_at > NOW()
-           AND s.is_revoked = false`,
-        [token]
+        `SELECT id, role, full_name, is_2fa_enabled, deleted_at
+         FROM users
+         WHERE id = $1 AND deleted_at IS NULL`,
+        [userId]
       );
 
       if (result.rows.length > 0) {
         const user = result.rows[0];
         req.user = {
-          id: user.user_id,
+          id: user.id,
           role: user.role,
           full_name: user.full_name,
-          totp_verified: true,
+          totp_verified: Boolean(user.is_2fa_enabled),
         };
-        securityLog.info('Authenticated mobile request via bearer session', requestLogMeta(req, { role: user.role }));
+        securityLog.info('Authenticated mobile request via bearer JWT access token', requestLogMeta(req, { role: user.role }));
         return next();
+      } else {
+        throw new Error('User not found or deleted');
       }
     } catch (error) {
       securityLog.error('Mobile bearer session verification failed', requestLogMeta(req, { error }));
-      res.status(500).json({ error: 'Internal Server Error' });
-      return;
+      // We don't return 500 here, we just fall through to the Web session checks or 401
+      // If it's a mobile client with an invalid token, it will ultimately hit 401.
     }
   }
 
@@ -156,7 +172,7 @@ export const verifyWebSession = async (req: Request, res: Response, next: NextFu
   try {
     // STRICT: Only query web_sessions joined with customer users.
     const result = await db.query(
-      `SELECT s.user_id, u.role, u.full_name 
+      `SELECT s.user_id, u.role, u.full_name, u.is_2fa_enabled
        FROM web_sessions s
        JOIN users u ON s.user_id = u.id
        WHERE s.session_token = $1
@@ -177,7 +193,10 @@ export const verifyWebSession = async (req: Request, res: Response, next: NextFu
       id: user.user_id,
       role: user.role,
       full_name: user.full_name,
-      totp_verified: true,
+      // SECURITY 2026: customer web session totp_verified hardcoded true.
+      // Customer tidak pernah punya TOTP — ini masih acceptable, tapi untuk
+      // konsistensi dan audit trail, gunakan nilai dari DB.
+      totp_verified: Boolean(user.is_2fa_enabled),
     };
 
     next();
@@ -200,7 +219,7 @@ export const verifyAdminSession = async (req: Request, res: Response, next: Next
   try {
     const adminRoles = ['super_admin', 'admin', 'manager', 'finance', 'ops_security', 'ops_admin', 'finance_admin', 'cs_agent', 'zone_manager'];
     const result = await db.query(
-      `SELECT s.user_id, u.role, u.full_name 
+      `SELECT s.user_id, u.role, u.full_name, u.is_2fa_enabled 
        FROM web_sessions s
        JOIN users u ON s.user_id = u.id
        WHERE s.session_token = $1
@@ -221,7 +240,11 @@ export const verifyAdminSession = async (req: Request, res: Response, next: Next
       id: user.user_id,
       role: user.role,
       full_name: user.full_name,
-      totp_verified: true,
+      // SECURITY 2026: admin web session totp_verified hardcoded true.
+      // Admin yang 2FA-nya dinonaktifkan tetap mendapat totp_verified=true.
+      // Fix: ambil is_2fa_enabled dari DB — jika admin disable 2FA,
+      // requireTotp akan memblokir akses ke endpoint finansial.
+      totp_verified: Boolean(user.is_2fa_enabled),
     };
 
     next();
@@ -287,16 +310,9 @@ export const verifySession = async (req: Request, res: Response, next: NextFunct
       return res.status(401).json({ error: 'Unauthorized: Invalid customer session' });
     }
 
-    // 3. Fallback/Legacy: If no X-Portal header, try to infer from Referer
-    const referer = req.headers.referer || '';
-    if (referer.includes(':3002') || referer.includes('/admin')) {
-       // Likely Admin
-       securityLog.info('Inferring admin portal from referer', requestLogMeta(req));
-       // ... repeat admin check logic if we want to be permissive during transition
-    }
-
-    // For security, if no portal is specified, we reject or require one
-    res.status(400).json({ error: 'Bad Request: X-Portal header is required for session verification' });
+    // 3. Reject if no valid portal header is provided or no session matched
+    securityLog.warn('Blocked shared session request without valid portal header or session', requestLogMeta(req));
+    res.status(401).json({ error: 'Unauthorized: Valid portal header and session required' });
   } catch (error) {
     securityLog.error('Shared session verification failed', requestLogMeta(req, { error }));
     res.status(500).json({ error: 'Internal Server Error' });

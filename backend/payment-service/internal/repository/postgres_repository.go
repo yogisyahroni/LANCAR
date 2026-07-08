@@ -75,17 +75,23 @@ func (r *postgresWalletRepository) Create(ctx context.Context, userID uuid.UUID)
 		return nil, err
 	}
 
-	table := "customer_wallets"
-	col := "customer_id"
-
-	if role == "courier" {
-		table = "courier_wallets"
-		col = "courier_id"
-	} else if role != "customer" {
+	// SECURITY 2026 — Cegah SQL Injection via Second-Order / Dynamic Table Name:
+	// String concatenation untuk nama tabel (meski role dari DB) adalah anti-pattern.
+	// Jika kolom `users.role` pernah terkompromi atau di-manipulasi melalui injection
+	// di tempat lain, kode ini akan mengeksekusi SQL arbitrer.
+	// Real incident: Second-order SQL injection via data dari DB (OWASP A03:2021).
+	// Fix: gunakan allowlist eksplisit dengan switch-case — tidak ada concatenation.
+	var query string
+	switch role {
+	case "customer":
+		query = `INSERT INTO customer_wallets (customer_id) VALUES ($1)
+		         RETURNING id, customer_id as user_id, balance, currency, version, created_at, updated_at`
+	case "courier":
+		query = `INSERT INTO courier_wallets (courier_id) VALUES ($1)
+		         RETURNING id, courier_id as user_id, balance, currency, version, created_at, updated_at`
+	default:
 		return nil, fmt.Errorf("wallet owner role %q is not supported", role)
 	}
-
-	query := `INSERT INTO ` + table + ` (` + col + `) VALUES ($1) RETURNING id, ` + col + ` as user_id, balance, currency, version, created_at, updated_at`
 
 	var w domain.Wallet
 	err = r.db.QueryRowContext(ctx, query, userID).Scan(

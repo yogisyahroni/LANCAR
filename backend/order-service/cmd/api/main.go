@@ -278,7 +278,13 @@ func main() {
 	resiSvc := service.NewResiService(pgRepo, resiTemplateRepo)
 	productCatalogRepo := repository.NewProductCatalogRepository(db)
 	productCatalogSvc := service.NewProductCatalogService(productCatalogRepo, configRepo)
-	// matchingSvc := service.NewRelayMatchingService(relayRepo, pgRepo, redisRepo) // Can be used later
+	merchantSettlementRepo := repository.NewMerchantSettlementRepository(db)
+	merchantSettlementSvc := service.NewMerchantSettlementService(
+		merchantSettlementRepo,
+		configRepo,
+		notificationSvc,
+		infrastructure.NewIntegrationGatewayClient(configRepo),
+	)
 
 	// Handlers
 	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc, meetingPointSvc)
@@ -298,6 +304,7 @@ func main() {
 	sosHandler := handler.NewSosHandler(sosSvc)
 	resiHandler := handler.NewResiHandler(resiSvc)
 	productCatalogHandler := handler.NewProductCatalogHandler(productCatalogSvc)
+	deliveryWebhookHandler := handler.NewDeliveryWebhookHandler(merchantSettlementSvc)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB), configRepo)
@@ -331,6 +338,19 @@ func main() {
 			}
 		}()
 	}
+
+	// Merchant Escrow Settlement Worker (runs every 5 minutes)
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+			if err := merchantSettlementSvc.ProcessPendingSettlements(ctx); err != nil {
+				logger.Error("Merchant settlement cron failed", "error", err)
+			}
+			cancel()
+		}
+	}()
 
 	// Routes
 	mux := http.NewServeMux()
@@ -457,6 +477,10 @@ func main() {
 	mux.HandleFunc("/api/v1/payment-links", middleware.BaseChain(paymentLinkHandler.HandleRequest))
 	mux.HandleFunc("/api/v1/payment-links/", middleware.BaseChain(paymentLinkHandler.HandleRequest))
 	mux.HandleFunc("/api/v1/payment-links/webhook", middleware.BaseChain(paymentLinkHandler.HandleWebhook))
+
+	// Internal Delivery & Merchant Settlement Routes
+	mux.HandleFunc("/api/v1/internal/delivery/webhook", middleware.BaseChain(deliveryWebhookHandler.HandleDeliveryEvent))
+	mux.HandleFunc("/api/v1/internal/merchant-settlements", middleware.BaseChain(deliveryWebhookHandler.HandleListSettlements))
 
 	// Product Catalog Routes
 	mux.HandleFunc("/api/v1/products", middleware.BaseChain(productCatalogHandler.HandleProducts))

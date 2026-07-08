@@ -153,6 +153,12 @@ export default function PricingConfig() {
           <p className="text-zinc-500 mt-1">Configure base rates, surge multipliers, and dynamic pricing rules.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => navigate('/cost-intelligence')}
+            className="px-6 py-3 rounded-2xl bg-gradient-to-r from-amber-500/20 to-primary/20 border border-amber-500/30 text-amber-300 font-bold text-sm hover:scale-[1.02] transition-all flex items-center gap-2"
+          >
+            <Zap size={16} /> OPEX & CAPEX Simulator
+          </button>
           <button className="px-8 py-3 rounded-2xl bg-zinc-800 text-zinc-400 font-black text-sm uppercase tracking-widest hover:text-white transition-all">
             Discard
           </button>

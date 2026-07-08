@@ -20,6 +20,7 @@ import Vouchers from './pages/Vouchers'
 import Promos from './pages/Promos'
 import Notifications from './pages/Notifications'
 import Finance from './pages/Finance'
+import CostIntelligence from './pages/CostIntelligence'
 import Settings from './pages/Settings'
 import MapsRuntime from './pages/MapsRuntime'
 import AuditLogs from './pages/AuditLogs'
@@ -31,6 +32,7 @@ import News from './pages/News'
 import PaymentLinks from './pages/PaymentLinks'
 import ResiTemplates from './pages/ResiTemplates'
 import LogisticsDiscount from './pages/LogisticsDiscount'
+import MerchantSettlements from './pages/MerchantSettlements'
 import DashboardLayout from './components/DashboardLayout'
 
 import { useEffect } from 'react'
@@ -207,6 +209,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <Finance />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/merchant-settlements" 
+            element={
+              <ProtectedRoute>
+                <MerchantSettlements />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/cost-intelligence" 
+            element={
+              <ProtectedRoute allowedRoles={['super_admin']}>
+                <CostIntelligence />
               </ProtectedRoute>
             } 
           />

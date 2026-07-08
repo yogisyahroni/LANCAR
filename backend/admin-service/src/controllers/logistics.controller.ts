@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
+import { getActorId } from '../utils/authUtils';
 import { db, readDb } from '../db';
+import { securityLog } from '../security/logRedaction';
 
 export const getZones = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -12,7 +14,7 @@ export const getZones = async (req: Request, res: Response): Promise<void> => {
     `);
     res.json(result.rows);
   } catch (error: any) {
-    console.error('Error fetching zones:', error);
+    securityLog.error('Error fetching zones:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -45,7 +47,7 @@ export const createZone = async (req: Request, res: Response) => {
       [name, code, polygon, max_couriers]
     );
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -86,7 +88,7 @@ export const updateZone = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Zone not found' });
     }
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -124,7 +126,7 @@ export const deleteZone = async (req: Request, res: Response) => {
     await client.query('DELETE FROM meeting_points WHERE zone_id = $1', [id]);
     await client.query('DELETE FROM zones WHERE id = $1', [id]);
 
-    const changedBy = req.user?.id || 'c6708cbc-9c98-4afc-8da6-d2aa3f3c37f3';
+    const changedBy = getActorId(req);
     await client.query(
       `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, category) 
        VALUES ($1, $2, $3, $4, $5)`,
@@ -166,7 +168,7 @@ export const getPricingConfig = async (req: Request, res: Response): Promise<voi
     });
     res.json(mapped);
   } catch (error: any) {
-    console.error('Error fetching pricing config:', error);
+    securityLog.error('Error fetching pricing config:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -190,8 +192,18 @@ export const updatePricingConfig = async (req: Request, res: Response): Promise<
     return;
   }
 
+  // SECURITY 2026: Wajib aktor teridentifikasi untuk audit log konfigurasi finansial.
+  const actorId = req.user?.id;
+  if (!actorId) {
+    res.status(401).json({ error: 'Unauthorized: Actor identity required' });
+    return;
+  }
+
+  const client = await db.connect();
   try {
-    const result = await db.query(
+    await client.query('BEGIN');
+
+    const result = await client.query(
       `UPDATE pricing_configs 
        SET base_fee = $1, per_km_fee = $2, volumetric_div = $3, updated_at = NOW() 
        WHERE model = $4 
@@ -200,9 +212,27 @@ export const updatePricingConfig = async (req: Request, res: Response): Promise<
     );
 
     if (result.rows.length === 0) {
+      await client.query('ROLLBACK');
       res.status(404).json({ error: `Pricing config model '${dbModel}' not found` });
       return;
     }
+
+    // SECURITY 2026: Audit log wajib untuk setiap perubahan konfigurasi harga.
+    // Tanpa ini, penyerang yang ubah base_fare ke 0 tidak bisa dideteksi.
+    await client.query(
+      `INSERT INTO feature_flag_logs (key, is_enabled, updated_by, change_reason, config, category)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        `pricing:p2p:updated`,
+        true,
+        actorId,
+        `Pricing config updated: base_fare=${base_fare}, per_km_rate=${per_km_rate}, volumetric_div=${volDiv}`,
+        JSON.stringify({ base_fare, per_km_rate, volumetric_div: volDiv }),
+        'pricing'
+      ]
+    );
+
+    await client.query('COMMIT');
 
     const row = result.rows[0];
     res.json({
@@ -212,8 +242,12 @@ export const updatePricingConfig = async (req: Request, res: Response): Promise<
       volumetric_div: row.volumetric_div
     });
   } catch (error: any) {
-    console.error('Error updating pricing config:', error);
-    res.status(500).json({ error: error.message });
+    await client.query('ROLLBACK');
+    // SECURITY: Jangan expose error.message ke client
+    securityLog.error('updatePricingConfig failed', { error: error?.message, actorId });
+    res.status(500).json({ error: 'Internal server error updating pricing config' });
+  } finally {
+    client.release();
   }
 };
 
@@ -241,7 +275,7 @@ export const getSLAConfigs = async (req: Request, res: Response): Promise<void> 
     );
     res.json(result.rows);
   } catch (error: any) {
-    console.error('Error fetching SLA configs:', error);
+    securityLog.error('Error fetching SLA configs:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -264,7 +298,7 @@ export const updateSLAConfig = async (req: Request, res: Response): Promise<void
     );
     res.json(result.rows[0]);
   } catch (error: any) {
-    console.error('Error updating SLA config:', error);
+    securityLog.error('Error updating SLA config:', error);
     res.status(500).json({ error: error.message });
   }
 };
