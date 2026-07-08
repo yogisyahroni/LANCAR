@@ -16,6 +16,11 @@ services:
     image: postgis/postgis:15-3.4-alpine
     container_name: tembus-db
     restart: unless-stopped
+    # ─── PostgreSQL tuning untuk VPS. Sesuaikan postgres-tuning.conf ───────
+    # File: database/postgres-tuning.conf (asumsi VPS 8GB RAM, SSD storage)
+    command: >
+      postgres
+      -c config_file=/etc/postgresql/tuning.conf
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
@@ -24,6 +29,7 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - tembus-db-data:/var/lib/postgresql/data
+      - ./database/postgres-tuning.conf:/etc/postgresql/tuning.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tembus}"]
       interval: 5s
@@ -60,8 +66,9 @@ services:
     image: bitnami/pgbouncer:1.24.0
     container_name: tembus-pgbouncer
     restart: unless-stopped
-    profiles:
-      - scale
+    # ─── PgBouncer WAJIB aktif di VPS untuk menghemat RAM ─────────────────
+    # Transaction pooling: semua service share pool koneksi ke PostgreSQL.
+    # Tanpa ini: 6 service × 20 koneksi = 120 koneksi raw ≈ 1.2GB RAM terbuang.
     depends_on:
       db:
         condition: service_healthy
@@ -76,8 +83,17 @@ services:
       PGBOUNCER_DEFAULT_POOL_SIZE: ${PGBOUNCER_DEFAULT_POOL_SIZE:-80}
       PGBOUNCER_RESERVE_POOL_SIZE: ${PGBOUNCER_RESERVE_POOL_SIZE:-20}
       PGBOUNCER_QUERY_TIMEOUT: ${PGBOUNCER_QUERY_TIMEOUT:-15000}
+      PGBOUNCER_SERVER_IDLE_TIMEOUT: ${PGBOUNCER_SERVER_IDLE_TIMEOUT:-600}
+      PGBOUNCER_SERVER_LIFETIME: ${PGBOUNCER_SERVER_LIFETIME:-3600}
+      PGBOUNCER_CLIENT_IDLE_TIMEOUT: ${PGBOUNCER_CLIENT_IDLE_TIMEOUT:-0}
     ports:
       - "${PGBOUNCER_PORT:-6432}:6432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 6432 -U ${POSTGRES_USER:-postgres} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - tembus-net
 
@@ -183,7 +199,7 @@ services:
     container_name: tembus-auth
     restart: unless-stopped
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
       db-read:
         condition: service_started
@@ -192,8 +208,9 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      # ─── Semua koneksi DB WAJIB via PgBouncer (port 6432) ──────────────
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       AUTH_PORT: ${AUTH_PORT:-8081}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
@@ -268,15 +285,15 @@ services:
     container_name: tembus-admin
     restart: unless-stopped
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
       db-read:
         condition: service_started
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "${ADMIN_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public}"
-      READ_DATABASE_URL: "${ADMIN_READ_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public}"
+      DATABASE_URL: "${ADMIN_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public}"
+      READ_DATABASE_URL: "${ADMIN_READ_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public}"
       REDIS_URL: "redis://redis:6379"
       SOCKET_REDIS_ADAPTER_ENABLED: ${SOCKET_REDIS_ADAPTER_ENABLED:-true}
       PG_POOL_MAX: ${ADMIN_PG_POOL_MAX:-20}
@@ -388,13 +405,13 @@ services:
     container_name: tembus-routing
     restart: unless-stopped
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       ROUTING_PORT: 8082
       ROUTING_SERVICE_PORT: 8082
@@ -426,15 +443,15 @@ services:
     container_name: tembus-order
     restart: unless-stopped
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
       db-read:
         condition: service_started
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
-      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      READ_DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       ORDER_PORT: ${ORDER_PORT:-8083}
       TOMTOM_SERVER_API_KEY: ${TOMTOM_SERVER_API_KEY:-}
@@ -464,12 +481,12 @@ services:
     container_name: tembus-payment
     restart: unless-stopped
     depends_on:
-      db:
+      pgbouncer:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@db:5432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
+      DATABASE_URL: "postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-1234}@pgbouncer:6432/${POSTGRES_DB:-tembus}?sslmode=disable&search_path=public"
       REDIS_URL: "redis://redis:6379"
       PAYMENT_PORT: ${PAYMENT_PORT:-8084}
       ENVIRONMENT: ${ENVIRONMENT:-development}
