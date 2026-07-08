@@ -110,13 +110,14 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 	holdingDays := s.configRepo.GetIntConfig(ctx, "merchant_settlement_holding_days", 1)
 	holdingReleaseAt := time.Now().Add(time.Duration(holdingDays) * 24 * time.Hour)
 
-	// 5. Hitung net payout
-	// KEAMANAN: Ambil amount dari DB (payment_link), BUKAN dari request body
-	netPayoutIDR := paymentLink.ItemPrice - paymentLink.MerchantFeeAmount
-	if netPayoutIDR < 0 {
-		netPayoutIDR = 0
+	if paymentLink.MerchantFeeAmount < 0 || paymentLink.ItemPrice < 0 {
+		return fmt.Errorf("HandleDeliveryConfirmed: invalid negative amount (fee: %d, price: %d) — potential integer underflow attack blocked", paymentLink.MerchantFeeAmount, paymentLink.ItemPrice)
 	}
 
+	netPayoutIDR := paymentLink.ItemPrice - paymentLink.MerchantFeeAmount
+	if netPayoutIDR < 0 {
+		return fmt.Errorf("HandleDeliveryConfirmed: invalid net payout amount (price: %d, fee: %d) — payout cannot be negative", paymentLink.ItemPrice, paymentLink.MerchantFeeAmount)
+	}
 	// 6. Buat settlement record (status = HOLDING)
 	now := req.ConfirmedAt
 	settlementID := uuid.New()

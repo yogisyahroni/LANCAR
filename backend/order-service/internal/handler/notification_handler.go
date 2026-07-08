@@ -43,7 +43,11 @@ func (h *NotificationHandler) GetInbox(w http.ResponseWriter, r *http.Request) {
 
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
-			limit = parsed
+			if parsed > 100 {
+				limit = 100
+			} else {
+				limit = parsed
+			}
 		}
 	}
 	if o := r.URL.Query().Get("offset"); o != "" {

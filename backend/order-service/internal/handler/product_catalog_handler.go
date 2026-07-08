@@ -153,6 +153,12 @@ func (h *ProductCatalogHandler) ListProducts(w http.ResponseWriter, r *http.Requ
 	}
 
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	if page <= 0 {
 		page = 1

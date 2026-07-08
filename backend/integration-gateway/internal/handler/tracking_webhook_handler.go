@@ -102,31 +102,28 @@ func (h *TrackingWebhookHandler) HandleProviderWebhook(w http.ResponseWriter, r 
 	}
 	defer r.Body.Close()
 
-	// ─── 3. Verifikasi Signature Webhook (WAJIB jika secret dikonfigurasi) ──────
-	// SECURITY 2026: Jika LOGISTICS_WEBHOOK_SECRET di-set, header X-Webhook-Signature
-	// WAJIB ada DAN WAJIB valid. Sebelumnya hanya dicek jika header hadir (double-optional
-	// flaw) — ini memungkinkan siapapun memicu escrow tanpa tanda tangan.
-	if h.webhookSecret != "" {
-		receivedSig := r.Header.Get("X-Webhook-Signature")
-		if receivedSig == "" {
-			// Header wajib ada jika secret dikonfigurasi
-			slog.WarnContext(r.Context(), "tracking_webhook: missing required X-Webhook-Signature header",
-				"provider", provider)
-			http.Error(w, "Missing webhook signature", http.StatusUnauthorized)
-			return
-		}
-		expectedSig := h.computeHMAC(bodyBytes, h.webhookSecret)
-		if !hmac.Equal([]byte(receivedSig), []byte(expectedSig)) {
-			slog.WarnContext(r.Context(), "tracking_webhook: HMAC signature mismatch — possible unauthorized webhook injection",
-				"provider", provider)
-			http.Error(w, "Invalid webhook signature", http.StatusUnauthorized)
-			return
-		}
-	} else {
-		// Tidak ada secret dikonfigurasi — log peringatan tapi masih proses
-		// (agar backward-compatible selama onboarding ekspedisi baru)
-		slog.WarnContext(r.Context(), "tracking_webhook: LOGISTICS_WEBHOOK_SECRET not set — webhook accepted without signature verification",
-			"provider", provider)
+	// ─── 3. Verifikasi Signature Webhook (WAJIB) ────────────────────────────────
+	// SECURITY FIX (2026): Menghapus "Fail-Open" configuration.
+	// LOGISTICS_WEBHOOK_SECRET wajib ada. Jika tidak ada, tolak request untuk 
+	// mencegah bypass signature dan eskalasi pencairan escrow.
+	if h.webhookSecret == "" {
+		slog.ErrorContext(r.Context(), "tracking_webhook: CRITICAL SECURITY ERROR — LOGISTICS_WEBHOOK_SECRET is empty. Denying webhook.")
+		http.Error(w, "Webhook verification secret is not configured", http.StatusInternalServerError)
+		return
+	}
+
+	receivedSig := r.Header.Get("X-Webhook-Signature")
+	if receivedSig == "" {
+		slog.WarnContext(r.Context(), "tracking_webhook: missing required X-Webhook-Signature header", "provider", provider)
+		http.Error(w, "Missing webhook signature", http.StatusUnauthorized)
+		return
+	}
+
+	expectedSig := h.computeHMAC(bodyBytes, h.webhookSecret)
+	if !hmac.Equal([]byte(receivedSig), []byte(expectedSig)) {
+		slog.WarnContext(r.Context(), "tracking_webhook: HMAC signature mismatch — possible unauthorized webhook injection", "provider", provider)
+		http.Error(w, "Invalid webhook signature", http.StatusUnauthorized)
+		return
 	}
 
 	// ─── 4. Parse payload ke format standar ──────────────────────────────────

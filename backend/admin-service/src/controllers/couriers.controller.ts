@@ -684,7 +684,7 @@ const getCourierApplications = async (req: Request, res: Response, requestedChan
 export const getAllCouriers = async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
     const offset = (page - 1) * limit;
     const search = req.query.search as string;
     const status = req.query.status as string;

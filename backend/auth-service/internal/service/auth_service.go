@@ -269,7 +269,11 @@ func (s *AuthService) ConfirmCustomerPasswordReset(ctx context.Context, email, c
 		return err
 	}
 
-	_ = s.authRepo.MarkOTPAsUsed(ctx, otp.ID)
+	if err := s.authRepo.MarkOTPAsUsed(ctx, otp.ID); err != nil {
+		result = "otp_mark_used_failed"
+		failed = true
+		return err
+	}
 	_ = s.sessionRepo.RevokeUserSessions(ctx, user.ID)
 	_ = s.auditRepo.CreateAuditLog(ctx, &domain.AuditLog{
 		ActorID:  user.ID,
@@ -522,7 +526,11 @@ func (s *AuthService) VerifyOTP(ctx context.Context, phoneNumber, code, deviceID
 		}
 
 		// Mark as used
-		_ = s.authRepo.MarkOTPAsUsed(ctx, otp.ID)
+		if err := s.authRepo.MarkOTPAsUsed(ctx, otp.ID); err != nil {
+			result = "otp_mark_used_failed"
+			failed = true
+			return nil, errors.New("failed to process OTP, please try again")
+		}
 	}
 
 	// Check if user exists

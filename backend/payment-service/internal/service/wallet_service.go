@@ -203,38 +203,39 @@ func (s *walletService) Deposit(ctx context.Context, userID uuid.UUID, amount fl
 	netAmount := amount
 	adminFee := 0.0
 
-	// CATATAN ARSITEKTUR: s.repo.UpdateBalance dan s.repo.CreateTransaction menggunakan
-	// koneksi r.db internal, bukan objek tx yang dibuka di sini.
-	// Untuk atomisitas penuh, perlu implementasi repo yang menerima *sql.Tx.
-	// Saat ini, urutan operasi: UpdateBalance lalu CreateTransaction.
-	// Jika CreateTransaction gagal, UpdateBalance sudah terjadi — resiko partial update.
-	// Mitigasi: CreateTransaction memiliki reference_id UNIQUE di DB untuk mencegah duplikasi.
-	wallet, err := s.GetBalance(ctx, userID)
-	if err != nil {
-		return err
-	}
+	// SECURITY 2026: Atomic Check-and-Deduct (Optimistic Locking) via WithTx
+	err := s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		wallet, err := s.GetBalance(txCtx, userID)
+		if err != nil {
+			return err
+		}
 
-	// Update Balance
-	err = s.repo.UpdateBalance(ctx, wallet.ID, netAmount, wallet.Version)
-	if err != nil {
-		return err
-	}
+		// Update Balance
+		err = s.repo.UpdateBalance(txCtx, wallet.ID, netAmount, wallet.Version)
+		if err != nil {
+			return err
+		}
 
-	// Create Transaction Log
-	walletTx := &domain.WalletTransaction{
-		WalletID:    wallet.ID,
-		Type:        domain.TypeDeposit,
-		Amount:      netAmount,
-		Fee:         adminFee,
-		Status:      domain.StatusCompleted,
-		ReferenceID: referenceID,
-		Metadata:    map[string]any{"source": "direct_deposit", "original_amount": amount},
-	}
-	err = s.repo.CreateTransaction(ctx, walletTx)
+		// Create Transaction Log
+		walletTx := &domain.WalletTransaction{
+			WalletID:    wallet.ID,
+			Type:        domain.TypeDeposit,
+			Amount:      netAmount,
+			Fee:         adminFee,
+			Status:      domain.StatusCompleted,
+			ReferenceID: referenceID,
+			Metadata:    map[string]any{"source": "direct_deposit", "original_amount": amount},
+		}
+		err = s.repo.CreateTransaction(txCtx, walletTx)
+		if err != nil {
+			slog.ErrorContext(txCtx, "deposit_log_failed_after_balance_update — reconciliation required",
+				"user_id", userID, "reference_id", referenceID, "amount", netAmount, "error", err)
+			return err
+		}
+		return nil
+	})
+
 	if err != nil {
-		// Jika log gagal tapi balance sudah di-update, catat ke slog untuk reconciliation
-		slog.Error("deposit_log_failed_after_balance_update — reconciliation required",
-			"user_id", userID, "reference_id", referenceID, "amount", netAmount, "error", err)
 		return err
 	}
 
@@ -262,6 +263,16 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 	// namun dicek sebagai 1. Dengan integer, tidak ada ambiguitas.
 	amountIDR := req.Amount // sudah divalidasi int64 > 0 di handler layer
 
+	// CEL-NEW #5: SOS Emergency Fund Ghosting
+	// Freeze wallet balance when SOS is triggered (prevent withdrawal)
+	hasActiveSOS, err := s.repo.HasActiveSOS(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("gagal memverifikasi status SOS: %w", err)
+	}
+	if hasActiveSOS {
+		return errors.New("wallet dibekukan karena insiden SOS sedang aktif")
+	}
+
 	// ─── SECURITY LAYER 3: Dynamic Fee dari Admin Settings ───────────────────────
 	withdrawalFeeFloat, err := s.settingsRepo.GetFee(ctx, userRole)
 	if err != nil {
@@ -277,70 +288,55 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 	// Total yang akan dipotong dari saldo
 	totalDeductionIDR := amountIDR + withdrawalFeeIDR
 	if totalDeductionIDR < amountIDR {
-		// Integer overflow check: jika result lebih kecil dari komponen, ada overflow
 		return errors.New("total deduction overflow terdeteksi — hubungi admin")
 	}
 
 	// ─── SECURITY LAYER 4: Atomic Check-and-Deduct (Optimistic Locking) ─────────
-	// Semua operasi baca+deduct harus ada di dalam satu database transaction
-	// yang dilindungi oleh optimistic lock (version column).
-	// Ini mencegah race condition dan TOCTOU (Time-of-Check Time-of-Use) attack.
-	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
-	if err != nil {
-		return fmt.Errorf("gagal memulai transaksi: %w", err)
-	}
-	defer tx.Rollback() // Rollback jika Commit tidak dipanggil — safe default
-
-	wallet, err := s.GetBalance(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("gagal mendapatkan saldo: %w", err)
-	}
-
-	// ─── SECURITY LAYER 5: Strict Saldo Check (Termasuk Biaya Admin) ─────────────
-	// Saldo tersimpan dalam float64 di DB — konversi ke integer untuk perbandingan tepat
-	walletBalanceIDR := int64(math.Floor(wallet.Balance)) // Floor untuk menghindari over-credit
-	if walletBalanceIDR < totalDeductionIDR {
-		return errors.New("saldo tidak cukup untuk penarikan (termasuk biaya admin)")
-	}
-
-	// ─── SECURITY LAYER 6: Pemotongan Saldo Atomik ───────────────────────────────
 	// UpdateBalance menggunakan optimistic locking via version column.
-	// Jika ada request lain yang mengubah saldo bersamaan (race condition),
-	// ExecContext akan mengembalikan rows=0 dan error "concurrent update detected".
-	deductAmount := -float64(totalDeductionIDR) // negatif = debit
-	err = s.repo.UpdateBalance(ctx, wallet.ID, deductAmount, wallet.Version)
-	if err != nil {
-		return fmt.Errorf("gagal memotong saldo (kemungkinan concurrent request): %w", err)
-	}
+	// Kita wrap dalam WithTx untuk atomicity.
+	var refID string
+	err = s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		wallet, err := s.GetBalance(txCtx, userID)
+		if err != nil {
+			return err
+		}
+		
+		walletBalanceIDR := int64(math.Floor(wallet.Balance))
+		if walletBalanceIDR < totalDeductionIDR {
+			return errors.New("saldo tidak cukup untuk penarikan (termasuk biaya admin)")
+		}
 
-	// ─── SECURITY LAYER 7: Buat Catatan Transaksi dengan Metadata Lengkap ────────
-	// RefID harus unik dan terdeterministik (bukan random saja) untuk audit trail.
-	refID := fmt.Sprintf("WD-%s-%d", req.IdempotencyKey[:8], time.Now().UnixMilli())
-	walletTx := &domain.WalletTransaction{
-		WalletID:    wallet.ID,
-		Type:        domain.TypeWithdrawal,
-		Amount:      float64(amountIDR),
-		Fee:         float64(withdrawalFeeIDR),
-		Status:      domain.StatusPending,
-		ReferenceID: refID,
-		Metadata: map[string]any{
-			"idempotency_key": req.IdempotencyKey, // untuk idempotency lookup
-			"account_number":  req.AccountNumber,   // sudah sanitized di handler
-			"account_holder":  req.AccountHolder,   // sudah sanitized di handler
-			"bank_code":       req.BankCode,        // sudah validated di handler
-			"user_role":       userRole,
-			"requested_by":    userID.String(),
-		},
-	}
-	err = s.repo.CreateTransaction(ctx, walletTx)
-	if err != nil {
-		return fmt.Errorf("gagal mencatat transaksi penarikan: %w", err)
-	}
+		deductAmount := -float64(totalDeductionIDR) // negatif = debit
+		err = s.repo.UpdateBalance(txCtx, wallet.ID, deductAmount, wallet.Version)
+		if err != nil {
+			return fmt.Errorf("gagal memotong saldo (kemungkinan concurrent request): %w", err)
+		}
 
-	// ─── COMMIT: Saldo terpotong dan log tercatat secara atomik ──────────────────
-	// Commit HARUS dilakukan sebelum memanggil disbursement eksternal.
-	// Jika commit gagal, defer Rollback() akan memastikan tidak ada data korup.
-	if err := tx.Commit(); err != nil {
+		// ─── SECURITY LAYER 7: Buat Catatan Transaksi dengan Metadata Lengkap ────────
+		refID = fmt.Sprintf("WD-%s-%d", req.IdempotencyKey[:8], time.Now().UnixMilli())
+		walletTx := &domain.WalletTransaction{
+			WalletID:    wallet.ID,
+			Type:        domain.TypeWithdrawal,
+			Amount:      float64(amountIDR),
+			Fee:         float64(withdrawalFeeIDR),
+			Status:      domain.StatusPending,
+			ReferenceID: refID,
+			Metadata: map[string]any{
+				"idempotency_key": req.IdempotencyKey,
+				"account_number":  req.AccountNumber,
+				"account_holder":  req.AccountHolder,
+				"bank_code":       req.BankCode,
+				"user_role":       userRole,
+				"requested_by":    userID.String(),
+			},
+		}
+		if err := s.repo.CreateTransaction(txCtx, walletTx); err != nil {
+			return fmt.Errorf("gagal mencatat transaksi penarikan: %w", err)
+		}
+		return nil
+	})
+
+	if err != nil {
 		return fmt.Errorf("gagal menyimpan transaksi penarikan: %w", err)
 	}
 
@@ -438,36 +434,38 @@ func (s *walletService) ProcessPayment(ctx context.Context, userID uuid.UUID, am
 		}
 	}
 
-	wallet, err := s.GetBalance(ctx, userID)
-	if err != nil {
-		return err
-	}
+	err := s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		wallet, err := s.GetBalance(txCtx, userID)
+		if err != nil {
+			return err
+		}
 
-	if wallet.Balance < amount {
-		return errors.New("insufficient wallet balance")
-	}
+		if wallet.Balance < amount {
+			return errors.New("insufficient wallet balance")
+		}
 
-	// Update Balance
-	err = s.repo.UpdateBalance(ctx, wallet.ID, -amount, wallet.Version)
-	if err != nil {
-		return err
-	}
+		// Update Balance
+		err = s.repo.UpdateBalance(txCtx, wallet.ID, -amount, wallet.Version)
+		if err != nil {
+			return err
+		}
 
-	// Create Transaction Log
-	walletTx := &domain.WalletTransaction{
-		WalletID:    wallet.ID,
-		Type:        domain.TypePayment,
-		Amount:      amount,
-		Fee:         0,
-		Status:      domain.StatusCompleted,
-		ReferenceID: orderID,
-	}
-	err = s.repo.CreateTransaction(ctx, walletTx)
-	if err != nil {
-		return err
-	}
+		// Create Transaction Log
+		walletTx := &domain.WalletTransaction{
+			WalletID:    wallet.ID,
+			Type:        domain.TypePayment,
+			Amount:      amount,
+			Fee:         0,
+			Status:      domain.StatusCompleted,
+			ReferenceID: orderID,
+		}
+		if err = s.repo.CreateTransaction(txCtx, walletTx); err != nil {
+			return err
+		}
+		return nil
+	})
 
-	return nil
+	return err
 }
 
 func (s *walletService) Refund(ctx context.Context, userID uuid.UUID, amount float64, orderID string) error {
@@ -481,112 +479,97 @@ func (s *walletService) Refund(ctx context.Context, userID uuid.UUID, amount flo
 		}
 	}
 
-	// Start Transaction
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	err := s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		wallet, err := s.GetBalance(txCtx, userID)
+		if err != nil {
+			return err
+		}
 
-	wallet, err := s.GetBalance(ctx, userID)
-	if err != nil {
-		return err
-	}
+		// Update Balance
+		err = s.repo.UpdateBalance(txCtx, wallet.ID, amount, wallet.Version)
+		if err != nil {
+			return err
+		}
 
-	// Update Balance
-	err = s.repo.UpdateBalance(ctx, wallet.ID, amount, wallet.Version)
-	if err != nil {
-		return err
-	}
+		// Create Transaction Log
+		walletTx := &domain.WalletTransaction{
+			WalletID:    wallet.ID,
+			Type:        domain.TypeRefund,
+			Amount:      amount,
+			Fee:         0,
+			Status:      domain.StatusCompleted,
+			ReferenceID: orderID,
+			Metadata:    map[string]any{"source": "order_cancellation", "order_id": orderID},
+		}
+		if err = s.repo.CreateTransaction(txCtx, walletTx); err != nil {
+			return err
+		}
+		return nil
+	})
 
-	// Create Transaction Log
-	walletTx := &domain.WalletTransaction{
-		WalletID:    wallet.ID,
-		Type:        domain.TypeRefund,
-		Amount:      amount,
-		Fee:         0,
-		Status:      domain.StatusCompleted,
-		ReferenceID: orderID,
-		Metadata:    map[string]any{"source": "order_cancellation", "order_id": orderID},
-	}
-	err = s.repo.CreateTransaction(ctx, walletTx)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return err
 }
 
 func (s *walletService) DeductFakeSosPenalty(ctx context.Context, victimID uuid.UUID, amount float64, referenceID string) error {
-	// Start Transaction
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	err := s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		wallet, err := s.GetBalance(txCtx, victimID)
+		if err != nil {
+			return err
+		}
 
-	wallet, err := s.GetBalance(ctx, victimID)
-	if err != nil {
-		return err
-	}
+		// Update Balance (Allow negative balance)
+		err = s.repo.UpdateBalance(txCtx, wallet.ID, -amount, wallet.Version)
+		if err != nil {
+			return err
+		}
 
-	// Update Balance (Allow negative balance)
-	err = s.repo.UpdateBalance(ctx, wallet.ID, -amount, wallet.Version)
-	if err != nil {
-		return err
-	}
+		// Create Transaction Log
+		walletTx := &domain.WalletTransaction{
+			WalletID:    wallet.ID,
+			Type:        domain.TypeAdjustment,
+			Amount:      amount,
+			Fee:         0,
+			Status:      domain.StatusCompleted,
+			ReferenceID: referenceID,
+			Metadata:    map[string]any{"source": "sos_fake_penalty", "incident_id": referenceID},
+		}
+		if err = s.repo.CreateTransaction(txCtx, walletTx); err != nil {
+			return err
+		}
+		return nil
+	})
 
-	// Create Transaction Log
-	walletTx := &domain.WalletTransaction{
-		WalletID:    wallet.ID,
-		Type:        domain.TypeAdjustment,
-		Amount:      amount,
-		Fee:         0,
-		Status:      domain.StatusCompleted,
-		ReferenceID: referenceID,
-		Metadata:    map[string]any{"source": "sos_fake_penalty", "incident_id": referenceID},
-	}
-	err = s.repo.CreateTransaction(ctx, walletTx)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return err
 }
 
 func (s *walletService) CreditSosHelperReward(ctx context.Context, helperID uuid.UUID, amount float64, referenceID string) error {
-	// Start Transaction
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	err := s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		wallet, err := s.GetBalance(txCtx, helperID)
+		if err != nil {
+			return err
+		}
 
-	wallet, err := s.GetBalance(ctx, helperID)
-	if err != nil {
-		return err
-	}
+		// Update Balance
+		err = s.repo.UpdateBalance(txCtx, wallet.ID, amount, wallet.Version)
+		if err != nil {
+			return err
+		}
 
-	// Update Balance
-	err = s.repo.UpdateBalance(ctx, wallet.ID, amount, wallet.Version)
-	if err != nil {
-		return err
-	}
+		// Create Transaction Log
+		walletTx := &domain.WalletTransaction{
+			WalletID:    wallet.ID,
+			Type:        domain.TypeAdjustment,
+			Amount:      amount,
+			Fee:         0,
+			Status:      domain.StatusCompleted,
+			ReferenceID: referenceID,
+			Metadata:    map[string]any{"source": "sos_helper_reward", "incident_id": referenceID},
+		}
+		if err = s.repo.CreateTransaction(txCtx, walletTx); err != nil {
+			return err
+		}
+		return nil
+	})
 
-	// Create Transaction Log
-	walletTx := &domain.WalletTransaction{
-		WalletID:    wallet.ID,
-		Type:        domain.TypeAdjustment,
-		Amount:      amount,
-		Fee:         0,
-		Status:      domain.StatusCompleted,
-		ReferenceID: referenceID,
-		Metadata:    map[string]any{"source": "sos_helper_reward", "incident_id": referenceID},
-	}
-	err = s.repo.CreateTransaction(ctx, walletTx)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return err
 }

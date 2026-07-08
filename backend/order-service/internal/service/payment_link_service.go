@@ -262,6 +262,12 @@ func (s *paymentLinkServiceImpl) CheckoutLink(ctx context.Context, id string) (*
 		return nil, fmt.Errorf("payment link is no longer pending (status: %s)", link.Status)
 	}
 
+	// CEL-NEW #3: Precision Timing Attack on Tariff
+	// Block checkout if the link is already expired
+	if !link.ExpiredAt.IsZero() && time.Now().After(link.ExpiredAt) {
+		return nil, fmt.Errorf("payment link is expired")
+	}
+
 	totalAmount := link.ItemPrice + link.DeliveryFeeAmount + link.MerchantFeeAmount
 
 	snapReq := domain.SnapRequest{
@@ -370,7 +376,11 @@ func (s *paymentLinkServiceImpl) HandleWebhook(ctx context.Context, id string, e
 			ReceiverPhone:        link.RecipientPhone,
 		}
 
-		order, err = s.orderSvc.CreateOrder(ctx, link.MerchantID, orderReq)
+		if link.LogisticsProvider != "" {
+			order, err = s.orderSvc.CreateInternalAggregatorOrder(ctx, link.MerchantID, orderReq)
+		} else {
+			order, err = s.orderSvc.CreateOrder(ctx, link.MerchantID, orderReq)
+		}
 		if err != nil {
 			return fmt.Errorf("failed to auto-create order after payment: %w", err)
 		}

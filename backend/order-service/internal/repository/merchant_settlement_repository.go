@@ -42,7 +42,7 @@ func (r *merchantSettlementRepository) Create(ctx context.Context, s *domain.Mer
 			$10, $11,
 			$12, $13, $14,
 			NOW(), NOW()
-		)`,
+		) ON CONFLICT (idempotency_key) DO NOTHING`,
 		s.ID, s.PaymentLinkID, s.MerchantID, s.OrderID,
 		s.GrossItemPriceIDR, s.MerchantFeeIDR, s.NetPayoutIDR,
 		s.Status, s.IdempotencyKey,

@@ -55,8 +55,12 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 	// PATH A: 3PL Aggregator Order (LogisticsProvider != "")
 	// Bypass Redis estimate — data comes directly from CreateOrderRequest.
 	// ─────────────────────────────────────────────────────────────────────────
+	// SECURITY FIX (2026): Prevent Price Manipulation via IDOR/Mass Assignment.
+	// Clients calling this public endpoint cannot create 3PL orders directly.
+	// 3PL orders MUST go through CreateInternalAggregatorOrder (e.g. from Payment Link flow)
+	// where pricing is validated against the provider.
 	if req.LogisticsProvider != "" {
-		return s.createAggregatorOrder(ctx, userID, req)
+		return nil, errors.New("logistics_provider is not allowed for on-demand orders. use payment link for 3PL.")
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -190,7 +194,7 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 // createAggregatorOrder membuat order untuk pengiriman 3PL (JNE/J&T).
 // Tidak membutuhkan Redis estimate — semua data diambil langsung dari CreateOrderRequest.
 // Status awal: pending_assignment (AWB akan di-generate terpisah oleh payment_link webhook).
-func (s *orderServiceImpl) createAggregatorOrder(ctx context.Context, userID string, req domain.CreateOrderRequest) (*domain.Order, error) {
+func (s *orderServiceImpl) CreateInternalAggregatorOrder(ctx context.Context, userID string, req domain.CreateOrderRequest) (*domain.Order, error) {
 	orderNum := fmt.Sprintf("TMBS%s", strings.ToUpper(uuid.New().String()[:6]))
 	handoverToken := uuid.New().String()
 

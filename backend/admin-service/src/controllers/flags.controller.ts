@@ -158,8 +158,8 @@ export const toggleFlag = async (req: Request, res: Response): Promise<void> => 
 
     getIO().emit('flag:changed', { key, is_enabled: new_enabled, changed_at: new Date() });
 
-    sendEmailAlert(key, flag.is_enabled, new_enabled, reason, changedBy).catch(console.error);
-    sendSlackAlert(key, flag.is_enabled, new_enabled, reason, changedBy).catch(console.error);
+    sendEmailAlert(key, flag.is_enabled, new_enabled, reason, changedBy).catch(err => securityLog.error('Email alert failed', { err }));
+    sendSlackAlert(key, flag.is_enabled, new_enabled, reason, changedBy).catch(err => securityLog.error('Slack alert failed', { err }));
 
     res.json(updateRes.rows[0]);
   } catch (error: any) {
@@ -224,8 +224,8 @@ export const updateFlagConfig = async (req: Request, res: Response): Promise<voi
 
     getIO().emit('flag:changed', { key, is_enabled: flag.is_enabled, config: validConfig, changed_at: new Date() });
 
-    sendEmailAlert(key, flag.is_enabled, flag.is_enabled, reason, changedBy).catch(console.error);
-    sendSlackAlert(key, flag.is_enabled, flag.is_enabled, reason, changedBy).catch(console.error);
+    sendEmailAlert(key, flag.is_enabled, flag.is_enabled, reason, changedBy).catch(err => securityLog.error('Email alert failed', { err }));
+    sendSlackAlert(key, flag.is_enabled, flag.is_enabled, reason, changedBy).catch(err => securityLog.error('Slack alert failed', { err }));
 
     res.json(updateRes.rows[0]);
   } catch (error: any) {

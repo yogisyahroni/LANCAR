@@ -258,7 +258,7 @@ func main() {
 	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, relayRepo, eb, tq, flagReader, notificationSvc, configRepo)
 	paymentSvc := service.NewPaymentService(paymentRepo, pgRepo, paymentGw, configRepo)
 	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw, relayRepo)
-	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw)
+	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw, redisRepo)
 	orderSvc.SetRefundService(refundSvc)
 	slaSvc := service.NewSLAService(slaRepo, notificationSvc, payoutRepo)
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc, configRepo)

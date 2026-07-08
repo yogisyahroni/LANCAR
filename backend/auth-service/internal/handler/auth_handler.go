@@ -818,6 +818,12 @@ func (h *AuthHandler) CreateAdminUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	actorRole := middleware.GetRoleFromContext(r.Context())
+	if actorRole != string(domain.RoleSuperAdmin) {
+		http.Error(w, "Forbidden: Only super_admin can create admin users", http.StatusForbidden)
+		return
+	}
+
 	var req struct {
 		FullName    string `json:"full_name"`
 		PhoneNumber string `json:"phone_number"`
@@ -1055,9 +1061,17 @@ func (h *AuthHandler) UpdateBankProfile(w http.ResponseWriter, r *http.Request) 
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Bank name or account holder name exceeds maximum allowed length", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
 		return
 	}
-	// Strip dangerous HTML/script characters
-	bankName = strings.ReplaceAll(strings.ReplaceAll(bankName, "<", ""), ">", "")
-	accountHolder = strings.ReplaceAll(strings.ReplaceAll(accountHolder, "<", ""), ">", "")
+	// CEL-NEW #2: Sanitize strictly to prevent downstream poisoning
+	// Only allow A-Z, a-z, 0-9, spaces, dots, and hyphens
+	strictNamePattern := regexp.MustCompile(`^[a-zA-Z0-9\s\.\-]+$`)
+	if !strictNamePattern.MatchString(bankName) {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Bank name contains invalid characters", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
+	if !strictNamePattern.MatchString(accountHolder) {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Bank account holder contains invalid characters", middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+		return
+	}
 
 	if err := h.svc.UpdateBankProfile(r.Context(), userID, bankName, accountNumber, accountHolder); err != nil {
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to update bank profile: "+err.Error(), middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))

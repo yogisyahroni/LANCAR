@@ -54,6 +54,10 @@ type WalletRepository interface {
 	GetTransactions(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]*WalletTransaction, error)
 	IsRefundProcessed(ctx context.Context, referenceID string) (bool, error)
 
+	// HasActiveSOS mengecek apakah ada SOS incident aktif (belum resolve) untuk user ini.
+	// CEL-NEW #5: SOS Emergency Fund Ghosting
+	HasActiveSOS(ctx context.Context, userID uuid.UUID) (bool, error)
+
 	// UpdateTransactionStatus memperbarui status transaksi berdasarkan referenceID.
 	// Dipanggil setelah disbursement berhasil (COMPLETED) atau gagal (FAILED).
 	UpdateTransactionStatus(ctx context.Context, referenceID string, status TransactionStatus) error
@@ -61,6 +65,9 @@ type WalletRepository interface {
 	// IsWithdrawIdempotent memeriksa apakah idempotency_key sudah pernah digunakan
 	// untuk mencegah double-submit dari client (replay attack).
 	IsWithdrawIdempotent(ctx context.Context, idempotencyKey string) (bool, error)
+
+	// WithTx runs the given function within a database transaction.
+	WithTx(ctx context.Context, fn func(txCtx context.Context) error) error
 }
 
 type SettingsRepository interface {

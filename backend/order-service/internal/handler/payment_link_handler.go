@@ -92,6 +92,9 @@ func (h *PaymentLinkHandler) ListLinks(w http.ResponseWriter, r *http.Request) {
 	if limit <= 0 {
 		limit = 10
 	}
+	if limit > 100 {
+		limit = 100
+	}
 	offset, _ := strconv.Atoi(offsetStr)
 
 	links, err := h.svc.ListLinks(r.Context(), merchantID, limit, offset)

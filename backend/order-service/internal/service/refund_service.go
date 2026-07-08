@@ -16,6 +16,7 @@ type refundService struct {
 	orderRepo   domain.OrderRepository
 	paymentRepo domain.PaymentRepository
 	gateway     domain.RefundGateway
+	redisRepo   domain.RedisRepository
 }
 
 func NewRefundService(
@@ -23,16 +24,29 @@ func NewRefundService(
 	orderRepo domain.OrderRepository,
 	paymentRepo domain.PaymentRepository,
 	gateway domain.RefundGateway,
+	redisRepo domain.RedisRepository,
 ) domain.RefundService {
 	return &refundService{
 		refundRepo:  refundRepo,
 		orderRepo:   orderRepo,
 		paymentRepo: paymentRepo,
 		gateway:     gateway,
+		redisRepo:   redisRepo,
 	}
 }
 
 func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID uuid.UUID, cancelReason string) (*domain.RefundRecord, error) {
+	// CEL-NEW #4: Prevent TOCTOU / Double Refund Admin Click via Distributed Lock
+	lockKey := fmt.Sprintf("refund_lock:%s", orderID.String())
+	acquired, err := s.redisRepo.AcquireLock(ctx, lockKey, 30*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to acquire refund lock: %w", err)
+	}
+	if !acquired {
+		return nil, fmt.Errorf("refund process is already running for order %s", orderID.String())
+	}
+	defer s.redisRepo.ReleaseLock(ctx, lockKey)
+
 	// Get order details
 	order, err := s.orderRepo.GetByID(ctx, orderID.String())
 	if err != nil {

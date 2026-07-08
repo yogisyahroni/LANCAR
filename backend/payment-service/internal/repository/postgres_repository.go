@@ -17,6 +17,49 @@ type postgresWalletRepository struct {
 	readDB *sql.DB
 }
 
+type txKey struct{}
+
+func (r *postgresWalletRepository) execContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
+	if tx, ok := ctx.Value(txKey{}).(*sql.Tx); ok {
+		return tx.ExecContext(ctx, query, args...)
+	}
+	return r.db.ExecContext(ctx, query, args...)
+}
+
+func (r *postgresWalletRepository) queryRowContext(ctx context.Context, isWrite bool, query string, args ...any) *sql.Row {
+	if tx, ok := ctx.Value(txKey{}).(*sql.Tx); ok {
+		return tx.QueryRowContext(ctx, query, args...)
+	}
+	if isWrite {
+		return r.db.QueryRowContext(ctx, query, args...)
+	}
+	return r.readDB.QueryRowContext(ctx, query, args...)
+}
+
+func (r *postgresWalletRepository) queryContext(ctx context.Context, isWrite bool, query string, args ...any) (*sql.Rows, error) {
+	if tx, ok := ctx.Value(txKey{}).(*sql.Tx); ok {
+		return tx.QueryContext(ctx, query, args...)
+	}
+	if isWrite {
+		return r.db.QueryContext(ctx, query, args...)
+	}
+	return r.readDB.QueryContext(ctx, query, args...)
+}
+
+func (r *postgresWalletRepository) WithTx(ctx context.Context, fn func(txCtx context.Context) error) error {
+	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return err
+	}
+	
+	txCtx := context.WithValue(ctx, txKey{}, tx)
+	if err := fn(txCtx); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return tx.Commit()
+}
+
 func NewPostgresWalletRepository(db, readDB *sql.DB) domain.WalletRepository {
 	return &postgresWalletRepository{
 		db:     db,
@@ -30,7 +73,7 @@ func (r *postgresWalletRepository) GetByUserID(ctx context.Context, userID uuid.
 	query := `SELECT id, customer_id as user_id, balance, currency, version, created_at, updated_at FROM customer_wallets WHERE customer_id = $1`
 
 	var w domain.Wallet
-	err := r.readDB.QueryRowContext(ctx, query, userID).Scan(
+	err := r.queryRowContext(ctx, false, query, userID).Scan(
 		&w.ID, &w.UserID, &w.Balance, &w.Currency, &w.Version, &w.CreatedAt, &w.UpdatedAt,
 	)
 
@@ -44,7 +87,7 @@ func (r *postgresWalletRepository) GetByUserID(ctx context.Context, userID uuid.
 
 	// Try couriers
 	query = `SELECT id, courier_id as user_id, balance, currency, version, created_at, updated_at FROM courier_wallets WHERE courier_id = $1`
-	err = r.readDB.QueryRowContext(ctx, query, userID).Scan(
+	err = r.queryRowContext(ctx, false, query, userID).Scan(
 		&w.ID, &w.UserID, &w.Balance, &w.Currency, &w.Version, &w.CreatedAt, &w.UpdatedAt,
 	)
 
@@ -60,8 +103,8 @@ func (r *postgresWalletRepository) GetByUserID(ctx context.Context, userID uuid.
 
 func (r *postgresWalletRepository) Create(ctx context.Context, userID uuid.UUID) (*domain.Wallet, error) {
 	var role string
-	err := r.readDB.QueryRowContext(
-		ctx,
+	err := r.queryRowContext(
+		ctx, false,
 		`SELECT role
 		 FROM users
 		 WHERE id = $1
@@ -94,7 +137,7 @@ func (r *postgresWalletRepository) Create(ctx context.Context, userID uuid.UUID)
 	}
 
 	var w domain.Wallet
-	err = r.db.QueryRowContext(ctx, query, userID).Scan(
+	err = r.queryRowContext(ctx, true, query, userID).Scan(
 		&w.ID, &w.UserID, &w.Balance, &w.Currency, &w.Version, &w.CreatedAt, &w.UpdatedAt,
 	)
 
@@ -110,7 +153,7 @@ func (r *postgresWalletRepository) UpdateBalance(ctx context.Context, walletID u
 	query := `UPDATE customer_wallets SET balance = balance + $1, version = version + 1, updated_at = $2 
 	          WHERE id = $3 AND version = $4`
 
-	res, err := r.db.ExecContext(ctx, query, amount, time.Now(), walletID, version)
+	res, err := r.execContext(ctx, query, amount, time.Now(), walletID, version)
 	if err == nil {
 		if count, _ := res.RowsAffected(); count > 0 {
 			return nil
@@ -121,7 +164,7 @@ func (r *postgresWalletRepository) UpdateBalance(ctx context.Context, walletID u
 	query = `UPDATE courier_wallets SET balance = balance + $1, version = version + 1, updated_at = $2 
 	          WHERE id = $3 AND version = $4`
 
-	res, err = r.db.ExecContext(ctx, query, amount, time.Now(), walletID, version)
+	res, err = r.execContext(ctx, query, amount, time.Now(), walletID, version)
 	if err != nil {
 		return err
 	}
@@ -141,7 +184,7 @@ func (r *postgresWalletRepository) UpdateBalance(ctx context.Context, walletID u
 func (r *postgresWalletRepository) CreateTransaction(ctx context.Context, tx *domain.WalletTransaction) error {
 	// Determine if wallet_id is customer or courier
 	var exists bool
-	err := r.readDB.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM customer_wallets WHERE id = $1)", tx.WalletID).Scan(&exists)
+	err := r.queryRowContext(ctx, false, "SELECT EXISTS(SELECT 1 FROM customer_wallets WHERE id = $1)", tx.WalletID).Scan(&exists)
 
 	table := "customer_wallet_transactions"
 	if err != nil || !exists {
@@ -152,7 +195,7 @@ func (r *postgresWalletRepository) CreateTransaction(ctx context.Context, tx *do
 	          VALUES ($1, $2, $3, $4, $5, $6, $7) 
 	          RETURNING id, created_at, updated_at`
 
-	err = r.db.QueryRowContext(ctx, query,
+	err = r.queryRowContext(ctx, true, query,
 		tx.WalletID, tx.Type, tx.Amount, tx.Fee, tx.Status, tx.ReferenceID, tx.Metadata,
 	).Scan(&tx.ID, &tx.CreatedAt, &tx.UpdatedAt)
 
@@ -164,12 +207,12 @@ func (r *postgresWalletRepository) GetTransactions(ctx context.Context, walletID
 	query := `SELECT id, wallet_id, type, amount, fee, status, reference_id, metadata, created_at, updated_at 
 	          FROM customer_wallet_transactions WHERE wallet_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
 
-	rows, err := r.readDB.QueryContext(ctx, query, walletID, limit, offset)
+	rows, err := r.queryContext(ctx, false, query, walletID, limit, offset)
 	if err != nil || rows.Err() != nil {
 		// Try courier transactions
 		query = `SELECT id, wallet_id, type, amount, fee, status, reference_id, metadata, created_at, updated_at 
 		          FROM courier_wallet_transactions WHERE wallet_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
-		rows, err = r.readDB.QueryContext(ctx, query, walletID, limit, offset)
+		rows, err = r.queryContext(ctx, false, query, walletID, limit, offset)
 		if err != nil {
 			return nil, err
 		}
@@ -294,4 +337,20 @@ func (r *postgresWalletRepository) GetFee(ctx context.Context, role string) (flo
 		return 0, fmt.Errorf("fee setting %s is invalid: %w", key, err)
 	}
 	return fee, nil
+}
+
+func (r *postgresWalletRepository) HasActiveSOS(ctx context.Context, userID uuid.UUID) (bool, error) {
+	var count int
+	err := r.queryRowContext(
+		ctx, false,
+		`SELECT COUNT(*)
+		 FROM sos_incidents
+		 WHERE victim_courier_id = $1
+		   AND status IN ('broadcasted', 'accepted')`,
+		userID,
+	).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
