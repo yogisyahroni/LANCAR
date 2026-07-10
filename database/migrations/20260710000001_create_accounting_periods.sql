@@ -1,3 +1,4 @@
+-- +goose Up
 -- Migration: create accounting_periods table for RPT-001 Monthly Closing Workflow
 
 CREATE TABLE IF NOT EXISTS accounting_periods (
@@ -17,3 +18,6 @@ VALUES
     ('2026-06', 'CLOSED', NOW(), NOW()),
     ('2026-07', 'OPEN', NOW(), NOW())
 ON CONFLICT (period_code) DO NOTHING;
+
+-- +goose Down
+DROP TABLE IF EXISTS accounting_periods;
