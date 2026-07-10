@@ -1,3 +1,4 @@
+-- +goose Up
 -- ============================================================
 -- TEMBUS — Extend Platform Cost Configs (Keuangan, Pajak VAT/PPh & Tarif)
 -- Migration: 20260708000006_extend_platform_cost_configs_tax_finance.sql
@@ -28,3 +29,6 @@ SET
   opex_dispute_reserve_idr = COALESCE(opex_dispute_reserve_idr, 200.00),
   min_platform_fee_idr = COALESCE(min_platform_fee_idr, 1500.00),
   max_discount_subsidy_pct = COALESCE(max_discount_subsidy_pct, 20.00);
+
+-- +goose Down
+-- ALTER TABLE platform_cost_configs DROP COLUMN IF EXISTS max_discount_subsidy_pct, DROP COLUMN IF EXISTS min_platform_fee_idr, DROP COLUMN IF EXISTS opex_dispute_reserve_idr, DROP COLUMN IF EXISTS opex_cs_support_per_order_idr, DROP COLUMN IF EXISTS opex_cloud_storage_per_order_idr, DROP COLUMN IF EXISTS payout_disbursement_fee_idr, DROP COLUMN IF EXISTS payment_gateway_fixed_idr, DROP COLUMN IF EXISTS payment_gateway_mdr_pct, DROP COLUMN IF EXISTS tax_pph_pct, DROP COLUMN IF EXISTS tax_vat_pct;
