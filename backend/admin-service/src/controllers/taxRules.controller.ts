@@ -132,7 +132,7 @@ export const getTaxDashboard = async (req: Request, res: Response): Promise<void
     const mismatchesRes = await readDb.query(`
       SELECT 
         id as order_id,
-        tracking_number,
+        awb_number as tracking_number,
         dpp_idr,
         ppn_idr,
         ppn_rate_effective_pct,
@@ -174,7 +174,7 @@ export const exportTaxPack = async (req: Request, res: Response): Promise<void> 
     const ordersRes = await readDb.query(`
       SELECT 
         id as order_id,
-        tracking_number,
+        awb_number as tracking_number,
         tax_rule_code,
         dpp_idr,
         ppn_idr,

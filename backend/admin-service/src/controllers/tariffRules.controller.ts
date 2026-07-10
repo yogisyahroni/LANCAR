@@ -86,14 +86,14 @@ export const listOrderTariffAudit = async (req: Request, res: Response): Promise
     }
     if (orderId) {
       params.push(orderId);
-      whereClause += ` AND (id::text = $${params.length} OR tracking_number = $${params.length})`;
+      whereClause += ` AND (id::text = $${params.length} OR awb_number = $${params.length})`;
     }
 
     params.push(Number(limit) || 100);
     const result = await readDb.query(`
       SELECT 
         id as order_id,
-        tracking_number,
+        awb_number as tracking_number,
         courier_provider,
         service_type,
         origin_city,
@@ -127,7 +127,7 @@ export const getOrderTariffAudit = async (req: Request, res: Response): Promise<
     const result = await readDb.query(`
       SELECT 
         o.id as order_id,
-        o.tracking_number,
+        o.awb_number as tracking_number,
         o.courier_provider,
         o.service_type,
         o.origin_city,
@@ -144,7 +144,7 @@ export const getOrderTariffAudit = async (req: Request, res: Response): Promise<
         o.tax_invoice_status,
         o.created_at
       FROM orders o
-      WHERE o.id = $1 OR o.tracking_number = $1
+      WHERE o.id = $1 OR o.awb_number = $1
     `, [orderId]);
 
     if (result.rows.length === 0) {
