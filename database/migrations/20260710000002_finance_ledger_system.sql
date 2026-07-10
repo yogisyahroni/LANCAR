@@ -37,12 +37,14 @@ CREATE INDEX idx_ledger_entries_journal ON ledger_entries (journal_id);
 CREATE INDEX idx_ledger_entries_created_at ON ledger_entries (created_at);
 
 -- Trigger to prevent UPDATE or DELETE on ledger tables (Append-Only rule)
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION prevent_ledger_mutation()
 RETURNS TRIGGER AS $$
 BEGIN
     RAISE EXCEPTION 'Ledger is append-only. UPDATE and DELETE are strictly forbidden. Use reversal journals for corrections.';
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 CREATE TRIGGER trg_prevent_ledger_journals_mutation
 BEFORE UPDATE OR DELETE ON ledger_journals

@@ -4,6 +4,7 @@
 -- Migration: 20260710000006_finance_ledger_balance_constraint.sql
 -- ============================================================
 
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION check_journal_balance()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -22,6 +23,7 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 CREATE CONSTRAINT TRIGGER trg_check_journal_balance
 AFTER INSERT OR UPDATE ON ledger_entries
