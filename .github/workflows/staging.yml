@@ -354,11 +354,11 @@ jobs:
       - name: govulncheck (auth-service)
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          cd backend/auth-service && govulncheck ./...
+          cd backend/auth-service && go mod tidy && govulncheck ./...
 
       - name: govulncheck (routing-service)
         run: |
-          cd backend/routing-service && govulncheck ./...
+          cd backend/routing-service && go mod tidy && govulncheck ./...
 
       # ── Go static security analysis ───────────────────────
       - name: gosec (auth-service)
