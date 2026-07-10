@@ -7,6 +7,8 @@
 -- 0. Drop Materialized Views depending on orders table to allow altering column types
 DROP MATERIALIZED VIEW IF EXISTS mv_daily_revenue CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS mv_order_funnel CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mv_customer_daily_stats CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mv_readiness_three_legs CASCADE;
 
 -- 1. Upgrade Monetary columns in orders and payments to BIGINT
 ALTER TABLE orders 
@@ -58,6 +60,89 @@ FROM orders
 GROUP BY 1, 2;
 
 CREATE INDEX idx_mv_order_funnel_date ON mv_order_funnel(report_date);
+
+CREATE MATERIALIZED VIEW mv_customer_daily_stats AS
+SELECT
+    o.customer_id,
+    DATE(o.created_at AT TIME ZONE 'Asia/Jakarta') AS order_date,
+    COUNT(*) AS total_orders,
+    COUNT(*) FILTER (WHERE o.status = 'delivered') AS completed_orders,
+    COUNT(*) FILTER (WHERE o.status IN ('failed', 'cancelled')) AS failed_orders,
+    SUM(o.total_price_idr) AS total_spent_idr,
+    AVG(o.total_price_idr) AS avg_order_value_idr,
+    AVG(o.distance_km) AS avg_distance_km,
+    COUNT(*) FILTER (WHERE o.model = 'p2p') AS p2p_count,
+    COUNT(*) FILTER (WHERE o.model = 'two_legs') AS two_legs_count
+FROM orders o
+WHERE o.status NOT IN ('pending_payment')
+GROUP BY o.customer_id, DATE(o.created_at AT TIME ZONE 'Asia/Jakarta');
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_cust_daily_stats_unique ON mv_customer_daily_stats(customer_id, order_date);
+CREATE INDEX IF NOT EXISTS idx_mv_cust_daily_stats_cust ON mv_customer_daily_stats(customer_id);
+
+CREATE MATERIALIZED VIEW mv_readiness_three_legs AS
+WITH zone_stats AS (
+    SELECT 
+        z.name AS zone_name,
+        COUNT(cp.id) AS courier_count,
+        CASE WHEN COUNT(cp.id) >= 30 THEN true ELSE false END AS is_ready
+    FROM zones z
+    LEFT JOIN courier_zones cz ON z.id = cz.zone_id
+    LEFT JOIN courier_profiles cp ON cz.courier_id = cp.id AND cp.is_online = true
+    GROUP BY z.name
+),
+metrics_calc AS (
+    SELECT
+        COALESCE((SELECT ROUND(AVG(CASE WHEN status = 'delivered' THEN 100 ELSE 0 END)) FROM orders WHERE model = 'two_legs' AND created_at >= NOW() - INTERVAL '30 days'), 0) as sla_stability,
+        COALESCE((SELECT ROUND(AVG(courier_count)) FROM zone_stats), 0) as courier_density,
+        COALESCE((SELECT ROUND(COUNT(*) / 7.0) FROM orders WHERE created_at >= NOW() - INTERVAL '7 days'), 0) as daily_volume
+),
+aggregated_data AS (
+    SELECT
+        jsonb_build_object(
+            'metrics', jsonb_build_array(
+                jsonb_build_object(
+                    'title', 'SLA Stability',
+                    'current', m.sla_stability,
+                    'target', 93,
+                    'unit', '%',
+                    'description', 'Average 2-Kaki SLA over the last 4 weeks.'
+                ),
+                jsonb_build_object(
+                    'title', 'Courier Density',
+                    'current', m.courier_density,
+                    'target', 30,
+                    'unit', ' Avg',
+                    'description', 'Minimum courier count per key operational zone.'
+                ),
+                jsonb_build_object(
+                    'title', 'Daily Volume',
+                    'current', m.daily_volume,
+                    'target', 200,
+                    'unit', ' Ord',
+                    'description', 'Minimum total daily orders for relay routes.'
+                )
+            ),
+            'zones', (SELECT jsonb_agg(jsonb_build_object('zone', zone_name, 'courier', courier_count, 'ready', is_ready)) FROM zone_stats),
+            'overall_ready', (m.sla_stability >= 93 AND m.courier_density >= 30 AND m.daily_volume >= 200),
+            'can_activate', (m.sla_stability >= 93 AND m.courier_density >= 30 AND m.daily_volume >= 200),
+            'estimated_ready_in_weeks', CASE 
+                WHEN (m.sla_stability >= 93 AND m.courier_density >= 30 AND m.daily_volume >= 200) THEN 0
+                ELSE GREATEST(0, CEIL((200 - m.daily_volume) / 20.0), CEIL((30 - m.courier_density) / 5.0))
+            END
+        ) as readiness_data,
+        (m.sla_stability >= 93 AND m.courier_density >= 30 AND m.daily_volume >= 200) as overall_ready,
+        CASE 
+            WHEN (m.sla_stability >= 93 AND m.courier_density >= 30 AND m.daily_volume >= 200) THEN 0
+            ELSE GREATEST(0, CEIL((200 - m.daily_volume) / 20.0), CEIL((30 - m.courier_density) / 5.0))
+        END as estimated_ready_in_weeks,
+        (m.sla_stability >= 93 AND m.courier_density >= 30 AND m.daily_volume >= 200) as can_activate,
+        NOW() as last_updated
+    FROM metrics_calc m
+)
+SELECT * FROM aggregated_data;
+
+CREATE UNIQUE INDEX idx_mv_readiness_three_legs_updated ON mv_readiness_three_legs(last_updated);
 
 -- 2. Create Tax Rules Table
 CREATE TABLE IF NOT EXISTS tax_rules (
@@ -173,3 +258,86 @@ FROM orders
 GROUP BY 1, 2;
 
 CREATE INDEX idx_mv_order_funnel_date ON mv_order_funnel(report_date);
+
+CREATE MATERIALIZED VIEW mv_customer_daily_stats AS
+SELECT
+    o.customer_id,
+    DATE(o.created_at AT TIME ZONE 'Asia/Jakarta') AS order_date,
+    COUNT(*) AS total_orders,
+    COUNT(*) FILTER (WHERE o.status = 'delivered') AS completed_orders,
+    COUNT(*) FILTER (WHERE o.status IN ('failed', 'cancelled')) AS failed_orders,
+    SUM(o.total_price_idr) AS total_spent_idr,
+    AVG(o.total_price_idr) AS avg_order_value_idr,
+    AVG(o.distance_km) AS avg_distance_km,
+    COUNT(*) FILTER (WHERE o.model = 'p2p') AS p2p_count,
+    COUNT(*) FILTER (WHERE o.model = 'two_legs') AS two_legs_count
+FROM orders o
+WHERE o.status NOT IN ('pending_payment')
+GROUP BY o.customer_id, DATE(o.created_at AT TIME ZONE 'Asia/Jakarta');
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_cust_daily_stats_unique ON mv_customer_daily_stats(customer_id, order_date);
+CREATE INDEX IF NOT EXISTS idx_mv_cust_daily_stats_cust ON mv_customer_daily_stats(customer_id);
+
+CREATE MATERIALIZED VIEW mv_readiness_three_legs AS
+WITH zone_stats AS (
+    SELECT 
+        z.name AS zone_name,
+        COUNT(cp.id) AS courier_count,
+        CASE WHEN COUNT(cp.id) >= 30 THEN true ELSE false END AS is_ready
+    FROM zones z
+    LEFT JOIN courier_zones cz ON z.id = cz.zone_id
+    LEFT JOIN courier_profiles cp ON cz.courier_id = cp.id AND cp.is_online = true
+    GROUP BY z.name
+),
+metrics_calc AS (
+    SELECT
+        COALESCE((SELECT ROUND(AVG(CASE WHEN status = 'delivered' THEN 100 ELSE 0 END)) FROM orders WHERE model = 'two_legs' AND created_at >= NOW() - INTERVAL '30 days'), 0) as sla_stability,
+        COALESCE((SELECT ROUND(AVG(courier_count)) FROM zone_stats), 0) as courier_density,
+        COALESCE((SELECT ROUND(COUNT(*) / 7.0) FROM orders WHERE created_at >= NOW() - INTERVAL '7 days'), 0) as daily_volume
+),
+aggregated_data AS (
+    SELECT
+        jsonb_build_object(
+            'metrics', jsonb_build_array(
+                jsonb_build_object(
+                    'title', 'SLA Stability',
+                    'current', m.sla_stability,
+                    'target', 93,
+                    'unit', '%',
+                    'description', 'Average 2-Kaki SLA over the last 4 weeks.'
+                ),
+                jsonb_build_object(
+                    'title', 'Courier Density',
+                    'current', m.courier_density,
+                    'target', 30,
+                    'unit', ' Avg',
+                    'description', 'Minimum courier count per key operational zone.'
+                ),
+                jsonb_build_object(
+                    'title', 'Daily Volume',
+                    'current', m.daily_volume,
+                    'target', 200,
+                    'unit', ' Ord',
+                    'description', 'Minimum total daily orders for relay routes.'
+                )
+            ),
+            'zones', (SELECT jsonb_agg(jsonb_build_object('zone', zone_name, 'courier', courier_count, 'ready', is_ready)) FROM zone_stats),
+            'overall_ready', (m.sla_stability >= 93 AND m.courier_density >= 30 AND m.daily_volume >= 200),
+            'can_activate', (m.sla_stability >= 93 AND m.courier_density >= 30 AND m.daily_volume >= 200),
+            'estimated_ready_in_weeks', CASE 
+                WHEN (m.sla_stability >= 93 AND m.courier_density >= 30 AND m.daily_volume >= 200) THEN 0
+                ELSE GREATEST(0, CEIL((200 - m.daily_volume) / 20.0), CEIL((30 - m.courier_density) / 5.0))
+            END
+        ) as readiness_data,
+        (m.sla_stability >= 93 AND m.courier_density >= 30 AND m.daily_volume >= 200) as overall_ready,
+        CASE 
+            WHEN (m.sla_stability >= 93 AND m.courier_density >= 30 AND m.daily_volume >= 200) THEN 0
+            ELSE GREATEST(0, CEIL((200 - m.daily_volume) / 20.0), CEIL((30 - m.courier_density) / 5.0))
+        END as estimated_ready_in_weeks,
+        (m.sla_stability >= 93 AND m.courier_density >= 30 AND m.daily_volume >= 200) as can_activate,
+        NOW() as last_updated
+    FROM metrics_calc m
+)
+SELECT * FROM aggregated_data;
+
+CREATE UNIQUE INDEX idx_mv_readiness_three_legs_updated ON mv_readiness_three_legs(last_updated);
