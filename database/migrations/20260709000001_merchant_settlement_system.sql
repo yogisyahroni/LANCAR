@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS merchant_settlements (
 );
 
 ALTER TABLE merchant_settlements
-    ADD CONSTRAINT IF NOT EXISTS uq_merchant_settlements_idempotency_key UNIQUE (idempotency_key);
+    ADD CONSTRAINT uq_merchant_settlements_idempotency_key UNIQUE (idempotency_key);
 
 CREATE INDEX IF NOT EXISTS idx_merchant_settlements_cron
     ON merchant_settlements (status, holding_release_at)
