@@ -1,4 +1,4 @@
-﻿module tembus/auth-service
+module tembus/auth-service
 
 go 1.25.0
 toolchain go1.25.0
