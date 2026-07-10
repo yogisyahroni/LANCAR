@@ -20,6 +20,9 @@ import Vouchers from './pages/Vouchers'
 import Promos from './pages/Promos'
 import Notifications from './pages/Notifications'
 import Finance from './pages/Finance'
+import TaxCenter from './pages/TaxCenter'
+import ChartOfAccounts from './pages/ChartOfAccounts'
+import TariffEngine from './pages/TariffEngine'
 import CostIntelligence from './pages/CostIntelligence'
 import Settings from './pages/Settings'
 import MapsRuntime from './pages/MapsRuntime'
@@ -209,6 +212,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <Finance />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/tax-center" 
+            element={
+              <ProtectedRoute>
+                <TaxCenter />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/chart-of-accounts" 
+            element={
+              <ProtectedRoute allowedRoles={['super_admin', 'finance_admin', 'finance']}>
+                <ChartOfAccounts />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/tariff-engine" 
+            element={
+              <ProtectedRoute>
+                <TariffEngine />
               </ProtectedRoute>
             } 
           />

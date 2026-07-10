@@ -29,7 +29,7 @@ func (m *MockPricingRepo) GetDeliveryServiceByCode(ctx context.Context, code str
 	if m.Err != nil {
 		return nil, m.Err
 	}
-	var baseFare, perKm float64
+	var baseFare, perKm int64
 	if m.Config != nil {
 		baseFare = m.Config.BaseFare
 		perKm = m.Config.PricePerKM
@@ -39,7 +39,7 @@ func (m *MockPricingRepo) GetDeliveryServiceByCode(ctx context.Context, code str
 		Name:           "Mocked Service",
 		BaseFareIDR:    baseFare,
 		PerKmIDR:       perKm,
-		PlatformFeeIDR: 1500.0,
+		PlatformFeeIDR: 1500,
 		PlatformFeePct: 0.015,
 	}, nil
 }
@@ -106,6 +106,14 @@ func (m *MockConfigRepo) GetFloatConfig(ctx context.Context, key string, fallbac
 	return fallback
 }
 func (m *MockConfigRepo) GetIntConfig(ctx context.Context, key string, fallback int) int {
+	if val, ok := m.Configs[key]; ok {
+		if i, ok := val.(int); ok {
+			return i
+		}
+		if i64, ok := val.(int64); ok {
+			return int(i64)
+		}
+	}
 	return fallback
 }
 func (m *MockConfigRepo) GetStringConfig(ctx context.Context, key string, fallback string) string {
@@ -299,5 +307,53 @@ func TestPricingService_Estimate_TwoLegsOff(t *testing.T) {
 				t.Errorf("expected model %v, got %v", tt.expectedModel, resp.Model)
 			}
 		})
+	}
+}
+
+func TestPricingService_RoundingAndPromoAccounting(t *testing.T) {
+	mockPricing := &MockPricingRepo{
+		Config: &domain.PricingConfig{
+			BaseFare:   10000,
+			PricePerKM: 2000,
+		},
+	}
+	mockMaps := &MockMapsRepo{DistKM: 5.0, DurMin: 15}
+	mockRedis := &MockRedisRepo{Multiplier: 1.0}
+	mockFlags := &MockFlagReader{Flags: map[string]*featureflags.FeatureFlag{}}
+	mockConfig := &MockConfigRepo{
+		Configs: map[string]interface{}{
+			"pricing_rounding_mode":          "ceil",
+			"pricing_rounding_precision_idr": 500,
+			"promo_discount_pct_HEMAT20":     0.20,
+			"max_discount_subsidy_idr":       5000,
+			"promo_sponsor_HEMAT20":          "platform",
+		},
+	}
+
+	svc := service.NewPricingService(mockPricing, mockMaps, mockRedis, mockFlags, mockConfig)
+
+	req := &domain.PricingEstimateRequest{
+		PickupLat: -6.2, PickupLng: 106.8,
+		DropoffLat: -6.3, DropoffLng: 106.9,
+		Length: 10, Width: 10, Height: 10, Weight: 1,
+		PromoCode: "HEMAT20",
+	}
+
+	resp, err := svc.EstimatePrice(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify promo discount IDR is accounted
+	if resp.DiscountIDR <= 0 {
+		t.Errorf("expected DiscountIDR > 0, got %d", resp.DiscountIDR)
+	}
+	if resp.PromoSubsidyIDR != resp.DiscountIDR {
+		t.Errorf("expected PromoSubsidyIDR == DiscountIDR for platform sponsor, got %d vs %d", resp.PromoSubsidyIDR, resp.DiscountIDR)
+	}
+
+	// Verify ceiling rounding precision 500
+	if resp.TotalPriceIDR%500 != 0 {
+		t.Errorf("expected TotalPriceIDR to be multiple of 500 (ceil mode), got %d", resp.TotalPriceIDR)
 	}
 }

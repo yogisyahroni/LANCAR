@@ -51,10 +51,31 @@ type Order struct {
 	ItemDescription        string       `json:"item_description,omitempty"`
 	ItemImageURL           string       `json:"item_image_url,omitempty"`
 	DistanceKM             float64      `json:"distance_km"`
+	IncludedDistanceKM     float64      `json:"included_distance_km"`
+	DistanceFeeIDR         int64        `json:"distance_fee_idr"`
 	BasePriceIDR           int64        `json:"base_price_idr"`
+	VolumetricWeightKG     float64      `json:"volumetric_weight_kg"`
 	VolumetricSurchargeIDR int64        `json:"volumetric_surcharge_idr"`
 	DynamicPriceIDR        int64        `json:"dynamic_price_idr"`
+	SurgeFeeIDR            int64        `json:"surge_fee_idr"`
+	DiscountIDR            int64        `json:"discount_idr"`
+	PromoCode              string       `json:"promo_code,omitempty"`
+	PromoSponsor           string       `json:"promo_sponsor,omitempty"`
+	SurgeMultiplier        float64      `json:"surge_multiplier"`
+	WeatherMultiplier      float64      `json:"weather_multiplier"`
+	TrafficMultiplier      float64      `json:"traffic_multiplier"`
+	PricingSnapshot        string       `json:"pricing_snapshot,omitempty"`
 	TotalPriceIDR          int64        `json:"total_price_idr"`
+	TaxRuleCode            string       `json:"tax_rule_code,omitempty"`
+	PPNRateEffectivePct    float64      `json:"ppn_rate_effective_pct,omitempty"`
+	PPNRateStatutoryPct    float64      `json:"ppn_rate_statutory_pct,omitempty"`
+	DPPIDR                 int64        `json:"dpp_idr,omitempty"`
+	PPNIDR                 int64        `json:"ppn_idr,omitempty"`
+	TaxInvoiceRequired     bool         `json:"tax_invoice_required,omitempty"`
+	TaxInvoiceStatus       string       `json:"tax_invoice_status,omitempty"`
+	PlatformFeeIDR         int64        `json:"platform_fee_idr"`
+	PlatformFeePct         float64      `json:"platform_fee_pct"`
+	PromoSubsidyIDR        int64        `json:"promo_subsidy_idr"`
 	HandoverToken          string       `json:"handover_token"`
 	QRCodeURL              string       `json:"qr_code_url,omitempty"`
 	CancellationReason     string       `json:"cancellation_reason,omitempty"`

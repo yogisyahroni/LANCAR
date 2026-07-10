@@ -24,9 +24,9 @@ func NewPostgresRefundRepo(db *sqlx.DB, readDb *sqlx.DB) *PostgresRefundRepo {
 func (r *PostgresRefundRepo) CreateRefund(ctx context.Context, record *domain.RefundRecord) error {
 	query := `
 		INSERT INTO refunds (
-			id, order_id, amount_idr, reason, status, created_at, updated_at
+			id, order_id, amount_idr, reason, status, refund_percentage, tax_reversal_idr, platform_fee_reversal_idr, ledger_journal_id, created_at, updated_at
 		) VALUES (
-			:id, :order_id, :amount_idr, :reason, :status, :created_at, :updated_at
+			:id, :order_id, :amount_idr, :reason, :status, :refund_percentage, :tax_reversal_idr, :platform_fee_reversal_idr, :ledger_journal_id, :created_at, :updated_at
 		)
 	`
 	_, err := r.db.NamedExecContext(ctx, query, record)

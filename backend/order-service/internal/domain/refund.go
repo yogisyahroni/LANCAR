@@ -16,15 +16,19 @@ const (
 )
 
 type RefundRecord struct {
-	ID            uuid.UUID    `json:"id" db:"id"`
-	OrderID       uuid.UUID    `json:"order_id" db:"order_id"`
-	AmountIDR     int          `json:"amount_idr" db:"amount_idr"`
-	Reason        string       `json:"reason" db:"reason"`
-	Status        RefundStatus `json:"status" db:"status"`
-	GatewayRef    *string      `json:"gateway_ref,omitempty" db:"gateway_ref"`
-	FailureReason *string      `json:"failure_reason,omitempty" db:"failure_reason"`
-	CreatedAt     time.Time    `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time    `json:"updated_at" db:"updated_at"`
+	ID                     uuid.UUID    `json:"id" db:"id"`
+	OrderID                uuid.UUID    `json:"order_id" db:"order_id"`
+	AmountIDR              int          `json:"amount_idr" db:"amount_idr"`
+	Reason                 string       `json:"reason" db:"reason"`
+	Status                 RefundStatus `json:"status" db:"status"`
+	RefundPercentage       int          `json:"refund_percentage" db:"refund_percentage"`
+	TaxReversalIDR         int64        `json:"tax_reversal_idr" db:"tax_reversal_idr"`
+	PlatformFeeReversalIDR int64        `json:"platform_fee_reversal_idr" db:"platform_fee_reversal_idr"`
+	LedgerJournalID        *uuid.UUID   `json:"ledger_journal_id,omitempty" db:"ledger_journal_id"`
+	GatewayRef             *string      `json:"gateway_ref,omitempty" db:"gateway_ref"`
+	FailureReason          *string      `json:"failure_reason,omitempty" db:"failure_reason"`
+	CreatedAt              time.Time    `json:"created_at" db:"created_at"`
+	UpdatedAt              time.Time    `json:"updated_at" db:"updated_at"`
 }
 
 type RefundRepository interface {

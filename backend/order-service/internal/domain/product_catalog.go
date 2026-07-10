@@ -12,7 +12,7 @@ type ProductCatalog struct {
 	SKU        *string   `json:"sku,omitempty" db:"sku"`
 	WeightKG   float64   `json:"weight_kg" db:"weight_kg"`
 	ItemImage  *string   `json:"item_image,omitempty" db:"item_image"`
-	Price      *float64  `json:"price,omitempty" db:"price"`
+	Price      *int64    `json:"price,omitempty" db:"price"`
 	IsActive   bool      `json:"is_active" db:"is_active"`
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`

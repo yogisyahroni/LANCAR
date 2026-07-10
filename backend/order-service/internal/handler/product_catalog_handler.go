@@ -19,8 +19,8 @@ type productDTO struct {
 	WeightKG   float64   `json:"weight_kg"`
 	ItemImage  *string   `json:"item_image,omitempty"`
 	ImageURL   *string   `json:"image_url,omitempty"`
-	Price      *float64  `json:"price,omitempty"`
-	ItemValue  *float64  `json:"item_value,omitempty"`
+	Price      *int64    `json:"price,omitempty"`
+	ItemValue  *int64    `json:"item_value,omitempty"`
 	IsActive   bool      `json:"is_active"`
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
@@ -49,8 +49,8 @@ type productPayload struct {
 	ItemName  string   `json:"item_name"`
 	SKU       *string  `json:"sku"`
 	WeightKG  float64  `json:"weight_kg"`
-	Price     *float64 `json:"price"`
-	ItemValue *float64 `json:"item_value"`
+	Price     *int64   `json:"price"`
+	ItemValue *int64   `json:"item_value"`
 	ItemImage *string  `json:"item_image"`
 	ImageURL  *string  `json:"image_url"`
 	IsActive  *bool    `json:"is_active"`

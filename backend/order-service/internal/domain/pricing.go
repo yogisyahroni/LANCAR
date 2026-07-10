@@ -17,6 +17,7 @@ type PricingEstimateRequest struct {
 	Models       []string `json:"models" validate:"required"` // Requested delivery models
 	IsARCore     bool     `json:"is_arcore"`
 	IsVolumetric bool     `json:"is_volumetric"`
+	PromoCode    string   `json:"promo_code,omitempty"`
 }
 
 type PricingEstimateResponse struct {
@@ -25,13 +26,28 @@ type PricingEstimateResponse struct {
 	DropoffAddress         string  `json:"dropoff_address"`
 	DistanceKM             float64 `json:"distance_km"`
 	DurationMin            float64 `json:"duration_min"`
+	IncludedDistanceKM     float64 `json:"included_distance_km"`
+	DistanceFeeIDR         int64   `json:"distance_fee_idr"`
 	BasePriceIDR           int64   `json:"base_price_idr"`
+	VolumetricWeightKG     float64 `json:"volumetric_weight_kg"`
 	VolumetricSurchargeIDR int64   `json:"volumetric_surcharge_idr"`
 	DynamicPriceIDR        int64   `json:"dynamic_price_idr"`
+	SurgeFeeIDR            int64   `json:"surge_fee_idr"`
+	SurgeMultiplier        float64 `json:"surge_multiplier"`
+	WeatherMultiplier      float64 `json:"weather_multiplier"`
+	TrafficMultiplier      float64 `json:"traffic_multiplier"`
+	InsuranceFeeIDR        int64   `json:"insurance_fee_idr"`
+	DiscountIDR            int64   `json:"discount_idr"`
+	PromoSubsidyIDR        int64   `json:"promo_subsidy_idr"`
+	PromoCode              string  `json:"promo_code,omitempty"`
+	PromoSponsor           string  `json:"promo_sponsor,omitempty"`
+	MDREstimateIDR         int64   `json:"mdr_estimate_idr"`
+	TaxIDR                 int64   `json:"tax_idr"`
 	// PlatformFeeIDR adalah biaya layanan operasional.
 	// Dikonfigurasi dari tabel delivery_service_products (platform_fee_idr, platform_fee_pct).
 	// Tidak diekspos sebagai line-item ke customer — sudah tercakup dalam TotalPriceIDR.
 	PlatformFeeIDR int64     `json:"platform_fee_idr"`
+	PlatformFeePct float64   `json:"platform_fee_pct"`
 	TotalPriceIDR  int64     `json:"total_price_idr"`
 	ExpiresAt      time.Time `json:"expires_at"`
 
@@ -48,9 +64,9 @@ type PricingEstimateResponse struct {
 }
 
 type PricingConfig struct {
-	BaseFare          float64            `json:"base_fare"`
-	PricePerKM        float64            `json:"price_per_km"`
-	PricePerMin       float64            `json:"price_per_min"`
+	BaseFare          int64              `json:"base_fare"`
+	PricePerKM        int64              `json:"price_per_km"`
+	PricePerMin       int64              `json:"price_per_min"`
 	SurgeEnabled      bool               `json:"surge_enabled"`
 	WeatherMultiplier float64            `json:"weather_multiplier"`
 	TrafficMultiplier float64            `json:"traffic_multiplier"`
@@ -69,15 +85,15 @@ type PricingService interface {
 type DeliveryServiceProduct struct {
 	Code               string    `json:"code"`
 	Name               string    `json:"name"`
-	BaseFareIDR        float64   `json:"base_fare_idr"`
-	PerKmIDR           float64   `json:"per_km_idr"`
+	BaseFareIDR        int64     `json:"base_fare_idr"`
+	PerKmIDR           int64     `json:"per_km_idr"`
 	IncludedDistanceKM float64   `json:"included_distance_km"`
 	UsesSizeTier       bool      `json:"uses_size_tier"`
 	MaxDistanceKM      *float64  `json:"max_distance_km"`
 	MaxWeightKG        *float64  `json:"max_weight_kg"`
-	PlatformFeeIDR     float64   `json:"platform_fee_idr"`
+	PlatformFeeIDR     int64     `json:"platform_fee_idr"`
 	PlatformFeePct     float64   `json:"platform_fee_pct"`
-	ExtraDropoffFeeIDR float64   `json:"extra_dropoff_fee_idr"`
+	ExtraDropoffFeeIDR int64     `json:"extra_dropoff_fee_idr"`
 	SearchRadiiKM      []float64 `json:"search_radii_km"`
 }
 

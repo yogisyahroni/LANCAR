@@ -12,16 +12,29 @@ import (
 )
 
 type payoutService struct {
-	repo      domain.PayoutRepository
-	gateway   domain.PayoutGateway
-	relayRepo domain.RelayRepository // for courier bank info and order leg lookups
+	repo       domain.PayoutRepository
+	gateway    domain.PayoutGateway
+	relayRepo  domain.RelayRepository // for courier bank info and order leg lookups
+	taxRepo    domain.TaxRepository
+	configRepo domain.ConfigRepository
+	ledgerRepo domain.FinanceLedgerRepository
 }
 
-func NewPayoutService(repo domain.PayoutRepository, gateway domain.PayoutGateway, relayRepo domain.RelayRepository) domain.PayoutService {
+func NewPayoutService(
+	repo domain.PayoutRepository,
+	gateway domain.PayoutGateway,
+	relayRepo domain.RelayRepository,
+	taxRepo domain.TaxRepository,
+	configRepo domain.ConfigRepository,
+	ledgerRepo domain.FinanceLedgerRepository,
+) domain.PayoutService {
 	return &payoutService{
-		repo:      repo,
-		gateway:   gateway,
-		relayRepo: relayRepo,
+		repo:       repo,
+		gateway:    gateway,
+		relayRepo:  relayRepo,
+		taxRepo:    taxRepo,
+		configRepo: configRepo,
+		ledgerRepo: ledgerRepo,
 	}
 }
 
@@ -43,13 +56,14 @@ func (s *payoutService) CalculateOrderLegPayout(ctx context.Context, orderLegID 
 		net = 0
 	}
 
-	pph21 := s.calculatePPh21(net)
+	pph21 := s.calculatePPh21(ctx, courierID, net)
 
 	now := time.Now()
 	batchDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
+	payoutID := uuid.New()
 	record := &domain.PayoutRecord{
-		ID:                  uuid.New(),
+		ID:                  payoutID,
 		CourierID:           courierID,
 		OrderLegID:          &orderLegID,
 		Type:                domain.PayoutTypeLegFee,
@@ -66,6 +80,66 @@ func (s *payoutService) CalculateOrderLegPayout(ctx context.Context, orderLegID 
 
 	if err := s.repo.CreatePayout(ctx, record); err != nil {
 		return nil, fmt.Errorf("failed to create payout record: %w", err)
+	}
+
+	if s.ledgerRepo != nil {
+		entries := []domain.LedgerEntry{
+			{ID: uuid.New(), AccountName: "delivery_fee_expense", DebitIDR: int64(fee), CreditIDR: 0, CreatedAt: now},
+		}
+		if idleComp > 0 {
+			entries = append(entries, domain.LedgerEntry{
+				ID:          uuid.New(),
+				AccountName: "courier_idle_compensation_expense",
+				DebitIDR:    int64(idleComp),
+				CreditIDR:   0,
+				CreatedAt:   now,
+			})
+		}
+		if penalty > 0 {
+			entries = append(entries, domain.LedgerEntry{
+				ID:          uuid.New(),
+				AccountName: "courier_penalty_revenue",
+				DebitIDR:    0,
+				CreditIDR:   int64(penalty),
+				CreatedAt:   now,
+			})
+		}
+		if pph21 > 0 {
+			entries = append(entries, domain.LedgerEntry{
+				ID:          uuid.New(),
+				AccountName: "tax_payable_pph21",
+				DebitIDR:    0,
+				CreditIDR:   int64(pph21),
+				CreatedAt:   now,
+			})
+		}
+		payableAmount := int64(net - pph21)
+		if payableAmount > 0 {
+			entries = append(entries, domain.LedgerEntry{
+				ID:          uuid.New(),
+				AccountName: "courier_payable",
+				DebitIDR:    0,
+				CreditIDR:   payableAmount,
+				CreatedAt:   now,
+			})
+		}
+
+		journal := &domain.LedgerJournal{
+			ID:             uuid.New(),
+			JournalType:    "courier_payout_accrual",
+			ReferenceType:  "payout_record",
+			ReferenceID:    payoutID.String(),
+			IdempotencyKey: fmt.Sprintf("PAYOUT-ACCRUAL-%s", payoutID.String()),
+			Reason:         "Accrual for courier payout",
+			Metadata: map[string]any{
+				"courier_id":   courierID.String(),
+				"order_leg_id": orderLegID.String(),
+			},
+			CreatedBy: "system",
+			ActorRole: "system",
+			CreatedAt: now,
+		}
+		_ = s.ledgerRepo.CreateJournalWithEntries(ctx, journal, entries)
 	}
 
 	return record, nil
@@ -135,6 +209,30 @@ func (s *payoutService) TriggerBatchPayout(ctx context.Context) error {
 				courierID, *bankInfo.BankCode, *bankInfo.BankAccountNumber, gatewayErr)
 		} else {
 			log.Printf("[PayoutService] SUCCESS: Disbursed %d IDR to courier %s (ref=%s)", totalNet, courierID, ref)
+			if s.ledgerRepo != nil {
+				now := time.Now()
+				entries := []domain.LedgerEntry{
+					{ID: uuid.New(), AccountName: "courier_payable", DebitIDR: int64(totalNet), CreditIDR: 0, CreatedAt: now},
+					{ID: uuid.New(), AccountName: "bank_disbursement_account", DebitIDR: 0, CreditIDR: int64(totalNet), CreatedAt: now},
+				}
+				journal := &domain.LedgerJournal{
+					ID:             uuid.New(),
+					JournalType:    "courier_payout_disbursement",
+					ReferenceType:  "disbursement_ref",
+					ReferenceID:    ref,
+					IdempotencyKey: fmt.Sprintf("PAYOUT-DISB-%s-%s", courierID.String(), time.Now().Format("20060102")),
+					Reason:         "Batch courier payout disbursement",
+					Metadata: map[string]any{
+						"courier_id":  courierID.String(),
+						"gateway_ref": ref,
+						"total_net":   totalNet,
+					},
+					CreatedBy: "system",
+					ActorRole: "system",
+					CreatedAt: now,
+				}
+				_ = s.ledgerRepo.CreateJournalWithEntries(ctx, journal, entries)
+			}
 		}
 
 		// 3e. Update all record statuses
@@ -174,14 +272,19 @@ func (s *payoutService) GetCourierEarnings(ctx context.Context, courierID uuid.U
 }
 
 // calculatePPh21 applies Indonesian income tax (PPh 21) to courier earnings.
-// Simplified calculation based on 2024 PTKP/PMK regulations for gig workers.
-// Monthly gross <= 5,000,000 IDR: 0% (below PTKP threshold)
-// Monthly gross > 5,000,000 IDR: 2.5% (simplified for non-NPWP holders)
-func (s *payoutService) calculatePPh21(amount int) int {
-	// Per-transaction threshold (approximating 5M IDR / 30 days / avg 5 trips)
-	// In production this should be calculated on a monthly aggregate basis.
-	if amount > 50000 {
-		return int(float64(amount) * 0.025)
+func (s *payoutService) calculatePPh21(ctx context.Context, courierID uuid.UUID, amount int) int {
+	hasNPWP, err := s.taxRepo.HasNPWP(ctx, courierID.String())
+	if err != nil {
+		log.Printf("[PayoutService] WARN: Failed to check NPWP for courier %s, assuming NO NPWP: %v", courierID, err)
+		hasNPWP = false
 	}
-	return 0
+
+	var ratePct float64
+	if hasNPWP {
+		ratePct = s.configRepo.GetFloatConfig(ctx, "PPH21_COURIER_RATE_NPWP", 2.5)
+	} else {
+		ratePct = s.configRepo.GetFloatConfig(ctx, "PPH21_COURIER_RATE_NON_NPWP", 3.0)
+	}
+
+	return int(float64(amount) * (ratePct / 100.0))
 }

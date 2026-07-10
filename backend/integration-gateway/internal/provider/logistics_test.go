@@ -108,6 +108,6 @@ func TestJNTProvider_CreateOrder(t *testing.T) {
 		t.Errorf("Expected AWB JP1234567890, got %s", resp.AWBNumber)
 	}
 	if resp.TotalAmount != 20000 {
-		t.Errorf("Expected total amount 20000, got %f", resp.TotalAmount)
+		t.Errorf("Expected TotalAmount > 0, got %d", resp.TotalAmount)
 	}
 }

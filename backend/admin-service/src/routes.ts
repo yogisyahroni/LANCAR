@@ -405,6 +405,50 @@ routes.get('/admin/finance/merchant-settlements/configs', (req, res) => controll
 routes.put('/admin/finance/merchant-settlements/configs', requireTotp, (req, res) => controllers.merchantSettlement.updateSettlementConfigs(req, res));
 routes.patch('/admin/finance/merchant-settlements/merchants/:merchantId/verify-bank', requireTotp, (req, res) => controllers.merchantSettlement.verifyMerchantBank(req, res));
 
+// Ledger, Tax, and Tariff Management
+routes.get('/admin/finance/ledger', (req, res) => controllers.financeLedger.getLedgerEntries(req, res));
+routes.post('/admin/finance/ledger', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.financeLedger.createManualAdjustment(req, res));
+routes.get('/admin/finance/ledger/export', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.financeLedger.exportLedgerCSV(req, res));
+routes.get('/admin/finance/ledger/drilldown/:referenceType/:referenceId', (req, res) => controllers.financeLedger.getLedgerDrilldown(req, res));
+routes.get('/admin/finance/chart-of-accounts', (req, res) => controllers.chartOfAccounts.getChartOfAccounts(req, res));
+routes.post('/admin/finance/chart-of-accounts', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.chartOfAccounts.createAccount(req, res));
+routes.put('/admin/finance/chart-of-accounts/:id', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.chartOfAccounts.updateAccount(req, res));
+
+// Monthly Closing Workflow (RPT-001)
+routes.get('/admin/finance/closing/periods', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.monthlyClosing.getAccountingPeriods(req, res));
+routes.post('/admin/finance/closing/lock', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.monthlyClosing.lockAccountingPeriod(req, res));
+routes.get('/admin/finance/closing/p-and-l', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.monthlyClosing.generateProfitAndLoss(req, res));
+routes.get('/admin/finance/closing/trial-balance', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.monthlyClosing.generateTrialBalance(req, res));
+routes.get('/admin/finance/closing/cash-liability', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.monthlyClosing.generateCashLiabilityReport(req, res));
+routes.get('/admin/finance/closing/tax-summary', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.monthlyClosing.generateTaxSummary(req, res));
+routes.get('/admin/finance/closing/settlement-outstanding', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.monthlyClosing.generateSettlementOutstanding(req, res));
+routes.get('/admin/finance/closing/export', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.monthlyClosing.exportClosingReportCSV(req, res));
+
+routes.get('/admin/finance/unit-economics', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.unitEconomics.getUnitEconomicsV2(req, res));
+
+routes.get('/admin/finance/tax-rules', (req, res) => controllers.taxRules.getTaxRules(req, res));
+routes.post('/admin/finance/tax-rules', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.taxRules.createTaxRule(req, res));
+routes.put('/admin/finance/tax-rules/:id', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.taxRules.updateTaxRule(req, res));
+routes.get('/admin/finance/tax-dashboard', (req, res) => controllers.taxRules.getTaxDashboard(req, res));
+routes.get('/admin/finance/tax-dashboard/export-pack', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.taxRules.exportTaxPack(req, res));
+
+routes.get('/admin/finance/tariff-cards', (req, res) => controllers.tariffRules.getTariffCards(req, res));
+routes.post('/admin/finance/tariff-cards', requireRole(['super_admin', 'finance_admin', 'ops_admin']), requireTotp, (req, res) => controllers.tariffRules.createTariffCard(req, res));
+routes.get('/admin/finance/tariff-lanes', (req, res) => controllers.tariffRules.getTariffLanes(req, res));
+routes.get('/admin/finance/tariff-audit/orders', requireRole(['super_admin', 'finance_admin', 'ops_admin']), (req, res) => controllers.tariffRules.listOrderTariffAudit(req, res));
+routes.get('/admin/finance/tariff-audit/orders/:orderId', requireRole(['super_admin', 'finance_admin', 'ops_admin']), (req, res) => controllers.tariffRules.getOrderTariffAudit(req, res));
+
+// Phase 4: Disbursement Channels Configs & Wallet Reconciliation
+routes.get('/admin/finance/disbursement-channels', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.disbursementChannels.getDisbursementChannels(req, res));
+routes.get('/admin/finance/disbursement-channels/:code', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.disbursementChannels.getDisbursementChannelByCode(req, res));
+routes.post('/admin/finance/disbursement-channels', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.disbursementChannels.createDisbursementChannel(req, res));
+routes.put('/admin/finance/disbursement-channels/:code', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.disbursementChannels.updateDisbursementChannel(req, res));
+
+routes.get('/admin/finance/wallet-reconciliation/logs', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.walletReconciliation.getReconciliationLogs(req, res));
+routes.get('/admin/finance/reconciliation/summary', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.walletReconciliation.getReconciliationSummary(req, res));
+routes.post('/admin/finance/wallet-reconciliation/run', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.walletReconciliation.triggerWalletReconciliation(req, res));
+routes.get('/admin/finance/idempotency-records', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.walletReconciliation.getUniversalIdempotencyRecords(req, res));
+
 
 // Customer Management
 routes.get('/admin/customers/export', (req, res) => controllers.exportCustomers(req, res));
@@ -507,11 +551,11 @@ routes.get('/admin/finance/emergency-fund', (req, res) => controllers.getEmergen
 // Finance P0 extensions: Cash Position, P&L Report, Tax Dashboard
 routes.get('/admin/finance/cash-position', (req, res) => controllers.getCashPosition(req, res));
 routes.get('/admin/finance/pnl-report', (req, res) => controllers.getPnlReport(req, res));
-routes.get('/admin/finance/tax-dashboard', (req, res) => controllers.getTaxDashboard(req, res));
-routes.get('/admin/finance/pph-report', (req, res) => controllers.getPphReport(req, res));
-routes.get('/admin/finance/tax-efaktur/export', (req, res) => controllers.exportTaxEfakturCSV(req, res));
-routes.get('/admin/finance/tax-pph23/export', (req, res) => controllers.exportTaxPPh23CSV(req, res));
-routes.get('/admin/finance/ledger', (req, res) => controllers.getLedgerReport(req, res));
+routes.get('/admin/finance/tax-dashboard', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.getTaxDashboard(req, res));
+routes.get('/admin/finance/pph-report', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.getPphReport(req, res));
+routes.get('/admin/finance/tax-efaktur/export', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.exportTaxEfakturCSV(req, res));
+routes.get('/admin/finance/tax-pph23/export', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.exportTaxPPh23CSV(req, res));
+routes.get('/admin/finance/trial-balance', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.getLedgerReport(req, res));
 
 // Cost Intelligence & Auto-Pricing Engine (OPEX/CAPEX) — Super Admin only
 routes.get('/admin/cost-configs', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.listCostConfigs(req, res));
@@ -525,4 +569,23 @@ routes.post('/admin/cost-configs/:id/generate-recommendation', requireRole(['sup
 routes.get('/admin/pricing-recommendations', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.listRecommendations(req, res));
 routes.post('/admin/pricing-recommendations/:id/approve', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.approveRecommendation(req, res));
 routes.post('/admin/pricing-recommendations/:id/reject', requireRole(['super_admin']), (req, res) => controllers.costIntelligence.rejectRecommendation(req, res));
+
+// ==========================================
+// Phase 5: Aggregator Logistics Finance (Invoices, Policies, Claims, Settlement Ledger)
+// ==========================================
+routes.get('/admin/aggregator-finance/policies', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.aggregatorFinance.getLogisticsExceptionPolicies(req, res));
+routes.post('/admin/aggregator-finance/policies', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.aggregatorFinance.upsertLogisticsExceptionPolicy(req, res));
+routes.put('/admin/aggregator-finance/policies', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.aggregatorFinance.upsertLogisticsExceptionPolicy(req, res));
+
+routes.get('/admin/aggregator-finance/invoices', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.aggregatorFinance.listProviderInvoices(req, res));
+routes.get('/admin/aggregator-finance/invoices/:id', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.aggregatorFinance.getProviderInvoiceDetail(req, res));
+routes.post('/admin/aggregator-finance/invoices', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.aggregatorFinance.importProviderInvoice(req, res));
+routes.post('/admin/aggregator-finance/invoices/:id/reconcile', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.aggregatorFinance.reconcileProviderInvoice(req, res));
+routes.post('/admin/aggregator-finance/invoices/:id/approve', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.aggregatorFinance.approveProviderInvoice(req, res));
+
+routes.get('/admin/aggregator-finance/claims', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.aggregatorFinance.listLogisticsClaims(req, res));
+routes.post('/admin/aggregator-finance/claims/:id/resolve', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.aggregatorFinance.resolveLogisticsClaim(req, res));
+
+routes.get('/admin/aggregator-finance/settlement-ledger', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.aggregatorFinance.listMerchantSettlementLedger(req, res));
+
 

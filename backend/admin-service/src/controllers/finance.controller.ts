@@ -1733,24 +1733,25 @@ export const exportTaxEfakturCSV = async (req: Request, res: Response): Promise<
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
-    // Mock query to get total platform fee (PPN 11%)
     const ordersResult = await readDb.query(`
-      SELECT o.id, o.created_at, o.customer_id, o.price_idr, o.distance_meters
+      SELECT o.id, o.order_number, o.created_at, o.customer_id, o.price_idr, o.dpp_idr, o.ppn_idr, u.full_name, COALESCE(utp.npwp, utp.nik, '000000000000000') as tax_id, COALESCE(utp.tax_address, 'Alamat Customer') as tax_address
       FROM orders o
+      JOIN users u ON o.customer_id = u.id
+      LEFT JOIN user_tax_profiles utp ON u.id = utp.user_id
       WHERE o.status = 'completed'
+        AND o.dpp_idr > 0
         AND o.created_at BETWEEN $1 AND $2
     `, [startDate, endDate]);
 
     let csvContent = "FK,KD_JENIS_TRANSAKSI,FG_PENGGANTI,NOMOR_FAKTUR,MASA_PAJAK,TAHUN_PAJAK,TANGGAL_FAKTUR,NPWP,NAMA,ALAMAT_LENGKAP,JUMLAH_DPP,JUMLAH_PPN,JUMLAH_PPNBM,ID_KETERANGAN_TAMBAHAN,FG_UANG_MUKA,UANG_MUKA_DPP,UANG_MUKA_PPN,UANG_MUKA_PPNBM,REFERENSI\n";
 
-    // PPN 11% applied to the entire amount for simplification of the MVP
     ordersResult.rows.forEach((order, index) => {
-      const dpp = Math.round(order.price_idr / 1.11);
-      const ppn = order.price_idr - dpp;
+      const dpp = order.dpp_idr;
+      const ppn = order.ppn_idr;
       const invoiceNum = `010.000-${year}${month.toString().padStart(2, '0')}${(index + 1).toString().padStart(8, '0')}`;
-      const dateStr = new Date(order.created_at).toISOString().split('T')[0];
+      const dateStr = new Date(order.created_at).toISOString().split('T')[0].split('-').reverse().join('/');
 
-      csvContent += `FK,04,0,${invoiceNum},${month},${year},${dateStr},000000000000000,Customer ${order.customer_id.substring(0,8)},Alamat Customer,${dpp},${ppn},0,,0,0,0,0,${order.id}\n`;
+      csvContent += `FK,04,0,${invoiceNum},${month},${year},${dateStr},${order.tax_id},${order.full_name},${order.tax_address},${dpp},${ppn},0,,0,0,0,0,${order.order_number}\n`;
     });
 
     res.setHeader('Content-Type', 'text/csv');
@@ -1773,23 +1774,29 @@ export const exportTaxPPh23CSV = async (req: Request, res: Response): Promise<vo
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
     const payoutsResult = await readDb.query(`
-      SELECT pr.courier_id, u.full_name, u.phone_number, COALESCE(SUM(pr.net_idr), 0) AS total_earned
+      SELECT pr.courier_id, u.full_name, u.phone_number, 
+             COALESCE(SUM(pr.gross_idr), 0) AS total_bruto,
+             COALESCE(SUM(pr.pph21_idr), 0) AS total_pph21,
+             COALESCE(utp.npwp, '000000000000000') AS npwp,
+             COALESCE(utp.nik, '0000000000000000') AS nik,
+             COALESCE(utp.tax_address, 'Alamat Kurir') AS tax_address
       FROM payout_records pr
       JOIN users u ON pr.courier_id = u.id
+      LEFT JOIN user_tax_profiles utp ON u.id = utp.user_id
       WHERE pr.disbursement_status = 'completed'
         AND pr.created_at BETWEEN $1 AND $2
-      GROUP BY pr.courier_id, u.full_name, u.phone_number
-      HAVING COALESCE(SUM(pr.net_idr), 0) > 0
+      GROUP BY pr.courier_id, u.full_name, u.phone_number, utp.npwp, utp.nik, utp.tax_address
+      HAVING COALESCE(SUM(pr.pph21_idr), 0) > 0
     `, [startDate, endDate]);
 
     let csvContent = "NPWP_PEMOTONG,NAMA_KIRIM,ALAMAT,NPWP,NIK,NAMA_PENERIMA,ALAMAT_PENERIMA,KODE_OBJEK_PAJAK,JUMLAH_PENGHASILAN_BRUTO,TARIF,PPH_DIPOTONG\n";
 
     payoutsResult.rows.forEach((payout) => {
-      // PPh 21 proxy (using 5% for MVP)
-      const bruto = Number(payout.total_earned);
-      const pph = Math.round(bruto * 0.05);
+      const bruto = Number(payout.total_bruto);
+      const pph = Number(payout.total_pph21);
+      const rate = Math.round((pph / bruto) * 100 * 100) / 100;
 
-      csvContent += `000000000000000,PT LANCAR LOGISTIK,Alamat Lancar,000000000000000,1234567890123456,${payout.full_name},Alamat Kurir,21-100-01,${bruto},5,${pph}\n`;
+      csvContent += `012345678901234,PT LANCAR LOGISTIK,Alamat Lancar,${payout.npwp},${payout.nik},${payout.full_name},${payout.tax_address},21-100-01,${bruto},${rate},${pph}\n`;
     });
 
     res.setHeader('Content-Type', 'text/csv');
@@ -1806,19 +1813,27 @@ export const getLedgerReport = async (req: Request, res: Response): Promise<void
     const limit = 50;
     const offset = parseInt(req.query.offset as string) || 0;
 
-    // A unified ledger requires a dedicated table. For MVP, we synthesize a basic view from payouts and orders.
-    // In a real implementation, you'd query a "ledger_entries" table.
-    // We will just return an empty array for now since no ledger table exists yet.
+    const ledgerResult = await readDb.query(`
+      SELECT 
+        e.id, 
+        e.created_at as date, 
+        CASE WHEN e.credit_idr > 0 THEN 'INCOME' ELSE 'EXPENSE' END as type, 
+        e.account_name as account, 
+        GREATEST(e.credit_idr, e.debit_idr) as amount, 
+        j.reference_id as reference 
+      FROM ledger_entries e
+      JOIN ledger_journals j ON e.journal_id = j.id
+      ORDER BY e.created_at DESC
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
     
-    const mockLedgerEntries = [
-      { id: 'LDG-001', date: new Date().toISOString(), type: 'INCOME', account: 'Platform Fee', amount: 1000, reference: 'ORD-123' },
-      { id: 'LDG-002', date: new Date().toISOString(), type: 'EXPENSE', account: 'Courier Payout', amount: 15000, reference: 'PAY-456' }
-    ];
+    const countResult = await readDb.query(`SELECT COUNT(*) FROM ledger_entries`);
+    const totalCount = parseInt(countResult.rows[0].count);
 
     res.json({
-      entries: mockLedgerEntries,
-      has_more: false,
-      total_count: mockLedgerEntries.length
+      entries: ledgerResult.rows,
+      has_more: offset + limit < totalCount,
+      total_count: totalCount
     });
   } catch (error: any) {
     securityLog.error('[getLedgerReport] error:', error.message);

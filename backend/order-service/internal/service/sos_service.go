@@ -361,7 +361,7 @@ func (s *DefaultSosService) executeResolution(ctx context.Context, incident *dom
 	return nil
 }
 
-func deductFakeSosPenalty(victimID uuid.UUID, amount float64, referenceID string) {
+func deductFakeSosPenalty(victimID uuid.UUID, amount int64, referenceID string) {
 	paymentServiceURL := os.Getenv("PAYMENT_SERVICE_URL")
 	if paymentServiceURL == "" {
 		paymentServiceURL = "http://payment-service:8084"
@@ -386,7 +386,7 @@ func deductFakeSosPenalty(victimID uuid.UUID, amount float64, referenceID string
 	defer resp.Body.Close()
 }
 
-func creditSosHelperReward(helperID uuid.UUID, amount float64, referenceID string) {
+func creditSosHelperReward(helperID uuid.UUID, amount int64, referenceID string) {
 	paymentServiceURL := os.Getenv("PAYMENT_SERVICE_URL")
 	if paymentServiceURL == "" {
 		paymentServiceURL = "http://payment-service:8084"

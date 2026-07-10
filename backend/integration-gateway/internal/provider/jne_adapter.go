@@ -147,7 +147,7 @@ func (p *JNEProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 	formData.Set("OLSHOP_QTY", "1")
 	formData.Set("OLSHOP_WEIGHT", fmt.Sprintf("%.2f", req.WeightKG))
 	formData.Set("OLSHOP_GOODSDESC", req.ItemDescription)
-	formData.Set("OLSHOP_GOODSVALUE", fmt.Sprintf("%.2f", req.ItemValue))
+	formData.Set("OLSHOP_GOODSVALUE", fmt.Sprintf("%d", req.ItemValue))
 	formData.Set("OLSHOP_GOODSTYPE", "1")
 	formData.Set("OLSHOP_INS_FLAG", "N")
 	formData.Set("OLSHOP_ORIG", req.OriginCode)
@@ -213,7 +213,7 @@ func (p *JNEProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 		Provider:    "JNE",
 		ServiceType: req.ServiceType,
 		BookingCode: jneResp.Detail[0].CnoteNo,
-		TotalAmount: amountVal,
+		TotalAmount: int64(amountVal),
 	}, nil
 }
 

@@ -34,6 +34,12 @@ type Payment struct {
 	WeatherReserveIDR   int             `json:"weather_reserve_idr" db:"weather_reserve_idr"`
 	InsuranceReserveIDR int             `json:"insurance_reserve_idr" db:"insurance_reserve_idr"`
 	NetOperationalIDR   int             `json:"net_operational_idr" db:"net_operational_idr"`
+	TaxRuleCode         *string         `json:"tax_rule_code,omitempty" db:"tax_rule_code"`
+	PPNRateEffectivePct float64         `json:"ppn_rate_effective_pct,omitempty" db:"ppn_rate_effective_pct"`
+	PPNRateStatutoryPct float64         `json:"ppn_rate_statutory_pct,omitempty" db:"ppn_rate_statutory_pct"`
+	DPPIDR              int             `json:"dpp_idr,omitempty" db:"dpp_idr"`
+	TaxInvoiceRequired  bool            `json:"tax_invoice_required,omitempty" db:"tax_invoice_required"`
+	TaxInvoiceStatus    *string         `json:"tax_invoice_status,omitempty" db:"tax_invoice_status"`
 	ProviderReference   *string         `json:"provider_reference" db:"provider_reference"`
 	QRCodeURL           *string         `json:"qr_code_url" db:"qr_code_url"`
 	QRCodeString        *string         `json:"qr_code_string" db:"qr_code_string"`

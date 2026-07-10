@@ -29,6 +29,30 @@ func NewPricingService(p domain.PricingRepository, m domain.MapsRepository, r do
 	}
 }
 
+func applyRoundingPolicy(amount int64, mode string, precision int64) int64 {
+	if precision <= 1 || amount == 0 {
+		return amount
+	}
+	switch mode {
+	case "ceil":
+		remainder := amount % precision
+		if remainder > 0 {
+			return amount + (precision - remainder)
+		}
+		return amount
+	case "floor":
+		return amount - (amount % precision)
+	case "round":
+		fallthrough
+	default:
+		remainder := amount % precision
+		if remainder >= precision/2 {
+			return amount + (precision - remainder)
+		}
+		return amount - remainder
+	}
+}
+
 func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEstimateRequest) (*domain.PricingEstimateResponse, error) {
 
 	// 0.1 Check Coverage for Pickup and Dropoff
@@ -110,7 +134,7 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 
 	if distKM > serviceProduct.IncludedDistanceKM {
 		chargeableDistance := distKM - serviceProduct.IncludedDistanceKM
-		distanceFare = int64(chargeableDistance * serviceProduct.PerKmIDR)
+		distanceFare = int64(chargeableDistance * float64(serviceProduct.PerKmIDR))
 	}
 
 	durationFare := int64(0) // Duration fare can be configured via system_configs if needed in the future
@@ -123,16 +147,19 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 		tier1Surcharge := s.configRepo.GetFloatConfig(ctx, "weight_surcharge_tier1", 0.15)
 		tier2Surcharge := s.configRepo.GetFloatConfig(ctx, "weight_surcharge_tier2", 0.30)
 
-		if effectiveWeight > 5 {
+		tier1Weight := s.configRepo.GetFloatConfig(ctx, "weight_tier1_threshold_kg", 2.0)
+		tier2Weight := s.configRepo.GetFloatConfig(ctx, "weight_tier2_threshold_kg", 5.0)
+
+		if effectiveWeight > tier2Weight {
 			weightSurcharge = int64(float64(subtotal) * tier2Surcharge)
-		} else if effectiveWeight > 2 {
+		} else if effectiveWeight > tier1Weight {
 			weightSurcharge = int64(float64(subtotal) * tier1Surcharge)
 		}
 	}
 	subtotal += weightSurcharge
 
-	// 6. Apply Dynamic Multiplier (Surge)
-	multiplier, err := s.redisRepo.GetMultiplier(ctx, "default")
+	// 6. Apply Dynamic Multiplier (Surge breakdown for audit PRC-003)
+	surgeMultiplier, err := s.redisRepo.GetMultiplier(ctx, "default")
 	if err != nil {
 		return nil, fmt.Errorf("surge multiplier error: %w", err)
 	}
@@ -140,56 +167,90 @@ func (s *pricingServiceImpl) Estimate(ctx context.Context, req domain.PricingEst
 	peakHourEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "dynamic_pricing_peak_hour", false)
 	demandSupplyEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "dynamic_pricing_demand_supply", false)
 
+	trafficMultiplier := 1.0
+	weatherMultiplier := 1.0
 	if peakHourEnabled {
-		multiplier += 0.20 // Add 20% surge
+		peakHourSurge := s.configRepo.GetFloatConfig(ctx, "surge_peak_hour_multiplier", 0.20)
+		trafficMultiplier += peakHourSurge
 	}
 	if demandSupplyEnabled {
-		multiplier += 0.10 // Add 10% surge
+		demandSupplySurge := s.configRepo.GetFloatConfig(ctx, "surge_high_demand_multiplier", 0.15)
+		weatherMultiplier += demandSupplySurge
 	}
+	totalMultiplier := surgeMultiplier * trafficMultiplier * weatherMultiplier
 
-	dynamicPrice := int64(float64(subtotal) * (multiplier - 1.0))
-	priceAfterSurge := int64(float64(subtotal) * multiplier)
+	dynamicPrice := int64(float64(subtotal) * (totalMultiplier - 1.0))
+	priceAfterSurge := int64(float64(subtotal) * totalMultiplier)
 
+	var insuranceFee int64 = 0
 	insuranceEnabled, _ := s.flagReader.IsFeatureFlagEnabled(ctx, "package_insurance", false)
 	if insuranceEnabled {
-		// Biaya asuransi dapat dikonfigurasi via delivery_config dengan key "insurance_fee_idr".
-		// Default: 5000 IDR. Admin dapat mengubah via config tanpa deploy ulang.
-		insuranceFee := s.configRepo.GetIntConfig(ctx, "insurance_fee_idr", 5000)
-		priceAfterSurge += int64(insuranceFee)
+		insuranceFee = int64(s.configRepo.GetIntConfig(ctx, "insurance_fee_idr", 5000))
+		priceAfterSurge += insuranceFee
 	}
 
-	// 7. Apply Platform Fee (Biaya Layanan Operasional)
-	//
-	// Hybrid Platform Fee (Angka Flat + Persentase)
-	// Untuk menutupi fixed cost (Infra/OTP) dan variable cost (Payment Gateway %).
-	//
-	// Fee dikonfigurasi via Delivery Service:
-	// - "platform_fee_idr" (Default Rp 1.500)
-	// - "platform_fee_pct" (Default 0.015 atau 1.5%)
-	//
-	// Diterapkan SETELAH surge multiplier.
-	// Tidak ditampilkan sebagai line-item terpisah ke customer —
-	// sudah tercakup dalam TotalPriceIDR sebagai bagian dari harga layanan.
+	// 7. Apply Platform Fee (Biaya Layanan Operasional) with Min Threshold PRC-002
 	fixedPlatformFee := serviceProduct.PlatformFeeIDR
-	pctPlatformFeeRate := serviceProduct.PlatformFeePct
+	pctPlatformFee := int64(float64(priceAfterSurge) * serviceProduct.PlatformFeePct)
+	platformFee := int64(fixedPlatformFee) + pctPlatformFee
+	minPlatformFee := int64(s.configRepo.GetIntConfig(ctx, "min_platform_fee_idr", 1000))
+	if platformFee < minPlatformFee {
+		platformFee = minPlatformFee
+	}
 
-	// Percentage portion based on the priceAfterSurge
-	variablePlatformFee := float64(priceAfterSurge) * pctPlatformFeeRate
+	// 7.1 Promo & Discount Accounting PRC-004
+	var discountIDR int64 = 0
+	var promoSubsidyIDR int64 = 0
+	promoSponsor := "platform"
+	if req.PromoCode != "" {
+		maxSubsidy := int64(s.configRepo.GetIntConfig(ctx, "max_discount_subsidy_idr", 25000))
+		// Apply configurable discount if promo code provided
+		discountPct := s.configRepo.GetFloatConfig(ctx, "promo_discount_pct_"+req.PromoCode, 0.10)
+		rawDiscount := int64(float64(priceAfterSurge) * discountPct)
+		if rawDiscount > maxSubsidy {
+			rawDiscount = maxSubsidy
+		}
+		discountIDR = rawDiscount
+		promoSponsor = s.configRepo.GetStringConfig(ctx, "promo_sponsor_"+req.PromoCode, "platform")
+		if promoSponsor == "platform" {
+			promoSubsidyIDR = discountIDR
+		}
+	}
 
-	platformFee := int64(fixedPlatformFee + variablePlatformFee)
-	totalPrice := priceAfterSurge + platformFee
+	totalBeforeRounding := priceAfterSurge + platformFee - discountIDR
+	if totalBeforeRounding < 0 {
+		totalBeforeRounding = 0
+	}
 
-	// 8. Create Response
+	// 7.2 Dynamic Configurable Rounding Policy PRC-002
+	roundingMode := s.configRepo.GetStringConfig(ctx, "pricing_rounding_mode", "round")
+	roundingPrecision := int64(s.configRepo.GetIntConfig(ctx, "pricing_rounding_precision_idr", 100))
+	totalPrice := applyRoundingPolicy(totalBeforeRounding, roundingMode, roundingPrecision)
+
+	// 8. Create Response with Complete Snapshot PRC-001 to PRC-004
 	resp := &domain.PricingEstimateResponse{
 		EstimateID:             uuid.New().String(),
 		PickupAddress:          originAddr,
 		DropoffAddress:         destAddr,
 		DistanceKM:             distKM,
+		IncludedDistanceKM:     serviceProduct.IncludedDistanceKM,
+		DistanceFeeIDR:         distanceFare,
 		DurationMin:            durMin,
-		BasePriceIDR:           subtotal,
+		BasePriceIDR:           baseFare,
+		VolumetricWeightKG:     volWeight,
 		VolumetricSurchargeIDR: weightSurcharge,
 		DynamicPriceIDR:        dynamicPrice,
+		SurgeFeeIDR:            dynamicPrice,
+		SurgeMultiplier:        surgeMultiplier,
+		WeatherMultiplier:      weatherMultiplier,
+		TrafficMultiplier:      trafficMultiplier,
+		InsuranceFeeIDR:        insuranceFee,
+		DiscountIDR:            discountIDR,
+		PromoSubsidyIDR:        promoSubsidyIDR,
+		PromoCode:              req.PromoCode,
+		PromoSponsor:           promoSponsor,
 		PlatformFeeIDR:         platformFee,
+		PlatformFeePct:         serviceProduct.PlatformFeePct,
 		TotalPriceIDR:          totalPrice,
 		ExpiresAt:              time.Now().Add(10 * time.Minute),
 		PickupLat:              req.PickupLat,

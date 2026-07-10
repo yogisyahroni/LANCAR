@@ -17,6 +17,7 @@ type refundService struct {
 	paymentRepo domain.PaymentRepository
 	gateway     domain.RefundGateway
 	redisRepo   domain.RedisRepository
+	ledgerRepo  domain.FinanceLedgerRepository
 }
 
 func NewRefundService(
@@ -25,6 +26,7 @@ func NewRefundService(
 	paymentRepo domain.PaymentRepository,
 	gateway domain.RefundGateway,
 	redisRepo domain.RedisRepository,
+	ledgerRepo domain.FinanceLedgerRepository,
 ) domain.RefundService {
 	return &refundService{
 		refundRepo:  refundRepo,
@@ -32,6 +34,7 @@ func NewRefundService(
 		paymentRepo: paymentRepo,
 		gateway:     gateway,
 		redisRepo:   redisRepo,
+		ledgerRepo:  ledgerRepo,
 	}
 }
 
@@ -90,15 +93,68 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 		return nil, nil
 	}
 
+	refundPercentage := int(refundRatio * 100)
+	taxReversal := int64(float64(order.PPNIDR) * refundRatio)
+	platformFeeReversal := int64(float64(order.PlatformFeeIDR) * refundRatio)
+
 	now := time.Now()
+	refundID := uuid.New()
+
+	var journalIDPtr *uuid.UUID
+	if s.ledgerRepo != nil {
+		retainedAmount := int64(payment.AmountIDR - refundAmount)
+		entries := []domain.LedgerEntry{
+			{ID: uuid.New(), AccountName: "escrow_holding", DebitIDR: int64(payment.AmountIDR), CreditIDR: 0, CreatedAt: now},
+			{ID: uuid.New(), AccountName: "customer_refund_payable", DebitIDR: 0, CreditIDR: int64(refundAmount), CreatedAt: now},
+		}
+		if retainedAmount > 0 {
+			entries = append(entries, domain.LedgerEntry{
+				ID:          uuid.New(),
+				AccountName: "cancellation_fee_revenue",
+				DebitIDR:    0,
+				CreditIDR:   retainedAmount,
+				CreatedAt:   now,
+			})
+		}
+
+		journal := &domain.LedgerJournal{
+			ID:             uuid.New(),
+			JournalType:    "order_refund",
+			ReferenceType:  "order",
+			ReferenceID:    orderID.String(),
+			IdempotencyKey: fmt.Sprintf("REFUND-JRN-%s", refundID.String()),
+			Reason:         cancelReason,
+			Metadata: map[string]any{
+				"refund_id":           refundID.String(),
+				"refund_percentage":   refundPercentage,
+				"tax_reversal_idr":    taxReversal,
+				"fee_reversal_idr":    platformFeeReversal,
+			},
+			CreatedBy: "system",
+			ActorRole: "system",
+			CreatedAt: now,
+		}
+
+		jid, errLedger := s.ledgerRepo.CreateJournalReturningID(ctx, journal, entries)
+		if errLedger != nil {
+			log.Printf("Warning: failed to record ledger journal for refund %s: %v", refundID, errLedger)
+		} else if jid != uuid.Nil {
+			journalIDPtr = &jid
+		}
+	}
+
 	record := &domain.RefundRecord{
-		ID:        uuid.New(),
-		OrderID:   orderID,
-		AmountIDR: refundAmount,
-		Reason:    cancelReason,
-		Status:    domain.RefundStatusPending,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:                     refundID,
+		OrderID:                orderID,
+		AmountIDR:              refundAmount,
+		Reason:                 cancelReason,
+		Status:                 domain.RefundStatusPending,
+		RefundPercentage:       refundPercentage,
+		TaxReversalIDR:         taxReversal,
+		PlatformFeeReversalIDR: platformFeeReversal,
+		LedgerJournalID:        journalIDPtr,
+		CreatedAt:              now,
+		UpdatedAt:              now,
 	}
 
 	err = s.refundRepo.CreateRefund(ctx, record)

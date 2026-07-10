@@ -33,9 +33,9 @@ func NewDisbursementService(flagReader featureflags.FlagReader) *DisbursementSer
 }
 
 type disbursementRequest struct {
-	ReferenceID        string  `json:"ReferenceID"`
-	Amount             float64 `json:"Amount"`
-	BeneficiaryName    string  `json:"BeneficiaryName"`
+	ReferenceID        string `json:"ReferenceID"`
+	Amount             int64  `json:"Amount"`
+	BeneficiaryName    string `json:"BeneficiaryName"`
 	BeneficiaryAccount string  `json:"BeneficiaryAccount"`
 	BeneficiaryBank    string  `json:"BeneficiaryBank"`
 	Notes              string  `json:"Notes"`
@@ -45,7 +45,7 @@ type disbursementResponse struct {
 	Status string `json:"Status"`
 }
 
-func (s *DisbursementService) CreatePayout(ctx context.Context, referenceID string, amount float64, bankDetails map[string]any) error {
+func (s *DisbursementService) CreatePayout(ctx context.Context, referenceID string, amount int64, bankDetails map[string]any) error {
 	// Prepare payload for integration-gateway
 	payload := disbursementRequest{
 		ReferenceID:        referenceID,

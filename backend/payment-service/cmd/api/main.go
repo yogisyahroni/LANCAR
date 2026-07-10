@@ -141,7 +141,8 @@ func main() {
 
 	// Wire Layers
 	repo := repository.NewPostgresWalletRepository(db, db) // Using same DB for R/W in this simple setup
-	svc := service.NewWalletService(repo, repo.(domain.SettingsRepository), db, flagReader)
+	ledgerRepo := repository.NewPostgresLedgerRepository(db)
+	svc := service.NewWalletService(repo, ledgerRepo, repo.(domain.SettingsRepository), db, flagReader)
 	h := handler.NewWalletHandler(svc)
 
 	// Router

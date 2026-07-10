@@ -30,6 +30,7 @@ import {
   FileText,
   Newspaper,
   Calculator,
+  Receipt,
   Link as LinkIcon
 } from 'lucide-react'
 import { cn } from '../lib/utils'
@@ -213,6 +214,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       title: "KEUANGAN, PAJAK (VAT) & TARIF",
       items: [
         { icon: DollarSign, label: "Finance & Payouts", path: "/finance" },
+        { icon: Receipt, label: "Chart of Accounts", path: "/chart-of-accounts", allowedRoles: ['super_admin', 'finance_admin', 'finance'] },
+        { icon: Receipt, label: "Tax Center", path: "/tax-center" },
+        { icon: DollarSign, label: "Tariff Engine", path: "/tariff-engine" },
         { icon: DollarSign, label: "Merchant Escrow", path: "/merchant-settlements" },
         { icon: DollarSign, label: "Pricing & Tariffs", path: "/pricing" },
         { icon: Calculator, label: "OPEX / CAPEX (AI)", path: "/cost-intelligence", allowedRoles: ['super_admin'] },

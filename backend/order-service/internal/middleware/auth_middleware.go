@@ -78,3 +78,31 @@ func GetRoleFromContext(ctx context.Context) string {
 	return ""
 }
 
+const (
+	RoleAdmin   = "admin"
+	RoleFinance = "finance"
+)
+
+func RoleCheck(allowedRoles ...string) func(http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			userRole := GetRoleFromContext(r.Context())
+			
+			allowed := false
+			for _, role := range allowedRoles {
+				if userRole == role {
+					allowed = true
+					break
+				}
+			}
+			
+			if !allowed {
+				http.Error(w, "Forbidden: insufficient permissions", http.StatusForbidden)
+				return
+			}
+			
+			next.ServeHTTP(w, r)
+		}
+	}
+}
+

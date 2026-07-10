@@ -29,11 +29,11 @@ import (
 // mockWalletRepo adalah implementasi mock dari domain.WalletRepository
 // untuk keperluan unit testing tanpa database nyata.
 type mockWalletRepo struct {
-	wallet           *domain.Wallet
-	updateBalanceFn  func(id interface{}, amount float64, version int) error
-	createTxFn       func(tx *domain.WalletTransaction) error
-	updateStatusFn   func(refID string, status domain.TransactionStatus) error
-	isIdempotentFn   func(key string) (bool, error)
+	wallet          *domain.Wallet
+	updateBalanceFn func(id interface{}, amount int64, version int) error
+	createTxFn      func(tx *domain.WalletTransaction) error
+	updateStatusFn  func(refID string, status domain.TransactionStatus) error
+	isIdempotentFn  func(key string) (bool, error)
 }
 
 func (m *mockWalletRepo) GetByUserID(ctx context.Context, userID interface{}) (*domain.Wallet, error) {
@@ -42,7 +42,7 @@ func (m *mockWalletRepo) GetByUserID(ctx context.Context, userID interface{}) (*
 func (m *mockWalletRepo) Create(ctx context.Context, userID interface{}) (*domain.Wallet, error) {
 	return m.wallet, nil
 }
-func (m *mockWalletRepo) UpdateBalance(ctx context.Context, walletID interface{}, amount float64, version int) error {
+func (m *mockWalletRepo) UpdateBalance(ctx context.Context, walletID interface{}, amount int64, version int) error {
 	if m.updateBalanceFn != nil {
 		return m.updateBalanceFn(walletID, amount, version)
 	}
@@ -75,11 +75,11 @@ func (m *mockWalletRepo) IsWithdrawIdempotent(ctx context.Context, key string) (
 
 // mockSettingsRepo adalah implementasi mock dari domain.SettingsRepository
 type mockSettingsRepo struct {
-	feeByRole map[string]float64
+	feeByRole map[string]int64
 	settings  map[string]string
 }
 
-func (m *mockSettingsRepo) GetFee(ctx context.Context, role string) (float64, error) {
+func (m *mockSettingsRepo) GetFee(ctx context.Context, role string) (int64, error) {
 	if fee, ok := m.feeByRole[role]; ok {
 		return fee, nil
 	}
@@ -175,10 +175,10 @@ func TestWithdraw_FloatPrecisionExploit(t *testing.T) {
 
 func TestWithdraw_AccountNumberValidation(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		wantOK  bool
-		attack  string
+		name   string
+		input  string
+		wantOK bool
+		attack string
 	}{
 		{
 			name:   "valid_bca_10digit",
@@ -191,52 +191,52 @@ func TestWithdraw_AccountNumberValidation(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name:    "sql_injection_attempt",
-			input:   "1' OR '1'='1",
-			wantOK:  false,
-			attack:  "SQL injection via account number",
+			name:   "sql_injection_attempt",
+			input:  "1' OR '1'='1",
+			wantOK: false,
+			attack: "SQL injection via account number",
 		},
 		{
-			name:    "xss_via_account_number",
-			input:   "<script>alert(1)</script>",
-			wantOK:  false,
-			attack:  "XSS injection via account number",
+			name:   "xss_via_account_number",
+			input:  "<script>alert(1)</script>",
+			wantOK: false,
+			attack: "XSS injection via account number",
 		},
 		{
-			name:    "account_number_with_spaces",
-			input:   "1234 5678 90",
-			wantOK:  false,
-			attack:  "Spaces can be used to bypass length checks",
+			name:   "account_number_with_spaces",
+			input:  "1234 5678 90",
+			wantOK: false,
+			attack: "Spaces can be used to bypass length checks",
 		},
 		{
-			name:    "account_number_with_dash",
-			input:   "1234-5678-90",
-			wantOK:  false,
-			attack:  "Dash/hyphen could be misinterpreted in bank API",
+			name:   "account_number_with_dash",
+			input:  "1234-5678-90",
+			wantOK: false,
+			attack: "Dash/hyphen could be misinterpreted in bank API",
 		},
 		{
-			name:    "account_number_too_short",
-			input:   "12345",
-			wantOK:  false,
-			attack:  "Too short account numbers are invalid",
+			name:   "account_number_too_short",
+			input:  "12345",
+			wantOK: false,
+			attack: "Too short account numbers are invalid",
 		},
 		{
-			name:    "account_number_too_long",
-			input:   "1234567890123456789",
-			wantOK:  false,
-			attack:  "Too long account numbers are invalid",
+			name:   "account_number_too_long",
+			input:  "1234567890123456789",
+			wantOK: false,
+			attack: "Too long account numbers are invalid",
 		},
 		{
-			name:    "null_byte_injection",
-			input:   "1234567890\x00",
-			wantOK:  false,
-			attack:  "Null byte injection can truncate strings in C-based systems",
+			name:   "null_byte_injection",
+			input:  "1234567890\x00",
+			wantOK: false,
+			attack: "Null byte injection can truncate strings in C-based systems",
 		},
 		{
-			name:    "unicode_lookalike_digits",
-			input:   "１２３４５６７８９０", // Unicode fullwidth digits (U+FF10..U+FF19)
-			wantOK:  false,
-			attack:  "Unicode fullwidth digits look like ASCII but aren't",
+			name:   "unicode_lookalike_digits",
+			input:  "１２３４５６７８９０", // Unicode fullwidth digits (U+FF10..U+FF19)
+			wantOK: false,
+			attack: "Unicode fullwidth digits look like ASCII but aren't",
 		},
 	}
 
@@ -349,10 +349,10 @@ func TestWithdraw_AccountHolderValidation(t *testing.T) {
 
 func TestWithdraw_IdempotencyKeyValidation(t *testing.T) {
 	tests := []struct {
-		name    string
-		key     string
-		wantOK  bool
-		attack  string
+		name   string
+		key    string
+		wantOK bool
+		attack string
 	}{
 		{
 			name:   "valid_uuidv4",
@@ -360,28 +360,28 @@ func TestWithdraw_IdempotencyKeyValidation(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name:    "empty_key",
-			key:     "",
-			wantOK:  false,
-			attack:  "Empty idempotency key allows double-submit",
+			name:   "empty_key",
+			key:    "",
+			wantOK: false,
+			attack: "Empty idempotency key allows double-submit",
 		},
 		{
-			name:    "all_zeros_nil_uuid",
-			key:     "00000000-0000-0000-0000-000000000000",
-			wantOK:  false,
-			attack:  "Nil UUID could be used as default/bypass value",
+			name:   "all_zeros_nil_uuid",
+			key:    "00000000-0000-0000-0000-000000000000",
+			wantOK: false,
+			attack: "Nil UUID could be used as default/bypass value",
 		},
 		{
-			name:    "non_uuid_string",
-			key:     "my-custom-key-123",
-			wantOK:  false,
-			attack:  "Non-UUID format could bypass parsing",
+			name:   "non_uuid_string",
+			key:    "my-custom-key-123",
+			wantOK: false,
+			attack: "Non-UUID format could bypass parsing",
 		},
 		{
-			name:    "sql_injection_as_key",
-			key:     "'; DROP TABLE wallet_transactions; --",
-			wantOK:  false,
-			attack:  "SQL injection via idempotency key",
+			name:   "sql_injection_as_key",
+			key:    "'; DROP TABLE wallet_transactions; --",
+			wantOK: false,
+			attack: "SQL injection via idempotency key",
 		},
 	}
 
@@ -466,12 +466,12 @@ func TestWithdraw_ReplayAttackPrevented(t *testing.T) {
 // TestWithdraw_ReversalOnDisbursementFailure memastikan saldo dikembalikan
 // jika disbursement ke payment gateway gagal.
 func TestWithdraw_ReversalOnDisbursementFailure(t *testing.T) {
-	balanceHistory := make([]float64, 0)
-	currentBalance := 500000.0 // Rp 500.000 initial balance
+	balanceHistory := make([]int64, 0)
+	currentBalance := int64(500000) // Rp 500.000 initial balance
 
 	mockRepo := &mockWalletRepo{
 		isIdempotentFn: func(key string) (bool, error) { return false, nil },
-		updateBalanceFn: func(id interface{}, amount float64, version int) error {
+		updateBalanceFn: func(id interface{}, amount int64, version int) error {
 			currentBalance += amount
 			balanceHistory = append(balanceHistory, currentBalance)
 			return nil
@@ -483,28 +483,28 @@ func TestWithdraw_ReversalOnDisbursementFailure(t *testing.T) {
 	}
 
 	// Step 1: Deduct saldo (simulasi sebelum disbursement)
-	deductAmount := -100000.0 // -Rp 100.000
+	deductAmount := int64(-100000) // -Rp 100.000
 	_ = mockRepo.UpdateBalance(context.Background(), nil, deductAmount, 1)
 
-	expectedAfterDeduct := 400000.0
-	if math.Abs(currentBalance-expectedAfterDeduct) > 0.01 {
-		t.Errorf("Saldo setelah deduct salah: want %.2f, got %.2f", expectedAfterDeduct, currentBalance)
+	expectedAfterDeduct := int64(400000)
+	if currentBalance != expectedAfterDeduct {
+		t.Errorf("Saldo setelah deduct salah: want %d, got %d", expectedAfterDeduct, currentBalance)
 	}
 
 	// Step 2: Simulasi disbursement GAGAL → reversal harus terjadi
 	disbursementFailed := true
 	if disbursementFailed {
-		reversalAmount := 100000.0 // Kembalikan Rp 100.000
+		reversalAmount := int64(100000) // Kembalikan Rp 100.000
 		_ = mockRepo.UpdateBalance(context.Background(), nil, reversalAmount, 2)
 	}
 
 	// Step 3: Verifikasi saldo kembali ke nilai awal
-	if math.Abs(currentBalance-500000.0) > 0.01 {
-		t.Errorf("SECURITY FAIL: Saldo tidak dikembalikan setelah disbursement gagal! want=500000, got=%.2f", currentBalance)
+	if currentBalance != 500000 {
+		t.Errorf("SECURITY FAIL: Saldo tidak dikembalikan setelah disbursement gagal! want=500000, got=%d", currentBalance)
 	}
 
 	t.Logf("Balance history: %v", balanceHistory)
-	t.Logf("Final balance: %.2f (sesuai initial balance)", currentBalance)
+	t.Logf("Final balance: %d (sesuai initial balance)", currentBalance)
 }
 
 // TestWithdraw_RaceConditionProtection memastikan optimistic locking mencegah
@@ -517,7 +517,7 @@ func TestWithdraw_RaceConditionProtection(t *testing.T) {
 	updateCount := 0
 
 	mockRepo := &mockWalletRepo{
-		updateBalanceFn: func(id interface{}, amount float64, version int) error {
+		updateBalanceFn: func(id interface{}, amount int64, version int) error {
 			// Hanya izinkan update jika version cocok (optimistic lock)
 			if version != walletVersion {
 				return errors.New("concurrent update detected or wallet not found")
@@ -531,13 +531,13 @@ func TestWithdraw_RaceConditionProtection(t *testing.T) {
 	ctx := context.Background()
 
 	// Request 1: berhasil (version=1)
-	err1 := mockRepo.UpdateBalance(ctx, nil, -50000.0, 1)
+	err1 := mockRepo.UpdateBalance(ctx, nil, int64(-50000), 1)
 	if err1 != nil {
 		t.Errorf("Request pertama seharusnya berhasil: %v", err1)
 	}
 
 	// Request 2 (concurrent, version lama=1): harus GAGAL
-	err2 := mockRepo.UpdateBalance(ctx, nil, -50000.0, 1)
+	err2 := mockRepo.UpdateBalance(ctx, nil, int64(-50000), 1)
 	if err2 == nil {
 		t.Error("SECURITY FAIL: Concurrent request dengan version lama harus ditolak (race condition protection)")
 	}

@@ -109,12 +109,16 @@ func (r *PostgresPaymentRepo) Create(ctx context.Context, p *domain.Payment) err
 			id, order_id, payment_number, provider, method, status,
 			amount_idr, mdr_amount_idr, ppn_amount_idr, weather_reserve_idr,
 			insurance_reserve_idr, net_operational_idr, provider_reference,
-			qr_code_url, qr_code_string, expires_at, created_at, updated_at
+			qr_code_url, qr_code_string, expires_at, created_at, updated_at,
+			tax_rule_code, ppn_rate_effective_pct, ppn_rate_statutory_pct, dpp_idr,
+			tax_invoice_required, tax_invoice_status
 		) VALUES (
 			:id, :order_id, :payment_number, :provider, :method, :status,
 			:amount_idr, :mdr_amount_idr, :ppn_amount_idr, :weather_reserve_idr,
 			:insurance_reserve_idr, :net_operational_idr, :provider_reference,
-			:qr_code_url, :qr_code_string, :expires_at, :created_at, :updated_at
+			:qr_code_url, :qr_code_string, :expires_at, :created_at, :updated_at,
+			:tax_rule_code, :ppn_rate_effective_pct, :ppn_rate_statutory_pct, :dpp_idr,
+			:tax_invoice_required, :tax_invoice_status
 		)
 	`
 	_, err := r.db.NamedExecContext(ctx, query, p)

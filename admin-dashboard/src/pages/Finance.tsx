@@ -29,7 +29,8 @@ import {
   Calendar,
   AlertCircle,
   ArrowRight,
-  TrendingDown as TrendDown
+  TrendingDown as TrendDown,
+  Lock
 } from 'lucide-react'
 import { 
   XAxis, 
@@ -84,16 +85,20 @@ const riskActionLabel = (request: any) => ({
   terminal: 'Closed',
 } as Record<string, string>)[request.risk_action] || payoutStatusLabel(request);
 
-type FinanceTab = 'treasury' | 'pnl' | 'tax' | 'ledger';
+type FinanceTab = 'treasury' | 'pnl' | 'tax' | 'trial-balance' | 'ledger' | 'reconciliation' | 'closing' | 'unit-economics';
 
 export default function Finance() {
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<FinanceTab>('treasury');
   const [pnlPeriod, setPnlPeriod] = useState<string>(new Date().toISOString().slice(0, 7));
   const [pphPeriod, setPphPeriod] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [closingPeriod, setClosingPeriod] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [totpInput, setTotpInput] = useState<string>('');
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
   const [ledgerStartDate, setLedgerStartDate] = useState<string>(new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().slice(0, 10));
   const [ledgerEndDate, setLedgerEndDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [ledgerAccountFilter, setLedgerAccountFilter] = useState<string>('');
+  const [ledgerJournalTypeFilter, setLedgerJournalTypeFilter] = useState<string>('');
 
   // Simulator States
   const [simInfraCost, setSimInfraCost] = useState<number>(1500);
@@ -200,6 +205,16 @@ export default function Finance() {
       const res = await api.get('/admin/finance/pph-report', { params: { period: pphPeriod } });
       return res.data;
     },
+    staleTime: 60_000,
+  });
+
+  const { data: unitEconomicsData, isLoading: isLoadingUnitEconomics } = useQuery({
+    queryKey: ['finance-unit-economics-v2'],
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/unit-economics');
+      return res.data?.data || null;
+    },
+    enabled: activeTab === 'unit-economics',
     staleTime: 60_000,
   });
 
@@ -317,6 +332,100 @@ export default function Finance() {
     }
   });
 
+  const { data: reconciliationSummary, isLoading: isLoadingRecon } = useQuery({
+    queryKey: ['reconciliation-summary'],
+    enabled: activeTab === 'reconciliation',
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/reconciliation/summary');
+      return res.data?.data || [];
+    }
+  });
+
+  const runReconciliationMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post('/admin/finance/wallet-reconciliation/run', {});
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reconciliation-summary'] });
+      toast.success('Wallet & ledger reconciliation run completed successfully');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || 'Failed to run reconciliation');
+    }
+  });
+
+  const { data: closingPeriods = [], isLoading: isLoadingPeriods } = useQuery({
+    queryKey: ['closing-periods'],
+    enabled: activeTab === 'closing',
+    queryFn: async () => {
+      const res = await api.get('/admin/finance/closing/periods');
+      return res.data?.data || [];
+    }
+  });
+
+  const { data: closingPnl, isLoading: isLoadingClosingPnl } = useQuery({
+    queryKey: ['closing-pnl', closingPeriod],
+    enabled: activeTab === 'closing',
+    queryFn: async () => {
+      const res = await api.get(`/admin/finance/closing/p-and-l?period=${closingPeriod}`);
+      return res.data?.data || null;
+    }
+  });
+
+  const { data: closingTB = [], isLoading: isLoadingClosingTB } = useQuery({
+    queryKey: ['closing-tb', closingPeriod],
+    enabled: activeTab === 'closing',
+    queryFn: async () => {
+      const res = await api.get(`/admin/finance/closing/trial-balance?period_code=${closingPeriod}`);
+      return res.data?.data || [];
+    }
+  });
+
+  const { data: closingCashLiability = [], isLoading: isLoadingCashLiability } = useQuery({
+    queryKey: ['closing-cash-liability', closingPeriod],
+    enabled: activeTab === 'closing',
+    queryFn: async () => {
+      const res = await api.get(`/admin/finance/closing/cash-liability?period_code=${closingPeriod}`);
+      return res.data?.data || [];
+    }
+  });
+
+  const { data: closingTaxSummary = [], isLoading: isLoadingTaxSummary } = useQuery({
+    queryKey: ['closing-tax-summary', closingPeriod],
+    enabled: activeTab === 'closing',
+    queryFn: async () => {
+      const res = await api.get(`/admin/finance/closing/tax-summary?period_code=${closingPeriod}`);
+      return res.data?.data || [];
+    }
+  });
+
+  const { data: closingSettlementOutstanding = [], isLoading: isLoadingSettlementOutstanding } = useQuery({
+    queryKey: ['closing-settlement-outstanding'],
+    enabled: activeTab === 'closing',
+    queryFn: async () => {
+      const res = await api.get(`/admin/finance/closing/settlement-outstanding`);
+      return res.data?.data || [];
+    }
+  });
+
+  const lockPeriodMutation = useMutation({
+    mutationFn: async ({ period, totpCode }: { period: string; totpCode?: string }) => {
+      const res = await api.post('/admin/finance/closing/lock', { period, totpCode }, {
+        headers: totpCode ? { 'x-totp-code': totpCode } : {}
+      });
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['closing-periods'] });
+      toast.success('Accounting period locked successfully');
+      setTotpInput('');
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.error || 'Gagal mengunci periode akuntansi');
+    }
+  });
+
   const topUpMutation = useMutation({
     mutationFn: async (amount: number) => {
       await api.post('/admin/finance/emergency-fund/top-up', { 
@@ -333,10 +442,19 @@ export default function Finance() {
     }
   });
 
-  const { data: ledgerData, isLoading: isLoadingLedger } = useQuery({
-    queryKey: ['finance-ledger', ledgerStartDate, ledgerEndDate],
+  const { data: trialBalanceData, isLoading: isLoadingTrialBalance } = useQuery({
+    queryKey: ['finance-trial-balance', ledgerStartDate, ledgerEndDate],
     queryFn: async () => {
-      const res = await api.get(`/admin/finance/ledger?startDate=${ledgerStartDate}&endDate=${ledgerEndDate}`);
+      const res = await api.get(`/admin/finance/trial-balance?startDate=${ledgerStartDate}&endDate=${ledgerEndDate}`);
+      return res.data?.data || [];
+    },
+    enabled: activeTab === 'trial-balance',
+  });
+
+  const { data: ledgerEntriesData, isLoading: isLoadingLedgerEntries } = useQuery({
+    queryKey: ['finance-ledger-entries', ledgerStartDate, ledgerEndDate, ledgerAccountFilter, ledgerJournalTypeFilter],
+    queryFn: async () => {
+      const res = await api.get(`/admin/finance/ledger?startDate=${ledgerStartDate}&endDate=${ledgerEndDate}&accountName=${ledgerAccountFilter}&journalType=${ledgerJournalTypeFilter}`);
       return res.data?.data || [];
     },
     enabled: activeTab === 'ledger',
@@ -527,12 +645,16 @@ export default function Finance() {
       )}
 
       {/* ── Tab Navigation ──────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 p-1 rounded-2xl bg-white/[0.03] border border-white/5 w-fit">
+      <div className="flex flex-wrap items-center gap-1 p-1 rounded-2xl bg-white/[0.03] border border-white/5 w-fit">
         {([
           { id: 'treasury' as FinanceTab, label: 'Treasury & Settlement', icon: Landmark },
           { id: 'pnl' as FinanceTab, label: 'Laporan P&L', icon: BarChart2 },
           { id: 'tax' as FinanceTab, label: 'Pajak (PPN + PPh)', icon: Receipt },
+          { id: 'trial-balance' as FinanceTab, label: 'Neraca Saldo', icon: PieIcon },
           { id: 'ledger' as FinanceTab, label: 'Buku Besar', icon: Wallet },
+          { id: 'reconciliation' as FinanceTab, label: 'Reconciliation Center', icon: ShieldCheck },
+          { id: 'closing' as FinanceTab, label: 'Monthly Closing', icon: Lock },
+          { id: 'unit-economics' as FinanceTab, label: 'Unit Economics', icon: TrendingUp },
         ]).map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -1347,28 +1469,8 @@ export default function Finance() {
          </div>
       </div>
 
-      {/* Unit Economics Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-         <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
-            <h3 className="text-xl font-black text-zinc-100 italic uppercase">Unit Economics</h3>
-            <div className="space-y-6">
-               {unitEconomics.map((item: any, i: number) => (
-                 <div key={i} className="flex items-center justify-between p-6 rounded-3xl bg-white/[0.01] border border-white/5 group hover:border-white/10 transition-all">
-                    <div>
-                       <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{item.label}</p>
-                       <p className="text-xl font-black text-zinc-100 mt-1">Rp {item.value.toLocaleString()}</p>
-                    </div>
-                    <span className={cn(
-                      "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest",
-                      item.status === 'Healthy' ? "text-emerald-400 bg-emerald-500/10" : "text-amber-400 bg-amber-500/10"
-                    )}>
-                       {item.status}
-                    </span>
-                 </div>
-               ))}
-            </div>
-         </div>
-
+      {/* Tax Compliance Section */}
+      <div className="grid grid-cols-1 gap-8">
          <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
             <h3 className="text-xl font-black text-zinc-100 italic uppercase">Tax Compliance (PPN) — Quick View</h3>
             <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex flex-col items-center justify-center text-center space-y-4">
@@ -1869,13 +1971,13 @@ export default function Finance() {
         </div>
       )}
 
-      {/* ── TAB: LEDGER (BUKU BESAR) ────────────────────────────────────────────── */}
-      {activeTab === 'ledger' && (
+      {/* ── TAB: TRIAL BALANCE (NERACA SALDO) ───────────────────────────────────── */}
+      {activeTab === 'trial-balance' && (
         <div className="space-y-8 animate-in">
           <div className="flex items-center justify-between p-6 rounded-2xl bg-zinc-900 border border-white/5">
             <div>
-              <h3 className="text-lg font-black text-white uppercase tracking-widest">Buku Besar (Ledger)</h3>
-              <p className="text-sm text-zinc-500 mt-1">Laporan mutasi debit/kredit per akun GL.</p>
+              <h3 className="text-lg font-black text-white uppercase tracking-widest">Neraca Saldo (Trial Balance)</h3>
+              <p className="text-sm text-zinc-500 mt-1">Laporan saldo awal, mutasi debit/kredit, dan saldo akhir per akun GL.</p>
             </div>
             <div className="flex items-center gap-4">
               <input
@@ -1896,10 +1998,10 @@ export default function Finance() {
 
           <div className="glass-card rounded-[24px] border border-white/5 overflow-hidden">
             <div className="p-6 border-b border-white/5 flex items-center justify-between">
-              <h3 className="text-sm font-black text-white uppercase tracking-widest">Detail Mutasi Buku Besar</h3>
+              <h3 className="text-sm font-black text-white uppercase tracking-widest">Detail Neraca Saldo</h3>
             </div>
             
-            {isLoadingLedger ? (
+            {isLoadingTrialBalance ? (
               <div className="flex items-center justify-center py-20"><Loader2 size={32} className="animate-spin text-zinc-600" /></div>
             ) : (
               <div className="overflow-x-auto">
@@ -1912,7 +2014,7 @@ export default function Finance() {
                     </tr>
                   </thead>
                   <tbody>
-                    {(ledgerData || []).map((row: any) => (
+                    {(trialBalanceData || []).map((row: any) => (
                       <tr key={row.gl_code} className="border-b border-white/[0.02] hover:bg-white/[0.02] transition-colors group">
                         <td className="px-6 py-4">
                           <span className="px-2.5 py-1 rounded-md bg-white/5 text-[10px] font-mono text-zinc-400 group-hover:text-primary-light transition-colors">{row.gl_code}</span>
@@ -1924,10 +2026,10 @@ export default function Finance() {
                         <td className="px-6 py-4 font-bold text-white text-sm bg-white/[0.01]">Rp {Number(row.closing_balance).toLocaleString('id-ID')}</td>
                       </tr>
                     ))}
-                    {(ledgerData || []).length === 0 && (
+                    {(trialBalanceData || []).length === 0 && (
                       <tr>
                         <td colSpan={6} className="py-12 text-center text-zinc-600 text-sm font-medium">
-                          Tidak ada data buku besar pada periode ini.
+                          Tidak ada data neraca saldo pada periode ini.
                         </td>
                       </tr>
                     )}
@@ -1935,6 +2037,455 @@ export default function Finance() {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB: LEDGER (BUKU BESAR) ────────────────────────────────────────────── */}
+      {activeTab === 'ledger' && (
+        <div className="space-y-8 animate-in">
+          <div className="flex flex-col md:flex-row md:items-center justify-between p-6 rounded-2xl bg-zinc-900 border border-white/5 gap-4">
+            <div>
+              <h3 className="text-lg font-black text-white uppercase tracking-widest">Buku Besar (Ledger)</h3>
+              <p className="text-sm text-zinc-500 mt-1">Daftar entri jurnal berdasarkan waktu riil.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <input
+                type="text"
+                placeholder="Filter Akun GL"
+                value={ledgerAccountFilter}
+                onChange={(e) => setLedgerAccountFilter(e.target.value)}
+                className="bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none w-40"
+              />
+              <select
+                value={ledgerJournalTypeFilter}
+                onChange={(e) => setLedgerJournalTypeFilter(e.target.value)}
+                className="bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              >
+                <option value="">Semua Journal Type</option>
+                <option value="payment">Payment</option>
+                <option value="refund">Refund</option>
+                <option value="wallet_topup">Wallet Topup</option>
+                <option value="wallet_withdraw">Wallet Withdraw</option>
+                <option value="courier_payout">Courier Payout</option>
+                <option value="merchant_settlement">Merchant Settlement</option>
+                <option value="provider_invoice">Provider Invoice</option>
+              </select>
+              <input
+                type="date"
+                value={ledgerStartDate}
+                onChange={(e) => setLedgerStartDate(e.target.value)}
+                className="bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+              <span className="text-zinc-600 font-black tracking-widest uppercase">To</span>
+              <input
+                type="date"
+                value={ledgerEndDate}
+                onChange={(e) => setLedgerEndDate(e.target.value)}
+                className="bg-zinc-950 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="glass-card rounded-[24px] border border-white/5 overflow-hidden">
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <h3 className="text-sm font-black text-white uppercase tracking-widest">Detail Journal Entries</h3>
+            </div>
+            
+            {isLoadingLedgerEntries ? (
+              <div className="flex items-center justify-center py-20"><Loader2 size={32} className="animate-spin text-zinc-600" /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-white/[0.02]">
+                    <tr>
+                      {['Tanggal', 'Journal ID', 'Tipe Journal', 'Akun', 'Debit', 'Kredit', 'Keterangan'].map(h => (
+                        <th key={h} className="px-6 py-4 text-left text-[10px] font-black text-zinc-500 uppercase tracking-widest border-b border-white/5">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(ledgerEntriesData || []).map((row: any) => (
+                      <tr key={row.entry_id} className="border-b border-white/[0.02] hover:bg-white/[0.02] transition-colors group">
+                        <td className="px-6 py-4 font-medium text-zinc-400 text-[11px] whitespace-nowrap">
+                          {new Date(row.created_at).toLocaleString('id-ID')}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="px-2 py-0.5 rounded-md bg-white/5 text-[10px] font-mono text-zinc-400 w-max">{row.journal_id?.substring(0,8)}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="px-2 py-1 rounded bg-zinc-800 text-xs text-zinc-300 font-bold uppercase">{row.journal_type}</span>
+                        </td>
+                        <td className="px-6 py-4 font-bold text-zinc-300 text-sm">{row.account_name}</td>
+                        <td className="px-6 py-4 font-medium text-emerald-400 text-sm">{row.debit_idr ? `Rp ${Number(row.debit_idr).toLocaleString('id-ID')}` : '-'}</td>
+                        <td className="px-6 py-4 font-medium text-red-400 text-sm">{row.credit_idr ? `Rp ${Number(row.credit_idr).toLocaleString('id-ID')}` : '-'}</td>
+                        <td className="px-6 py-4 text-zinc-400 text-xs">{row.reason}</td>
+                      </tr>
+                    ))}
+                    {(ledgerEntriesData || []).length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="py-12 text-center text-zinc-600 text-sm font-medium">
+                          Tidak ada data journal entry pada periode dan filter ini.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          TAB: RECONCILIATION CENTER (ADM-004)
+      ══════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'reconciliation' && (
+        <div className="space-y-8 animate-in">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-zinc-100">Wallet & Ledger Reconciliation Center</h2>
+              <p className="text-sm text-zinc-400 mt-1">
+                Audit otomatis secara real-time saldo wallet, ledger akuntansi, dan transaksi penyelesaian.
+              </p>
+            </div>
+            <button
+              onClick={() => runReconciliationMutation.mutate()}
+              disabled={runReconciliationMutation.isPending}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-sm shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
+            >
+              {runReconciliationMutation.isPending ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <ShieldCheck size={16} />
+              )}
+              Jalankan Rekonsiliasi Sekarang
+            </button>
+          </div>
+
+          <div className="glass-card p-6 rounded-3xl border-white/5">
+            {isLoadingRecon ? (
+              <div className="py-12 flex justify-center">
+                <Loader2 size={32} className="text-primary animate-spin" />
+              </div>
+            ) : reconciliationSummary && reconciliationSummary.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {reconciliationSummary.map((item: any, idx: number) => (
+                  <div key={idx} className="p-5 rounded-2xl bg-white/[0.03] border border-white/5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-wider text-zinc-400">
+                        {item.domain || item.name || `Domain #${idx + 1}`}
+                      </span>
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-full text-xs font-bold uppercase",
+                        item.status === 'balanced' || item.mismatches === 0
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : "bg-red-500/10 text-red-400 border border-red-500/20"
+                      )}>
+                        {item.status || (item.mismatches === 0 ? 'Balanced' : 'Mismatch Found')}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="p-3 rounded-xl bg-black/20">
+                        <p className="text-[10px] text-zinc-500 uppercase font-bold">Matched</p>
+                        <p className="text-lg font-black text-zinc-200 mt-1">{item.matched_count || item.matched || 0}</p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-black/20">
+                        <p className="text-[10px] text-zinc-500 uppercase font-bold">Mismatches</p>
+                        <p className="text-lg font-black text-red-400 mt-1">{item.mismatch_count || item.mismatches || 0}</p>
+                      </div>
+                    </div>
+                    {item.discrepancy_idr !== undefined && (
+                      <div className="pt-2 border-t border-white/5 flex justify-between text-xs">
+                        <span className="text-zinc-500">Discrepancy:</span>
+                        <span className="font-bold text-zinc-300">
+                          Rp {Number(item.discrepancy_idr || 0).toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-12 text-center text-zinc-500 text-sm">
+                Belum ada riwayat rekonsiliasi. Klik tombol &quot;Jalankan Rekonsiliasi Sekarang&quot; untuk memulai audit.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          TAB: UNIT ECONOMICS
+      ══════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'unit-economics' && (
+        <div className="space-y-8 animate-in">
+          <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
+            <h3 className="text-2xl font-black text-zinc-100 italic uppercase">Unit Economics</h3>
+            <p className="text-zinc-400">Analisis metrik per transaksi (Margin, subsidi, promo) secara real-time.</p>
+            {isLoadingUnitEconomics ? (
+              <div className="py-12 flex justify-center"><Loader2 className="w-12 h-12 text-primary animate-spin" /></div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                 {unitEconomicsData?.metrics?.map((item: any, i: number) => (
+                   <div key={i} className="flex flex-col p-6 rounded-3xl bg-white/[0.02] border border-white/5">
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{item.label}</p>
+                      <p className="text-2xl font-black text-zinc-100 mt-2">{formatCurrency(item.value)}</p>
+                      <span className={cn(
+                        "mt-4 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest w-fit",
+                        item.status === 'Healthy' ? "text-emerald-400 bg-emerald-500/10" : "text-amber-400 bg-amber-500/10"
+                      )}>
+                         {item.status}
+                      </span>
+                   </div>
+                 ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          TAB: NERACA SALDO (TRIAL BALANCE)
+      ══════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'trial-balance' && (
+        <div className="space-y-8 animate-in">
+          <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-8">
+            <h3 className="text-2xl font-black text-zinc-100 italic uppercase">Neraca Saldo (Trial Balance)</h3>
+            <div className="flex gap-4 mb-4">
+              <input type="date" value={ledgerStartDate} onChange={e => setLedgerStartDate(e.target.value)} className="px-4 py-2 bg-black/30 text-white rounded-xl" />
+              <input type="date" value={ledgerEndDate} onChange={e => setLedgerEndDate(e.target.value)} className="px-4 py-2 bg-black/30 text-white rounded-xl" />
+            </div>
+            {isLoadingTrialBalance ? (
+              <div className="py-12 flex justify-center"><Loader2 className="w-12 h-12 text-primary animate-spin" /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-white/5 text-zinc-500 text-xs font-bold uppercase tracking-wider">
+                      <th className="pb-3">No. Akun / Nama</th>
+                      <th className="pb-3 text-right">Debit (Rp)</th>
+                      <th className="pb-3 text-right">Kredit (Rp)</th>
+                      <th className="pb-3 text-right">Saldo (Rp)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {trialBalanceData.map((row: any, i: number) => (
+                      <tr key={i} className="hover:bg-white/[0.02]">
+                        <td className="py-4 text-sm font-bold text-zinc-200">{row.account_name}</td>
+                        <td className="py-4 text-sm font-mono text-zinc-400 text-right">{formatCurrency(row.debit_idr)}</td>
+                        <td className="py-4 text-sm font-mono text-zinc-400 text-right">{formatCurrency(row.credit_idr)}</td>
+                        <td className="py-4 text-sm font-mono font-bold text-zinc-100 text-right">{formatCurrency(row.balance_idr)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          TAB: MONTHLY CLOSING WORKFLOW (RPT-001 / ADM-005)
+      ══════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'closing' && (
+        <div className="space-y-8 animate-in">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-zinc-100">Monthly Closing Workflow (Periode Akuntansi)</h2>
+              <p className="text-sm text-zinc-400 mt-1">
+                Kunci periode akuntansi dengan verifikasi keamanan TOTP dan unduh laporan penutupan bulanan.
+              </p>
+            </div>
+            <button
+              onClick={() => window.open('/api/v1/admin/finance/closing/export', '_blank')}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-zinc-200 font-bold text-sm transition-all"
+            >
+              <Download size={16} />
+              Export Laporan Closing (CSV/PDF)
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="glass-card p-6 rounded-3xl border-white/5 space-y-6 lg:col-span-1">
+              <div className="flex items-center gap-2 text-primary">
+                <Lock size={20} />
+                <h3 className="text-lg font-bold text-zinc-100">Lock Periode Akuntansi</h3>
+              </div>
+              <p className="text-xs text-zinc-400">
+                Mengunci periode mencegah modifikasi jurnal dan transaksi mundur untuk kepatuhan audit.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 block mb-2">Pilih Bulan Periode</label>
+                  <input
+                    type="month"
+                    value={closingPeriod}
+                    onChange={(e) => setClosingPeriod(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl bg-black/30 border border-white/10 text-zinc-200 text-sm focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-500 block mb-2">TOTP 2FA Verification Code (Wajib)</label>
+                  <input
+                    type="text"
+                    placeholder="Masukkan 6 digit kode TOTP"
+                    value={totpInput}
+                    onChange={(e) => setTotpInput(e.target.value)}
+                    maxLength={6}
+                    className="w-full px-4 py-2.5 rounded-xl bg-black/30 border border-white/10 text-zinc-200 text-sm font-mono tracking-widest focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <button
+                  onClick={() => lockPeriodMutation.mutate({ period: closingPeriod, totpCode: totpInput })}
+                  disabled={lockPeriodMutation.isPending || !closingPeriod}
+                  className="w-full py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 font-bold text-sm transition-all flex items-center justify-center gap-2"
+                >
+                  {lockPeriodMutation.isPending ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Lock size={16} />
+                  )}
+                  Lock Periode {closingPeriod} (TOTP Required)
+                </button>
+              </div>
+            </div>
+
+            <div className="glass-card p-6 rounded-3xl border-white/5 space-y-6 lg:col-span-2">
+              <h3 className="text-lg font-bold text-zinc-100">Status Periode Akuntansi</h3>
+              {isLoadingPeriods ? (
+                <div className="py-12 flex justify-center">
+                  <Loader2 size={28} className="text-primary animate-spin" />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/5 text-zinc-500 text-xs font-bold uppercase tracking-wider">
+                        <th className="pb-3">Periode</th>
+                        <th className="pb-3">Status</th>
+                        <th className="pb-3">Locked At</th>
+                        <th className="pb-3">Locked By</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 text-sm">
+                      {closingPeriods.map((item: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-white/[0.02]">
+                          <td className="py-3.5 font-bold text-zinc-200">{item.period || item.month}</td>
+                          <td className="py-3.5">
+                            <span className={cn(
+                              "px-2.5 py-1 rounded-full text-xs font-bold uppercase",
+                              item.status === 'locked' || item.is_locked
+                                ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                                : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                            )}>
+                              {item.status || (item.is_locked ? 'Locked' : 'Open')}
+                            </span>
+                          </td>
+                          <td className="py-3.5 text-zinc-400 text-xs">{item.locked_at ? format(parseISO(item.locked_at), 'dd MMM yyyy HH:mm') : '-'}</td>
+                          <td className="py-3.5 text-zinc-400 text-xs">{item.locked_by || '-'}</td>
+                        </tr>
+                      ))}
+                      {closingPeriods.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="py-8 text-center text-zinc-500 text-xs">
+                            Belum ada periode akuntansi yang tercatat / terkunci.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+             <div className="glass-card p-6 rounded-3xl border-white/5 space-y-4">
+                <h3 className="text-lg font-bold text-zinc-100">Cash & Liability Summary</h3>
+                {isLoadingCashLiability ? (
+                   <div className="py-4 flex justify-center"><Loader2 size={24} className="animate-spin text-primary" /></div>
+                ) : (
+                   <table className="w-full text-left text-sm">
+                      <thead>
+                         <tr className="text-zinc-500 font-bold uppercase text-[10px] border-b border-white/5">
+                            <th className="pb-2">Account</th>
+                            <th className="pb-2 text-right">Debit</th>
+                            <th className="pb-2 text-right">Credit</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                         {closingCashLiability.map((c: any, i: number) => (
+                            <tr key={i}>
+                               <td className="py-3 text-zinc-300 font-bold">{c.account_name}</td>
+                               <td className="py-3 text-zinc-400 font-mono text-right">{formatCurrency(c.debit_idr)}</td>
+                               <td className="py-3 text-zinc-400 font-mono text-right">{formatCurrency(c.credit_idr)}</td>
+                            </tr>
+                         ))}
+                      </tbody>
+                   </table>
+                )}
+             </div>
+
+             <div className="glass-card p-6 rounded-3xl border-white/5 space-y-4">
+                <h3 className="text-lg font-bold text-zinc-100">Tax Summary (VAT & WHT)</h3>
+                {isLoadingTaxSummary ? (
+                   <div className="py-4 flex justify-center"><Loader2 size={24} className="animate-spin text-primary" /></div>
+                ) : (
+                   <table className="w-full text-left text-sm">
+                      <thead>
+                         <tr className="text-zinc-500 font-bold uppercase text-[10px] border-b border-white/5">
+                            <th className="pb-2">Tax Type</th>
+                            <th className="pb-2 text-right">Count</th>
+                            <th className="pb-2 text-right">Total Amount</th>
+                         </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                         {closingTaxSummary.map((t: any, i: number) => (
+                            <tr key={i}>
+                               <td className="py-3 text-zinc-300 font-bold">{t.tax_type}</td>
+                               <td className="py-3 text-zinc-400 font-mono text-right">{t.transaction_count}</td>
+                               <td className="py-3 text-zinc-400 font-mono text-right">{formatCurrency(t.total_tax)}</td>
+                            </tr>
+                         ))}
+                      </tbody>
+                   </table>
+                )}
+             </div>
+          </div>
+
+          <div className="glass-card p-6 rounded-3xl border-white/5 space-y-4">
+             <h3 className="text-lg font-bold text-zinc-100">Settlement Outstanding</h3>
+             {isLoadingSettlementOutstanding ? (
+                <div className="py-4 flex justify-center"><Loader2 size={24} className="animate-spin text-primary" /></div>
+             ) : (
+                <table className="w-full text-left text-sm">
+                   <thead>
+                      <tr className="text-zinc-500 font-bold uppercase text-[10px] border-b border-white/5">
+                         <th className="pb-2">Status</th>
+                         <th className="pb-2 text-right">Total Settlements</th>
+                         <th className="pb-2 text-right">Total Amount (IDR)</th>
+                      </tr>
+                   </thead>
+                   <tbody className="divide-y divide-white/5">
+                      {closingSettlementOutstanding.map((s: any, i: number) => (
+                         <tr key={i}>
+                            <td className="py-3">
+                               <span className="px-2 py-1 rounded bg-white/10 text-[10px] uppercase font-bold text-zinc-300">{s.status}</span>
+                            </td>
+                            <td className="py-3 text-zinc-400 font-mono text-right">{s.total_settlements}</td>
+                            <td className="py-3 text-zinc-400 font-mono text-right font-bold">{formatCurrency(s.total_amount)}</td>
+                         </tr>
+                      ))}
+                   </tbody>
+                </table>
+             )}
           </div>
         </div>
       )}

@@ -16,7 +16,7 @@ type PaymentProvider interface {
 
 type InvoiceRequest struct {
 	ReferenceID   string
-	Amount        float64
+	Amount        int64
 	Description   string
 	CustomerName  string
 	CustomerEmail string
@@ -29,7 +29,7 @@ type InvoiceResponse struct {
 
 type DisbursementRequest struct {
 	ReferenceID        string
-	Amount             float64
+	Amount             int64
 	BeneficiaryName    string
 	BeneficiaryAccount string
 	BeneficiaryBank    string
@@ -99,7 +99,7 @@ type LogisticsOrderRequest struct {
 	DestinationCode string  `json:"destination_code"`
 	WeightKG        float64 `json:"weight_kg"`
 	ItemDescription string  `json:"item_description"`
-	ItemValue       float64 `json:"item_value"`
+	ItemValue       int64   `json:"item_value"`
 	ServiceType     string  `json:"service_type"`
 }
 
@@ -109,7 +109,7 @@ type LogisticsOrderResponse struct {
 	Provider    string  `json:"provider"`
 	ServiceType string  `json:"service_type"`
 	BookingCode string  `json:"booking_code"`
-	TotalAmount float64 `json:"total_amount"`
+	TotalAmount int64   `json:"total_amount"`
 }
 
 type TrackingResponse struct {

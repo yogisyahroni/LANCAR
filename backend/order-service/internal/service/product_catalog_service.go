@@ -118,13 +118,19 @@ func (s *ProductCatalogService) BulkUploadCSV(ctx context.Context, customerID st
 			weight = 1.0 // Default weight
 		}
 
-		var pricePtr *float64
+		var pricePtr *int64
 		if len(row) > 3 {
 			priceStr := strings.TrimSpace(row[3])
 			if priceStr != "" {
-				price, err := strconv.ParseFloat(priceStr, 64)
+				price, err := strconv.ParseInt(priceStr, 10, 64)
 				if err == nil {
 					pricePtr = &price
+				} else {
+					priceFloat, err := strconv.ParseFloat(priceStr, 64)
+					if err == nil {
+						priceInt := int64(priceFloat)
+						pricePtr = &priceInt
+					}
 				}
 			}
 		}

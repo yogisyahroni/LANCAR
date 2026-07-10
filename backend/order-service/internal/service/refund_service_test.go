@@ -71,7 +71,7 @@ func TestRefundService_CalculateAndTriggerRefund_WalletPayment(t *testing.T) {
 	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
 	gateway := &mockRefundGateway{}
 
-	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{})
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil)
 
 	orderID := uuid.New()
 	orderRepo.order = &domain.Order{
@@ -118,7 +118,7 @@ func TestRefundService_CalculateAndTriggerRefund_AcceptedStatus_80Percent(t *tes
 	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
 	gateway := &mockRefundGateway{}
 
-	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{})
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil)
 
 	orderID := uuid.New()
 	orderRepo.order = &domain.Order{

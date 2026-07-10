@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -90,15 +89,17 @@ func createInvoiceViaGateway(ctx context.Context, orderID string, grossAmountIDR
 
 type walletService struct {
 	repo         domain.WalletRepository
+	ledgerRepo   domain.FinanceLedgerRepository
 	settingsRepo domain.SettingsRepository
 	disbursement *DisbursementService
 	db           *sql.DB
 	flagReader   featureflags.FlagReader
 }
 
-func NewWalletService(repo domain.WalletRepository, settingsRepo domain.SettingsRepository, db *sql.DB, flagReader featureflags.FlagReader) domain.WalletService {
+func NewWalletService(repo domain.WalletRepository, ledgerRepo domain.FinanceLedgerRepository, settingsRepo domain.SettingsRepository, db *sql.DB, flagReader featureflags.FlagReader) domain.WalletService {
 	return &walletService{
 		repo:         repo,
+		ledgerRepo:   ledgerRepo,
 		settingsRepo: settingsRepo,
 		disbursement: NewDisbursementService(flagReader),
 		db:           db,
@@ -120,7 +121,7 @@ func (s *walletService) GetBalance(ctx context.Context, userID uuid.UUID) (*doma
 	return wallet, nil
 }
 
-func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amount float64) (string, error) {
+func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amount int64) (string, error) {
 	// 1. Get Wallet
 	wallet, err := s.GetBalance(ctx, userID)
 	if err != nil {
@@ -146,7 +147,7 @@ func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amoun
 		return "", fmt.Errorf("topup_fee_percent is invalid: %w", err)
 	}
 
-	adminFee := feeFixed + (amount * feePercent / 100)
+	adminFee := int64(feeFixed + (float64(amount) * feePercent / 100))
 	totalAmount := amount + adminFee
 
 	if amount <= 0 {
@@ -155,7 +156,7 @@ func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amoun
 
 	// 3. Create Provider Transaction
 	orderID := fmt.Sprintf("TOPUP-%d-%d", time.Now().Unix(), uuid.New().ID())
-	totalAmountIDR := int64(math.Round(totalAmount))
+	totalAmountIDR := totalAmount
 	if totalAmountIDR <= 0 {
 		return "", errors.New("top up amount is invalid")
 	}
@@ -182,7 +183,7 @@ func (s *walletService) CreateTopUp(ctx context.Context, userID uuid.UUID, amoun
 	return snapToken, nil
 }
 
-func (s *walletService) Deposit(ctx context.Context, userID uuid.UUID, amount float64, referenceID string) error {
+func (s *walletService) Deposit(ctx context.Context, userID uuid.UUID, amount int64, referenceID string) error {
 	// SECURITY 2026 — Idempotency Guard: Cegah double-credit dari webhook retry
 	// Payment gateway (Midtrans/Xendit) mengirim ulang webhook jika response lambat.
 	// Tanpa cek ini, setiap retry akan menambah saldo dua kali.
@@ -201,7 +202,7 @@ func (s *walletService) Deposit(ctx context.Context, userID uuid.UUID, amount fl
 	}
 
 	netAmount := amount
-	adminFee := 0.0
+	adminFee := int64(0)
 
 	// SECURITY 2026: Atomic Check-and-Deduct (Optimistic Locking) via WithTx
 	err := s.repo.WithTx(ctx, func(txCtx context.Context) error {
@@ -226,12 +227,31 @@ func (s *walletService) Deposit(ctx context.Context, userID uuid.UUID, amount fl
 			ReferenceID: referenceID,
 			Metadata:    map[string]any{"source": "direct_deposit", "original_amount": amount},
 		}
-		err = s.repo.CreateTransaction(txCtx, walletTx)
-		if err != nil {
+		if err = s.repo.CreateTransaction(txCtx, walletTx); err != nil {
 			slog.ErrorContext(txCtx, "deposit_log_failed_after_balance_update — reconciliation required",
 				"user_id", userID, "reference_id", referenceID, "amount", netAmount, "error", err)
 			return err
 		}
+
+		// FIN-003 & FIN-005: Create Ledger Journal
+		journal := &domain.LedgerJournal{
+			JournalType:    "wallet_topup",
+			ReferenceType:  "wallet_transaction",
+			ReferenceID:    referenceID,
+			IdempotencyKey: fmt.Sprintf("LEDGER-DEP-%s", referenceID),
+			Reason:         "Customer wallet topup via payment gateway",
+			Metadata:       map[string]any{"user_id": userID.String(), "wallet_id": wallet.ID.String()},
+			CreatedBy:      "system",
+			ActorRole:      "system",
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: "cash_main", DebitIDR: netAmount, CreditIDR: 0},
+			{AccountName: "customer_wallet_liability", DebitIDR: 0, CreditIDR: netAmount},
+		}
+		if err = s.ledgerRepo.CreateJournalWithEntries(txCtx, journal, entries); err != nil {
+			return fmt.Errorf("failed to write ledger for deposit: %w", err)
+		}
+
 		return nil
 	})
 
@@ -278,8 +298,7 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 	if err != nil {
 		return fmt.Errorf("konfigurasi biaya penarikan tidak tersedia: %w", err)
 	}
-	// Konversi fee ke integer rupiah (Math.Round untuk hindari float error)
-	withdrawalFeeIDR := int64(math.Round(withdrawalFeeFloat))
+	withdrawalFeeIDR := withdrawalFeeFloat
 	if withdrawalFeeIDR < 0 {
 		// Biaya tidak boleh negatif (integer underflow protection)
 		return errors.New("konfigurasi biaya penarikan tidak valid")
@@ -300,13 +319,13 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 		if err != nil {
 			return err
 		}
-		
-		walletBalanceIDR := int64(math.Floor(wallet.Balance))
+
+		walletBalanceIDR := wallet.Balance
 		if walletBalanceIDR < totalDeductionIDR {
 			return errors.New("saldo tidak cukup untuk penarikan (termasuk biaya admin)")
 		}
 
-		deductAmount := -float64(totalDeductionIDR) // negatif = debit
+		deductAmount := -totalDeductionIDR // negatif = debit
 		err = s.repo.UpdateBalance(txCtx, wallet.ID, deductAmount, wallet.Version)
 		if err != nil {
 			return fmt.Errorf("gagal memotong saldo (kemungkinan concurrent request): %w", err)
@@ -317,8 +336,8 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 		walletTx := &domain.WalletTransaction{
 			WalletID:    wallet.ID,
 			Type:        domain.TypeWithdrawal,
-			Amount:      float64(amountIDR),
-			Fee:         float64(withdrawalFeeIDR),
+			Amount:      amountIDR,
+			Fee:         withdrawalFeeIDR,
 			Status:      domain.StatusPending,
 			ReferenceID: refID,
 			Metadata: map[string]any{
@@ -333,6 +352,36 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 		if err := s.repo.CreateTransaction(txCtx, walletTx); err != nil {
 			return fmt.Errorf("gagal mencatat transaksi penarikan: %w", err)
 		}
+
+		// FIN-003 & FIN-005: Create Ledger Journal for Withdrawal
+		liabilityAccount := "customer_wallet_liability"
+		if userRole == "courier" {
+			liabilityAccount = "courier_payable"
+		}
+
+		journal := &domain.LedgerJournal{
+			JournalType:    "wallet_withdraw",
+			ReferenceType:  "wallet_transaction",
+			ReferenceID:    refID,
+			IdempotencyKey: fmt.Sprintf("LEDGER-WD-%s", refID),
+			Reason:         fmt.Sprintf("%s wallet withdrawal", userRole),
+			Metadata:       map[string]any{"user_id": userID.String(), "wallet_id": wallet.ID.String()},
+			CreatedBy:      userID.String(),
+			ActorRole:      userRole,
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: liabilityAccount, DebitIDR: amountIDR, CreditIDR: 0},
+			{AccountName: "cash_main", DebitIDR: 0, CreditIDR: amountIDR},
+		}
+		// Admin fee deduction
+		if withdrawalFeeIDR > 0 {
+			entries = append(entries, domain.LedgerEntry{AccountName: liabilityAccount, DebitIDR: withdrawalFeeIDR, CreditIDR: 0})
+			entries = append(entries, domain.LedgerEntry{AccountName: "platform_fee_revenue", DebitIDR: 0, CreditIDR: withdrawalFeeIDR})
+		}
+		if err = s.ledgerRepo.CreateJournalWithEntries(txCtx, journal, entries); err != nil {
+			return fmt.Errorf("failed to write ledger for withdrawal: %w", err)
+		}
+
 		return nil
 	})
 
@@ -348,11 +397,10 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 		// Admin bisa approve secara manual via Finance dashboard.
 		return nil
 	}
-	thresholdFloat, parseErr := strconv.ParseFloat(thresholdStr, 64)
-	if parseErr != nil || thresholdFloat <= 0 {
+	thresholdIDR, parseErr := strconv.ParseInt(thresholdStr, 10, 64)
+	if parseErr != nil || thresholdIDR <= 0 {
 		return nil // Sama: biarkan manual approval
 	}
-	thresholdIDR := int64(math.Round(thresholdFloat))
 
 	if amountIDR <= thresholdIDR {
 		// Disbursement otomatis dalam goroutine terpisah dengan context baru
@@ -362,7 +410,7 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 			"account_holder": req.AccountHolder,
 			"bank_name":      req.BankCode,
 		}
-		go func(refIDCapture string, amountCapture float64, bankCapture map[string]any) {
+		go func(refIDCapture string, amountCapture int64, bankCapture map[string]any) {
 			disbCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
@@ -387,7 +435,7 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 				}
 
 				// Kembalikan total deduction (pokok + biaya admin)
-				reversalAmount := float64(totalDeductionIDR)
+				reversalAmount := totalDeductionIDR
 				reversalErr := s.repo.UpdateBalance(reversalCtx, currentWallet.ID, reversalAmount, currentWallet.Version)
 				if reversalErr != nil {
 					// Reversal gagal — kasus KRITIS butuh manual intervention
@@ -410,16 +458,14 @@ func (s *walletService) Withdraw(ctx context.Context, userID uuid.UUID, userRole
 				}
 				slog.Info("disbursement_completed", "ref_id", refIDCapture)
 			}
-		}(refID, float64(amountIDR), bankDetails)
+		}(refID, amountIDR, bankDetails)
 	}
 	// Jika amount > threshold, transaksi tetap PENDING untuk manual approval admin
 
 	return nil
 }
 
-
-
-func (s *walletService) ProcessPayment(ctx context.Context, userID uuid.UUID, amount float64, orderID string) error {
+func (s *walletService) ProcessPayment(ctx context.Context, userID uuid.UUID, amount int64, orderID string) error {
 	// SECURITY 2026 — Amount Guard
 	if amount <= 0 {
 		return errors.New("payment amount must be greater than zero")
@@ -462,13 +508,33 @@ func (s *walletService) ProcessPayment(ctx context.Context, userID uuid.UUID, am
 		if err = s.repo.CreateTransaction(txCtx, walletTx); err != nil {
 			return err
 		}
+
+		// FIN-003 & FIN-005: Create Ledger Journal for Wallet Payment
+		journal := &domain.LedgerJournal{
+			JournalType:    "payment",
+			ReferenceType:  "order",
+			ReferenceID:    orderID,
+			IdempotencyKey: fmt.Sprintf("LEDGER-PAY-%s-%s", orderID, wallet.ID.String()),
+			Reason:         "Order payment via wallet",
+			Metadata:       map[string]any{"user_id": userID.String(), "wallet_id": wallet.ID.String()},
+			CreatedBy:      userID.String(),
+			ActorRole:      "customer",
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: "customer_wallet_liability", DebitIDR: amount, CreditIDR: 0},
+			{AccountName: "unearned_revenue", DebitIDR: 0, CreditIDR: amount},
+		}
+		if err = s.ledgerRepo.CreateJournalWithEntries(txCtx, journal, entries); err != nil {
+			return fmt.Errorf("failed to write ledger for wallet payment: %w", err)
+		}
+
 		return nil
 	})
 
 	return err
 }
 
-func (s *walletService) Refund(ctx context.Context, userID uuid.UUID, amount float64, orderID string) error {
+func (s *walletService) Refund(ctx context.Context, userID uuid.UUID, amount int64, orderID string) error {
 	if orderID != "" {
 		processed, err := s.repo.IsRefundProcessed(ctx, orderID)
 		if err != nil {
@@ -504,13 +570,34 @@ func (s *walletService) Refund(ctx context.Context, userID uuid.UUID, amount flo
 		if err = s.repo.CreateTransaction(txCtx, walletTx); err != nil {
 			return err
 		}
+
+		// FIN-003 & FIN-005: Create Ledger Journal for Refund to Wallet
+		journal := &domain.LedgerJournal{
+			JournalType:    "refund",
+			ReferenceType:  "order",
+			ReferenceID:    orderID,
+			IdempotencyKey: fmt.Sprintf("LEDGER-REFUND-%s", orderID),
+			Reason:         "Order cancellation refund to wallet",
+			Metadata:       map[string]any{"user_id": userID.String(), "wallet_id": wallet.ID.String()},
+			CreatedBy:      "system",
+			ActorRole:      "system",
+		}
+		// Assuming refund from unearned_revenue for now
+		entries := []domain.LedgerEntry{
+			{AccountName: "unearned_revenue", DebitIDR: amount, CreditIDR: 0},
+			{AccountName: "customer_wallet_liability", DebitIDR: 0, CreditIDR: amount},
+		}
+		if err = s.ledgerRepo.CreateJournalWithEntries(txCtx, journal, entries); err != nil {
+			return fmt.Errorf("failed to write ledger for refund: %w", err)
+		}
+
 		return nil
 	})
 
 	return err
 }
 
-func (s *walletService) DeductFakeSosPenalty(ctx context.Context, victimID uuid.UUID, amount float64, referenceID string) error {
+func (s *walletService) DeductFakeSosPenalty(ctx context.Context, victimID uuid.UUID, amount int64, referenceID string) error {
 	err := s.repo.WithTx(ctx, func(txCtx context.Context) error {
 		wallet, err := s.GetBalance(txCtx, victimID)
 		if err != nil {
@@ -536,13 +623,32 @@ func (s *walletService) DeductFakeSosPenalty(ctx context.Context, victimID uuid.
 		if err = s.repo.CreateTransaction(txCtx, walletTx); err != nil {
 			return err
 		}
+
+		// SOS Fake Penalty is an adjustment
+		journal := &domain.LedgerJournal{
+			JournalType:    "adjustment",
+			ReferenceType:  "sos_incident",
+			ReferenceID:    referenceID,
+			IdempotencyKey: fmt.Sprintf("LEDGER-SOS-PENALTY-%s", referenceID),
+			Reason:         "Penalty for fake SOS",
+			CreatedBy:      "system",
+			ActorRole:      "system",
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: "courier_payable", DebitIDR: amount, CreditIDR: 0},
+			{AccountName: "platform_fee_revenue", DebitIDR: 0, CreditIDR: amount},
+		}
+		if err = s.ledgerRepo.CreateJournalWithEntries(txCtx, journal, entries); err != nil {
+			return fmt.Errorf("failed to write ledger for SOS penalty: %w", err)
+		}
+
 		return nil
 	})
 
 	return err
 }
 
-func (s *walletService) CreditSosHelperReward(ctx context.Context, helperID uuid.UUID, amount float64, referenceID string) error {
+func (s *walletService) CreditSosHelperReward(ctx context.Context, helperID uuid.UUID, amount int64, referenceID string) error {
 	err := s.repo.WithTx(ctx, func(txCtx context.Context) error {
 		wallet, err := s.GetBalance(txCtx, helperID)
 		if err != nil {
@@ -568,8 +674,36 @@ func (s *walletService) CreditSosHelperReward(ctx context.Context, helperID uuid
 		if err = s.repo.CreateTransaction(txCtx, walletTx); err != nil {
 			return err
 		}
+
+		// SOS Helper Reward adjustment
+		journal := &domain.LedgerJournal{
+			JournalType:    "adjustment",
+			ReferenceType:  "sos_incident",
+			ReferenceID:    referenceID,
+			IdempotencyKey: fmt.Sprintf("LEDGER-SOS-REWARD-%s", referenceID),
+			Reason:         "Reward for helping SOS",
+			CreatedBy:      "system",
+			ActorRole:      "system",
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: "dispute_reserve", DebitIDR: amount, CreditIDR: 0}, // or platform_fee_revenue
+			{AccountName: "courier_payable", DebitIDR: 0, CreditIDR: amount},
+		}
+		if err = s.ledgerRepo.CreateJournalWithEntries(txCtx, journal, entries); err != nil {
+			return fmt.Errorf("failed to write ledger for SOS reward: %w", err)
+		}
+
 		return nil
 	})
 
 	return err
 }
+
+func (s *walletService) ReconcileWallet(ctx context.Context, userID uuid.UUID, walletType string) (*domain.WalletReconciliationResult, error) {
+	wallet, err := s.repo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("wallet not found for user %s: %w", userID, err)
+	}
+	return s.repo.ReconcileWalletLedger(ctx, wallet.ID, walletType)
+}
+

@@ -181,6 +181,27 @@ func (m *mockConfigRepo) GetStringConfig(ctx context.Context, key string, fallba
 	return fallback
 }
 
+type mockTaxService struct{}
+
+func (m *mockTaxService) CalculatePaymentMDRTax(ctx context.Context, mdrAmountIDR int64) (domain.TaxSnapshot, error) {
+	return domain.TaxSnapshot{
+		PPNIDR: int64(float64(mdrAmountIDR) * 0.11),
+		TaxRuleCode: "DEFAULT_11",
+	}, nil
+}
+
+func (m *mockTaxService) CalculateOrderTax(ctx context.Context, deliveryFeeIDR int64, itemSubtotalIDR int64, hasInsurance bool) (domain.TaxSnapshot, error) {
+	return domain.TaxSnapshot{}, nil
+}
+
+func (m *mockTaxService) GenerateEFakturExport(ctx context.Context, periodMonthYYYYMM string, requestedBy string) (*domain.TaxEFakturExport, error) {
+	return nil, nil
+}
+
+func (m *mockTaxService) UpdateEFakturStatus(ctx context.Context, id string, status string) error {
+	return nil
+}
+
 
 func TestPaymentService_CreatePayment(t *testing.T) {
 	orderID := uuid.NewString()
@@ -188,8 +209,9 @@ func TestPaymentService_CreatePayment(t *testing.T) {
 	mor := &mockOrderRepo{order: &domain.Order{ID: orderID, Status: domain.StatusPendingPayment, TotalPriceIDR: 100000}}
 	mpg := &mockPaymentGateway{}
 	mcr := &mockConfigRepo{}
+	mts := &mockTaxService{}
 
-	svc := service.NewPaymentService(mpr, mor, mpg, mcr)
+	svc := service.NewPaymentService(mpr, mor, mpg, mcr, mts)
 
 	p, err := svc.CreatePayment(context.Background(), orderID)
 	if err != nil {
@@ -223,8 +245,9 @@ func TestPaymentService_HandleWebhook_Settlement(t *testing.T) {
 	mor := &mockOrderRepo{order: &domain.Order{ID: orderID, Status: domain.StatusPendingPayment, TotalPriceIDR: 100000}}
 	mpg := &mockPaymentGateway{}
 	mcr := &mockConfigRepo{}
+	mts := &mockTaxService{}
 
-	svc := service.NewPaymentService(mpr, mor, mpg, mcr)
+	svc := service.NewPaymentService(mpr, mor, mpg, mcr, mts)
 	p, _ := svc.CreatePayment(context.Background(), orderID)
 
 	// Create mock payload

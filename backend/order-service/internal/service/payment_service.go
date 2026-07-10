@@ -58,14 +58,16 @@ type DefaultPaymentService struct {
 	orderRepo      domain.OrderRepository
 	paymentGateway domain.PaymentGateway
 	configRepo     domain.ConfigRepository
+	taxService     domain.TaxService
 }
 
-func NewPaymentService(pr domain.PaymentRepository, or domain.OrderRepository, pg domain.PaymentGateway, cr domain.ConfigRepository) *DefaultPaymentService {
+func NewPaymentService(pr domain.PaymentRepository, or domain.OrderRepository, pg domain.PaymentGateway, cr domain.ConfigRepository, ts domain.TaxService) *DefaultPaymentService {
 	return &DefaultPaymentService{
 		paymentRepo:    pr,
 		orderRepo:      or,
 		paymentGateway: pg,
 		configRepo:     cr,
+		taxService:     ts,
 	}
 }
 
@@ -96,9 +98,10 @@ func (s *DefaultPaymentService) CreatePayment(ctx context.Context, orderID strin
 	// MDR 0.7% for QRIS
 	mdrRate := s.configRepo.GetFloatConfig(ctx, "payment_mdr_rate", 0.007)
 	mdr := int(float64(amount) * mdrRate)
-	// PPN 11% of MDR (assuming tax is only on the service fee/MDR)
-	ppnRate := s.configRepo.GetFloatConfig(ctx, "payment_ppn_rate", 0.11)
-	ppn := int(float64(mdr) * ppnRate)
+	
+	// PPN calculated dynamically via tax engine
+	taxSnapshot, _ := s.taxService.CalculatePaymentMDRTax(ctx, int64(mdr))
+	ppn := int(taxSnapshot.PPNIDR)
 
 	weatherReserve := s.configRepo.GetIntConfig(ctx, "weather_reserve_idr", 0)
 	insuranceReserve := s.configRepo.GetIntConfig(ctx, "insurance_fee_idr", 0)
@@ -134,6 +137,12 @@ func (s *DefaultPaymentService) CreatePayment(ctx context.Context, orderID strin
 		WeatherReserveIDR:   weatherReserve,
 		InsuranceReserveIDR: insuranceReserve,
 		NetOperationalIDR:   netOp,
+		TaxRuleCode:         &taxSnapshot.TaxRuleCode,
+		PPNRateEffectivePct: taxSnapshot.PPNRateEffectivePct,
+		PPNRateStatutoryPct: taxSnapshot.PPNRateStatutoryPct,
+		DPPIDR:              int(taxSnapshot.DPPIDR),
+		TaxInvoiceRequired:  taxSnapshot.TaxInvoiceRequired,
+		TaxInvoiceStatus:    &taxSnapshot.TaxInvoiceStatus,
 		ProviderReference:   &gwResp.ProviderReference,
 		QRCodeURL:           &gwResp.QRCodeURL,
 		QRCodeString:        &gwResp.QRCodeString,

@@ -130,7 +130,7 @@ func (m *MidtransProvider) CreateDisbursement(ctx context.Context, req domain.Di
 		BeneficiaryName:    req.BeneficiaryName,
 		BeneficiaryAccount: req.BeneficiaryAccount,
 		BeneficiaryBank:    req.BeneficiaryBank,
-		Amount:             fmt.Sprintf("%.0f", req.Amount),
+		Amount:             fmt.Sprintf("%d", req.Amount),
 		Notes:              req.Notes,
 	}
 

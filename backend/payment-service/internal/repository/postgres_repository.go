@@ -148,7 +148,7 @@ func (r *postgresWalletRepository) Create(ctx context.Context, userID uuid.UUID)
 	return &w, nil
 }
 
-func (r *postgresWalletRepository) UpdateBalance(ctx context.Context, walletID uuid.UUID, amount float64, version int) error {
+func (r *postgresWalletRepository) UpdateBalance(ctx context.Context, walletID uuid.UUID, amount int64, version int) error {
 	// Try updating customer_wallets first
 	query := `UPDATE customer_wallets SET balance = balance + $1, version = version + 1, updated_at = $2 
 	          WHERE id = $3 AND version = $4`
@@ -321,7 +321,7 @@ func (r *postgresWalletRepository) GetSetting(ctx context.Context, key string) (
 	return value, err
 }
 
-func (r *postgresWalletRepository) GetFee(ctx context.Context, role string) (float64, error) {
+func (r *postgresWalletRepository) GetFee(ctx context.Context, role string) (int64, error) {
 	key := "withdrawal_fee_customer"
 	if role == "courier" {
 		key = "withdrawal_fee_courier"
@@ -332,7 +332,7 @@ func (r *postgresWalletRepository) GetFee(ctx context.Context, role string) (flo
 		return 0, fmt.Errorf("fee setting %s is not configured: %w", key, err)
 	}
 
-	fee, err := strconv.ParseFloat(val, 64)
+	fee, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("fee setting %s is invalid: %w", key, err)
 	}
@@ -354,3 +354,84 @@ func (r *postgresWalletRepository) HasActiveSOS(ctx context.Context, userID uuid
 	}
 	return count > 0, nil
 }
+
+func (r *postgresWalletRepository) RecordUniversalIdempotency(ctx context.Context, key string, opType string, reqHash string, respHash string, respPayload []byte) error {
+	query := `
+		INSERT INTO universal_idempotency_records (idempotency_key, operation_type, request_hash, response_hash, response_payload, status, created_at, expires_at)
+		VALUES ($1, $2, $3, $4, $5, 'completed', NOW(), NOW() + INTERVAL '7 days')
+		ON CONFLICT (idempotency_key, operation_type) DO UPDATE
+		SET response_payload = EXCLUDED.response_payload, status = 'completed'
+	`
+	_, err := r.execContext(ctx, query, key, opType, reqHash, respHash, respPayload)
+	return err
+}
+
+func (r *postgresWalletRepository) GetUniversalIdempotency(ctx context.Context, key string, opType string) ([]byte, bool, error) {
+	query := `SELECT response_payload FROM universal_idempotency_records WHERE idempotency_key = $1 AND operation_type = $2 AND status = 'completed'`
+	var payload []byte
+	err := r.queryRowContext(ctx, false, query, key, opType).Scan(&payload)
+	if err == sql.ErrNoRows {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return payload, true, nil
+}
+
+func (r *postgresWalletRepository) ReconcileWalletLedger(ctx context.Context, walletID uuid.UUID, walletType string) (*domain.WalletReconciliationResult, error) {
+	var balanceIDR int64
+	var ledgerSumIDR int64
+
+	walletTable := "customer_wallets"
+	txTable := "customer_wallet_transactions"
+	if walletType == "courier" {
+		walletTable = "courier_wallets"
+		txTable = "courier_wallet_transactions"
+	}
+
+	err := r.queryRowContext(ctx, false, fmt.Sprintf("SELECT balance FROM %s WHERE id = $1", walletTable), walletID).Scan(&balanceIDR)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get wallet balance for reconciliation: %w", err)
+	}
+
+	queryLedger := fmt.Sprintf(`
+		SELECT COALESCE(SUM(
+			CASE 
+				WHEN type IN ('DEPOSIT', 'REFUND') THEN amount - fee
+				WHEN type IN ('WITHDRAWAL', 'PAYMENT') THEN -(amount + fee)
+				ELSE amount
+			END
+		), 0) FROM %s WHERE wallet_id = $1 AND status = 'COMPLETED'
+	`, txTable)
+
+	err = r.queryRowContext(ctx, false, queryLedger, walletID).Scan(&ledgerSumIDR)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sum ledger transactions for reconciliation: %w", err)
+	}
+
+	mismatch := balanceIDR - ledgerSumIDR
+	status := "matched"
+	if mismatch != 0 {
+		status = "mismatched"
+	}
+
+	res := &domain.WalletReconciliationResult{
+		WalletID:         walletID,
+		WalletType:       walletType,
+		WalletBalanceIDR: balanceIDR,
+		LedgerSumIDR:     ledgerSumIDR,
+		MismatchIDR:      mismatch,
+		Status:           status,
+		ReconciledAt:     time.Now(),
+	}
+
+	logQuery := `
+		INSERT INTO wallet_reconciliation_logs (wallet_type, wallet_id, wallet_balance_idr, ledger_sum_idr, mismatch_idr, status, reconciled_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+	`
+	_, _ = r.execContext(ctx, logQuery, walletType, walletID, balanceIDR, ledgerSumIDR, mismatch, status)
+
+	return res, nil
+}
+

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -29,9 +30,11 @@ type orderServiceImpl struct {
 	notificationSvc domain.NotificationService
 	configRepo      domain.ConfigRepository
 	refundSvc       domain.RefundService
+	ledgerRepo      domain.FinanceLedgerRepository
+	taxSvc          domain.TaxService
 }
 
-func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository) domain.OrderService {
+func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository, lr domain.FinanceLedgerRepository, ts domain.TaxService) domain.OrderService {
 	return &orderServiceImpl{
 		orderRepo:       o,
 		eventRepo:       er,
@@ -43,6 +46,8 @@ func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r
 		flagReader:      f,
 		notificationSvc: ns,
 		configRepo:      cr,
+		ledgerRepo:      lr,
+		taxSvc:          ts,
 	}
 }
 
@@ -141,16 +146,44 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		ItemDescription:        req.ItemDescription,
 		ItemImageURL:           req.ItemImageURL,
 		DistanceKM:             estimate.DistanceKM,
+		IncludedDistanceKM:     estimate.IncludedDistanceKM,
+		DistanceFeeIDR:         estimate.DistanceFeeIDR,
 		BasePriceIDR:           estimate.BasePriceIDR,
+		VolumetricWeightKG:     estimate.VolumetricWeightKG,
 		VolumetricSurchargeIDR: estimate.VolumetricSurchargeIDR,
 		DynamicPriceIDR:        estimate.DynamicPriceIDR,
+		SurgeFeeIDR:            estimate.SurgeFeeIDR,
+		DiscountIDR:            estimate.DiscountIDR,
+		PromoCode:              estimate.PromoCode,
+		PromoSponsor:           estimate.PromoSponsor,
+		SurgeMultiplier:        estimate.SurgeMultiplier,
+		WeatherMultiplier:      estimate.WeatherMultiplier,
+		TrafficMultiplier:      estimate.TrafficMultiplier,
 		TotalPriceIDR:          estimate.TotalPriceIDR,
+		PlatformFeeIDR:         estimate.PlatformFeeIDR,
+		PlatformFeePct:         estimate.PlatformFeePct,
+		PromoSubsidyIDR:        estimate.PromoSubsidyIDR,
 		ReceiverName:           req.ReceiverName,
 		ReceiverPhone:          req.ReceiverPhone,
 		HandoverToken:          handoverToken,
 		QRCodeURL:              qrURL,
 		CreatedAt:              time.Now(),
 		UpdatedAt:              time.Now(),
+	}
+	if snapBytes, errSnap := json.Marshal(estimate); errSnap == nil {
+		order.PricingSnapshot = string(snapBytes)
+	}
+
+	// 5.b Calculate Tax Snapshot for On-Demand (isAggregator = false)
+	taxSnapshot, err := s.taxSvc.CalculateOrderTax(ctx, estimate.TotalPriceIDR, estimate.PlatformFeeIDR, false)
+	if err == nil {
+		order.TaxRuleCode = taxSnapshot.TaxRuleCode
+		order.PPNRateEffectivePct = taxSnapshot.PPNRateEffectivePct
+		order.PPNRateStatutoryPct = taxSnapshot.PPNRateStatutoryPct
+		order.DPPIDR = taxSnapshot.DPPIDR
+		order.PPNIDR = taxSnapshot.PPNIDR
+		order.TaxInvoiceRequired = taxSnapshot.TaxInvoiceRequired
+		order.TaxInvoiceStatus = taxSnapshot.TaxInvoiceStatus
 	}
 
 	// 6. Save to DB
@@ -231,8 +264,21 @@ func (s *orderServiceImpl) CreateInternalAggregatorOrder(ctx context.Context, us
 		ReceiverPhone:        req.ReceiverPhone,
 		HandoverToken:        handoverToken,
 		QRCodeURL:            qrURL,
+		PlatformFeeIDR:       req.LogisticsTariffIDR - req.LogisticsNetCostIDR,
 		CreatedAt:            time.Now(),
 		UpdatedAt:            time.Now(),
+	}
+
+	// 5.b Calculate Tax Snapshot for Aggregator 3PL (isAggregator = true)
+	taxSnapshot, err := s.taxSvc.CalculateOrderTax(ctx, order.TotalPriceIDR, order.PlatformFeeIDR, true)
+	if err == nil {
+		order.TaxRuleCode = taxSnapshot.TaxRuleCode
+		order.PPNRateEffectivePct = taxSnapshot.PPNRateEffectivePct
+		order.PPNRateStatutoryPct = taxSnapshot.PPNRateStatutoryPct
+		order.DPPIDR = taxSnapshot.DPPIDR
+		order.PPNIDR = taxSnapshot.PPNIDR
+		order.TaxInvoiceRequired = taxSnapshot.TaxInvoiceRequired
+		order.TaxInvoiceStatus = taxSnapshot.TaxInvoiceStatus
 	}
 
 	if err := s.orderRepo.Create(ctx, order); err != nil {
@@ -337,16 +383,32 @@ func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, r
 			ItemDescription:        dest.ItemDescription,
 			ItemImageURL:           dest.ItemImageURL,
 			DistanceKM:             estimate.DistanceKM,
+			IncludedDistanceKM:     estimate.IncludedDistanceKM,
+			DistanceFeeIDR:         estimate.DistanceFeeIDR,
 			BasePriceIDR:           estimate.BasePriceIDR,
+			VolumetricWeightKG:     estimate.VolumetricWeightKG,
 			VolumetricSurchargeIDR: estimate.VolumetricSurchargeIDR,
 			DynamicPriceIDR:        estimate.DynamicPriceIDR,
+			SurgeFeeIDR:            estimate.SurgeFeeIDR,
+			DiscountIDR:            estimate.DiscountIDR,
+			PromoCode:              estimate.PromoCode,
+			PromoSponsor:           estimate.PromoSponsor,
+			SurgeMultiplier:        estimate.SurgeMultiplier,
+			WeatherMultiplier:      estimate.WeatherMultiplier,
+			TrafficMultiplier:      estimate.TrafficMultiplier,
 			TotalPriceIDR:          estimate.TotalPriceIDR,
+			PlatformFeeIDR:         estimate.PlatformFeeIDR,
+			PlatformFeePct:         estimate.PlatformFeePct,
+			PromoSubsidyIDR:        estimate.PromoSubsidyIDR,
 			HandoverToken:          handoverToken,
 			QRCodeURL:              qrURL,
 			BatchID:                &batchID,
 			SequenceNo:             &seq,
 			CreatedAt:              time.Now(),
 			UpdatedAt:              time.Now(),
+		}
+		if snapBytes, errSnap := json.Marshal(estimate); errSnap == nil {
+			order.PricingSnapshot = string(snapBytes)
 		}
 
 		if err := s.orderRepo.Create(ctx, order); err != nil {
@@ -991,7 +1053,49 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 		return fmt.Errorf("failed to save scan record: %w", err)
 	}
 
-	// 3. Save order event
+	// 3. FIN-003 & FIN-005: Create Ledger Journal if Delivered (Revenue Recognition)
+	if targetStatus == domain.StatusDelivered {
+		// Calculate courier earnings based on order BasePrice + Volumetric + Dynamic
+		grossTariff := order.BasePriceIDR + order.VolumetricSurchargeIDR + order.DynamicPriceIDR
+		
+		// 80% to courier (example, should be from config but we'll use standard model)
+		// For simplicity we just use 80% of grossTariff for courier payable
+		courierPayable := int64(float64(grossTariff) * 0.8)
+
+		journal := &domain.LedgerJournal{
+			JournalType:    "order_delivered",
+			ReferenceType:  "order",
+			ReferenceID:    order.ID,
+			IdempotencyKey: fmt.Sprintf("LEDGER-DELIVERED-%s", order.ID),
+			Reason:         "Revenue recognition and courier payout accrual on delivery",
+			Metadata:       map[string]any{"courier_id": order.CourierID},
+			CreatedBy:      scannedBy,
+			ActorRole:      "courier",
+		}
+		
+		entries := []domain.LedgerEntry{
+			// Revenue Recognition (Realized)
+			{AccountName: "unearned_revenue", DebitIDR: grossTariff, CreditIDR: 0},
+			{AccountName: "delivery_revenue", DebitIDR: 0, CreditIDR: grossTariff},
+			
+			// Courier Payable Accrual
+			{AccountName: "courier_payout_expense", DebitIDR: courierPayable, CreditIDR: 0},
+			{AccountName: "courier_payable", DebitIDR: 0, CreditIDR: courierPayable},
+		}
+		
+		// If promo applied (we assume TotalPriceIDR < grossTariff indicates promo)
+		promoDiscount := grossTariff - order.TotalPriceIDR
+		if promoDiscount > 0 {
+			entries = append(entries, domain.LedgerEntry{AccountName: "promo_subsidy_expense", DebitIDR: promoDiscount, CreditIDR: 0})
+			entries = append(entries, domain.LedgerEntry{AccountName: "unearned_revenue", DebitIDR: 0, CreditIDR: promoDiscount})
+		}
+
+		if err = s.ledgerRepo.CreateJournalWithEntries(ctx, journal, entries); err != nil {
+			return fmt.Errorf("failed to write ledger for delivery: %w", err)
+		}
+	}
+
+	// 4. Save order event
 	eventMsg := fmt.Sprintf("Package scan recorded: %s", scan.ScanType)
 	if scan.ScanType == "delivered" {
 		eventMsg = "Package delivered successfully. ePOD recorded."

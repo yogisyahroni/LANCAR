@@ -253,12 +253,15 @@ func main() {
 	sosSvc := service.NewSosService(sosRepo, notificationSvc)
 
 	// Services
+	ledgerRepo := repository.NewPostgresLedgerRepository(db)
+	taxRepo := repository.NewPostgresTaxRepository(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
+	taxSvc := service.NewTaxService(taxRepo, configRepo)
 	pricingSvc := service.NewPricingService(pgRepo, mapsRepo, redisRepo, flagReader, configRepo)
 	meetingPointSvc := service.NewMeetingPointService(pgRepo, mapsRepo, redisRepo)
-	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, relayRepo, eb, tq, flagReader, notificationSvc, configRepo)
-	paymentSvc := service.NewPaymentService(paymentRepo, pgRepo, paymentGw, configRepo)
-	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw, relayRepo)
-	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw, redisRepo)
+	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, relayRepo, eb, tq, flagReader, notificationSvc, configRepo, ledgerRepo, taxSvc)
+	paymentSvc := service.NewPaymentService(paymentRepo, pgRepo, paymentGw, configRepo, taxSvc)
+	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw, relayRepo, taxRepo, configRepo, ledgerRepo)
+	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw, redisRepo, ledgerRepo)
 	orderSvc.SetRefundService(refundSvc)
 	slaSvc := service.NewSLAService(slaRepo, notificationSvc, payoutRepo)
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc, configRepo)
@@ -284,7 +287,10 @@ func main() {
 		configRepo,
 		notificationSvc,
 		infrastructure.NewIntegrationGatewayClient(configRepo),
+		ledgerRepo,
 	)
+	aggregatorFinanceRepo := repository.NewAggregatorFinanceRepository(db)
+	aggregatorFinanceSvc := service.NewAggregatorFinanceService(aggregatorFinanceRepo, ledgerRepo)
 
 	// Handlers
 	orderHandler := handler.NewOrderHandler(pricingSvc, orderSvc, meetingPointSvc)
@@ -295,6 +301,7 @@ func main() {
 	refundHandler := handler.NewRefundHandler(refundSvc)
 	slaHandler := handler.NewSLAHandler(slaSvc)
 	trackingHandler := handler.NewTrackingHandler(trackingSvc)
+	aggregatorFinanceHandler := handler.NewAggregatorFinanceHandler(aggregatorFinanceSvc, aggregatorFinanceRepo)
 	notificationHandler := handler.NewNotificationHandler(notificationSvc)
 	insuranceHandler := handler.NewInsuranceHandler(insuranceSvc)
 	relayHandler := handler.NewRelayHandler(relayScoreSvc)
@@ -305,6 +312,7 @@ func main() {
 	resiHandler := handler.NewResiHandler(resiSvc)
 	productCatalogHandler := handler.NewProductCatalogHandler(productCatalogSvc)
 	deliveryWebhookHandler := handler.NewDeliveryWebhookHandler(merchantSettlementSvc)
+	taxHandler := handler.NewTaxHandler(taxSvc)
 
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB), configRepo)
@@ -454,6 +462,10 @@ func main() {
 			notificationHandler.MarkAsRead(w, r)
 		}
 	})))
+	// Tax Routes
+	mux.HandleFunc("POST /api/v1/tax/efaktur/export", middleware.BaseChain(middleware.AuthMiddleware(middleware.RoleCheck(middleware.RoleAdmin, middleware.RoleFinance)(taxHandler.GenerateEFakturExport))))
+	mux.HandleFunc("GET /api/v1/tax/efaktur/download", middleware.BaseChain(middleware.AuthMiddleware(middleware.RoleCheck(middleware.RoleAdmin, middleware.RoleFinance)(taxHandler.DownloadEFaktur))))
+	mux.HandleFunc("PUT /api/v1/tax/efaktur/status", middleware.BaseChain(middleware.AuthMiddleware(middleware.RoleCheck(middleware.RoleAdmin, middleware.RoleFinance)(taxHandler.UpdateEFakturStatus))))
 
 	// Insurance & Relay Score Routes
 	mux.HandleFunc("/api/v1/insurance/enroll-bpjs", middleware.BaseChain(middleware.AuthMiddleware(insuranceHandler.EnrollBPJSTK))) // Insurance & Relay Score Routes
@@ -481,6 +493,44 @@ func main() {
 	// Internal Delivery & Merchant Settlement Routes
 	mux.HandleFunc("/api/v1/internal/delivery/webhook", middleware.BaseChain(deliveryWebhookHandler.HandleDeliveryEvent))
 	mux.HandleFunc("/api/v1/internal/merchant-settlements", middleware.BaseChain(deliveryWebhookHandler.HandleListSettlements))
+
+	// Aggregator Finance Routes (Invoices & Claims)
+	mux.HandleFunc("/api/v1/internal/aggregator-finance/invoices", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			aggregatorFinanceHandler.ImportInvoice(w, r)
+		} else if r.Method == http.MethodGet {
+			aggregatorFinanceHandler.ListInvoices(w, r)
+		}
+	}))
+	mux.HandleFunc("/api/v1/internal/aggregator-finance/invoices/reconcile/", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			aggregatorFinanceHandler.ReconcileInvoice(w, r)
+		}
+	}))
+	mux.HandleFunc("/api/v1/internal/aggregator-finance/invoices/approve/", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			aggregatorFinanceHandler.ApproveInvoice(w, r)
+		}
+	}))
+	mux.HandleFunc("/api/v1/internal/aggregator-finance/policies", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			aggregatorFinanceHandler.ListPolicies(w, r)
+		} else if r.Method == http.MethodPut || r.Method == http.MethodPost {
+			aggregatorFinanceHandler.UpdatePolicy(w, r)
+		}
+	}))
+	mux.HandleFunc("/api/v1/internal/aggregator-finance/claims", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			aggregatorFinanceHandler.SubmitClaim(w, r)
+		} else if r.Method == http.MethodGet {
+			aggregatorFinanceHandler.ListClaims(w, r)
+		}
+	}))
+	mux.HandleFunc("/api/v1/internal/aggregator-finance/claims/resolve/", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			aggregatorFinanceHandler.ResolveClaim(w, r)
+		}
+	}))
 
 	// Product Catalog Routes
 	mux.HandleFunc("/api/v1/products", middleware.BaseChain(productCatalogHandler.HandleProducts))

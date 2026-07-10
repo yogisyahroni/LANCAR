@@ -125,32 +125,54 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 				pickup_location, pickup_address, pickup_city, pickup_zip_code,
 				dropoff_location, dropoff_address, dropoff_city, dropoff_zip_code,
 				length, width, height, weight, item_description, item_image_url,
-				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, ppn_idr, mdr_idr, handover_token,
-				dispatch_expiry, batch_id, sequence_no, receiver_name, receiver_phone, routing_code, created_at, updated_at
+				distance_km, included_distance_km, distance_fee_idr, volumetric_weight_kg,
+				base_price_idr, volumetric_surcharge_idr, 
+				dynamic_price_idr, surge_fee_idr, discount_idr, promo_code, promo_sponsor,
+				surge_multiplier, weather_multiplier, traffic_multiplier, pricing_snapshot,
+				total_price_idr, ppn_idr, mdr_idr, handover_token,
+				dispatch_expiry, batch_id, sequence_no, receiver_name, receiver_phone, routing_code,
+				tax_rule_code, ppn_rate_effective_pct, ppn_rate_statutory_pct, dpp_idr,
+				tax_invoice_required, tax_invoice_status, platform_fee_idr, platform_fee_pct, promo_subsidy_idr,
+				created_at, updated_at
 			  ) VALUES (
 				$1, $2, $3, $4, $5, 
 				ST_SetSRID(ST_MakePoint($6, $7), 4326), $8, $9, $10,
 				ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15,
 				$16, $17, $18, $19, $20, $21,
-				$22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37
+				$22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35,
+				$36, $37, $38, $39, $40, $41, $42, $43, $44,
+				$45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57
 			  )`
-
-	// Default tax/fee for now
-	ppnRate := r.configRepo.GetFloatConfig(ctx, "payment_ppn_rate", 0.11)
-	ppn := int64(float64(o.TotalPriceIDR) * ppnRate)
 
 	mdrFixed := r.configRepo.GetIntConfig(ctx, "payment_mdr_fixed", 2500)
 	mdr := int64(mdrFixed)
+	if o.PromoSponsor == "" {
+		o.PromoSponsor = "platform"
+	}
+	if o.SurgeMultiplier == 0 {
+		o.SurgeMultiplier = 1.0
+	}
+	if o.WeatherMultiplier == 0 {
+		o.WeatherMultiplier = 1.0
+	}
+	if o.TrafficMultiplier == 0 {
+		o.TrafficMultiplier = 1.0
+	}
 
 	_, err := r.db.ExecContext(ctx, query,
 		o.ID, o.OrderNumber, o.CustomerID, o.Model, o.Status,
 		o.PickupLng, o.PickupLat, o.PickupAddress, o.PickupCity, o.PickupZipCode,
 		o.DropoffLng, o.DropoffLat, o.DropoffAddress, o.DropoffCity, o.DropoffZipCode,
 		o.Length, o.Width, o.Height, o.Weight, o.ItemDescription, o.ItemImageURL,
-		o.DistanceKM, o.BasePriceIDR, o.VolumetricSurchargeIDR,
-		o.DynamicPriceIDR, o.TotalPriceIDR, ppn, mdr, o.HandoverToken,
-		o.DispatchExpiry, o.BatchID, o.SequenceNo, o.ReceiverName, o.ReceiverPhone, o.RoutingCode, o.CreatedAt, o.UpdatedAt,
+		o.DistanceKM, o.IncludedDistanceKM, o.DistanceFeeIDR, o.VolumetricWeightKG,
+		o.BasePriceIDR, o.VolumetricSurchargeIDR,
+		o.DynamicPriceIDR, o.SurgeFeeIDR, o.DiscountIDR, o.PromoCode, o.PromoSponsor,
+		o.SurgeMultiplier, o.WeatherMultiplier, o.TrafficMultiplier, o.PricingSnapshot,
+		o.TotalPriceIDR, o.PPNIDR, mdr, o.HandoverToken,
+		o.DispatchExpiry, o.BatchID, o.SequenceNo, o.ReceiverName, o.ReceiverPhone, o.RoutingCode,
+		o.TaxRuleCode, o.PPNRateEffectivePct, o.PPNRateStatutoryPct, o.DPPIDR,
+		o.TaxInvoiceRequired, o.TaxInvoiceStatus, o.PlatformFeeIDR, o.PlatformFeePct, o.PromoSubsidyIDR,
+		o.CreatedAt, o.UpdatedAt,
 	)
 	return err
 }
@@ -161,9 +183,14 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				ST_Y(pickup_location::geometry), ST_X(pickup_location::geometry), pickup_address, COALESCE(pickup_city, ''), COALESCE(pickup_zip_code, ''),
 				ST_Y(dropoff_location::geometry), ST_X(dropoff_location::geometry), dropoff_address, COALESCE(dropoff_city, ''), COALESCE(dropoff_zip_code, ''),
 				length, width, height, weight, item_description, COALESCE(item_image_url, ''),
-				distance_km, base_price_idr, volumetric_surcharge_idr, 
-				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''),
+				distance_km, COALESCE(included_distance_km, 0), COALESCE(distance_fee_idr, 0), COALESCE(volumetric_weight_kg, 0),
+				base_price_idr, volumetric_surcharge_idr, 
+				dynamic_price_idr, COALESCE(surge_fee_idr, 0), COALESCE(discount_idr, 0), COALESCE(promo_code, ''), COALESCE(promo_sponsor, 'platform'),
+				COALESCE(surge_multiplier, 1), COALESCE(weather_multiplier, 1), COALESCE(traffic_multiplier, 1), COALESCE(pricing_snapshot::text, ''),
+				total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''),
 				COALESCE(receiver_name, ''), COALESCE(receiver_phone, ''), COALESCE(routing_code, ''),
+				COALESCE(tax_rule_code, ''), COALESCE(ppn_rate_effective_pct, 0), COALESCE(ppn_rate_statutory_pct, 0), COALESCE(dpp_idr, 0), COALESCE(ppn_idr, 0),
+				COALESCE(tax_invoice_required, false), COALESCE(tax_invoice_status, ''), COALESCE(platform_fee_idr, 0), COALESCE(platform_fee_pct, 0), COALESCE(promo_subsidy_idr, 0),
 				created_at, updated_at
 			  FROM orders WHERE id = $1`
 
@@ -173,9 +200,14 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.PickupLat, &o.PickupLng, &o.PickupAddress, &o.PickupCity, &o.PickupZipCode,
 		&o.DropoffLat, &o.DropoffLng, &o.DropoffAddress, &o.DropoffCity, &o.DropoffZipCode,
 		&o.Length, &o.Width, &o.Height, &o.Weight, &o.ItemDescription, &o.ItemImageURL,
-		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
-		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL,
+		&o.DistanceKM, &o.IncludedDistanceKM, &o.DistanceFeeIDR, &o.VolumetricWeightKG,
+		&o.BasePriceIDR, &o.VolumetricSurchargeIDR,
+		&o.DynamicPriceIDR, &o.SurgeFeeIDR, &o.DiscountIDR, &o.PromoCode, &o.PromoSponsor,
+		&o.SurgeMultiplier, &o.WeatherMultiplier, &o.TrafficMultiplier, &o.PricingSnapshot,
+		&o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL,
 		&o.ReceiverName, &o.ReceiverPhone, &o.RoutingCode,
+		&o.TaxRuleCode, &o.PPNRateEffectivePct, &o.PPNRateStatutoryPct, &o.DPPIDR, &o.PPNIDR,
+		&o.TaxInvoiceRequired, &o.TaxInvoiceStatus, &o.PlatformFeeIDR, &o.PlatformFeePct, &o.PromoSubsidyIDR,
 		&o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
@@ -196,6 +228,8 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 				distance_km, base_price_idr, volumetric_surcharge_idr, 
 				dynamic_price_idr, total_price_idr, handover_token, dispatch_expiry, batch_id, sequence_no, courier_id, COALESCE(awb_number, ''), COALESCE(tracking_url, ''),
 				COALESCE(receiver_name, ''), COALESCE(receiver_phone, ''), COALESCE(routing_code, ''),
+				COALESCE(tax_rule_code, ''), COALESCE(ppn_rate_effective_pct, 0), COALESCE(ppn_rate_statutory_pct, 0), COALESCE(dpp_idr, 0), COALESCE(ppn_idr, 0),
+				COALESCE(tax_invoice_required, false), COALESCE(tax_invoice_status, ''), COALESCE(platform_fee_idr, 0), COALESCE(platform_fee_pct, 0), COALESCE(promo_subsidy_idr, 0),
 				created_at, updated_at
 			  FROM orders WHERE order_number = $1`
 
@@ -208,6 +242,8 @@ func (r *postgresRepo) GetByOrderNumber(ctx context.Context, orderNumber string)
 		&o.DistanceKM, &o.BasePriceIDR, &o.VolumetricSurchargeIDR,
 		&o.DynamicPriceIDR, &o.TotalPriceIDR, &o.HandoverToken, &o.DispatchExpiry, &o.BatchID, &o.SequenceNo, &o.CourierID, &o.AWB, &o.TrackingURL,
 		&o.ReceiverName, &o.ReceiverPhone, &o.RoutingCode,
+		&o.TaxRuleCode, &o.PPNRateEffectivePct, &o.PPNRateStatutoryPct, &o.DPPIDR, &o.PPNIDR,
+		&o.TaxInvoiceRequired, &o.TaxInvoiceStatus, &o.PlatformFeeIDR, &o.PlatformFeePct, &o.PromoSubsidyIDR,
 		&o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {

@@ -984,8 +984,8 @@ export default function Settings() {
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">%</span>
                         <input 
                           type="number" 
-                          step="0.01"
-                          defaultValue={getConfig('insurance_premium_rate', 0.1)}
+                          step="0.001"
+                          defaultValue={getConfig('insurance_premium_rate', 0.002)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'insurance_premium_rate', value: Number(e.target.value) })}
                           className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                         />
@@ -999,7 +999,7 @@ export default function Settings() {
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">Rp</span>
                         <input 
                           type="number" 
-                          defaultValue={getConfig('insurance_min_premium', 2000)}
+                          defaultValue={getConfig('insurance_min_premium', 1000)}
                           onBlur={(e) => updateConfigMutation.mutate({ key: 'insurance_min_premium', value: Number(e.target.value) })}
                           className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                         />
@@ -1015,12 +1015,26 @@ export default function Settings() {
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">Rp</span>
                         <input 
                           type="number" 
-                          defaultValue={getConfig('insurance_max_coverage', 25000000)}
-                          onBlur={(e) => updateConfigMutation.mutate({ key: 'insurance_max_coverage', value: Number(e.target.value) })}
+                          defaultValue={getConfig('insurance_max_coverage_idr', 10000000)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'insurance_max_coverage_idr', value: Number(e.target.value) })}
                           className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                         />
                       </div>
                       <p className="text-[10px] text-zinc-600 font-bold italic">Maximum replacement value per order.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Fixed Ins. Fee (IDR)</label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 font-bold">Rp</span>
+                        <input 
+                          type="number" 
+                          defaultValue={getConfig('insurance_fee_idr', 5000)}
+                          onBlur={(e) => updateConfigMutation.mutate({ key: 'insurance_fee_idr', value: Number(e.target.value) })}
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                        />
+                      </div>
+                      <p className="text-[10px] text-zinc-600 font-bold italic">Flat fee added to delivery (if dynamic premium not used).</p>
                     </div>
 
                     <div className="space-y-4">
@@ -1351,6 +1365,97 @@ export default function Settings() {
                         defaultValue={getConfig('idle_time_weight', 0.1)}
                         onBlur={(e) => updateConfigMutation.mutate({ key: 'idle_time_weight', value: Number(e.target.value) })}
                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pricing & Surge Configs */}
+                <div className="pt-12 border-t border-white/5 space-y-8">
+                  <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3 tracking-tight">
+                    <Zap className="text-primary-light" size={24} />
+                    Pricing & Surge Configs
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Tier 1 Weight (KG)</label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('weight_tier1_threshold_kg', 3)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'weight_tier1_threshold_kg', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Tier 1 Surcharge</label>
+                      <input 
+                        type="number" step="0.01"
+                        defaultValue={getConfig('weight_surcharge_tier1', 0.15)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'weight_surcharge_tier1', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Peak Hour Surge (x)</label>
+                      <input 
+                        type="number" step="0.01"
+                        defaultValue={getConfig('surge_peak_hour_multiplier', 0.2)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'surge_peak_hour_multiplier', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Tier 2 Weight (KG)</label>
+                      <input 
+                        type="number" 
+                        defaultValue={getConfig('weight_tier2_threshold_kg', 10)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'weight_tier2_threshold_kg', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Tier 2 Surcharge</label>
+                      <input 
+                        type="number" step="0.01"
+                        defaultValue={getConfig('weight_surcharge_tier2', 0.3)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'weight_surcharge_tier2', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">High Demand Surge (x)</label>
+                      <input 
+                        type="number" step="0.01"
+                        defaultValue={getConfig('surge_high_demand_multiplier', 0.15)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'surge_high_demand_multiplier', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Surge Step Incr.</label>
+                      <input 
+                        type="number" step="0.01"
+                        defaultValue={getConfig('surge_demand_multiplier_step', 0.25)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'surge_demand_multiplier_step', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Demand Ratio Thr.</label>
+                      <input 
+                        type="number" step="0.1"
+                        defaultValue={getConfig('surge_demand_ratio_threshold', 1.5)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'surge_demand_ratio_threshold', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-xs font-black text-zinc-600 uppercase tracking-widest">Max Surge Mult.</label>
+                      <input 
+                        type="number" step="0.1"
+                        defaultValue={getConfig('surge_max_multiplier', 2.5)}
+                        onBlur={(e) => updateConfigMutation.mutate({ key: 'surge_max_multiplier', value: Number(e.target.value) })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-zinc-100 font-black focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                       />
                     </div>
                   </div>

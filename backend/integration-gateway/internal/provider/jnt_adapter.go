@@ -253,7 +253,7 @@ func (p *JNTProvider) CreateOrder(ctx context.Context, req domain.LogisticsOrder
 		Provider:    "J&T Express",
 		ServiceType: req.ServiceType,
 		BookingCode: jntResp.Sortingcode,
-		TotalAmount: feeVal,
+		TotalAmount: int64(feeVal),
 	}, nil
 }
 

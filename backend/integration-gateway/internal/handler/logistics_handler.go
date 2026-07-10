@@ -40,7 +40,7 @@ type CreateLogisticsOrderRequest struct {
 	DestinationCode string  `json:"destination_code"`
 	WeightKG        float64 `json:"weight_kg"`
 	ItemDescription string  `json:"item_description"`
-	ItemValue       float64 `json:"item_value"`
+	ItemValue       int64   `json:"item_value"`
 	ServiceType     string  `json:"service_type"`
 }
 

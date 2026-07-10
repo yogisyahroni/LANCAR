@@ -87,7 +87,7 @@ func (h *WalletHandler) TopUp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Amount float64 `json:"amount"`
+		Amount int64 `json:"amount"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, "Invalid request body", http.StatusBadRequest)
@@ -117,8 +117,8 @@ func (h *WalletHandler) Deposit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Amount      float64 `json:"amount"`
-		ReferenceID string  `json:"reference_id"`
+		Amount      int64  `json:"amount"`
+		ReferenceID string `json:"reference_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, "Invalid request body", http.StatusBadRequest)
@@ -151,10 +151,10 @@ func (h *WalletHandler) Refund(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Amount      float64 `json:"amount"`
-		OrderID     string  `json:"order_id"`
-		ReferenceID string  `json:"reference_id"`
-		Reason      string  `json:"reason"`
+		Amount      int64  `json:"amount"`
+		OrderID     string `json:"order_id"`
+		ReferenceID string `json:"reference_id"`
+		Reason      string `json:"reason"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.respondError(w, "Invalid request body", http.StatusBadRequest)
@@ -187,7 +187,7 @@ func (h *WalletHandler) Refund(w http.ResponseWriter, r *http.Request) {
 func (h *WalletHandler) SosPenalty(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		VictimID    uuid.UUID `json:"victim_id"`
-		Amount      float64   `json:"amount"`
+		Amount      int64     `json:"amount"`
 		ReferenceID string    `json:"reference_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -212,7 +212,7 @@ func (h *WalletHandler) SosPenalty(w http.ResponseWriter, r *http.Request) {
 func (h *WalletHandler) SosReward(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		HelperID    uuid.UUID `json:"helper_id"`
-		Amount      float64   `json:"amount"`
+		Amount      int64     `json:"amount"`
 		ReferenceID string    `json:"reference_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -22,6 +22,7 @@ type merchantSettlementService struct {
 	configRepo      domain.ConfigRepository
 	notificationSvc domain.NotificationService
 	awbClient       domain.AWBClient
+	ledgerRepo      domain.FinanceLedgerRepository
 	gatewayURL      string
 	internalAPIKey  string
 	httpClient      *http.Client
@@ -33,6 +34,7 @@ func NewMerchantSettlementService(
 	configRepo domain.ConfigRepository,
 	notificationSvc domain.NotificationService,
 	awbClient domain.AWBClient,
+	ledgerRepo domain.FinanceLedgerRepository,
 ) domain.MerchantSettlementService {
 	gatewayURL := os.Getenv("INTEGRATION_GATEWAY_URL")
 	if gatewayURL == "" {
@@ -43,6 +45,7 @@ func NewMerchantSettlementService(
 		configRepo:      configRepo,
 		notificationSvc: notificationSvc,
 		awbClient:       awbClient,
+		ledgerRepo:      ledgerRepo,
 		gatewayURL:      gatewayURL,
 		internalAPIKey:  os.Getenv("INTERNAL_API_KEY"),
 		httpClient:      &http.Client{Timeout: 15 * time.Second},
@@ -156,6 +159,27 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 
 	if err := s.repo.Create(ctx, settlement); err != nil {
 		return fmt.Errorf("HandleDeliveryConfirmed: failed to create settlement: %w", err)
+	}
+
+	if s.ledgerRepo != nil {
+		journal := &domain.LedgerJournal{
+			ID:            uuid.New(),
+			JournalType:   "SETTLEMENT",
+			ReferenceType: "MERCHANT_SETTLEMENT_HOLDING",
+			ReferenceID:   settlement.ID.String(),
+			Reason:        fmt.Sprintf("Merchant Settlement Escrow Holding for AWB %s", req.AWBNumber),
+			CreatedBy:     "SYSTEM",
+			ActorRole:     "SYSTEM",
+			CreatedAt:     now,
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: "1101 - Cash / Bank", DebitIDR: paymentLink.ItemPrice, CreditIDR: 0},
+			{AccountName: "2102 - Merchant Compensation Payable", DebitIDR: 0, CreditIDR: netPayoutIDR},
+			{AccountName: "4101 - Shipping Revenue", DebitIDR: 0, CreditIDR: paymentLink.MerchantFeeAmount},
+		}
+		if _, err := s.ledgerRepo.CreateJournalReturningID(ctx, journal, entries); err != nil {
+			slog.WarnContext(ctx, "merchant_settlement: failed to post ledger journal for holding", "error", err)
+		}
 	}
 
 	// 7. Update order: delivery_confirmed_at, delivery_pod_url, status = delivered
@@ -349,6 +373,26 @@ func (s *merchantSettlementService) disburseToMerchant(ctx context.Context, sett
 		// Jangan return error — uang sudah ditransfer. Ini kasus yang butuh manual reconciliation.
 		// Dalam production: kirim alert ke Slack/Telegram + PagerDuty.
 		return nil
+	}
+
+	if s.ledgerRepo != nil {
+		journal := &domain.LedgerJournal{
+			ID:            uuid.New(),
+			JournalType:   "SETTLEMENT",
+			ReferenceType: "MERCHANT_SETTLEMENT_RELEASED",
+			ReferenceID:   settlement.ID.String(),
+			Reason:        fmt.Sprintf("Merchant Settlement Released for ID %s (Ref: %s)", settlement.ID.String(), disbRef),
+			CreatedBy:     "SYSTEM",
+			ActorRole:     "SYSTEM",
+			CreatedAt:     time.Now(),
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: "2102 - Merchant Compensation Payable", DebitIDR: settlement.NetPayoutIDR, CreditIDR: 0},
+			{AccountName: "1101 - Cash / Bank", DebitIDR: 0, CreditIDR: settlement.NetPayoutIDR},
+		}
+		if _, err := s.ledgerRepo.CreateJournalReturningID(ctx, journal, entries); err != nil {
+			slog.WarnContext(ctx, "merchant_settlement: failed to post ledger journal for release", "error", err)
+		}
 	}
 
 	slog.InfoContext(ctx, "merchant_settlement: COMPLETED",

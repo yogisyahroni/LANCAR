@@ -16,6 +16,15 @@ export * from './faceVerifications.controller';
 
 // Finance (Payouts, Revenue, Emergency Fund)
 export * from './finance.controller';
+export * as financeLedger from './financeLedger.controller';
+export * as taxRules from './taxRules.controller';
+export * as tariffRules from './tariffRules.controller';
+export * as chartOfAccounts from './chartOfAccounts.controller';
+export * as disbursementChannels from './disbursementChannels.controller';
+export * as walletReconciliation from './walletReconciliation.controller';
+export * as aggregatorFinance from './aggregatorFinance.controller';
+export * as monthlyClosing from './monthlyClosing.controller';
+export * as unitEconomics from './unitEconomics.controller';
 
 // Customers
 export * from './customers.controller';
