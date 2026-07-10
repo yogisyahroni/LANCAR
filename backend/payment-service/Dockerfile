@@ -12,7 +12,7 @@ WORKDIR /app
 
 # Copy dependency files first (better layer caching)
 COPY go.mod go.sum ./
-RUN go mod download && go mod verify
+RUN go mod tidy && go mod download && go mod verify
 
 # Copy source
 COPY . .
