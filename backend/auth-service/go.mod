@@ -1,7 +1,6 @@
 module tembus/auth-service
 
 go 1.25.0
-toolchain go1.25.0
 
 require (
 	github.com/alexedwards/argon2id v1.0.0
@@ -25,6 +24,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.43.0
 	go.opentelemetry.io/otel/trace v1.43.0
 	golang.org/x/crypto v0.53.0
+	golang.org/x/oauth2 v0.36.0
 )
 
 require (
@@ -72,7 +72,6 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/mod v0.36.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.38.0 // indirect

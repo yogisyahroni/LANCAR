@@ -1,7 +1,6 @@
 module tembus/payment-service
 
 go 1.25.0
-toolchain go1.25.0
 
 require (
 	github.com/getsentry/sentry-go v0.47.0
