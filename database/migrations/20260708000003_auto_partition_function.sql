@@ -78,6 +78,7 @@ END;
 $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
 
+-- +goose StatementBegin
 COMMENT ON FUNCTION tembus_create_monthly_partitions(INT) IS
 'Buat partisi courier_locations untuk N bulan ke depan secara otomatis.
 Fungsi ini IDEMPOTEN: aman dipanggil berkali-kali (skip jika sudah ada).
@@ -90,6 +91,7 @@ Contoh — preview status semua partisi 6 bulan ke depan:
 
 Jadwalkan di cron VPS (setiap tanggal 1 jam 00:05):
   5 0 1 * * /opt/tembus/scripts/db-maintenance.sh >> /var/log/tembus-db-maintenance.log 2>&1';
+-- +goose StatementEnd
 
 
 -- ─────────────────────────────────────────────────────────────────

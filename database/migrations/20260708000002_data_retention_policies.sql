@@ -56,9 +56,11 @@ END;
 $$ LANGUAGE plpgsql STABLE;
 -- +goose StatementEnd
 
+-- +goose StatementBegin
 COMMENT ON FUNCTION tembus_storage_stats() IS
 'Tampilkan ukuran tabel-tabel kritis di Tembus DB. Panggil untuk monitoring disk VPS.
 Contoh: SELECT * FROM tembus_storage_stats();';
+-- +goose StatementEnd
 
 -- ─────────────────────────────────────────────────────────────────
 -- 2. Fungsi Utama: Cleanup data kedaluwarsa
@@ -204,6 +206,7 @@ END;
 $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
 
+-- +goose StatementBegin
 COMMENT ON FUNCTION tembus_cleanup_old_data(BOOLEAN) IS
 'Hapus data kedaluwarsa dari tabel-tabel berukuran besar.
 Gunakan dry_run=TRUE untuk preview sebelum eksekusi.
@@ -215,6 +218,7 @@ Eksekusi nyata:
   SELECT * FROM tembus_cleanup_old_data(dry_run := FALSE);
 
 Dijalankan otomatis oleh cron VPS lewat scripts/db-maintenance.sh';
+-- +goose StatementEnd
 
 -- ─────────────────────────────────────────────────────────────────
 -- 3. Fungsi: Drop partisi courier_locations yang sudah kedaluwarsa
@@ -273,6 +277,7 @@ END;
 $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
 
+-- +goose StatementBegin
 COMMENT ON FUNCTION tembus_drop_old_location_partitions(INT, BOOLEAN) IS
 'Hapus partisi courier_locations yang lebih tua dari N bulan.
 DROP TABLE jauh lebih efisien daripada DELETE row per row!
@@ -282,6 +287,7 @@ Contoh — preview partisi yang akan dihapus (simpan 2 bulan terakhir):
 
 Eksekusi — hapus partisi lebih dari 2 bulan lalu:
   SELECT * FROM tembus_drop_old_location_partitions(retain_months := 2, dry_run := FALSE);';
+-- +goose StatementEnd
 
 -- +goose Down
 DROP FUNCTION IF EXISTS tembus_drop_old_location_partitions(INT, BOOLEAN);
