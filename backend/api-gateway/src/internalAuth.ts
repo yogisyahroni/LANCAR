@@ -9,7 +9,6 @@ const INTERNAL_IDENTITY_HEADERS = [
   'x-user-role',
   'x-user-full-name',
   'x-totp-verified',
-  'x-portal',
   INTERNAL_AUTH_HEADER,
   INTERNAL_AUTH_TS_HEADER,
 ] as const;
