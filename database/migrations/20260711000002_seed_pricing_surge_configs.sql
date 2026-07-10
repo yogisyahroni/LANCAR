@@ -1,3 +1,4 @@
+-- +goose Up
 INSERT INTO system_configs (key, value, description, category, updated_at)
 VALUES 
 ('weight_tier1_threshold_kg', '3', 'Threshold weight in KG for Tier 1 pricing', 'Logistics', NOW()),
@@ -14,3 +15,10 @@ VALUES
 ('insurance_max_coverage_idr', '10000000', 'Maximum insurance coverage in IDR', 'Insurance', NOW()),
 ('insurance_fee_idr', '5000', 'Fixed insurance fee in IDR if dynamic calculation is not used', 'Insurance', NOW())
 ON CONFLICT (key) DO NOTHING;
+
+-- +goose Down
+DELETE FROM system_configs WHERE key IN (
+  'weight_tier1_threshold_kg', 'weight_surcharge_tier1', 'weight_tier2_threshold_kg', 'weight_surcharge_tier2',
+  'surge_peak_hour_multiplier', 'surge_high_demand_multiplier', 'surge_demand_multiplier_step', 'surge_demand_ratio_threshold',
+  'surge_max_multiplier', 'insurance_premium_rate', 'insurance_min_premium', 'insurance_max_coverage_idr', 'insurance_fee_idr'
+);

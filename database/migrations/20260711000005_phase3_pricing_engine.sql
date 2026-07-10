@@ -1,3 +1,4 @@
+-- +goose Up
 -- Phase 3: Pricing & Tariff Engine End-to-End Dynamic & Functional Schema
 -- PRC-001 to PRC-004
 
@@ -24,3 +25,19 @@ VALUES
   ('max_discount_subsidy_idr', '25000', 'Batas maksimum subsidi diskon promo per transaksi (IDR)', 'pricing', NOW()),
   ('payment_mdr_fixed', '2500', 'Estimasi biaya MDR flat per transaksi (IDR)', 'pricing', NOW())
 ON CONFLICT (key) DO NOTHING;
+
+-- +goose Down
+ALTER TABLE orders 
+  DROP COLUMN IF EXISTS included_distance_km,
+  DROP COLUMN IF EXISTS distance_fee_idr,
+  DROP COLUMN IF EXISTS volumetric_weight_kg,
+  DROP COLUMN IF EXISTS surge_fee_idr,
+  DROP COLUMN IF EXISTS discount_idr,
+  DROP COLUMN IF EXISTS promo_code,
+  DROP COLUMN IF EXISTS promo_sponsor,
+  DROP COLUMN IF EXISTS surge_multiplier,
+  DROP COLUMN IF EXISTS weather_multiplier,
+  DROP COLUMN IF EXISTS traffic_multiplier,
+  DROP COLUMN IF EXISTS pricing_snapshot;
+
+DELETE FROM system_configs WHERE key IN ('pricing_rounding_mode', 'pricing_rounding_precision_idr', 'min_platform_fee_idr', 'min_courier_payout_idr', 'max_discount_subsidy_idr', 'payment_mdr_fixed');

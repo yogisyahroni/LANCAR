@@ -1,3 +1,4 @@
+-- +goose Up
 -- Phase 4: Payment, Wallet, Refund & Payout End-to-End Remediation
 -- PAY-001 to PAY-005
 
@@ -77,3 +78,14 @@ VALUES
     ('courier_payout_fee_idr', '0', 'Biaya penarikan penghasilan kurir per transaksi (IDR)', 'finance', NOW()),
     ('max_instant_payout_idr', '10000000', 'Batas maksimal instant payout per hari untuk kurir (IDR)', 'finance', NOW())
 ON CONFLICT (key) DO NOTHING;
+
+-- +goose Down
+DELETE FROM system_configs WHERE key IN ('disbursement_auto_process_threshold_idr', 'wallet_reconciliation_alert_threshold_idr', 'courier_payout_fee_idr', 'max_instant_payout_idr');
+DROP TABLE IF EXISTS disbursement_channel_configs;
+ALTER TABLE refunds 
+    DROP COLUMN IF EXISTS tax_reversal_idr,
+    DROP COLUMN IF EXISTS platform_fee_reversal_idr,
+    DROP COLUMN IF EXISTS ledger_journal_id,
+    DROP COLUMN IF EXISTS failure_reason;
+DROP TABLE IF EXISTS wallet_reconciliation_logs;
+DROP TABLE IF EXISTS universal_idempotency_records;
