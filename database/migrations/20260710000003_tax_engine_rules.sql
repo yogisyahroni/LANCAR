@@ -4,6 +4,10 @@
 -- Migration: 20260710000003_tax_engine_rules.sql
 -- ============================================================
 
+-- 0. Drop Materialized Views depending on orders table to allow altering column types
+DROP MATERIALIZED VIEW IF EXISTS mv_daily_revenue CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mv_order_funnel CASCADE;
+
 -- 1. Upgrade Monetary columns in orders and payments to BIGINT
 ALTER TABLE orders 
     ALTER COLUMN base_price_idr TYPE BIGINT,
@@ -24,6 +28,36 @@ ALTER TABLE payments
     ALTER COLUMN weather_reserve_idr TYPE BIGINT,
     ALTER COLUMN insurance_reserve_idr TYPE BIGINT,
     ALTER COLUMN net_operational_idr TYPE BIGINT;
+
+-- 1.5. Recreate Materialized Views
+CREATE MATERIALIZED VIEW mv_daily_revenue AS
+SELECT 
+    date_trunc('day', o.created_at) as report_date,
+    z.id as zone_id,
+    z.name as zone_name,
+    o.model,
+    COUNT(o.id) as total_orders,
+    SUM(o.total_price_idr) as gross_revenue,
+    SUM(o.dynamic_price_idr) as surge_revenue,
+    SUM(o.mdr_idr) as total_mdr,
+    SUM(o.ppn_idr) as total_ppn
+FROM orders o
+JOIN zones z ON ST_Intersects(z.polygon, o.pickup_location)
+WHERE o.status = 'delivered'
+GROUP BY 1, 2, 3, 4;
+
+CREATE INDEX idx_mv_daily_revenue_date ON mv_daily_revenue(report_date);
+CREATE INDEX idx_mv_daily_revenue_zone ON mv_daily_revenue(zone_id);
+
+CREATE MATERIALIZED VIEW mv_order_funnel AS
+SELECT 
+    date_trunc('day', created_at) as report_date,
+    status,
+    COUNT(id) as order_count
+FROM orders
+GROUP BY 1, 2;
+
+CREATE INDEX idx_mv_order_funnel_date ON mv_order_funnel(report_date);
 
 -- 2. Create Tax Rules Table
 CREATE TABLE IF NOT EXISTS tax_rules (
@@ -88,6 +122,9 @@ ALTER TABLE orders
 
 DROP TABLE IF EXISTS tax_rules;
 
+DROP MATERIALIZED VIEW IF EXISTS mv_daily_revenue CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS mv_order_funnel CASCADE;
+
 ALTER TABLE payments
     ALTER COLUMN amount_idr TYPE INT,
     ALTER COLUMN mdr_amount_idr TYPE INT,
@@ -107,3 +144,32 @@ ALTER TABLE orders
     ALTER COLUMN ppn_idr TYPE INT,
     ALTER COLUMN mdr_idr TYPE INT,
     ALTER COLUMN insured_value_idr TYPE INT;
+
+CREATE MATERIALIZED VIEW mv_daily_revenue AS
+SELECT 
+    date_trunc('day', o.created_at) as report_date,
+    z.id as zone_id,
+    z.name as zone_name,
+    o.model,
+    COUNT(o.id) as total_orders,
+    SUM(o.total_price_idr) as gross_revenue,
+    SUM(o.dynamic_price_idr) as surge_revenue,
+    SUM(o.mdr_idr) as total_mdr,
+    SUM(o.ppn_idr) as total_ppn
+FROM orders o
+JOIN zones z ON ST_Intersects(z.polygon, o.pickup_location)
+WHERE o.status = 'delivered'
+GROUP BY 1, 2, 3, 4;
+
+CREATE INDEX idx_mv_daily_revenue_date ON mv_daily_revenue(report_date);
+CREATE INDEX idx_mv_daily_revenue_zone ON mv_daily_revenue(zone_id);
+
+CREATE MATERIALIZED VIEW mv_order_funnel AS
+SELECT 
+    date_trunc('day', created_at) as report_date,
+    status,
+    COUNT(id) as order_count
+FROM orders
+GROUP BY 1, 2;
+
+CREATE INDEX idx_mv_order_funnel_date ON mv_order_funnel(report_date);
