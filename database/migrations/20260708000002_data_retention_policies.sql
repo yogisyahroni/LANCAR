@@ -26,6 +26,7 @@
 -- ─────────────────────────────────────────────────────────────────
 -- 1. Fungsi Monitoring: Cek ukuran & perkiraan pertumbuhan disk
 -- ─────────────────────────────────────────────────────────────────
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION tembus_storage_stats()
 RETURNS TABLE (
     table_name     TEXT,
@@ -53,6 +54,7 @@ BEGIN
     ORDER BY pg_total_relation_size(quote_ident(relname)) DESC;
 END;
 $$ LANGUAGE plpgsql STABLE;
+-- +goose StatementEnd
 
 COMMENT ON FUNCTION tembus_storage_stats() IS
 'Tampilkan ukuran tabel-tabel kritis di Tembus DB. Panggil untuk monitoring disk VPS.
@@ -63,6 +65,7 @@ Contoh: SELECT * FROM tembus_storage_stats();';
 --    Paramater dry_run: jika TRUE, hanya tampilkan berapa baris
 --    yang akan dihapus tanpa benar-benar menghapus.
 -- ─────────────────────────────────────────────────────────────────
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION tembus_cleanup_old_data(
     dry_run BOOLEAN DEFAULT FALSE
 ) RETURNS TABLE (
@@ -199,6 +202,7 @@ BEGIN
 
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 COMMENT ON FUNCTION tembus_cleanup_old_data(BOOLEAN) IS
 'Hapus data kedaluwarsa dari tabel-tabel berukuran besar.
@@ -216,6 +220,7 @@ Dijalankan otomatis oleh cron VPS lewat scripts/db-maintenance.sh';
 -- 3. Fungsi: Drop partisi courier_locations yang sudah kedaluwarsa
 --    (Jauh lebih efisien daripada DELETE — tidak ada bloat, instan)
 -- ─────────────────────────────────────────────────────────────────
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION tembus_drop_old_location_partitions(
     retain_months INT DEFAULT 2,
     dry_run       BOOLEAN DEFAULT FALSE
@@ -266,6 +271,7 @@ BEGIN
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 COMMENT ON FUNCTION tembus_drop_old_location_partitions(INT, BOOLEAN) IS
 'Hapus partisi courier_locations yang lebih tua dari N bulan.

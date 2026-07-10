@@ -8,6 +8,7 @@
 -- setiap awal bulan agar partisi selalu siap tersedia.
 -- ============================================================
 
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION tembus_create_monthly_partitions(
     months_ahead INT DEFAULT 3
 ) RETURNS TABLE (
@@ -75,6 +76,7 @@ BEGIN
     END LOOP;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 COMMENT ON FUNCTION tembus_create_monthly_partitions(INT) IS
 'Buat partisi courier_locations untuk N bulan ke depan secara otomatis.
