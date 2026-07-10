@@ -1,4 +1,4 @@
-﻿-- +goose Up
+-- +goose Up
 -- ============================================================
 -- MERCHANT ESCROW SETTLEMENT SYSTEM
 -- Migration: 20260709000001
@@ -62,6 +62,7 @@ INSERT INTO system_configs (key, value, description, category) VALUES
 ON CONFLICT (key) DO NOTHING;
 
 -- 5. Auto-update trigger
+-- +goose StatementBegin
 CREATE OR REPLACE FUNCTION update_merchant_settlements_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -69,6 +70,7 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+-- +goose StatementEnd
 
 DROP TRIGGER IF EXISTS trg_merchant_settlements_updated_at ON merchant_settlements;
 CREATE TRIGGER trg_merchant_settlements_updated_at
