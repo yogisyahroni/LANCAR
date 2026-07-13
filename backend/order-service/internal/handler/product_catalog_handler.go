@@ -286,7 +286,7 @@ func (h *ProductCatalogHandler) HandleBulkUpload(w http.ResponseWriter, r *http.
 		return
 	}
 
-	r.ParseMultipartForm(10 << 20) // 10MB limit
+	_ = r.ParseMultipartForm(10 << 20) // 10MB limit
 	file, _, err := r.FormFile("file")
 	if err != nil {
 		h.WriteError(w, http.StatusBadRequest, "File CSV tidak ditemukan")

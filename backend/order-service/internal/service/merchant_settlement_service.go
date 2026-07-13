@@ -509,6 +509,10 @@ func (s *merchantSettlementService) ListByMerchant(ctx context.Context, merchant
 	return s.repo.ListByMerchantID(ctx, merchantID, limit, offset)
 }
 
+func (s *merchantSettlementService) ListAll(ctx context.Context, status string, limit, offset int) ([]*domain.MerchantSettlement, error) {
+	return s.repo.ListAll(ctx, status, limit, offset)
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 func formatIDR(amount int64) string {

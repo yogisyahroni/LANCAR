@@ -56,9 +56,9 @@ func (s *analyticsService) GenerateCSVReport(ctx context.Context, start, end tim
 		if err != nil {
 			return nil, err
 		}
-		writer.Write([]string{"Date", "Zone", "Model", "Total Orders", "Gross Revenue", "Surge Revenue", "MDR", "PPN"})
+		_ = writer.Write([]string{"Date", "Zone", "Model", "Total Orders", "Gross Revenue", "Surge Revenue", "MDR", "PPN"})
 		for _, r := range data {
-			writer.Write([]string{
+			_ = writer.Write([]string{
 				r.ReportDate.Format("2006-01-02"),
 				r.ZoneName,
 				r.Model,
@@ -74,9 +74,9 @@ func (s *analyticsService) GenerateCSVReport(ctx context.Context, start, end tim
 		if err != nil {
 			return nil, err
 		}
-		writer.Write([]string{"Date", "Zone ID", "Courier ID", "Total Legs", "On-Time Legs", "Compliance %"})
+		_ = writer.Write([]string{"Date", "Zone ID", "Courier ID", "Total Legs", "On-Time Legs", "Compliance %"})
 		for _, r := range data {
-			writer.Write([]string{
+			_ = writer.Write([]string{
 				r.ReportDate.Format("2006-01-02"),
 				r.ZoneID,
 				r.CourierID,

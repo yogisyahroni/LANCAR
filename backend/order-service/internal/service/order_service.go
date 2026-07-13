@@ -89,7 +89,7 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 	flag, err := s.flagReader.GetFlag(ctx, estimate.Model)
 	if err != nil || flag == nil || !flag.IsEnabled {
 		// Analytics: model_unavailable_shown
-		s.eventBus.Publish(ctx, "analytics.events", map[string]interface{}{
+		_ = s.eventBus.Publish(ctx, "analytics.events", map[string]interface{}{
 			"event":          "model_unavailable_shown",
 			"user_id":        userID,
 			"model":          estimate.Model,
@@ -199,8 +199,8 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		Message:   "Order created, awaiting payment",
 		CreatedAt: time.Now(),
 	}
-	s.eventRepo.SaveEvent(ctx, event)
-	s.eventBus.Publish(ctx, "order.updates", event)
+	_ = s.eventRepo.SaveEvent(ctx, event)
+	_ = s.eventBus.Publish(ctx, "order.updates", event)
 
 	// 8. Push to persistent task queue
 	if s.taskQueue != nil {
@@ -292,8 +292,8 @@ func (s *orderServiceImpl) CreateInternalAggregatorOrder(ctx context.Context, us
 		Message:   fmt.Sprintf("Order 3PL dibuat via %s", req.LogisticsProvider),
 		CreatedAt: time.Now(),
 	}
-	s.eventRepo.SaveEvent(ctx, event)
-	s.eventBus.Publish(ctx, "order.updates", event)
+	_ = s.eventRepo.SaveEvent(ctx, event)
+	_ = s.eventBus.Publish(ctx, "order.updates", event)
 
 	if s.taskQueue != nil {
 		s.taskQueue.Push(ctx, queue.Task{
@@ -422,8 +422,8 @@ func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, r
 			Message:   "Bulk Order created, awaiting payment",
 			CreatedAt: time.Now(),
 		}
-		s.eventRepo.SaveEvent(ctx, event)
-		s.eventBus.Publish(ctx, "order.updates", event)
+		_ = s.eventRepo.SaveEvent(ctx, event)
+		_ = s.eventBus.Publish(ctx, "order.updates", event)
 
 		if s.taskQueue != nil {
 			s.taskQueue.Push(ctx, queue.Task{
@@ -493,8 +493,8 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 			Message:   fmt.Sprintf("Order status updated to %s", status),
 			CreatedAt: time.Now(),
 		}
-		s.eventRepo.SaveEvent(ctx, event)
-		s.eventBus.Publish(ctx, "order.updates", event)
+		_ = s.eventRepo.SaveEvent(ctx, event)
+		_ = s.eventBus.Publish(ctx, "order.updates", event)
 
 		// Push to task queue for persistent background processing (notifications)
 		if s.taskQueue != nil {
@@ -601,8 +601,8 @@ func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, cour
 				Message:   "Courier has accepted your order",
 				CreatedAt: time.Now(),
 			}
-			s.eventRepo.SaveEvent(ctx, event)
-			s.eventBus.Publish(ctx, "order.updates", event)
+			_ = s.eventRepo.SaveEvent(ctx, event)
+			_ = s.eventBus.Publish(ctx, "order.updates", event)
 
 			// 5. Notify Customer
 			s.notificationSvc.Send(ctx, domain.NotificationRequest{
@@ -824,7 +824,7 @@ func (s *orderServiceImpl) scoreCouriers(ctx context.Context, courierIDs []strin
 			(idleScore * idleWeight) +
 			(ratingScore * ratingWeight)
 
-		tierRank := 1
+		var tierRank int
 		switch stats.Tier {
 		case "god_mode":
 			tierRank = 4
@@ -1113,8 +1113,8 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 		Message:   eventMsg,
 		CreatedAt: time.Now(),
 	}
-	s.eventRepo.SaveEvent(ctx, event)
-	s.eventBus.Publish(ctx, "order.updates", event)
+	_ = s.eventRepo.SaveEvent(ctx, event)
+	_ = s.eventBus.Publish(ctx, "order.updates", event)
 
 	// 4. Notify customer
 	title := "Package Scan Event"
@@ -1261,8 +1261,8 @@ func (s *orderServiceImpl) StartMatching(ctx context.Context, orderID string) er
 		Message:   "Payment confirmed. Searching for nearest courier...",
 		CreatedAt: time.Now(),
 	}
-	s.eventRepo.SaveEvent(ctx, event)
-	s.eventBus.Publish(ctx, "order.updates", event)
+	_ = s.eventRepo.SaveEvent(ctx, event)
+	_ = s.eventBus.Publish(ctx, "order.updates", event)
 
 	// 5. Trigger finding logic asynchronously to not block the internal API caller
 	go func() {

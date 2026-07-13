@@ -74,7 +74,7 @@ func (h *PaymentHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK"))
 }
 
 func (h *PaymentHandler) GetPaymentStatus(w http.ResponseWriter, r *http.Request) {

@@ -429,7 +429,7 @@ routes.get('/admin/finance/unit-economics', requireRole(['super_admin', 'finance
 routes.get('/admin/finance/tax-rules', (req, res) => controllers.taxRules.getTaxRules(req, res));
 routes.post('/admin/finance/tax-rules', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.taxRules.createTaxRule(req, res));
 routes.put('/admin/finance/tax-rules/:id', requireRole(['super_admin', 'finance_admin']), requireTotp, (req, res) => controllers.taxRules.updateTaxRule(req, res));
-routes.get('/admin/finance/tax-dashboard', (req, res) => controllers.taxRules.getTaxDashboard(req, res));
+routes.get('/admin/finance/tax-dashboard', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.taxRules.getTaxDashboard(req, res));
 routes.get('/admin/finance/tax-dashboard/export-pack', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.taxRules.exportTaxPack(req, res));
 
 routes.get('/admin/finance/tariff-cards', (req, res) => controllers.tariffRules.getTariffCards(req, res));
@@ -551,7 +551,7 @@ routes.get('/admin/finance/emergency-fund', (req, res) => controllers.getEmergen
 // Finance P0 extensions: Cash Position, P&L Report, Tax Dashboard
 routes.get('/admin/finance/cash-position', (req, res) => controllers.getCashPosition(req, res));
 routes.get('/admin/finance/pnl-report', (req, res) => controllers.getPnlReport(req, res));
-routes.get('/admin/finance/tax-dashboard', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.getTaxDashboard(req, res));
+// routes.get('/admin/finance/tax-dashboard', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.getTaxDashboard(req, res));
 routes.get('/admin/finance/pph-report', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.getPphReport(req, res));
 routes.get('/admin/finance/tax-efaktur/export', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.exportTaxEfakturCSV(req, res));
 routes.get('/admin/finance/tax-pph23/export', requireRole(['super_admin', 'finance_admin']), (req, res) => controllers.exportTaxPPh23CSV(req, res));

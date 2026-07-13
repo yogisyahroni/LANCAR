@@ -23,7 +23,7 @@ func (r *postgresLedgerRepository) CreateJournalWithEntries(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	metadataJSON, err := json.Marshal(journal.Metadata)
 	if err != nil {
@@ -79,7 +79,7 @@ func (r *postgresLedgerRepository) CreateJournalReturningID(ctx context.Context,
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	metadataJSON, err := json.Marshal(journal.Metadata)
 	if err != nil {

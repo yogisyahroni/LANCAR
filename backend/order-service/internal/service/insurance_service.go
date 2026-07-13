@@ -121,7 +121,7 @@ func (s *insuranceService) ProcessInsuranceReminders(ctx context.Context) error 
 			msg := fmt.Sprintf("Asuransi %s Anda akan kedaluwarsa dalam %d hari. Pastikan saldo cukup untuk perpanjangan otomatis.", ins.Provider, days)
 
 			// Send notification
-			s.notifService.Send(ctx, domain.NotificationRequest{
+			_ = s.notifService.Send(ctx, domain.NotificationRequest{
 				UserID:  ins.CourierID.String(),
 				Title:   "Reminder Perpanjangan Asuransi",
 				Message: msg,

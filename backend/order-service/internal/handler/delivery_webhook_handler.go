@@ -140,15 +140,24 @@ func (h *DeliveryWebhookHandler) HandleListSettlements(w http.ResponseWriter, r 
 		return
 	}
 
-	merchantID := r.Header.Get("X-User-ID")
-	if merchantID == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+	isAdmin := r.URL.Query().Get("is_admin") == "true"
+	var settlements []*domain.MerchantSettlement
+	var err error
+
+	if isAdmin {
+		statusFilter := r.URL.Query().Get("status")
+		settlements, err = h.settlementSvc.ListAll(r.Context(), statusFilter, 100, 0)
+	} else {
+		merchantID := r.Header.Get("X-User-ID")
+		if merchantID == "" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		settlements, err = h.settlementSvc.ListByMerchant(r.Context(), merchantID, 20, 0)
 	}
 
-	settlements, err := h.settlementSvc.ListByMerchant(r.Context(), merchantID, 20, 0)
 	if err != nil {
-		slog.ErrorContext(r.Context(), "delivery_webhook: ListByMerchant failed", "error", err)
+		slog.ErrorContext(r.Context(), "delivery_webhook: List settlements failed", "error", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}

@@ -308,21 +308,21 @@ func (s *DefaultSosService) executeResolution(ctx context.Context, incident *dom
 		if err == nil {
 			if count == 2 {
 				slog.WarnContext(ctx, "Courier suspended due to 2nd fake SOS", "courier", incident.VictimCourierID)
-				s.sosRepo.SuspendCourier(ctx, incident.VictimCourierID, 3*24*time.Hour)
+				_ = s.sosRepo.SuspendCourier(ctx, incident.VictimCourierID, 3*24*time.Hour)
 			} else if count >= 3 {
 				slog.WarnContext(ctx, "Courier terminated due to 3 or more fake SOS", "courier", incident.VictimCourierID)
-				s.sosRepo.TerminateCourier(ctx, incident.VictimCourierID)
+				_ = s.sosRepo.TerminateCourier(ctx, incident.VictimCourierID)
 			}
 		}
 
 		// Reward winning helpers (divide 100k equally, up to 33.3k each, but maybe just 20k flat per helper as agreed)
 		for _, h := range winningHelpers {
 			go creditSosHelperReward(h.HelperCourierID, 20000, incident.ID.String())
-			s.sosRepo.SetPriorityMultiplier(context.Background(), h.HelperCourierID, 24*time.Hour)
+			_ = s.sosRepo.SetPriorityMultiplier(context.Background(), h.HelperCourierID, 24*time.Hour)
 		}
 	} else if status == domain.SosStatusResolvedReal {
 		for _, h := range winningHelpers {
-			s.sosRepo.SetPriorityMultiplier(context.Background(), h.HelperCourierID, 24*time.Hour)
+			_ = s.sosRepo.SetPriorityMultiplier(context.Background(), h.HelperCourierID, 24*time.Hour)
 		}
 	}
 

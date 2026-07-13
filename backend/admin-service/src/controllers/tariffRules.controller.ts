@@ -92,25 +92,25 @@ export const listOrderTariffAudit = async (req: Request, res: Response): Promise
     params.push(Number(limit) || 100);
     const result = await readDb.query(`
       SELECT 
-        id as order_id,
-        awb_number as tracking_number,
-        courier_provider,
-        service_type,
-        origin_city,
-        destination_city,
-        weight_kg,
-        total_amount as customer_price_idr,
-        COALESCE(provider_cost_idr, ROUND(total_amount * 0.85)) as provider_quote_idr,
-        COALESCE(platform_margin_idr, total_amount - COALESCE(provider_cost_idr, ROUND(total_amount * 0.85))) as platform_margin_idr,
-        COALESCE(promo_subsidy_idr, 0) as promo_subsidy_idr,
-        dpp_idr,
-        ppn_idr,
-        ppn_rate_effective_pct,
-        tax_rule_code,
-        created_at
-      FROM orders
+        o.id as order_id,
+        o.awb_number as tracking_number,
+        o.chosen_provider as courier_provider,
+        o.chosen_service as service_type,
+        o.pickup_city as origin_city,
+        o.dropoff_city as destination_city,
+        o.weight as weight_kg,
+        o.total_price_idr as customer_price_idr,
+        COALESCE(o.provider_net_cost_idr, ROUND(o.total_price_idr * 0.85)) as provider_quote_idr,
+        (o.total_price_idr - COALESCE(o.provider_net_cost_idr, ROUND(o.total_price_idr * 0.85))) as platform_margin_idr,
+        COALESCE(o.promo_subsidy_idr, 0) as promo_subsidy_idr,
+        o.dpp_idr,
+        o.ppn_idr,
+        o.ppn_rate_effective_pct,
+        o.tax_rule_code,
+        o.created_at
+      FROM orders o
       ${whereClause}
-      ORDER BY created_at DESC
+      ORDER BY o.created_at DESC
       LIMIT $${params.length}
     `, params);
 
@@ -128,14 +128,14 @@ export const getOrderTariffAudit = async (req: Request, res: Response): Promise<
       SELECT 
         o.id as order_id,
         o.awb_number as tracking_number,
-        o.courier_provider,
-        o.service_type,
-        o.origin_city,
-        o.destination_city,
-        o.weight_kg,
-        o.total_amount as customer_price_idr,
-        COALESCE(o.provider_cost_idr, ROUND(o.total_amount * 0.85)) as provider_quote_idr,
-        COALESCE(o.platform_margin_idr, o.total_amount - COALESCE(o.provider_cost_idr, ROUND(o.total_amount * 0.85))) as platform_margin_idr,
+        o.chosen_provider as courier_provider,
+        o.chosen_service as service_type,
+        o.pickup_city as origin_city,
+        o.dropoff_city as destination_city,
+        o.weight as weight_kg,
+        o.total_price_idr as customer_price_idr,
+        COALESCE(o.provider_net_cost_idr, ROUND(o.total_price_idr * 0.85)) as provider_quote_idr,
+        (o.total_price_idr - COALESCE(o.provider_net_cost_idr, ROUND(o.total_price_idr * 0.85))) as platform_margin_idr,
         COALESCE(o.promo_subsidy_idr, 0) as promo_subsidy_idr,
         o.dpp_idr,
         o.ppn_idr,

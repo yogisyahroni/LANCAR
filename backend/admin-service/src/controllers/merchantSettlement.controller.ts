@@ -10,7 +10,7 @@ export const listMerchantSettlements = async (req: Request, res: Response) => {
     const response = await axios.get(
       `${ORDER_SERVICE_URL}/api/v1/internal/merchant-settlements`,
       {
-        params: req.query,
+        params: { ...req.query, is_admin: 'true' },
         headers: {
           'X-User-ID': (req as any).user?.id || req.headers['x-user-id'] || '',
         },

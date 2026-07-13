@@ -96,7 +96,7 @@ func (h *AnalyticsHandler) GetReport(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", "attachment; filename=\"report.csv\"")
 	w.WriteHeader(http.StatusOK)
-	w.Write(csvBytes)
+	_, _ = w.Write(csvBytes)
 }
 
 func (h *AnalyticsHandler) RefreshData(w http.ResponseWriter, r *http.Request) {

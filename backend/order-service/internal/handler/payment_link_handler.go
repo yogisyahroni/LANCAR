@@ -201,7 +201,7 @@ func (h *PaymentLinkHandler) HandleWebhook(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK"))
 }
 
 func (h *PaymentLinkHandler) CheckTariff(w http.ResponseWriter, r *http.Request) {

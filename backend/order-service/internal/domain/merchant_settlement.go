@@ -126,6 +126,9 @@ type MerchantSettlementService interface {
 
 	// ListByMerchant mengambil daftar settlement untuk merchant (merchant dashboard).
 	ListByMerchant(ctx context.Context, merchantID string, limit, offset int) ([]*MerchantSettlement, error)
+
+	// ListAll mengambil semua settlement dengan filter (untuk admin dashboard).
+	ListAll(ctx context.Context, status string, limit, offset int) ([]*MerchantSettlement, error)
 }
 
 // DeliveryConfirmedRequest adalah payload yang dikirim oleh integration-gateway

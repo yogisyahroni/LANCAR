@@ -147,12 +147,10 @@ export const getTaxDashboard = async (req: Request, res: Response): Promise<void
     res.json({
       success: true,
       data: {
-        monthlySummary: monthlySummary.rows,
+        summary: monthlySummary.rows,
         efakturs: efaktursRes.rows,
-        pphWithholding: {
-          totalWithheldIDR: Number(pphSummaryRes.rows[0]?.total_pph_withheld_idr || 0),
-        },
-        taxMismatches: mismatchesRes.rows,
+        withholdings: pphSummaryRes.rows,
+        mismatches: mismatchesRes.rows,
       },
     });
   } catch (error: any) {

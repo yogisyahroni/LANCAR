@@ -226,7 +226,7 @@ type ErrorResponse struct {
 func WriteError(w http.ResponseWriter, status int, code, message, correlationID string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(ErrorResponse{
+	_ = json.NewEncoder(w).Encode(ErrorResponse{
 		Success:       false,
 		Code:          code,
 		Message:       message,
@@ -242,7 +242,7 @@ type SuccessResponse struct {
 func WriteSuccess(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(SuccessResponse{
+	_ = json.NewEncoder(w).Encode(SuccessResponse{
 		Success: true,
 		Data:    data,
 	})

@@ -396,7 +396,7 @@ func (r *postgresRepo) AssignCourier(ctx context.Context, orderID string, courie
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// Check if order is still searching
 	var status domain.OrderStatus
@@ -838,7 +838,7 @@ func (r *postgresRepo) SaveOrderRating(ctx context.Context, orderID string, cour
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	queryOrder := `
 		UPDATE orders 

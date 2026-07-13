@@ -30,7 +30,7 @@ func (s *relayMatchingService) FindAndAssignRelayCouriers(ctx context.Context, o
 	if err != nil || !lockAcquired {
 		return fmt.Errorf("failed to acquire match lock for order %s, matching might be in progress", orderID)
 	}
-	defer s.relayRepo.ReleaseMatchLock(ctx, orderID)
+	defer func() { _ = s.relayRepo.ReleaseMatchLock(ctx, orderID) }()
 
 	return fmt.Errorf("relay matching candidate repository is not configured for order %s", orderID)
 }
@@ -54,7 +54,7 @@ func (s *relayMatchingService) HandleRelayCancellation(ctx context.Context, orde
 	if err != nil || !lockAcquired {
 		return fmt.Errorf("failed to acquire match lock during cancellation replacement")
 	}
-	defer s.relayRepo.ReleaseMatchLock(ctx, orderID)
+	defer func() { _ = s.relayRepo.ReleaseMatchLock(ctx, orderID) }()
 
 	return fmt.Errorf("relay cancellation replacement repository is not configured for order %s leg %d courier %s", orderID, legIndex, droppedCourierID)
 }

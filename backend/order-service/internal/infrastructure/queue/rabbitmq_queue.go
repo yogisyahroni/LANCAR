@@ -192,7 +192,7 @@ func (q *RabbitMQQueue) Consume(ctx context.Context, handler func(queue.Task) er
 				var task queue.Task
 				if err := json.Unmarshal(d.Body, &task); err != nil {
 					log.Printf("Failed to unmarshal task: %v", err)
-					d.Nack(false, false) // Move to DLQ
+					_ = d.Nack(false, false) // Move to DLQ
 					continue
 				}
 
@@ -200,9 +200,9 @@ func (q *RabbitMQQueue) Consume(ctx context.Context, handler func(queue.Task) er
 					log.Printf("Task processing failed: %v", err)
 					// Exponential backoff or max retries could be added here
 					// For now, move to DLQ after failure
-					d.Nack(false, false)
+					_ = d.Nack(false, false)
 				} else {
-					d.Ack(false)
+					_ = d.Ack(false)
 				}
 			}
 		}

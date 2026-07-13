@@ -129,7 +129,7 @@ func (f *flagReaderImpl) GetFlag(ctx context.Context, key string) (*FeatureFlag,
 	}
 
 	if len(configData) > 0 {
-		json.Unmarshal(configData, &flag.Config)
+		_ = json.Unmarshal(configData, &flag.Config)
 	} else {
 		flag.Config = make(map[string]interface{})
 	}

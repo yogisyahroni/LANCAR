@@ -13,7 +13,7 @@ import {
   ShieldCheck,
   Save
 } from 'lucide-react';
-import axios from 'axios';
+import { api } from '../lib/api';
 import { toast } from 'sonner';
 
 interface MerchantSettlement {
@@ -71,13 +71,14 @@ export default function MerchantSettlements() {
   const fetchSettlements = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/api/admin/finance/merchant-settlements', {
+      const res = await api.get('/admin/finance/merchant-settlements', {
         params: {
           status: statusFilter || undefined,
           limit: 100,
         },
       });
-      setSettlements(res.data.data || res.data || []);
+      const data = res.data?.data || res.data;
+      setSettlements(Array.isArray(data) ? data : []);
     } catch (err: any) {
       toast.error('Gagal memuat data escrow settlement merchant');
     } finally {
@@ -87,7 +88,7 @@ export default function MerchantSettlements() {
 
   const fetchConfigs = async () => {
     try {
-      const res = await axios.get('/api/admin/finance/merchant-settlements/configs');
+      const res = await api.get('/admin/finance/merchant-settlements/configs');
       if (res.data) {
         setConfig({
           holding_days: Number(res.data.holding_days ?? 1),
@@ -110,7 +111,7 @@ export default function MerchantSettlements() {
     e.preventDefault();
     try {
       setSavingConfig(true);
-      await axios.put('/api/admin/finance/merchant-settlements/configs', config);
+      await api.put('/admin/finance/merchant-settlements/configs', config);
       toast.success('Konfigurasi escrow & auto-disbursement berhasil disimpan');
       await fetchConfigs();
     } catch (err: any) {
@@ -127,8 +128,8 @@ export default function MerchantSettlements() {
     }
     try {
       setVerifyingBank(true);
-      const res = await axios.patch(
-        `/api/admin/finance/merchant-settlements/merchants/${merchantIdToVerify.trim()}/verify-bank`
+      const res = await api.patch(
+        `/admin/finance/merchant-settlements/merchants/${merchantIdToVerify.trim()}/verify-bank`
       );
       toast.success(res.data.message || 'Rekening bank merchant berhasil diverifikasi');
       setMerchantIdToVerify('');
@@ -242,8 +243,8 @@ export default function MerchantSettlements() {
                 onChange={(e) => setConfig({ ...config, auto_enabled: e.target.value === 'true' })}
                 className="w-full rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="true">Aktif (Otomatasi Pencairan)</option>
-                <option value="false">Nonaktif (Tahan Manual)</option>
+                <option value="true" className="bg-zinc-950 text-zinc-100">Aktif (Otomatis Pencairan)</option>
+                <option value="false" className="bg-zinc-950 text-zinc-100">Nonaktif (Tahan Manual)</option>
               </select>
               <p className="text-[11px] text-muted-foreground mt-1">
                 Worker diproses setiap menit menggunakan pengunci anti-race condition.
@@ -394,12 +395,12 @@ export default function MerchantSettlements() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="rounded-lg border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="">Semua Status</option>
-              <option value="holding">Holding / Escrow</option>
-              <option value="pending">Pending</option>
-              <option value="processing">Processing (Sedang Cair)</option>
-              <option value="completed">Completed (Selesai)</option>
-              <option value="failed">Failed (Gagal)</option>
+              <option value="" className="bg-zinc-950 text-zinc-100">Semua Status</option>
+              <option value="holding" className="bg-zinc-950 text-zinc-100">Holding / Escrow</option>
+              <option value="pending" className="bg-zinc-950 text-zinc-100">Pending</option>
+              <option value="processing" className="bg-zinc-950 text-zinc-100">Processing (Sedang Cair)</option>
+              <option value="completed" className="bg-zinc-950 text-zinc-100">Completed (Selesai)</option>
+              <option value="failed" className="bg-zinc-950 text-zinc-100">Failed (Gagal)</option>
             </select>
           </div>
         </div>

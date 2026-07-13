@@ -55,7 +55,7 @@ func (s *TrackingServiceImpl) UpdateLocation(ctx context.Context, req domain.Cou
 	} else if !geofenceResult.IsInsideZone && geofenceResult.OutOfZoneMinutes > 5 {
 		// Courier has been out of their assigned zone for more than 5 minutes — alert
 		topic := fmt.Sprintf("alert:geofence:%s", req.CourierID.String())
-		s.eventBus.Publish(ctx, topic, map[string]interface{}{
+		_ = s.eventBus.Publish(ctx, topic, map[string]interface{}{
 			"courier_id":          req.CourierID.String(),
 			"alert":               "Courier has been out of assigned zone for >5 minutes",
 			"out_of_zone_minutes": geofenceResult.OutOfZoneMinutes,
@@ -70,11 +70,11 @@ func (s *TrackingServiceImpl) UpdateLocation(ctx context.Context, req domain.Cou
 		"courier_id": req.CourierID.String(),
 		"location":   req.Location,
 	}
-	s.eventBus.Publish(ctx, topic, payload)
+	_ = s.eventBus.Publish(ctx, topic, payload)
 
 	if req.OrderID != nil {
 		orderTopic := fmt.Sprintf("tracking:order:%s", req.OrderID.String())
-		s.eventBus.Publish(ctx, orderTopic, payload)
+		_ = s.eventBus.Publish(ctx, orderTopic, payload)
 	}
 
 	// 5. Fire and forget to AI Datalake Publisher
@@ -173,7 +173,7 @@ func (s *TrackingServiceImpl) SyncLocations(ctx context.Context, req domain.Cour
 	geofenceResult, geoErr := s.repo.CheckGeofence(ctx, req.CourierID, latestLoc.Latitude, latestLoc.Longitude)
 	if geoErr == nil && !geofenceResult.IsInsideZone && geofenceResult.OutOfZoneMinutes > 5 {
 		topic := fmt.Sprintf("alert:geofence:%s", req.CourierID.String())
-		s.eventBus.Publish(ctx, topic, map[string]interface{}{
+		_ = s.eventBus.Publish(ctx, topic, map[string]interface{}{
 			"courier_id":          req.CourierID.String(),
 			"alert":               "Courier has been out of assigned zone for >5 minutes",
 			"out_of_zone_minutes": geofenceResult.OutOfZoneMinutes,
@@ -188,12 +188,12 @@ func (s *TrackingServiceImpl) SyncLocations(ctx context.Context, req domain.Cour
 		"courier_id": req.CourierID.String(),
 		"location":   *latestLoc,
 	}
-	s.eventBus.Publish(ctx, topic, payload)
+	_ = s.eventBus.Publish(ctx, topic, payload)
 
 	// If we have a bound order, announce to order channel as well
 	if latestLoc.OrderID != nil {
 		orderTopic := fmt.Sprintf("tracking:order:%s", latestLoc.OrderID.String())
-		s.eventBus.Publish(ctx, orderTopic, payload)
+		_ = s.eventBus.Publish(ctx, orderTopic, payload)
 	}
 
 	return nil
@@ -229,7 +229,7 @@ func (s *TrackingServiceImpl) ProcessIdleCouriers(ctx context.Context) error {
 		_ = s.repo.SetCourierOffline(ctx, id)
 		// Optionally publish an event
 		topic := fmt.Sprintf("courier:status:%s", id.String())
-		s.eventBus.Publish(ctx, topic, map[string]interface{}{
+		_ = s.eventBus.Publish(ctx, topic, map[string]interface{}{
 			"status": "offline",
 			"reason": "idle_timeout",
 		})

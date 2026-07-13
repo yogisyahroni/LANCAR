@@ -34,7 +34,7 @@ func (h *AdminHandler) CreateMeetingPoint(w http.ResponseWriter, r *http.Request
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(mp)
+	_ = json.NewEncoder(w).Encode(mp)
 }
 
 func (h *AdminHandler) UpdateMeetingPoint(w http.ResponseWriter, r *http.Request) {

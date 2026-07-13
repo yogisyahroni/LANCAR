@@ -23,7 +23,7 @@ func (r *aggregatorFinanceRepository) CreateInvoice(ctx context.Context, inv *do
 	if err != nil {
 		return fmt.Errorf("failed to begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	queryInv := `
 		INSERT INTO provider_invoices (
@@ -157,7 +157,7 @@ func (r *aggregatorFinanceRepository) UpdateInvoiceItems(ctx context.Context, it
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	query := `
 		UPDATE provider_invoice_items
