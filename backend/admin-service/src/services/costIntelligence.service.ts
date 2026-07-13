@@ -317,7 +317,14 @@ export class CostIntelligenceService {
            COUNT(*) AS total_orders,
            COUNT(*) FILTER (WHERE COALESCE(order_type, 'ondemand') = 'ondemand') AS ondemand_orders,
            COUNT(*) FILTER (WHERE order_type = 'aggregator') AS aggregator_orders,
-           COALESCE(SUM(total_price_idr), 0) AS total_revenue_idr,
+           COALESCE(SUM(
+             CASE 
+               WHEN order_type = 'aggregator' THEN 
+                 COALESCE(logistics_tariff_idr, total_price_idr) - COALESCE(logistics_net_cost_idr, 0)
+               ELSE 
+                 COALESCE(platform_commission_idr, 0) + COALESCE(platform_fee_idr, 0)
+             END
+           ), 0) AS total_revenue_idr,
            COALESCE(SUM(mdr_idr), 0) AS total_mdr_cost_idr,
            COALESCE(SUM(platform_fee_idr), 0) AS total_platform_fee_idr
          FROM orders
