@@ -214,6 +214,61 @@ func (r *availabilityRepo) EstimateDistanceKM(ctx context.Context, lat1, lng1, l
 	return earthRadiusKM * c, nil
 }
 
+func (r *availabilityRepo) GetCourierVehicleType(ctx context.Context, courierID string) (string, *string, error) {
+	query := `
+		SELECT cp.vehicle_type, cp.vehicle_type_car
+		FROM courier_profiles cp
+		WHERE cp.id = $1`
+
+	var vehicleType string
+	var vehicleTypeCar *string
+	err := r.db.QueryRowContext(ctx, query, courierID).Scan(&vehicleType, &vehicleTypeCar)
+	if err != nil {
+		return "", nil, fmt.Errorf("courier vehicle not found for %s: %w", courierID, err)
+	}
+	return vehicleType, vehicleTypeCar, nil
+}
+
+func (r *availabilityRepo) GetActiveOrderRemainingMinutes(ctx context.Context, courierID string) (int, error) {
+	// Find active order for this courier and estimate remaining time
+	// Uses updated_at as proxy for when the order was last touched,
+	// combined with a default SLA estimate
+	query := `
+		SELECT o.id, o.created_at, o.status
+		FROM orders o
+		WHERE o.courier_id = $1
+		  AND o.status IN ('assigned', 'picked_up', 'in_transit', 'navigating', 'arriving', 'arrived')
+		ORDER BY o.updated_at DESC
+		LIMIT 1`
+
+	var orderID string
+	var createdAt time.Time
+	var status string
+	err := r.db.QueryRowContext(ctx, query, courierID).Scan(&orderID, &createdAt, &status)
+	if err != nil {
+		// No active order = assume plenty of time
+		return 999, nil
+	}
+
+	// Estimate remaining time based on order age and status
+	elapsed := time.Since(createdAt)
+	elapsedMinutes := int(elapsed.Minutes())
+
+	// Default SLA: 60 minutes total for on-demand, 90 for towing
+	// If order has been active for less than 45 min, assume at least 15 min remaining
+	slaMinutes := 60
+	if status == "in_transit" {
+		slaMinutes = 45 // transit is usually shorter
+	}
+
+	remaining := slaMinutes - elapsedMinutes
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return remaining, nil
+}
+
 // ============================================================
 // Service Report Repository
 // ============================================================

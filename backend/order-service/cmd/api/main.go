@@ -314,6 +314,16 @@ func main() {
 	deliveryWebhookHandler := handler.NewDeliveryWebhookHandler(merchantSettlementSvc)
 	taxHandler := handler.NewTaxHandler(taxSvc)
 
+	// Tambal Ban & Towing Services
+	settlementRepo := repository.NewSettlementRepository(db)
+	availabilityRepo := repository.NewAvailabilityRepository(db)
+	serviceReportRepo := repository.NewServiceReportRepository(db)
+	settlementSvc := service.NewSettlementService(settlementRepo)
+	availabilitySvc := service.NewAvailabilityService(availabilityRepo)
+	vehicleValidator := service.NewVehicleValidator(availabilityRepo)
+	serviceReportSvc := service.NewServiceReportService(serviceReportRepo)
+	tambalBanHandler := handler.NewTambalBanHandler(settlementSvc, availabilitySvc, vehicleValidator, serviceReportSvc)
+
 	// Background Workers
 	surgeWorker := worker.NewSurgeWorker(rdb, worker.NewPostgresSurgeDataStore(readDB), configRepo)
 	go surgeWorker.Start(context.Background())
@@ -419,6 +429,21 @@ func main() {
 	mux.HandleFunc("/api/v1/couriers/sos/arrive", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.ArriveAtSOS)))
 	mux.HandleFunc("/api/v1/couriers/sos/report", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.SubmitHelperReport)))
 	mux.HandleFunc("/api/v1/couriers/sos/tamper", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.ReportTamper)))
+
+	// Tambal Ban & Towing Routes
+	mux.HandleFunc("/api/v1/customer/nearby-couriers", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.GetNearbyCouriers)))
+	mux.HandleFunc("/api/v1/order/settlement", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CalculateSettlement)))
+	mux.HandleFunc("/api/v1/courier/availability-state", middleware.BaseChain(middleware.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut {
+			tambalBanHandler.UpdateAvailabilityState(w, r)
+		} else if r.Method == http.MethodGet {
+			tambalBanHandler.GetAvailabilityState(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+	mux.HandleFunc("/api/v1/courier/service-report/tambal-ban", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CreateTambalBanReport)))
+	mux.HandleFunc("/api/v1/courier/service-report/towing", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CreateTowingReport)))
 
 	// Internal Orchestration Routes (Should be IP-whitelisted or internally routed)
 	mux.HandleFunc("/api/v1/internal/orders/matching", orderHandler.InternalStartMatching)

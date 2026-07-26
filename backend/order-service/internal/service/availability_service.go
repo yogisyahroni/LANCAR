@@ -139,8 +139,10 @@ func (s *availabilityServiceImpl) canAcceptConditional(ctx context.Context, stat
 	}
 
 	// Rule 2: Must have at least 15 minutes remaining for current order
-	// (This would require querying order ETA — simplified for now)
-	// TODO: Query active order remaining time
+	remainingMinutes, err := s.repo.GetActiveOrderRemainingMinutes(ctx, state.CourierID)
+	if err != nil || remainingMinutes < 15 {
+		return false
+	}
 
 	// Rule 3: ETA to new customer must be < 10 minutes
 	etaToNew := int(math.Ceil(distToNew * 2.5)) // rough: 2.5 min per km

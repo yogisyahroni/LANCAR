@@ -46,12 +46,37 @@ func (v *vehicleValidatorImpl) ValidateCourierVehicle(ctx context.Context, couri
 		return false, fmt.Errorf("unknown service sub type: %s", serviceSubType)
 	}
 
-	// TODO: Query courier_profiles for vehicle_type and vehicle_type_car
-	// For now, return true to not block flow during development
-	_ = ctx
-	_ = courierID
+	// Query courier_profiles for actual vehicle info
+	vehicleType, vehicleTypeCar, err := v.repo.GetCourierVehicleType(ctx, courierID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get courier vehicle: %w", err)
+	}
 
-	return true, nil
+	// For tambal_ban services: check against vehicle_type (motor types)
+	// For towing services: check against vehicle_type_car (car/transport types)
+	if IsTambalBan(serviceSubType) {
+		// Tambal ban targets the customer's vehicle — courier must have a compatible vehicle
+		// to reach the location. Motor couriers handle motor tambal ban, car couriers handle mobil.
+		for _, allowed := range allowedTypes {
+			if vehicleType == allowed {
+				return true, nil
+			}
+		}
+	}
+
+	if IsTowing(serviceSubType) {
+		// Towing requires specific transport vehicle (pickup, van, towing_truck)
+		// Check against vehicle_type_car since towing uses car-type vehicles
+		if vehicleTypeCar != nil {
+			for _, allowed := range allowedTypes {
+				if *vehicleTypeCar == allowed {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
 }
 
 // GetTargetObjectDescription returns a human-readable description of what the service targets

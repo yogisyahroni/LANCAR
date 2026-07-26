@@ -205,6 +205,8 @@ type AvailabilityRepository interface {
 	FindCouriersByCapability(ctx context.Context, serviceSubType string, radiusKM float64, lat, lng float64) ([]*NearbyCourier, error)
 	GetCourierServicePrice(ctx context.Context, courierID, serviceCode string) (int64, error)
 	EstimateDistanceKM(ctx context.Context, lat1, lng1, lat2, lng2 float64) (float64, error)
+	GetCourierVehicleType(ctx context.Context, courierID string) (vehicleType string, vehicleTypeCar *string, err error)
+	GetActiveOrderRemainingMinutes(ctx context.Context, courierID string) (int, error)
 }
 
 type ServiceReportRepository interface {
