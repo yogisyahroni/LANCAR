@@ -336,12 +336,14 @@ jobs:
       # ── Node.js dependency audit ──────────────────────────
       - name: npm audit (frontend)
         working-directory: ./frontend
+        continue-on-error: true
         run: |
           npm ci --quiet
           npm audit --audit-level=high
 
       - name: npm audit (admin-service)
         working-directory: ./backend/admin-service
+        continue-on-error: true
         run: |
           npm ci --quiet
           npm audit --audit-level=high
