@@ -878,6 +878,22 @@ app.use(createProxyMiddleware({
   }
 }));
 
+// Public payment webhooks handled by Payment Service (Xendit)
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/payments/xendit',
+  target: PAYMENT_SERVICE_URL,
+  changeOrigin: true,
+  pathRewrite: {
+    '^/api/v1/payments/xendit': '/webhooks/xendit'
+  },
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('payment_xendit_webhook', req, PAYMENT_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    }
+  }
+}));
+
 // Routing Service
 app.use('/api/v1/routing', createProxyMiddleware({
   target: ROUTING_SERVICE_URL,

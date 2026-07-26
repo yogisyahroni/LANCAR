@@ -487,6 +487,7 @@ class OrderRepository @Inject constructor(
     ): Result<SettlementResult> {
         return try {
             val response = apiService.calculateSettlement(
+                orderId,
                 mapOf(
                     "order_id" to orderId,
                     "service_code" to serviceCode,

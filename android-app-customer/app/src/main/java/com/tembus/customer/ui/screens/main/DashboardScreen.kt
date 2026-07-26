@@ -85,6 +85,7 @@ import com.google.accompanist.permissions.rememberPermissionState
 import com.tembus.customer.R
 import com.tembus.customer.data.model.DeliveryServiceProduct
 import com.tembus.customer.data.model.Order
+import com.tembus.customer.ui.components.ServiceGridMenu
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.AccentLight
 import com.tembus.customer.ui.theme.Background

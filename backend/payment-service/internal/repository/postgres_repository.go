@@ -148,6 +148,28 @@ func (r *postgresWalletRepository) Create(ctx context.Context, userID uuid.UUID)
 	return &w, nil
 }
 
+func (r *postgresWalletRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Wallet, error) {
+	w := &domain.Wallet{}
+	query := `SELECT id, user_id, balance, currency, version, created_at, updated_at 
+	          FROM customer_wallets WHERE id = $1`
+	err := r.queryRowContext(ctx, false, query, id).Scan(
+		&w.ID, &w.UserID, &w.Balance, &w.Currency, &w.Version, &w.CreatedAt, &w.UpdatedAt,
+	)
+	if err == nil {
+		return w, nil
+	}
+
+	query = `SELECT id, user_id, balance, currency, version, created_at, updated_at 
+	          FROM courier_wallets WHERE id = $1`
+	err = r.queryRowContext(ctx, false, query, id).Scan(
+		&w.ID, &w.UserID, &w.Balance, &w.Currency, &w.Version, &w.CreatedAt, &w.UpdatedAt,
+	)
+	if err != nil {
+		return nil, errors.New("wallet not found")
+	}
+	return w, nil
+}
+
 func (r *postgresWalletRepository) UpdateBalance(ctx context.Context, walletID uuid.UUID, amount int64, version int) error {
 	// Try updating customer_wallets first
 	query := `UPDATE customer_wallets SET balance = balance + $1, version = version + 1, updated_at = $2 
@@ -232,6 +254,35 @@ func (r *postgresWalletRepository) GetTransactions(ctx context.Context, walletID
 	}
 
 	return txs, nil
+}
+
+func (r *postgresWalletRepository) GetTransactionByReferenceID(ctx context.Context, referenceID string) (*domain.WalletTransaction, error) {
+	if referenceID == "" {
+		return nil, errors.New("reference_id cannot be empty")
+	}
+	
+	var tx domain.WalletTransaction
+	// Try customer transactions first
+	query := `SELECT id, wallet_id, type, amount, fee, status, reference_id, metadata, created_at, updated_at 
+	          FROM customer_wallet_transactions WHERE reference_id = $1 LIMIT 1`
+
+	err := r.queryRowContext(ctx, false, query, referenceID).Scan(
+		&tx.ID, &tx.WalletID, &tx.Type, &tx.Amount, &tx.Fee, &tx.Status, &tx.ReferenceID, &tx.Metadata, &tx.CreatedAt, &tx.UpdatedAt,
+	)
+
+	if err != nil {
+		// Try courier transactions
+		query = `SELECT id, wallet_id, type, amount, fee, status, reference_id, metadata, created_at, updated_at 
+		          FROM courier_wallet_transactions WHERE reference_id = $1 LIMIT 1`
+		err = r.queryRowContext(ctx, false, query, referenceID).Scan(
+			&tx.ID, &tx.WalletID, &tx.Type, &tx.Amount, &tx.Fee, &tx.Status, &tx.ReferenceID, &tx.Metadata, &tx.CreatedAt, &tx.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &tx, nil
 }
 
 func (r *postgresWalletRepository) IsRefundProcessed(ctx context.Context, referenceID string) (bool, error) {

@@ -8,6 +8,8 @@ export interface PlatformCostConfig {
   status?: 'draft' | 'active' | 'archived';
   capex_total_idr: number;
   capex_amort_months: number;
+  capex_ondemand_details?: any;
+  capex_aggregator_details?: any;
   opex_server_idr: number;
   opex_domain_ssl_idr: number;
   opex_marketing_idr: number;
@@ -19,6 +21,8 @@ export interface PlatformCostConfig {
   opex_cloud_storage_per_order_idr?: number;
   opex_cs_support_per_order_idr?: number;
   opex_dispute_reserve_idr?: number;
+  opex_ondemand_details?: any;
+  opex_aggregator_details?: any;
   tax_vat_pct?: number;
   tax_pph_pct?: number;
   payment_gateway_mdr_pct?: number;
@@ -27,6 +31,9 @@ export interface PlatformCostConfig {
   min_platform_fee_idr?: number;
   max_discount_subsidy_pct?: number;
   estimated_orders_per_month: number;
+  estimated_orders_ondemand_per_month?: number;
+  estimated_orders_aggregator_per_month?: number;
+  estimated_users_aggregator_per_month?: number;
   target_margin_ondemand_pct: number;
   target_margin_aggregator_pct: number;
   notes?: string;

@@ -69,3 +69,5 @@ DROP TABLE IF EXISTS wallet_transactions;
 DROP TABLE IF EXISTS wallets;
 
 COMMIT;
+CREATE INDEX IF NOT EXISTS idx_customer_wallet_tx_ref ON customer_wallet_transactions(reference_id);
+CREATE INDEX IF NOT EXISTS idx_courier_wallet_tx_ref ON courier_wallet_transactions(reference_id);

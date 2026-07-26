@@ -26,10 +26,11 @@ type MerchantSettlement struct {
 	PaymentLinkID     string           `json:"payment_link_id"`
 	MerchantID        string           `json:"merchant_id"`
 	OrderID           string           `json:"order_id"`
-	GrossItemPriceIDR int64            `json:"gross_item_price_idr"`
-	MerchantFeeIDR    int64            `json:"merchant_fee_idr"`
-	NetPayoutIDR      int64            `json:"net_payout_idr"`
-	Status            SettlementStatus `json:"status"`
+	GrossItemPriceIDR  int64            `json:"gross_item_price_idr"`
+	MerchantFeeIDR     int64            `json:"merchant_fee_idr"`
+	DisbursementFeeIDR int64            `json:"disbursement_fee_idr"`
+	NetPayoutIDR       int64            `json:"net_payout_idr"`
+	Status             SettlementStatus `json:"status"`
 	// IdempotencyKey = "settle-" + payment_link_id (satu PL hanya satu settlement)
 	IdempotencyKey   string            `json:"idempotency_key"`
 	PODConfirmedAt   *time.Time        `json:"pod_confirmed_at,omitempty"`

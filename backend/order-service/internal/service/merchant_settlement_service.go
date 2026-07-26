@@ -117,9 +117,12 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 		return fmt.Errorf("HandleDeliveryConfirmed: invalid negative amount (fee: %d, price: %d) — potential integer underflow attack blocked", paymentLink.MerchantFeeAmount, paymentLink.ItemPrice)
 	}
 
-	netPayoutIDR := paymentLink.ItemPrice - paymentLink.MerchantFeeAmount
+	// 5. Hitung Disbursement Fee & Net Payout
+	disbursementFeeIDR := int64(s.configRepo.GetIntConfig(ctx, "merchant_disbursement_fee_idr", 4000))
+	
+	netPayoutIDR := paymentLink.ItemPrice - paymentLink.MerchantFeeAmount - disbursementFeeIDR
 	if netPayoutIDR < 0 {
-		return fmt.Errorf("HandleDeliveryConfirmed: invalid net payout amount (price: %d, fee: %d) — payout cannot be negative", paymentLink.ItemPrice, paymentLink.MerchantFeeAmount)
+		return fmt.Errorf("HandleDeliveryConfirmed: invalid net payout amount (price: %d, fee: %d, disburse_fee: %d) — payout cannot be negative", paymentLink.ItemPrice, paymentLink.MerchantFeeAmount, disbursementFeeIDR)
 	}
 	// 6. Buat settlement record (status = HOLDING)
 	now := req.ConfirmedAt
@@ -136,14 +139,15 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 	}
 
 	settlement := &domain.MerchantSettlement{
-		ID:                settlementID,
-		PaymentLinkID:     paymentLink.ID,
-		MerchantID:        paymentLink.MerchantID,
-		OrderID:           order.ID,
-		GrossItemPriceIDR: paymentLink.ItemPrice,
-		MerchantFeeIDR:    paymentLink.MerchantFeeAmount,
-		NetPayoutIDR:      netPayoutIDR,
-		Status:            domain.SettlementStatusHolding,
+		ID:                 settlementID,
+		PaymentLinkID:      paymentLink.ID,
+		MerchantID:         paymentLink.MerchantID,
+		OrderID:            order.ID,
+		GrossItemPriceIDR:  paymentLink.ItemPrice,
+		MerchantFeeIDR:     paymentLink.MerchantFeeAmount,
+		DisbursementFeeIDR: disbursementFeeIDR,
+		NetPayoutIDR:       netPayoutIDR,
+		Status:             domain.SettlementStatusHolding,
 		IdempotencyKey:    idempotencyKey,
 		PODConfirmedAt:    &now,
 		HoldingReleaseAt:  &holdingReleaseAt,
@@ -176,6 +180,7 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 			{AccountName: "1101 - Cash / Bank", DebitIDR: paymentLink.ItemPrice, CreditIDR: 0},
 			{AccountName: "2102 - Merchant Compensation Payable", DebitIDR: 0, CreditIDR: netPayoutIDR},
 			{AccountName: "4101 - Shipping Revenue", DebitIDR: 0, CreditIDR: paymentLink.MerchantFeeAmount},
+			{AccountName: "4102 - Platform Admin Fee", DebitIDR: 0, CreditIDR: disbursementFeeIDR},
 		}
 		if _, err := s.ledgerRepo.CreateJournalReturningID(ctx, journal, entries); err != nil {
 			slog.WarnContext(ctx, "merchant_settlement: failed to post ledger journal for holding", "error", err)

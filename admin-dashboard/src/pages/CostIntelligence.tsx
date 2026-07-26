@@ -18,7 +18,8 @@ import {
   Users,
   Sparkles,
   Zap,
-  Truck
+  Truck,
+  BarChart3
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../lib/api';
@@ -49,6 +50,7 @@ export default function CostIntelligence() {
     aggregator_avg_published_idr: 20000,
     aggregator_b2b_discount_pct: 20,
     aggregator_customer_discount_pct: 5,
+    aggregator_customer_discount_quota: '' as number | '',
   });
 
   // Form State for OPEX & CAPEX simulation
@@ -56,27 +58,34 @@ export default function CostIntelligence() {
     period_label: 'Q3-2026 Simulation',
     period_start: new Date().toISOString().slice(0, 10),
     period_end: new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10),
-    capex_total_idr: 12000000,
+    capex_total_idr: 0,
     capex_amort_months: 24,
-    opex_server_idr: 450000, // VPS 4GB RAM typical monthly cost
-    opex_domain_ssl_idr: 100000,
-    opex_marketing_idr: 2500000,
-    opex_team_salary_idr: 15000000,
-    opex_insurance_idr: 500000,
-    opex_other_fixed_idr: 750000,
-    opex_tomtom_per_order_idr: 150,
-    opex_zenziva_per_order_idr: 350,
-    opex_cloud_storage_per_order_idr: 50,
-    opex_cs_support_per_order_idr: 150,
-    opex_dispute_reserve_idr: 200,
+    capex_ondemand_details: {} as any,
+    capex_aggregator_details: {} as any,
+    opex_server_idr: '' as any,
+    opex_domain_ssl_idr: '' as any,
+    opex_marketing_idr: '' as any,
+    opex_team_salary_idr: '' as any,
+    opex_insurance_idr: '' as any,
+    opex_other_fixed_idr: '' as any,
+    opex_tomtom_per_order_idr: '' as any,
+    opex_zenziva_per_order_idr: '' as any,
+    opex_cloud_storage_per_order_idr: '' as any,
+    opex_cs_support_per_order_idr: '' as any,
+    opex_dispute_reserve_idr: '' as any,
+    opex_ondemand_details: {} as any,
+    opex_aggregator_details: {} as any,
     tax_vat_pct: 11,
     tax_pph_pct: 2,
-    payment_gateway_mdr_pct: 0.7,
-    payment_gateway_fixed_idr: 2000,
-    payout_disbursement_fee_idr: 2500,
+    payment_gateway_mdr_pct: 0,
+    payment_gateway_fixed_idr: 0,
+    payout_disbursement_fee_idr: 0,
     min_platform_fee_idr: 1500,
     max_discount_subsidy_pct: 20,
     estimated_orders_per_month: 3500,
+    estimated_orders_ondemand_per_month: 2500,
+    estimated_orders_aggregator_per_month: 1000,
+    estimated_users_aggregator_per_month: 50,
     target_margin_ondemand_pct: 35,
     target_margin_aggregator_pct: 25,
     notes: 'Kalkulasi lengkap Keuangan, Pajak (VAT/PPh), & Tarif (Production VPS 4GB)'
@@ -101,6 +110,8 @@ export default function CostIntelligence() {
     period_end: c.period_end ? String(c.period_end).slice(0, 10) : new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10),
     capex_total_idr: Number(c.capex_total_idr || 0),
     capex_amort_months: Number(c.capex_amort_months || 24),
+    capex_ondemand_details: c.capex_ondemand_details || {},
+    capex_aggregator_details: c.capex_aggregator_details || {},
     opex_server_idr: Number(c.opex_server_idr || 0),
     opex_domain_ssl_idr: Number(c.opex_domain_ssl_idr || 0),
     opex_marketing_idr: Number(c.opex_marketing_idr || 0),
@@ -112,14 +123,19 @@ export default function CostIntelligence() {
     opex_cloud_storage_per_order_idr: Number(c.opex_cloud_storage_per_order_idr || 0),
     opex_cs_support_per_order_idr: Number(c.opex_cs_support_per_order_idr || 0),
     opex_dispute_reserve_idr: Number(c.opex_dispute_reserve_idr || 0),
+    opex_ondemand_details: typeof c.opex_ondemand_details === 'string' ? JSON.parse(c.opex_ondemand_details) : (c.opex_ondemand_details || {}),
+    opex_aggregator_details: typeof c.opex_aggregator_details === 'string' ? JSON.parse(c.opex_aggregator_details) : (c.opex_aggregator_details || {}),
     tax_vat_pct: Number(c.tax_vat_pct ?? 11),
     tax_pph_pct: Number(c.tax_pph_pct ?? 2),
-    payment_gateway_mdr_pct: Number(c.payment_gateway_mdr_pct ?? 0.7),
-    payment_gateway_fixed_idr: Number(c.payment_gateway_fixed_idr ?? 2000),
-    payout_disbursement_fee_idr: Number(c.payout_disbursement_fee_idr ?? 2500),
+    payment_gateway_mdr_pct: 0,
+    payment_gateway_fixed_idr: 0,
+    payout_disbursement_fee_idr: 0,
     min_platform_fee_idr: Number(c.min_platform_fee_idr ?? 1500),
     max_discount_subsidy_pct: Number(c.max_discount_subsidy_pct ?? 20),
-    estimated_orders_per_month: Number(c.estimated_orders_per_month || 1000),
+    estimated_orders_per_month: Number(c.estimated_orders_per_month || 3500),
+    estimated_orders_ondemand_per_month: Number(c.estimated_orders_ondemand_per_month ?? 2500),
+    estimated_orders_aggregator_per_month: Number(c.estimated_orders_aggregator_per_month ?? 1000),
+    estimated_users_aggregator_per_month: Number(c.estimated_users_aggregator_per_month ?? 50),
     target_margin_ondemand_pct: Number(c.target_margin_ondemand_pct || 15),
     target_margin_aggregator_pct: Number(c.target_margin_aggregator_pct || 10),
     notes: c.notes || ''
@@ -176,65 +192,153 @@ export default function CostIntelligence() {
     fetchData();
   }, []);
 
+  // Auto-sync sampleCustomerOngkir when logisticsParams change
+  useEffect(() => {
+    const calculated = Number(logisticsParams.ondemand_base_fare_idr || 10000) +
+      Math.max(0, (Number(logisticsParams.ondemand_avg_km || 5.5) - 1)) * Number(logisticsParams.ondemand_per_km_idr || 2500);
+    setSampleCustomerOngkir(calculated);
+  }, [
+    logisticsParams.ondemand_base_fare_idr,
+    logisticsParams.ondemand_avg_km,
+    logisticsParams.ondemand_per_km_idr
+  ]);
+
   // Live simulation preview calculation (ensuring numeric operations)
-  const monthlyCapexAmort = Number(formData.capex_total_idr || 0) / Math.max(1, Number(formData.capex_amort_months || 1));
-  const fixedMonthlyOpex =
-    Number(formData.opex_server_idr || 0) +
-    Number(formData.opex_domain_ssl_idr || 0) +
-    Number(formData.opex_marketing_idr || 0) +
-    Number(formData.opex_team_salary_idr || 0) +
-    Number(formData.opex_insurance_idr || 0) +
-    Number(formData.opex_other_fixed_idr || 0);
-  const fixedTotalMonthly = fixedMonthlyOpex + monthlyCapexAmort;
-  const fixedCostPerOrder = fixedTotalMonthly / Math.max(1, Number(formData.estimated_orders_per_month || 1));
-  const variablePerOrder =
-    Number(formData.opex_tomtom_per_order_idr || 0) +
-    Number(formData.opex_zenziva_per_order_idr || 0) +
-    Number(formData.opex_cloud_storage_per_order_idr || 0) +
-    Number(formData.opex_cs_support_per_order_idr || 0) +
-    Number(formData.opex_dispute_reserve_idr || 0) +
+  const opexOndemand = formData.opex_ondemand_details || {};
+  const opexAggregator = formData.opex_aggregator_details || {};
+  const capexOndemand = formData.capex_ondemand_details || {};
+  const capexAggregator = formData.capex_aggregator_details || {};
+  const amortMonths = Math.max(1, Number(formData.capex_amort_months || 24));
+
+  const monthlyCapexAmortOndemand = Number(capexOndemand.total_idr || 0) / amortMonths;
+  const monthlyCapexAmortAggregator = Number(capexAggregator.total_idr || 0) / amortMonths;
+  const totalCapexAmort = monthlyCapexAmortOndemand + monthlyCapexAmortAggregator;
+
+  const fixedMonthlyOpexOndemand =
+    Number(opexOndemand.server_idr || 0) +
+    Number(opexOndemand.domain_ssl_idr || 0) +
+    Number(opexOndemand.marketing_idr || 0) +
+    Number(opexOndemand.team_salary_idr || 0) +
+    Number(opexOndemand.insurance_idr || 0) +
+    Number(opexOndemand.other_fixed_idr || 0);
+
+  const fixedMonthlyOpexAggregator =
+    Number(opexAggregator.server_idr || 0) +
+    Number(opexAggregator.domain_ssl_idr || 0) +
+    Number(opexAggregator.marketing_idr || 0) +
+    Number(opexAggregator.team_salary_idr || 0) +
+    Number(opexAggregator.insurance_idr || 0) +
+    Number(opexAggregator.other_fixed_idr || 0);
+
+  const fixedTotalMonthlyOndemand = fixedMonthlyOpexOndemand + monthlyCapexAmortOndemand;
+  const fixedTotalMonthlyAggregator = fixedMonthlyOpexAggregator + monthlyCapexAmortAggregator;
+  const fixedTotalMonthly = fixedTotalMonthlyOndemand + fixedTotalMonthlyAggregator;
+
+  const estOrdersOndemandMonthly = Math.max(1, Number(formData.estimated_orders_ondemand_per_month || 2500));
+  const estOrdersAggregatorMonthly = Math.max(1, Number(formData.estimated_orders_aggregator_per_month || 1000));
+  const estOrdersMonthly = estOrdersOndemandMonthly + estOrdersAggregatorMonthly;
+  const estOrdersDaily = Math.ceil(estOrdersMonthly / 30);
+
+  const fixedCostPerOrderOndemand = fixedTotalMonthlyOndemand / estOrdersOndemandMonthly;
+  const fixedCostPerOrderAggregator = fixedTotalMonthlyAggregator / estOrdersAggregatorMonthly;
+
+  const variablePerOrderOndemand =
+    Number(opexOndemand.tomtom_per_order_idr || 0) +
+    Number(opexOndemand.zenziva_per_order_idr || 0) +
+    Number(opexOndemand.cloud_storage_per_order_idr || 0) +
+    Number(opexOndemand.cs_support_per_order_idr || 0) +
+    Number(opexOndemand.dispute_reserve_idr || 0) +
     Number(formData.payment_gateway_fixed_idr || 0) +
     Number(formData.payout_disbursement_fee_idr || 0);
-  const simulatedBepCostPerOrder = Math.ceil(fixedCostPerOrder + variablePerOrder);
+
+  const variablePerOrderAggregator =
+    Number(opexAggregator.tomtom_per_order_idr || 0) +
+    Number(opexAggregator.zenziva_per_order_idr || 0) +
+    Number(opexAggregator.cloud_storage_per_order_idr || 0) +
+    Number(opexAggregator.cs_support_per_order_idr || 0) +
+    Number(opexAggregator.dispute_reserve_idr || 0) +
+    Number(formData.payment_gateway_fixed_idr || 0) +
+    Number(formData.payout_disbursement_fee_idr || 0);
+
+  const simulatedBepCostPerOrderOndemand = Math.ceil(fixedCostPerOrderOndemand + variablePerOrderOndemand);
+  const simulatedBepCostPerOrderAggregator = Math.ceil(fixedCostPerOrderAggregator + variablePerOrderAggregator);
 
   const simVat = Number(formData.tax_vat_pct || 0) / 100;
   const simMdr = Number(formData.payment_gateway_mdr_pct || 0) / 100;
   const simMinFee = Number(formData.min_platform_fee_idr || 1500);
 
   const denomOndemand = Math.max(0.3, 1 - (Number(formData.target_margin_ondemand_pct || 0) / 100) - simVat - simMdr);
-  const simulatedOnDemandFee = Math.max(simMinFee, Math.ceil(simulatedBepCostPerOrder / denomOndemand));
+  const simulatedOnDemandFee = Math.max(simMinFee, Math.ceil(variablePerOrderOndemand / denomOndemand));
 
-  const denomAggregator = Math.max(0.3, 1 - (Number(formData.target_margin_aggregator_pct || 0) / 100) - simVat - simMdr);
-  const simulatedAggregatorFee = Math.max(simMinFee, Math.ceil(simulatedBepCostPerOrder / denomAggregator));
+  // Aggregator relies purely on spread (discount dari 3PL), bukan handling fee tambahan
+  // Formula: Platform beli di harga diskon 3PL, jual ke customer sama harga 3PL -> spread = keuntungan
+  // Contoh: Harga 3PL = 10.000, Diskon B2B = 20% -> Platform beli 8.000, jual 10.000 -> Profit = 2.000
 
   // 360° Comprehensive Logistics & Aggregator Unit Economics (Standar 2026)
   const estCourierOngkirIdr = Number(logisticsParams.ondemand_base_fare_idr || 10000) +
     Math.max(0, (Number(logisticsParams.ondemand_avg_km || 5.5) - 1)) * Number(logisticsParams.ondemand_per_km_idr || 2500);
   const courierTakeRateProfitIdr = Math.round(estCourierOngkirIdr * (Number(logisticsParams.ondemand_courier_commission_pct || 0) / 100));
 
-  const b2bSpreadMarginPct = Math.max(0, Number(logisticsParams.aggregator_b2b_discount_pct || 20) - Number(logisticsParams.aggregator_customer_discount_pct || 5));
-  const aggregatorSpreadProfitIdr = Math.round(Number(logisticsParams.aggregator_avg_published_idr || 20000) * (b2bSpreadMarginPct / 100));
+  const rawB2bDiscountPct = Number(logisticsParams.aggregator_b2b_discount_pct ?? 20);
+  const rawCustDiscountPct = Number(logisticsParams.aggregator_customer_discount_pct ?? 5);
+  const aggAvgPublishedIdr = Number(logisticsParams.aggregator_avg_published_idr || 20000);
+  
+  let effectiveCustDiscountPct = rawCustDiscountPct;
+  const quotaPerUser = logisticsParams.aggregator_customer_discount_quota;
+  const estUsersAggregatorMonthly = Math.max(1, Number(formData.estimated_users_aggregator_per_month || 50));
+  
+  if (quotaPerUser !== '' && Number(quotaPerUser) >= 0 && estOrdersAggregatorMonthly > 0) {
+    const totalDiscountedOrdersMax = Number(quotaPerUser) * estUsersAggregatorMonthly;
+    const discountedOrders = Math.min(totalDiscountedOrdersMax, estOrdersAggregatorMonthly);
+    const normalOrders = estOrdersAggregatorMonthly - discountedOrders;
+    effectiveCustDiscountPct = (discountedOrders * rawCustDiscountPct + normalOrders * 0) / estOrdersAggregatorMonthly;
+  }
 
-  const estOrdersMonthly = Math.max(1, Number(formData.estimated_orders_per_month || 1000));
-  const estOrdersDaily = Math.ceil(estOrdersMonthly / 30);
+  const b2bSpreadMarginPct = Math.max(0, rawB2bDiscountPct - effectiveCustDiscountPct);
+  const aggregatorSpreadProfitIdr = Math.round(aggAvgPublishedIdr * (b2bSpreadMarginPct / 100));
+
   const netProfitPerOrderOndemand = Math.max(0, Math.round(
-    simulatedOnDemandFee * (1 - simVat - simMdr) + courierTakeRateProfitIdr - variablePerOrder
+    simulatedOnDemandFee * (1 - simVat - simMdr) + courierTakeRateProfitIdr - variablePerOrderOndemand
   ));
+  // Aggregator profit = Spread - VAT on spread - MDR on full tariff - variable OPEX
+  const mdrOnAggTariff = Math.round(aggAvgPublishedIdr * simMdr);
+  const vatOnSpread = Math.round(aggregatorSpreadProfitIdr * simVat);
   const netProfitPerOrderAggregator = Math.max(0, Math.round(
-    simulatedAggregatorFee * (1 - simVat - simMdr) + aggregatorSpreadProfitIdr - variablePerOrder
+    aggregatorSpreadProfitIdr - vatOnSpread - mdrOnAggTariff - variablePerOrderAggregator
   ));
-  const projectedMonthlyNetProfit = Math.round(netProfitPerOrderOndemand * estOrdersMonthly) - Math.round(fixedTotalMonthly);
-  const totalModalAwalIdr = Number(formData.capex_total_idr || 0) + fixedTotalMonthly;
-  const paybackMonths = projectedMonthlyNetProfit > 0
-    ? Number((totalModalAwalIdr / projectedMonthlyNetProfit).toFixed(1))
+  const monthlyNetOpProfitOndemand = Math.round(netProfitPerOrderOndemand * estOrdersOndemandMonthly);
+  const monthlyNetOpProfitAggregator = Math.round(netProfitPerOrderAggregator * estOrdersAggregatorMonthly);
+  const projectedMonthlyNetProfit = monthlyNetOpProfitOndemand + monthlyNetOpProfitAggregator - Math.round(fixedTotalMonthly);
+  const ebitdaMonthly = (monthlyNetOpProfitOndemand + monthlyNetOpProfitAggregator) - (fixedMonthlyOpexOndemand + fixedMonthlyOpexAggregator);
+  const totalModalAwalIdr = Number(capexOndemand.total_idr || 0) + Number(capexAggregator.total_idr || 0) + fixedMonthlyOpexOndemand + fixedMonthlyOpexAggregator;
+
+  const avgOnDemandVatIdr = Math.round(simulatedOnDemandFee * simVat);
+  const avgOnDemandCustomerTotal = estCourierOngkirIdr + simulatedOnDemandFee + avgOnDemandVatIdr;
+  const monthlyRevenueOndemand = estOrdersOndemandMonthly * avgOnDemandCustomerTotal;
+  const monthlyRevenueAggregator = estOrdersAggregatorMonthly * aggAvgPublishedIdr;
+  const projectedMonthlyRevenue = monthlyRevenueOndemand + monthlyRevenueAggregator;
+
+  const paybackMonths = ebitdaMonthly > 0
+    ? Math.max(0.1, Number((totalModalAwalIdr / ebitdaMonthly).toFixed(1)))
+    : ebitdaMonthly < 0 ? -1 : 0;
+  const paybackDays = paybackMonths > 0 ? Math.round(paybackMonths * 30) : 0;
+
+  const avgNetProfitPerOrder = estOrdersMonthly > 0 
+    ? (monthlyNetOpProfitOndemand + monthlyNetOpProfitAggregator) / estOrdersMonthly 
     : 0;
-  const paybackDays = Math.round(paybackMonths * 30);
-  const dailyTargetOrders = estOrdersDaily;
-  const dailyTargetRevenueIdr = dailyTargetOrders * simulatedOnDemandFee;
-  const dailyTargetNetProfitIdr = dailyTargetOrders * netProfitPerOrderOndemand;
+  
+  // Jika net profit per order negatif atau nol, kita tidak akan pernah BEP.
+  const bepOrdersMonthly = avgNetProfitPerOrder > 0 ? Math.ceil(fixedTotalMonthly / avgNetProfitPerOrder) : -1;
+  const bepOrdersDaily = bepOrdersMonthly > 0 ? Math.ceil(bepOrdersMonthly / 30) : -1;
+
+  const dailyTargetOrders = bepOrdersDaily > 0 ? Math.max(bepOrdersDaily, estOrdersDaily) : estOrdersDaily;
+  const avgRevenuePerOrder = estOrdersMonthly > 0 ? projectedMonthlyRevenue / estOrdersMonthly : 0;
+  const dailyTargetRevenueIdr = Math.round(dailyTargetOrders * avgRevenuePerOrder);
+  const dailyTargetNetProfitIdr = Math.round(dailyTargetOrders * avgNetProfitPerOrder);
   const minAverageTicketPerOrder = Math.max(15000, simulatedOnDemandFee * 6);
 
   // Customer Checkout Invoice Preview (On-Demand vs Aggregator)
+  // sampleCustomerOngkir = state variable (input user untuk on-demand invoice preview)
   const sampleCourierCommissionPct = Number(logisticsParams.ondemand_courier_commission_pct || 20);
   const sampleCourierTakeRateIdr = Math.round(sampleCustomerOngkir * (sampleCourierCommissionPct / 100));
   const sampleCourierPayoutIdr = sampleCustomerOngkir - sampleCourierTakeRateIdr;
@@ -243,11 +347,11 @@ export default function CostIntelligence() {
   const onDemandCustomerTotal = sampleCustomerOngkir + simulatedOnDemandFee + onDemandVatIdr;
   const sampleOnDemandGrossRevenueIdr = simulatedOnDemandFee + sampleCourierTakeRateIdr;
   const sampleOnDemandNetProfitIdr = Math.max(0, Math.round(
-    simulatedOnDemandFee * (1 - simVat - simMdr) + sampleCourierTakeRateIdr - variablePerOrder
+    simulatedOnDemandFee * (1 - simVat - simMdr) + sampleCourierTakeRateIdr - variablePerOrderOndemand
   ));
 
-  const aggregatorVatIdr = Math.round(simulatedAggregatorFee * simVat);
-  const aggregatorCustomerTotal = sampleCustomerOngkir + simulatedAggregatorFee + aggregatorVatIdr;
+  // Aggregator: customer bayar tarif 3PL normal, platform dapat margin dari spread B2B discount
+  const aggregatorCustomerTotal = aggAvgPublishedIdr; // Customer bayar harga normal 3PL
 
   const handleSaveConfig = async () => {
     try {
@@ -391,14 +495,34 @@ export default function CostIntelligence() {
                   className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1">Estimasi Order / Bulan</label>
-                <input
-                  type="number"
-                  value={formData.estimated_orders_per_month}
-                  onChange={e => setFormData({ ...formData, estimated_orders_per_month: Number(e.target.value) })}
-                  className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Vol. Resi On-Demand / bln</label>
+                  <input
+                    type="number"
+                    value={formData.estimated_orders_ondemand_per_month === 0 ? '' : formData.estimated_orders_ondemand_per_month}
+                    onChange={e => setFormData({ ...formData, estimated_orders_ondemand_per_month: e.target.value === '' ? '' as any : Number(e.target.value) })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Vol. Resi Aggregator / bln</label>
+                  <input
+                    type="number"
+                    value={formData.estimated_orders_aggregator_per_month === 0 ? '' : formData.estimated_orders_aggregator_per_month}
+                    onChange={e => setFormData({ ...formData, estimated_orders_aggregator_per_month: e.target.value === '' ? '' as any : Number(e.target.value) })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Est. Active Users Aggregator</label>
+                  <input
+                    type="number"
+                    value={formData.estimated_users_aggregator_per_month === 0 ? '' : formData.estimated_users_aggregator_per_month}
+                    onChange={e => setFormData({ ...formData, estimated_users_aggregator_per_month: e.target.value === '' ? '' as any : Number(e.target.value) })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
 
@@ -406,13 +530,22 @@ export default function CostIntelligence() {
               <h3 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider">
                 1. CAPEX (Investasi Awal Infrastruktur)
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Total CAPEX (IDR)</label>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">CAPEX On-Demand (IDR)</label>
                   <input
                     type="number"
-                    value={formData.capex_total_idr}
-                    onChange={e => setFormData({ ...formData, capex_total_idr: Number(e.target.value) })}
+                    value={formData.capex_ondemand_details?.total_idr === 0 ? '' : formData.capex_ondemand_details?.total_idr}
+                    onChange={e => setFormData({ ...formData, capex_ondemand_details: { ...formData.capex_ondemand_details, total_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">CAPEX Aggregator (IDR)</label>
+                  <input
+                    type="number"
+                    value={formData.capex_aggregator_details?.total_idr === 0 ? '' : formData.capex_aggregator_details?.total_idr}
+                    onChange={e => setFormData({ ...formData, capex_aggregator_details: { ...formData.capex_aggregator_details, total_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -420,8 +553,8 @@ export default function CostIntelligence() {
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Amortisasi (Bulan)</label>
                   <input
                     type="number"
-                    value={formData.capex_amort_months}
-                    onChange={e => setFormData({ ...formData, capex_amort_months: Number(e.target.value) })}
+                    value={formData.capex_amort_months === 0 ? '' : formData.capex_amort_months}
+                    onChange={e => setFormData({ ...formData, capex_amort_months: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -430,15 +563,15 @@ export default function CostIntelligence() {
 
             <div className="border-t border-white/10 pt-4 space-y-4">
               <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider">
-                2. OPEX Tetap Bulanan (Fixed Server & Tim)
+                2A. OPEX Tetap Bulanan (On-Demand)
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1">VPS Server (4GB RAM)</label>
                   <input
                     type="number"
-                    value={formData.opex_server_idr}
-                    onChange={e => setFormData({ ...formData, opex_server_idr: Number(e.target.value) })}
+                    value={formData.opex_ondemand_details?.server_idr === 0 ? '' : formData.opex_ondemand_details?.server_idr}
+                    onChange={e => setFormData({ ...formData, opex_ondemand_details: { ...formData.opex_ondemand_details, server_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -446,8 +579,26 @@ export default function CostIntelligence() {
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Domain & SSL</label>
                   <input
                     type="number"
-                    value={formData.opex_domain_ssl_idr}
-                    onChange={e => setFormData({ ...formData, opex_domain_ssl_idr: Number(e.target.value) })}
+                    value={formData.opex_ondemand_details?.domain_ssl_idr === 0 ? '' : formData.opex_ondemand_details?.domain_ssl_idr}
+                    onChange={e => setFormData({ ...formData, opex_ondemand_details: { ...formData.opex_ondemand_details, domain_ssl_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Gaji Karyawan / Tim</label>
+                  <input
+                    type="number"
+                    value={formData.opex_ondemand_details?.team_salary_idr === 0 ? '' : formData.opex_ondemand_details?.team_salary_idr}
+                    onChange={e => setFormData({ ...formData, opex_ondemand_details: { ...formData.opex_ondemand_details, team_salary_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Marketing / Iklan</label>
+                  <input
+                    type="number"
+                    value={formData.opex_ondemand_details?.marketing_idr === 0 ? '' : formData.opex_ondemand_details?.marketing_idr}
+                    onChange={e => setFormData({ ...formData, opex_ondemand_details: { ...formData.opex_ondemand_details, marketing_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -455,8 +606,61 @@ export default function CostIntelligence() {
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Lainnya / Kontingensi</label>
                   <input
                     type="number"
-                    value={formData.opex_other_fixed_idr}
-                    onChange={e => setFormData({ ...formData, opex_other_fixed_idr: Number(e.target.value) })}
+                    value={formData.opex_ondemand_details?.other_fixed_idr === 0 ? '' : formData.opex_ondemand_details?.other_fixed_idr}
+                    onChange={e => setFormData({ ...formData, opex_ondemand_details: { ...formData.opex_ondemand_details, other_fixed_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-white/10 pt-4 space-y-4">
+              <h3 className="text-sm font-semibold text-blue-400 uppercase tracking-wider">
+                2B. OPEX Tetap Bulanan (Aggregator)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">VPS Server (4GB RAM)</label>
+                  <input
+                    type="number"
+                    value={formData.opex_aggregator_details?.server_idr === 0 ? '' : formData.opex_aggregator_details?.server_idr}
+                    onChange={e => setFormData({ ...formData, opex_aggregator_details: { ...formData.opex_aggregator_details, server_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Domain & SSL</label>
+                  <input
+                    type="number"
+                    value={formData.opex_aggregator_details?.domain_ssl_idr === 0 ? '' : formData.opex_aggregator_details?.domain_ssl_idr}
+                    onChange={e => setFormData({ ...formData, opex_aggregator_details: { ...formData.opex_aggregator_details, domain_ssl_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Gaji Karyawan / Tim</label>
+                  <input
+                    type="number"
+                    value={formData.opex_aggregator_details?.team_salary_idr === 0 ? '' : formData.opex_aggregator_details?.team_salary_idr}
+                    onChange={e => setFormData({ ...formData, opex_aggregator_details: { ...formData.opex_aggregator_details, team_salary_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Marketing / Iklan</label>
+                  <input
+                    type="number"
+                    value={formData.opex_aggregator_details?.marketing_idr === 0 ? '' : formData.opex_aggregator_details?.marketing_idr}
+                    onChange={e => setFormData({ ...formData, opex_aggregator_details: { ...formData.opex_aggregator_details, marketing_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Lainnya / Kontingensi</label>
+                  <input
+                    type="number"
+                    value={formData.opex_aggregator_details?.other_fixed_idr === 0 ? '' : formData.opex_aggregator_details?.other_fixed_idr}
+                    onChange={e => setFormData({ ...formData, opex_aggregator_details: { ...formData.opex_aggregator_details, other_fixed_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -465,15 +669,15 @@ export default function CostIntelligence() {
 
             <div className="border-t border-white/10 pt-4 space-y-4">
               <h3 className="text-sm font-semibold text-amber-400 uppercase tracking-wider">
-                3. OPEX Variabel per Order (API Maps, OTP, Storage, CS)
+                3A. OPEX Variabel per Order (On-Demand)
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1">TomTom Maps / order (IDR)</label>
                   <input
                     type="number"
-                    value={formData.opex_tomtom_per_order_idr}
-                    onChange={e => setFormData({ ...formData, opex_tomtom_per_order_idr: Number(e.target.value) })}
+                    value={formData.opex_ondemand_details?.tomtom_per_order_idr === 0 ? '' : formData.opex_ondemand_details?.tomtom_per_order_idr}
+                    onChange={e => setFormData({ ...formData, opex_ondemand_details: { ...formData.opex_ondemand_details, tomtom_per_order_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -481,8 +685,8 @@ export default function CostIntelligence() {
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Zenziva OTP / order (IDR)</label>
                   <input
                     type="number"
-                    value={formData.opex_zenziva_per_order_idr}
-                    onChange={e => setFormData({ ...formData, opex_zenziva_per_order_idr: Number(e.target.value) })}
+                    value={formData.opex_ondemand_details?.zenziva_per_order_idr === 0 ? '' : formData.opex_ondemand_details?.zenziva_per_order_idr}
+                    onChange={e => setFormData({ ...formData, opex_ondemand_details: { ...formData.opex_ondemand_details, zenziva_per_order_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -490,8 +694,8 @@ export default function CostIntelligence() {
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Cloud Storage Resi (IDR)</label>
                   <input
                     type="number"
-                    value={formData.opex_cloud_storage_per_order_idr}
-                    onChange={e => setFormData({ ...formData, opex_cloud_storage_per_order_idr: Number(e.target.value) })}
+                    value={formData.opex_ondemand_details?.cloud_storage_per_order_idr === 0 ? '' : formData.opex_ondemand_details?.cloud_storage_per_order_idr}
+                    onChange={e => setFormData({ ...formData, opex_ondemand_details: { ...formData.opex_ondemand_details, cloud_storage_per_order_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -499,8 +703,8 @@ export default function CostIntelligence() {
                   <label className="block text-xs font-medium text-zinc-400 mb-1">CS Support / order (IDR)</label>
                   <input
                     type="number"
-                    value={formData.opex_cs_support_per_order_idr}
-                    onChange={e => setFormData({ ...formData, opex_cs_support_per_order_idr: Number(e.target.value) })}
+                    value={formData.opex_ondemand_details?.cs_support_per_order_idr === 0 ? '' : formData.opex_ondemand_details?.cs_support_per_order_idr}
+                    onChange={e => setFormData({ ...formData, opex_ondemand_details: { ...formData.opex_ondemand_details, cs_support_per_order_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -508,8 +712,61 @@ export default function CostIntelligence() {
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Cadangan Klaim / Dispute (IDR)</label>
                   <input
                     type="number"
-                    value={formData.opex_dispute_reserve_idr}
-                    onChange={e => setFormData({ ...formData, opex_dispute_reserve_idr: Number(e.target.value) })}
+                    value={formData.opex_ondemand_details?.dispute_reserve_idr === 0 ? '' : formData.opex_ondemand_details?.dispute_reserve_idr}
+                    onChange={e => setFormData({ ...formData, opex_ondemand_details: { ...formData.opex_ondemand_details, dispute_reserve_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-white/10 pt-4 space-y-4">
+              <h3 className="text-sm font-semibold text-amber-400 uppercase tracking-wider">
+                3B. OPEX Variabel per Order (Aggregator)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">TomTom Maps / order (IDR)</label>
+                  <input
+                    type="number"
+                    value={formData.opex_aggregator_details?.tomtom_per_order_idr === 0 ? '' : formData.opex_aggregator_details?.tomtom_per_order_idr}
+                    onChange={e => setFormData({ ...formData, opex_aggregator_details: { ...formData.opex_aggregator_details, tomtom_per_order_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Zenziva OTP / order (IDR)</label>
+                  <input
+                    type="number"
+                    value={formData.opex_aggregator_details?.zenziva_per_order_idr === 0 ? '' : formData.opex_aggregator_details?.zenziva_per_order_idr}
+                    onChange={e => setFormData({ ...formData, opex_aggregator_details: { ...formData.opex_aggregator_details, zenziva_per_order_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Cloud Storage Resi (IDR)</label>
+                  <input
+                    type="number"
+                    value={formData.opex_aggregator_details?.cloud_storage_per_order_idr === 0 ? '' : formData.opex_aggregator_details?.cloud_storage_per_order_idr}
+                    onChange={e => setFormData({ ...formData, opex_aggregator_details: { ...formData.opex_aggregator_details, cloud_storage_per_order_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">CS Support / order (IDR)</label>
+                  <input
+                    type="number"
+                    value={formData.opex_aggregator_details?.cs_support_per_order_idr === 0 ? '' : formData.opex_aggregator_details?.cs_support_per_order_idr}
+                    onChange={e => setFormData({ ...formData, opex_aggregator_details: { ...formData.opex_aggregator_details, cs_support_per_order_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Cadangan Klaim / Dispute (IDR)</label>
+                  <input
+                    type="number"
+                    value={formData.opex_aggregator_details?.dispute_reserve_idr === 0 ? '' : formData.opex_aggregator_details?.dispute_reserve_idr}
+                    onChange={e => setFormData({ ...formData, opex_aggregator_details: { ...formData.opex_aggregator_details, dispute_reserve_idr: e.target.value === '' ? '' as any : Number(e.target.value) } })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -518,16 +775,16 @@ export default function CostIntelligence() {
 
             <div className="border-t border-white/10 pt-4 space-y-4">
               <h3 className="text-sm font-semibold text-rose-400 uppercase tracking-wider">
-                4. Parameter Keuangan, Pajak (VAT/PPh) & Payment Gateway
+                4. Parameter Pajak (VAT/PPh)
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1">PPN / VAT (%)</label>
                   <input
                     type="number"
                     step="0.1"
-                    value={formData.tax_vat_pct}
-                    onChange={e => setFormData({ ...formData, tax_vat_pct: Number(e.target.value) })}
+                    value={formData.tax_vat_pct === 0 ? '' : formData.tax_vat_pct}
+                    onChange={e => setFormData({ ...formData, tax_vat_pct: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -536,36 +793,8 @@ export default function CostIntelligence() {
                   <input
                     type="number"
                     step="0.1"
-                    value={formData.tax_pph_pct}
-                    onChange={e => setFormData({ ...formData, tax_pph_pct: Number(e.target.value) })}
-                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">MDR Payment Gateway (%)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formData.payment_gateway_mdr_pct}
-                    onChange={e => setFormData({ ...formData, payment_gateway_mdr_pct: Number(e.target.value) })}
-                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">PG Fixed Fee (IDR)</label>
-                  <input
-                    type="number"
-                    value={formData.payment_gateway_fixed_idr}
-                    onChange={e => setFormData({ ...formData, payment_gateway_fixed_idr: Number(e.target.value) })}
-                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Disbursement Fee Payout (IDR)</label>
-                  <input
-                    type="number"
-                    value={formData.payout_disbursement_fee_idr}
-                    onChange={e => setFormData({ ...formData, payout_disbursement_fee_idr: Number(e.target.value) })}
+                    value={formData.tax_pph_pct === 0 ? '' : formData.tax_pph_pct}
+                    onChange={e => setFormData({ ...formData, tax_pph_pct: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -581,8 +810,8 @@ export default function CostIntelligence() {
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Target Margin On-Demand (%)</label>
                   <input
                     type="number"
-                    value={formData.target_margin_ondemand_pct}
-                    onChange={e => setFormData({ ...formData, target_margin_ondemand_pct: Number(e.target.value) })}
+                    value={formData.target_margin_ondemand_pct === 0 ? '' : formData.target_margin_ondemand_pct}
+                    onChange={e => setFormData({ ...formData, target_margin_ondemand_pct: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -590,8 +819,8 @@ export default function CostIntelligence() {
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Target Margin Aggregator (%)</label>
                   <input
                     type="number"
-                    value={formData.target_margin_aggregator_pct}
-                    onChange={e => setFormData({ ...formData, target_margin_aggregator_pct: Number(e.target.value) })}
+                    value={formData.target_margin_aggregator_pct === 0 ? '' : formData.target_margin_aggregator_pct}
+                    onChange={e => setFormData({ ...formData, target_margin_aggregator_pct: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -599,8 +828,8 @@ export default function CostIntelligence() {
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Tarif Minimum Platform (IDR)</label>
                   <input
                     type="number"
-                    value={formData.min_platform_fee_idr}
-                    onChange={e => setFormData({ ...formData, min_platform_fee_idr: Number(e.target.value) })}
+                    value={formData.min_platform_fee_idr === 0 ? '' : formData.min_platform_fee_idr}
+                    onChange={e => setFormData({ ...formData, min_platform_fee_idr: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -608,8 +837,8 @@ export default function CostIntelligence() {
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Batas Subsidi Diskon (%)</label>
                   <input
                     type="number"
-                    value={formData.max_discount_subsidy_pct}
-                    onChange={e => setFormData({ ...formData, max_discount_subsidy_pct: Number(e.target.value) })}
+                    value={formData.max_discount_subsidy_pct === 0 ? '' : formData.max_discount_subsidy_pct}
+                    onChange={e => setFormData({ ...formData, max_discount_subsidy_pct: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -633,7 +862,7 @@ export default function CostIntelligence() {
                   <input
                     type="number"
                     value={logisticsParams.ondemand_base_fare_idr}
-                    onChange={e => setLogisticsParams({ ...logisticsParams, ondemand_base_fare_idr: Number(e.target.value) })}
+                    onChange={e => setLogisticsParams({ ...logisticsParams, ondemand_base_fare_idr: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
@@ -642,7 +871,7 @@ export default function CostIntelligence() {
                   <input
                     type="number"
                     value={logisticsParams.ondemand_per_km_idr}
-                    onChange={e => setLogisticsParams({ ...logisticsParams, ondemand_per_km_idr: Number(e.target.value) })}
+                    onChange={e => setLogisticsParams({ ...logisticsParams, ondemand_per_km_idr: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
@@ -652,7 +881,7 @@ export default function CostIntelligence() {
                     type="number"
                     step="0.5"
                     value={logisticsParams.ondemand_avg_km}
-                    onChange={e => setLogisticsParams({ ...logisticsParams, ondemand_avg_km: Number(e.target.value) })}
+                    onChange={e => setLogisticsParams({ ...logisticsParams, ondemand_avg_km: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
@@ -662,18 +891,18 @@ export default function CostIntelligence() {
                     type="number"
                     step="1"
                     value={logisticsParams.ondemand_courier_commission_pct}
-                    onChange={e => setLogisticsParams({ ...logisticsParams, ondemand_courier_commission_pct: Number(e.target.value) })}
+                    onChange={e => setLogisticsParams({ ...logisticsParams, ondemand_courier_commission_pct: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Tarif Resmi Ekspedisi / Resi (IDR)</label>
                   <input
                     type="number"
                     value={logisticsParams.aggregator_avg_published_idr}
-                    onChange={e => setLogisticsParams({ ...logisticsParams, aggregator_avg_published_idr: Number(e.target.value) })}
+                    onChange={e => setLogisticsParams({ ...logisticsParams, aggregator_avg_published_idr: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
@@ -683,7 +912,7 @@ export default function CostIntelligence() {
                     type="number"
                     step="0.5"
                     value={logisticsParams.aggregator_b2b_discount_pct}
-                    onChange={e => setLogisticsParams({ ...logisticsParams, aggregator_b2b_discount_pct: Number(e.target.value) })}
+                    onChange={e => setLogisticsParams({ ...logisticsParams, aggregator_b2b_discount_pct: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
@@ -693,8 +922,18 @@ export default function CostIntelligence() {
                     type="number"
                     step="0.5"
                     value={logisticsParams.aggregator_customer_discount_pct}
-                    onChange={e => setLogisticsParams({ ...logisticsParams, aggregator_customer_discount_pct: Number(e.target.value) })}
+                    onChange={e => setLogisticsParams({ ...logisticsParams, aggregator_customer_discount_pct: e.target.value === '' ? '' as any : Number(e.target.value) })}
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Kuota Diskon (Bulan)</label>
+                  <input
+                    type="number"
+                    placeholder="Kosong = Semua"
+                    value={logisticsParams.aggregator_customer_discount_quota}
+                    onChange={e => setLogisticsParams({ ...logisticsParams, aggregator_customer_discount_quota: e.target.value === '' ? '' as any : Number(e.target.value) })}
+                    className="w-full bg-zinc-950 border border-white/10 rounded-xl px-3.5 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none placeholder:text-zinc-600"
                   />
                 </div>
               </div>
@@ -734,33 +973,31 @@ export default function CostIntelligence() {
                     <span className="text-lg font-bold text-white">{formatIDR(fixedTotalMonthly)}</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs text-zinc-400 block">Fixed Cost per Order</span>
-                    <span className="text-lg font-bold text-emerald-400">{formatIDR(fixedCostPerOrder)}</span>
+                    <span className="text-xs text-zinc-400 block">Total Order / Bulan</span>
+                    <span className="text-lg font-bold text-emerald-400">{estOrdersMonthly.toLocaleString('id-ID')}</span>
                   </div>
                 </div>
 
-                <div className="p-4 rounded-xl bg-zinc-950/60 border border-white/10 flex justify-between items-center">
-                  <div>
-                    <span className="text-xs text-zinc-400 block">Variabel / Order (API + Storage + CS)</span>
-                    <span className="text-lg font-bold text-blue-400">{formatIDR(variablePerOrder)}</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-zinc-950/60 border border-white/10 text-center">
+                    <span className="text-xs text-zinc-400 block">On-Demand Cost / Order</span>
+                    <span className="text-sm font-bold text-emerald-400 block mt-1">Fixed: {formatIDR(fixedCostPerOrderOndemand)}</span>
+                    <span className="text-sm font-bold text-blue-400 block">Var: {formatIDR(variablePerOrderOndemand)}</span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs text-zinc-400 block">BEP Base Cost / Order</span>
-                    <span className="text-xl font-extrabold text-amber-400">{formatIDR(simulatedBepCostPerOrder)}</span>
+                  <div className="p-3 rounded-xl bg-zinc-950/60 border border-white/10 text-center">
+                    <span className="text-xs text-zinc-400 block">Aggregator Cost / Order</span>
+                    <span className="text-sm font-bold text-emerald-400 block mt-1">Fixed: {formatIDR(fixedCostPerOrderAggregator)}</span>
+                    <span className="text-sm font-bold text-blue-400 block">Var: {formatIDR(variablePerOrderAggregator)}</span>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-zinc-900 border border-white/5 grid grid-cols-3 gap-2 text-center text-xs">
+                <div className="p-3 rounded-xl bg-zinc-900 border border-white/5 grid grid-cols-2 gap-2 text-center text-xs">
                   <div>
                     <span className="text-zinc-500 block">PPN / VAT</span>
                     <span className="font-semibold text-rose-400">{formData.tax_vat_pct}%</span>
                   </div>
                   <div>
-                    <span className="text-zinc-500 block">MDR PG</span>
-                    <span className="font-semibold text-rose-400">{formData.payment_gateway_mdr_pct}%</span>
-                  </div>
-                  <div>
-                    <span className="text-zinc-500 block">Min Tarif</span>
+                    <span className="text-zinc-500 block">Min Tarif Platform</span>
                     <span className="font-semibold text-emerald-400">{formatIDR(formData.min_platform_fee_idr || 0)}</span>
                   </div>
                 </div>
@@ -769,17 +1006,17 @@ export default function CostIntelligence() {
                   <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 flex justify-between items-center">
                     <div>
                       <span className="text-xs text-primary-light font-medium block">Rekomendasi Platform Fee On-Demand</span>
-                      <span className="text-xs text-zinc-400">Net sesudah Pajak {formData.tax_vat_pct}% & MDR {formData.payment_gateway_mdr_pct}%</span>
+                      <span className="text-xs text-zinc-400">Net sesudah Pajak {formData.tax_vat_pct}% (Potong Saldo Dompet)</span>
                     </div>
                     <span className="text-2xl font-black text-white">{formatIDR(simulatedOnDemandFee)}</span>
                   </div>
 
                   <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex justify-between items-center">
                     <div>
-                      <span className="text-xs text-emerald-400 font-medium block">Rekomendasi Handling Fee Aggregator</span>
-                      <span className="text-xs text-zinc-400">Net sesudah Pajak & MDR (Target Margin {formData.target_margin_aggregator_pct}%)</span>
+                      <span className="text-xs text-emerald-400 font-medium block">Estimasi Spread Aggregator (Profit)</span>
+                      <span className="text-xs text-zinc-400">Berdasarkan {b2bSpreadMarginPct}% margin dari diskon 3PL</span>
                     </div>
-                    <span className="text-2xl font-black text-white">{formatIDR(simulatedAggregatorFee)}</span>
+                    <span className="text-2xl font-black text-white">{formatIDR(aggregatorSpreadProfitIdr)}</span>
                   </div>
                 </div>
 
@@ -812,7 +1049,7 @@ export default function CostIntelligence() {
                   <div>
                     <span className="text-xs text-zinc-400 block">Waktu Kembali Modal (Payback Period)</span>
                     <span className="text-2xl font-black text-emerald-400">
-                      {paybackMonths > 0 ? `${paybackMonths} Bulan` : 'BEP Seketika'}
+                      {paybackMonths > 0 ? `${paybackMonths} Bulan` : paybackMonths === -1 ? 'Merugi (Burn Rate)' : 'BEP Seketika'}
                     </span>
                     {paybackMonths > 0 && (
                       <span className="text-xs text-zinc-500 block">Estimasi ~{paybackDays} Hari Operasional</span>
@@ -832,7 +1069,9 @@ export default function CostIntelligence() {
                   <div className="grid grid-cols-2 gap-3 pt-1">
                     <div className="p-3 rounded-lg bg-zinc-900/80 border border-white/5">
                       <span className="text-[11px] text-zinc-400 block">Minimal Order / Hari</span>
-                      <span className="text-lg font-extrabold text-amber-400">{dailyTargetOrders} order/hari</span>
+                      <span className="text-lg font-extrabold text-amber-400">
+                        {bepOrdersDaily > 0 ? `${bepOrdersDaily} order/hari` : bepOrdersDaily === -1 ? 'Merugi Terus' : '0 order/hari'}
+                      </span>
                     </div>
 
                     <div className="p-3 rounded-lg bg-zinc-900/80 border border-white/5">
@@ -866,7 +1105,7 @@ export default function CostIntelligence() {
                     type="number"
                     step="1000"
                     value={sampleCustomerOngkir}
-                    onChange={e => setSampleCustomerOngkir(Number(e.target.value) || 0)}
+                    onChange={e => setSampleCustomerOngkir(e.target.value === '' ? '' : e.target.value === '' ? '' as any : Number(e.target.value))}
                     className="w-24 bg-zinc-950 border border-white/15 rounded-lg px-2 py-1 text-xs text-white text-right focus:border-primary focus:outline-none"
                   />
                 </div>
@@ -929,16 +1168,16 @@ export default function CostIntelligence() {
 
                   <div className="space-y-1.5 text-xs">
                     <div className="flex justify-between text-zinc-400">
-                      <span>Tarif Ekspedisi Logistik</span>
-                      <span className="text-zinc-200 font-medium">{formatIDR(sampleCustomerOngkir)}</span>
+                      <span>Tarif Ekspedisi Logistik (Published)</span>
+                      <span className="text-zinc-200 font-medium">{formatIDR(aggAvgPublishedIdr)}</span>
                     </div>
                     <div className="flex justify-between text-zinc-400">
-                      <span>Handling & Asuransi</span>
-                      <span className="text-zinc-200 font-medium">{formatIDR(simulatedAggregatorFee)}</span>
+                      <span>Spread Keuntungan (Platform)</span>
+                      <span className="text-emerald-300 font-medium">{formatIDR(aggregatorSpreadProfitIdr)}</span>
                     </div>
                     <div className="flex justify-between text-zinc-400">
-                      <span>PPN {formData.tax_vat_pct || 11}%</span>
-                      <span className="text-zinc-200 font-medium">{formatIDR(aggregatorVatIdr)}</span>
+                      <span>Beban OPEX per Order</span>
+                      <span className="text-rose-400 font-medium">-{formatIDR(variablePerOrderAggregator)}</span>
                     </div>
                   </div>
 
@@ -951,6 +1190,89 @@ export default function CostIntelligence() {
                     <span className="text-emerald-300">Net Profit Platform/Order</span>
                     <span className="font-bold text-white">{formatIDR(netProfitPerOrderAggregator)}</span>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* WIDGET 4: PROYEKSI LABA/RUGI BULANAN (MONTHLY P&L) */}
+            <div className="bg-gradient-to-br from-zinc-900 to-zinc-950 border border-purple-500/30 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <BarChart3 className="h-5 w-5 text-purple-400" /> Proyeksi Laba/Rugi Bulanan (Monthly P&L)
+              </h3>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="p-3 rounded-xl bg-zinc-950/60 border border-blue-500/20">
+                    <span className="text-xs text-blue-400 font-bold mb-2 block">TOTAL OMZET (REVENUE KOTOR)</span>
+                    <div className="space-y-1.5 text-xs text-zinc-400">
+                      <div className="flex justify-between">
+                        <span title="Total yang dibayar Customer + Ongkir">On-Demand</span>
+                        <span className="text-white font-medium">{formatIDR(monthlyRevenueOndemand)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span title="Total dari tarif reguler Ekspedisi">Aggregator</span>
+                        <span className="text-white font-medium">{formatIDR(monthlyRevenueAggregator)}</span>
+                      </div>
+                      <div className="flex justify-between border-t border-white/5 pt-1 mt-1">
+                        <span className="font-bold text-zinc-300">Total Omzet / Bulan</span>
+                        <span className="text-blue-400 font-bold">{formatIDR(projectedMonthlyRevenue)}</span>
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span className="font-bold text-zinc-400">Estimasi / Tahun</span>
+                        <span className="text-blue-300 font-bold">{formatIDR(projectedMonthlyRevenue * 12)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 rounded-xl bg-zinc-950/60 border border-rose-500/20">
+                    <span className="text-xs text-rose-400 font-bold mb-2 block">TOTAL PENGELUARAN</span>
+                    <div className="space-y-1.5 text-xs text-zinc-400">
+                      <div className="flex justify-between">
+                        <span title="Termasuk Server, Domain, Gaji, Marketing & Kontingensi">OPEX Tetap (Gaji, Server, dll)</span>
+                        <span className="text-white font-medium">{formatIDR(fixedTotalMonthly - totalCapexAmort)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Amortisasi CAPEX (Modal)</span>
+                        <span className="text-white font-medium">{formatIDR(totalCapexAmort)}</span>
+                      </div>
+                      <div className="flex justify-between border-t border-white/5 pt-1 mt-1">
+                        <span className="font-bold text-zinc-300">Total OPEX Bulanan</span>
+                        <span className="text-rose-400 font-bold">{formatIDR(fixedTotalMonthly)}</span>
+                      </div>
+                      <div className="flex justify-between mt-2">
+                        <span>OPEX Variabel / Bulan</span>
+                        <span className="text-white font-medium">{formatIDR((variablePerOrderOndemand * estOrdersOndemandMonthly) + (variablePerOrderAggregator * estOrdersAggregatorMonthly))}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 rounded-xl bg-zinc-950/60 border border-emerald-500/20">
+                    <span className="text-xs text-emerald-400 font-bold mb-2 block">TOTAL LABA KOTOR (GROSS MARGIN)</span>
+                    <div className="space-y-1.5 text-xs text-zinc-400">
+                      <div className="flex justify-between text-amber-300/80">
+                        <span>On-Demand ({estOrdersOndemandMonthly.toLocaleString('id-ID')} order)</span>
+                        <span className="text-white font-medium">{formatIDR(monthlyNetOpProfitOndemand)}</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-300/80">
+                        <span>Aggregator ({estOrdersAggregatorMonthly.toLocaleString('id-ID')} order)</span>
+                        <span className="text-white font-medium">{formatIDR(monthlyNetOpProfitAggregator)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`p-5 rounded-xl border flex justify-between items-center ${projectedMonthlyNetProfit >= 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-rose-500/10 border-rose-500/30'}`}>
+                  <div>
+                    <span className={`text-xs font-bold block ${projectedMonthlyNetProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      STATUS BULANAN: {projectedMonthlyNetProfit >= 0 ? 'PROFIT / LABA BERSIH' : 'RUGI / BURN RATE'}
+                    </span>
+                    <span className="text-xs text-zinc-400 block mt-1">Setelah dikurangi semua OPEX Tetap & CAPEX bulanan</span>
+                  </div>
+                  <span className={`text-2xl font-black ${projectedMonthlyNetProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {projectedMonthlyNetProfit >= 0 ? '+' : ''}{formatIDR(projectedMonthlyNetProfit)}
+                  </span>
                 </div>
               </div>
             </div>

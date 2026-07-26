@@ -79,3 +79,7 @@ scratch/
 cookies.txt
 *.har
 
+
+# Knowledge Graph (generated)
+graphify-out/
+NUL

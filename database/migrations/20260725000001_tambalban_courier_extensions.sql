@@ -10,6 +10,8 @@ ALTER TABLE courier_profiles
     ADD COLUMN IF NOT EXISTS vehicle_type_car VARCHAR(20) 
         CHECK (vehicle_type_car IN ('sedan','mpv','suv','pickup','van','towing_truck')) NULL,
     ADD COLUMN IF NOT EXISTS allows_tambal_ban BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS current_lat NUMERIC(10,7) DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS current_lng NUMERIC(10,7) DEFAULT 0,
     ADD COLUMN IF NOT EXISTS allows_towing BOOLEAN DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS avg_rating NUMERIC(3,2) DEFAULT 0.00,
@@ -29,6 +31,8 @@ ALTER TABLE courier_profiles
     DROP COLUMN IF EXISTS service_categories,
     DROP COLUMN IF EXISTS vehicle_type_car,
     DROP COLUMN IF EXISTS allows_tambal_ban,
+    DROP COLUMN IF EXISTS current_lat,
+    DROP COLUMN IF EXISTS current_lng,
     DROP COLUMN IF EXISTS allows_towing,
     DROP COLUMN IF EXISTS is_online,
     DROP COLUMN IF EXISTS avg_rating,

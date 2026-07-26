@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -33,23 +34,25 @@ class ServiceTrackingViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             
             orderRepository.getOrderDetail(orderId)
-                .onSuccess { order ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            currentStepIndex = calculateStepIndex(order.status),
-                            courierName = order.courierName,
-                            statusText = getStatusText(order.status),
-                            etaMinutes = order.etaMinutes
-                        )
+                .collect { result ->
+                    result.onSuccess { order ->
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                currentStepIndex = calculateStepIndex(order.status),
+                                courierName = order.courierName,
+                                statusText = getStatusText(order.status),
+                                etaMinutes = order.etaMinutes
+                            )
+                        }
                     }
-                }
-                .onFailure { e ->
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = e.message ?: "Gagal memuat data"
-                        )
+                    result.onFailure { e ->
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                error = e.message ?: "Gagal memuat data"
+                            )
+                        }
                     }
                 }
         }

@@ -270,8 +270,10 @@ export default function Finance() {
   });
 
   const dispatchApprovedPayoutsMutation = useMutation({
-    mutationFn: async () => {
-      const res = await api.post('/admin/finance/payouts/dispatch-approved');
+    mutationFn: async (totpCode: string) => {
+      const res = await api.post('/admin/finance/payouts/dispatch-approved', {}, {
+        headers: { 'x-totp-code': totpCode }
+      });
       return res.data?.data;
     },
     onSuccess: (data) => {
@@ -286,8 +288,10 @@ export default function Finance() {
   });
 
   const reconcilePayoutsMutation = useMutation({
-    mutationFn: async () => {
-      const res = await api.post('/admin/finance/payouts/reconcile');
+    mutationFn: async (totpCode: string) => {
+      const res = await api.post('/admin/finance/payouts/reconcile', {}, {
+        headers: { 'x-totp-code': totpCode }
+      });
       return res.data?.data;
     },
     onSuccess: (data) => {
@@ -545,7 +549,10 @@ export default function Finance() {
         {activeTab === 'treasury' && (
           <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={() => dispatchApprovedPayoutsMutation.mutate()}
+              onClick={() => {
+                const code = window.prompt("Masukkan 6-digit kode TOTP untuk DISPATCH:");
+                if (code) dispatchApprovedPayoutsMutation.mutate(code);
+              }}
               disabled={dispatchApprovedPayoutsMutation.isPending}
               className="px-5 py-2.5 rounded-2xl bg-primary text-white font-black text-xs uppercase tracking-widest hover:bg-primary-light transition-all flex items-center gap-2 disabled:opacity-50"
             >
@@ -553,7 +560,10 @@ export default function Finance() {
               Dispatch
             </button>
             <button
-              onClick={() => reconcilePayoutsMutation.mutate()}
+              onClick={() => {
+                const code = window.prompt("Masukkan 6-digit kode TOTP untuk RECONCILE:");
+                if (code) reconcilePayoutsMutation.mutate(code);
+              }}
               disabled={reconcilePayoutsMutation.isPending}
               className="px-5 py-2.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-300 font-black text-xs uppercase tracking-widest hover:bg-blue-500/20 transition-all flex items-center gap-2 disabled:opacity-50"
             >
@@ -1013,7 +1023,7 @@ export default function Finance() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Revenue Breakdown Donut */}
+         {/* Revenue Breakdown Donut */}
         <div className="glass-card p-10 rounded-[48px] border-white/5 space-y-10">
            <div className="flex items-center justify-between">
               <h3 className="text-xl font-black text-zinc-100 flex items-center gap-3">
@@ -1023,8 +1033,8 @@ export default function Finance() {
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Revenue Share %</p>
            </div>
            <div className="flex flex-col md:flex-row items-center gap-12">
-              <div className="h-[280px] w-[280px] relative">
-                 <ResponsiveContainer width="100%" height="100%">
+              <div className="h-[280px] w-[280px] relative min-w-0 min-h-0">
+                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <PieChart>
                        <Pie
                           data={revenueBreakdown}
@@ -1070,8 +1080,8 @@ export default function Finance() {
               </h3>
               <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Payout History</p>
            </div>
-           <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+           <div className="h-[300px] w-full min-w-0 min-h-0">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                  <BarChart data={financialData?.burn_time_series}>
                     <XAxis 
                        dataKey="date" 

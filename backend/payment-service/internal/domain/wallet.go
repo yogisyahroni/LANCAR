@@ -48,10 +48,12 @@ type WalletTransaction struct {
 
 type WalletRepository interface {
 	GetByUserID(ctx context.Context, userID uuid.UUID) (*Wallet, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*Wallet, error)
 	Create(ctx context.Context, userID uuid.UUID) (*Wallet, error)
 	UpdateBalance(ctx context.Context, walletID uuid.UUID, amount int64, version int) error
 	CreateTransaction(ctx context.Context, tx *WalletTransaction) error
 	GetTransactions(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]*WalletTransaction, error)
+	GetTransactionByReferenceID(ctx context.Context, referenceID string) (*WalletTransaction, error)
 	IsRefundProcessed(ctx context.Context, referenceID string) (bool, error)
 
 	// HasActiveSOS mengecek apakah ada SOS incident aktif (belum resolve) untuk user ini.
@@ -102,5 +104,7 @@ type WalletService interface {
 	DeductFakeSosPenalty(ctx context.Context, victimID uuid.UUID, amount int64, referenceID string) error
 	CreditSosHelperReward(ctx context.Context, helperID uuid.UUID, amount int64, referenceID string) error
 	ReconcileWallet(ctx context.Context, userID uuid.UUID, walletType string) (*WalletReconciliationResult, error)
+	HandleTopUpCallback(ctx context.Context, referenceID string) error
+	HandleDisbursementCallback(ctx context.Context, referenceID string, status string) error
 }
 

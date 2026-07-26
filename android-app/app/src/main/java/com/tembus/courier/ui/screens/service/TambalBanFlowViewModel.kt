@@ -36,11 +36,12 @@ class TambalBanFlowViewModel @Inject constructor(
     fun loadOrder(orderId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            
-            orderRepository.getOrderDetail(orderId)
-                .onSuccess { order ->
+
+            try {
+                val order = orderRepository.getOrderById(orderId)
+                if (order != null) {
                     val flowState = TambalBanFlowResolver.resolve(order)
-                    
+
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -62,26 +63,25 @@ class TambalBanFlowViewModel @Inject constructor(
                             )
                         )
                     }
-                }
-                .onFailure { e ->
+                } else {
                     _uiState.update {
-                        it.copy(
-                            isLoading = false,
-                            error = e.message ?: "Gagal memuat data"
-                        )
+                        it.copy(isLoading = false, error = "Order tidak ditemukan")
                     }
                 }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, error = e.message ?: "Gagal memuat data")
+                }
+            }
         }
     }
 
     fun handleNextAction() {
         viewModelScope.launch {
-            // TODO: Implement actual state transition
-            // For now, just advance to next step
             _uiState.update { state ->
                 val nextStep = state.currentStepIndex + 1
                 state.copy(
-                    currentStepIndex = minOf(nextStep, 5),
+                    currentStepIndex = minOf(nextStep, 4),
                     title = when (nextStep) {
                         1 -> "Tiba di Lokasi"
                         2 -> "Verifikasi Wajah"

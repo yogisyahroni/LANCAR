@@ -144,6 +144,7 @@ func main() {
 	ledgerRepo := repository.NewPostgresLedgerRepository(db)
 	svc := service.NewWalletService(repo, ledgerRepo, repo.(domain.SettingsRepository), db, flagReader)
 	h := handler.NewWalletHandler(svc)
+	wh := handler.NewWebhookHandler(svc)
 
 	// Router
 	mux := http.NewServeMux()
@@ -159,6 +160,9 @@ func main() {
 	// Internal SOS wallet handlers
 	mux.HandleFunc("/api/internal/wallet/sos-penalty", middleware.BaseChain(h.SosPenalty))
 	mux.HandleFunc("/api/internal/wallet/sos-reward", middleware.BaseChain(h.SosReward))
+
+	// Webhooks
+	mux.HandleFunc("/webhooks/xendit", middleware.BaseChain(wh.XenditWebhook))
 
 	// Health Check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

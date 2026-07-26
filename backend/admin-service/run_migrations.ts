@@ -14,6 +14,10 @@ async function run() {
     const sql2 = fs.readFileSync('./migrations/010_add_provider_discounts.sql', 'utf8');
     await db.query(sql2);
     console.log('Migration 010 successful');
+    
+    const sql3 = fs.readFileSync('./migrations/011_cost_intelligence_opex_capex_jsonb.sql', 'utf8');
+    await db.query(sql3);
+    console.log('Migration 011 successful');
   } catch (e) {
     console.error(e);
   } finally {

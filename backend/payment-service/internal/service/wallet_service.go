@@ -707,3 +707,160 @@ func (s *walletService) ReconcileWallet(ctx context.Context, userID uuid.UUID, w
 	return s.repo.ReconcileWalletLedger(ctx, wallet.ID, walletType)
 }
 
+// HandleTopUpCallback handles the webhook from Xendit when an invoice is PAID.
+func (s *walletService) HandleTopUpCallback(ctx context.Context, referenceID string) error {
+	if s.flagReader != nil {
+		flag, err := s.flagReader.GetFlag(ctx, "payment_provider_xendit")
+		if err == nil && !flag.IsEnabled {
+			return fmt.Errorf("payment gateway is currently disabled by feature flag")
+		}
+	}
+
+	// 1. Get the original PENDING transaction
+	tx, err := s.repo.GetTransactionByReferenceID(ctx, referenceID)
+	if err != nil {
+		return fmt.Errorf("transaction not found: %w", err)
+	}
+
+	if tx.Type != domain.TypeDeposit {
+		return fmt.Errorf("transaction is not a deposit")
+	}
+
+	if tx.Status == domain.StatusCompleted {
+		// Idempotency: already processed
+		return nil
+	}
+
+	if tx.Status != domain.StatusPending {
+		return fmt.Errorf("transaction is in invalid state: %s", tx.Status)
+	}
+
+	// 2. Process deposit securely inside a database transaction
+	err = s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		// Atomic Balance Update
+		wallet, err := s.repo.GetByID(txCtx, tx.WalletID)
+		if err != nil {
+			return err
+		}
+
+		err = s.repo.UpdateBalance(txCtx, wallet.ID, tx.Amount, wallet.Version)
+		if err != nil {
+			return err
+		}
+
+		// Update transaction status
+		err = s.repo.UpdateTransactionStatus(txCtx, referenceID, domain.StatusCompleted)
+		if err != nil {
+			return err
+		}
+
+		// Create Ledger Journal
+		journal := &domain.LedgerJournal{
+			JournalType:    "wallet_topup",
+			ReferenceType:  "wallet_transaction",
+			ReferenceID:    referenceID,
+			IdempotencyKey: fmt.Sprintf("LEDGER-DEP-%s", referenceID),
+			Reason:         "Customer wallet topup via Xendit invoice",
+			Metadata:       map[string]any{"user_id": wallet.UserID.String(), "wallet_id": wallet.ID.String()},
+			CreatedBy:      "system",
+			ActorRole:      "system",
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: "cash_main", DebitIDR: tx.Amount, CreditIDR: 0},
+			{AccountName: "customer_wallet_liability", DebitIDR: 0, CreditIDR: tx.Amount},
+		}
+		if err = s.ledgerRepo.CreateJournalWithEntries(txCtx, journal, entries); err != nil {
+			return fmt.Errorf("failed to write ledger for topup callback: %w", err)
+		}
+
+		return nil
+	})
+
+	if err == nil {
+		slog.InfoContext(ctx, "xendit_topup_completed", "wallet_id", tx.WalletID, "reference_id", referenceID, "amount", tx.Amount)
+	}
+
+	return err
+}
+
+// HandleDisbursementCallback handles the webhook from Xendit when disbursement is COMPLETED or FAILED.
+func (s *walletService) HandleDisbursementCallback(ctx context.Context, referenceID string, status string) error {
+	if s.flagReader != nil {
+		flag, err := s.flagReader.GetFlag(ctx, "payment_provider_xendit")
+		if err == nil && !flag.IsEnabled {
+			return fmt.Errorf("payment gateway is currently disabled by feature flag")
+		}
+	}
+
+	tx, err := s.repo.GetTransactionByReferenceID(ctx, referenceID)
+	if err != nil {
+		return fmt.Errorf("transaction not found: %w", err)
+	}
+
+	if tx.Type != domain.TypeWithdrawal {
+		return fmt.Errorf("transaction is not a withdrawal")
+	}
+
+	if tx.Status == domain.StatusCompleted || tx.Status == domain.StatusFailed {
+		// Idempotency
+		return nil
+	}
+
+	if status == "COMPLETED" {
+		// Just update status, balance was already deducted during PENDING
+		return s.repo.UpdateTransactionStatus(ctx, referenceID, domain.StatusCompleted)
+	} else if status == "FAILED" {
+		// Refund balance back to wallet
+		err = s.repo.WithTx(ctx, func(txCtx context.Context) error {
+			wallet, err := s.repo.GetByID(txCtx, tx.WalletID)
+			if err != nil {
+				return err
+			}
+
+			// Add the money back (amount + fee)
+			refundAmount := tx.Amount + tx.Fee
+			err = s.repo.UpdateBalance(txCtx, wallet.ID, refundAmount, wallet.Version)
+			if err != nil {
+				return err
+			}
+
+			// Mark withdrawal as failed
+			err = s.repo.UpdateTransactionStatus(txCtx, referenceID, domain.StatusFailed)
+			if err != nil {
+				return err
+			}
+
+			// Create Ledger Journal for Refund
+			journal := &domain.LedgerJournal{
+				JournalType:    "wallet_withdrawal_failed",
+				ReferenceType:  "wallet_transaction",
+				ReferenceID:    referenceID,
+				IdempotencyKey: fmt.Sprintf("LEDGER-WD-FAIL-%s", referenceID),
+				Reason:         "Refund wallet due to failed disbursement",
+				Metadata:       map[string]any{"user_id": wallet.UserID.String(), "wallet_id": wallet.ID.String()},
+				CreatedBy:      "system",
+				ActorRole:      "system",
+			}
+			entries := []domain.LedgerEntry{
+				{AccountName: "cash_main", DebitIDR: tx.Amount, CreditIDR: 0},
+				{AccountName: "customer_wallet_liability", DebitIDR: 0, CreditIDR: tx.Amount},
+			}
+			if tx.Fee > 0 {
+				entries = append(entries, domain.LedgerEntry{AccountName: "platform_fee_revenue", DebitIDR: tx.Fee, CreditIDR: 0})
+				entries = append(entries, domain.LedgerEntry{AccountName: "customer_wallet_liability", DebitIDR: 0, CreditIDR: tx.Fee})
+			}
+			if err = s.ledgerRepo.CreateJournalWithEntries(txCtx, journal, entries); err != nil {
+				return fmt.Errorf("failed to write ledger for failed disbursement: %w", err)
+			}
+
+			return nil
+		})
+		if err == nil {
+			slog.InfoContext(ctx, "xendit_disbursement_failed_refunded", "wallet_id", tx.WalletID, "reference_id", referenceID, "refund_amount", tx.Amount+tx.Fee)
+		}
+		return err
+	}
+
+	return nil
+}
+

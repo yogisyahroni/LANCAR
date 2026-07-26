@@ -110,4 +110,8 @@ data class Order(
     @ColumnInfo(name = "courier_phone")
     @SerialName("courier_phone")
     var courierPhone: String? = null
+
+    @ColumnInfo(name = "service_sub_type")
+    @SerialName("service_sub_type")
+    var serviceSubType: String? = null
 )

@@ -30,21 +30,21 @@ func (r *merchantSettlementRepository) Create(ctx context.Context, s *domain.Mer
 	_, err = r.db.ExecContext(ctx, `
 		INSERT INTO merchant_settlements (
 			id, payment_link_id, merchant_id, order_id,
-			gross_item_price_idr, merchant_fee_idr, net_payout_idr,
+			gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
 			status, idempotency_key,
 			pod_confirmed_at, holding_release_at,
 			retry_count, metadata, created_by_admin_id,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4,
-			$5, $6, $7,
-			$8, $9,
-			$10, $11,
-			$12, $13, $14,
+			$5, $6, $7, $8,
+			$9, $10,
+			$11, $12,
+			$13, $14, $15,
 			NOW(), NOW()
 		) ON CONFLICT (idempotency_key) DO NOTHING`,
 		s.ID, s.PaymentLinkID, s.MerchantID, s.OrderID,
-		s.GrossItemPriceIDR, s.MerchantFeeIDR, s.NetPayoutIDR,
+		s.GrossItemPriceIDR, s.MerchantFeeIDR, s.DisbursementFeeIDR, s.NetPayoutIDR,
 		s.Status, s.IdempotencyKey,
 		s.PODConfirmedAt, s.HoldingReleaseAt,
 		s.RetryCount, metaJSON, s.CreatedByAdminID,
@@ -55,7 +55,7 @@ func (r *merchantSettlementRepository) Create(ctx context.Context, s *domain.Mer
 func (r *merchantSettlementRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.MerchantSettlement, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, payment_link_id, merchant_id, order_id,
-		       gross_item_price_idr, merchant_fee_idr, net_payout_idr,
+		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
 		       status, idempotency_key,
 		       pod_confirmed_at, holding_release_at, settled_at,
 		       disbursement_ref, failure_reason, retry_count,
@@ -68,7 +68,7 @@ func (r *merchantSettlementRepository) GetByID(ctx context.Context, id uuid.UUID
 func (r *merchantSettlementRepository) GetByIdempotencyKey(ctx context.Context, key string) (*domain.MerchantSettlement, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, payment_link_id, merchant_id, order_id,
-		       gross_item_price_idr, merchant_fee_idr, net_payout_idr,
+		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
 		       status, idempotency_key,
 		       pod_confirmed_at, holding_release_at, settled_at,
 		       disbursement_ref, failure_reason, retry_count,
@@ -88,7 +88,7 @@ func (r *merchantSettlementRepository) GetByIdempotencyKey(ctx context.Context, 
 func (r *merchantSettlementRepository) GetPendingHoldingReleased(ctx context.Context, now time.Time, limit int) ([]*domain.MerchantSettlement, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, payment_link_id, merchant_id, order_id,
-		       gross_item_price_idr, merchant_fee_idr, net_payout_idr,
+		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
 		       status, idempotency_key,
 		       pod_confirmed_at, holding_release_at, settled_at,
 		       disbursement_ref, failure_reason, retry_count,
@@ -164,7 +164,7 @@ func (r *merchantSettlementRepository) RequeueForRetry(ctx context.Context, id u
 func (r *merchantSettlementRepository) ListByMerchantID(ctx context.Context, merchantID string, limit, offset int) ([]*domain.MerchantSettlement, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id, payment_link_id, merchant_id, order_id,
-		       gross_item_price_idr, merchant_fee_idr, net_payout_idr,
+		       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
 		       status, idempotency_key,
 		       pod_confirmed_at, holding_release_at, settled_at,
 		       disbursement_ref, failure_reason, retry_count,
@@ -187,7 +187,7 @@ func (r *merchantSettlementRepository) ListAll(ctx context.Context, status strin
 	if status == "" {
 		rows, err = r.db.QueryContext(ctx, `
 			SELECT id, payment_link_id, merchant_id, order_id,
-			       gross_item_price_idr, merchant_fee_idr, net_payout_idr,
+			       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
 			       status, idempotency_key,
 			       pod_confirmed_at, holding_release_at, settled_at,
 			       disbursement_ref, failure_reason, retry_count,
@@ -199,7 +199,7 @@ func (r *merchantSettlementRepository) ListAll(ctx context.Context, status strin
 	} else {
 		rows, err = r.db.QueryContext(ctx, `
 			SELECT id, payment_link_id, merchant_id, order_id,
-			       gross_item_price_idr, merchant_fee_idr, net_payout_idr,
+			       gross_item_price_idr, merchant_fee_idr, disbursement_fee_idr, net_payout_idr,
 			       status, idempotency_key,
 			       pod_confirmed_at, holding_release_at, settled_at,
 			       disbursement_ref, failure_reason, retry_count,
@@ -301,7 +301,7 @@ func (r *merchantSettlementRepository) scanOne(row *sql.Row) (*domain.MerchantSe
 	var disbRef, failReason sql.NullString
 	err := row.Scan(
 		&s.ID, &s.PaymentLinkID, &s.MerchantID, &s.OrderID,
-		&s.GrossItemPriceIDR, &s.MerchantFeeIDR, &s.NetPayoutIDR,
+		&s.GrossItemPriceIDR, &s.MerchantFeeIDR, &s.DisbursementFeeIDR, &s.NetPayoutIDR,
 		&s.Status, &s.IdempotencyKey,
 		&s.PODConfirmedAt, &s.HoldingReleaseAt, &s.SettledAt,
 		&disbRef, &failReason, &s.RetryCount,
@@ -336,7 +336,7 @@ func (r *merchantSettlementRepository) scanMany(rows *sql.Rows) ([]*domain.Merch
 		var disbRef, failReason sql.NullString
 		err := rows.Scan(
 			&s.ID, &s.PaymentLinkID, &s.MerchantID, &s.OrderID,
-			&s.GrossItemPriceIDR, &s.MerchantFeeIDR, &s.NetPayoutIDR,
+			&s.GrossItemPriceIDR, &s.MerchantFeeIDR, &s.DisbursementFeeIDR, &s.NetPayoutIDR,
 			&s.Status, &s.IdempotencyKey,
 			&s.PODConfirmedAt, &s.HoldingReleaseAt, &s.SettledAt,
 			&disbRef, &failReason, &s.RetryCount,

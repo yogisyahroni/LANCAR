@@ -9,6 +9,8 @@ export interface PlatformCostConfig {
   capex_total_idr: number;
   capex_amort_months: number;
   capex_monthly_idr: number;
+  capex_ondemand_details?: any;
+  capex_aggregator_details?: any;
   opex_server_idr: number;
   opex_domain_ssl_idr: number;
   opex_marketing_idr: number;
@@ -20,6 +22,8 @@ export interface PlatformCostConfig {
   opex_cloud_storage_per_order_idr: number;
   opex_cs_support_per_order_idr: number;
   opex_dispute_reserve_idr: number;
+  opex_ondemand_details?: any;
+  opex_aggregator_details?: any;
   tax_vat_pct: number;
   tax_pph_pct: number;
   payment_gateway_mdr_pct: number;
@@ -28,6 +32,9 @@ export interface PlatformCostConfig {
   min_platform_fee_idr: number;
   max_discount_subsidy_pct: number;
   estimated_orders_per_month: number;
+  estimated_orders_ondemand_per_month?: number;
+  estimated_orders_aggregator_per_month?: number;
+  estimated_users_aggregator_per_month?: number;
   target_margin_ondemand_pct: number;
   target_margin_aggregator_pct: number;
   notes?: string;
@@ -49,6 +56,8 @@ export interface CostBreakdown {
     ondemandOrders: number;
     aggregatorOrders: number;
     totalRevenueIdr: number;
+    ondemandRevenueIdr: number;
+    aggregatorSpreadIdr: number;
     totalMdrCostIdr: number;
     totalPlatformFeeIdr: number;
     actualAvgRevenuePerOrder: number;
@@ -129,27 +138,33 @@ export class CostIntelligenceService {
         `INSERT INTO platform_cost_configs (
           period_label, period_start, period_end, status,
           capex_total_idr, capex_amort_months,
+          capex_ondemand_details, capex_aggregator_details,
           opex_server_idr, opex_domain_ssl_idr, opex_marketing_idr,
           opex_team_salary_idr, opex_insurance_idr, opex_other_fixed_idr,
           opex_tomtom_per_order_idr, opex_zenziva_per_order_idr,
           opex_cloud_storage_per_order_idr, opex_cs_support_per_order_idr, opex_dispute_reserve_idr,
+          opex_ondemand_details, opex_aggregator_details,
           tax_vat_pct, tax_pph_pct,
           payment_gateway_mdr_pct, payment_gateway_fixed_idr, payout_disbursement_fee_idr,
           min_platform_fee_idr, max_discount_subsidy_pct,
-          estimated_orders_per_month, target_margin_ondemand_pct, target_margin_aggregator_pct,
+          estimated_orders_per_month, estimated_orders_ondemand_per_month, estimated_orders_aggregator_per_month, estimated_users_aggregator_per_month,
+          target_margin_ondemand_pct, target_margin_aggregator_pct,
           notes, created_by
         ) VALUES (
           $1, $2, $3, 'draft',
           $4, $5,
-          $6, $7, $8,
-          $9, $10, $11,
-          $12, $13,
-          $14, $15, $16,
-          $17, $18,
-          $19, $20, $21,
-          $22, $23,
-          $24, $25, $26,
-          $27, $28
+          $6, $7,
+          $8, $9, $10,
+          $11, $12, $13,
+          $14, $15,
+          $16, $17, $18,
+          $19, $20,
+          $21, $22,
+          $23, $24, $25,
+          $26, $27,
+          $28, $29, $30,
+          $31, $32,
+          $33, $34, $35
         ) RETURNING *`,
         [
           data.period_label,
@@ -157,6 +172,8 @@ export class CostIntelligenceService {
           data.period_end,
           data.capex_total_idr || 0,
           data.capex_amort_months || 24,
+          data.capex_ondemand_details || {},
+          data.capex_aggregator_details || {},
           data.opex_server_idr || 0,
           data.opex_domain_ssl_idr || 0,
           data.opex_marketing_idr || 0,
@@ -168,14 +185,19 @@ export class CostIntelligenceService {
           data.opex_cloud_storage_per_order_idr || 50,
           data.opex_cs_support_per_order_idr || 150,
           data.opex_dispute_reserve_idr || 200,
+          data.opex_ondemand_details || {},
+          data.opex_aggregator_details || {},
           data.tax_vat_pct || 11.0,
           data.tax_pph_pct || 2.0,
-          data.payment_gateway_mdr_pct || 0.7,
-          data.payment_gateway_fixed_idr || 2000,
-          data.payout_disbursement_fee_idr || 2500,
+          data.payment_gateway_mdr_pct || 0,
+          data.payment_gateway_fixed_idr || 0,
+          data.payout_disbursement_fee_idr || 0,
           data.min_platform_fee_idr || 1500,
           data.max_discount_subsidy_pct || 20.0,
           data.estimated_orders_per_month || 1000,
+          data.estimated_orders_ondemand_per_month || 1000,
+          data.estimated_orders_aggregator_per_month || 500,
+          data.estimated_users_aggregator_per_month || 50,
           data.target_margin_ondemand_pct || 20.0,
           data.target_margin_aggregator_pct || 15.0,
           data.notes || null,
@@ -196,42 +218,52 @@ export class CostIntelligenceService {
 
       const result = await client.query(
         `UPDATE platform_cost_configs SET
-          period_label = COALESCE($2, period_label),
-          period_start = COALESCE($3, period_start),
-          period_end = COALESCE($4, period_end),
+          period_label = COALESCE($1, period_label),
+          period_start = COALESCE($2, period_start),
+          period_end = COALESCE($3, period_end),
+          status = COALESCE($4, status),
           capex_total_idr = COALESCE($5, capex_total_idr),
           capex_amort_months = COALESCE($6, capex_amort_months),
-          opex_server_idr = COALESCE($7, opex_server_idr),
-          opex_domain_ssl_idr = COALESCE($8, opex_domain_ssl_idr),
-          opex_marketing_idr = COALESCE($9, opex_marketing_idr),
-          opex_team_salary_idr = COALESCE($10, opex_team_salary_idr),
-          opex_insurance_idr = COALESCE($11, opex_insurance_idr),
-          opex_other_fixed_idr = COALESCE($12, opex_other_fixed_idr),
-          opex_tomtom_per_order_idr = COALESCE($13, opex_tomtom_per_order_idr),
-          opex_zenziva_per_order_idr = COALESCE($14, opex_zenziva_per_order_idr),
-          opex_cloud_storage_per_order_idr = COALESCE($15, opex_cloud_storage_per_order_idr),
-          opex_cs_support_per_order_idr = COALESCE($16, opex_cs_support_per_order_idr),
-          opex_dispute_reserve_idr = COALESCE($17, opex_dispute_reserve_idr),
-          tax_vat_pct = COALESCE($18, tax_vat_pct),
-          tax_pph_pct = COALESCE($19, tax_pph_pct),
-          payment_gateway_mdr_pct = COALESCE($20, payment_gateway_mdr_pct),
-          payment_gateway_fixed_idr = COALESCE($21, payment_gateway_fixed_idr),
-          payout_disbursement_fee_idr = COALESCE($22, payout_disbursement_fee_idr),
-          min_platform_fee_idr = COALESCE($23, min_platform_fee_idr),
-          max_discount_subsidy_pct = COALESCE($24, max_discount_subsidy_pct),
-          estimated_orders_per_month = COALESCE($25, estimated_orders_per_month),
-          target_margin_ondemand_pct = COALESCE($26, target_margin_ondemand_pct),
-          target_margin_aggregator_pct = COALESCE($27, target_margin_aggregator_pct),
-          notes = COALESCE($28, notes),
+          capex_ondemand_details = COALESCE($7, capex_ondemand_details),
+          capex_aggregator_details = COALESCE($8, capex_aggregator_details),
+          opex_server_idr = COALESCE($9, opex_server_idr),
+          opex_domain_ssl_idr = COALESCE($10, opex_domain_ssl_idr),
+          opex_marketing_idr = COALESCE($11, opex_marketing_idr),
+          opex_team_salary_idr = COALESCE($12, opex_team_salary_idr),
+          opex_insurance_idr = COALESCE($13, opex_insurance_idr),
+          opex_other_fixed_idr = COALESCE($14, opex_other_fixed_idr),
+          opex_tomtom_per_order_idr = COALESCE($15, opex_tomtom_per_order_idr),
+          opex_zenziva_per_order_idr = COALESCE($16, opex_zenziva_per_order_idr),
+          opex_cloud_storage_per_order_idr = COALESCE($17, opex_cloud_storage_per_order_idr),
+          opex_cs_support_per_order_idr = COALESCE($18, opex_cs_support_per_order_idr),
+          opex_dispute_reserve_idr = COALESCE($19, opex_dispute_reserve_idr),
+          opex_ondemand_details = COALESCE($20, opex_ondemand_details),
+          opex_aggregator_details = COALESCE($21, opex_aggregator_details),
+          tax_vat_pct = COALESCE($22, tax_vat_pct),
+          tax_pph_pct = COALESCE($23, tax_pph_pct),
+          payment_gateway_mdr_pct = COALESCE($24, payment_gateway_mdr_pct),
+          payment_gateway_fixed_idr = COALESCE($25, payment_gateway_fixed_idr),
+          payout_disbursement_fee_idr = COALESCE($26, payout_disbursement_fee_idr),
+          min_platform_fee_idr = COALESCE($27, min_platform_fee_idr),
+          max_discount_subsidy_pct = COALESCE($28, max_discount_subsidy_pct),
+          estimated_orders_per_month = COALESCE($29, estimated_orders_per_month),
+          estimated_orders_ondemand_per_month = COALESCE($30, estimated_orders_ondemand_per_month),
+          estimated_orders_aggregator_per_month = COALESCE($31, estimated_orders_aggregator_per_month),
+          estimated_users_aggregator_per_month = COALESCE($32, estimated_users_aggregator_per_month),
+          target_margin_ondemand_pct = COALESCE($33, target_margin_ondemand_pct),
+          target_margin_aggregator_pct = COALESCE($34, target_margin_aggregator_pct),
+          notes = COALESCE($34, notes),
           updated_at = NOW()
-        WHERE id = $1 RETURNING *`,
+        WHERE id = $35 RETURNING *`,
         [
-          id,
           data.period_label,
           data.period_start,
           data.period_end,
+          data.status,
           data.capex_total_idr,
           data.capex_amort_months,
+          data.capex_ondemand_details ? JSON.stringify(data.capex_ondemand_details) : undefined,
+          data.capex_aggregator_details ? JSON.stringify(data.capex_aggregator_details) : undefined,
           data.opex_server_idr,
           data.opex_domain_ssl_idr,
           data.opex_marketing_idr,
@@ -243,6 +275,8 @@ export class CostIntelligenceService {
           data.opex_cloud_storage_per_order_idr,
           data.opex_cs_support_per_order_idr,
           data.opex_dispute_reserve_idr,
+          data.opex_ondemand_details ? JSON.stringify(data.opex_ondemand_details) : undefined,
+          data.opex_aggregator_details ? JSON.stringify(data.opex_aggregator_details) : undefined,
           data.tax_vat_pct,
           data.tax_pph_pct,
           data.payment_gateway_mdr_pct,
@@ -251,9 +285,12 @@ export class CostIntelligenceService {
           data.min_platform_fee_idr,
           data.max_discount_subsidy_pct,
           data.estimated_orders_per_month,
+          data.estimated_orders_ondemand_per_month,
+          data.estimated_orders_aggregator_per_month,
           data.target_margin_ondemand_pct,
           data.target_margin_aggregator_pct,
           data.notes,
+          id,
         ]
       );
       return result.rows[0];
@@ -317,16 +354,28 @@ export class CostIntelligenceService {
            COUNT(*) AS total_orders,
            COUNT(*) FILTER (WHERE COALESCE(order_type, 'ondemand') = 'ondemand') AS ondemand_orders,
            COUNT(*) FILTER (WHERE order_type = 'aggregator') AS aggregator_orders,
+           -- On-demand revenue: platform_fee (flat fee) + platform_commission (20% potongan dari ongkir kurir)
+           -- Aggregator revenue: SPREAD = harga jual ke customer (logistics_tariff) - biaya beli dari 3PL (logistics_net_cost)
            COALESCE(SUM(
-             CASE 
-               WHEN order_type = 'aggregator' THEN 
-                 COALESCE(logistics_tariff_idr, total_price_idr) - COALESCE(logistics_net_cost_idr, 0)
-               ELSE 
+             CASE
+               WHEN order_type = 'aggregator' THEN
+                 GREATEST(0, COALESCE(logistics_tariff_idr, total_price_idr) - COALESCE(logistics_net_cost_idr, 0))
+               ELSE
                  COALESCE(platform_commission_idr, 0) + COALESCE(platform_fee_idr, 0)
              END
            ), 0) AS total_revenue_idr,
            COALESCE(SUM(mdr_idr), 0) AS total_mdr_cost_idr,
-           COALESCE(SUM(platform_fee_idr), 0) AS total_platform_fee_idr
+           COALESCE(SUM(platform_fee_idr), 0) AS total_platform_fee_idr,
+           COALESCE(SUM(
+             CASE WHEN COALESCE(order_type,'ondemand')='ondemand'
+               THEN COALESCE(platform_commission_idr,0) + COALESCE(platform_fee_idr,0)
+               ELSE 0 END
+           ), 0) AS ondemand_revenue_idr,
+           COALESCE(SUM(
+             CASE WHEN order_type='aggregator'
+               THEN GREATEST(0, COALESCE(logistics_tariff_idr,total_price_idr) - COALESCE(logistics_net_cost_idr,0))
+               ELSE 0 END
+           ), 0) AS aggregator_spread_idr
          FROM orders
          WHERE created_at >= $1::timestamp AND created_at <= $2::timestamp
            AND status NOT IN ('cancelled', 'failed')`,
@@ -338,6 +387,8 @@ export class CostIntelligenceService {
       const ondemandOrders = Number(row.ondemand_orders || 0);
       const aggregatorOrders = Number(row.aggregator_orders || 0);
       const totalRevenueIdr = Number(row.total_revenue_idr || 0);
+      const ondemandRevenueIdr = Number(row.ondemand_revenue_idr || 0);
+      const aggregatorSpreadIdr = Number(row.aggregator_spread_idr || 0);
       const totalMdrCostIdr = Number(row.total_mdr_cost_idr || 0);
       const totalPlatformFeeIdr = Number(row.total_platform_fee_idr || 0);
 
@@ -354,9 +405,18 @@ export class CostIntelligenceService {
         : 0;
       const breakEvenOrdersPerDay = Math.ceil(breakEvenOrdersPerMonth / 30);
 
-      const capexTotal = Number(config.capex_total_idr || 0);
-      const paybackPeriodMonths = actualGrossMarginIdr > 0
-        ? Number(((capexTotal + totalFixedCostPerMonth) / actualGrossMarginIdr).toFixed(1))
+      let capexTotal = Number(config.capex_total_idr || 0);
+      const capexOn = typeof config.capex_ondemand_details === 'string' ? JSON.parse(config.capex_ondemand_details) : config.capex_ondemand_details;
+      const capexAgg = typeof config.capex_aggregator_details === 'string' ? JSON.parse(config.capex_aggregator_details) : config.capex_aggregator_details;
+      if (capexOn?.total_idr || capexAgg?.total_idr) {
+        capexTotal = Number(capexOn?.total_idr || 0) + Number(capexAgg?.total_idr || 0);
+      }
+      
+      const capexMonthly = Number(config.capex_monthly_idr || 0);
+      const actualEbitda = totalRevenueIdr - (totalOrders * totalVariableCostPerOrder) - totalMdrCostIdr - (totalFixedCostPerMonth - capexMonthly);
+      
+      const paybackPeriodMonths = actualEbitda > 0
+        ? Number(((capexTotal + (totalFixedCostPerMonth - capexMonthly)) / actualEbitda).toFixed(1))
         : 0;
 
       return {
@@ -370,6 +430,8 @@ export class CostIntelligenceService {
           ondemandOrders,
           aggregatorOrders,
           totalRevenueIdr,
+          ondemandRevenueIdr,
+          aggregatorSpreadIdr,
           totalMdrCostIdr,
           totalPlatformFeeIdr,
           actualAvgRevenuePerOrder,
@@ -393,7 +455,7 @@ export class CostIntelligenceService {
     const breakdown = await this.calculateBreakdown(configId);
     if (!breakdown) return null;
 
-    const { config, totalPlatformCostPerOrder } = breakdown;
+    const { config, totalPlatformCostPerOrder, totalVariableCostPerOrder } = breakdown;
 
     const client = await db.connect();
     try {
@@ -413,20 +475,22 @@ export class CostIntelligenceService {
       const effectiveDenominatorOndemand = Math.max(0.3, 1 - targetOndemandMargin - vatPct - mdrPct);
       const targetOndemandRevenue = Math.max(
         minFee,
-        Math.round(totalPlatformCostPerOrder / effectiveDenominatorOndemand)
+        Math.round(totalVariableCostPerOrder / effectiveDenominatorOndemand)
       );
+
+      // For ondemand, the platform's revenue = minFee + (20% * DriverFare)
+      // So DriverFare = (targetOndemandRevenue - minFee) / 0.20
+      const assumedCourierCommissionPct = 0.20;
+      const neededDriverFare = Math.max(10000, Math.round((targetOndemandRevenue - minFee) / assumedCourierCommissionPct));
 
       // Allocate 60% to base fee, 40% to per_km assuming avg 5km
-      const ondemandBaseFeeRec = Math.max(minFee, Math.round(targetOndemandRevenue * 0.6));
-      const ondemandPerKmFeeRec = Math.max(1000, Math.round((targetOndemandRevenue * 0.4) / 5));
+      const ondemandBaseFeeRec = Math.max(minFee, Math.round(neededDriverFare * 0.6));
+      // Average 5km -> 4 extra km. per km = 40% / 4
+      const ondemandPerKmFeeRec = Math.max(1000, Math.round((neededDriverFare * 0.4) / 4));
 
-      // Recommended Aggregator handling fee considering VAT & MDR deduction
-      const targetAggregatorMargin = Number(config.target_margin_aggregator_pct || 15) / 100;
-      const effectiveDenominatorAgg = Math.max(0.3, 1 - targetAggregatorMargin - vatPct - mdrPct);
-      const aggregatorHandlingFeeRec = Math.max(
-        minFee,
-        Math.round(totalPlatformCostPerOrder / effectiveDenominatorAgg)
-      );
+      // Recommended Aggregator handling fee
+      // Aggregator relies purely on spread (e.g. 20% discount from 3PL), so no additional handling fee
+      const aggregatorHandlingFeeRec = 0;
 
       const result = await client.query(
         `INSERT INTO pricing_recommendations (
