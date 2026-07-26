@@ -183,7 +183,7 @@ export default function PricingConfig() {
                 Global Fare Rules
               </h2>
               <div className="flex gap-2">
-                {['P2P'].map(t => (
+                {['P2P', 'Tambal Ban Motor', 'Tambal Ban Mobil', 'Towing Motor', 'Towing Mobil'].map(t => (
                   <button 
                     key={t}
                     onClick={() => setActiveTab(t)}
@@ -502,3 +502,4 @@ export default function PricingConfig() {
     </div>
   )
 }
+

@@ -12,6 +12,7 @@ import CourierGrowthConfig from './pages/CourierGrowthConfig'
 import CourierPerformance from './pages/CourierPerformance'
 import CourierPublicRegistration from './pages/CourierPublicRegistration'
 import PricingConfig from './pages/PricingConfig'
+import SettlementConfig from './pages/SettlementConfig'
 import Disputes from './pages/Disputes'
 import Customers from './pages/Customers'
 import Analytics from './pages/Analytics'
@@ -351,3 +352,4 @@ function App() {
 }
 
 export default App
+
