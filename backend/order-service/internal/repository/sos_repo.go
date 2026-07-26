@@ -172,7 +172,7 @@ func (r *PostgresSosRepo) MarkAsTampered(ctx context.Context, incidentID uuid.UU
 // 2. Berada dalam radius radiusMeters meter dari titik SOS
 // 3. IDLE: tidak sedang mengerjakan order aktif apapun (NOT EXISTS active order_leg)
 // Hasilnya diurutkan dari yang paling dekat ke paling jauh, maksimal `limit` kurir.
-func (r *PostgresSosRepo) GetNearbyCouriersForSOS(ctx context.Context, lat, lng float64, radiusMeters float64, limit int) ([]domain.NearbyCourier, error) {
+func (r *PostgresSosRepo) GetNearbyCouriersForSOS(ctx context.Context, lat, lng float64, radiusMeters float64, limit int) ([]domain.SosNearbyCourier, error) {
 	query := `
 		SELECT
 			cp.id AS courier_profile_id,
@@ -199,7 +199,7 @@ func (r *PostgresSosRepo) GetNearbyCouriersForSOS(ctx context.Context, lat, lng 
 		ORDER BY cp.current_location <-> ST_SetSRID(ST_MakePoint($2, $1), 4326)::geometry
 		LIMIT $4
 	`
-	var couriers []domain.NearbyCourier
+	var couriers []domain.SosNearbyCourier
 	if err := r.db.SelectContext(ctx, &couriers, query, lat, lng, radiusMeters, limit); err != nil {
 		return nil, err
 	}

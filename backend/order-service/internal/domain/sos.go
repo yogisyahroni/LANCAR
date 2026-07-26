@@ -18,8 +18,8 @@ const (
 	SosStatusDisputed     SosStatus = "disputed"
 )
 
-// NearbyCourier merepresentasikan kurir yang ditemukan dalam radius SOS geo-query.
-type NearbyCourier struct {
+// SosNearbyCourier merepresentasikan kurir yang ditemukan dalam radius SOS geo-query.
+type SosNearbyCourier struct {
 	CourierProfileID uuid.UUID `db:"courier_profile_id"`
 	UserID           uuid.UUID `db:"user_id"`
 	DistanceMeters   float64   `db:"distance_meters"`
@@ -105,7 +105,7 @@ type SosRepository interface {
 	UpdateHelperStatus(ctx context.Context, incidentID, helperID uuid.UUID, status string) error
 
 	// Geo-Radius Broadcast methods
-	GetNearbyCouriersForSOS(ctx context.Context, lat, lng float64, radiusMeters float64, limit int) ([]NearbyCourier, error)
+	GetNearbyCouriersForSOS(ctx context.Context, lat, lng float64, radiusMeters float64, limit int) ([]SosNearbyCourier, error)
 	GetFCMTokensByUserIDs(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID][]string, error)
 	GetUserIDByCourierProfileID(ctx context.Context, profileID uuid.UUID) (uuid.UUID, error)
 	GetUserNameByID(ctx context.Context, userID uuid.UUID) (string, error)
