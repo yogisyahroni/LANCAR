@@ -252,6 +252,21 @@ fun OrderDetailScreen(
                                         Text(if (order.status.lowercase() == "no_courier_found") "Batalkan & Ajukan Refund" else "Batalkan Pesanan", fontWeight = FontWeight.Bold)
                                     }
                                 }
+                                
+                                // Service Report button for tambal ban/towing
+                                if (order.serviceSubType != null && order.status.lowercase() == "delivered") {
+                                    OutlinedButton(
+                                        onClick = { /* Navigate to service report */ },
+                                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        border = BorderStroke(1.dp, Primary),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Primary)
+                                    ) {
+                                        Icon(Icons.Default.Assignment, contentDescription = null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Lihat Laporan Layanan", fontWeight = FontWeight.Bold)
+                                    }
+                                }
                             }
                         }
 
@@ -366,4 +381,6 @@ fun RoutePoint(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Col
         }
     }
 }
+
+
 

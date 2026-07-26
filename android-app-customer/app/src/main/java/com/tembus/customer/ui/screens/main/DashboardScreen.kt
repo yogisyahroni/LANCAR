@@ -921,37 +921,14 @@ private fun LocationRequestCard(onBookingClick: () -> Unit) {
 @Composable
 private fun ServiceOverview(
     services: List<DeliveryServiceProduct>,
-    onBookingClick: () -> Unit
+    onBookingClick: (String?) -> Unit,
+    onHistoryClick: () -> Unit
 ) {
-    Column(Modifier.padding(start = 18.dp)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(end = 18.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text("Layanan TEMBUS", color = Ink, fontSize = 22.sp, fontWeight = FontWeight.Black, letterSpacing = (-0.5).sp)
-                Text("Harga dihitung otomatis sesuai layanan aktif.", color = Muted, fontSize = 13.sp)
-            }
-            TextButton(onClick = onBookingClick) {
-                Text("Order", fontWeight = FontWeight.ExtraBold)
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        if (services.isEmpty()) {
-            EmptyServiceCard()
-        } else {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(end = 18.dp)
-            ) {
-                items(services, key = { it.code }) { service ->
-                    ServiceCard(service = service, onClick = onBookingClick)
-                }
-            }
-        }
-    }
+    ServiceGridMenu(
+        services = services,
+        onServiceClick = { serviceCode -> onBookingClick(serviceCode) },
+        onHistoryClick = onHistoryClick
+    )
 }
 
 @Composable
@@ -1057,4 +1034,6 @@ private fun TrustRow(icon: ImageVector, title: String, body: String) {
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Muted, modifier = Modifier.size(18.dp))
     }
 }
+
+
 
