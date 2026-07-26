@@ -419,4 +419,27 @@ interface TEMBUSApiService {
     // PERFORMANCE & TIERING
     @GET("api/v1/couriers/me/performance")
     suspend fun getMyPerformanceStats(): Response<ApiResponse<com.tembus.courier.data.model.CourierPerformanceStats>>
+
+    // ============================================================
+    // TAMBAL BAN & TOWING — Service Endpoints
+    // ============================================================
+    
+    @PUT("api/v1/courier/availability-state")
+    suspend fun updateAvailabilityState(@Body request: Map<String, Any>): Response<Map<String, String>>
+    
+    @GET("api/v1/courier/availability-state")
+    suspend fun getAvailabilityState(): Response<Map<String, Any>>
+    
+    @POST("api/v1/courier/service-report/tambal-ban")
+    suspend fun createTambalBanReport(@Body request: Map<String, Any>): Response<Map<String, Any>>
+    
+    @POST("api/v1/courier/service-report/towing")
+    suspend fun createTowingReport(@Body request: Map<String, Any>): Response<Map<String, Any>>
+    
+    @PUT("api/v1/courier/service-price")
+    suspend fun updateServicePrice(@Body request: Map<String, Any>): Response<Map<String, String>>
+    
+    @GET("api/v1/courier/service-price/{serviceCode}")
+    suspend fun getServicePrice(@Path("serviceCode") serviceCode: String): Response<Map<String, Any>>
 }
+
