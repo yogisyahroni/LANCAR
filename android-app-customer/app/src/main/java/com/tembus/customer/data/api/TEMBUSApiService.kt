@@ -323,5 +323,30 @@ interface TEMBUSApiService {
         @Header("Idempotency-Key") idempotencyKey: String,
         @Body request: WithdrawRequest
     ): Response<ApiResponse<WithdrawResponse>>
+
+    // ============================================================
+    // TAMBAL BAN & TOWING — Nearby Couriers
+    // ============================================================
+    
+    @POST("api/v1/customer/nearby-couriers")
+    suspend fun getNearbyCouriers(@Body request: Map<String, Any>): Response<NearbyCouriersResponse>
+    
+    // ============================================================
+    // TAMBAL BAN & TOWING — Service Reports
+    // ============================================================
+    
+    @GET("api/v1/customer/orders/{orderId}/report/tambal-ban")
+    suspend fun getTambalBanReport(@Path("orderId") orderId: String): Response<TambalBanReport>
+    
+    @GET("api/v1/customer/orders/{orderId}/report/towing")
+    suspend fun getTowingReport(@Path("orderId") orderId: String): Response<TowingReport>
+    
+    // ============================================================
+    // TAMBAL BAN & TOWING — Settlement
+    // ============================================================
+    
+    @POST("api/v1/order/{orderId}/settlement")
+    suspend fun calculateSettlement(@Path("orderId") orderId: String, @Body request: Map<String, Any>): Response<SettlementResult>
 }
+
 

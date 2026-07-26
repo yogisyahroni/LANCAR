@@ -415,4 +415,98 @@ class OrderRepository @Inject constructor(
             fallback.withRequestReference(this)
         }
     }
+
+    // ============================================================
+    // TAMBAL BAN & TOWING — Nearby Couriers
+    // ============================================================
+    
+    suspend fun getNearbyCouriers(serviceSubType: String, lat: Double, lng: Double): Result<NearbyCouriersResponse> {
+        return try {
+            val response = apiService.getNearbyCouriers(
+                mapOf(
+                    "service_sub_type" to serviceSubType,
+                    "lat" to lat,
+                    "lng" to lng,
+                    "radius_km" to 5.0
+                )
+            )
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Gagal memuat data petugas"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    // ============================================================
+    // TAMBAL BAN & TOWING — Service Reports
+    // ============================================================
+    
+    suspend fun getTambalBanReport(orderId: String): Result<TambalBanReport> {
+        return try {
+            val response = apiService.getTambalBanReport(orderId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Gagal memuat laporan tambal ban"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    suspend fun getTowingReport(orderId: String): Result<TowingReport> {
+        return try {
+            val response = apiService.getTowingReport(orderId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Gagal memuat laporan towing"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    // ============================================================
+    // TAMBAL BAN & TOWING — Settlement
+    // ============================================================
+    
+    suspend fun calculateSettlement(
+        orderId: String,
+        serviceCode: String,
+        grossTotal: Long,
+        distanceKm: Double,
+        baseFare: Long,
+        perKmRate: Long,
+        courierServicePrice: Long,
+        tollCost: Long,
+        insuranceFee: Long
+    ): Result<SettlementResult> {
+        return try {
+            val response = apiService.calculateSettlement(
+                mapOf(
+                    "order_id" to orderId,
+                    "service_code" to serviceCode,
+                    "gross_total" to grossTotal,
+                    "distance_km" to distanceKm,
+                    "base_fare" to baseFare,
+                    "per_km_rate" to perKmRate,
+                    "courier_service_price" to courierServicePrice,
+                    "toll_cost" to tollCost,
+                    "insurance_fee" to insuranceFee
+                )
+            )
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("Gagal menghitung settlement"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
+

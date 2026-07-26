@@ -45,4 +45,21 @@ sealed class Screen(val route: String) {
             return "call/$orderId?name=$encName&state=$encState&callId=$encCallId"
         }
     }
+    
+    // Tambal Ban & Towing
+    object NearbyCouriers : Screen("nearby-couriers/{serviceSubType}/{lat}/{lng}") {
+        fun createRoute(serviceSubType: String, lat: Double, lng: Double): String {
+            return "nearby-couriers/$serviceSubType/$lat/$lng"
+        }
+    }
+    object ServiceTracking : Screen("service-tracking/{orderId}/{serviceSubType}") {
+        fun createRoute(orderId: String, serviceSubType: String): String {
+            return "service-tracking/$orderId/$serviceSubType"
+        }
+    }
+    object ServiceReport : Screen("service-report/{orderId}/{serviceSubType}") {
+        fun createRoute(orderId: String, serviceSubType: String): String {
+            return "service-report/$orderId/$serviceSubType"
+        }
+    }
 }
