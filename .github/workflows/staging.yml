@@ -336,14 +336,12 @@ jobs:
       # ── Node.js dependency audit ──────────────────────────
       - name: npm audit (frontend)
         working-directory: ./frontend
-        continue-on-error: true
         run: |
           npm ci --quiet
           npm audit --audit-level=high
 
       - name: npm audit (admin-service)
         working-directory: ./backend/admin-service
-        continue-on-error: true
         run: |
           npm ci --quiet
           npm audit --audit-level=high
@@ -460,7 +458,6 @@ jobs:
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
-        continue-on-error: true
         with:
           name: sbom-${{ matrix.image }}
           path: sbom-${{ matrix.image }}.cdx.json
@@ -739,7 +736,6 @@ jobs:
     if: github.ref == 'refs/heads/staging'
     # NOTE: continue-on-error=true karena staging server belum live.
     # Hapus baris ini setelah server staging aktif dan STAGING_URL di-set.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -785,7 +781,6 @@ jobs:
       - name: Upload Playwright Report
         if: always() && steps.check_url.outputs.skip == 'false'
         uses: actions/upload-artifact@v4
-        continue-on-error: true
         with:
           name: playwright-report
           path: frontend/playwright-report/

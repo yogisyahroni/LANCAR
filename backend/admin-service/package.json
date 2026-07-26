@@ -59,12 +59,14 @@
   "overrides": {
     "ws": "8.21.0",
     "form-data": "4.0.6",
-    "protobufjs": "8.6.5",
+    "protobufjs": ">=8.6.6",
     "@tootallnate/once": "3.0.1",
     "uuid": "11.1.1",
     "@grpc/grpc-js": "1.14.4",
     "js-yaml": "4.3.0",
     "@babel/core": "7.29.7",
-    "@babel/traverse": "7.29.7"
+    "@babel/traverse": "7.29.7",
+    "brace-expansion": ">=5.0.8",
+    "@opentelemetry/propagator-jaeger": ">=2.9.0"
   }
 }
