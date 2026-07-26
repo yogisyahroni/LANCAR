@@ -22,23 +22,57 @@ ENV VITE_SOCKET_URL=$VITE_SOCKET_URL
 ENV VITE_ALLOW_LOCALHOST_FALLBACK=$VITE_ALLOW_LOCALHOST_FALLBACK
 RUN npm run build
 
-# Production stage — gunakan serve (static file server, sangat ringan)
-FROM node:22-alpine
+# Production stage — nginx alpine (no npm deps, no brace-expansion vuln)
+FROM nginx:alpine
 
-# Security patch: upgrade all packages to get latest CVE fixes (CVE-2025-4544 libcrypto)
+# Security patch: upgrade all packages to get latest CVE fixes
 RUN apk upgrade --no-cache
 
-WORKDIR /app
-RUN npm install -g serve && \
-    addgroup -S appgroup && \
-    adduser -S appuser -G appgroup && \
-    mkdir -p /app/dist && \
-    npm cache clean --force && \
-    rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
+# Remove default nginx config
+RUN rm /etc/nginx/conf.d/default.conf
 
-COPY --from=build /app/dist ./dist
-RUN chown -R appuser:appgroup /app
-USER appuser
+# Custom nginx config for SPA (all routes → index.html)
+RUN cat > /etc/nginx/conf.d/app.conf << 'EOF'
+server {
+    listen 3001;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # SPA fallback — all routes serve index.html
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Cache static assets
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # No caching for HTML
+    location ~* \.html$ {
+        expires -1;
+        add_header Cache-Control "no-store, no-cache, must-revalidate";
+    }
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+}
+EOF
+
+# Copy built assets
+COPY --from=build /app/dist /usr/share/nginx/html
+
+# Run as non-root
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chown -R nginx:nginx /var/cache/nginx && \
+    chown -R nginx:nginx /var/log/nginx && \
+    touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /var/run/nginx.pid
 
 EXPOSE 3001
-CMD ["serve", "-s", "dist", "-l", "3001"]
+
+CMD ["nginx", "-g", "daemon off;"]

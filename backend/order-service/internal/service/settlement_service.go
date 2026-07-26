@@ -20,7 +20,7 @@ func NewSettlementService(repo domain.SettlementRepository) domain.SettlementSer
 func (s *settlementServiceImpl) CalculateSettlement(
 	ctx context.Context,
 	orderID, serviceCode string,
-	grossTotal, distanceKM, baseFare, perKMRate, courierServicePrice, tollCost, insuranceFee int64,
+	grossTotal int64, distanceKM float64, baseFare, perKMRate, courierServicePrice, tollCost, insuranceFee int64,
 ) (*domain.SettlementResult, error) {
 	config, err := s.repo.GetSettlementConfig(ctx, serviceCode)
 	if err != nil {
