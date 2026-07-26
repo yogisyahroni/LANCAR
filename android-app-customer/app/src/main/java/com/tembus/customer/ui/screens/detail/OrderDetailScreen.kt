@@ -366,3 +366,4 @@ fun RoutePoint(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Col
         }
     }
 }
+

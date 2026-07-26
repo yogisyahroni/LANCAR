@@ -233,7 +233,7 @@ fun DashboardScreen(
                 LocationRequestCard(onBookingClick = { onBookingClick("dropoff") })
             }
             item {
-                ServiceOverview(services = services, onBookingClick = { onBookingClick(null) })
+                ServiceOverview(services = services, onBookingClick = onBookingClick, onHistoryClick = onHistoryClick)
             }
             item {
                 TrustCard()
@@ -1057,3 +1057,4 @@ private fun TrustRow(icon: ImageVector, title: String, body: String) {
             Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Muted, modifier = Modifier.size(18.dp))
     }
 }
+
