@@ -3,6 +3,8 @@ package com.tembus.courier.ui.screens.service
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.courier.data.repository.OrderRepository
+import com.tembus.courier.data.model.distanceKmValue
+import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.domain.TambalBanFlowResolver
 import com.tembus.courier.domain.TambalBanStage
 import com.tembus.courier.ui.components.service.EarningsData

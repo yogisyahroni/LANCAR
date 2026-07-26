@@ -113,7 +113,7 @@ data class Order(
 
     @ColumnInfo(name = "eta_minutes")
     @SerialName("eta_minutes")
-    var etaMinutes: Int? = null
+    var etaMinutes: Int? = null,
 
     @ColumnInfo(name = "service_sub_type")
     @SerialName("service_sub_type")
