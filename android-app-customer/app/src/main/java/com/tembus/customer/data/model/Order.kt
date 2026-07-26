@@ -109,7 +109,11 @@ data class Order(
 
     @ColumnInfo(name = "courier_phone")
     @SerialName("courier_phone")
-    var courierPhone: String? = null
+    var courierPhone: String? = null,
+
+    @ColumnInfo(name = "eta_minutes")
+    @SerialName("eta_minutes")
+    var etaMinutes: Int? = null
 
     @ColumnInfo(name = "service_sub_type")
     @SerialName("service_sub_type")

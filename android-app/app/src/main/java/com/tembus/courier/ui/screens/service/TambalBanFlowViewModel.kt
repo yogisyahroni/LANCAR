@@ -41,6 +41,8 @@ class TambalBanFlowViewModel @Inject constructor(
                 val order = orderRepository.getOrderById(orderId)
                 if (order != null) {
                     val flowState = TambalBanFlowResolver.resolve(order)
+                    val distKm = order.distanceKmValue()
+                    val payout = order.cleanPayoutIdr().toLong()
 
                     _uiState.update {
                         it.copy(
@@ -51,14 +53,14 @@ class TambalBanFlowViewModel @Inject constructor(
                             isCompleted = flowState.stage == TambalBanStage.COMPLETED,
                             nextActionLabel = flowState.nextAction.label,
                             earnings = EarningsData(
-                                serviceFee = order.courierServicePrice,
-                                baseFee = order.baseFeeApplied,
-                                perKmRate = order.perKmRateApplied,
-                                distanceKm = order.distanceKm,
-                                tollCost = order.tollCost,
+                                serviceFee = payout,
+                                baseFee = 0,
+                                perKmRate = if (distKm > 0) (payout / distKm.toLong()).coerceAtLeast(0) else 0,
+                                distanceKm = distKm,
+                                tollCost = 0,
                                 platformCommissionPct = 20.0,
-                                platformCommissionAmt = (order.perKmRateApplied * order.distanceKm.toLong() * 20 / 100),
-                                estimatedNetEarnings = order.totalPrice - (order.perKmRateApplied * order.distanceKm.toLong() * 20 / 100),
+                                platformCommissionAmt = (payout * 20 / 100),
+                                estimatedNetEarnings = payout - (payout * 20 / 100),
                                 settlementModel = "per_km"
                             )
                         )

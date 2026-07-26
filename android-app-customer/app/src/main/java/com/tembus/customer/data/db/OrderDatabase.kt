@@ -16,7 +16,7 @@ import com.tembus.customer.data.model.Order
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class OrderDatabase : RoomDatabase() {
@@ -42,6 +42,12 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `eta_minutes` INTEGER DEFAULT NULL")
+            }
+        }
+
         fun getDatabase(context: Context): OrderDatabase {
             return INSTANCE ?: synchronized(this) {
                 // 🔐 SECURITY: Implementation of SQLCipher SupportFactory for on-disk encryption
@@ -57,7 +63,7 @@ abstract class OrderDatabase : RoomDatabase() {
                     "order_database"
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                 INSTANCE = instance
                 instance

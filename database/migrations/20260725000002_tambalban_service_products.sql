@@ -19,7 +19,7 @@ INSERT INTO delivery_service_products (
      5000, 2000, 1.0,
      FALSE, 50.0, NULL,
      2500, 0.03, 0,
-     '{5}', TRUE, 200),
+     '[5]', TRUE, 200),
     
     -- Tambal Ban Mobil
     ('tambal_ban_mobil', 'Tambal Ban Mobil', 
@@ -28,7 +28,7 @@ INSERT INTO delivery_service_products (
      10000, 3000, 1.0,
      FALSE, 50.0, NULL,
      2500, 0.03, 0,
-     '{5}', TRUE, 201),
+     '[5]', TRUE, 201),
     
     -- Towing Motor
     ('towing_motor', 'Towing Motor', 
@@ -37,7 +37,7 @@ INSERT INTO delivery_service_products (
      30000, 4000, 1.0,
      FALSE, 100.0, NULL,
      5000, 0.03, 0,
-     '{10}', TRUE, 210),
+     '[10]', TRUE, 210),
     
     -- Towing Mobil
     ('towing_mobil', 'Towing Mobil', 
@@ -46,7 +46,7 @@ INSERT INTO delivery_service_products (
      75000, 6000, 1.0,
      FALSE, 100.0, NULL,
      5000, 0.03, 0,
-     '{10}', TRUE, 211)
+     '[10]', TRUE, 211)
 ON CONFLICT (code) DO NOTHING;
 
 -- Insert pricing configs for new services
