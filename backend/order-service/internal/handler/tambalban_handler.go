@@ -43,7 +43,7 @@ func (h *TambalBanHandler) GetNearbyCouriers(w http.ResponseWriter, r *http.Requ
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "Invalid request body",
-			middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
@@ -54,14 +54,14 @@ func (h *TambalBanHandler) GetNearbyCouriers(w http.ResponseWriter, r *http.Requ
 	// Validate service sub type
 	if !service.IsTambalBanOrTowing(req.ServiceSubType) {
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_SERVICE", "Invalid service sub type",
-			middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
 	result, err := h.availabilitySvc.FindAvailableCouriers(r.Context(), req.ServiceSubType, req.Lat, req.Lng, req.RadiusKM)
 	if err != nil {
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to find couriers",
-			middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
@@ -88,7 +88,7 @@ func (h *TambalBanHandler) CalculateSettlement(w http.ResponseWriter, r *http.Re
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "Invalid request body",
-			middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
@@ -100,7 +100,7 @@ func (h *TambalBanHandler) CalculateSettlement(w http.ResponseWriter, r *http.Re
 	)
 	if err != nil {
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_SETTLEMENT", err.Error(),
-			middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
@@ -126,14 +126,14 @@ func (h *TambalBanHandler) UpdateAvailabilityState(w http.ResponseWriter, r *htt
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "Invalid request body",
-			middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
 	err := h.availabilitySvc.UpdateCourierState(r.Context(), userID, req.State, req.OrderID)
 	if err != nil {
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to update state",
-			middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
@@ -155,7 +155,7 @@ func (h *TambalBanHandler) GetAvailabilityState(w http.ResponseWriter, r *http.R
 	state, err := h.availabilitySvc.GetCourierAvailability(r.Context(), userID)
 	if err != nil {
 		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Availability state not found",
-			middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
@@ -177,7 +177,7 @@ func (h *TambalBanHandler) CreateTambalBanReport(w http.ResponseWriter, r *http.
 	var req domain.TambalBanReport
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "Invalid request body",
-			middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 	req.CourierID = userID
@@ -185,7 +185,7 @@ func (h *TambalBanHandler) CreateTambalBanReport(w http.ResponseWriter, r *http.
 	err := h.reportSvc.CreateTambalBanReport(r.Context(), &req)
 	if err != nil {
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to create report",
-			middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
@@ -208,7 +208,7 @@ func (h *TambalBanHandler) CreateTowingReport(w http.ResponseWriter, r *http.Req
 	var req domain.TowingReport
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_BODY", "Invalid request body",
-			middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 	req.CourierID = userID
@@ -216,7 +216,7 @@ func (h *TambalBanHandler) CreateTowingReport(w http.ResponseWriter, r *http.Req
 	err := h.reportSvc.CreateTowingReport(r.Context(), &req)
 	if err != nil {
 		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to create report",
-			middleware.GetCorrelationID(r.Context()), middleware.GetRequestID(r.Context()), middleware.GetTraceID(r.Context()))
+			middleware.GetCorrelationID(r.Context()))
 		return
 	}
 
