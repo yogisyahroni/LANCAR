@@ -88,14 +88,26 @@ export const protectDocs = (req: Request, res: Response, next: NextFunction) => 
 };
 
 export const protectMetrics = (req: Request, res: Response, next: NextFunction) => {
-  if (!isProductionRuntime()) {
-    return next();
-  }
-
   const expectedToken = process.env.METRICS_BEARER_TOKEN;
   const providedToken = getBearerToken(req);
 
-  if (!expectedToken || !providedToken || !timingSafeStringEqual(providedToken, expectedToken)) {
+  // In production, always require a configured token.
+  // In development, allow access only when the token IS explicitly configured
+  // (i.e. the operator opted-in to metrics auth even in dev).
+  if (!expectedToken) {
+    if (isProductionRuntime()) {
+      // Production without token configured — block entirely (should never happen).
+      return res.status(403).json({
+        status: 'error',
+        code: 'ERR_METRICS_NOT_CONFIGURED',
+        message: 'Metrics endpoint is not configured',
+      });
+    }
+    // Development without token — allow unauthenticated access for convenience.
+    return next();
+  }
+
+  if (!providedToken || !timingSafeStringEqual(providedToken, expectedToken)) {
     return res.status(401).json({
       status: 'error',
       code: 'ERR_METRICS_AUTH_REQUIRED',
