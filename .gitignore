@@ -83,3 +83,6 @@ cookies.txt
 # Knowledge Graph (generated)
 graphify-out/
 NUL
+
+# Hermes temp files
+.hermes-tmp*/
