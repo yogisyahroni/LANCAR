@@ -4,7 +4,7 @@
 # ============================================================
 
 # Stage 1: Builder
-FROM node:22-alpine AS builder
+FROM mirror.gcr.io/node:22-alpine AS builder
 
 # Security patch: upgrade all packages to get latest CVE fixes (CVE-2025-4544 libcrypto)
 RUN apk upgrade --no-cache
@@ -24,7 +24,7 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Production
-FROM node:22-alpine AS production
+FROM mirror.gcr.io/node:22-alpine AS production
 
 # Security patch: upgrade all packages to get latest CVE fixes (CVE-2025-4544 libcrypto)
 RUN apk upgrade --no-cache

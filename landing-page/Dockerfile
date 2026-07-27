@@ -1,4 +1,4 @@
-FROM node:22-alpine AS base
+FROM mirror.gcr.io/node:22-alpine AS base
 
 RUN apk upgrade --no-cache
 

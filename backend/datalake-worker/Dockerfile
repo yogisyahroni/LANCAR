@@ -1,4 +1,4 @@
-FROM golang:1.25.12-alpine AS builder
+FROM mirror.gcr.io/golang:1.25.12-alpine AS builder
 
 WORKDIR /app
 
@@ -8,7 +8,7 @@ RUN go mod tidy && go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -o datalake-worker .
 
-FROM alpine:3.22
+FROM mirror.gcr.io/alpine:3.22
 RUN apk upgrade --no-cache
 RUN apk add --no-cache ca-certificates tzdata
 

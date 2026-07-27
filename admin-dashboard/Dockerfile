@@ -1,5 +1,5 @@
 # Build stage — gunakan Node 22 LTS agar kompatibel dengan Vite 8, react-router 7, Tailwind v4
-FROM node:22-alpine AS build
+FROM mirror.gcr.io/node:22-alpine AS build
 
 # Security patch: upgrade all packages to get latest CVE fixes (CVE-2025-4544 libcrypto)
 RUN apk upgrade --no-cache

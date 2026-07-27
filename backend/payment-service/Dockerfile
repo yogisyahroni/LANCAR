@@ -3,7 +3,7 @@
 # ============================================================
 
 # Stage 1: Builder
-FROM golang:1.25.12-alpine AS builder
+FROM mirror.gcr.io/golang:1.25.12-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
@@ -26,7 +26,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     ./cmd/api/main.go
 
 # Stage 2: Final (minimal attack surface)
-FROM alpine:3.22
+FROM mirror.gcr.io/alpine:3.22
 
 # Security patch: upgrade all packages to get latest CVE fixes (CVE-2025-4544 libcrypto)
 RUN apk upgrade --no-cache
