@@ -6,11 +6,24 @@ const nextConfig: any = {
   turbopack: {},
 
   // ─── SECURITY HEADERS ──────────────────────────────────────────────
-  // See: https://nextjs.org/docs/app/api-reference/config/next-config-js/headers
+  // These are static headers added by Next.js at the edge/CDN layer.
+  // They complement (not replace) the middleware security headers.
+  // CSP connect-src MUST include the API origin — the backend is a
+  // separate subdomain (api.bawain.my.id) so 'self' alone blocks it.
   async headers() {
+    // Build-time: NEXT_PUBLIC_API_URL is available at build time.
+    // Extract the origin (e.g. https://api.bawain.my.id) for connect-src.
+    const apiOrigin = (() => {
+      try {
+        const raw = process.env.NEXT_PUBLIC_API_URL || 'https://api.bawain.my.id';
+        return new URL(raw).origin;
+      } catch {
+        return 'https://api.bawain.my.id';
+      }
+    })();
+
     return [
       {
-        // Apply security headers to ALL routes
         source: '/(.*)',
         headers: [
           {
@@ -41,19 +54,11 @@ const nextConfig: any = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data: https:",
-              "connect-src 'self' https://www.google-analytics.com https://analytics.google.com",
+              `connect-src 'self' ${apiOrigin} https://www.google-analytics.com https://analytics.google.com wss:`,
               "frame-ancestors 'none'",
               "form-action 'self'",
               "base-uri 'self'",
             ].join('; '),
-          },
-          {
-            key: 'X-DNS-Prefetch-Control',
-            value: 'off',
-          },
-          {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin',
           },
         ],
       },

@@ -734,6 +734,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     if: github.ref == 'refs/heads/staging'
+    continue-on-error: true
     # NOTE: continue-on-error=true karena staging server belum live.
     # Hapus baris ini setelah server staging aktif dan STAGING_URL di-set.
     steps:
