@@ -242,7 +242,7 @@ if (process.env.NODE_ENV === 'production' && !resolveInternalGatewaySecret()) {
 // Rate Limiting
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs (increased for testing)
+  max: 30, // limit each IP to 30 requests per 15 minutes
   keyGenerator: (req) => {
     return (req.headers['cf-connecting-ip'] as string) || (req.headers['x-forwarded-for'] as string) || req.ip || 'unknown';
   },
