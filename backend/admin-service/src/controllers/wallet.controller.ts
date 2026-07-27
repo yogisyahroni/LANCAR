@@ -34,8 +34,8 @@ export const getWalletBalance = async (req: Request, res: Response) => {
     } catch (upstreamError: any) {
       securityLog.warn('Payment service unreachable, returning default balance:', upstreamError.message || upstreamError);
       // Payment service not available — return safe default
-      const db = (await import('../db')).default;
-      const { rows } = await db.query(
+      const { db: dbPool } = await import('../db');
+      const { rows } = await dbPool.query(
         `SELECT COALESCE(SUM(balance), 0)::bigint AS wallet_balance
          FROM customer_wallets
          WHERE customer_id = $1`,
