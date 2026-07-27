@@ -146,7 +146,7 @@ val releaseBaseUrl = getConfigValue("BASE_URL")
 val releaseBuildConfigBaseUrl = normalizedBaseUrl(releaseBaseUrl.ifBlank { "https://missing-release-base-url.invalid/" })
 val debugBaseUrl = getConfigValue("DEBUG_BASE_URL")
     .ifBlank { getConfigValue("MOBILE_API_BASE_URL") }
-    .ifBlank { "http://10.0.2.2:8080/" }
+    .ifBlank { "https://api.bawain.my.id/api/v1/" }  // SECURITY: Always HTTPS, never cleartext
 val debugBuildConfigBaseUrl = normalizedBaseUrl(debugBaseUrl)
 val githubReleasesApiUrl = getConfigValue("GITHUB_RELEASES_API_URL")
     .ifBlank { "https://api.github.com/repos/yogisyahroni/LANCAR/releases" }
@@ -245,7 +245,7 @@ android {
             }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "BASE_URL", quoteBuildConfigString(releaseBuildConfigBaseUrl))
-            buildConfigField("boolean", "GITHUB_RELEASE_UPDATES_ENABLED", githubReleaseUpdatesEnabled.toString())
+            buildConfigField("boolean", "GITHUB_RELEASE_UPDATES_ENABLED", "false")  // SECURITY: Release builds use backend only
             buildConfigField("String", "GITHUB_RELEASES_API_URL", quoteBuildConfigString(githubReleasesApiUrl))
             buildConfigField("String", "GITHUB_RELEASE_ASSET_NAME", quoteBuildConfigString("tembus-customer-release.apk"))
         }

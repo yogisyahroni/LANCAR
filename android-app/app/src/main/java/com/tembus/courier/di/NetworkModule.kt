@@ -63,7 +63,7 @@ object NetworkModule {
         return Json {
             ignoreUnknownKeys = true
             coerceInputValues = true
-            isLenient = true
+            isLenient = false  // SECURITY: Reject malformed JSON (prevents type confusion)
             prettyPrint = false
         }
     }

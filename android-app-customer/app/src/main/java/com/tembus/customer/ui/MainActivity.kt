@@ -37,6 +37,18 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
+        // SECURITY: Validate deep link data before any processing
+        intent?.data?.let { uri ->
+            val host = uri.host
+            val orderId = uri.getQueryParameter("id") ?: uri.lastPathSegment
+            // Only allow alphanumeric + hyphen in order IDs (UUID format)
+            if (orderId != null && !orderId.matches(Regex("^[a-zA-Z0-9-]+$"))) {
+                Toast.makeText(this, "Link tidak valid", Toast.LENGTH_SHORT).show()
+                finish()
+                return
+            }
+        }
+        
         // Root detection uses a lightweight Java/Kotlin heuristic here to keep the
         // customer app compatible with Android 15+ 16 KB page-size devices.
         if (isLikelyRootedDevice()) {

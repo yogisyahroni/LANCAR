@@ -8,6 +8,13 @@
 
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.bawain.my.id</domain>
+        <!-- Certificate Pinning: Let's Encrypt leaf + intermediate -->
+        <pin-set expiration="2027-06-28">
+            <!-- Leaf: CN=bawain.my.id, Issuer=YE1 (Let's Encrypt) -->
+            <pin digest="SHA-256">ELvW+3bCbzmTWgqPtd9SEVZJZWo9xjljsQyepOCM99g=</pin>
+            <!-- Intermediate: CN=YE1 (backup pin survives renewal) -->
+            <pin digest="SHA-256">brzvtCELCIZUo4sD/qPX0ccRtPsd3DY6RfmxpOU9oB4=</pin>
+        </pin-set>
         <trust-anchors>
             <certificates src="system" />
             <certificates src="@raw/isrg_root_x2_cross_signed" />

@@ -63,7 +63,7 @@ object NetworkModule {
     fun provideJson(): Json {
         return Json {
             ignoreUnknownKeys = true
-            isLenient = true
+            isLenient = false  // SECURITY: Reject malformed JSON (prevents type confusion)
             encodeDefaults = true
             prettyPrint = true
             coerceInputValues = true

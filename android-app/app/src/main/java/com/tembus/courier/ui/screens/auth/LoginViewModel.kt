@@ -53,7 +53,7 @@ class LoginViewModel @Inject constructor(
 
     private val errorJson = Json {
         ignoreUnknownKeys = true
-        isLenient = true
+        isLenient = false  // SECURITY: Reject malformed JSON
     }
 
     private val technicalErrorMarkers = listOf(

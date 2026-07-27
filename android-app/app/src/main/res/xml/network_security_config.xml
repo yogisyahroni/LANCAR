@@ -8,11 +8,12 @@
 
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.bawain.my.id</domain>
-        <!-- Fix VULN-004: Certificate Pinning -->
+        <!-- Certificate Pinning: Let's Encrypt leaf + intermediate -->
         <pin-set expiration="2027-06-28">
-            <!-- PLACEHOLDERS: Replace with actual Base64 SHA-256 hashes (Must be 44 chars) -->
-            <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
-            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
+            <!-- Leaf: CN=bawain.my.id, Issuer=YE1 (Let's Encrypt) -->
+            <pin digest="SHA-256">ELvW+3bCbzmTWgqPtd9SEVZJZWo9xjljsQyepOCM99g=</pin>
+            <!-- Intermediate: CN=YE1 (backup pin survives renewal) -->
+            <pin digest="SHA-256">brzvtCELCIZUo4sD/qPX0ccRtPsd3DY6RfmxpOU9oB4=</pin>
         </pin-set>
         <trust-anchors>
             <certificates src="system" />
