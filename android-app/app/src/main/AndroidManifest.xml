@@ -31,8 +31,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <!-- Required by the in-app updater to open downloaded APKs on Android 8+. -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Removed: REQUEST_INSTALL_PACKAGES — use Play Store for updates instead -->
 
     <!-- Modern Android 11+ (API 30) Package Visibility Permissions (CRITICAL GAP-1) -->
     <queries>
@@ -168,7 +167,7 @@
         <receiver
             android:name=".receiver.GpsTamperReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.location.PROVIDERS_CHANGED" />
             </intent-filter>
