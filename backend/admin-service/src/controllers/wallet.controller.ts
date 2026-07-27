@@ -11,19 +11,43 @@ export const getWalletBalance = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized: User session missing' });
     }
 
-    const response = await fetch(`${PAYMENT_SERVICE_URL}/api/v1/wallet/balance`, {
-      headers: {
-        'X-User-ID': user.id,
-        'Content-Type': 'application/json'
-      }
-    });
+    // For now, since payment service may not be available, return default balance
+    let data: any;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+      const response = await fetch(`${PAYMENT_SERVICE_URL}/api/v1/wallet/balance`, {
+        signal: controller.signal,
+        headers: {
+          'X-User-ID': user.id,
+          'Content-Type': 'application/json'
+        }
+      });
+      clearTimeout(timeout);
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return res.status(response.status).json(errorData);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return res.status(response.status).json(errorData);
+      }
+
+      data = await response.json();
+    } catch (upstreamError: any) {
+      securityLog.warn('Payment service unreachable, returning default balance:', upstreamError.message || upstreamError);
+      // Payment service not available — return safe default
+      const db = (await import('../db')).default;
+      const { rows } = await db.query(
+        `SELECT COALESCE(SUM(balance), 0)::bigint AS wallet_balance
+         FROM customer_wallets
+         WHERE customer_id = $1`,
+        [user.id]
+      );
+      return res.json({
+        success: true,
+        balance: Number(rows[0]?.wallet_balance || 0),
+        currency: 'IDR'
+      });
     }
 
-    const data = await response.json();
     return res.json(data);
   } catch (error: any) {
     securityLog.error('Error fetching wallet balance:', error);

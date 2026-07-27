@@ -86,3 +86,8 @@ NUL
 
 # Hermes temp files
 .hermes-tmp*/
+
+# Debug logs
+crash_after_login.txt
+logcat.txt
+gateway.log
