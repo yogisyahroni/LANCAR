@@ -4,6 +4,15 @@
 -- Runs alongside existing on_demand services (tembus_priority, tembus_instant, etc.)
 -- without removing or altering them.
 
+-- First, relax CHECK constraints to allow aggregator-specific values
+ALTER TABLE delivery_service_products DROP CONSTRAINT IF EXISTS delivery_service_products_price_mode_check;
+ALTER TABLE delivery_service_products ADD CONSTRAINT delivery_service_products_price_mode_check
+  CHECK (price_mode = ANY (ARRAY['final'::text, 'estimated_then_adjusted'::text, 'quote'::text]));
+
+ALTER TABLE delivery_service_products DROP CONSTRAINT IF EXISTS delivery_service_products_route_model_check;
+ALTER TABLE delivery_service_products ADD CONSTRAINT delivery_service_products_route_model_check
+  CHECK (route_model = ANY (ARRAY['p2p'::text, 'two_legs'::text, 'three_legs'::text, 'hub_and_spoke'::text]));
+
 INSERT INTO delivery_service_products (
   code, name, description, service_family, service_category, route_model, is_enabled, display_order,
   vehicle_types, exclusive_driver, batching_allowed, max_eta_minutes, max_distance_km, max_weight_kg,
@@ -69,5 +78,14 @@ ON CONFLICT (code) DO UPDATE SET
 
 -- +goose Down
 -- +goose StatementBegin
+-- Restore original constraints
+ALTER TABLE delivery_service_products DROP CONSTRAINT IF EXISTS delivery_service_products_price_mode_check;
+ALTER TABLE delivery_service_products ADD CONSTRAINT delivery_service_products_price_mode_check
+  CHECK (price_mode = ANY (ARRAY['final'::text, 'estimated_then_adjusted'::text]));
+
+ALTER TABLE delivery_service_products DROP CONSTRAINT IF EXISTS delivery_service_products_route_model_check;
+ALTER TABLE delivery_service_products ADD CONSTRAINT delivery_service_products_route_model_check
+  CHECK (route_model = ANY (ARRAY['p2p'::text, 'two_legs'::text, 'three_legs'::text]));
+
 DELETE FROM delivery_service_products WHERE code = 'tembus_aggregator';
 -- +goose StatementEnd
