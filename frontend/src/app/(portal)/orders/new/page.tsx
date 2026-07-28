@@ -188,6 +188,30 @@ export default function NewOrderPage() {
   // Debounce effect for price calculation based on individual fields
   useEffect(() => {
     const handler = setTimeout(() => {
+      // Aggregator mode: use logistics tariff as pricing, skip API
+      if (formData.service_code === 'tembus_aggregator' && formData.logistics_tariff_idr) {
+        setCoverageError(null);
+        setIsCalculating(false);
+        setPricing({
+          service_code: 'tembus_aggregator',
+          service_name: 'TEMBUS Aggregator',
+          total_price_idr: formData.logistics_tariff_idr,
+          base_price_idr: formData.logistics_tariff_idr,
+          logistics_tariff_idr: formData.logistics_tariff_idr,
+          logistics_provider: formData.logistics_provider,
+          volumetric_surcharge_idr: 0,
+          insurance_premium_idr: 0,
+          dynamic_price_idr: 0,
+          platform_fee_idr: 0,
+          distance_km: 0,
+          delivery_model: 'hub_and_spoke',
+          eta_minutes: 0,
+          package_count: 1,
+          actual_weight_kg: formData.package_details?.weight_kg || 0,
+          chargeable_weight_kg: formData.package_details?.weight_kg || 0,
+        });
+        return;
+      }
       const needsScan = scanRequired && !formData.package_details?.dimensions_scanned;
       if (formData.service_code && formData.pickup_location && formData.dropoff_location && formData.package_details?.category) {
         if (needsScan) {

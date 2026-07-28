@@ -56,7 +56,7 @@ export type DeliveryServiceProduct = {
   requires_dimension_scan: boolean;
   allows_manual_dimension: boolean;
   requires_pickup_verification: boolean;
-  price_mode: 'final' | 'estimated_then_adjusted';
+  price_mode: 'final' | 'estimated_then_adjusted' | 'quote';
   base_fare_idr: number;
   included_distance_km: number;
   per_km_idr: number;
@@ -276,8 +276,8 @@ export const listEnabledDeliveryServicesForCustomer = async (): Promise<Delivery
     `SELECT *
      FROM delivery_service_products
      WHERE is_enabled = TRUE
-       AND route_model = 'p2p'
-       AND service_category IN ('on_demand', 'regular')
+       AND (route_model = 'p2p' AND service_category IN ('on_demand', 'regular')
+        OR service_category = 'aggregator')
      ORDER BY display_order ASC, name ASC`
   );
 

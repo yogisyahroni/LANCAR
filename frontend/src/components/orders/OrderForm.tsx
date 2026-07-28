@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { useRuntimeConfig, RuntimeConfig } from "@/hooks/useRuntimeConfig";
 import {
   Box,
+  Building2,
   Camera,
   CalendarDays,
   Check,
@@ -21,8 +22,11 @@ import {
   Search,
   Sparkles,
   Clock,
-  X
+  X,
+  Zap
 } from "lucide-react";
+
+import { AggregatorForm } from "./AggregatorForm";
 
 const coordinateSchema = z.object({
   lat: z.number(),
@@ -82,7 +86,15 @@ export const createOrderSchema = (config?: RuntimeConfig | null) => z.object({
   ).optional(),
   schedule_type: z.enum(["now", "scheduled"]).default("now"),
   scheduled_at: z.string().optional(),
-  customer_notes: z.string().max(200).optional()
+  customer_notes: z.string().max(200).optional(),
+
+  // Aggregator logistics fields (optional — only for 3PL/network parcel flow)
+  logistics_provider: z.string().optional(),
+  logistics_service_type: z.string().optional(),
+  logistics_tariff_idr: z.number().optional(),
+  logistics_net_cost_idr: z.number().optional(),
+  pickup_city: z.string().optional(),
+  dropoff_city: z.string().optional(),
 }).superRefine((data, ctx) => {
   if (!data.pickup_location) {
     ctx.addIssue({
@@ -179,6 +191,7 @@ export interface DeliveryService {
   name: string;
   description: string;
   service_family: string;
+  service_category: string;
   route_model: "p2p";
   vehicle_types: string[];
   exclusive_driver: boolean;
@@ -815,12 +828,26 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
   const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [receiverLocationLink, setReceiverLocationLink] = useState<ReceiverLocationLink | null>(null);
-  const [receiverLocationBusy, setReceiverLocationBusy] = useState(false);
-  const [receiverLocationMessage, setReceiverLocationMessage] = useState<string | null>(null);
+    const [receiverLocationBusy, setReceiverLocationBusy] = useState(false);
+    const [mode, setMode] = useState<"ondemand" | "aggregator">("ondemand");
+    const [receiverLocationMessage, setReceiverLocationMessage] = useState<string | null>(null);
 
-  const customZodResolver = async (data: any) => {
-    const schema = createOrderSchema(config);
-    const result = schema.safeParse(data);
+    const onDemandServices = useMemo(
+      () => services.filter((s) => s.service_category !== "aggregator"),
+      [services]
+    );
+    const aggregatorServices = useMemo(
+      () => services.filter((s) => s.service_category === "aggregator"),
+      [services]
+    );
+    const defaultAggregatorService = useMemo(
+      () => aggregatorServices[0],
+      [aggregatorServices]
+    );
+
+    const customZodResolver = async (data: any) => {
+      const schema = createOrderSchema(config);
+      const result = schema.safeParse(data);
     if (result.success) {
       return { values: result.data, errors: {} };
     }
@@ -1209,28 +1236,60 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
         <input type="hidden" {...register("size_tier")} />
 
         {draftRestoredAt && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50">
-            <span>
-              Draft pengiriman dipulihkan dari sesi browser pukul {new Date(draftRestoredAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}.
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                clearCustomerOrderDraft();
-                setDraftRestoredAt(null);
-              }}
-              className="rounded-md border border-emerald-200/30 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-emerald-200/10"
-            >
-              Bersihkan Draft
-            </button>
-          </div>
-        )}
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50">
+                    <span>
+                      Draft pengiriman dipulihkan dari sesi browser pukul {new Date(draftRestoredAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearCustomerOrderDraft();
+                        setDraftRestoredAt(null);
+                      }}
+                      className="rounded-md border border-emerald-200/30 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-emerald-200/10"
+                    >
+                      Bersihkan Draft
+                    </button>
+                  </div>
+                )}
 
-        <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
-          <h3 className="flex items-center gap-2 text-lg font-semibold">
-            <Box className="h-5 w-5 text-primary" />
-            Pilih Layanan
-          </h3>
+                {/* Mode Tabs: On-Demand | Aggregator */}
+                <div className="flex rounded-xl border border-white/10 bg-white/[0.02] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setMode("ondemand")}
+                    className={[
+                      "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
+                      mode === "ondemand"
+                        ? "bg-primary/10 text-primary shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    ].join(" ")}
+                  >
+                    <Zap className="h-4 w-4" />
+                    On-Demand
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("aggregator")}
+                    className={[
+                      "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
+                      mode === "aggregator"
+                        ? "bg-indigo-500/10 text-indigo-400 shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    ].join(" ")}
+                  >
+                    <Building2 className="h-4 w-4" />
+                    Aggregator (3PL)
+                  </button>
+                </div>
+
+                {mode === "ondemand" ? (
+                  <>
+                <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+                  <h3 className="flex items-center gap-2 text-lg font-semibold">
+                    <Box className="h-5 w-5 text-primary" />
+                    Pilih Layanan
+                  </h3>
 
           {isLoadingServices ? (
             <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-background/40 px-4 py-3 text-sm text-muted-foreground">
@@ -1250,7 +1309,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {services.map((service) => {
+              {onDemandServices.map((service) => {
                 const selected = service.code === service_code;
                 return (
                   <button
@@ -1317,11 +1376,43 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
           )}
         </section>
 
-        <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
-          <h3 className="flex items-center gap-2 text-lg font-semibold">
-            <MapPin className="h-5 w-5 text-primary" />
-            Detail Pengambilan (Pickup)
-          </h3>
+                  </>
+                ) : (
+                  <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+                    <h3 className="flex items-center gap-2 text-lg font-semibold">
+                      <Building2 className="h-5 w-5 text-indigo-400" />
+                      Cek Ongkir Aggregator (3PL)
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Bandingkan tarif dari JNE, J&T, SiCepat, dan AnterAja untuk pengiriman antar kota.
+                    </p>
+                    <AggregatorForm
+                      onProviderSelect={(provider, tariff, details) => {
+                        if (!details) return;
+                        setValue("service_code", `tembus_aggregator`, { shouldDirty: true, shouldValidate: true });
+                        setValue("logistics_provider", details.provider_code, { shouldDirty: true, shouldValidate: true });
+                        setValue("logistics_service_type", details.service_type, { shouldDirty: true, shouldValidate: true });
+                        setValue("logistics_tariff_idr", details.tariff_idr, { shouldDirty: true, shouldValidate: true });
+                        setValue("logistics_net_cost_idr", details.net_cost_idr, { shouldDirty: true, shouldValidate: true });
+                        setValue("pickup_city", details.origin_city, { shouldDirty: true, shouldValidate: true });
+                        setValue("dropoff_city", details.destination_city, { shouldDirty: true, shouldValidate: true });
+                        // Sync weight from aggregator form to package details
+                        if (details.weight_kg && details.weight_kg > 0) {
+                          setValue("package_details.weight_kg", details.weight_kg, { shouldDirty: true, shouldValidate: true });
+                        }
+                        // Auto-set defaults for required package details fields in aggregator mode
+                        setValue("package_details.category", "Paket", { shouldDirty: true });
+                        setValue("package_details.item_description", `Pengiriman ${details.provider_code.toUpperCase()} — ${details.origin_city} → ${details.destination_city}`, { shouldDirty: true });
+                      }}
+                    />
+                  </section>
+                )}
+
+                <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+                  <h3 className="flex items-center gap-2 text-lg font-semibold">
+                    <MapPin className="h-5 w-5 text-primary" />
+                    Detail Pengambilan (Pickup)
+                  </h3>
           <AddressPicker
             mode="pickup"
             address={pickup_address}
@@ -1443,6 +1534,8 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {mode === "ondemand" ? (
+              <>
             <div>
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Kategori Barang</label>
               <input
@@ -1476,8 +1569,22 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
               />
               {errors.package_details?.weight_kg && <p className="mt-1 text-xs text-destructive">{errors.package_details.weight_kg.message}</p>}
             </div>
+            </>
+            ) : (
+              <div className="sm:col-span-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-4 py-3 text-sm">
+                <p className="flex items-center gap-2 font-medium text-indigo-300">
+                  <Building2 className="h-4 w-4" />
+                  Informasi Paket (Aggregator)
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Berat paket sudah diatur dari hasil cek tarif. Kategori dan deskripsi barang otomatis terisi.
+                </p>
+              </div>
+            )}
           </div>
 
+          {mode === "ondemand" && (
+          <>
           <div>
             <label className="mb-1 flex items-center gap-2 text-sm font-medium text-muted-foreground">
               Dimensi Paket (cm) <Maximize className="h-3.5 w-3.5" />
@@ -1510,6 +1617,8 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
               )}
             </div>
           </div>
+          </>
+          )}
 
           <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
             <label className="flex items-start gap-3">

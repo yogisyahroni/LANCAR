@@ -640,6 +640,57 @@ const calculateCustomerPriceBreakdown = async ({
   sizeTier,
   routeSnapshotOverride,
 }: CustomerPriceCalculationInput) => {
+  // ─── Quote-based pricing (aggregator/3PL) ────────────────────
+  // These services don't use internal distance × multiplier pricing.
+  // The price comes from the logistics provider's tariff, stored as
+  // logistics_tariff_idr in the order. We return placeholder values
+  // so the order INSERT has valid route_snapshot and zero-cost components.
+  if (service.price_mode === 'quote') {
+    const routeSnapshot = {
+      ...(routeSnapshotOverride || await buildMapsRouteEtaSnapshot(
+        { latitude: pickupPoint.lat, longitude: pickupPoint.lng },
+        { latitude: dropoffPoint.lat, longitude: dropoffPoint.lng },
+        'customer_mobile',
+        {
+          serviceCode: service.code,
+          vehicleType: routeVehicleTypeForService(service),
+          routeProfile: routeVehicleTypeForService(service),
+          requireRoadRoute: true,
+        }
+      )),
+      service_code: service.code,
+    };
+    const distance = Math.max(0, Number(routeSnapshot.distance_km || 0));
+    const routeEta = routeSnapshot.eta_minutes || 120;
+    const etaMinutes = Math.min(service.max_eta_minutes, Math.max(20, routeEta));
+    const normalizedPkgs = packages && packages.length > 0
+      ? packages
+      : normalizePackageInputs(null, { dimensions, weight_kg: weightKg, size_tier: sizeTier });
+    const pkgSummary = summarizePackages(service, normalizedPkgs);
+
+    return {
+      service_code: service.code,
+      service_name: service.name,
+      service_snapshot: publicServiceSnapshot(service),
+      selected_size_tier: null,
+      distance_km: distance,
+      route_snapshot: publicRouteSnapshot({ ...routeSnapshot, eta_minutes: etaMinutes, eta: `${etaMinutes} menit` }),
+      base_price_idr: 0,
+      actual_weight_kg: Number(pkgSummary.actual_weight_kg.toFixed(2)),
+      dimensional_weight_kg: Number(pkgSummary.dimensional_weight_kg.toFixed(2)),
+      chargeable_weight_kg: Number(pkgSummary.chargeable_weight_kg.toFixed(2)),
+      package_count: pkgSummary.package_count,
+      packages: normalizedPkgs,
+      volumetric_surcharge_idr: 0,
+      insurance_premium_idr: 0,
+      dynamic_price_idr: 0,
+      platform_fee_idr: 0,
+      delivery_model: service.route_model,
+      eta_minutes: etaMinutes,
+      total_price_idr: 0, // Actual price is logistics_tariff_idr, stored separately
+    };
+  }
+
   const routeSnapshot = {
     ...(routeSnapshotOverride || await buildMapsRouteEtaSnapshot(
       { latitude: pickupPoint.lat, longitude: pickupPoint.lng },
@@ -986,7 +1037,13 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       customer_notes,
       price_breakdown,
       service_code,
-      promo_code
+      promo_code,
+      logistics_provider,
+      logistics_service_type,
+      logistics_tariff_idr,
+      logistics_net_cost_idr,
+      pickup_city,
+      dropoff_city
     } = req.body;
 
     const service = await findDeliveryServiceByCode(price_breakdown?.service_code || service_code);
@@ -1049,7 +1106,12 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     });
     const trustedRouteSnapshot = trustedPriceBreakdown.route_snapshot;
 
-    const grossTotalPrice = trustedPriceBreakdown.total_price_idr || 0;
+    // For quote-based pricing (aggregator/3PL), use the logistics tariff as the gross price
+    const effectiveTotalPriceIdr = service.price_mode === 'quote'
+      ? (logistics_tariff_idr || trustedPriceBreakdown.total_price_idr || 0)
+      : (trustedPriceBreakdown.total_price_idr || 0);
+
+    const grossTotalPrice = effectiveTotalPriceIdr;
     const grossSettlement = calculateServiceSettlement(
       service,
       grossTotalPrice,
@@ -1162,12 +1224,18 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         route_fallback_reason,
         recipient_phone_hash,
         item_description,
+        logistics_provider,
+        logistics_service_type,
+        logistics_tariff_idr,
+        logistics_net_cost_idr,
+        pickup_city,
+        dropoff_city,
         created_at
       ) VALUES (
         $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
         $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31,
-        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, NOW()
+        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, NOW()
       ) RETURNING id, order_number, total_price_idr, loyalty_discount_idr, route_snapshot
     `;
 
@@ -1212,7 +1280,13 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       trustedRouteSnapshot.route_polyline,
       trustedRouteSnapshot.fallback_reason,
       hashPhoneForPrivateLookup(recipient_phone),
-      package_details?.item_description || ''
+      package_details?.item_description || '',
+      logistics_provider || null,
+      logistics_service_type || null,
+      logistics_tariff_idr || null,
+      logistics_net_cost_idr || null,
+      pickup_city || null,
+      dropoff_city || null
     ];
 
     const result = await client.query(insertQuery, values);
