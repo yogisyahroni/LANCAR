@@ -78,7 +78,10 @@ ON CONFLICT (code) DO UPDATE SET
 
 -- +goose Down
 -- +goose StatementBegin
--- Restore original constraints
+-- IMPORTANT: Delete the aggregator row BEFORE restoring constraints,
+-- otherwise ALTER TABLE will fail because existing rows violate the old constraint.
+DELETE FROM delivery_service_products WHERE code = 'tembus_aggregator';
+
 ALTER TABLE delivery_service_products DROP CONSTRAINT IF EXISTS delivery_service_products_price_mode_check;
 ALTER TABLE delivery_service_products ADD CONSTRAINT delivery_service_products_price_mode_check
   CHECK (price_mode = ANY (ARRAY['final'::text, 'estimated_then_adjusted'::text]));
@@ -86,6 +89,4 @@ ALTER TABLE delivery_service_products ADD CONSTRAINT delivery_service_products_p
 ALTER TABLE delivery_service_products DROP CONSTRAINT IF EXISTS delivery_service_products_route_model_check;
 ALTER TABLE delivery_service_products ADD CONSTRAINT delivery_service_products_route_model_check
   CHECK (route_model = ANY (ARRAY['p2p'::text, 'two_legs'::text, 'three_legs'::text]));
-
-DELETE FROM delivery_service_products WHERE code = 'tembus_aggregator';
 -- +goose StatementEnd
