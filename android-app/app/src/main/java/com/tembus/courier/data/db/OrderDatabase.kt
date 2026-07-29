@@ -8,6 +8,8 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import com.tembus.courier.data.model.CourierOrderPackage
 import com.tembus.courier.data.model.Location
 import com.tembus.courier.data.model.Order
+import com.tembus.courier.data.model.TambalBanReport
+import com.tembus.courier.data.model.TowingReport
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
@@ -19,7 +21,7 @@ import kotlinx.serialization.json.Json
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -88,6 +90,11 @@ abstract class OrderDatabase : RoomDatabase() {
             addLocationColumnIfMissing(db, "developer_options", "ALTER TABLE `locations` ADD COLUMN `developer_options` INTEGER NOT NULL DEFAULT 0")
             addLocationColumnIfMissing(db, "fake_gps_apps", "ALTER TABLE `locations` ADD COLUMN `fake_gps_apps` TEXT NOT NULL DEFAULT ''")
             addLocationColumnIfMissing(db, "sensor_integrity", "ALTER TABLE `locations` ADD COLUMN `sensor_integrity` INTEGER NOT NULL DEFAULT 1")
+        }
+
+        private fun addVersion15Columns(db: SupportSQLiteDatabase) {
+            addOrderColumnIfMissing(db, "tambal_ban_report", "ALTER TABLE `orders` ADD COLUMN `tambal_ban_report` TEXT")
+            addOrderColumnIfMissing(db, "towing_report", "ALTER TABLE `orders` ADD COLUMN `towing_report` TEXT")
         }
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
@@ -185,6 +192,12 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addVersion15Columns(db)
+            }
+        }
+
         val MIGRATION_10_13 = object : Migration(10, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 addVersion11Columns(db)
@@ -213,6 +226,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_11_12,
             MIGRATION_12_13,
             MIGRATION_13_14,
+            MIGRATION_14_15,
             MIGRATION_10_13,
             MIGRATION_11_13
         )
@@ -264,5 +278,33 @@ class Converters {
         return runCatching {
             json.decodeFromString(ListSerializer(CourierOrderPackage.serializer()), value)
         }.getOrElse { emptyList() }
+    }
+
+    @TypeConverter
+    fun tambalBanReportToString(report: TambalBanReport?): String? {
+        if (report == null) return null
+        return json.encodeToString(TambalBanReport.serializer(), report)
+    }
+
+    @TypeConverter
+    fun stringToTambalBanReport(value: String?): TambalBanReport? {
+        if (value.isNullOrBlank()) return null
+        return runCatching {
+            json.decodeFromString(TambalBanReport.serializer(), value)
+        }.getOrNull()
+    }
+
+    @TypeConverter
+    fun towingReportToString(report: TowingReport?): String? {
+        if (report == null) return null
+        return json.encodeToString(TowingReport.serializer(), report)
+    }
+
+    @TypeConverter
+    fun stringToTowingReport(value: String?): TowingReport? {
+        if (value.isNullOrBlank()) return null
+        return runCatching {
+            json.decodeFromString(TowingReport.serializer(), value)
+        }.getOrNull()
     }
 }

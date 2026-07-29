@@ -282,6 +282,14 @@ fun OrderDetailScreen(
         ) {
             DeliveryMapCard(order = order, routePreview = routePreview, mapsProviderConfig = mapsProviderConfig)
             OrderInfoCard(order = order)
+            
+            if (order.tambalBanReport != null) {
+                TambalBanReportCard(report = order.tambalBanReport!!)
+            }
+            if (order.towingReport != null) {
+                TowingReportCard(report = order.towingReport!!)
+            }
+
             if (order.normalizedWorkflowRole() == "on_demand") {
                 OnDemandTaskActions(
                     order = order,
@@ -2144,6 +2152,66 @@ private suspend fun geocodeAddress(context: android.content.Context, address: St
             result?.firstOrNull()?.let { LatLng(it.latitude, it.longitude) }
         } catch (e: Exception) {
             null
+        }
+    }
+}
+
+@Composable
+private fun TambalBanReportCard(report: com.tembus.courier.data.model.TambalBanReport) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = "Laporan Kerusakan Ban",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            val details = mutableListOf<String>()
+            if (report.banBocor) details.add("Ban Bocor")
+            if (report.banPecah) details.add("Ban Pecah")
+            if (report.velgRusak) details.add("Velg Rusak")
+            if (report.pentilRusak) details.add("Pentil Rusak")
+            
+            Text("Kendaraan: ${report.vehicleType ?: "-"}", style = MaterialTheme.typography.bodyMedium)
+            Text("Kerusakan: ${if (details.isNotEmpty()) details.joinToString(", ") else "-"}", style = MaterialTheme.typography.bodyMedium)
+            if (!report.catatanTeknisi.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Catatan: ${report.catatanTeknisi}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TowingReportCard(report: com.tembus.courier.data.model.TowingReport) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = "Permintaan Towing",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text("Kendaraan: ${report.vehicleType ?: "-"}", style = MaterialTheme.typography.bodyMedium)
+            Text("Kondisi: ${report.vehicleCondition ?: "-"}", style = MaterialTheme.typography.bodyMedium)
+            Text("Tipe Towing: ${report.towingType ?: "-"}", style = MaterialTheme.typography.bodyMedium)
+            Text("Posisi Roda Bermasalah: ${report.wheelPosition ?: "-"}", style = MaterialTheme.typography.bodyMedium)
+            if (!report.driverNotes.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Catatan Driver: ${report.driverNotes}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

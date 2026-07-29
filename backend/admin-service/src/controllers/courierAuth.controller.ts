@@ -904,7 +904,9 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
            SELECT 1 FROM package_scans ps
            WHERE ps.order_id = o.id
              AND ps.scan_type IN ('pickup_photo')
-         ) AS pickup_photo_verified
+         ) AS pickup_photo_verified,
+         (SELECT row_to_json(tr) FROM tambal_ban_reports tr WHERE tr.order_id = o.id LIMIT 1) AS tambal_ban_report,
+         (SELECT row_to_json(twr) FROM towing_reports twr WHERE twr.order_id = o.id LIMIT 1) AS towing_report
        FROM order_legs ol
        JOIN orders o ON o.id = ol.order_id
        LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
@@ -1051,7 +1053,9 @@ const mobileOrderSelect = `
     SELECT 1 FROM package_scans ps
     WHERE ps.order_id = o.id
       AND ps.scan_type IN ('pickup_photo')
-  ) AS pickup_photo_verified
+  ) AS pickup_photo_verified,
+  (SELECT row_to_json(tr) FROM tambal_ban_reports tr WHERE tr.order_id = o.id LIMIT 1) AS tambal_ban_report,
+  (SELECT row_to_json(twr) FROM towing_reports twr WHERE twr.order_id = o.id LIMIT 1) AS towing_report
 `;
 
 const normalizeMobileOrder = (order: any) => {
@@ -1074,6 +1078,8 @@ const normalizeMobileOrder = (order: any) => {
     updated_at: Number(order.updated_at),
     offer_expires_at: order.offer_expires_at ? Number(order.offer_expires_at) : null,
     offer_ttl_seconds: order.offer_ttl_seconds ? Number(order.offer_ttl_seconds) : null,
+    tambal_ban_report: order.tambal_ban_report || null,
+    towing_report: order.towing_report || null,
   };
 };
 

@@ -40,6 +40,25 @@ data class CourierOrderPackage(
     fun podDone(): Boolean = !deliveryPodVerifiedAt.isNullOrBlank() || status in setOf("pod_verified", "delivered")
 }
 
+@Serializable
+data class TambalBanReport(
+    @SerialName("vehicle_type") val vehicleType: String? = null,
+    @SerialName("ban_bocor") val banBocor: Boolean = false,
+    @SerialName("ban_pecah") val banPecah: Boolean = false,
+    @SerialName("velg_rusak") val velgRusak: Boolean = false,
+    @SerialName("pentil_rusak") val pentilRusak: Boolean = false,
+    @SerialName("catatan_teknisi") val catatanTeknisi: String? = null
+)
+
+@Serializable
+data class TowingReport(
+    @SerialName("vehicle_type") val vehicleType: String? = null,
+    @SerialName("vehicle_condition") val vehicleCondition: String? = null,
+    @SerialName("towing_type") val towingType: String? = null,
+    @SerialName("wheel_position") val wheelPosition: String? = null,
+    @SerialName("driver_notes") val driverNotes: String? = null
+)
+
 /**
  * Order Model for TEMBUS Courier App
  *
@@ -342,7 +361,15 @@ data class Order(
 
     @ColumnInfo(name = "weight")
     @SerialName("weight")
-    var weight: Double? = null
+    var weight: Double? = null,
+
+    @ColumnInfo(name = "tambal_ban_report")
+    @SerialName("tambal_ban_report")
+    var tambalBanReport: TambalBanReport? = null,
+
+    @ColumnInfo(name = "towing_report")
+    @SerialName("towing_report")
+    var towingReport: TowingReport? = null
 )
 
 fun Order.normalizedWorkflowRole(): String {
