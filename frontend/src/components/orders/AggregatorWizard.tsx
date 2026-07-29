@@ -21,7 +21,7 @@ import {
   ChevronLeft
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { AddressPicker } from "./OrderForm";
+import { AddressPicker } from "./AddressPicker";
 
 // ─── Types & Constants ──────────────────────────────────────────────────
 const PROVIDERS = [

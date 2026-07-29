@@ -35,7 +35,7 @@ import { cn } from '@/lib/utils';
 import { clientLog } from '@/lib/clientLogger';
 
 import { getSocket, disconnectSocket } from '@/lib/socket';
-import { clearCustomerOrderDraft } from '@/components/orders/OrderForm';
+import { clearCustomerOrderDraft } from '@/components/orders/OrderSchemas';
 
 interface DBNotification {
   id: string;

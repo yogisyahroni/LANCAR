@@ -15,7 +15,7 @@ export default function NewEkspedisiOrderPage() {
         {/* Order Mode Selector */}
         <div className="flex bg-muted/60 p-1 rounded-xl border border-border/40 select-none shrink-0">
           <Link
-            href="/orders/new"
+            href="/orders/new/ondemand"
             className="px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer text-muted-foreground hover:text-foreground"
           >
             🚀 Instan (On-Demand)
