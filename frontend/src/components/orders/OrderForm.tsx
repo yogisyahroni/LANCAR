@@ -647,15 +647,19 @@ export function AddressPicker({
                 </button>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleUseCurrentLocation()}
-                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {isLocating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Navigation className="h-3 w-3" />}
-                  Lokasi Saya
-                </button>
-                <span className="text-muted-foreground/30">·</span>
+                {isPickup && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleUseCurrentLocation()}
+                      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {isLocating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Navigation className="h-3 w-3" />}
+                      Lokasi Saya
+                    </button>
+                    <span className="text-muted-foreground/30">·</span>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={handleUseSavedDefault}
@@ -717,16 +721,8 @@ export function AddressPicker({
                 Lokasi Saya
               </button>
             )}
-            <button
-              type="button"
-              onClick={handleUseSavedDefault}
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Buku Alamat
-            </button>
             <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-200">
-              Pilih hasil pencarian, alamat tersimpan, atau gunakan lokasi saat ini.
+              Pilih hasil pencarian atau gunakan lokasi saat ini.
             </span>
           </div>
           <div className={[
