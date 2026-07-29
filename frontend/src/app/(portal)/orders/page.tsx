@@ -20,6 +20,7 @@ interface Order {
   distance_km: number;
   total_price_idr: number;
   created_at: string;
+  awb_number?: string;
 }
 
 function OrderListContent() {
@@ -208,6 +209,34 @@ function OrderListContent() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex bg-muted/60 p-1 rounded-xl border border-border/40 select-none w-fit">
+        <button
+          onClick={() => updateFilters({ model: 'all', page: 1 })}
+          className={`px-6 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
+            model === 'all' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Semua
+        </button>
+        <button
+          onClick={() => updateFilters({ model: 'p2p', page: 1 })}
+          className={`px-6 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
+            model === 'p2p' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          🚀 Instan
+        </button>
+        <button
+          onClick={() => updateFilters({ model: 'hub_and_spoke', page: 1 })}
+          className={`px-6 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
+            model === 'hub_and_spoke' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          📦 Ekspedisi
+        </button>
+      </div>
+
       {/* Filter & Search Panel */}
       <div className="p-6 bg-card/40 backdrop-blur-md rounded-2xl border border-white/10 shadow-sm space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -242,8 +271,8 @@ function OrderListContent() {
             </select>
           </div>
 
-          {/* Model Select */}
-          <div className="flex flex-col gap-1.5">
+          {/* Model Select (Hidden since we have tabs now, or keep it sync'd) */}
+          <div className="flex flex-col gap-1.5 hidden md:flex">
             <label className="text-xs font-semibold text-muted-foreground tracking-wider uppercase flex items-center gap-1">
               <Layers className="h-3 w-3" /> Model
             </label>
@@ -253,7 +282,8 @@ function OrderListContent() {
               className="w-full bg-zinc-900/90 border border-white/10 rounded-xl px-3 py-2.5 text-sm font-semibold text-zinc-100 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer shadow-sm"
             >
               <option value="all" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Semua Model</option>
-              <option value="p2p" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">P2P Point-to-point</option>
+              <option value="p2p" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Instan (P2P)</option>
+              <option value="hub_and_spoke" className="bg-zinc-900 text-zinc-100 font-medium py-1.5">Ekspedisi (3PL)</option>
             </select>
           </div>
         </div>
@@ -358,6 +388,9 @@ function OrderListContent() {
                     No Order
                   </th>
                   <th className="px-5 py-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                    Resi / AWB
+                  </th>
+                  <th className="px-5 py-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
                     Penerima
                   </th>
                   <th className="px-5 py-4 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
@@ -400,6 +433,9 @@ function OrderListContent() {
                       </td>
                       <td className="px-5 py-4 text-sm font-semibold tracking-tight">
                         {order.order_number}
+                      </td>
+                      <td className="px-5 py-4 text-sm font-mono text-muted-foreground">
+                        {order.awb_number || '-'}
                       </td>
                       <td className="px-5 py-4 text-sm">{order.recipient_name}</td>
                       <td className="px-5 py-4 text-sm text-muted-foreground max-w-[180px] truncate" title={order.dropoff_address}>

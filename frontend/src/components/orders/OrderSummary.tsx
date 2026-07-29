@@ -34,6 +34,7 @@ interface PublicMapsRuntimeConfig {
 }
 
 interface OrderSummaryProps {
+  mode?: 'instan' | 'ekspedisi';
   isLoading: boolean;
   isRouteLoading?: boolean;
   routePreview?: RouteSnapshot | null;
@@ -347,6 +348,7 @@ function RoadRoutePreview({
 }
 
 export function OrderSummary({
+  mode = 'instan',
   isLoading,
   isRouteLoading,
   routePreview,
@@ -410,7 +412,7 @@ export function OrderSummary({
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <MapPin className="h-4 w-4" />
-            <span>Ongkos Kirim {pricing ? `(${pricing.distance_km} km)` : ""}</span>
+            <span>Ongkos Kirim {mode === 'instan' && pricing ? `(${pricing.distance_km} km)` : ""}</span>
           </div>
           <span className="font-medium text-foreground">
             {isLoading ? (
@@ -424,6 +426,7 @@ export function OrderSummary({
         </div>
 
         {/* Volumetric / Weight Surcharge */}
+        {mode === 'instan' && (
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Package className="h-4 w-4" />
@@ -439,8 +442,10 @@ export function OrderSummary({
             )}
           </span>
         </div>
+        )}
 
         {/* Insurance */}
+        {mode === 'instan' && (
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <ShieldCheck className="h-4 w-4" />
@@ -456,8 +461,10 @@ export function OrderSummary({
             )}
           </span>
         </div>
+        )}
 
         {/* Surge/Dynamic Pricing - placeholder for UI */}
+        {mode === 'instan' && (
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Zap className="h-4 w-4 text-amber-500" />
@@ -473,6 +480,7 @@ export function OrderSummary({
             )}
           </span>
         </div>
+        )}
 
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-3 flex items-start gap-2">
@@ -545,6 +553,7 @@ export function OrderSummary({
           </div>
         )}
 
+        {mode === 'instan' && (
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-3 flex items-center justify-between text-sm">
             <span className="flex items-center gap-2 text-muted-foreground">
@@ -574,7 +583,9 @@ export function OrderSummary({
             </span>
           </div>
         </div>
+        )}
 
+        {mode === 'instan' && (
         <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.06] p-4">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="flex items-start gap-2">
@@ -609,9 +620,10 @@ export function OrderSummary({
             </p>
           )}
         </div>
+        )}
       </div>
 
-      {surgeAmount > 0 && (
+      {mode === 'instan' && surgeAmount > 0 && (
         <div className="mt-5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
           <div className="flex items-center gap-2 font-semibold">
             <Zap className="h-4 w-4" />

@@ -18,6 +18,7 @@ import {
   MapPin,
   Maximize,
   Navigation,
+  Plus,
   RefreshCw,
   Search,
   Sparkles,
@@ -45,7 +46,7 @@ export const clearCustomerOrderDraft = () => {
   window.sessionStorage.removeItem(LEGACY_CUSTOMER_ORDER_DRAFT_KEY);
 };
 
-export const createOrderSchema = (config?: RuntimeConfig | null) => z.object({
+export const createOrderSchema = (config?: RuntimeConfig | null, mode: 'instan' | 'ekspedisi' = 'instan') => z.object({
   service_code: z.string().min(1, "Pilih layanan pengiriman"),
   size_tier: z.string().optional(),
   pickup_address: z.string().min(5, "Alamat pickup minimal 5 karakter"),
@@ -57,6 +58,7 @@ export const createOrderSchema = (config?: RuntimeConfig | null) => z.object({
   package_details: z.object({
     category: z.string().min(1, "Pilih kategori paket"),
     item_description: z.string().min(5, "Deskripsi barang minimal 5 karakter"),
+    vehicle_type: z.enum(["Motor", "Mobil", "Truk"]).default("Motor"),
     weight_kg: z.preprocess(
       (val) => (val === "" || val === null || val === undefined) ? undefined : Number(val),
       z.number({ message: "Berat wajib diisi" }).min(0.1, "Berat minimal 0.1 kg")
@@ -96,19 +98,21 @@ export const createOrderSchema = (config?: RuntimeConfig | null) => z.object({
   pickup_city: z.string().optional(),
   dropoff_city: z.string().optional(),
 }).superRefine((data, ctx) => {
-  if (!data.pickup_location) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["pickup_location"],
-      message: "Pilih titik pickup dari hasil pencarian, lokasi saat ini, atau Buku Alamat"
-    });
-  }
-  if (!data.dropoff_location) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["dropoff_location"],
-      message: "Pilih titik tujuan dari hasil pencarian, lokasi saat ini, atau Buku Alamat"
-    });
+  if (mode === 'instan') {
+    if (!data.pickup_location) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["pickup_location"],
+        message: "Pilih titik pickup dari hasil pencarian, lokasi saat ini, atau Buku Alamat"
+      });
+    }
+    if (!data.dropoff_location) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["dropoff_location"],
+        message: "Pilih titik tujuan dari hasil pencarian, lokasi saat ini, atau Buku Alamat"
+      });
+    }
   }
   if (data.has_insurance && !data.item_value) {
     ctx.addIssue({
@@ -182,6 +186,7 @@ interface CustomerOrderDraftPayload {
 }
 
 interface OrderFormProps {
+  mode?: 'instan' | 'ekspedisi';
   onFormChange: (data: Partial<OrderFormValues>, isValid: boolean, context?: { selectedService?: DeliveryService; scanRequired: boolean }) => void;
   onSubmit: (data: OrderFormValues) => void;
 }
@@ -232,12 +237,14 @@ const asFiniteNumber = (value: unknown) => {
 const buildSafeOrderDraftForm = (values: OrderFormValues): Partial<OrderFormValues> => {
   const safePackageDetails: Partial<OrderFormValues["package_details"]> = {};
   const category = asTrimmedString(values.package_details?.category, 80);
+  const vehicle_type = values.package_details?.vehicle_type as any;
   const weightKg = asFiniteNumber(values.package_details?.weight_kg);
   const length = asFiniteNumber(values.package_details?.dimensions?.length);
   const width = asFiniteNumber(values.package_details?.dimensions?.width);
   const height = asFiniteNumber(values.package_details?.dimensions?.height);
 
   if (category) safePackageDetails.category = category;
+  if (vehicle_type) safePackageDetails.vehicle_type = vehicle_type;
   if (weightKg !== undefined) safePackageDetails.weight_kg = weightKg;
   safePackageDetails.dimensions_scanned = Boolean(values.package_details?.dimensions_scanned);
   if (length !== undefined || width !== undefined || height !== undefined) {
@@ -384,13 +391,14 @@ async function getSavedAddresses(mode: AddressMode): Promise<AddressSuggestion[]
     }));
 }
 
-function AddressPicker({
+export function AddressPicker({
   mode,
   address,
   location,
   error,
   locationError,
   setValue,
+  cardPicker = false,
 }: {
   mode: AddressMode;
   address: string;
@@ -398,6 +406,7 @@ function AddressPicker({
   error?: string;
   locationError?: string;
   setValue: UseFormSetValue<OrderFormValues>;
+  cardPicker?: boolean;
 }) {
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [savedSuggestions, setSavedSuggestions] = useState<AddressSuggestion[]>([]);
@@ -406,10 +415,33 @@ function AddressPicker({
   const [message, setMessage] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalForm, setModalForm] = useState({
+    shopName: "",
+    picName: "",
+    phone: "",
+    fullAddress: "",
+    location: null as LocationValue | null
+  });
+
   const addressField = mode === "pickup" ? "pickup_address" : "dropoff_address";
   const locationField = mode === "pickup" ? "pickup_location" : "dropoff_location";
   const isPickup = mode === "pickup";
   const accentClass = isPickup ? "text-primary" : "text-emerald-500";
+
+  const performReverseGeocode = async (lat: number, lng: number): Promise<string | null> => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const data = await res.json();
+      if (data && data.display_name) {
+        // Example: "Toko ABC, Jl... 12345"
+        return data.display_name;
+      }
+    } catch (e) {
+      console.warn("Reverse geocode failed", e);
+    }
+    return null;
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -509,7 +541,7 @@ function AddressPicker({
     setMessage(null);
   };
 
-  const useCurrentLocation = () => {
+  const useCurrentLocation = async (onSuccess?: (addr: string, loc: LocationValue) => void) => {
     if (!navigator.geolocation) {
       setMessage("Browser tidak mendukung geolocation. Pilih alamat dari hasil pencarian atau Buku Alamat.");
       return;
@@ -518,14 +550,23 @@ function AddressPicker({
     setIsLocating(true);
     setMessage(null);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const nextLocation = {
           lat: position.coords.latitude,
           lng: position.coords.longitude
         };
-        setValue(locationField, nextLocation, { shouldDirty: true, shouldValidate: true });
-        if (!address || address.length < 5) {
-          setValue(addressField, `Lokasi saat ini (${formatCoordinate(nextLocation)})`, { shouldDirty: true, shouldValidate: true });
+        
+        let finalAddr = `Lokasi saat ini (${formatCoordinate(nextLocation)})`;
+        const geocoded = await performReverseGeocode(nextLocation.lat, nextLocation.lng);
+        if (geocoded) {
+          finalAddr = geocoded;
+        }
+
+        if (onSuccess) {
+          onSuccess(finalAddr, nextLocation);
+        } else {
+          setValue(locationField, nextLocation, { shouldDirty: true, shouldValidate: true });
+          setValue(addressField, finalAddr, { shouldDirty: true, shouldValidate: true });
         }
         setIsLocating(false);
       },
@@ -546,24 +587,175 @@ function AddressPicker({
     }
   };
 
+  const hasAddress = Boolean(address && address.trim().length > 0);
+
   return (
     <div className="space-y-3">
-      <label className="text-sm font-medium text-muted-foreground">Alamat Lengkap</label>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <input
-          name={addressField}
-          data-testid={`${mode}-address-input`}
-          value={address || ""}
-          onChange={(event) => {
-            setValue(addressField, event.target.value, { shouldDirty: true, shouldValidate: true });
-            setValue(locationField, undefined, { shouldDirty: true, shouldValidate: true });
-          }}
-          className={`w-full rounded-lg border border-white/10 bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-emerald-500 focus:ring-emerald-500"}`}
-          placeholder="Cari lokasi bangunan, jalan, atau area..."
-        />
-        {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
-      </div>
+      {cardPicker ? (
+        /* ══ AGGREGATOR MODE: Card Picker UI ══ */
+        <>
+          {hasAddress ? (
+            <div className={[
+              "flex items-start justify-between gap-3 rounded-xl border p-4",
+              location
+                ? "border-emerald-500/25 bg-emerald-500/5"
+                : "border-white/10 bg-white/[0.03]"
+            ].join(" ")}>
+              <div className="flex items-start gap-3 min-w-0">
+                <MapPin className={`mt-0.5 h-4 w-4 shrink-0 ${accentClass}`} />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground leading-snug line-clamp-2">{address}</p>
+                  {location && (
+                    <span className="mt-1 block text-[11px] text-emerald-400">✓ Titik lokasi tersimpan</span>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setValue(addressField, "", { shouldDirty: true, shouldValidate: true });
+                  setValue(locationField, undefined, { shouldDirty: true, shouldValidate: true });
+                  setSuggestions([]);
+                  setMessage(null);
+                }}
+                className="shrink-0 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-muted-foreground hover:bg-white/10"
+              >
+                Ubah
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+              <p className="mb-3 text-xs text-muted-foreground">Pilih Alamat</p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setSuggestions([]); setMessage(null); }}
+                  className="rounded-md border border-white/15 bg-white/5 px-5 py-2 text-sm font-medium text-foreground hover:bg-white/10 transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalForm({ shopName: "", picName: "", phone: "", fullAddress: "", location: null });
+                    setIsModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Tambah
+                </button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => useCurrentLocation()}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {isLocating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Navigation className="h-3 w-3" />}
+                  Lokasi Saya
+                </button>
+                <span className="text-muted-foreground/30">·</span>
+                <button
+                  type="button"
+                  onClick={useSavedDefault}
+                  className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Buku Alamat
+                </button>
+              </div>
+            </div>
+          )}
+          {/* Search input below card when no address selected */}
+          {!hasAddress && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                name={addressField}
+                data-testid={`${mode}-address-input`}
+                value={address || ""}
+                onChange={(event) => {
+                  setValue(addressField, event.target.value, { shouldDirty: true, shouldValidate: true });
+                  setValue(locationField, undefined, { shouldDirty: true, shouldValidate: true });
+                }}
+                className={`w-full rounded-lg border border-white/10 bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-emerald-500 focus:ring-emerald-500"}`}
+                placeholder="Atau ketik untuk mencari lokasi..."
+              />
+              {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+            </div>
+          )}
+        </>
+      ) : (
+        /* ══ ONDEMAND MODE: Original Search UI ══ */
+        <>
+          <label className="text-sm font-medium text-muted-foreground">Alamat Lengkap</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              name={addressField}
+              data-testid={`${mode}-address-input`}
+              value={address || ""}
+              onChange={(event) => {
+                setValue(addressField, event.target.value, { shouldDirty: true, shouldValidate: true });
+                setValue(locationField, undefined, { shouldDirty: true, shouldValidate: true });
+              }}
+              className={`w-full rounded-lg border border-white/10 bg-background/50 py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 ${isPickup ? "focus:border-primary focus:ring-primary" : "focus:border-emerald-500 focus:ring-emerald-500"}`}
+              placeholder="Cari lokasi bangunan, jalan, atau area..."
+            />
+            {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              data-testid={`${mode}-current-location-button`}
+              onClick={() => useCurrentLocation()}
+              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
+            >
+              {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
+              Lokasi Saya
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setModalForm({ shopName: "", picName: "", phone: "", fullAddress: "", location: null });
+                setIsModalOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium hover:bg-primary/20"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Tambah Alamat
+            </button>
+            <button
+              type="button"
+              onClick={useSavedDefault}
+              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Buku Alamat
+            </button>
+            <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-200">
+              Pilih hasil pencarian, alamat tersimpan, atau gunakan lokasi saat ini.
+            </span>
+          </div>
+          <div className={[
+            "flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-xs",
+            location
+              ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
+              : "border-white/10 bg-white/[0.03] text-muted-foreground"
+          ].join(" ")}>
+            <div className="min-w-0">
+              <p className="font-medium text-foreground">
+                {location ? "Titik lokasi siap" : "Titik lokasi belum dipilih"}
+              </p>
+              <span data-testid={`${mode}-coordinate-label`} className="mt-1 block truncate">
+                {formatCoordinate(location)}
+              </span>
+            </div>
+            {location ? <Check className="h-4 w-4 shrink-0 text-emerald-500" /> : <Info className="h-4 w-4 shrink-0" />}
+          </div>
+        </>
+      )}
 
       {(error || locationError) && (
         <p className="text-xs text-destructive">{error || locationError}</p>
@@ -591,54 +783,97 @@ function AddressPicker({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          data-testid={`${mode}-current-location-button`}
-          onClick={useCurrentLocation}
-          className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
-        >
-          {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
-          Lokasi Saya
-        </button>
-        <button
-          type="button"
-          onClick={useSavedDefault}
-          className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
-        >
-          <Sparkles className="h-3.5 w-3.5" />
-          Buku Alamat
-        </button>
-        <span className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-200">
-          Pilih hasil pencarian, alamat tersimpan, atau gunakan lokasi saat ini.
-        </span>
-      </div>
-
-      <div className={[
-        "flex items-center justify-between gap-3 rounded-lg border px-3 py-3 text-xs",
-        location
-          ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-200"
-          : "border-white/10 bg-white/[0.03] text-muted-foreground"
-      ].join(" ")}>
-        <div className="min-w-0">
-          <p className="font-medium text-foreground">
-            {location ? "Titik lokasi siap" : "Titik lokasi belum dipilih"}
-          </p>
-          <span data-testid={`${mode}-coordinate-label`} className="mt-1 block truncate">
-            {formatCoordinate(location)}
-          </span>
-        </div>
-        {location ? <Check className="h-4 w-4 shrink-0 text-emerald-500" /> : <Info className="h-4 w-4 shrink-0" />}
-      </div>
-
       {message && (
         <p className="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
           {message}
         </p>
       )}
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <button type="button" className="absolute inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} aria-label="Tutup modal" />
+          <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-background/95 shadow-2xl p-5">
+            <h3 className="text-lg font-semibold mb-4">Detail Alamat {isPickup ? "Pengirim" : "Penerima"}</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground block mb-1">Nama Toko/Lokasi</label>
+                <input
+                  value={modalForm.shopName}
+                  onChange={(e) => setModalForm(prev => ({ ...prev, shopName: e.target.value }))}
+                  className="w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                  placeholder="Mis. Toko Maju Jaya"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground block mb-1">Nama PIC</label>
+                  <input
+                    value={modalForm.picName}
+                    onChange={(e) => setModalForm(prev => ({ ...prev, picName: e.target.value }))}
+                    className="w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    placeholder="Nama Kontak"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground block mb-1">Nomor HP</label>
+                  <input
+                    value={modalForm.phone}
+                    onChange={(e) => setModalForm(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    placeholder="08..."
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground block mb-1 flex justify-between items-center">
+                  <span>Alamat Lengkap &amp; Kodepos</span>
+                  <button
+                    type="button"
+                    onClick={() => useCurrentLocation((addr, loc) => setModalForm(prev => ({ ...prev, fullAddress: addr, location: loc })))}
+                    className="text-xs text-primary flex items-center gap-1 hover:underline"
+                  >
+                    {isLocating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Navigation className="h-3 w-3" />}
+                    Gunakan Lokasi Saya
+                  </button>
+                </label>
+                <textarea
+                  value={modalForm.fullAddress}
+                  onChange={(e) => setModalForm(prev => ({ ...prev, fullAddress: e.target.value }))}
+                  className="w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm focus:border-primary focus:outline-none min-h-[80px]"
+                  placeholder="Provinsi, Kota, Kecamatan, Kodepos, Jalan, RT/RW..."
+                />
+              </div>
+              <div className="pt-4 flex gap-3 justify-end border-t border-white/10">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm rounded-md border border-white/10 hover:bg-white/5">
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const formatted = `Toko: ${modalForm.shopName || "-"}, PIC: ${modalForm.picName || "-"}, HP: ${modalForm.phone || "-"} | ${modalForm.fullAddress}`;
+                    setValue(addressField, formatted, { shouldDirty: true, shouldValidate: true });
+                    if (modalForm.location) {
+                      setValue(locationField, modalForm.location, { shouldDirty: true, shouldValidate: true });
+                    }
+                    if (!isPickup) {
+                      if (modalForm.picName) setValue("recipient_name", modalForm.picName, { shouldDirty: true, shouldValidate: true });
+                      if (modalForm.phone) setValue("recipient_phone", modalForm.phone, { shouldDirty: true, shouldValidate: true });
+                    }
+                    setIsModalOpen(false);
+                  }}
+                  className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90"
+                >
+                  Terapkan Alamat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 
 function DimensionScanModal({
   isOpen,
@@ -816,7 +1051,7 @@ function DimensionScanModal({
   );
 }
 
-export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
+export function OrderForm({ mode = 'instan', onFormChange, onSubmit }: OrderFormProps) {
   const { config } = useRuntimeConfig();
   const [isScanOpen, setIsScanOpen] = useState(false);
   const [services, setServices] = useState<DeliveryService[]>([]);
@@ -829,7 +1064,6 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
   const [calendarMonth, setCalendarMonth] = useState(() => new Date());
   const [receiverLocationLink, setReceiverLocationLink] = useState<ReceiverLocationLink | null>(null);
     const [receiverLocationBusy, setReceiverLocationBusy] = useState(false);
-    const [mode, setMode] = useState<"ondemand" | "aggregator">("ondemand");
     const [receiverLocationMessage, setReceiverLocationMessage] = useState<string | null>(null);
 
     const onDemandServices = useMemo(
@@ -846,7 +1080,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
     );
 
     const customZodResolver = async (data: any) => {
-      const schema = createOrderSchema(config);
+      const schema = createOrderSchema(config, mode);
       const result = schema.safeParse(data);
     if (result.success) {
       return { values: result.data, errors: {} };
@@ -907,6 +1141,8 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
   const item_value = watch("item_value");
   const schedule_type = watch("schedule_type");
   const scheduled_at = watch("scheduled_at");
+  const logistics_tariff_idr = watch("logistics_tariff_idr");
+  const logistics_provider = watch("logistics_provider");
   const receiverLocationLinkRef = useRef<ReceiverLocationLink | null>(null);
   const receiverLocationPollInFlightRef = useRef(false);
   const draftHydratedRef = useRef(false);
@@ -1041,7 +1277,9 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
   }, [selectedService, setValue, size_tier]);
 
   useEffect(() => {
-    onFormChange(getValues(), isValid && Boolean(selectedService) && (!scanRequired || Boolean(dimensions_scanned)), {
+    const isAggregator = service_code === 'tembus_aggregator';
+    const isServiceValid = isAggregator ? true : Boolean(selectedService);
+    onFormChange(getValues(), isValid && isServiceValid && (!scanRequired || Boolean(dimensions_scanned)), {
       selectedService,
       scanRequired
     });
@@ -1064,6 +1302,8 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
     item_value,
     schedule_type,
     scheduled_at,
+    logistics_tariff_idr,
+    logistics_provider,
     isValid,
     selectedService,
     scanRequired,
@@ -1253,37 +1493,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
                   </div>
                 )}
 
-                {/* Mode Tabs: On-Demand | Aggregator */}
-                <div className="flex rounded-xl border border-white/10 bg-white/[0.02] p-1">
-                  <button
-                    type="button"
-                    onClick={() => setMode("ondemand")}
-                    className={[
-                      "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
-                      mode === "ondemand"
-                        ? "bg-primary/10 text-primary shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    ].join(" ")}
-                  >
-                    <Zap className="h-4 w-4" />
-                    On-Demand
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode("aggregator")}
-                    className={[
-                      "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all",
-                      mode === "aggregator"
-                        ? "bg-indigo-500/10 text-indigo-400 shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    ].join(" ")}
-                  >
-                    <Building2 className="h-4 w-4" />
-                    Aggregator (3PL)
-                  </button>
-                </div>
-
-                {mode === "ondemand" ? (
+                {mode === "instan" ? (
                   <>
                 <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
                   <h3 className="flex items-center gap-2 text-lg font-semibold">
@@ -1408,20 +1618,22 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
                   </section>
                 )}
 
+                {mode === 'instan' && (
                 <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
                   <h3 className="flex items-center gap-2 text-lg font-semibold">
                     <MapPin className="h-5 w-5 text-primary" />
                     Detail Pengambilan (Pickup)
                   </h3>
-          <AddressPicker
-            mode="pickup"
-            address={pickup_address}
-            location={pickup_location}
-            setValue={setValue}
-            error={errors.pickup_address?.message}
-            locationError={(errors as any).pickup_location?.message}
-          />
-        </section>
+                  <AddressPicker
+                    mode="pickup"
+                    address={pickup_address}
+                    location={pickup_location}
+                    setValue={setValue}
+                    error={errors.pickup_address?.message}
+                    locationError={(errors as any).pickup_location?.message}
+                  />
+                </section>
+                )}
 
         <section className="space-y-4 rounded-xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
@@ -1534,7 +1746,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {mode === "ondemand" ? (
+            {mode === "instan" ? (
               <>
             <div>
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Kategori Barang</label>
@@ -1557,6 +1769,19 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
                 rows={2}
               />
               {errors.package_details?.item_description && <p className="mt-1 text-xs text-destructive">{errors.package_details.item_description.message}</p>}
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-muted-foreground">Volume (Pilihan Kendaraan)</label>
+              <select
+                {...register("package_details.vehicle_type")}
+                data-testid="package-vehicle-type-select"
+                className="w-full appearance-none rounded-lg border border-white/10 bg-background/50 px-4 py-2.5 text-sm focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              >
+                <option value="Motor">Motor 🏍️</option>
+                <option value="Mobil">Mobil 🚗</option>
+                <option value="Truk">Truk 🚚</option>
+              </select>
+              {errors.package_details?.vehicle_type && <p className="mt-1 text-xs text-destructive">{errors.package_details.vehicle_type.message}</p>}
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Berat Aktual (kg)</label>
@@ -1583,7 +1808,7 @@ export function OrderForm({ onFormChange, onSubmit }: OrderFormProps) {
             )}
           </div>
 
-          {mode === "ondemand" && (
+          {mode === "instan" && (
           <>
           <div>
             <label className="mb-1 flex items-center gap-2 text-sm font-medium text-muted-foreground">

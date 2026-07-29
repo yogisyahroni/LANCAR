@@ -371,7 +371,7 @@ export default function ProfilPage() {
   const handleSaveBank = async () => {
     try {
       setIsSavingBank(true);
-      await api.patch('/api/v1/profile/bank', {
+      await api.patch('/profile/bank', {
         bank_name: bankName,
         bank_account_number: bankAccountNumber,
         bank_account_holder: bankAccountHolder,

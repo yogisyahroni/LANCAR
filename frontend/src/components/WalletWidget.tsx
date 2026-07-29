@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useWalletStore } from '@/store/useWalletStore';
+import { useAuthStore } from '@/store/authStore';
+
 import { Wallet, Plus, ArrowUpRight, RefreshCw, X, Loader2, Landmark, User, CreditCard, CheckCircle2, AlertCircle, Info, ShieldCheck, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -59,11 +61,15 @@ export default function WalletWidget({ isCollapsed }: WalletWidgetProps) {
     }, 4500);
   };
 
+  const { isAuthenticated } = useAuthStore();
+
   useEffect(() => {
+    if (!isAuthenticated) return; // Don't fetch if not logged in — prevents 401 loop
     fetchBalance();
     const interval = setInterval(fetchBalance, 60000); // Refresh every minute
     return () => clearInterval(interval);
-  }, [fetchBalance]);
+  }, [fetchBalance, isAuthenticated]);
+
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('id-ID', {

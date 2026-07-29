@@ -34,16 +34,23 @@ export const getWalletBalance = async (req: Request, res: Response) => {
     } catch (upstreamError: any) {
       securityLog.warn('Payment service unreachable, returning default balance:', upstreamError.message || upstreamError);
       // Payment service not available — return safe default
-      const { db: dbPool } = await import('../db');
-      const { rows } = await dbPool.query(
-        `SELECT COALESCE(SUM(balance), 0)::bigint AS wallet_balance
-         FROM customer_wallets
-         WHERE customer_id = $1`,
-        [user.id]
-      );
+      let balance = 0;
+      try {
+        const { db: dbPool } = await import('../db');
+        const { rows } = await dbPool.query(
+          `SELECT COALESCE(SUM(balance), 0)::bigint AS wallet_balance
+           FROM customer_wallets
+           WHERE customer_id = $1`,
+          [user.id]
+        );
+        balance = Number(rows[0]?.wallet_balance || 0);
+      } catch (dbError) {
+        securityLog.warn('Failed to fetch fallback wallet balance from DB:', dbError);
+      }
+      
       return res.json({
         success: true,
-        balance: Number(rows[0]?.wallet_balance || 0),
+        balance: balance,
         currency: 'IDR'
       });
     }

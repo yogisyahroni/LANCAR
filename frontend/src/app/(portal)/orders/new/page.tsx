@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { clearCustomerOrderDraft, DeliveryService, OrderForm, OrderFormValues } from "@/components/orders/OrderForm";
+import { AggregatorWizard } from "@/components/orders/AggregatorWizard";
 import { OrderSummary } from "@/components/orders/OrderSummary";
 import { PaymentModal } from "@/components/orders/PaymentModal";
 import { api } from "@/lib/api";
@@ -51,6 +52,7 @@ const deriveRouteVehicleType = (service?: DeliveryService) => {
 };
 
 export default function NewOrderPage() {
+  const [orderMode, setOrderMode] = useState<'instan' | 'ekspedisi'>('instan');
   const [formData, setFormData] = useState<Partial<OrderFormValues>>({});
   const [isValid, setIsValid] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -194,7 +196,7 @@ export default function NewOrderPage() {
         setIsCalculating(false);
         setPricing({
           service_code: 'tembus_aggregator',
-          service_name: 'TEMBUS Aggregator',
+          service_name: 'Ekspedisi ' + (formData.logistics_provider || 'Aggregator').toUpperCase(),
           total_price_idr: formData.logistics_tariff_idr,
           base_price_idr: formData.logistics_tariff_idr,
           logistics_tariff_idr: formData.logistics_tariff_idr,
@@ -415,9 +417,31 @@ export default function NewOrderPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Kirim Paket Baru</h1>
-        <p className="mt-2 text-muted-foreground">Isi detail pengambilan dan tujuan dengan lengkap.</p>
+      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Kirim Paket Baru</h1>
+          <p className="mt-2 text-muted-foreground">Isi detail pengambilan dan tujuan dengan lengkap.</p>
+        </div>
+        
+        {/* Order Mode Selector */}
+        <div className="flex bg-muted/60 p-1 rounded-xl border border-border/40 select-none shrink-0">
+          <button
+            onClick={() => setOrderMode('instan')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
+              orderMode === 'instan' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            🚀 Instan (On-Demand)
+          </button>
+          <button
+            onClick={() => setOrderMode('ekspedisi')}
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
+              orderMode === 'ekspedisi' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            📦 Ekspedisi (Aggregator)
+          </button>
+        </div>
       </div>
 
       {coverageError && (
@@ -432,35 +456,43 @@ export default function NewOrderPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        {/* Left Col - Form (takes 2/3 space) */}
-        <div className="lg:col-span-2">
-          <OrderForm 
-            onFormChange={handleFormChange}
-            onSubmit={handleSubmit}
-          />
-        </div>
+      {orderMode === 'instan' ? (
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          {/* Left Col - Form (takes 2/3 space) */}
+          <div className="lg:col-span-2">
+            <OrderForm 
+              mode={orderMode}
+              onFormChange={handleFormChange}
+              onSubmit={handleSubmit}
+            />
+          </div>
 
-        {/* Right Col - Summary (takes 1/3 space) */}
-        <div className="relative">
-          <OrderSummary 
-            isLoading={isCalculating || isSubmitting}
-            isRouteLoading={isRoutePreviewLoading}
-            routePreview={routePreview}
-            routeError={routePreviewError}
-            pricing={pricing}
-            isValid={isValid}
-            promoCode={promoCode}
-            promoQuote={promoQuote}
-            promoError={promoError}
-            isPromoChecking={isPromoChecking}
-            eligiblePromos={eligiblePromos}
-            isEligiblePromoLoading={isEligiblePromoLoading}
-            onPromoCodeChange={setPromoCode}
-            onValidatePromo={handleValidatePromo}
-          />
+          {/* Right Col - Summary (takes 1/3 space) */}
+          <div className="relative">
+            <OrderSummary 
+              mode={orderMode}
+              isLoading={isCalculating || isSubmitting}
+              isRouteLoading={isRoutePreviewLoading}
+              routePreview={routePreview}
+              routeError={routePreviewError}
+              pricing={pricing}
+              isValid={isValid}
+              promoCode={promoCode}
+              promoQuote={promoQuote}
+              promoError={promoError}
+              isPromoChecking={isPromoChecking}
+              eligiblePromos={eligiblePromos}
+              isEligiblePromoLoading={isEligiblePromoLoading}
+              onPromoCodeChange={setPromoCode}
+              onValidatePromo={handleValidatePromo}
+            />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="mt-6">
+          <AggregatorWizard />
+        </div>
+      )}
 
       {showPayment && paymentData && (
         <PaymentModal

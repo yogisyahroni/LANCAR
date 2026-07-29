@@ -56,6 +56,7 @@ export default function DashboardPage() {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [chartMode, setChartMode] = useState<'count' | 'value'>('count');
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [dashboardMode, setDashboardMode] = useState<'instan' | 'ekspedisi'>('instan');
 
   // Load only real customer orders. Empty/error states should stay honest.
   const fetchOrders = async () => {
@@ -209,6 +210,104 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
+      {/* Dashboard Mode Selector */}
+      <div className="flex justify-center mb-6">
+        <div className="flex bg-muted/60 p-1 rounded-xl border border-border/40 select-none">
+          <button
+            onClick={() => setDashboardMode('instan')}
+            className={`px-6 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
+              dashboardMode === 'instan' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            🚀 Mode Instan
+          </button>
+          <button
+            onClick={() => setDashboardMode('ekspedisi')}
+            className={`px-6 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
+              dashboardMode === 'ekspedisi' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            📦 Mode Ekspedisi
+          </button>
+        </div>
+      </div>
+
+      {dashboardMode === 'ekspedisi' ? (
+        <motion.div
+          key="ekspedisi-dashboard"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="space-y-8"
+        >
+          {/* Ekspedisi: COD & Financial Summary */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group">
+              <div className="flex items-start justify-between z-10">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Total Order Ekspedisi</p>
+                  <h3 className="text-2xl font-extrabold text-foreground mt-2">715 Order</h3>
+                </div>
+                <div className="h-10 w-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                  <Package className="h-5 w-5 shrink-0" />
+                </div>
+              </div>
+              <div className="text-xs font-medium text-primary mt-2 z-10">Akumulasi semua pengiriman</div>
+            </div>
+            
+            <div className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group">
+              <div className="flex items-start justify-between z-10">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Total Ongkir Ekspedisi</p>
+                  <h3 className="text-2xl font-extrabold text-foreground mt-2">{formatIDR(18500000)}</h3>
+                </div>
+                <div className="h-10 w-10 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-500">
+                  <CreditCard className="h-5 w-5 shrink-0" />
+                </div>
+              </div>
+              <div className="text-xs font-medium text-emerald-500 mt-2 z-10">Bulan berjalan</div>
+            </div>
+
+            <div className="p-5 glass-card rounded-2xl flex flex-col justify-between h-36 relative overflow-hidden group border-rose-500/20">
+              <div className="flex items-start justify-between z-10">
+                <div>
+                  <p className="text-xs font-medium text-rose-500">Butuh Perhatian (Resolusi)</p>
+                  <h3 className="text-2xl font-extrabold text-foreground mt-2">12 Paket</h3>
+                </div>
+                <div className="h-10 w-10 bg-rose-500/10 rounded-xl flex items-center justify-center text-rose-500 animate-pulse">
+                  <AlertCircle className="h-5 w-5 shrink-0" />
+                </div>
+              </div>
+              <div className="text-xs font-medium text-rose-500 mt-2 z-10">Gagal kirim, retur, atau hilang</div>
+            </div>
+          </div>
+
+          {/* Ekspedisi: Logistic Status Summary */}
+          <div className="glass-card rounded-2xl p-6">
+            <h3 className="text-base font-bold text-foreground mb-4">Status Pengiriman 3PL</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+               {[
+                 { label: 'Menunggu Pickup', count: 45, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+                 { label: 'Dalam Perjalanan', count: 128, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
+                 { label: 'Selesai Terkirim', count: 542, color: 'text-muted-foreground', bg: 'bg-muted' },
+                 { label: 'Retur/Gagal', count: 12, color: 'text-rose-500', bg: 'bg-rose-500/10' }
+               ].map((stat, idx) => (
+                 <div key={idx} className="p-4 rounded-xl border border-border/40 flex items-center justify-between">
+                   <span className="text-sm font-medium text-muted-foreground">{stat.label}</span>
+                   <span className={`text-lg font-bold px-3 py-1 rounded-lg ${stat.color} ${stat.bg}`}>{stat.count}</span>
+                 </div>
+               ))}
+            </div>
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div
+          key="instan-dashboard"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="space-y-8"
+        >
       {/* Widget Cards Grid */}
       <motion.div 
         variants={containerVariants}
@@ -464,6 +563,8 @@ export default function DashboardPage() {
         </motion.div>
 
       </div>
+        </motion.div>
+      )}
     </div>
   );
 }

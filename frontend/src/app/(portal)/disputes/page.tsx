@@ -21,6 +21,7 @@ import DisputeChat from '@/components/DisputeChat';
 export default function DisputesPage() {
   const [selectedDispute, setSelectedDispute] = useState<any>(null);
   const [search, setSearch] = useState('');
+  const [filterMode, setFilterMode] = useState<'all' | 'attention'>('all');
 
   const { data: disputesRes, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['my-disputes'],
@@ -32,10 +33,15 @@ export default function DisputesPage() {
 
   const disputes = disputesRes?.data || [];
   
-  const filteredDisputes = disputes.filter((d: any) =>
-    String(d.order_number || '').toLowerCase().includes(search.toLowerCase()) ||
-    String(d.category || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredDisputes = disputes.filter((d: any) => {
+    const matchesSearch = String(d.order_number || '').toLowerCase().includes(search.toLowerCase()) ||
+                          String(d.category || '').toLowerCase().includes(search.toLowerCase());
+    const matchesAttention = filterMode === 'all' || 
+                             d.category?.toLowerCase()?.includes('butuh perhatian') || 
+                             d.status === 'investigating' ||
+                             d.status === 'attention_required';
+    return matchesSearch && matchesAttention;
+  });
   const errorMessage = (error as any)?.response?.data?.message || (error as any)?.message || 'Data dispute belum bisa dimuat dari database.';
 
   const getStatusClass = (status: string) => {
@@ -65,6 +71,26 @@ export default function DisputesPage() {
             className="w-full bg-muted/50 border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
         </div>
+      </div>
+
+      <div className="flex bg-muted/60 p-1 rounded-xl border border-border/40 select-none w-fit">
+        <button
+          onClick={() => setFilterMode('all')}
+          className={`px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
+            filterMode === 'all' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Semua Tiket
+        </button>
+        <button
+          onClick={() => setFilterMode('attention')}
+          className={`px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
+            filterMode === 'attention' ? 'bg-rose-500/10 text-rose-500 shadow-sm' : 'text-muted-foreground hover:text-rose-500'
+          }`}
+        >
+          <AlertTriangle className="h-4 w-4" />
+          Butuh Perhatian (Aggregator)
+        </button>
       </div>
 
       {isLoading ? (
