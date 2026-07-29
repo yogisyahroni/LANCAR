@@ -212,7 +212,14 @@ const buildRowFromExcel = async (
   service: DeliveryServiceProduct
 ) => {
   const recipientName = String(getCell(row, ['recipient_name', 'Nama Penerima', 'Penerima', 'nama_penerima'])).trim();
-  const recipientPhone = String(getCell(row, ['recipient_phone', 'No HP Penerima', 'HP', 'Phone', 'no_hp_penerima'])).trim();
+  let recipientPhone = String(getCell(row, ['recipient_phone', 'No HP Penerima', 'HP', 'Phone', 'no_hp_penerima'])).trim();
+  
+  // Normalize phone to +62
+  const p = recipientPhone.replace(/[^\d+]/g, '');
+  if (p.startsWith('08')) recipientPhone = '+628' + p.substring(2);
+  else if (p.startsWith('628')) recipientPhone = '+' + p;
+  else if (p.startsWith('+628')) recipientPhone = p;
+
   const dropoffAddress = String(getCell(row, ['dropoff_address', 'Alamat Tujuan', 'Tujuan', 'Alamat', 'alamat_tujuan'])).trim();
   const category = String(getCell(row, ['category', 'Kategori Barang', 'Kategori', 'kategori']) || 'other').trim();
   const weightKg = parseNumber(getCell(row, ['weight_kg', 'Berat Aktual (kg)', 'Berat', 'Weight', 'berat_kg']), 0);

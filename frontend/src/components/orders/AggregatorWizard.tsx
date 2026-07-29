@@ -104,6 +104,11 @@ export function AggregatorWizard() {
   const [tariffError, setTariffError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [bulkRows, setBulkRows] = useState<any[]>([]);
+  const [jobId, setJobId] = useState<string | null>(null);
 
   const handleUseMyLocation = () => {
     if (!navigator.geolocation) {
@@ -141,6 +146,71 @@ export function AggregatorWizard() {
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const values = methods.getValues();
+    if (!values.pickup_address || !values.pickup_location) {
+      alert("Alamat penjemputan belum lengkap di Step 1. Silakan kembali ke Step 1.");
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadProgress(0);
+    setBulkRows([]);
+    setJobId(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('pickup_lat', String(values.pickup_location.lat));
+      formData.append('pickup_lng', String(values.pickup_location.lng));
+      formData.append('pickup_address', values.pickup_address);
+      formData.append('service_code', values.provider || 'tembus_instant');
+
+      const uploadRes = await api.post("/auth/web/orders/bulk/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      const job_id = uploadRes.data?.job_id;
+      if (!job_id) throw new Error("Job ID tidak ditemukan dari server");
+      setJobId(job_id);
+
+      // Start polling
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await api.get(`/auth/web/orders/bulk/status/${job_id}`);
+          const jobData = statusRes.data;
+
+          setUploadProgress(jobData.progress || 0);
+
+          if (jobData.status === 'completed') {
+            clearInterval(pollInterval);
+            setUploadProgress(100);
+            setBulkRows(jobData.rows || []);
+            setIsUploading(false);
+            setStep(3); // Auto-advance to review step
+          } else if (jobData.status === 'failed') {
+            clearInterval(pollInterval);
+            setIsUploading(false);
+            setUploadError("Gagal memproses file di server.");
+          }
+        } catch (pollErr: any) {
+          console.error("Polling error:", pollErr);
+          clearInterval(pollInterval);
+          setIsUploading(false);
+          setUploadError(pollErr.response?.data?.error || "Gagal mengambil status job.");
+        }
+      }, 2000);
+
+    } catch (err: any) {
+      setIsUploading(false);
+      setUploadError(err.response?.data?.error || err.message || "Gagal mengunggah file.");
+    }
   };
 
   // Initialize unified form — NO global resolver; we validate per-step manually
@@ -268,15 +338,25 @@ export function AggregatorWizard() {
   };
 
   const onSubmitFinal = async () => {
-    const isValid = await validateStep(3);
-    if (!isValid) return;
     setIsSubmitting(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      router.push("/orders?success=true");
-    } catch (error) {
+      if (orderMode === "upload") {
+        if (!jobId || bulkRows.length === 0) {
+          alert("Data upload tidak valid.");
+          return;
+        }
+        await api.post("/auth/web/orders/bulk/process-payment", { job_id: jobId });
+        router.push("/orders?success=true");
+      } else {
+        const isValid = await validateStep(3);
+        if (!isValid) return;
+        // Proceed with manual submission mock
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        router.push("/orders?success=true");
+      }
+    } catch (error: any) {
       console.error(error);
-      alert("Gagal membuat pesanan");
+      alert(error.response?.data?.error || "Gagal membuat pesanan");
     } finally {
       setIsSubmitting(false);
     }
@@ -836,22 +916,47 @@ export function AggregatorWizard() {
                   </div>
 
                   {/* Upload Drop Zone */}
-                  <div className="rounded-xl border-2 border-dashed border-white/20 bg-white/5 p-8 text-center">
-                    <div className="mb-4 flex justify-center">
-                      <div className="h-16 w-16 rounded-xl bg-orange-500/20 flex items-center justify-center">
-                        <span className="text-3xl">📤</span>
+                  <div className={`rounded-xl border-2 border-dashed border-white/20 bg-white/5 p-8 text-center transition-colors ${isUploading ? 'opacity-75 cursor-not-allowed' : ''}`}>
+                    {isUploading ? (
+                      <div className="flex flex-col items-center justify-center">
+                        <Loader2 className="mb-4 h-10 w-10 animate-spin text-indigo-400" />
+                        <p className="font-semibold text-sm mb-2">Memproses File ({uploadProgress}%)</p>
+                        <div className="w-full max-w-xs bg-white/10 rounded-full h-2 mb-2">
+                          <div className="bg-indigo-500 h-2 rounded-full transition-all" style={{ width: `${uploadProgress}%` }}></div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Mohon tunggu, jangan tutup halaman ini...</p>
                       </div>
-                    </div>
-                    <p className="mb-1 font-semibold">Upload a CSV or Excel</p>
-                    <p className="mb-3 text-sm text-muted-foreground">
-                      Drag &amp; Drop, atau{" "}
-                      <label className="cursor-pointer text-indigo-400 underline hover:text-indigo-300">
-                        Browse Files
-                        <input type="file" accept=".csv,.xlsx,.xls" className="hidden" />
-                      </label>
-                    </p>
-                    <p className="text-xs text-muted-foreground/60">Don&apos;t have any template? Create through template creation below</p>
+                    ) : (
+                      <>
+                        <div className="mb-4 flex justify-center">
+                          <div className="h-16 w-16 rounded-xl bg-orange-500/20 flex items-center justify-center">
+                            <span className="text-3xl">📤</span>
+                          </div>
+                        </div>
+                        <p className="mb-1 font-semibold">Upload a CSV or Excel</p>
+                        <p className="mb-3 text-sm text-muted-foreground">
+                          Drag &amp; Drop, atau{" "}
+                          <label className="cursor-pointer text-indigo-400 underline hover:text-indigo-300">
+                            Browse Files
+                            <input 
+                              type="file" 
+                              accept=".csv,.xlsx,.xls" 
+                              className="hidden" 
+                              onChange={handleFileUpload}
+                              disabled={isUploading}
+                            />
+                          </label>
+                        </p>
+                        <p className="text-xs text-muted-foreground/60">Pastikan file sesuai dengan template Ekspedisi.</p>
+                      </>
+                    )}
                   </div>
+                  {uploadError && (
+                    <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive flex items-center gap-2">
+                      <Info className="h-4 w-4 shrink-0" />
+                      {uploadError}
+                    </div>
+                  )}
 
                   {/* Footer Actions */}
                   <div className="flex items-center justify-between">
@@ -865,16 +970,13 @@ export function AggregatorWizard() {
                     <div className="flex gap-3">
                       <button
                         type="button"
-                        onClick={() => setStep(3)}
-                        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors"
+                        onClick={() => {
+                          if (bulkRows.length > 0) setStep(3);
+                        }}
+                        disabled={bulkRows.length === 0}
+                        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
                       >
-                        Pembuatan Pesanan
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold hover:bg-white/5 transition-colors opacity-50"
-                      >
-                        Simpan &amp; Lanjutkan
+                        Lanjut Review
                       </button>
                     </div>
                   </div>
@@ -888,7 +990,7 @@ export function AggregatorWizard() {
 
 
           {/* STEP 3: REVIEW & SERVICE */}
-          {step === 3 && (
+          {step === 3 && orderMode !== "upload" && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               
               <div className="rounded-xl border border-white/10 bg-white/5 p-5">
@@ -973,6 +1075,57 @@ export function AggregatorWizard() {
             </div>
           )}
 
+          {step === 3 && orderMode === "upload" && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+                <h3 className="mb-4 font-semibold flex items-center justify-between">
+                  <span>Validasi Order Massal</span>
+                  <span className="text-sm rounded bg-indigo-500/20 text-indigo-300 px-2 py-1">{bulkRows.length} Order</span>
+                </h3>
+                
+                {bulkRows.length > 0 ? (
+                  <div className="overflow-x-auto rounded-lg border border-white/10">
+                    <table className="w-full text-left text-sm text-muted-foreground">
+                      <thead className="bg-white/5 text-xs uppercase text-foreground">
+                        <tr>
+                          <th className="px-4 py-3">Penerima</th>
+                          <th className="px-4 py-3">Tujuan</th>
+                          <th className="px-4 py-3 text-center">Berat</th>
+                          <th className="px-4 py-3">Layanan</th>
+                          <th className="px-4 py-3 text-right">Tarif</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/10">
+                        {bulkRows.slice(0, 10).map((row: any, i: number) => (
+                          <tr key={i} className="hover:bg-white/5">
+                            <td className="px-4 py-3">
+                              <p className="font-medium text-foreground">{row.recipient_name}</p>
+                              <p className="text-xs">{row.recipient_phone}</p>
+                            </td>
+                            <td className="px-4 py-3 truncate max-w-[150px]" title={row.dropoff_address}>{row.dropoff_address}</td>
+                            <td className="px-4 py-3 text-center">{row.weight_kg} kg</td>
+                            <td className="px-4 py-3 font-medium uppercase text-xs">{row.price_breakdown?.service_code || 'TBD'}</td>
+                            <td className="px-4 py-3 font-medium text-indigo-400 text-right">
+                              {row.price_breakdown?.total_price_idr ? formatPrice(row.price_breakdown.total_price_idr) : 'N/A'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Tidak ada order yang berhasil diproses.</p>
+                )}
+                
+                {bulkRows.length > 10 && (
+                  <p className="text-xs text-center text-muted-foreground mt-3 pt-3 border-t border-white/10">
+                    Menampilkan 10 dari total {bulkRows.length} order.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Stepper Footer Controls */}
           <div className="flex items-center justify-between pt-6 border-t border-white/10 mt-8">
             {step > 1 ? (
@@ -998,7 +1151,7 @@ export function AggregatorWizard() {
             ) : (
               <button
                 type="submit"
-                disabled={isSubmitting || isLoadingTariff || tariffs.length === 0}
+                disabled={isSubmitting || (orderMode === "upload" ? bulkRows.length === 0 : (isLoadingTariff || tariffs.length === 0))}
                 className="inline-flex min-w-[160px] items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-600 transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? (

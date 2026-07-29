@@ -372,8 +372,9 @@ logger.logger.info({
 const phoneRegex = /^(08|628|\+628)[0-9]{8,11}$/;
 function normalizePhoneString(phone: string): string {
   const p = phone.replace(/[^\d+]/g, '');
-  if (p.startsWith('08')) return '628' + p.substring(2);
-  if (p.startsWith('+62')) return '62' + p.substring(3);
+  if (p.startsWith('08')) return '+628' + p.substring(2);
+  if (p.startsWith('628')) return '+' + p;
+  if (p.startsWith('+628')) return p;
   return p;
 }
 

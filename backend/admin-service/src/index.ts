@@ -59,6 +59,38 @@ app.use(express.json({
   },
 }));
 
+const phoneRegex = /^(08|628|\+628)[0-9]{8,11}$/;
+function normalizePhoneString(phone: string): string {
+  const p = phone.replace(/[^\d+]/g, '');
+  if (p.startsWith('08')) return '+628' + p.substring(2);
+  if (p.startsWith('628')) return '+' + p;
+  if (p.startsWith('+628')) return p;
+  return p;
+}
+
+function deepNormalizePhone(obj: any) {
+  if (Array.isArray(obj)) {
+    obj.forEach(deepNormalizePhone);
+  } else if (obj !== null && typeof obj === 'object') {
+    for (const key of Object.keys(obj)) {
+      if (typeof obj[key] === 'string' && (key.includes('phone') || phoneRegex.test(obj[key]))) {
+        if (phoneRegex.test(obj[key])) {
+          obj[key] = normalizePhoneString(obj[key]);
+        }
+      } else {
+        deepNormalizePhone(obj[key]);
+      }
+    }
+  }
+}
+
+app.use((req, _res, next) => {
+  if (req.body) {
+    deepNormalizePhone(req.body);
+  }
+  next();
+});
+
 // JSON Syntax Error Handler
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof SyntaxError && 'body' in err) {
