@@ -29,7 +29,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     if (state.isLoading) return;
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get('/wallet/balance');
+      const response = await api.get('/auth/web/wallet/balance');
       set({ 
         balance: response.data.balance, 
         currency: response.data.currency,
@@ -52,7 +52,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const key = idempotencyKey || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `topup-${Date.now()}-${Math.random()}`);
-      const response = await api.post('/wallet/topup', { 
+      const response = await api.post('/auth/web/wallet/topup', { 
         amount,
         idempotency_key: key 
       }, {
@@ -70,7 +70,7 @@ export const useWalletStore = create<WalletState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const key = details.idempotency_key || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `withdraw-${Date.now()}-${Math.random()}`);
-      await api.post('/wallet/withdraw', {
+      await api.post('/auth/web/wallet/withdraw', {
         ...details,
         idempotency_key: key
       }, {
