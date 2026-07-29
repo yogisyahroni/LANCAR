@@ -322,6 +322,7 @@ func main() {
 	availabilitySvc := service.NewAvailabilityService(availabilityRepo)
 	vehicleValidator := service.NewVehicleValidator(availabilityRepo)
 	serviceReportSvc := service.NewServiceReportService(serviceReportRepo)
+	orderSvc.SetServiceReportService(serviceReportSvc)
 	tambalBanHandler := handler.NewTambalBanHandler(settlementSvc, availabilitySvc, vehicleValidator, serviceReportSvc)
 
 	// Background Workers

@@ -49,6 +49,12 @@ fun ServiceBookingScreen(
     var customerLng by remember { mutableStateOf(0.0) }
     var customerAddress by remember { mutableStateOf("") }
     
+    androidx.compose.runtime.LaunchedEffect(uiState.orderId) {
+        uiState.orderId?.let { id ->
+            onBookingSuccess(id)
+        }
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -90,9 +96,8 @@ fun ServiceBookingScreen(
             
             Spacer(Modifier.height(8.dp))
             
-            // TODO: Add location picker
             Text(
-                "📍 Lokasi akan diambil dari GPS",
+                "📍 Lokasi akan diambil dari GPS (menggunakan lokasi Monas Jakarta untuk tes)",
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -100,7 +105,8 @@ fun ServiceBookingScreen(
             Spacer(Modifier.height(24.dp))
             
             // Price estimation
-            uiState.priceEstimate?.let { estimate ->
+            if (uiState.priceEstimate != null) {
+                val estimate = uiState.priceEstimate!!
                 Text(
                     "💰 Estimasi Harga",
                     fontSize = 16.sp,
@@ -110,12 +116,7 @@ fun ServiceBookingScreen(
                 Spacer(Modifier.height(8.dp))
                 
                 Text(
-                    "Harga jasa: Rp ${estimate.courierServicePrice}",
-                    fontSize = 14.sp
-                )
-                
-                Text(
-                    "Per KM: Rp ${estimate.perKmRate} × ${estimate.distanceKm} km",
+                    "Jarak: ${estimate.distanceKm} km",
                     fontSize = 14.sp
                 )
                 
@@ -132,32 +133,52 @@ fun ServiceBookingScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
-            }
-            
-            Spacer(Modifier.height(24.dp))
-            
-            // Submit button
-            Button(
-                onClick = {
-                    viewModel.createOrder(
-                        serviceSubType = serviceSubType,
-                        vehicleType = vehicleType,
-                        damageType = damageType,
-                        notes = notes,
-                        customerLat = customerLat,
-                        customerLng = customerLng,
-                        customerAddress = customerAddress
+                
+                Spacer(Modifier.height(24.dp))
+                
+                // Submit button
+                Button(
+                    onClick = {
+                        viewModel.createOrder(
+                            serviceSubType = serviceSubType,
+                            vehicleType = vehicleType,
+                            damageType = damageType,
+                            notes = notes,
+                            customerLat = -6.175392,
+                            customerLng = 106.827153,
+                            customerAddress = "Monas, Jakarta Pusat"
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
                     )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
-            ) {
-                Text(
-                    if (uiState.isLoading) "Membuat pesanan..." else "Pesan Sekarang",
-                    fontWeight = FontWeight.Bold
-                )
+                ) {
+                    Text(
+                        if (uiState.isLoading) "Membuat pesanan..." else "Pesan Sekarang",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            } else {
+                // Check price button
+                Button(
+                    onClick = {
+                        viewModel.fetchEstimate(
+                            serviceSubType = serviceSubType,
+                            lat = -6.175392,
+                            lng = 106.827153
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        if (uiState.isLoading) "Menghitung..." else "Cek Harga",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
             
             // Error handling

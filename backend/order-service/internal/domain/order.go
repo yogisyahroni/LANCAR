@@ -95,10 +95,12 @@ type Order struct {
 	Courier                *CourierInfo `json:"courier,omitempty"`                 // Added for Courier Profile
 	CourierRating          *float64     `json:"courier_rating,omitempty"`          // Rating 1-5 diberikan customer setelah delivered
 	RatingComment          *string      `json:"rating_comment,omitempty"`          // Komentar opsional
-	RatingReminderCount    int          `json:"rating_reminder_count,omitempty"`   // Sudah berapa kali diingatkan
-	LastRatingReminderAt   *time.Time   `json:"last_rating_reminder_at,omitempty"` // Kapan terakhir diingatkan
-	CreatedAt              time.Time    `json:"created_at"`
-	UpdatedAt              time.Time    `json:"updated_at"`
+	RatingReminderCount    int              `json:"rating_reminder_count,omitempty"`   // Sudah berapa kali diingatkan
+	LastRatingReminderAt   *time.Time       `json:"last_rating_reminder_at,omitempty"` // Kapan terakhir diingatkan
+	TambalBanReport        *TambalBanReport `json:"tambal_ban_report,omitempty"`       // Laporan Tambal Ban
+	TowingReport           *TowingReport    `json:"towing_report,omitempty"`           // Laporan Towing
+	CreatedAt              time.Time        `json:"created_at"`
+	UpdatedAt              time.Time        `json:"updated_at"`
 }
 
 type CourierInfo struct {
@@ -178,6 +180,7 @@ type OrderService interface {
 	GetConsolidationBag(ctx context.Context, bagNumber string) (*ConsolidationBag, []*PackageScan, error)
 	AutoDetectScanType(ctx context.Context, orderID string, warehouseID string) (string, error)
 	SetRefundService(rs RefundService)
+	SetServiceReportService(s ServiceReportService)
 	// SubmitRating menerima penilaian 1-5 bintang dari customer terhadap kurir.
 	// Validasi: order harus berstatus delivered, dan belum pernah di-rating.
 	SubmitRating(ctx context.Context, customerID string, orderID string, req SubmitRatingRequest) error

@@ -30,6 +30,7 @@ type orderServiceImpl struct {
 	notificationSvc domain.NotificationService
 	configRepo      domain.ConfigRepository
 	refundSvc       domain.RefundService
+	reportSvc       domain.ServiceReportService
 	ledgerRepo      domain.FinanceLedgerRepository
 	taxSvc          domain.TaxService
 }
@@ -53,6 +54,10 @@ func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r
 
 func (s *orderServiceImpl) SetRefundService(rs domain.RefundService) {
 	s.refundSvc = rs
+}
+
+func (s *orderServiceImpl) SetServiceReportService(reportSvc domain.ServiceReportService) {
+	s.reportSvc = reportSvc
 }
 
 func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req domain.CreateOrderRequest) (*domain.Order, error) {
@@ -469,6 +474,21 @@ func (s *orderServiceImpl) GetOrder(ctx context.Context, orderID string) (*domai
 	// Generate QR Code URL for the detail view
 	qrURL, _ := utils.GenerateQRCodeDataURI(order.HandoverToken, 256)
 	order.QRCodeURL = qrURL
+
+	// Fetch Service Reports for Tambal Ban or Towing
+	if s.reportSvc != nil {
+		if order.Model == "tambal_ban" {
+			report, err := s.reportSvc.GetTambalBanReport(ctx, orderID)
+			if err == nil && report != nil {
+				order.TambalBanReport = report
+			}
+		} else if order.Model == "towing" {
+			report, err := s.reportSvc.GetTowingReport(ctx, orderID)
+			if err == nil && report != nil {
+				order.TowingReport = report
+			}
+		}
+	}
 
 	return order, nil
 }

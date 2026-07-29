@@ -95,6 +95,62 @@ const formatShortTime = (value?: string | null) => {
   return Number.isNaN(date.getTime()) ? '---' : format(date, 'HH:mm')
 }
 
+function TambalBanReportPanel({ report }: { report: any }) {
+  if (!report) return null;
+  return (
+    <div className="p-8 rounded-[40px] bg-zinc-900 border border-white/5 space-y-6 shadow-inner">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+          <AlertCircle size={14} className="text-orange-500" />
+          Laporan Tambal Ban
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Kerusakan</p>
+          <p className="text-sm font-black text-zinc-100 mt-1">{report.damage_type || 'N/A'}</p>
+        </div>
+        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Deskripsi</p>
+          <p className="text-sm font-black text-zinc-100 mt-1">{report.description || 'N/A'}</p>
+        </div>
+      </div>
+      <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Catatan Teknisi</p>
+        <p className="text-sm font-black text-zinc-100 mt-1">{report.technician_notes || '-'}</p>
+      </div>
+    </div>
+  )
+}
+
+function TowingReportPanel({ report }: { report: any }) {
+  if (!report) return null;
+  return (
+    <div className="p-8 rounded-[40px] bg-zinc-900 border border-white/5 space-y-6 shadow-inner">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+          <Truck size={14} className="text-blue-500" />
+          Laporan Towing
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Tipe Towing</p>
+          <p className="text-sm font-black text-zinc-100 mt-1">{report.towing_type || 'N/A'}</p>
+        </div>
+        <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Kondisi Kendaraan</p>
+          <p className="text-sm font-black text-zinc-100 mt-1">{report.vehicle_condition || 'N/A'}</p>
+        </div>
+      </div>
+      <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-3">
+        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Catatan Driver</p>
+        <p className="text-sm font-black text-zinc-100 mt-1">{report.driver_notes || '-'}</p>
+      </div>
+    </div>
+  )
+}
+
 function RouteTelemetryPanel({ orderDetail }: { orderDetail: any }) {
   const pickupLat = readNumber(orderDetail.pickup_lat, orderDetail.pickup?.lat, orderDetail.pickup_location?.lat, orderDetail.route_snapshot?.pickup?.lat)
   const pickupLng = readNumber(orderDetail.pickup_lng, orderDetail.pickup?.lng, orderDetail.pickup_location?.lng, orderDetail.route_snapshot?.pickup?.lng)
@@ -655,6 +711,9 @@ export default function ActiveOrdersTable() {
                             Flag Issue
                           </button>
                         </div>
+
+                        <TambalBanReportPanel report={orderDetail.tambal_ban_report} />
+                        <TowingReportPanel report={orderDetail.towing_report} />
 
                         <OperationalMonitoringPanel orderDetail={orderDetail} />
 

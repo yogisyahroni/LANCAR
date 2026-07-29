@@ -266,6 +266,18 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       ORDER BY created_at DESC
     `, [id]);
 
+    const tambalBanReportsRes = await readDb.query(`
+      SELECT *
+      FROM tambal_ban_reports
+      WHERE order_id = $1
+    `, [id]);
+
+    const towingReportsRes = await readDb.query(`
+      SELECT *
+      FROM towing_reports
+      WHERE order_id = $1
+    `, [id]);
+
     res.json({
       ...orderRes.rows[0],
       events: eventsRes.rows,
@@ -275,7 +287,9 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       packages: packagesRes.rows,
       dispatches: dispatchesRes.rows,
       proof_attempts: proofAttemptsRes.rows,
-      face_verifications: faceVerificationsRes.rows
+      face_verifications: faceVerificationsRes.rows,
+      tambal_ban_report: tambalBanReportsRes.rows.length > 0 ? tambalBanReportsRes.rows[0] : null,
+      towing_report: towingReportsRes.rows.length > 0 ? towingReportsRes.rows[0] : null
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
