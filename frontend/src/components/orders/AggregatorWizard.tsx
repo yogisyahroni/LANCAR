@@ -345,7 +345,7 @@ export function AggregatorWizard() {
           alert("Data upload tidak valid.");
           return;
         }
-        await api.post("/auth/web/orders/bulk/process-payment", { job_id: jobId });
+        await api.post("/auth/web/orders/bulk/process", { job_id: jobId });
         router.push("/orders?success=true");
       } else {
         const isValid = await validateStep(3);
