@@ -541,7 +541,7 @@ export function AddressPicker({
     setMessage(null);
   };
 
-  const useCurrentLocation = async (onSuccess?: (addr: string, loc: LocationValue) => void) => {
+  const handleUseCurrentLocation = async (onSuccess?: (addr: string, loc: LocationValue) => void) => {
     if (!navigator.geolocation) {
       setMessage("Browser tidak mendukung geolocation. Pilih alamat dari hasil pencarian atau Buku Alamat.");
       return;
@@ -578,7 +578,7 @@ export function AddressPicker({
     );
   };
 
-  const useSavedDefault = () => {
+  const handleUseSavedDefault = () => {
     const defaultAddress = savedSuggestions.find((item) => item.source === "saved") || savedSuggestions[0];
     if (defaultAddress) {
       applySuggestion(defaultAddress);
@@ -649,7 +649,7 @@ export function AddressPicker({
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => useCurrentLocation()}
+                  onClick={() => handleUseCurrentLocation()}
                   className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {isLocating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Navigation className="h-3 w-3" />}
@@ -658,7 +658,7 @@ export function AddressPicker({
                 <span className="text-muted-foreground/30">·</span>
                 <button
                   type="button"
-                  onClick={useSavedDefault}
+                  onClick={handleUseSavedDefault}
                   className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Sparkles className="h-3 w-3" />
@@ -706,29 +706,20 @@ export function AddressPicker({
             {isSearching && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
           </div>
           <div className="flex flex-wrap gap-2">
+            {isPickup && (
+              <button
+                type="button"
+                data-testid={`${mode}-current-location-button`}
+                onClick={() => handleUseCurrentLocation()}
+                className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
+              >
+                {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
+                Lokasi Saya
+              </button>
+            )}
             <button
               type="button"
-              data-testid={`${mode}-current-location-button`}
-              onClick={() => useCurrentLocation()}
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
-            >
-              {isLocating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Navigation className="h-3.5 w-3.5" />}
-              Lokasi Saya
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setModalForm({ shopName: "", picName: "", phone: "", fullAddress: "", location: null });
-                setIsModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-primary/10 text-primary px-3 py-1.5 text-xs font-medium hover:bg-primary/20"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Tambah Alamat
-            </button>
-            <button
-              type="button"
-              onClick={useSavedDefault}
+              onClick={handleUseSavedDefault}
               className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium hover:bg-white/10"
             >
               <Sparkles className="h-3.5 w-3.5" />
@@ -829,7 +820,7 @@ export function AddressPicker({
                   <span>Alamat Lengkap &amp; Kodepos</span>
                   <button
                     type="button"
-                    onClick={() => useCurrentLocation((addr, loc) => setModalForm(prev => ({ ...prev, fullAddress: addr, location: loc })))}
+                    onClick={() => handleUseCurrentLocation((addr, loc) => setModalForm(prev => ({ ...prev, fullAddress: addr, location: loc })))}
                     className="text-xs text-primary flex items-center gap-1 hover:underline"
                   >
                     {isLocating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Navigation className="h-3 w-3" />}

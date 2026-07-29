@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { clearCustomerOrderDraft, DeliveryService, OrderForm, OrderFormValues } from "@/components/orders/OrderForm";
-import { AggregatorWizard } from "@/components/orders/AggregatorWizard";
 import { OrderSummary } from "@/components/orders/OrderSummary";
+import Link from "next/link";
 import { PaymentModal } from "@/components/orders/PaymentModal";
 import { api } from "@/lib/api";
 import { clientLog } from "@/lib/clientLogger";
@@ -52,7 +52,6 @@ const deriveRouteVehicleType = (service?: DeliveryService) => {
 };
 
 export default function NewOrderPage() {
-  const [orderMode, setOrderMode] = useState<'instan' | 'ekspedisi'>('instan');
   const [formData, setFormData] = useState<Partial<OrderFormValues>>({});
   const [isValid, setIsValid] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -425,22 +424,17 @@ export default function NewOrderPage() {
         
         {/* Order Mode Selector */}
         <div className="flex bg-muted/60 p-1 rounded-xl border border-border/40 select-none shrink-0">
-          <button
-            onClick={() => setOrderMode('instan')}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
-              orderMode === 'instan' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
+          <div
+            className="px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-default bg-card text-foreground shadow-sm"
           >
             🚀 Instan (On-Demand)
-          </button>
-          <button
-            onClick={() => setOrderMode('ekspedisi')}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer ${
-              orderMode === 'ekspedisi' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
+          </div>
+          <Link
+            href="/orders/new/ekspedisi"
+            className="px-4 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer text-muted-foreground hover:text-foreground"
           >
             📦 Ekspedisi (Aggregator)
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -456,43 +450,37 @@ export default function NewOrderPage() {
         </div>
       )}
 
-      {orderMode === 'instan' ? (
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          {/* Left Col - Form (takes 2/3 space) */}
-          <div className="lg:col-span-2">
-            <OrderForm 
-              mode={orderMode}
-              onFormChange={handleFormChange}
-              onSubmit={handleSubmit}
-            />
-          </div>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        {/* Left Col - Form (takes 2/3 space) */}
+        <div className="lg:col-span-2">
+          <OrderForm 
+            mode="instan"
+            onFormChange={handleFormChange}
+            onSubmit={handleSubmit}
+          />
+        </div>
 
-          {/* Right Col - Summary (takes 1/3 space) */}
-          <div className="relative">
-            <OrderSummary 
-              mode={orderMode}
-              isLoading={isCalculating || isSubmitting}
-              isRouteLoading={isRoutePreviewLoading}
-              routePreview={routePreview}
-              routeError={routePreviewError}
-              pricing={pricing}
-              isValid={isValid}
-              promoCode={promoCode}
-              promoQuote={promoQuote}
-              promoError={promoError}
-              isPromoChecking={isPromoChecking}
-              eligiblePromos={eligiblePromos}
-              isEligiblePromoLoading={isEligiblePromoLoading}
-              onPromoCodeChange={setPromoCode}
-              onValidatePromo={handleValidatePromo}
-            />
-          </div>
+        {/* Right Col - Summary (takes 1/3 space) */}
+        <div className="relative">
+          <OrderSummary 
+            mode="instan"
+            isLoading={isCalculating || isSubmitting}
+            isRouteLoading={isRoutePreviewLoading}
+            routePreview={routePreview}
+            routeError={routePreviewError}
+            pricing={pricing}
+            isValid={isValid}
+            promoCode={promoCode}
+            promoQuote={promoQuote}
+            promoError={promoError}
+            isPromoChecking={isPromoChecking}
+            eligiblePromos={eligiblePromos}
+            isEligiblePromoLoading={isEligiblePromoLoading}
+            onPromoCodeChange={setPromoCode}
+            onValidatePromo={handleValidatePromo}
+          />
         </div>
-      ) : (
-        <div className="mt-6">
-          <AggregatorWizard />
-        </div>
-      )}
+      </div>
 
       {showPayment && paymentData && (
         <PaymentModal
