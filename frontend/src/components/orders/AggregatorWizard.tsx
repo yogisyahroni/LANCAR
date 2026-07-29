@@ -48,6 +48,7 @@ const step1Schema = z.object({
   pickup_location: z.object({ lat: z.number(), lng: z.number() }).nullable().optional(),
   schedule_type: z.enum(["now", "scheduled"]).default("now"),
   scheduled_at: z.string().optional(),
+  vehicle_type: z.enum(["Motor", "Mobil", "Truk"]).default("Motor"),
 }).superRefine((data, ctx) => {
   if (data.schedule_type === "scheduled" && !data.scheduled_at) {
     ctx.addIssue({
@@ -64,7 +65,7 @@ const step2Schema = z.object({
   destination_code: z.string().min(1, "Pilih kota tujuan"),
   dropoff_address: z.string().min(5, "Alamat tujuan minimal 5 karakter"),
   recipient_name: z.string().min(3, "Nama penerima wajib diisi"),
-  recipient_phone: z.string().min(10, "Nomor HP tidak valid"),
+  recipient_phone: z.string().regex(/^(08|628|\+628)[0-9]{8,11}$/, "Nomor HP tidak valid"),
   payment_type: z.enum(["COD", "NON_COD"]).default("NON_COD"),
   item_value: z.number().min(0).default(0),
   weight_kg: z.number().min(0.1, "Berat minimal 0.1 kg"),
@@ -73,7 +74,6 @@ const step2Schema = z.object({
   category: z.string().optional(),
   dangerous_goods: z.boolean().default(false),
   delivery_notes: z.string().optional(),
-  vehicle_type: z.enum(["Motor", "Mobil", "Truk"]).default("Motor"),
 });
 
 
@@ -390,6 +390,38 @@ export function AggregatorWizard() {
                   </div>
                 )}
               </div>
+
+              <div className="h-px bg-white/10" />
+
+              {/* 4. Volume / Kendaraan */}
+              <div>
+                <label className="mb-1 block text-base font-semibold text-foreground">4. Volume</label>
+                <p className="mb-4 text-sm text-muted-foreground">Pilih kendaraan yang muat dengan semua parcelmu</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {(["Motor", "Mobil", "Truk"] as const).map(vt => (
+                    <button
+                      key={vt}
+                      type="button"
+                      onClick={() => setValue("vehicle_type", vt, { shouldValidate: true })}
+                      className={[
+                        "relative flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-colors",
+                        watch("vehicle_type") === vt
+                          ? "border-indigo-500 bg-indigo-500/10 text-indigo-100"
+                          : "border-white/10 bg-background/50 hover:bg-white/5 text-muted-foreground",
+                      ].join(" ")}
+                    >
+                      {watch("vehicle_type") === vt && (
+                        <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center">
+                          <Check className="h-2.5 w-2.5 text-white" />
+                        </span>
+                      )}
+                      <span>{vt === "Motor" ? "🏍️" : vt === "Mobil" ? "🚗" : "🚚"}</span>
+                      {vt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
             </div>
           )}
 

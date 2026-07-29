@@ -54,7 +54,7 @@ export const createOrderSchema = (config?: RuntimeConfig | null, mode: 'instan' 
   dropoff_address: z.string().min(5, "Alamat tujuan minimal 5 karakter"),
   dropoff_location: coordinateSchema.optional(),
   recipient_name: z.string().min(3, "Nama penerima wajib diisi"),
-  recipient_phone: z.string().min(10, "Nomor HP tidak valid"),
+  recipient_phone: z.string().regex(/^(08|628|\+628)[0-9]{8,11}$/, "Nomor HP tidak valid"),
   package_details: z.object({
     category: z.string().min(1, "Pilih kategori paket"),
     item_description: z.string().min(5, "Deskripsi barang minimal 5 karakter"),
@@ -818,8 +818,8 @@ export function AddressPicker({
                   <label className="text-sm font-medium text-muted-foreground block mb-1">Nomor HP</label>
                   <input
                     value={modalForm.phone}
-                    onChange={(e) => setModalForm(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full rounded-md border border-white/10 bg-black/50 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    onChange={(e) => setModalForm(prev => ({ ...prev, phone: e.target.value.replace(/[^0-9+]/g, '') }))}
+                    className={`w-full rounded-md border bg-black/50 px-3 py-2 text-sm focus:outline-none ${modalForm.phone && !/^(08|628|\+628)[0-9]{8,11}$/.test(modalForm.phone) ? 'border-red-500 focus:border-red-500' : 'border-white/10 focus:border-primary'}`}
                     placeholder="08..."
                   />
                 </div>
@@ -1718,9 +1718,12 @@ export function OrderForm({ mode = 'instan', onFormChange, onSubmit }: OrderForm
               <label className="mb-1 block text-sm font-medium text-muted-foreground">Nomor HP</label>
               <input
                 {...register("recipient_phone")}
+                onInput={(e) => {
+                  e.currentTarget.value = e.currentTarget.value.replace(/[^0-9+]/g, '');
+                }}
                 data-testid="recipient-phone-input"
                 type="tel"
-                className="w-full rounded-lg border border-white/10 bg-background/50 px-4 py-2.5 text-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                className={`w-full rounded-lg border bg-background/50 px-4 py-2.5 text-sm focus:outline-none focus:ring-1 ${errors.recipient_phone ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-white/10 focus:border-emerald-500 focus:ring-emerald-500'}`}
                 placeholder="Mis: 08123456789"
               />
               {errors.recipient_phone && <p className="mt-1 text-xs text-destructive">{errors.recipient_phone.message}</p>}

@@ -213,9 +213,9 @@ function AddressModal({
               </label>
               <input
                 value={form.phone}
-                onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value.replace(/[^0-9+]/g, '') }))}
                 type="tel"
-                className="w-full rounded-lg border border-white/10 bg-background/60 px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                className={`w-full rounded-lg border bg-background/60 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 ${form.phone && !/^(08|628|\+628)[0-9]{8,11}$/.test(form.phone) ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-white/10 focus:border-primary focus:ring-primary'}`}
                 placeholder="Nomor HP"
               />
             </div>

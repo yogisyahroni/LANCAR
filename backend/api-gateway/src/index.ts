@@ -369,7 +369,34 @@ logger.logger.info({
   order_service_configured: Boolean(ORDER_SERVICE_URL),
 }, 'Gateway upstream services configured');
 
+const phoneRegex = /^(08|628|\+628)[0-9]{8,11}$/;
+function normalizePhoneString(phone: string): string {
+  const p = phone.replace(/[^\d+]/g, '');
+  if (p.startsWith('08')) return '628' + p.substring(2);
+  if (p.startsWith('+62')) return '62' + p.substring(3);
+  return p;
+}
+
+function deepNormalizePhone(obj: any) {
+  if (Array.isArray(obj)) {
+    obj.forEach(deepNormalizePhone);
+  } else if (obj !== null && typeof obj === 'object') {
+    for (const key of Object.keys(obj)) {
+      if (typeof obj[key] === 'string' && (key.includes('phone') || phoneRegex.test(obj[key]))) {
+        if (phoneRegex.test(obj[key])) {
+          obj[key] = normalizePhoneString(obj[key]);
+        }
+      } else {
+        deepNormalizePhone(obj[key]);
+      }
+    }
+  }
+}
+
 const prepareProxyRequest = (proxyReq: any, req: Request) => {
+  if (req.body) {
+    deepNormalizePhone(req.body);
+  }
   applyInternalGatewayAuth(proxyReq, req);
   applyProxyObservabilityHeaders(proxyReq, req);
   fixRequestBody(proxyReq, req);
