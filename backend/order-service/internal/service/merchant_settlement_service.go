@@ -131,10 +131,7 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("HandleDeliveryConfirmed: invalid merchant_id %q: %w", paymentLink.MerchantID, err)
 	}
-	_, err = uuid.Parse(order.ID)
-	if err != nil {
-		// Jika order ID bukan UUID (bisa saja string lain), simpan saja sebagai string
-	}
+	_, _ = uuid.Parse(order.ID)
 
 	settlement := &domain.MerchantSettlement{
 		ID:                 settlementID,

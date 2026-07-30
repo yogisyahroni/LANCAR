@@ -48,7 +48,9 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 	if !acquired {
 		return nil, fmt.Errorf("refund process is already running for order %s", orderID.String())
 	}
-	defer s.redisRepo.ReleaseLock(ctx, lockKey)
+	defer func() {
+		_ = s.redisRepo.ReleaseLock(ctx, lockKey)
+	}()
 
 	// Get order details
 	order, err := s.orderRepo.GetByID(ctx, orderID.String())
@@ -196,7 +198,7 @@ func (s *refundService) ProcessPendingRefunds(ctx context.Context) error {
 			log.Printf("Failed to process refund %s: %v", r.ID, gatewayErr)
 		}
 
-		s.refundRepo.UpdateRefundStatus(ctx, r.ID, status, &ref, errReason)
+		_ = s.refundRepo.UpdateRefundStatus(ctx, r.ID, status, &ref, errReason)
 	}
 
 	return nil

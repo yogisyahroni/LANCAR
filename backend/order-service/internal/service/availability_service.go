@@ -146,9 +146,5 @@ func (s *availabilityServiceImpl) canAcceptConditional(ctx context.Context, stat
 
 	// Rule 3: ETA to new customer must be < 10 minutes
 	etaToNew := int(math.Ceil(distToNew * 2.5)) // rough: 2.5 min per km
-	if etaToNew > 10 {
-		return false
-	}
-
-	return true
+	return etaToNew <= 10
 }

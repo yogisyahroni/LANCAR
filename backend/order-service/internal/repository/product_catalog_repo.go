@@ -142,14 +142,14 @@ func (r *productCatalogRepo) BulkCreate(ctx context.Context, products []domain.P
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`)
 	if err != nil {
-		tx.Rollback()
+		_ = tx.Rollback()
 		return err
 	}
 	defer stmt.Close()
 
 	for _, p := range products {
 		if _, err := stmt.ExecContext(ctx, p.ID, p.CustomerID, p.Name, p.SKU, p.WeightKG, p.ItemImage, p.Price, p.IsActive, p.CreatedAt, p.UpdatedAt); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 	}

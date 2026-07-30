@@ -69,7 +69,7 @@ func (h *AggregatorFinanceHandler) ImportInvoice(w http.ResponseWriter, r *http.
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(inv)
+	_ = json.NewEncoder(w).Encode(inv)
 }
 
 func (h *AggregatorFinanceHandler) ListInvoices(w http.ResponseWriter, r *http.Request) {

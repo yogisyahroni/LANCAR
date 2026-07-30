@@ -209,7 +209,7 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 
 	// 8. Push to persistent task queue
 	if s.taskQueue != nil {
-		s.taskQueue.Push(ctx, queue.Task{
+		_ = s.taskQueue.Push(ctx, queue.Task{
 			Type: "order.created",
 			Payload: map[string]interface{}{
 				"order_id": order.ID,
@@ -301,7 +301,7 @@ func (s *orderServiceImpl) CreateInternalAggregatorOrder(ctx context.Context, us
 	_ = s.eventBus.Publish(ctx, "order.updates", event)
 
 	if s.taskQueue != nil {
-		s.taskQueue.Push(ctx, queue.Task{
+		_ = s.taskQueue.Push(ctx, queue.Task{
 			Type: "order.created",
 			Payload: map[string]interface{}{
 				"order_id":           order.ID,
@@ -431,7 +431,7 @@ func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, r
 		_ = s.eventBus.Publish(ctx, "order.updates", event)
 
 		if s.taskQueue != nil {
-			s.taskQueue.Push(ctx, queue.Task{
+			_ = s.taskQueue.Push(ctx, queue.Task{
 				Type: "order.created",
 				Payload: map[string]interface{}{
 					"order_id": order.ID,
@@ -625,7 +625,7 @@ func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, cour
 			_ = s.eventBus.Publish(ctx, "order.updates", event)
 
 			// 5. Notify Customer
-			s.notificationSvc.Send(ctx, domain.NotificationRequest{
+			_ = s.notificationSvc.Send(ctx, domain.NotificationRequest{
 				UserID:  o.CustomerID,
 				Title:   "Courier Found!",
 				Message: "A courier has accepted your order and is heading to the pickup location.",
@@ -771,7 +771,7 @@ func (s *orderServiceImpl) FindAndAssignCourier(ctx context.Context, orderID str
 
 	// Set order status to no_courier_found if all declined/expired
 	for _, o := range batchOrders {
-		s.orderRepo.UpdateStatus(ctx, o.ID, domain.StatusNoCourierFound)
+		_ = s.orderRepo.UpdateStatus(ctx, o.ID, domain.StatusNoCourierFound)
 	}
 
 	return errors.New("no couriers accepted the order within the search window")
@@ -1169,7 +1169,7 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 		msg = "Your package is being returned to the pickup location. Contact support if you need assistance."
 	}
 
-	s.notificationSvc.Send(ctx, domain.NotificationRequest{
+	_ = s.notificationSvc.Send(ctx, domain.NotificationRequest{
 		UserID:  order.CustomerID,
 		Title:   title,
 		Message: msg,

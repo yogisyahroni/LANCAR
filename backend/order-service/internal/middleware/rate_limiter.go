@@ -44,11 +44,7 @@ var (
 		keyPrefix:   "rl:order:create",
 	}
 
-	policyPricingIP = rateLimitPolicy{
-		maxRequests: 20,
-		window:      60 * time.Second,
-		keyPrefix:   "rl:pricing:ip",
-	}
+
 )
 
 // RateLimiter holds the Redis client and default policy.

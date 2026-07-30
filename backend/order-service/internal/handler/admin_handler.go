@@ -83,7 +83,7 @@ func (h *AdminHandler) GetPricingConfig(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	json.NewEncoder(w).Encode(config)
+	_ = json.NewEncoder(w).Encode(config)
 }
 
 func (h *AdminHandler) UpdatePricingConfig(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +98,7 @@ func (h *AdminHandler) UpdatePricingConfig(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	json.NewEncoder(w).Encode(config)
+	_ = json.NewEncoder(w).Encode(config)
 }
 
 func (h *AdminHandler) SimulatePrice(w http.ResponseWriter, r *http.Request) {

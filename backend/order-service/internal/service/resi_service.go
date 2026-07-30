@@ -83,7 +83,7 @@ func (s *resiService) RenderResiByAWB(ctx context.Context, awb string) (map[stri
 	}
 
 	var processedLayout map[string]interface{}
-	json.Unmarshal([]byte(layoutStr), &processedLayout)
+	_ = json.Unmarshal([]byte(layoutStr), &processedLayout)
 
 	return map[string]interface{}{
 		"order":          order,

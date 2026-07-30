@@ -162,11 +162,6 @@ type waPayload struct {
 	Message string `json:"message"`
 }
 
-type waResponseEnvelope struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-}
-
 // SendWhatsApp mengirim pesan WhatsApp melalui integration-gateway.
 func (c *IntegrationGatewayClient) SendWhatsApp(ctx context.Context, to, message string) error {
 	payload := waPayload{To: to, Message: message}
