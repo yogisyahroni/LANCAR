@@ -46,6 +46,7 @@ routes.get('/api/v1/courier/payout/summary', requireMobileOrWebAuth, (req, res) 
 routes.get('/api/v1/courier/payout/requests', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierPayoutRequests(req, res));
 routes.post('/api/v1/courier/payout/requests', requireMobileOrWebAuth, (req, res) => controllers.createMobileCourierPayoutRequest(req, res));
 routes.get('/api/v1/courier/capabilities', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierCapabilities(req, res));
+routes.post('/api/v1/courier/capabilities/request', requireMobileOrWebAuth, (req, res) => controllers.requestMobileCourierCapabilityUpgrade(req, res));
 routes.post('/api/v1/courier/training/complete', requireMobileOrWebAuth, (req, res) => controllers.completeMobileCourierTraining(req, res));
 routes.get('/api/v1/courier/orders', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOrders(req, res));
 routes.get('/api/v1/courier/offers', requireMobileOrWebAuth, (req, res) => controllers.getMobileCourierOffers(req, res));

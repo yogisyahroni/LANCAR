@@ -8,6 +8,8 @@ import com.tembus.courier.data.model.SosTriggerRequest
 import com.tembus.courier.data.model.SosTriggerResponse
 import com.tembus.courier.data.model.CourierProfile
 import com.tembus.courier.data.model.CourierCapabilityProfile
+import com.tembus.courier.data.model.CourierCapabilityUpgradeRequest
+import com.tembus.courier.data.model.CourierServiceCapability
 import com.tembus.courier.data.model.CourierHotspot
 import com.tembus.courier.data.model.CourierEarningsLedger
 import com.tembus.courier.data.model.CourierPerformanceSummary
@@ -175,6 +177,11 @@ interface TEMBUSApiService {
 
     @GET("api/v1/courier/capabilities")
     suspend fun getCourierCapabilities(): Response<ApiResponse<CourierCapabilityProfile>>
+
+    @POST("api/v1/courier/capabilities/request")
+    suspend fun requestCourierCapabilityUpgrade(
+        @Body request: CourierCapabilityUpgradeRequest
+    ): Response<ApiResponse<CourierServiceCapability>>
 
     @POST("api/v1/courier/training/complete")
     suspend fun completeCourierTraining(

@@ -969,3 +969,9 @@ data class UnreadCountData(
     @SerialName("by_category")
     val byCategory: Map<String, Int>? = null
 )
+
+@Serializable
+data class CourierCapabilityUpgradeRequest(
+    @SerialName("service_code") val serviceCode: String,
+    @SerialName("proof_image_url") val proofImageUrl: String
+)

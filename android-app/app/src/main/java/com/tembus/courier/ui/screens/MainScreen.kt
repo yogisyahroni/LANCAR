@@ -113,6 +113,7 @@ import com.tembus.courier.ui.screens.order.OrderDetailScreen
 import com.tembus.courier.ui.screens.order.OrderScreen
 import com.tembus.courier.ui.screens.order.OrderViewModel
 import com.tembus.courier.ui.screens.notification.InboxScreen
+import com.tembus.courier.ui.screens.service.ServiceUpgradeScreen
 import com.tembus.courier.ui.screens.pod.ProofOfDeliveryScreen
 import com.tembus.courier.ui.screens.profile.resolvePayoutActionState
 import com.tembus.courier.ui.screens.scan.ScanScreen
@@ -872,6 +873,13 @@ fun MainScreen(
     }
 
     // ── Inbox Screen ──────────────────────────────────────────
+    if (routeState.screen == CourierRouteScreen.SERVICE_UPGRADE) {
+        ServiceUpgradeScreen(
+            onNavigateBack = { routeState = CourierRouteReducer.home() }
+        )
+        return
+    }
+
     if (routeState.screen == CourierRouteScreen.INBOX) {
         InboxScreen(
             onBackClick = { routeState = CourierRouteReducer.home() }
@@ -1229,7 +1237,8 @@ fun MainScreen(
                                     val result = orderViewModel.updateCourierCapacity(maxWeightKg, maxPackages)
                                     snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Gagal update kapasitas" }.toString())
                                 }
-                            }
+                            },
+                            onRequestServiceUpgrade = { routeState = CourierRouteReducer.serviceUpgrade() }
                         )
                     }
                     3 -> ProfileContent(
@@ -1272,7 +1281,8 @@ fun MainScreen(
                             val result = orderViewModel.updateCourierCapacity(maxWeightKg, maxPackages)
                             snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Gagal update kapasitas" }.toString())
                         }
-                    }
+                    },
+                    onRequestServiceUpgrade = { routeState = CourierRouteReducer.serviceUpgrade() }
                 )
                 }
             }
@@ -5092,7 +5102,8 @@ private fun ProfileContent(
     onSyncNow: () -> Unit,
     onOptimizeBattery: () -> Unit,
     onClearCache: () -> Unit,
-    onUpdateCapacity: (Double?, Int?) -> Unit
+    onUpdateCapacity: (Double?, Int?) -> Unit,
+    onRequestServiceUpgrade: () -> Unit
 ) {
     var showDiagnostics by remember { mutableStateOf(false) }
     var showResetLocalDataDialog by remember { mutableStateOf(false) }
@@ -5560,6 +5571,33 @@ private fun ProfileContent(
                             )
                         }
                     }
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Layanan & Kemampuan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    "Tingkatkan pendapatan dengan menambahkan layanan baru seperti Tambal Ban atau Towing.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(
+                    onClick = onRequestServiceUpgrade,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Daftar Layanan Tambahan")
                 }
             }
         }

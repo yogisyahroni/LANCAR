@@ -37,6 +37,7 @@ export default function CourierPublicRegistration() {
   const [documents, setDocuments] = useState<Record<string, string>>({})
   const [documentNames, setDocumentNames] = useState<Record<string, string>>({})
   const [form, setForm] = useState({
+    partnership_type: 'regular', // regular or towing
     full_name: '',
     phone_number: '',
     email: '',
@@ -121,8 +122,10 @@ export default function CourierPublicRegistration() {
     setIsSubmitting(true)
     setError('')
     try {
+      const payloadVehicleType = form.partnership_type === 'towing' ? 'towing_truck' : 'matic';
       await api.post(`/auth/courier/register/${token}`, {
         ...form,
+        vehicle_type: payloadVehicleType,
         vehicle_year: Number(form.vehicle_year),
         vehicle_cc: Number(form.vehicle_cc),
         documents,
@@ -175,6 +178,19 @@ export default function CourierPublicRegistration() {
               <Field label="Nomor HP" value={form.phone_number} onChange={(value) => updateForm('phone_number', value)} />
               <Field label="Email" value={form.email} onChange={(value) => updateForm('email', value)} />
               <Field label="Password login setelah disetujui" type="password" value={form.password} onChange={(value) => updateForm('password', value)} />
+            <FormSection title="Jenis Kemitraan">
+              <SelectField 
+                label="Daftar Sebagai" 
+                value={form.partnership_type} 
+                onChange={(value) => {
+                  setForm((current) => ({
+                    ...current,
+                    partnership_type: value,
+                    vehicle_category: value === 'towing' ? 'flatbed' : 'matic'
+                  }))
+                }} 
+                options={['regular', 'towing']} 
+              />
             </FormSection>
 
             <FormSection title="Kendaraan">
@@ -183,7 +199,12 @@ export default function CourierPublicRegistration() {
               <Field label="Model" value={form.vehicle_model} onChange={(value) => updateForm('vehicle_model', value)} />
               <Field label="Tahun" type="number" value={form.vehicle_year} onChange={(value) => updateForm('vehicle_year', value)} />
               <Field label="CC" type="number" value={form.vehicle_cc} onChange={(value) => updateForm('vehicle_cc', value)} />
-              <SelectField label="Kategori" value={form.vehicle_category} onChange={(value) => updateForm('vehicle_category', value)} options={['matic', 'bebek', 'cargo_box']} />
+              <SelectField 
+                label="Kategori" 
+                value={form.vehicle_category} 
+                onChange={(value) => updateForm('vehicle_category', value)} 
+                options={form.partnership_type === 'towing' ? ['flatbed', 'towing_derek'] : ['matic', 'bebek', 'cargo_box']} 
+              />
               <CheckField label="Mesin 4 tak" checked={form.engine_type === '4_tak'} onChange={(checked) => updateForm('engine_type', checked ? '4_tak' : '2_tak')} />
               <CheckField label="SIM masih berlaku" checked={form.sim_active} onChange={(checked) => updateForm('sim_active', checked)} />
               <CheckField label="SKPD/pajak masih berlaku" checked={form.skpd_tax_active} onChange={(checked) => updateForm('skpd_tax_active', checked)} />

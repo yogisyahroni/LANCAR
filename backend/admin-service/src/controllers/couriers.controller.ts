@@ -81,6 +81,7 @@ const pseudoChecksum = (value: string) => crypto.createHash('sha256').update(val
 
 const vehicleProductType = (profile: any) => {
   const value = String(profile.vehicle_category || profile.vehicle_type || '').toLowerCase();
+  if (value === 'towing_truck' || value === 'flatbed' || value === 'towing_derek') return 'towing_truck';
   return ['mobil', 'car', 'box'].includes(value) ? 'car' : 'motor';
 };
 
@@ -484,7 +485,7 @@ const submitCourierApplication = async (
       [
         userId,
         nik || null,
-        vehicle_type || 'matic',
+        vehicle_type || (vehicle_category === 'towing_truck' ? 'towing_truck' : 'matic'),
         normalizePlate(vehicle_plate),
         Number(vehicle_cc || 0),
         vehicle_brand || null,
@@ -1087,6 +1088,55 @@ export const completeMobileCourierTraining = async (req: Request, res: Response)
     res.status(500).json({ success: false, data: null, message: error.message, code: 'ERR_INTERNAL' });
   }
 };
+
+export const requestMobileCourierCapabilityUpgrade = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user?.id) {
+    res.status(401).json({ success: false, data: null, message: 'Unauthorized', code: 'ERR_UNAUTHORIZED' });
+    return;
+  }
+
+  try {
+    const profileRes = await db.query('SELECT id FROM courier_profiles WHERE user_id = $1', [req.user.id]);
+    if (profileRes.rows.length === 0) {
+      res.status(404).json({ success: false, data: null, message: 'Courier profile not found', code: 'ERR_NOT_FOUND' });
+      return;
+    }
+
+    const serviceCode = String(req.body?.service_code || '');
+    const proofImageUrl = String(req.body?.proof_image_url || '');
+
+    if (!serviceCode) {
+      res.status(400).json({ success: false, data: null, message: 'Service code is required', code: 'ERR_BAD_REQUEST' });
+      return;
+    }
+
+    // Attempt to get the primary vehicle of the courier
+    const vehicleRes = await db.query(
+      `SELECT id FROM courier_vehicles WHERE courier_profile_id = $1 ORDER BY is_primary DESC, created_at DESC LIMIT 1`,
+      [profileRes.rows[0].id]
+    );
+
+    const vehicleId = vehicleRes.rows.length > 0 ? vehicleRes.rows[0].id : null;
+
+    const result = await db.query(
+      `INSERT INTO courier_service_capabilities (
+         courier_profile_id, vehicle_id, service_code, application_channel, status,
+         eligibility_reason, updated_at
+       ) VALUES ($1, $2, $3, 'on_demand', 'pending_review', $4, NOW())
+       ON CONFLICT (courier_profile_id, service_code) DO UPDATE SET
+         status = CASE WHEN courier_service_capabilities.status = 'enabled' THEN 'enabled' ELSE 'pending_review' END,
+         eligibility_reason = EXCLUDED.eligibility_reason,
+         updated_at = NOW()
+       RETURNING id, service_code, status`,
+      [profileRes.rows[0].id, vehicleId, serviceCode, `Requested upgrade with proof: ${proofImageUrl}`]
+    );
+
+    res.json({ success: true, data: result.rows[0], message: 'Capability upgrade requested successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, data: null, message: error.message, code: 'ERR_INTERNAL' });
+  }
+};
+
 
 export const updateCourierServiceCapabilities = async (req: Request, res: Response): Promise<void> => {
   const id = String(req.params.id);

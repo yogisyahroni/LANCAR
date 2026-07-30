@@ -8,7 +8,8 @@ enum class CourierRouteScreen {
     CHAT,
     CALL,
     FACE_VERIFY,
-    INBOX
+    INBOX,
+    SERVICE_UPGRADE
 }
 
 data class CourierRouteState(
@@ -25,6 +26,8 @@ data class CourierRouteState(
 
 object CourierRouteReducer {
     fun home(): CourierRouteState = CourierRouteState()
+
+    fun serviceUpgrade(): CourierRouteState = CourierRouteState(screen = CourierRouteScreen.SERVICE_UPGRADE)
 
     fun inbox(): CourierRouteState = CourierRouteState(screen = CourierRouteScreen.INBOX)
 
