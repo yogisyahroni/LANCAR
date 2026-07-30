@@ -103,15 +103,20 @@ class TambalBanFlowViewModel @Inject constructor(
                                 orderRepository.updateOrderStatus(orderId, "arriving")
                             }
                     }
-                    TambalBanNextActionType.ARRIVED_AT_LOCATION,
                     TambalBanNextActionType.NAVIGATE_TO_LOCATION -> {
                         orderRepository.updateOrderStatus(orderId, "arrived")
                     }
-                    TambalBanNextActionType.VERIFY_FACE -> {
+                    TambalBanNextActionType.ARRIVED_AT_LOCATION -> {
+                        // Skip face verification check — advance directly to verifying
                         orderRepository.updateOrderStatus(orderId, "verifying")
                     }
-                    TambalBanNextActionType.CAPTURE_INSPECTION -> {
+                    TambalBanNextActionType.VERIFY_FACE -> {
+                        // Advance past identity verification to inspection
                         orderRepository.updateOrderStatus(orderId, "inspecting")
+                    }
+                    TambalBanNextActionType.CAPTURE_INSPECTION -> {
+                        // Advance from inspecting to service in progress
+                        orderRepository.updateOrderStatus(orderId, "in_progress")
                     }
                     TambalBanNextActionType.START_SERVICE -> {
                         orderRepository.updateOrderStatus(orderId, "in_progress")

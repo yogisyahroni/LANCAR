@@ -292,12 +292,13 @@ fun OrderDetailScreen(
                 TowingReportCard(report = order.towingReport!!)
             }
 
-            // Tambal Ban / Towing Service Flow button (only when report not yet submitted)
-            if (order.tambalBanReport == null && order.towingReport == null) {
-                val serviceCode = order.serviceCode?.lowercase() ?: ""
+            // Tambal Ban / Towing Service Flow button (per service type)
+            val serviceCode = order.serviceCode?.lowercase() ?: ""
+            val isServiceOrder = serviceCode.startsWith("tambal_ban") || serviceCode.startsWith("towing")
+            if (isServiceOrder) {
                 val isTambalBan = serviceCode.startsWith("tambal_ban")
                 val isTowing = serviceCode.startsWith("towing")
-                if (isTambalBan) {
+                if (isTambalBan && order.tambalBanReport == null) {
                     OutlinedButton(
                         onClick = onOpenTambalBanFlow,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -308,7 +309,7 @@ fun OrderDetailScreen(
                         Text("Buka Alur Tambal Ban", fontWeight = FontWeight.Bold)
                     }
                 }
-                if (isTowing) {
+                if (isTowing && order.towingReport == null) {
                     OutlinedButton(
                         onClick = onOpenTowingFlow,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -321,7 +322,8 @@ fun OrderDetailScreen(
                 }
             }
 
-            if (order.normalizedWorkflowRole() == "on_demand") {
+            // Only show delivery actions for non-service orders
+            if (!isServiceOrder && order.normalizedWorkflowRole() == "on_demand") {
                 OnDemandTaskActions(
                     order = order,
                     routePreview = routePreview,

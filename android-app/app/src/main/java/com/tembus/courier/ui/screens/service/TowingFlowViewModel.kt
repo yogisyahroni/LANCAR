@@ -103,15 +103,20 @@ class TowingFlowViewModel @Inject constructor(
                                 orderRepository.updateOrderStatus(orderId, "arriving")
                             }
                     }
-                    TowingNextActionType.NAVIGATE_TO_PICKUP,
-                    TowingNextActionType.ARRIVED_AT_PICKUP -> {
+                    TowingNextActionType.NAVIGATE_TO_PICKUP -> {
                         orderRepository.updateOrderStatus(orderId, "arrived_pickup")
                     }
-                    TowingNextActionType.VERIFY_FACE -> {
+                    TowingNextActionType.ARRIVED_AT_PICKUP -> {
+                        // Skip face check — advance directly to verifying
                         orderRepository.updateOrderStatus(orderId, "verifying")
                     }
-                    TowingNextActionType.CAPTURE_INSPECTION -> {
+                    TowingNextActionType.VERIFY_FACE -> {
+                        // Advance past identity to inspection
                         orderRepository.updateOrderStatus(orderId, "inspecting")
+                    }
+                    TowingNextActionType.CAPTURE_INSPECTION -> {
+                        // Advance from inspecting to loading
+                        orderRepository.updateOrderStatus(orderId, "loading")
                     }
                     TowingNextActionType.START_LOADING -> {
                         orderRepository.updateOrderStatus(orderId, "loading")
