@@ -27,7 +27,7 @@ import { api } from '../lib/api'
 import { toast } from 'sonner'
 import DeliveryServices from './DeliveryServices'
 
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 
 export default function PricingConfig() {
   const queryClient = useQueryClient();

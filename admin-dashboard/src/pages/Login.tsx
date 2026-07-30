@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '../components/Button'
 import { Lock, Mail, ChevronRight, Package, Zap, Shield, CheckCircle, AlertCircle } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { useAuthStore } from '../store/useAuthStore'
 
 export default function Login() {

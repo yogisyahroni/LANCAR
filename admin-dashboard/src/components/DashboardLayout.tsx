@@ -34,7 +34,7 @@ import {
   Link as LinkIcon
 } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { useSocket } from '../hooks/useSocket'
 import { api } from '../lib/api'
 import { clientLog } from '../lib/clientLogger'

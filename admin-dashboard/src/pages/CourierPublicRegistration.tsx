@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type React from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams } from 'react-router'
 import { CheckCircle2, FileUp, Loader2, ShieldCheck } from 'lucide-react'
 import { api } from '../lib/api'
 import { cn } from '../lib/utils'
@@ -178,6 +178,7 @@ export default function CourierPublicRegistration() {
               <Field label="Nomor HP" value={form.phone_number} onChange={(value) => updateForm('phone_number', value)} />
               <Field label="Email" value={form.email} onChange={(value) => updateForm('email', value)} />
               <Field label="Password login setelah disetujui" type="password" value={form.password} onChange={(value) => updateForm('password', value)} />
+            </FormSection>
             <FormSection title="Jenis Kemitraan">
               <SelectField 
                 label="Daftar Sebagai" 
