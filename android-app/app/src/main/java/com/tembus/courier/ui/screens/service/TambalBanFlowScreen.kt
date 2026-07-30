@@ -108,7 +108,7 @@ fun TambalBanFlowScreen(
             // Action button
             Button(
                 onClick = {
-                    viewModel.handleNextAction()
+                    viewModel.handleNextAction(uiState.nextActionType)
                     if (uiState.isCompleted) {
                         onComplete()
                     }

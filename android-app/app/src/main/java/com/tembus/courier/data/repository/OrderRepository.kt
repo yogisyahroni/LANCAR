@@ -343,6 +343,40 @@ class OrderRepository @Inject constructor(
     }
 
     /**
+     * Submit tambal ban service report to backend
+     */
+    suspend fun createTambalBanReport(orderId: String, request: Map<String, Any>): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.createTambalBanReport(request)
+            if (response.isSuccessful && response.body()?.get("success") == true) {
+                orderDao.updateStatus(orderId, "report_submitted")
+                Result.success(true)
+            } else {
+                Result.failure(IllegalStateException("Gagal mengirim laporan tambal ban"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Submit towing service report to backend
+     */
+    suspend fun createTowingReport(orderId: String, request: Map<String, Any>): Result<Boolean> = withContext(Dispatchers.IO) {
+        try {
+            val response = apiService.createTowingReport(request)
+            if (response.isSuccessful && response.body()?.get("success") == true) {
+                orderDao.updateStatus(orderId, "report_submitted")
+                Result.success(true)
+            } else {
+                Result.failure(IllegalStateException("Gagal mengirim laporan towing"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Get count of pending orders
      */
     suspend fun getPendingCount(): Int = withContext(Dispatchers.IO) {

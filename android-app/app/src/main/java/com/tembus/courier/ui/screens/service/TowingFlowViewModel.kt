@@ -7,6 +7,7 @@ import com.tembus.courier.data.model.distanceKmValue
 import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.domain.TowingFlowResolver
 import com.tembus.courier.domain.TowingStage
+import com.tembus.courier.domain.TowingNextActionType
 import com.tembus.courier.ui.components.service.EarningsData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ data class TowingFlowUiState(
     val instruction: String = "",
     val isCompleted: Boolean = false,
     val nextActionLabel: String = "",
+    val nextActionType: TowingNextActionType = TowingNextActionType.NONE,
     val earnings: EarningsData? = null,
     val error: String? = null
 )
@@ -32,10 +34,13 @@ class TowingFlowViewModel @Inject constructor(
     private val orderRepository: OrderRepository
 ) : ViewModel() {
 
+    private var orderId: String = ""
+
     private val _uiState = MutableStateFlow(TowingFlowUiState())
     val uiState: StateFlow<TowingFlowUiState> = _uiState.asStateFlow()
 
     fun loadOrder(orderId: String) {
+        this.orderId = orderId
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
@@ -54,6 +59,7 @@ class TowingFlowViewModel @Inject constructor(
                             instruction = flowState.instruction,
                             isCompleted = flowState.stage == TowingStage.COMPLETED,
                             nextActionLabel = flowState.nextAction.label,
+                            nextActionType = flowState.nextAction.type,
                             earnings = EarningsData(
                                 serviceFee = payout,
                                 baseFee = 0,
@@ -80,23 +86,65 @@ class TowingFlowViewModel @Inject constructor(
         }
     }
 
-    fun handleNextAction() {
+    fun handleNextAction(actionType: TowingNextActionType) {
         viewModelScope.launch {
-            _uiState.update { state ->
-                val nextStep = state.currentStepIndex + 1
-                state.copy(
-                    currentStepIndex = minOf(nextStep, 6),
-                    title = when (nextStep) {
-                        1 -> "Tiba di Pickup"
-                        2 -> "Verifikasi Wajah"
-                        3 -> "Inspeksi Kendaraan"
-                        4 -> "Loading"
-                        5 -> "Dalam Perjalanan"
-                        6 -> "Tiba di Tujuan"
-                        7 -> "Selesai"
-                        else -> state.title
+            _uiState.update { it.copy(isLoading = true) }
+
+            try {
+                val order = orderRepository.getOrderById(orderId) ?: run {
+                    _uiState.update { it.copy(isLoading = false, error = "Order tidak ditemukan") }
+                    return@launch
+                }
+
+                when (actionType) {
+                    TowingNextActionType.ACCEPT_OFFER -> {
+                        orderRepository.acceptOnDemandOffer(order)
+                            .onSuccess {
+                                orderRepository.updateOrderStatus(orderId, "arriving")
+                            }
                     }
-                )
+                    TowingNextActionType.NAVIGATE_TO_PICKUP,
+                    TowingNextActionType.ARRIVED_AT_PICKUP -> {
+                        orderRepository.updateOrderStatus(orderId, "arrived_pickup")
+                    }
+                    TowingNextActionType.VERIFY_FACE -> {
+                        orderRepository.updateOrderStatus(orderId, "verifying")
+                    }
+                    TowingNextActionType.CAPTURE_INSPECTION -> {
+                        orderRepository.updateOrderStatus(orderId, "inspecting")
+                    }
+                    TowingNextActionType.START_LOADING -> {
+                        orderRepository.updateOrderStatus(orderId, "loading")
+                    }
+                    TowingNextActionType.START_TRANSIT -> {
+                        orderRepository.updateOrderStatus(orderId, "in_transit")
+                    }
+                    TowingNextActionType.ARRIVED_AT_DROPOFF -> {
+                        orderRepository.updateOrderStatus(orderId, "arrived_dropoff")
+                    }
+                    TowingNextActionType.START_UNLOADING -> {
+                        orderRepository.updateOrderStatus(orderId, "unloading")
+                    }
+                    TowingNextActionType.CAPTURE_COMPLETION -> {
+                        val reportRequest = mapOf(
+                            "order_id" to orderId,
+                            "service_type" to "towing",
+                            "completed_at" to System.currentTimeMillis().toString()
+                        )
+                        orderRepository.createTowingReport(orderId, reportRequest)
+                            .onSuccess {
+                                orderRepository.updateOrderStatus(orderId, "completed")
+                            }
+                    }
+                    TowingNextActionType.CONTACT_SUPPORT -> { /* handled by UI */ }
+                    TowingNextActionType.NONE -> {}
+                }
+
+                loadOrder(orderId)
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, error = e.message ?: "Gagal menjalankan aksi")
+                }
             }
         }
     }

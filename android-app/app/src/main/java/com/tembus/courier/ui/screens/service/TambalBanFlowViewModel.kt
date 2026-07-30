@@ -7,6 +7,7 @@ import com.tembus.courier.data.model.distanceKmValue
 import com.tembus.courier.data.model.cleanPayoutIdr
 import com.tembus.courier.domain.TambalBanFlowResolver
 import com.tembus.courier.domain.TambalBanStage
+import com.tembus.courier.domain.TambalBanNextActionType
 import com.tembus.courier.ui.components.service.EarningsData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,7 @@ data class TambalBanFlowUiState(
     val instruction: String = "",
     val isCompleted: Boolean = false,
     val nextActionLabel: String = "",
+    val nextActionType: TambalBanNextActionType = TambalBanNextActionType.NONE,
     val earnings: EarningsData? = null,
     val error: String? = null
 )
@@ -32,10 +34,13 @@ class TambalBanFlowViewModel @Inject constructor(
     private val orderRepository: OrderRepository
 ) : ViewModel() {
 
+    private var orderId: String = ""
+
     private val _uiState = MutableStateFlow(TambalBanFlowUiState())
     val uiState: StateFlow<TambalBanFlowUiState> = _uiState.asStateFlow()
 
     fun loadOrder(orderId: String) {
+        this.orderId = orderId
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
 
@@ -54,6 +59,7 @@ class TambalBanFlowViewModel @Inject constructor(
                             instruction = flowState.instruction,
                             isCompleted = flowState.stage == TambalBanStage.COMPLETED,
                             nextActionLabel = flowState.nextAction.label,
+                            nextActionType = flowState.nextAction.type,
                             earnings = EarningsData(
                                 serviceFee = payout,
                                 baseFee = 0,
@@ -80,21 +86,63 @@ class TambalBanFlowViewModel @Inject constructor(
         }
     }
 
-    fun handleNextAction() {
+    fun handleNextAction(actionType: TambalBanNextActionType) {
         viewModelScope.launch {
-            _uiState.update { state ->
-                val nextStep = state.currentStepIndex + 1
-                state.copy(
-                    currentStepIndex = minOf(nextStep, 4),
-                    title = when (nextStep) {
-                        1 -> "Tiba di Lokasi"
-                        2 -> "Verifikasi Wajah"
-                        3 -> "Inspeksi Ban"
-                        4 -> "Sedang Mengerjakan"
-                        5 -> "Selesai"
-                        else -> state.title
+            _uiState.update { it.copy(isLoading = true) }
+
+            try {
+                val order = orderRepository.getOrderById(orderId) ?: run {
+                    _uiState.update { it.copy(isLoading = false, error = "Order tidak ditemukan") }
+                    return@launch
+                }
+
+                when (actionType) {
+                    TambalBanNextActionType.ACCEPT_OFFER -> {
+                        orderRepository.acceptOnDemandOffer(order)
+                            .onSuccess {
+                                orderRepository.updateOrderStatus(orderId, "arriving")
+                            }
                     }
-                )
+                    TambalBanNextActionType.ARRIVED_AT_LOCATION,
+                    TambalBanNextActionType.NAVIGATE_TO_LOCATION -> {
+                        orderRepository.updateOrderStatus(orderId, "arrived")
+                    }
+                    TambalBanNextActionType.VERIFY_FACE -> {
+                        orderRepository.updateOrderStatus(orderId, "verifying")
+                    }
+                    TambalBanNextActionType.CAPTURE_INSPECTION -> {
+                        orderRepository.updateOrderStatus(orderId, "inspecting")
+                    }
+                    TambalBanNextActionType.START_SERVICE -> {
+                        orderRepository.updateOrderStatus(orderId, "in_progress")
+                    }
+                    TambalBanNextActionType.COMPLETE_SERVICE -> {
+                        orderRepository.updateOrderStatus(orderId, "service_complete")
+                    }
+                    TambalBanNextActionType.CAPTURE_COMPLETION -> {
+                        // Submit tambal ban report
+                        val reportRequest = mapOf(
+                            "order_id" to orderId,
+                            "service_type" to "tambal_ban",
+                            "completed_at" to System.currentTimeMillis().toString()
+                        )
+                        orderRepository.createTambalBanReport(orderId, reportRequest)
+                            .onSuccess {
+                                orderRepository.updateOrderStatus(orderId, "completed")
+                            }
+                    }
+                    TambalBanNextActionType.CONTACT_SUPPORT -> {
+                        // Handled by UI — just refresh
+                    }
+                    TambalBanNextActionType.NONE -> {}
+                }
+
+                // Reload flow state after action
+                loadOrder(orderId)
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, error = e.message ?: "Gagal menjalankan aksi")
+                }
             }
         }
     }

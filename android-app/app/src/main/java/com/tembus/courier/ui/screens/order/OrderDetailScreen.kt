@@ -158,6 +158,8 @@ fun OrderDetailScreen(
     pickupPhotoVerified: Boolean = false,
     faceVerifiedForPickup: Boolean = false,
     onVerifyFace: () -> Unit = {},
+    onOpenTambalBanFlow: () -> Unit = {},
+    onOpenTowingFlow: () -> Unit = {},
     onSosClick: () -> Unit = {},
     onReportIssue: (eventType: String, severity: String, message: String, photoFile: File?) -> Unit = { _, _, _, _ -> },
     onCancelPickup: (reasonCode: String, reasonNote: String?, photoFile: File) -> Unit = { _, _, _ -> },
@@ -288,6 +290,35 @@ fun OrderDetailScreen(
             }
             if (order.towingReport != null) {
                 TowingReportCard(report = order.towingReport!!)
+            }
+
+            // Tambal Ban / Towing Service Flow button (only when report not yet submitted)
+            if (order.tambalBanReport == null && order.towingReport == null) {
+                val serviceCode = order.serviceCode?.lowercase() ?: ""
+                val isTambalBan = serviceCode.startsWith("tambal_ban")
+                val isTowing = serviceCode.startsWith("towing")
+                if (isTambalBan) {
+                    OutlinedButton(
+                        onClick = onOpenTambalBanFlow,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.Build, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Buka Alur Tambal Ban", fontWeight = FontWeight.Bold)
+                    }
+                }
+                if (isTowing) {
+                    OutlinedButton(
+                        onClick = onOpenTowingFlow,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Icon(Icons.Default.LocalShipping, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Buka Alur Towing", fontWeight = FontWeight.Bold)
+                    }
+                }
             }
 
             if (order.normalizedWorkflowRole() == "on_demand") {

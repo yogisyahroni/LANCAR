@@ -114,6 +114,8 @@ import com.tembus.courier.ui.screens.order.OrderScreen
 import com.tembus.courier.ui.screens.order.OrderViewModel
 import com.tembus.courier.ui.screens.notification.InboxScreen
 import com.tembus.courier.ui.screens.service.ServiceUpgradeScreen
+import com.tembus.courier.ui.screens.service.TambalBanFlowScreen
+import com.tembus.courier.ui.screens.service.TowingFlowScreen
 import com.tembus.courier.ui.screens.pod.ProofOfDeliveryScreen
 import com.tembus.courier.ui.screens.profile.resolvePayoutActionState
 import com.tembus.courier.ui.screens.scan.ScanScreen
@@ -733,6 +735,12 @@ fun MainScreen(
             onVerifyFace = {
                 openFaceVerify(order)
             },
+            onOpenTambalBanFlow = {
+                routeState = CourierRouteReducer.tambalBanFlow(order.orderId)
+            },
+            onOpenTowingFlow = {
+                routeState = CourierRouteReducer.towingFlow(order.orderId)
+            },
             onCapturePickupProof = {
                 openProof(order, CourierProofTypes.PICKUP_PHOTO)
             },
@@ -876,6 +884,28 @@ fun MainScreen(
     if (routeState.screen == CourierRouteScreen.SERVICE_UPGRADE) {
         ServiceUpgradeScreen(
             onNavigateBack = { routeState = CourierRouteReducer.home() }
+        )
+        return
+    }
+
+    // ── Tambal Ban Flow Screen ──────────────────────────────
+    if (routeState.screen == CourierRouteScreen.TAMBAL_BAN_FLOW) {
+        val orderId = routeState.orderId ?: return
+        TambalBanFlowScreen(
+            orderId = orderId,
+            onBackClick = { routeState = CourierRouteReducer.home() },
+            onComplete = { routeState = CourierRouteReducer.home() }
+        )
+        return
+    }
+
+    // ── Towing Flow Screen ──────────────────────────────────
+    if (routeState.screen == CourierRouteScreen.TOWING_FLOW) {
+        val orderId = routeState.orderId ?: return
+        TowingFlowScreen(
+            orderId = orderId,
+            onBackClick = { routeState = CourierRouteReducer.home() },
+            onComplete = { routeState = CourierRouteReducer.home() }
         )
         return
     }

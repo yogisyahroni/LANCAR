@@ -9,7 +9,9 @@ enum class CourierRouteScreen {
     CALL,
     FACE_VERIFY,
     INBOX,
-    SERVICE_UPGRADE
+    SERVICE_UPGRADE,
+    TAMBAL_BAN_FLOW,
+    TOWING_FLOW
 }
 
 data class CourierRouteState(
@@ -28,6 +30,12 @@ object CourierRouteReducer {
     fun home(): CourierRouteState = CourierRouteState()
 
     fun serviceUpgrade(): CourierRouteState = CourierRouteState(screen = CourierRouteScreen.SERVICE_UPGRADE)
+
+    fun tambalBanFlow(orderId: String): CourierRouteState =
+        CourierRouteState(screen = CourierRouteScreen.TAMBAL_BAN_FLOW, orderId = orderId)
+
+    fun towingFlow(orderId: String): CourierRouteState =
+        CourierRouteState(screen = CourierRouteScreen.TOWING_FLOW, orderId = orderId)
 
     fun inbox(): CourierRouteState = CourierRouteState(screen = CourierRouteScreen.INBOX)
 
