@@ -3,7 +3,7 @@ module tembus/integration-gateway
 go 1.25.0
 
 require (
-	github.com/getsentry/sentry-go v0.47.0
+	github.com/getsentry/sentry-go v0.48.0
 	github.com/joho/godotenv v1.5.1
 )
 
