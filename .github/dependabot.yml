@@ -73,7 +73,7 @@ updates:
     #     versions: ["5.x"]
 
     # Target branch untuk PR
-    target-branch: "main"
+    target-branch: "staging"
 
     # Vendor untuk Go modules (jika ada)
     # vendor: true
