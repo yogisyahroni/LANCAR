@@ -16,6 +16,7 @@ object TembusSpacing {
     val Medium = 12.dp
     val Large = 16.dp
     val XLarge = 20.dp
+    val Edge = 18.dp
     val Screen = 24.dp
     val Section = 32.dp
 }

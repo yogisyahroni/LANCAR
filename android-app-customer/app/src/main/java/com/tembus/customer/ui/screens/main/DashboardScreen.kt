@@ -59,8 +59,13 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.PullToRefreshContainer
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -110,7 +115,7 @@ private val SoftBlue @Composable get() = MaterialTheme.colorScheme.secondaryCont
 private val SoftOrange @Composable get() = MaterialTheme.colorScheme.tertiaryContainer
 private val SurfaceLine @Composable get() = MaterialTheme.colorScheme.outline
 
-@OptIn(ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
@@ -139,6 +144,15 @@ fun DashboardScreen(
     val shouldShowNotificationPermissionPrompt = notificationPermissionState != null &&
         !notificationPermissionState.status.isGranted &&
         showNotificationPermissionPrompt
+
+    val pullToRefreshState = rememberPullToRefreshState()
+
+    if (pullToRefreshState.isRefreshing) {
+        LaunchedEffect(Unit) {
+            viewModel.refreshData()
+            pullToRefreshState.endRefresh()
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -175,13 +189,17 @@ fun DashboardScreen(
             }
         }
     ) { paddingValues ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = paddingValues.calculateBottomPadding()),
-            contentPadding = PaddingValues(bottom = 30.dp),
-            verticalArrangement = Arrangement.spacedBy(28.dp)
+                .padding(bottom = paddingValues.calculateBottomPadding())
+                .nestedScroll(pullToRefreshState.nestedScrollConnection)
         ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 30.dp),
+                verticalArrangement = Arrangement.spacedBy(28.dp)
+            ) {
             item {
                 HomeHero(
                     customerName = customerName.orEmpty().ifBlank { "Pelanggan" },
@@ -239,6 +257,12 @@ fun DashboardScreen(
             item {
                 TrustCard()
             }
+        }
+
+            PullToRefreshContainer(
+                state = pullToRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
     }
 }
@@ -396,12 +420,10 @@ private fun HomeHero(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(426.dp)
+                .height(280.dp)
                 .background(
                     Brush.verticalGradient(
-                        listOf(PrimaryDark, CustomerHeroStart, CustomerHeroEnd),
-                        startY = 0f,
-                        endY = 680f
+                        listOf(PrimaryDark, CustomerHeroStart, CustomerHeroEnd)
                     )
                 )
         )
@@ -446,16 +468,16 @@ private fun HomeHero(
                 }
             }
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(16.dp))
             Text(
                 "Kirim Aman,\nSampai Tujuan.",
                 color = Color.White,
-                fontSize = 30.sp,
-                lineHeight = 36.sp,
+                fontSize = 28.sp,
+                lineHeight = 34.sp,
                 letterSpacing = (-1).sp,
                 fontWeight = FontWeight.Black
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
                 "Atur pickup, tujuan, dan pantau pengiriman dalam satu aplikasi.",
                 color = Color.White.copy(alpha = 0.86f),
@@ -463,7 +485,7 @@ private fun HomeHero(
                 lineHeight = 20.sp,
                 modifier = Modifier.padding(end = 12.dp)
             )
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(12.dp))
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
