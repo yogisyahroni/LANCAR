@@ -181,9 +181,10 @@ class AuthViewModelTest {
         val phone = "6281234567890"
         viewModel.setPhoneNumber(email)
         viewModel.setPendingRegistrationProfile("Andi Customer", phone)
+        viewModel.setAgreedToTerms(true)
         coEvery { sessionManager.getTokenOnce() } returns "token"
         every {
-            profileRepository.updateProfile(UpdateProfileRequest("Andi Customer", phone))
+            profileRepository.updateProfile(UpdateProfileRequest("Andi Customer", phone, true))
         } returns kotlinx.coroutines.flow.flowOf(
             Result.success(
                 ProfileResponse(
