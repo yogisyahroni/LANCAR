@@ -129,6 +129,24 @@ sec-go: ## Security scan Go code dengan gosec (butuh: go install github.com/secu
 	gosec ./backend/order-service/...
 
 ## ─────────────────────────────────────────────
+## PRE-PUSH VALIDATION (WAJIB dijalankan sebelum git push)
+## ─────────────────────────────────────────────
+pre-push: ## Jalankan semua validasi pre-push (lengkap)
+	@echo "═══════════════════════════════════════════"
+	@echo "  PRE-PUSH VALIDATION"
+	@echo "═══════════════════════════════════════════"
+	@scripts/pre-push-check.sh
+
+check-lint: ## Cepat: cuma golangci-lint errcheck + migration + tsc
+	@echo "→ errcheck (auth-service)..."
+	@cd backend/auth-service && golangci-lint run --disable-all --enable=errcheck ./... 2>&1 | grep -v "^$$" | grep -v "^\s" | head -20 || echo "  ✅ OK"
+	@echo "→ Migration version..."
+	@ls database/migrations/*.sql | sed 's/.*\///; s/^\([0-9]*\).*/\1/' | sort | uniq -d | grep -q . && { echo "  ❌ DUPLICATE VERSIONS FOUND"; exit 1; } || echo "  ✅ OK"
+	@echo "→ TS build..."
+	@cd admin-dashboard && npx tsc --noEmit 2>&1 && echo "  ✅ OK"
+	@cd backend/admin-service && npx tsc --noEmit 2>&1 && echo "  ✅ OK"
+
+## ─────────────────────────────────────────────
 ## BUILD
 ## ─────────────────────────────────────────────
 build-auth: ## Build binary auth-service

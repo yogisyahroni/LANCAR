@@ -1,6 +1,6 @@
 -- +goose Up
 -- ============================================================
--- Migration 00011: Agreement Records + agreed_to_terms flags
+-- Migration 20250730000011: Agreement Records + agreed_to_terms flags
 -- Stores signed legal agreements (TOS, Perjanjian Mitra, Privacy)
 -- ============================================================
 
