@@ -20,6 +20,7 @@ var deviceIDRegex = regexp.MustCompile(`^[A-Za-z0-9_\-]{8,256}$`)
 
 type AuthHandler struct {
 	abuse *middleware.AuthAbuseProtector
+	agreementSvc *service.AgreementService
 	svc   interface {
 		RequestOTP(ctx context.Context, phoneNumber string) error
 		RequestCustomerPasswordReset(ctx context.Context, email string) error
@@ -230,6 +231,11 @@ func NewAuthHandler(svc *service.AuthService, abuse ...*middleware.AuthAbuseProt
 		abuseProtector = abuse[0]
 	}
 	return &AuthHandler{svc: svc, abuse: abuseProtector}
+}
+
+// SetAgreementService sets the agreement service for automatic agreement creation on registration
+func (h *AuthHandler) SetAgreementService(agreementSvc *service.AgreementService) {
+	h.agreementSvc = agreementSvc
 }
 
 // RequestOTP godoc

@@ -274,6 +274,17 @@ func main() {
 	h := handler.NewAuthHandler(svc, authAbuseProtector)
 	s3PresignHandler := handler.NewS3PresignHandler(storageSvc)
 
+	// ── Agreement Service & Handler ────────────────────────────
+	agreementRepo := repository.NewPostgresAgreementRepository(db, readDB)
+	baseURL := os.Getenv("API_BASE_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:8081"
+	}
+	agreementSvc := service.NewAgreementService(agreementRepo, storageSvc, baseURL)
+	agreementSvc.SetRedisClient(rdb)
+	h.SetAgreementService(agreementSvc)
+	adminAgreementHandler := handler.NewAdminAgreementHandler(agreementSvc)
+
 	// ─────────────────────────────────────────────
 	// Google Auth + Zenziva OTP Service
 	// ─────────────────────────────────────────────
@@ -411,6 +422,23 @@ func main() {
 	mux.HandleFunc("/api/v1/admin/couriers/suspend", middleware.Permission2FAChain(domain.PermManageCouriers, h.SuspendCourier))
 	mux.HandleFunc("/api/v1/admin/couriers/zones", middleware.Permission2FAChain(domain.PermManageCouriers, h.AssignCourierZone))
 	mux.HandleFunc("PATCH /api/v1/admin/couriers/{id}/profile-photo", middleware.Permission2FAChain(domain.PermManageCouriers, h.HandleAdminSetCourierProfilePhoto))
+
+	// ── Agreement Routes ────────────────────────────────────────
+	// Admin: list all agreements
+	mux.HandleFunc("GET /api/v1/admin/agreements", middleware.PermissionChain(domain.PermManageCouriers, adminAgreementHandler.ListAgreements))
+	// Admin: get single agreement
+	mux.HandleFunc("GET /api/v1/admin/agreements/", middleware.PermissionChain(domain.PermManageCouriers, func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if strings.HasSuffix(path, "/pdf") {
+			adminAgreementHandler.DownloadAgreementPDF(w, r)
+		} else {
+			adminAgreementHandler.GetAgreement(w, r)
+		}
+	}))
+	// User: accept agreement (called from mobile app)
+	mux.HandleFunc("POST /api/v1/auth/agreements/accept", middleware.AuthChain(adminAgreementHandler.AcceptAgreement))
+	// User: list my agreements
+	mux.HandleFunc("GET /api/v1/auth/agreements/mine", middleware.AuthChain(adminAgreementHandler.UserAgreements))
 
 	// ─────────────────────────────────────────────
 	// Static Files (only if not using S3)

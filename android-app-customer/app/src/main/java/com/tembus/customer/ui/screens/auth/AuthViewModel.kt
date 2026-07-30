@@ -74,6 +74,9 @@ class AuthViewModel @Inject constructor(
 
     private val _pendingRegistrationPhone = MutableStateFlow("")
 
+    private val _agreedToTerms = MutableStateFlow(false)
+    val agreedToTerms: StateFlow<Boolean> = _agreedToTerms.asStateFlow()
+
     fun setPhoneNumber(phone: String) {
         _phoneNumber.value = phone
     }
@@ -85,6 +88,10 @@ class AuthViewModel @Inject constructor(
     fun setPendingRegistrationProfile(name: String, phone: String) {
         _pendingRegistrationName.value = name.trim()
         _pendingRegistrationPhone.value = phone.filter { it.isDigit() }
+    }
+
+    fun setAgreedToTerms(agreed: Boolean) {
+        _agreedToTerms.value = agreed
     }
 
     fun requestOtp() {
@@ -274,12 +281,18 @@ class AuthViewModel @Inject constructor(
             return
         }
 
+        if (!_agreedToTerms.value) {
+            _authState.value = AuthState.Error("Harap setujui Syarat & Ketentuan dan Kebijakan Privasi TEMBUS")
+            return
+        }
+
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             profileRepository.updateProfile(
                 UpdateProfileRequest(
                     name = cleanName,
-                    phoneNumber = _pendingRegistrationPhone.value.ifBlank { _phoneNumber.value }
+                    phoneNumber = _pendingRegistrationPhone.value.ifBlank { _phoneNumber.value },
+                    agreedToTerms = true
                 )
             ).collect { result ->
                 result.onSuccess { profile ->

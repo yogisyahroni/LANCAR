@@ -440,6 +440,38 @@ export const initWebSocket = (server: HttpServer) => {
     });
   });
 
+  // ── Redis pub/sub: Agreement notifications from auth-service ──────────────
+  const REDIS_NOTIF_CHANNEL = 'tembus:notification:new';
+  const subClient = redis.duplicate();
+  subClient.subscribe(REDIS_NOTIF_CHANNEL, (err) => {
+    if (err) {
+      realtimeStructuredLog('error', 'redis_notif_sub_failed', { error: err.message });
+      return;
+    }
+    realtimeStructuredLog('info', 'redis_notif_sub_ok', { channel: REDIS_NOTIF_CHANNEL });
+  });
+  subClient.on('message', (channel, message) => {
+    if (channel !== REDIS_NOTIF_CHANNEL) return;
+    try {
+      const payload = JSON.parse(message);
+      // Broadcast to all connected admin users
+      io.emit('new_notification', {
+        id: 'agreement-' + Date.now(),
+        title: payload.title || 'Perjanjian Baru',
+        body: payload.body || '',
+        type: 'system',
+        category: 'system',
+        is_read: false,
+        created_at: payload.created_at || new Date().toISOString(),
+        deep_link: payload.deep_link || '/agreements',
+        metadata: payload.metadata || {},
+      });
+      void recordRealtimeMetric('notification_broadcast', { type: 'agreement' });
+    } catch (e: any) {
+      realtimeStructuredLog('warn', 'redis_notif_parse_failed', { error: e.message });
+    }
+  });
+
   return io;
 };
 

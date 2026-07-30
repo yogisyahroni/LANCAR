@@ -28,6 +28,7 @@ import CostIntelligence from './pages/CostIntelligence'
 import Settings from './pages/Settings'
 import MapsRuntime from './pages/MapsRuntime'
 import AuditLogs from './pages/AuditLogs'
+import Agreements from './pages/Agreements'
 import WarehouseOperations from './pages/WarehouseOperations'
 import BusinessApiRequests from './pages/BusinessApiRequests'
 import HRJobs from './pages/HRJobs'
@@ -310,6 +311,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['super_admin', 'ops_security']}>
                 <AuditLogs />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/agreements" 
+            element={
+              <ProtectedRoute>
+                <Agreements />
               </ProtectedRoute>
             } 
           />

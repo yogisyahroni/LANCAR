@@ -23,7 +23,8 @@ data class CourierRegistrationRequest(
     @SerialName("bank_code") val bankCode: String,
     @SerialName("bank_account_number") val bankAccountNumber: String,
     @SerialName("bank_account_name") val bankAccountName: String,
-    val documents: Map<String, String>
+    val documents: Map<String, String>,
+    @SerialName("agreed_to_terms") val agreedToTerms: Boolean = true
 )
 
 @Serializable

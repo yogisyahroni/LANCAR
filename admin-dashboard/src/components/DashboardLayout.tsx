@@ -259,6 +259,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       items: [
         { icon: BarChart3, label: "Analytics", path: "/analytics" },
         { icon: Bell, label: "Notifications", path: "/notifications" },
+        { icon: FileText, label: "Perjanjian Hukum", path: "/agreements" },
         { icon: History, label: "Audit Logs", path: "/audit-logs", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },
         { icon: Settings, label: "Settings", path: "/settings", restrictedRoles: ['finance', 'finance_admin', 'cs_agent'] },
       ]

@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -56,7 +57,8 @@ fun CompleteProfileScreen(
     val pendingName by viewModel.pendingRegistrationName.collectAsState()
     var fullName by remember { mutableStateOf(pendingName) }
     val isLoading = authState is AuthState.Loading
-    val canSubmit = fullName.trim().length >= 2 && !isLoading
+    val agreedToTerms by viewModel.agreedToTerms.collectAsState()
+    val canSubmit = fullName.trim().length >= 2 && !isLoading && agreedToTerms
 
     LaunchedEffect(pendingName) {
         if (fullName.isBlank() && pendingName.isNotBlank()) {
@@ -185,6 +187,12 @@ fun CompleteProfileScreen(
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(4.dp))
+                    TermsCheckboxCustomer(
+                        checked = viewModel.agreedToTerms.collectAsState().value,
+                        onCheckedChange = { viewModel.setAgreedToTerms(it) }
+                    )
+
                     Button(
                         onClick = { viewModel.completeProfile(fullName) },
                         modifier = Modifier
@@ -255,5 +263,39 @@ private fun TrustRow(text: String) {
             fontSize = 13.sp,
             lineHeight = 18.sp
         )
+    }
+}
+
+@Composable
+private fun TermsCheckboxCustomer(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 6.dp, horizontal = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Saya setuju dengan",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF667085)
+            )
+            Text(
+                text = "Syarat & Ketentuan dan Kebijakan Privasi TEMBUS",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = Primary
+            )
+        }
     }
 }

@@ -248,6 +248,14 @@ fun CourierRegistrationScreen(
                 Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
             }
 
+            if (state.currentStep == 4) {
+                Spacer(modifier = Modifier.height(4.dp))
+                TermsCheckbox(
+                    checked = state.agreedToTerms,
+                    onCheckedChange = { viewModel.update { copy(agreedToTerms = it) } }
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -271,7 +279,7 @@ fun CourierRegistrationScreen(
                             viewModel.submit()
                         }
                     },
-                    enabled = !state.isLoading,
+                    enabled = if (state.currentStep == 4) !state.isLoading && state.agreedToTerms else !state.isLoading,
                     modifier = Modifier.weight(2f).height(52.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = if (state.currentStep > 1) MaterialTheme.colorScheme.surface else Primary),
                     shape = RoundedCornerShape(12.dp)
@@ -686,6 +694,40 @@ private fun FaceEnrollmentUploadRow(
                 Spacer(Modifier.width(6.dp))
                 Text(if (uploaded) "Ambil Ulang" else "Kamera")
             }
+        }
+    }
+}
+@Composable
+private fun TermsCheckbox(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 8.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Saya telah membaca, memahami, dan menyetujui:",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "Perjanjian Mitra & Kebijakan Privasi TEMBUS",
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = Primary
+            )
         }
     }
 }

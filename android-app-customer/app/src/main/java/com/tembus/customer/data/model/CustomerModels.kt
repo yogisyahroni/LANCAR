@@ -304,7 +304,8 @@ data class CustomerPaymentCreateRequest(
 @Serializable
 data class UpdateProfileRequest(
     @SerialName("name") val name: String,
-    @SerialName("phone_number") val phoneNumber: String
+    @SerialName("phone_number") val phoneNumber: String,
+    @SerialName("agreed_to_terms") val agreedToTerms: Boolean = true
 )
 
 @Serializable

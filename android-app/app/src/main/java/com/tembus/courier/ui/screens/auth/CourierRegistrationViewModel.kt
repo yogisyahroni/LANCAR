@@ -57,6 +57,7 @@ data class CourierRegistrationUiState(
     val simActive: Boolean = true,
     val skpdTaxActive: Boolean = true,
     val fourStroke: Boolean = true,
+    val agreedToTerms: Boolean = false,
     val isLoading: Boolean = false,
     val isSubmitted: Boolean = false,
     val error: String? = null
@@ -422,6 +423,11 @@ class CourierRegistrationViewModel @Inject constructor(
             return
         }
 
+        if (!state.agreedToTerms) {
+            _uiState.update { it.copy(error = "Harap setujui Perjanjian Mitra & Kebijakan Privasi") }
+            return
+        }
+
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
@@ -452,7 +458,8 @@ class CourierRegistrationViewModel @Inject constructor(
                         "skck" to state.skckRef,
                         "bank_account" to state.bankRef,
                         "face_enrollment" to state.faceEnrollmentRef
-                    )
+                    ),
+                    agreedToTerms = true
                 )
                 val response = apiService.registerCourier(request)
                 if (response.isSuccessful && response.body()?.success == true) {
