@@ -746,6 +746,26 @@ class OrderViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Submit service report for tambal ban / towing completion
+     */
+    fun submitServiceReport(orderId: String, serviceType: String, notes: String) {
+        viewModelScope.launch {
+            val reportRequest = mapOf(
+                "order_id" to orderId,
+                "service_type" to serviceType,
+                "notes" to notes,
+                "completed_at" to System.currentTimeMillis().toString()
+            )
+            when (serviceType) {
+                "tambal_ban" -> orderRepository.createTambalBanReport(orderId, reportRequest)
+                "towing" -> orderRepository.createTowingReport(orderId, reportRequest)
+            }
+            // Optimistic: mark completed
+            orderRepository.updateOrderStatus(orderId, "completed")
+        }
+    }
+
     // ── Local ─────────────────────────────────────────────────────
 
     /**

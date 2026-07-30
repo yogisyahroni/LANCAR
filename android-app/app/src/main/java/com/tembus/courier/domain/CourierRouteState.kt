@@ -11,7 +11,8 @@ enum class CourierRouteScreen {
     INBOX,
     SERVICE_UPGRADE,
     TAMBAL_BAN_FLOW,
-    TOWING_FLOW
+    TOWING_FLOW,
+    COMPLETION
 }
 
 data class CourierRouteState(
@@ -20,7 +21,8 @@ data class CourierRouteState(
     val callId: String? = null,
     val callTargetType: String = "customer",
     val scanType: String = CourierProofTypes.PICKUP_SCAN,
-    val proofMode: String = CourierProofTypes.DELIVERY_POD_PHOTO
+    val proofMode: String = CourierProofTypes.DELIVERY_POD_PHOTO,
+    val serviceType: String = ""
 ) {
     val hasOrderContext: Boolean
         get() = !orderId.isNullOrBlank()
@@ -36,6 +38,9 @@ object CourierRouteReducer {
 
     fun towingFlow(orderId: String): CourierRouteState =
         CourierRouteState(screen = CourierRouteScreen.TOWING_FLOW, orderId = orderId)
+
+    fun completion(orderId: String, serviceType: String): CourierRouteState =
+        CourierRouteState(screen = CourierRouteScreen.COMPLETION, orderId = orderId, serviceType = serviceType)
 
     fun inbox(): CourierRouteState = CourierRouteState(screen = CourierRouteScreen.INBOX)
 

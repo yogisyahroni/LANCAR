@@ -116,6 +116,7 @@ import com.tembus.courier.ui.screens.notification.InboxScreen
 import com.tembus.courier.ui.screens.service.ServiceUpgradeScreen
 import com.tembus.courier.ui.screens.service.TambalBanFlowScreen
 import com.tembus.courier.ui.screens.service.TowingFlowScreen
+import com.tembus.courier.ui.screens.service.CompletionScreen
 import com.tembus.courier.ui.screens.pod.ProofOfDeliveryScreen
 import com.tembus.courier.ui.screens.profile.resolvePayoutActionState
 import com.tembus.courier.ui.screens.scan.ScanScreen
@@ -189,7 +190,8 @@ private val CourierRouteStateSaver = Saver<CourierRouteState, List<String>>(
             state.callId.orEmpty(),
             state.scanType,
             state.proofMode,
-            state.callTargetType
+            state.callTargetType,
+            state.serviceType
         )
     },
     restore = { raw ->
@@ -202,7 +204,8 @@ private val CourierRouteStateSaver = Saver<CourierRouteState, List<String>>(
             callId = raw.getOrNull(2)?.takeIf { it.isNotBlank() },
             scanType = raw.getOrNull(3) ?: CourierProofTypes.PICKUP_SCAN,
             proofMode = raw.getOrNull(4) ?: CourierProofTypes.DELIVERY_POD_PHOTO,
-            callTargetType = raw.getOrNull(5)?.takeIf { it.isNotBlank() } ?: "customer"
+            callTargetType = raw.getOrNull(5)?.takeIf { it.isNotBlank() } ?: "customer",
+            serviceType = raw.getOrNull(6) ?: ""
         )
     }
 )
@@ -894,7 +897,10 @@ fun MainScreen(
         TambalBanFlowScreen(
             orderId = orderId,
             onBackClick = { routeState = CourierRouteReducer.home() },
-            onComplete = { routeState = CourierRouteReducer.home() }
+            onComplete = { routeState = CourierRouteReducer.home() },
+            onOpenCompletion = { id, serviceType ->
+                routeState = CourierRouteReducer.completion(id, serviceType)
+            }
         )
         return
     }
@@ -905,7 +911,31 @@ fun MainScreen(
         TowingFlowScreen(
             orderId = orderId,
             onBackClick = { routeState = CourierRouteReducer.home() },
-            onComplete = { routeState = CourierRouteReducer.home() }
+            onComplete = { routeState = CourierRouteReducer.home() },
+            onOpenCompletion = { id, serviceType ->
+                routeState = CourierRouteReducer.completion(id, serviceType)
+            }
+        )
+        return
+    }
+
+    // ── Completion Screen ────────────────────────────────────
+    if (routeState.screen == CourierRouteScreen.COMPLETION) {
+        val orderId = routeState.orderId ?: return
+        val serviceType = routeState.serviceType
+        CompletionScreen(
+            serviceType = serviceType,
+            onBackClick = { routeState = CourierRouteReducer.home() },
+            onComplete = { notes ->
+                scope.launch {
+                    orderViewModel.submitServiceReport(
+                        orderId = orderId,
+                        serviceType = serviceType,
+                        notes = notes
+                    )
+                }
+                routeState = CourierRouteReducer.home()
+            }
         )
         return
     }
