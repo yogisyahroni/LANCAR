@@ -56,7 +56,7 @@ func (s *slaService) ProcessSLAWarnings(ctx context.Context) error {
 			// Trigger warning notification
 			// In a real app, check Redis to ensure we don't spam the warning every minute
 			msg := fmt.Sprintf("Waktu SLA Anda tersisa %.0f menit! Harap segera menyelesaikan tugas.", timeRemaining)
-			s.notifSvc.Send(ctx, domain.NotificationRequest{
+			_ = s.notifSvc.Send(ctx, domain.NotificationRequest{
 				UserID:  leg.CourierID,
 				Title:   "SLA Warning",
 				Message: msg,
@@ -104,7 +104,7 @@ func (s *slaService) ProcessSLABreaches(ctx context.Context) error {
 			}
 
 			// Inform Courier
-			s.notifSvc.Send(ctx, domain.NotificationRequest{
+			_ = s.notifSvc.Send(ctx, domain.NotificationRequest{
 				UserID:  leg.CourierID,
 				Title:   "SLA Terlampaui",
 				Message: "Waktu SLA Anda telah habis. Penalti mungkin berlaku.",

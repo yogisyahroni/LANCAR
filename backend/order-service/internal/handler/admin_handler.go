@@ -52,7 +52,7 @@ func (h *AdminHandler) UpdateMeetingPoint(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	json.NewEncoder(w).Encode(mp)
+	_ = json.NewEncoder(w).Encode(mp)
 }
 
 func (h *AdminHandler) DeleteMeetingPoint(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +73,7 @@ func (h *AdminHandler) GetMeetingPointAnalytics(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	json.NewEncoder(w).Encode(analytics)
+	_ = json.NewEncoder(w).Encode(analytics)
 }
 
 func (h *AdminHandler) GetPricingConfig(w http.ResponseWriter, r *http.Request) {
@@ -114,5 +114,5 @@ func (h *AdminHandler) SimulatePrice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(res)
+	_ = json.NewEncoder(w).Encode(res)
 }

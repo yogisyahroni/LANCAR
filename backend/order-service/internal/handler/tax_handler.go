@@ -95,5 +95,5 @@ func (h *TaxHandler) UpdateEFakturStatus(w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"message": "status updated successfully"}`))
+	_, _ = w.Write([]byte(`{"message": "status updated successfully"}`))
 }

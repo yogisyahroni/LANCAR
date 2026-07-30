@@ -109,7 +109,7 @@ func (h *AdminAgreementHandler) DownloadAgreementPDF(w http.ResponseWriter, r *h
 	if agreement.HTMLContent != nil {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(fmt.Sprintf(`<!DOCTYPE html>
+		_, _ = w.Write([]byte(fmt.Sprintf(`<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>Perjanjian TEMBUS</title>
 <style>
   @page { size: A4; margin: 2cm; }
@@ -232,7 +232,7 @@ func queryInt(r *http.Request, name string, defaultVal int) int {
 		return defaultVal
 	}
 	var n int
-	fmt.Sscanf(val, "%d", &n)
+	_, _ = fmt.Sscanf(val, "%d", &n)
 	if n <= 0 || n > 100 {
 		return defaultVal
 	}

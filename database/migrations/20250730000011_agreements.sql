@@ -5,6 +5,7 @@
 -- ============================================================
 
 -- Create agreement types enum
+-- +goose StatementBegin
 DO $$ BEGIN
     CREATE TYPE agreement_type AS ENUM (
         'mitra_agreement',      -- Perjanjian Mitra Kurir
@@ -14,6 +15,7 @@ DO $$ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN NULL;
 END $$;
+-- +goose StatementEnd
 
 -- Create agreements table
 CREATE TABLE IF NOT EXISTS agreements (

@@ -257,16 +257,16 @@ func (s *DefaultSosService) CheckAndResolveConsensus(ctx context.Context, incide
 		// No one reported, just close it
 		incident.Status = domain.SosStatusAbandoned
 		incident.UpdatedAt = now
-		s.sosRepo.UpdateIncident(ctx, incident)
+		_ = s.sosRepo.UpdateIncident(ctx, incident)
 		// Set helpers to abandoned
 		for _, h := range helpers {
-			s.sosRepo.UpdateHelperStatus(ctx, incidentID, h.HelperCourierID, string(domain.SosStatusAbandoned))
+			_ = s.sosRepo.UpdateHelperStatus(ctx, incidentID, h.HelperCourierID, string(domain.SosStatusAbandoned))
 		}
 		return nil
 	} else if isTimeout && fakeCount == realCount {
 		incident.Status = domain.SosStatusDisputed
 		incident.UpdatedAt = now
-		s.sosRepo.UpdateIncident(ctx, incident)
+		_ = s.sosRepo.UpdateIncident(ctx, incident)
 		return nil
 	}
 

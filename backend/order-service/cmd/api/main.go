@@ -132,7 +132,7 @@ func validateProductionSecrets() {
 
 func main() {
 	// Load environment variables
-	godotenv.Load("../../.env", "../../../.env")
+	_ = godotenv.Load("../../.env", "../../../.env")
 	validateProductionSecrets()
 
 	// LAUNCH-1: Structured JSON logging (configured via LOG_LEVEL, LOG_FORMAT, LOG_SERVICE env)

@@ -145,7 +145,7 @@ func (s *AgreementService) CreateCourierAgreement(ctx context.Context, userID, f
 		// Non-fatal — agreement record still exists
 	} else {
 		// Update PDF path in DB
-		s.repo.UpdatePDFPath(ctx, agreement.ID, pdfPath)
+		_ = s.repo.UpdatePDFPath(ctx, agreement.ID, pdfPath)
 		agreement.PDFPath = &pdfPath
 	}
 
@@ -210,7 +210,7 @@ func (s *AgreementService) CreateCustomerAgreement(ctx context.Context, userID, 
 	if err := s.generatePDF(htmlContent, filepath.Join(s.getStoragePath(), pdfPath)); err != nil {
 		logger.Warn("Failed to generate PDF", "id", agreement.ID, "error", err)
 	} else {
-		s.repo.UpdatePDFPath(ctx, agreement.ID, pdfPath)
+		_ = s.repo.UpdatePDFPath(ctx, agreement.ID, pdfPath)
 		agreement.PDFPath = &pdfPath
 	}
 
