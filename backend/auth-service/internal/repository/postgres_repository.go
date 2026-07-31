@@ -397,12 +397,12 @@ func (r *postgresRepo) UpdateProfile(ctx context.Context, p *domain.CourierProfi
 }
 
 func (r *postgresRepo) AddDocument(ctx context.Context, d *domain.CourierDocument) error {
-	query := `INSERT INTO courier_documents (courier_id, document_type, document_url, created_at) VALUES ($1, $2, $3, $4) RETURNING id`
+	query := `INSERT INTO courier_documents (courier_id, doc_type, file_url, created_at) VALUES ($1, $2, $3, $4) RETURNING id`
 	return r.db.QueryRowContext(ctx, query, d.CourierID, d.DocumentType, d.DocumentURL, time.Now()).Scan(&d.ID)
 }
 
 func (r *postgresRepo) GetDocuments(ctx context.Context, courierID string) ([]*domain.CourierDocument, error) {
-	query := `SELECT id, courier_id, document_type, document_url, is_verified, created_at FROM courier_documents WHERE courier_id = $1`
+	query := `SELECT id, courier_id, doc_type, file_url, is_verified, created_at FROM courier_documents WHERE courier_id = $1`
 	rows, err := r.readDB.QueryContext(ctx, query, courierID)
 	if err != nil {
 		return nil, err

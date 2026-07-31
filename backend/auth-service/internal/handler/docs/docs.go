@@ -230,14 +230,14 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Type of document (sim, stnk, ktp)",
-                        "name": "document_type",
+                        "name": "doc_type",
                         "in": "formData",
                         "required": true
                     },
                     {
                         "type": "file",
                         "description": "Document file",
-                        "name": "document",
+                        "name": "file",
                         "in": "formData",
                         "required": true
                     }

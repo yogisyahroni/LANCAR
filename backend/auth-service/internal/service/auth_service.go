@@ -1032,7 +1032,7 @@ func (s *AuthService) UploadCourierDocument(ctx context.Context, userID string, 
 		ActorID:  userID,
 		Action:   "upload_document",
 		TargetID: profile.ID,
-		Payload:  fmt.Sprintf(`{"document_type": "%s", "url": "%s"}`, docType, url),
+		Payload:  fmt.Sprintf(`{"doc_type": "%s", "url": "%s"}`, docType, url),
 	})
 
 	return url, nil

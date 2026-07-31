@@ -595,8 +595,8 @@ func (h *AuthHandler) RegisterCourier(w http.ResponseWriter, r *http.Request) {
 // @Accept multipart/form-data
 // @Produce json
 // @Security Bearer
-// @Param document_type formData string true "Type of document (sim, stnk, ktp)"
-// @Param document formData file true "Document file"
+// @Param doc_type formData string true "Type of document (sim, stnk, ktp)"
+// @Param file formData file true "Document file"
 // @Success 200 {object} map[string]string
 // @Router /couriers/documents [post]
 func (h *AuthHandler) UploadCourierDocument(w http.ResponseWriter, r *http.Request) {
@@ -613,13 +613,13 @@ func (h *AuthHandler) UploadCourierDocument(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	docType := r.FormValue("document_type")
+	docType := r.FormValue("doc_type")
 	if docType == "" {
-		http.Error(w, "document_type is required", http.StatusBadRequest)
+		http.Error(w, "doc_type is required", http.StatusBadRequest)
 		return
 	}
 
-	file, header, err := r.FormFile("document")
+	file, header, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, "Invalid file", http.StatusBadRequest)
 		return
@@ -640,8 +640,8 @@ func (h *AuthHandler) UploadCourierDocument(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
-		"message":      "Document uploaded successfully",
-		"document_url": url,
+		"message":  "Document uploaded successfully",
+		"file_url": url,
 	})
 }
 
