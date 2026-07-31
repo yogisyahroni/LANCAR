@@ -202,7 +202,7 @@ android {
     defaultConfig {
         applicationId = "com.tembus.courier"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = getVersionCode()
         versionName = getVersionName()
 

@@ -22,7 +22,7 @@ jobs:
       # Minimal checks for speed
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Production Mock Guard
         run: node scripts/ci/check-production-mocks.js
       - name: Frontend Build Check

@@ -17,7 +17,7 @@ env:
   CI_POSTGRES_PASSWORD: tembus_ci_ephemeral_db_auth
   CI_POSTGRES_DB: tembus_ci
   GO_VERSION: '1.25.12'
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
 
 jobs:
   # ═══════════════════════════════════════════════════════════
