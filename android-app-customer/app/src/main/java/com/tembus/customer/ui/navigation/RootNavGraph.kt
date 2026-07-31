@@ -78,6 +78,11 @@ import com.tembus.customer.ui.screens.chat.ChatScreen
 import com.tembus.customer.ui.screens.chat.ChatViewModel
 import com.tembus.customer.ui.screens.call.InAppCallScreen
 import com.tembus.customer.ui.screens.call.InAppCallState
+import com.tembus.customer.ui.screens.service.ServiceCategoryScreen
+import com.tembus.customer.ui.screens.service.SubTypeSelectorScreen
+import com.tembus.customer.ui.screens.service.ServiceBookingScreen
+import com.tembus.customer.ui.screens.service.ServiceTrackingScreen
+import com.tembus.customer.ui.screens.service.ServiceReportScreen
 import com.tembus.customer.ui.security.SecureScreenEffect
 import com.tembus.customer.data.model.NotificationRealtimeEvent
 import com.tembus.customer.data.session.SessionInvalidationReason
@@ -108,6 +113,11 @@ fun RootNavGraph(
         Screen.Chat.route,
         Screen.InAppCall.route,
         Screen.History.route,  // S2-MA-04: contains recipient names, addresses, payment amounts
+        Screen.ServiceCategory.route,
+        Screen.SubTypeSelector.route,
+        Screen.ServiceBooking.route,
+        Screen.ServiceTracking.route,
+        Screen.ServiceReport.route,
     )
 
     SecureScreenEffect(enabled = secureScreenRequired)
@@ -199,7 +209,16 @@ fun RootNavGraph(
                     navController.navigate(Screen.Notifications.route)
                 },
                 onBookingClick = { open ->
-                    navController.navigate(Screen.Booking.createRoute(open))
+                    when (open) {
+                        // Roadside services (tambal ban & towing) → service flow
+                        "tambal_ban_motor", "tambal_ban_mobil", "towing_motor", "towing_mobil" ->
+                            navController.navigate(Screen.ServiceBooking.createRoute(open))
+                        // Category-level entry (jika grid pakai kategori, bukan sub-tipe)
+                        "tambal_ban", "towing" ->
+                            navController.navigate(Screen.ServiceCategory.route)
+                        else ->
+                            navController.navigate(Screen.Booking.createRoute(open))
+                    }
                 },
                 onTrackingClick = { orderId ->
                     // Navigate to tracking directly for live tracking
@@ -262,6 +281,84 @@ fun RootNavGraph(
                 onOrderClick = { orderId ->
                     navController.navigate(Screen.OrderDetail.createRoute(orderId))
                 }
+            )
+        }
+
+        // ═══ TAMBAL BAN & TOWING — Service Flow ═══
+        composable(Screen.ServiceCategory.route) {
+            ServiceCategoryScreen(
+                onBackClick = { navController.popBackStack() },
+                onCategorySelected = { category ->
+                    navController.navigate(Screen.SubTypeSelector.createRoute(category))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.SubTypeSelector.route,
+            arguments = listOf(navArgument("category") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val category = backStackEntry.arguments?.getString("category") ?: "tambal_ban"
+            SubTypeSelectorScreen(
+                category = category,
+                onBackClick = { navController.popBackStack() },
+                onSubTypeSelected = { subType ->
+                    navController.navigate(Screen.ServiceBooking.createRoute(subType))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.ServiceBooking.route,
+            arguments = listOf(navArgument("serviceSubType") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: "tambal_ban_motor"
+            ServiceBookingScreen(
+                serviceSubType = serviceSubType,
+                onBackClick = { navController.popBackStack() },
+                onBookingSuccess = { orderId ->
+                    navController.navigate(Screen.ServiceTracking.createRoute(orderId, serviceSubType)) {
+                        popUpTo(Screen.Dashboard.route)
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = Screen.ServiceTracking.route,
+            arguments = listOf(
+                navArgument("orderId") { type = NavType.StringType },
+                navArgument("serviceSubType") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+            val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: ""
+            ServiceTrackingScreen(
+                orderId = orderId,
+                serviceSubType = serviceSubType,
+                onBackClick = { navController.popBackStack() },
+                onChatClick = { id ->
+                    navController.navigate(Screen.Chat.createRoute(id, null))
+                },
+                onCallClick = { id ->
+                    navController.navigate(Screen.InAppCall.createRoute(id, null, "outgoing"))
+                }
+            )
+        }
+
+        composable(
+            route = Screen.ServiceReport.route,
+            arguments = listOf(
+                navArgument("orderId") { type = NavType.StringType },
+                navArgument("serviceSubType") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+            val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: ""
+            ServiceReportScreen(
+                orderId = orderId,
+                serviceSubType = serviceSubType,
+                onBackClick = { navController.popBackStack() }
             )
         }
 

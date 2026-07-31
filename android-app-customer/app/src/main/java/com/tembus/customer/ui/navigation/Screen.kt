@@ -67,14 +67,14 @@ sealed class Screen(val route: String) {
     object ServiceCategory : Screen("service-category")
     object SubTypeSelector : Screen("sub-type-selector/{category}") {
         fun createRoute(category: String): String {
-            return "sub-type-selector/"
+            return "sub-type-selector/$category"
         }
     }
 
     // Tambal Ban & Towing — Booking
     object ServiceBooking : Screen("service-booking/{serviceSubType}") {
         fun createRoute(serviceSubType: String): String {
-            return "service-booking/"
+            return "service-booking/$serviceSubType"
         }
     }
 }
