@@ -72,9 +72,17 @@ sealed class Screen(val route: String) {
     }
 
     // Tambal Ban & Towing — Booking
-    object ServiceBooking : Screen("service-booking/{serviceSubType}") {
-        fun createRoute(serviceSubType: String): String {
-            return "service-booking/$serviceSubType"
+    object ServiceBooking : Screen("service-booking/{serviceSubType}?courierId={courierId}&courierPrice={courierPrice}") {
+        fun createRoute(serviceSubType: String, courierId: String? = null, courierPrice: Long? = null): String {
+            val base = "service-booking/$serviceSubType"
+            val query = mutableListOf<String>()
+            if (!courierId.isNullOrBlank()) {
+                query += "courierId=${java.net.URLEncoder.encode(courierId, "UTF-8")}"
+            }
+            if (courierPrice != null && courierPrice > 0) {
+                query += "courierPrice=$courierPrice"
+            }
+            return if (query.isEmpty()) base else "$base?${query.joinToString("&")}"
         }
     }
 }

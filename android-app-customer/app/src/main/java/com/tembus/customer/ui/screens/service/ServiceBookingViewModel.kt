@@ -23,7 +23,11 @@ data class ServiceBookingUiState(
     val priceEstimate: ServicePriceEstimate? = null,
     val rawPriceBreakdown: PriceBreakdown? = null,
     val error: String? = null,
-    val orderId: String? = null
+    val orderId: String? = null,
+    val customerLat: Double = 0.0,
+    val customerLng: Double = 0.0,
+    val customerAddress: String = "",
+    val isResolvingLocation: Boolean = false
 )
 
 data class ServicePriceEstimate(
@@ -41,6 +45,36 @@ class ServiceBookingViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ServiceBookingUiState())
     val uiState: StateFlow<ServiceBookingUiState> = _uiState.asStateFlow()
+
+    fun setLocation(lat: Double, lng: Double) {
+        _uiState.update { it.copy(customerLat = lat, customerLng = lng) }
+        if (_uiState.value.customerAddress.isBlank()) {
+            resolveAddress(lat, lng)
+        }
+    }
+
+    fun resolveAddress(lat: Double, lng: Double) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isResolvingLocation = true) }
+            orderRepository.reverseGeocodePoint(LocationPayload(lat, lng))
+                .onSuccess { result ->
+                    _uiState.update {
+                        it.copy(
+                            isResolvingLocation = false,
+                            customerAddress = result.label.ifBlank { "Lokasi saat ini" }
+                        )
+                    }
+                }
+                .onFailure {
+                    _uiState.update {
+                        it.copy(
+                            isResolvingLocation = false,
+                            customerAddress = "Lokasi saat ini"
+                        )
+                    }
+                }
+        }
+    }
 
     fun fetchEstimate(serviceSubType: String, lat: Double, lng: Double) {
         viewModelScope.launch {
@@ -77,26 +111,29 @@ class ServiceBookingViewModel @Inject constructor(
         vehicleType: String,
         damageType: String,
         notes: String,
-        customerLat: Double,
-        customerLng: Double,
-        customerAddress: String
+        preferredCourierId: String?
     ) {
         val breakdown = _uiState.value.rawPriceBreakdown
+        val state = _uiState.value
         if (breakdown == null) {
             _uiState.update { it.copy(error = "Estimasi harga belum tersedia") }
+            return
+        }
+        if (state.customerLat == 0.0 || state.customerLng == 0.0) {
+            _uiState.update { it.copy(error = "Lokasi belum tersedia. Nyalakan GPS dan coba lagi.") }
             return
         }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            
+
             val itemDesc = "Kendaraan: $vehicleType\nKerusakan: $damageType\nCatatan: $notes"
-            
+
             val req = CustomerOrderCreateRequest(
-                pickupAddress = customerAddress,
-                pickupLocation = LocationPayload(customerLat, customerLng),
-                dropoffAddress = customerAddress,
-                dropoffLocation = LocationPayload(customerLat, customerLng),
+                pickupAddress = state.customerAddress,
+                pickupLocation = LocationPayload(state.customerLat, state.customerLng),
+                dropoffAddress = state.customerAddress,
+                dropoffLocation = LocationPayload(state.customerLat, state.customerLng),
                 recipientName = "Customer",
                 recipientPhone = "-",
                 packageDetails = PackageDetailsPayload(
@@ -108,7 +145,8 @@ class ServiceBookingViewModel @Inject constructor(
                     itemDescription = itemDesc
                 ),
                 priceBreakdown = breakdown,
-                serviceCode = serviceSubType
+                serviceCode = serviceSubType,
+                preferredCourierId = preferredCourierId
             )
 
             orderRepository.createCustomerOnDemandOrder(req).collectLatest { result ->

@@ -6,7 +6,7 @@ import { createNotification } from '../notifications';
 import { createSnapTransaction, getMidtransClientKey, getMidtransSnapJsUrl } from '../midtrans';
 import { isExpiredOrFailedTransaction, isSuccessfulTransaction } from '../midtrans';
 import { calculateServiceSettlement, customerFacingService, DeliveryServiceProduct, findDeliveryServiceByCode, listEnabledDeliveryServicesForCustomer } from './deliveryServices.controller';
-import { advanceOnDemandDispatchQueue, notifyOnDemandOffers } from './courierAuth.controller';
+import { advanceOnDemandDispatchQueue, dispatchToPreferredCourier, notifyOnDemandOffers } from './courierAuth.controller';
 import { redis } from '../redis';
 import { ON_DEMAND_REALTIME_EVENTS, emitOnDemandRealtime } from '../services/onDemandRealtime';
 import { buildOnDemandTrackingSnapshot, evaluateLocationQuality, writeLocationSafetyEvent } from '../services/onDemandTracking';
@@ -1043,7 +1043,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       logistics_tariff_idr,
       logistics_net_cost_idr,
       pickup_city,
-      dropoff_city
+      dropoff_city,
+      preferred_courier_id
     } = req.body;
 
     const service = await findDeliveryServiceByCode(price_breakdown?.service_code || service_code);
@@ -1230,12 +1231,13 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         logistics_net_cost_idr,
         pickup_city,
         dropoff_city,
+        preferred_courier_id,
         created_at
       ) VALUES (
         $1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326),
         $6, ST_SetSRID(ST_MakePoint($7, $8), 4326), $9, $10,
         $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31,
-        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, NOW()
+        $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, NOW()
       ) RETURNING id, order_number, total_price_idr, loyalty_discount_idr, route_snapshot
     `;
 
@@ -1286,7 +1288,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       logistics_tariff_idr || null,
       logistics_net_cost_idr || null,
       pickup_city || null,
-      dropoff_city || null
+      dropoff_city || null,
+      preferred_courier_id || null
     ];
 
     const result = await client.query(insertQuery, values);
@@ -1414,10 +1417,21 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     if (isPaymentBypassed) {
       const dispatchClient = await db.connect();
       try {
-        const createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
+        let createdOffers: Awaited<ReturnType<typeof advanceOnDemandDispatchQueue>> = [];
+        if (preferred_courier_id) {
+          // "Pilih Petugas" flow: dispatch langsung ke courier yang dipilih customer
+          const offer = await dispatchToPreferredCourier(dispatchClient, newOrder.id, preferred_courier_id);
+          if (offer) createdOffers.push(offer);
+          if (!offer) {
+            securityLog.warn(`[WARN] Preferred courier ${preferred_courier_id} tidak bisa di-dispatch untuk order ${newOrder.id}; fallback ke queue normal`);
+            createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
+          }
+        } else {
+          createdOffers = await advanceOnDemandDispatchQueue(dispatchClient, 1);
+        }
         await notifyOnDemandOffers(createdOffers);
       } catch (dispatchErr) {
-        securityLog.error('[WARN] advanceOnDemandDispatchQueue after bypass failed:', dispatchErr);
+        securityLog.error('[WARN] dispatch after bypass failed:', dispatchErr);
       } finally {
         dispatchClient.release();
       }

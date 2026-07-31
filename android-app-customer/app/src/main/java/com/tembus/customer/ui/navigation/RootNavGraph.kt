@@ -83,6 +83,7 @@ import com.tembus.customer.ui.screens.service.SubTypeSelectorScreen
 import com.tembus.customer.ui.screens.service.ServiceBookingScreen
 import com.tembus.customer.ui.screens.service.ServiceTrackingScreen
 import com.tembus.customer.ui.screens.service.ServiceReportScreen
+import com.tembus.customer.ui.screens.service.NearbyCouriersScreen
 import com.tembus.customer.ui.security.SecureScreenEffect
 import com.tembus.customer.data.model.NotificationRealtimeEvent
 import com.tembus.customer.data.session.SessionInvalidationReason
@@ -310,15 +311,59 @@ fun RootNavGraph(
 
         composable(
             route = Screen.ServiceBooking.route,
-            arguments = listOf(navArgument("serviceSubType") { type = NavType.StringType })
+            arguments = listOf(
+                navArgument("serviceSubType") { type = NavType.StringType },
+                navArgument("courierId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("courierPrice") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
         ) { backStackEntry ->
             val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: "tambal_ban_motor"
+            val courierId = backStackEntry.arguments?.getString("courierId")
+            val courierPrice = backStackEntry.arguments?.getString("courierPrice")?.toLongOrNull()
             ServiceBookingScreen(
                 serviceSubType = serviceSubType,
+                courierId = courierId,
+                courierPrice = courierPrice,
                 onBackClick = { navController.popBackStack() },
+                onSelectCourierClick = { lat, lng ->
+                    navController.navigate(Screen.NearbyCouriers.createRoute(serviceSubType, lat, lng))
+                },
                 onBookingSuccess = { orderId ->
                     navController.navigate(Screen.ServiceTracking.createRoute(orderId, serviceSubType)) {
                         popUpTo(Screen.Dashboard.route)
+                    }
+                }
+            )
+        }
+
+        composable(
+            route = Screen.NearbyCouriers.route,
+            arguments = listOf(
+                navArgument("serviceSubType") { type = NavType.StringType },
+                navArgument("lat") { type = NavType.StringType },
+                navArgument("lng") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val serviceSubType = backStackEntry.arguments?.getString("serviceSubType") ?: ""
+            val lat = backStackEntry.arguments?.getString("lat")?.toDoubleOrNull() ?: 0.0
+            val lng = backStackEntry.arguments?.getString("lng")?.toDoubleOrNull() ?: 0.0
+            NearbyCouriersScreen(
+                serviceSubType = serviceSubType,
+                customerLat = lat,
+                customerLng = lng,
+                onBackClick = { navController.popBackStack() },
+                onCourierSelected = { courierId, price ->
+                    // Kembali ke booking dengan petugas terpilih (dan harga jasanya)
+                    navController.navigate(Screen.ServiceBooking.createRoute(serviceSubType, courierId, price)) {
+                        popUpTo(Screen.ServiceBooking.route) { inclusive = true }
                     }
                 }
             )

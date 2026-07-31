@@ -153,7 +153,8 @@ data class CustomerOrderCreateRequest(
     @SerialName("customer_notes") val customerNotes: String = "",
     @SerialName("price_breakdown") val priceBreakdown: PriceBreakdown,
     @SerialName("service_code") val serviceCode: String,
-    @SerialName("promo_code") val promoCode: String? = null
+    @SerialName("promo_code") val promoCode: String? = null,
+    @SerialName("preferred_courier_id") val preferredCourierId: String? = null
 )
 
 @Serializable
