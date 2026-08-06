@@ -290,14 +290,21 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 
 	// 6. If Paid, Update Order Status
 	if newStatus == domain.PaymentStatusPaid {
-		if err := s.orderRepo.UpdateStatus(ctx, orderID, domain.StatusPendingAssignment); err != nil {
-			slog.ErrorContext(ctx, "Failed to update order status to pending_assignment", "order_id", orderID, "error", err)
+		// FOOD-BIKE-021: order food → pending_merchant (merchant wajib respon dulu),
+		// order reguler → pending_assignment (matching driver langsung).
+		newOrderStatus := domain.StatusPendingAssignment
+		order, err := s.orderRepo.GetByID(ctx, orderID)
+		if err == nil && order.ServiceSubType == "food_delivery" {
+			newOrderStatus = domain.StatusPendingMerchant
+		}
+		if err := s.orderRepo.UpdateStatus(ctx, orderID, newOrderStatus); err != nil {
+			slog.ErrorContext(ctx, "Failed to update order status", "order_id", orderID, "error", err)
 			if hasAuditRepo {
 				_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "failed", stringPtr("order_update_failed"))
 			}
 			return fmt.Errorf("failed to update order status: %w", err)
 		}
-		slog.InfoContext(ctx, "Payment successful, order status updated", "order_id", orderID)
+		slog.InfoContext(ctx, "Payment successful, order status updated", "order_id", orderID, "new_status", newOrderStatus)
 
 		// Note: Here we would trigger fund splitting or dispatch workers.
 		// For Sprint 4, dispatching is done by a scheduler checking pending_assignment,

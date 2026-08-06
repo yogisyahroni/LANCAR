@@ -20,6 +20,7 @@ var vehicleRestrictionMatrix = map[string][]string{
 	"tambal_ban_mobil": {"sedan", "mpv", "suv"},
 	"towing_motor":     {"pickup", "van"},
 	"towing_mobil":     {"towing_truck"},
+	"food_delivery":    {"sepeda"},
 }
 
 // targetObjectDescription describes what the service targets
@@ -100,4 +101,9 @@ func IsTowing(serviceSubType string) bool {
 // IsTambalBanOrTowing returns true if the service is tambal ban or towing
 func IsTambalBanOrTowing(serviceSubType string) bool {
 	return IsTambalBan(serviceSubType) || IsTowing(serviceSubType)
+}
+
+// IsFoodDelivery returns true if the service is food delivery
+func IsFoodDelivery(serviceSubType string) bool {
+	return serviceSubType == "food_delivery"
 }

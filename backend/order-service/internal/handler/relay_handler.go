@@ -50,7 +50,7 @@ func (h *RelayHandler) AdminOverrideScore(w http.ResponseWriter, r *http.Request
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"message": "Courier score successfully overridden by admin",
 	})
 }
@@ -93,7 +93,7 @@ func (h *RelayHandler) AdminOverrideTier(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"message": "Courier tier successfully overridden by admin",
 	})
 }
@@ -116,7 +116,7 @@ func (h *RelayHandler) ListCourierPerformance(w http.ResponseWriter, r *http.Req
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"data":    stats,
 	})

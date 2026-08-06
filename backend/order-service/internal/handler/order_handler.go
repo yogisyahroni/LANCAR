@@ -96,7 +96,7 @@ func (h *OrderHandler) Estimate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 // CreateOrder godoc
@@ -144,7 +144,48 @@ func (h *OrderHandler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(order)
+	_ = json.NewEncoder(w).Encode(order)
+}
+
+// CreateFoodOrder godoc
+// @Summary Create food order (multi-item)
+// @Description Create an order for food delivery (merchant → customer, sepeda-only couriers)
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body domain.CreateFoodOrderRequest true "Food Order Request"
+// @Success 201 {object} domain.Order
+// @Router /orders/food [post]
+func (h *OrderHandler) CreateFoodOrder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", correlationID)
+		return
+	}
+
+	req, ok := middleware.GetValidatedData(r.Context()).(*domain.CreateFoodOrderRequest)
+	if !ok || req == nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusInternalServerError, "ERR_INTERNAL", "Failed to retrieve validated request", correlationID)
+		return
+	}
+
+	order, err := h.orderSvc.CreateFoodOrder(r.Context(), userID, *req)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(order)
 }
 
 // GetOrder godoc
@@ -186,7 +227,7 @@ func (h *OrderHandler) CreateBulkOrder(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"batch_id": batchID,
 		"orders":   orders,
 	})
@@ -262,7 +303,7 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(order)
+	_ = json.NewEncoder(w).Encode(order)
 }
 
 // ListOrders godoc
@@ -293,7 +334,7 @@ func (h *OrderHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(orders)
+	_ = json.NewEncoder(w).Encode(orders)
 }
 
 // PollOrderUpdates godoc
@@ -328,7 +369,7 @@ func (h *OrderHandler) PollOrderUpdates(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(events)
+	_ = json.NewEncoder(w).Encode(events)
 }
 
 // SuggestMeetingPoints godoc
@@ -366,7 +407,7 @@ func (h *OrderHandler) SuggestMeetingPoints(w http.ResponseWriter, r *http.Reque
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(suggestions)
+	_ = json.NewEncoder(w).Encode(suggestions)
 }
 
 // AcceptOrder godoc
@@ -414,7 +455,7 @@ func (h *OrderHandler) AcceptOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "accepted", "order_id": orderID})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "accepted", "order_id": orderID})
 }
 
 // UpdateStatusRequest represents the payload for status updates
@@ -560,7 +601,7 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": string(status), "order_id": orderID})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": string(status), "order_id": orderID})
 }
 
 // StartMatching triggers automated courier assignment for an order
@@ -604,7 +645,7 @@ func (h *OrderHandler) StartMatching(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
 }
 
 // RetryMatching triggers courier assignment retry for an order that timed out
@@ -655,7 +696,7 @@ func (h *OrderHandler) RetryMatching(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
 }
 
 // InternalStartMatching triggers automated courier assignment from internal orchestration without JWT
@@ -679,7 +720,7 @@ func (h *OrderHandler) InternalStartMatching(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
 }
 
 // InternalRetryMatching triggers courier assignment retry from internal orchestration without JWT
@@ -703,7 +744,7 @@ func (h *OrderHandler) InternalRetryMatching(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "searching", "order_id": id})
 }
 
 // ScanRequest represents the request payload for scanning a package
@@ -770,7 +811,7 @@ func (h *OrderHandler) ScanPackage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":      "success",
 		"scan_id":     scan.ID,
 		"scan_type":   scan.ScanType,
@@ -830,7 +871,7 @@ func (h *OrderHandler) GetPackageScans(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(scans)
+	_ = json.NewEncoder(w).Encode(scans)
 }
 
 type CreateBagRequest struct {
@@ -884,7 +925,7 @@ func (h *OrderHandler) CreateConsolidationBag(w http.ResponseWriter, r *http.Req
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(bag)
+	_ = json.NewEncoder(w).Encode(bag)
 }
 
 type OpenBagRequest struct {
@@ -925,7 +966,7 @@ func (h *OrderHandler) OpenConsolidationBag(w http.ResponseWriter, r *http.Reque
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "success", "bag_number": req.BagNumber, "message": "Bag opened successfully (Bag Out)"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "success", "bag_number": req.BagNumber, "message": "Bag opened successfully (Bag Out)"})
 }
 
 func (h *OrderHandler) GetConsolidationBag(w http.ResponseWriter, r *http.Request) {
@@ -956,7 +997,7 @@ func (h *OrderHandler) GetConsolidationBag(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"bag":   bag,
 		"scans": scans,
 	})
@@ -987,7 +1028,7 @@ func (h *OrderHandler) AutoDetectScanType(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"order_id":  req.OrderID,
 		"scan_type": scanType,
 		"status":    "success",
@@ -1048,7 +1089,7 @@ func (h *OrderHandler) SubmitCourierRating(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":   "success",
 		"message":  "Terima kasih atas penilaian Anda!",
 		"order_id": orderID,
@@ -1108,7 +1149,7 @@ func (h *OrderHandler) GetRatingReminders(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"data":    items,
 	})
@@ -1137,7 +1178,7 @@ func (h *OrderHandler) GetCourierPerformance(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
 		"data":    stats,
 	})

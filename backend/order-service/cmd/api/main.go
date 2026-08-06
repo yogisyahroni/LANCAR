@@ -263,6 +263,9 @@ func main() {
 	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw, relayRepo, taxRepo, configRepo, ledgerRepo)
 	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw, redisRepo, ledgerRepo)
 	orderSvc.SetRefundService(refundSvc)
+	// Food delivery (FOOD-BIKE-073): inject food repository untuk CreateFoodOrder
+	foodRepo := repository.NewFoodRepository(db, readDB, configRepo)
+	orderSvc.SetFoodRepository(foodRepo)
 	slaSvc := service.NewSLAService(slaRepo, notificationSvc, payoutRepo)
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc, configRepo)
 	relayScoreSvc := service.NewRelayScoreService(relayRepo)
@@ -344,6 +347,8 @@ func main() {
 
 	slaWorker := worker.NewSLAWorker(slaSvc)
 	slaWorker.Start()
+	foodPrepWorker := worker.NewFoodPrepWorker(orderSvc) // FOOD-BIKE-022
+	foodPrepWorker.Start()
 
 	// LAUNCH-6: Data retention cleanup worker
 	worker.StartCleanupWorker(db)
@@ -402,6 +407,11 @@ func main() {
 			middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", middleware.GetCorrelationID(r.Context()))
 		}
 	})))
+
+	// Food delivery (FOOD-BIKE-074): POST /api/v1/orders/food
+	mux.HandleFunc("/api/v1/orders/food", middleware.BaseChain(middleware.AuthMiddleware(
+		middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateFoodOrderRequest{})(orderHandler.CreateFoodOrder)),
+	)))
 
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.GetOrder))))
 	mux.HandleFunc("/api/v1/orders/bulk", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitOrderCreation(rdb)(orderHandler.CreateBulkOrder))))

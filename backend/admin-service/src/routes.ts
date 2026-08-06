@@ -366,6 +366,13 @@ routes.get('/admin/couriers/:id/history', (req, res) => controllers.getCourierHi
 routes.get('/admin/couriers/export', (req, res) => controllers.exportCouriers(req, res));
 
 
+// Merchant Management (FOOD-BIKE-048)
+routes.get('/admin/merchants', (req, res) => controllers.listAdminMerchants(req, res));
+routes.get('/admin/merchants/:id', (req, res) => controllers.getAdminMerchantDetail(req, res));
+routes.post('/admin/merchants/:id/approve', (req, res) => controllers.approveAdminMerchant(req, res));
+routes.post('/admin/merchants/:id/reject', (req, res) => controllers.rejectAdminMerchant(req, res));
+
+
 // Disputes Management
 routes.get('/admin/disputes', (req, res) => controllers.getDisputes(req, res));
 routes.get('/admin/disputes/stats', (req, res) => controllers.getDisputeStats(req, res));

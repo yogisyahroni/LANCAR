@@ -45,7 +45,7 @@ func (h *PaymentHandler) CreatePayment(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(payment)
+	_ = json.NewEncoder(w).Encode(payment)
 }
 
 func (h *PaymentHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
@@ -95,5 +95,5 @@ func (h *PaymentHandler) GetPaymentStatus(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(payment)
+	_ = json.NewEncoder(w).Encode(payment)
 }

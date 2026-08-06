@@ -32,6 +32,7 @@ type Courier struct {
 	CurrentLng   float64       `json:"current_lng"`
 	Tier         CourierTier   `json:"tier"`
 	JoinDate     time.Time     `json:"join_date"`
+	RadiusMaxKM  int           `json:"radius_max_km" db:"radius_max_km"`
 }
 
 type CourierRepository interface {

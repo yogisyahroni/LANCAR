@@ -92,7 +92,7 @@ func (h *DeliveryWebhookHandler) HandleDeliveryEvent(w http.ResponseWriter, r *h
 		slog.InfoContext(r.Context(), "delivery_webhook: non-delivery event received, skipping settlement",
 			"awb_number", payload.AWBNumber, "status", payload.Status)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "accepted_non_delivery"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "accepted_non_delivery"})
 		return
 	}
 
@@ -126,7 +126,7 @@ func (h *DeliveryWebhookHandler) HandleDeliveryEvent(w http.ResponseWriter, r *h
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":     "settlement_initiated",
 		"awb_number": payload.AWBNumber,
 	})
@@ -163,7 +163,7 @@ func (h *DeliveryWebhookHandler) HandleListSettlements(w http.ResponseWriter, r 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
+	_ = json.NewEncoder(w).Encode(map[string]any{
 		"data":  settlements,
 		"count": len(settlements),
 	})

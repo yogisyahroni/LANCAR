@@ -120,6 +120,16 @@ func (r *postgresRepo) GetDeliveryServiceByCode(ctx context.Context, code string
 
 // Order Repository Implementation
 func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
+	return r.insertOrder(ctx, r.db, o)
+}
+
+// execer — interface minimal yang dipenuhi *sql.DB dan *sql.Tx,
+// supaya insertOrder bisa dipakai baik langsung maupun dalam transaksi.
+type execer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+}
+
+func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Order) error {
 	query := `INSERT INTO orders (
 				id, order_number, customer_id, model, status, 
 				pickup_location, pickup_address, pickup_city, pickup_zip_code,
@@ -133,6 +143,7 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 				dispatch_expiry, batch_id, sequence_no, receiver_name, receiver_phone, routing_code,
 				tax_rule_code, ppn_rate_effective_pct, ppn_rate_statutory_pct, dpp_idr,
 				tax_invoice_required, tax_invoice_status, platform_fee_idr, platform_fee_pct, promo_subsidy_idr,
+				service_sub_type, merchant_id, prep_time_minutes,
 				created_at, updated_at
 			  ) VALUES (
 				$1, $2, $3, $4, $5, 
@@ -141,7 +152,8 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 				$16, $17, $18, $19, $20, $21,
 				$22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35,
 				$36, $37, $38, $39, $40, $41, $42, $43, $44,
-				$45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55, $56, $57
+				$45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55,
+				$56, $57, $58, $59, $60
 			  )`
 
 	mdrFixed := r.configRepo.GetIntConfig(ctx, "payment_mdr_fixed", 2500)
@@ -159,7 +171,7 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 		o.TrafficMultiplier = 1.0
 	}
 
-	_, err := r.db.ExecContext(ctx, query,
+	_, err := q.ExecContext(ctx, query,
 		o.ID, o.OrderNumber, o.CustomerID, o.Model, o.Status,
 		o.PickupLng, o.PickupLat, o.PickupAddress, o.PickupCity, o.PickupZipCode,
 		o.DropoffLng, o.DropoffLat, o.DropoffAddress, o.DropoffCity, o.DropoffZipCode,
@@ -172,6 +184,7 @@ func (r *postgresRepo) Create(ctx context.Context, o *domain.Order) error {
 		o.DispatchExpiry, o.BatchID, o.SequenceNo, o.ReceiverName, o.ReceiverPhone, o.RoutingCode,
 		o.TaxRuleCode, o.PPNRateEffectivePct, o.PPNRateStatutoryPct, o.DPPIDR,
 		o.TaxInvoiceRequired, o.TaxInvoiceStatus, o.PlatformFeeIDR, o.PlatformFeePct, o.PromoSubsidyIDR,
+		o.ServiceSubType, o.MerchantID, o.PrepTimeMinutes,
 		o.CreatedAt, o.UpdatedAt,
 	)
 	return err
@@ -191,8 +204,9 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				COALESCE(receiver_name, ''), COALESCE(receiver_phone, ''), COALESCE(routing_code, ''),
 				COALESCE(tax_rule_code, ''), COALESCE(ppn_rate_effective_pct, 0), COALESCE(ppn_rate_statutory_pct, 0), COALESCE(dpp_idr, 0), COALESCE(ppn_idr, 0),
 				COALESCE(tax_invoice_required, false), COALESCE(tax_invoice_status, ''), COALESCE(platform_fee_idr, 0), COALESCE(platform_fee_pct, 0), COALESCE(promo_subsidy_idr, 0),
+				COALESCE(service_sub_type, ''), merchant_id::text, merchant_accepted_at, prep_time_minutes, food_ready_at,
 				created_at, updated_at
-			  FROM orders WHERE id = $1`
+				FROM orders WHERE id = $1`
 
 	o := &domain.Order{}
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
@@ -208,6 +222,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.ReceiverName, &o.ReceiverPhone, &o.RoutingCode,
 		&o.TaxRuleCode, &o.PPNRateEffectivePct, &o.PPNRateStatutoryPct, &o.DPPIDR, &o.PPNIDR,
 		&o.TaxInvoiceRequired, &o.TaxInvoiceStatus, &o.PlatformFeeIDR, &o.PlatformFeePct, &o.PromoSubsidyIDR,
+		&o.ServiceSubType, &o.MerchantID, &o.MerchantAcceptedAt, &o.PrepTimeMinutes, &o.FoodReadyAt,
 		&o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {

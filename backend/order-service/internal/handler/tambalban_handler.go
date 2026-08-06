@@ -66,7 +66,7 @@ func (h *TambalBanHandler) GetNearbyCouriers(w http.ResponseWriter, r *http.Requ
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 // ============================================================
@@ -105,7 +105,7 @@ func (h *TambalBanHandler) CalculateSettlement(w http.ResponseWriter, r *http.Re
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 // ============================================================
@@ -138,7 +138,7 @@ func (h *TambalBanHandler) UpdateAvailabilityState(w http.ResponseWriter, r *htt
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"message": "State updated", "new_state": req.State})
+	_ = json.NewEncoder(w).Encode(map[string]string{"message": "State updated", "new_state": req.State})
 }
 
 // ============================================================
@@ -160,7 +160,7 @@ func (h *TambalBanHandler) GetAvailabilityState(w http.ResponseWriter, r *http.R
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(state)
+	_ = json.NewEncoder(w).Encode(state)
 }
 
 // ============================================================
@@ -191,7 +191,7 @@ func (h *TambalBanHandler) CreateTambalBanReport(w http.ResponseWriter, r *http.
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(req)
+	_ = json.NewEncoder(w).Encode(req)
 }
 
 // ============================================================
@@ -222,5 +222,5 @@ func (h *TambalBanHandler) CreateTowingReport(w http.ResponseWriter, r *http.Req
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(req)
+	_ = json.NewEncoder(w).Encode(req)
 }

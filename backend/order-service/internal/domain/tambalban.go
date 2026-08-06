@@ -136,6 +136,7 @@ type NearbyCourier struct {
 	ServiceSubType      string  `json:"service_sub_type"`
 	Status              string  `json:"status"`              // available, conditional
 	StatusText          string  `json:"status_text"`         // "Siap melayani", "Dalam perjalanan (~8 menit)"
+	RadiusMaxKM         int     `json:"radius_max_km" db:"radius_max_km"`
 }
 
 type NearbyCouriersResponse struct {

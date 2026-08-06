@@ -9,6 +9,9 @@ type OrderStatus string
 
 const (
 	StatusPendingPayment      OrderStatus = "pending_payment"
+	// FOOD-BIKE-020: status food delivery — disisipkan antara pending_payment dan searching.
+	StatusPendingMerchant     OrderStatus = "pending_merchant"
+	StatusPreparing           OrderStatus = "preparing"
 	StatusPending             OrderStatus = "pending"
 	StatusPendingAssignment   OrderStatus = "pending_assignment"
 	StatusReadyForPickup      OrderStatus = "ready_for_pickup"
@@ -97,6 +100,12 @@ type Order struct {
 	RatingComment          *string      `json:"rating_comment,omitempty"`          // Komentar opsional
 	RatingReminderCount    int              `json:"rating_reminder_count,omitempty"`   // Sudah berapa kali diingatkan
 	LastRatingReminderAt   *time.Time       `json:"last_rating_reminder_at,omitempty"` // Kapan terakhir diingatkan
+	// Food delivery (FOOD-BIKE-006): service_sub_type + merchant fields
+	ServiceSubType     string     `json:"service_sub_type,omitempty" db:"service_sub_type"`
+	MerchantID         *string    `json:"merchant_id,omitempty" db:"merchant_id"`
+	MerchantAcceptedAt *time.Time `json:"merchant_accepted_at,omitempty" db:"merchant_accepted_at"`
+	PrepTimeMinutes    *int       `json:"prep_time_minutes,omitempty" db:"prep_time_minutes"`
+	FoodReadyAt        *time.Time `json:"food_ready_at,omitempty" db:"food_ready_at"`
 	TambalBanReport        *TambalBanReport `json:"tambal_ban_report,omitempty"`       // Laporan Tambal Ban
 	TowingReport           *TowingReport    `json:"towing_report,omitempty"`           // Laporan Towing
 	CreatedAt              time.Time        `json:"created_at"`
@@ -141,6 +150,92 @@ type CreateOrderRequest struct {
 	ReceiverPhone          string  `json:"receiver_phone,omitempty"`
 }
 
+// ─────────────────────────────────────────────────────────────
+// FOOD DELIVERY — Pemesanan Multi-Item (FOOD-BIKE-072)
+// Terpisah dari CreateOrderRequest yang 100% parcel-single.
+// Harga item TIDAK dikirim client — dihitung ulang server-side
+// dari merchant_menu_items (zero-trust, anti price manipulation).
+// ─────────────────────────────────────────────────────────────
+
+type FoodOrderItemRequest struct {
+	MenuID   string `json:"menu_item_id" validate:"required"`
+	Quantity int    `json:"quantity" validate:"required,min=1,max=99"`
+	Notes    string `json:"notes,omitempty"`
+}
+
+type CreateFoodOrderRequest struct {
+	MerchantID     string                 `json:"merchant_id" validate:"required"`
+	Items          []FoodOrderItemRequest `json:"items" validate:"required,min=1,dive"`
+	DropoffAddress string                 `json:"dropoff_address" validate:"required"`
+	DropoffCity    string                 `json:"dropoff_city,omitempty"`
+	DropoffZipCode string                 `json:"dropoff_zip_code,omitempty"`
+	DropoffLat     float64                `json:"dropoff_lat" validate:"required"`
+	DropoffLng     float64                `json:"dropoff_lng" validate:"required"`
+	ReceiverName   string                 `json:"receiver_name,omitempty"`
+	ReceiverPhone  string                 `json:"receiver_phone,omitempty"`
+	IsScheduled    bool                   `json:"is_scheduled"`
+}
+
+// FoodOrderItem — snapshot item saat order (nama & harga beku di waktu order,
+// jangan ambil live dari menu supaya tidak berubah kalau merchant update).
+type FoodOrderItem struct {
+	ID         string `json:"id"`
+	OrderID    string `json:"order_id"`
+	MenuItemID string `json:"menu_item_id"`
+	ItemName   string `json:"item_name"`
+	ItemPrice  int64  `json:"item_price"`
+	Quantity   int    `json:"quantity"`
+	Notes      string `json:"notes,omitempty"`
+	Subtotal   int64  `json:"subtotal"`
+}
+
+// FoodMerchantInfo — data merchant yang dibutuhkan order-service untuk
+// validasi & pickup location (diambil dari tabel merchants).
+type FoodMerchantInfo struct {
+	ID                 string   `json:"id"`
+	Name               string   `json:"name"`
+	Address            string   `json:"address"`
+	IsOpen             bool     `json:"is_open"`
+	VerificationStatus string   `json:"verification_status"`
+	Lat                float64  `json:"lat"`
+	Lng                float64  `json:"lng"`
+	JamBuka            *string  `json:"jam_buka,omitempty"`
+	JamTutup           *string  `json:"jam_tutup,omitempty"`
+}
+
+type FoodMenuItemInfo struct {
+	ID              string `json:"id"`
+	MerchantID      string `json:"merchant_id"`
+	Name            string `json:"name"`
+	Price           int64  `json:"price"`
+	IsAvailable     bool   `json:"is_available"`
+	PrepTimeMinutes int    `json:"prep_time_minutes"`
+}
+
+// FoodRepository — akses merchant/menu/items untuk order-service.
+// (merchant-service terpisah; order-service cuma butuh baca + tulis order items)
+type FoodRepository interface {
+	GetFoodMerchant(ctx context.Context, merchantID string) (*FoodMerchantInfo, error)
+	GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]FoodMenuItemInfo, error)
+	CreateFoodOrderWithItems(ctx context.Context, order *Order, items []FoodOrderItem) error
+	// ── FOOD-BIKE-021/022: transisi status food delivery ──
+	// GetFoodOrderForMerchant mengambil order food milik merchant tertentu
+	// (validasi ownership sebelum accept/reject).
+	GetFoodOrderForMerchant(ctx context.Context, orderID, merchantID string) (*Order, error)
+	// AcceptFoodOrder: pending_merchant → preparing, set merchant_accepted_at +
+	// food_ready_at = NOW() + prep_time_minutes.
+	AcceptFoodOrder(ctx context.Context, orderID string, prepMinutes int) error
+	// RejectFoodOrder: pending_merchant → cancelled, set cancellation_reason +
+	// cancelled_at (dipanggil merchant menolak ATAU timeout auto-cancel worker).
+	RejectFoodOrder(ctx context.Context, orderID, reason string) error
+	// GetPreparingFoodOrders: order food berstatus preparing yang siap transisi
+	// ke searching (matching driver dimulai 5 menit sebelum food_ready_at).
+	GetPreparingFoodOrders(ctx context.Context) ([]*Order, error)
+	// GetPendingMerchantFoodOrders: order food pending_merchant yang belum direspon
+	// merchant melebihi timeout (FOOD-BIKE-022: 3 menit) → auto-cancel.
+	GetPendingMerchantFoodOrders(ctx context.Context, timeout time.Duration) ([]*Order, error)
+}
+
 // SubmitRatingRequest adalah request body dari customer untuk memberi rating ke kurir.
 // Rating bersifat opsional (1-5 bintang), kurir tidak bisa rating dirinya sendiri.
 // Backend wajib memvalidasi: OrderStatus == 'delivered' && CourierRating == nil.
@@ -162,6 +257,10 @@ type CreateBulkOrderRequest struct {
 
 type OrderService interface {
 	CreateOrder(ctx context.Context, userID string, req CreateOrderRequest) (*Order, error)
+	// CreateFoodOrder membuat order food multi-item (FOOD-BIKE-073).
+	// Validasi harga 100% server-side dari merchant_menu_items —
+	// client hanya kirim menu_item_id + quantity.
+	CreateFoodOrder(ctx context.Context, userID string, req CreateFoodOrderRequest) (*Order, error)
 	CreateInternalAggregatorOrder(ctx context.Context, userID string, req CreateOrderRequest) (*Order, error)
 	CreateBulkOrder(ctx context.Context, userID string, req CreateBulkOrderRequest) ([]*Order, string, error)
 	GetOrder(ctx context.Context, orderID string) (*Order, error)
@@ -181,9 +280,21 @@ type OrderService interface {
 	AutoDetectScanType(ctx context.Context, orderID string, warehouseID string) (string, error)
 	SetRefundService(rs RefundService)
 	SetServiceReportService(s ServiceReportService)
+	// SetFoodRepository inject food repository untuk CreateFoodOrder (FOOD-BIKE-073)
+	SetFoodRepository(fr FoodRepository)
 	// SubmitRating menerima penilaian 1-5 bintang dari customer terhadap kurir.
 	// Validasi: order harus berstatus delivered, dan belum pernah di-rating.
 	SubmitRating(ctx context.Context, customerID string, orderID string, req SubmitRatingRequest) error
+	// ── FOOD-BIKE-021: accept/reject order oleh merchant ──
+	// AcceptByMerchant: pending_merchant → preparing (merchant terima).
+	// Validasi kepemilikan merchant via foodRepo.GetFoodOrderForMerchant.
+	AcceptByMerchant(ctx context.Context, orderID string, merchantID string) error
+	// RejectByMerchant: pending_merchant → cancelled dengan reason (merchant tolak).
+	RejectByMerchant(ctx context.Context, orderID string, merchantID string, reason string) error
+	// ProcessFoodPrepTransitions dipanggil food_prep_worker (FOOD-BIKE-022):
+	// 1) preparing yang food_ready_at-5m sudah lewat → searching (mulai matching);
+	// 2) pending_merchant yang melewati timeout 3 menit → auto-cancel.
+	ProcessFoodPrepTransitions(ctx context.Context) error
 	// GetOrdersNeedingRatingReminder mengambil order delivered milik customer yang
 	// belum di-rating, reminder_count < 4, dan sudah 12 jam sejak terakhir diingatkan.
 	GetOrdersNeedingRatingReminder(ctx context.Context, customerID string) ([]*Order, error)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"sort"
 	"strings"
 	"tembus/order-service/internal/domain"
@@ -33,6 +34,7 @@ type orderServiceImpl struct {
 	reportSvc       domain.ServiceReportService
 	ledgerRepo      domain.FinanceLedgerRepository
 	taxSvc          domain.TaxService
+	foodRepo        domain.FoodRepository
 }
 
 func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository, lr domain.FinanceLedgerRepository, ts domain.TaxService) domain.OrderService {
@@ -58,6 +60,12 @@ func (s *orderServiceImpl) SetRefundService(rs domain.RefundService) {
 
 func (s *orderServiceImpl) SetServiceReportService(reportSvc domain.ServiceReportService) {
 	s.reportSvc = reportSvc
+}
+
+// SetFoodRepository — inject food repository (FOOD-BIKE-073).
+// Dipanggil dari wiring setelah service di-construct.
+func (s *orderServiceImpl) SetFoodRepository(fr domain.FoodRepository) {
+	s.foodRepo = fr
 }
 
 func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req domain.CreateOrderRequest) (*domain.Order, error) {
@@ -518,7 +526,7 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 
 		// Push to task queue for persistent background processing (notifications)
 		if s.taskQueue != nil {
-			s.taskQueue.Push(ctx, queue.Task{
+			_ = s.taskQueue.Push(ctx, queue.Task{
 				Type: "order.status_updated",
 				Payload: map[string]interface{}{
 					"order_id": order.ID,
@@ -945,7 +953,7 @@ func (s *orderServiceImpl) notifyCustomerNoCourier(ctx context.Context, order *d
 		log.Printf("Failed to send notification to customer %s: %v", order.CustomerID, err)
 	}
 
-	s.taskQueue.Push(ctx, queue.Task{
+	_ = s.taskQueue.Push(ctx, queue.Task{
 		Type: "order.no_courier_found",
 		Payload: map[string]interface{}{
 			"order_id": order.ID,
@@ -1374,4 +1382,278 @@ func (s *orderServiceImpl) GetCourierPerformanceStats(ctx context.Context, couri
 		return nil, err
 	}
 	return s.relayRepo.GetCourierPerformanceStats(ctx, uuidID)
+}
+
+// ─────────────────────────────────────────────────────────────
+// FOOD DELIVERY — CreateFoodOrder (FOOD-BIKE-073)
+// Zero-trust: harga item dihitung ulang server-side dari
+// merchant_menu_items. Client hanya kirim menu_item_id + quantity.
+// ─────────────────────────────────────────────────────────────
+func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, req domain.CreateFoodOrderRequest) (*domain.Order, error) {
+	if s.foodRepo == nil {
+		return nil, fmt.Errorf("food repository not wired")
+	}
+
+	// 1. Validasi merchant: ada, approved, buka
+	merchant, err := s.foodRepo.GetFoodMerchant(ctx, req.MerchantID)
+	if err != nil {
+		return nil, err
+	}
+	if merchant.VerificationStatus != "approved" {
+		return nil, fmt.Errorf("merchant belum terverifikasi")
+	}
+	if !merchant.IsOpen {
+		return nil, fmt.Errorf("merchant tutup")
+	}
+
+	// 2. Ambil menu items by ID — harga dari server, bukan client
+	menuIDs := make([]string, 0, len(req.Items))
+	for _, it := range req.Items {
+		menuIDs = append(menuIDs, it.MenuID)
+	}
+	menuItems, err := s.foodRepo.GetFoodMenuItems(ctx, menuIDs)
+	if err != nil {
+		return nil, err
+	}
+	menuByID := make(map[string]domain.FoodMenuItemInfo, len(menuItems))
+	for _, mi := range menuItems {
+		menuByID[mi.ID] = mi
+	}
+
+	// 3. Validasi: semua item ketemu, available, milik merchant ini
+	for _, it := range req.Items {
+		mi, ok := menuByID[it.MenuID]
+		if !ok {
+			return nil, fmt.Errorf("menu item tidak ditemukan: %s", it.MenuID)
+		}
+		if mi.MerchantID != req.MerchantID {
+			return nil, fmt.Errorf("menu item bukan milik merchant ini: %s", it.MenuID)
+		}
+		if !mi.IsAvailable {
+			return nil, fmt.Errorf("menu item tidak tersedia: %s", mi.Name)
+		}
+	}
+
+	// 4. Hitung ulang harga (server-side) + snapshot item
+	var subtotal int64
+	maxPrep := 0
+	orderItems := make([]domain.FoodOrderItem, 0, len(req.Items))
+	for _, it := range req.Items {
+		mi := menuByID[it.MenuID]
+		sub := mi.Price * int64(it.Quantity)
+		subtotal += sub
+		if mi.PrepTimeMinutes > maxPrep {
+			maxPrep = mi.PrepTimeMinutes
+		}
+		orderItems = append(orderItems, domain.FoodOrderItem{
+			MenuItemID: mi.ID,
+			ItemName:   mi.Name,
+			ItemPrice:  mi.Price,
+			Quantity:   it.Quantity,
+			Notes:      it.Notes,
+			Subtotal:   sub,
+		})
+	}
+
+	// 5. Ongkir: jarak merchant → dropoff, tarif dari service product food_delivery
+	distanceKM := haversineKM(merchant.Lat, merchant.Lng, req.DropoffLat, req.DropoffLng)
+	svc, err := s.pricingRepo.GetDeliveryServiceByCode(ctx, "food_delivery")
+	if err != nil || svc == nil {
+		return nil, fmt.Errorf("service product food_delivery tidak ditemukan: %w", err)
+	}
+	deliveryFee := svc.BaseFareIDR
+	if distanceKM > svc.IncludedDistanceKM {
+		extra := int64(math.Ceil(distanceKM - svc.IncludedDistanceKM))
+		deliveryFee += extra * svc.PerKmIDR
+	}
+
+	// 6. Biaya layanan (platform fee) — default 10% kalau config 0
+	platformFeePct := svc.PlatformFeePct
+	if platformFeePct <= 0 {
+		platformFeePct = 10
+	}
+	platformFee := int64(math.Round(float64(subtotal) * platformFeePct / 100))
+
+	total := subtotal + deliveryFee + platformFee
+
+	// 7. Build Order (status awal pending_payment, service_sub_type food_delivery)
+	orderNum := fmt.Sprintf("TMBS%s", strings.ToUpper(uuid.New().String()[:6]))
+	handoverToken := uuid.New().String()
+	qrURL, err := utils.GenerateQRCodeDataURI(handoverToken, 256)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate qr code: %w", err)
+	}
+
+	prepMin := maxPrep
+	merchantID := merchant.ID
+	serviceSubType := "food_delivery"
+	now := time.Now()
+	order := &domain.Order{
+		ID:                 uuid.New().String(),
+		OrderNumber:        orderNum,
+		CustomerID:         userID,
+		Model:              "p2p", // CHECK constraint orders_model_check — hanya p2p/two_legs/three_legs/hub_and_spoke; food = p2p + service_sub_type food_delivery
+		Status:             domain.StatusPendingPayment,
+		PickupAddress:      merchant.Address,
+		PickupLat:          merchant.Lat,
+		PickupLng:          merchant.Lng,
+		DropoffAddress:     req.DropoffAddress,
+		DropoffCity:        req.DropoffCity,
+		DropoffZipCode:     req.DropoffZipCode,
+		DropoffLat:         req.DropoffLat,
+		DropoffLng:         req.DropoffLng,
+		ItemDescription:    "Pesanan makanan",
+		DistanceKM:         distanceKM,
+		IncludedDistanceKM: svc.IncludedDistanceKM,
+		DistanceFeeIDR:     deliveryFee,
+		BasePriceIDR:       subtotal,
+		DynamicPriceIDR:    subtotal,
+		TotalPriceIDR:      total,
+		PlatformFeeIDR:     platformFee,
+		PlatformFeePct:     platformFeePct,
+		HandoverToken:      handoverToken,
+		QRCodeURL:          qrURL,
+		ReceiverName:       req.ReceiverName,
+		ReceiverPhone:      req.ReceiverPhone,
+		ServiceSubType:     serviceSubType,
+		MerchantID:         &merchantID,
+		PrepTimeMinutes:    &prepMin,
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+
+	// 8. Simpan order + items dalam SATU transaksi
+	if err := s.foodRepo.CreateFoodOrderWithItems(ctx, order, orderItems); err != nil {
+		return nil, err
+	}
+
+	// 9. Event + broadcast (pola CreateOrder)
+	event := domain.OrderEvent{
+		OrderID:   order.ID,
+		UserID:    order.CustomerID,
+		Status:    order.Status,
+		Message:   "Food order created, awaiting payment",
+		CreatedAt: now,
+	}
+	_ = s.eventRepo.SaveEvent(ctx, event)
+	_ = s.eventBus.Publish(ctx, "order.updates", event)
+
+	if s.notificationSvc != nil {
+		_ = s.notificationSvc.Send(ctx, domain.NotificationRequest{
+			UserID:  userID,
+			Title:   "Order dibuat",
+			Message: fmt.Sprintf("Order %s menunggu pembayaran", orderNum),
+		})
+	}
+
+	return order, nil
+}
+
+// haversineKM — jarak dua titik koordinat dalam kilometer.
+func haversineKM(lat1, lng1, lat2, lng2 float64) float64 {
+	const earthRadiusKM = 6371.0
+	dLat := (lat2 - lat1) * math.Pi / 180.0
+	dLng := (lng2 - lng1) * math.Pi / 180.0
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*math.Pi/180.0)*math.Cos(lat2*math.Pi/180.0)*
+			math.Sin(dLng/2)*math.Sin(dLng/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return earthRadiusKM * c
+}
+
+// ── FOOD-BIKE-021: accept/reject order food oleh merchant ────────────────────
+
+// AcceptByMerchant — merchant menyetujui order food: pending_merchant → preparing.
+// food_ready_at dihitung = NOW() + prep_time_minutes (dipakai worker matching).
+func (s *orderServiceImpl) AcceptByMerchant(ctx context.Context, orderID string, merchantID string) error {
+	if s.foodRepo == nil {
+		return fmt.Errorf("food repository not wired")
+	}
+	o, err := s.foodRepo.GetFoodOrderForMerchant(ctx, orderID, merchantID)
+	if err != nil {
+		return err
+	}
+	if o.Status != domain.StatusPendingMerchant {
+		return fmt.Errorf("order %s tidak dalam status pending_merchant (status: %s)", orderID, o.Status)
+	}
+	prep := 15
+	if o.PrepTimeMinutes != nil && *o.PrepTimeMinutes > 0 {
+		prep = *o.PrepTimeMinutes
+	}
+	if err := s.foodRepo.AcceptFoodOrder(ctx, orderID, prep); err != nil {
+		return err
+	}
+	s.publishOrderEvent(ctx, orderID, domain.StatusPreparing, "Merchant menerima pesanan — makanan disiapkan")
+	return nil
+}
+
+// RejectByMerchant — merchant menolak order food: pending_merchant → cancelled.
+// Reason wajib (alasan penolakan merchant).
+func (s *orderServiceImpl) RejectByMerchant(ctx context.Context, orderID string, merchantID string, reason string) error {
+	if s.foodRepo == nil {
+		return fmt.Errorf("food repository not wired")
+	}
+	o, err := s.foodRepo.GetFoodOrderForMerchant(ctx, orderID, merchantID)
+	if err != nil {
+		return err
+	}
+	if o.Status != domain.StatusPendingMerchant {
+		return fmt.Errorf("order %s tidak dalam status pending_merchant (status: %s)", orderID, o.Status)
+	}
+	if err := s.foodRepo.RejectFoodOrder(ctx, orderID, reason); err != nil {
+		return err
+	}
+	s.publishOrderEvent(ctx, orderID, domain.StatusCancelled, "Pesanan ditolak merchant: "+reason)
+	return nil
+}
+
+// ProcessFoodPrepTransitions — dipanggil food_prep_worker tiap 1 menit:
+//  1. Order preparing yang food_ready_at ≤ NOW()+5m → searching (driver matching
+//     mulai 5 menit sebelum makanan siap, driver standby saat ready).
+//  2. Order pending_merchant yang belum direspon > 3 menit → auto-cancel
+//     (FOOD-BIKE-022, pola SLA worker).
+func (s *orderServiceImpl) ProcessFoodPrepTransitions(ctx context.Context) error {
+	if s.foodRepo == nil {
+		return nil // food belum di-wire — skip aman
+	}
+
+	// 1) preparing → searching
+	prepping, err := s.foodRepo.GetPreparingFoodOrders(ctx)
+	if err != nil {
+		return fmt.Errorf("get preparing food orders: %w", err)
+	}
+	for _, o := range prepping {
+		if err := s.orderRepo.UpdateStatus(ctx, o.ID, domain.StatusSearching); err != nil {
+			log.Printf("[FoodPrepWorker] gagal transisi %s → searching: %v", o.ID, err)
+			continue
+		}
+		s.publishOrderEvent(ctx, o.ID, domain.StatusSearching, "Makanan hampir siap — mencari driver terdekat")
+	}
+
+	// 2) pending_merchant timeout → auto-cancel
+	timeouts, err := s.foodRepo.GetPendingMerchantFoodOrders(ctx, 3*time.Minute)
+	if err != nil {
+		return fmt.Errorf("get pending merchant timeouts: %w", err)
+	}
+	for _, o := range timeouts {
+		if err := s.foodRepo.RejectFoodOrder(ctx, o.ID, "merchant_timeout_3m"); err != nil {
+			log.Printf("[FoodPrepWorker] gagal auto-cancel %s: %v", o.ID, err)
+			continue
+		}
+		s.publishOrderEvent(ctx, o.ID, domain.StatusCancelled, "Merchant tidak merespon dalam 3 menit — order dibatalkan otomatis")
+	}
+
+	return nil
+}
+
+// publishOrderEvent — helper: simpan + broadcast event order (sinkron dgn pola CreateOrder).
+func (s *orderServiceImpl) publishOrderEvent(ctx context.Context, orderID string, status domain.OrderStatus, message string) {
+	event := domain.OrderEvent{
+		OrderID:   orderID,
+		Status:    status,
+		Message:   message,
+		CreatedAt: time.Now(),
+	}
+	_ = s.eventRepo.SaveEvent(ctx, event)
+	_ = s.eventBus.Publish(ctx, "order.updates", event)
 }

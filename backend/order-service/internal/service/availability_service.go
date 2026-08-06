@@ -50,6 +50,18 @@ func (s *availabilityServiceImpl) FindAvailableCouriers(
 	var available []domain.NearbyCourier
 
 	for _, courier := range allCouriers {
+		// Food delivery defense-in-depth: hanya kurir sepeda, dan jarak order
+		// harus dalam radius pribadi kurir (radius_max_km). Filter ganda dengan
+		// SQL di FindCouriersByCapability supaya satu lapis gagal = masih ketahan.
+		if IsFoodDelivery(serviceSubType) {
+			if courier.VehicleType != "sepeda" {
+				continue
+			}
+			if courier.RadiusMaxKM > 0 && courier.DistanceKM > float64(courier.RadiusMaxKM) {
+				continue
+			}
+		}
+
 		state, err := s.repo.GetAvailabilityState(ctx, courier.CourierID)
 		if err != nil {
 			// No state record = treat as idle

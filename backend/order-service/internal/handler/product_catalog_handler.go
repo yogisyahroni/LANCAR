@@ -102,7 +102,7 @@ func (h *ProductCatalogHandler) WriteJSON(w http.ResponseWriter, status int, dat
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if data != nil {
-		json.NewEncoder(w).Encode(data)
+		_ = json.NewEncoder(w).Encode(data)
 	}
 }
 

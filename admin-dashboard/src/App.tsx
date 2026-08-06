@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Orders from './pages/Orders'
 import Couriers from './pages/Couriers'
 import CourierApplications from './pages/CourierApplications'
+import Merchants from './pages/Merchants'
 import CourierFaceVerifications from './pages/CourierFaceVerifications'
 import CourierSafetyEvents from './pages/CourierSafetyEvents'
 import CourierGrowthConfig from './pages/CourierGrowthConfig'
@@ -126,6 +127,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <CourierApplications />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/merchants"
+            element={
+              <ProtectedRoute>
+                <Merchants />
               </ProtectedRoute>
             }
           />

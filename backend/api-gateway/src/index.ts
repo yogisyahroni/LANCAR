@@ -171,6 +171,7 @@ const authBreaker = createServiceBreaker('auth-service');
 const orderBreaker = createServiceBreaker('order-service');
 const adminBreaker = createServiceBreaker('admin-service');
 const paymentBreaker = createServiceBreaker('payment-service');
+const merchantBreaker = createServiceBreaker('merchant-service'); // FOOD-BIKE-019
 
 const requestLogContext = (req: Request) => {
   const activeTrace = getActiveTraceContext();
@@ -359,6 +360,7 @@ const jsonParser = express.json({ limit: '16kb' });
 const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:8081';
 const ORDER_SERVICE_URL = process.env.ORDER_SERVICE_URL || 'http://localhost:8083';
 const PAYMENT_SERVICE_URL = process.env.PAYMENT_SERVICE_URL || 'http://localhost:8084';
+const MERCHANT_SERVICE_URL = process.env.MERCHANT_SERVICE_URL || 'http://localhost:8085'; // FOOD-BIKE-019
 const ADMIN_SERVICE_URL = process.env.ADMIN_SERVICE_URL || 'http://localhost:3000';
 const ROUTING_SERVICE_URL = process.env.ROUTING_SERVICE_URL || 'http://localhost:8082';
 
@@ -991,6 +993,11 @@ app.use(createProxyMiddleware({
 // Wallet Routes (Payment Service)
 // ─────────────────────────────────────────────
 app.use('/api/v1/wallet', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_URL, paymentBreaker));
+
+// ─────────────────────────────────────────────
+// Merchant Routes (Merchant Service — FOOD-BIKE-019)
+// ─────────────────────────────────────────────
+app.use('/api/v1/merchant', authenticateJWT, proxyWithResilience(MERCHANT_SERVICE_URL, merchantBreaker));
 
 
 // ─────────────────────────────────────────────
