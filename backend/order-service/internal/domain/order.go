@@ -282,6 +282,9 @@ type OrderService interface {
 	SetServiceReportService(s ServiceReportService)
 	// SetFoodRepository inject food repository untuk CreateFoodOrder (FOOD-BIKE-073)
 	SetFoodRepository(fr FoodRepository)
+	// SetMerchantSettlementService inject settlement service untuk order food
+	// yang delivered tanpa payment link (FOOD-BIKE-067).
+	SetMerchantSettlementService(mss MerchantSettlementService)
 	// SubmitRating menerima penilaian 1-5 bintang dari customer terhadap kurir.
 	// Validasi: order harus berstatus delivered, dan belum pernah di-rating.
 	SubmitRating(ctx context.Context, customerID string, orderID string, req SubmitRatingRequest) error

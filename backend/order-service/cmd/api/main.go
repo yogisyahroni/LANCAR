@@ -292,6 +292,9 @@ func main() {
 		infrastructure.NewIntegrationGatewayClient(configRepo),
 		ledgerRepo,
 	)
+	// FOOD-BIKE-067: order-service ScanPackage perlu akses settlement service
+	// untuk order food delivered (escrow tanpa payment link).
+	orderSvc.SetMerchantSettlementService(merchantSettlementSvc)
 	aggregatorFinanceRepo := repository.NewAggregatorFinanceRepository(db)
 	aggregatorFinanceSvc := service.NewAggregatorFinanceService(aggregatorFinanceRepo, ledgerRepo)
 

@@ -221,6 +221,145 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// HandleFoodOrderDelivered dipanggil dari ScanPackage (order-service) ketika
+// order food on-demand (merchant_id terisi, tanpa payment link) mencapai
+// status delivered. Membuat merchant_settlement HOLDING dengan idempotency
+// "settle-order-<orderID>" — tidak bergantung webhook 3PL.
+// ─────────────────────────────────────────────────────────────────────────────
+func (s *merchantSettlementService) HandleFoodOrderDelivered(ctx context.Context, orderID string) error {
+	// 1. Food order yang dibuat via payment link di-handle HandleDeliveryConfirmed
+	//    (webhook 3PL). Skip di sini untuk mencegah double settlement.
+	paymentLink, err := s.repo.GetPaymentLinkByOrderID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("HandleFoodOrderDelivered: payment link lookup failed: %w", err)
+	}
+	if paymentLink != nil {
+		slog.InfoContext(ctx, "merchant_settlement: food order has payment link — handled via delivery webhook, skipping",
+			"order_id", orderID, "payment_link_id", paymentLink.ID)
+		return nil
+	}
+
+	// 2. Ambil data order food (hanya food_delivery dengan merchant_id)
+	data, err := s.repo.GetFoodOrderForSettlement(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("HandleFoodOrderDelivered: fetch food order failed: %w", err)
+	}
+	if data == nil {
+		slog.InfoContext(ctx, "merchant_settlement: order bukan food_delivery/merchant, skipping",
+			"order_id", orderID)
+		return nil
+	}
+
+	// 3. Idempotency check: satu order hanya satu settlement
+	idempotencyKey := fmt.Sprintf("settle-order-%s", orderID)
+	existing, err := s.repo.GetByIdempotencyKey(ctx, idempotencyKey)
+	if err != nil {
+		return fmt.Errorf("HandleFoodOrderDelivered: idempotency check failed: %w", err)
+	}
+	if existing != nil {
+		slog.InfoContext(ctx, "merchant_settlement: idempotent skip, food settlement already exists",
+			"idempotency_key", idempotencyKey, "settlement_id", existing.ID, "status", existing.Status)
+		return nil
+	}
+
+	// 4. Financial sanity check (pola sama HandleDeliveryConfirmed)
+	if data.GrossItemIDR < 0 || data.PlatformFeeIDR < 0 {
+		return fmt.Errorf("HandleFoodOrderDelivered: invalid negative amount (gross: %d, fee: %d) — blocked", data.GrossItemIDR, data.PlatformFeeIDR)
+	}
+	disbursementFeeIDR := int64(s.configRepo.GetIntConfig(ctx, "merchant_disbursement_fee_idr", 4000))
+	netPayoutIDR := data.GrossItemIDR - data.PlatformFeeIDR - disbursementFeeIDR
+	if netPayoutIDR < 0 {
+		return fmt.Errorf("HandleFoodOrderDelivered: invalid net payout (gross: %d, fee: %d, disburse_fee: %d) — payout cannot be negative", data.GrossItemIDR, data.PlatformFeeIDR, disbursementFeeIDR)
+	}
+
+	// 5. Buat settlement HOLDING
+	holdingDays := s.configRepo.GetIntConfig(ctx, "merchant_settlement_holding_days", 1)
+	now := time.Now()
+	holdingReleaseAt := now.Add(time.Duration(holdingDays) * 24 * time.Hour)
+	settlementID := uuid.New()
+	settlement := &domain.MerchantSettlement{
+		ID:                 settlementID,
+		PaymentLinkID:      "", // food on-demand tanpa payment link (insert NULL)
+		MerchantID:         data.MerchantID,
+		OrderID:            data.OrderID,
+		GrossItemPriceIDR:  data.GrossItemIDR,
+		MerchantFeeIDR:     data.PlatformFeeIDR,
+		DisbursementFeeIDR: disbursementFeeIDR,
+		NetPayoutIDR:       netPayoutIDR,
+		Status:             domain.SettlementStatusHolding,
+		IdempotencyKey:     idempotencyKey,
+		PODConfirmedAt:     &now,
+		HoldingReleaseAt:   &holdingReleaseAt,
+		RetryCount:         0,
+		Metadata: map[string]any{
+			"source":       "food_delivery",
+			"order_id":     data.OrderID,
+			"merchant_id":  data.MerchantID,
+			"holding_days": holdingDays,
+		},
+	}
+	if err := s.repo.Create(ctx, settlement); err != nil {
+		return fmt.Errorf("HandleFoodOrderDelivered: failed to create settlement: %w", err)
+	}
+
+	// 6. Ledger journal (escrow holding) — pola sama HandleDeliveryConfirmed
+	if s.ledgerRepo != nil {
+		journal := &domain.LedgerJournal{
+			ID:            uuid.New(),
+			JournalType:   "SETTLEMENT",
+			ReferenceType: "MERCHANT_SETTLEMENT_HOLDING",
+			ReferenceID:   settlement.ID.String(),
+			Reason:        fmt.Sprintf("Food order delivered — merchant settlement escrow holding for order %s", data.OrderID),
+			CreatedBy:     "SYSTEM",
+			ActorRole:     "SYSTEM",
+			CreatedAt:     now,
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: "1101 - Cash / Bank", DebitIDR: data.GrossItemIDR, CreditIDR: 0},
+			{AccountName: "2102 - Merchant Compensation Payable", DebitIDR: 0, CreditIDR: netPayoutIDR},
+			{AccountName: "4102 - Platform Admin Fee", DebitIDR: 0, CreditIDR: data.PlatformFeeIDR},
+			{AccountName: "4102 - Platform Admin Fee", DebitIDR: 0, CreditIDR: disbursementFeeIDR},
+		}
+		if _, err := s.ledgerRepo.CreateJournalReturningID(ctx, journal, entries); err != nil {
+			slog.WarnContext(ctx, "merchant_settlement: failed to post ledger journal for food holding", "error", err)
+		}
+	}
+
+	// 7. Notifikasi merchant: dana escrow + jadwal release
+	merchantUUID, err := uuid.Parse(data.MerchantID)
+	if err == nil {
+		go func() {
+			notifCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			msg := fmt.Sprintf(
+				"✅ *Pesanan Food Terkirim!*\n\nPesanan food Anda telah dikonfirmasi terkirim ke pembeli.\n\n💰 *Dana Rp %s akan dicairkan ke rekening Anda dalam %d hari kerja.*",
+				formatIDR(netPayoutIDR), holdingDays,
+			)
+			_ = s.notificationSvc.Send(notifCtx, domain.NotificationRequest{
+				UserID:  merchantUUID.String(),
+				Title:   "Dana Segera Cair!",
+				Message: msg,
+				Channel: domain.ChannelPush,
+				Data: map[string]string{
+					"type":          "merchant_settlement_pending",
+					"settlement_id": settlementID.String(),
+					"order_id":      data.OrderID,
+				},
+			})
+		}()
+	}
+
+	slog.InfoContext(ctx, "merchant_settlement: food settlement created",
+		"settlement_id", settlementID,
+		"order_id", data.OrderID,
+		"merchant_id", data.MerchantID,
+		"net_payout_idr", netPayoutIDR,
+		"holding_release_at", holdingReleaseAt)
+
+	return nil
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // ProcessPendingSettlements adalah cron runner — dijalankan setiap 5 menit
 // dari goroutine background di cmd/main.go.
 // ─────────────────────────────────────────────────────────────────────────────

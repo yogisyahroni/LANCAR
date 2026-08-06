@@ -35,6 +35,7 @@ type orderServiceImpl struct {
 	ledgerRepo      domain.FinanceLedgerRepository
 	taxSvc          domain.TaxService
 	foodRepo        domain.FoodRepository
+	settlementSvc   domain.MerchantSettlementService
 }
 
 func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository, lr domain.FinanceLedgerRepository, ts domain.TaxService) domain.OrderService {
@@ -56,6 +57,12 @@ func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r
 
 func (s *orderServiceImpl) SetRefundService(rs domain.RefundService) {
 	s.refundSvc = rs
+}
+
+// SetMerchantSettlementService inject settlement service (FOOD-BIKE-067).
+// Dipanggil dari ScanPackage saat order food delivered tanpa payment link.
+func (s *orderServiceImpl) SetMerchantSettlementService(mss domain.MerchantSettlementService) {
+	s.settlementSvc = mss
 }
 
 func (s *orderServiceImpl) SetServiceReportService(reportSvc domain.ServiceReportService) {
@@ -1120,6 +1127,16 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 
 		if err = s.ledgerRepo.CreateJournalWithEntries(ctx, journal, entries); err != nil {
 			return fmt.Errorf("failed to write ledger for delivery: %w", err)
+		}
+	}
+
+	// FOOD-BIKE-067: Merchant settlement escrow untuk order food on-demand
+	// (merchant_id terisi, tanpa payment link). Non-fatal: jika settlement
+	// gagal dibuat, scan delivered tetap sukses — settlement bisa diproses
+	// manual/reconcile. Idempotent via "settle-order-<orderID>".
+	if targetStatus == domain.StatusDelivered && order.MerchantID != nil && s.settlementSvc != nil {
+		if err := s.settlementSvc.HandleFoodOrderDelivered(ctx, order.ID); err != nil {
+			log.Printf("[settlement] FOOD-BIKE-067 failed untuk order %s: %v", order.ID, err)
 		}
 	}
 

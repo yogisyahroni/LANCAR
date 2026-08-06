@@ -102,6 +102,10 @@ type MerchantSettlementRepository interface {
 	// GetPaymentLinkByOrderID mengambil payment_link yang terkait dengan order.
 	GetPaymentLinkByOrderID(ctx context.Context, orderID string) (*PaymentLink, error)
 
+	// GetFoodOrderForSettlement mengambil data order food (merchant_id + items)
+	// untuk membuat settlement escrow. Return nil jika order bukan food_delivery.
+	GetFoodOrderForSettlement(ctx context.Context, orderID string) (*FoodOrderSettlementData, error)
+
 	// UpdateOrderDeliveryConfirmed mengupdate order setelah POD dikonfirmasi.
 	UpdateOrderDeliveryConfirmed(ctx context.Context, orderID string, confirmedAt time.Time, podURL string) error
 }
@@ -111,6 +115,12 @@ type MerchantSettlementService interface {
 	// HandleDeliveryConfirmed dipanggil ketika webhook 3PL DELIVERED diterima.
 	// Membuat merchant_settlement record (HOLDING) dan menjadwalkan release dana.
 	HandleDeliveryConfirmed(ctx context.Context, req DeliveryConfirmedRequest) error
+
+	// HandleFoodOrderDelivered dipanggil dari ScanPackage ketika order food
+	// (merchant_id terisi, tanpa payment link) mencapai status delivered.
+	// Membuat merchant_settlement (HOLDING) dengan idempotency "settle-order-<id>".
+	// Skip otomatis jika order punya payment link (di-handle webhook 3PL).
+	HandleFoodOrderDelivered(ctx context.Context, orderID string) error
 
 	// ProcessPendingSettlements adalah cron runner yang dijalankan tiap 5 menit.
 	// Memproses semua HOLDING yang sudah melewati holding_release_at.
@@ -141,4 +151,15 @@ type DeliveryConfirmedRequest struct {
 	ConfirmedAt time.Time `json:"confirmed_at"`
 	// RawPayload menyimpan raw webhook body untuk audit trail
 	RawPayload  string    `json:"raw_payload,omitempty"`
+}
+
+// FoodOrderSettlementData — data order food yang dibutuhkan untuk membuat
+// merchant settlement (FOOD-BIKE-067). GrossItemIDR dihitung dari
+// SUM(food_order_items.subtotal) — hanya harga makanan, ongkir tidak
+// masuk ke payout merchant.
+type FoodOrderSettlementData struct {
+	OrderID        string
+	MerchantID     string
+	PlatformFeeIDR int64
+	GrossItemIDR   int64
 }

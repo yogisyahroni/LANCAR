@@ -27,6 +27,15 @@ func (r *merchantSettlementRepository) Create(ctx context.Context, s *domain.Mer
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
+	// Food order (FOOD-BIKE-067) tidak punya payment link — insert NULL,
+	// bukan string kosong (agar tidak melanggar FK payment_links).
+	var paymentLinkIDArg any
+	if s.PaymentLinkID == "" {
+		paymentLinkIDArg = nil
+	} else {
+		paymentLinkIDArg = s.PaymentLinkID
+	}
+
 	_, err = r.db.ExecContext(ctx, `
 		INSERT INTO merchant_settlements (
 			id, payment_link_id, merchant_id, order_id,
@@ -43,7 +52,7 @@ func (r *merchantSettlementRepository) Create(ctx context.Context, s *domain.Mer
 			$13, $14, $15,
 			NOW(), NOW()
 		) ON CONFLICT (idempotency_key) DO NOTHING`,
-		s.ID, s.PaymentLinkID, s.MerchantID, s.OrderID,
+		s.ID, paymentLinkIDArg, s.MerchantID, s.OrderID,
 		s.GrossItemPriceIDR, s.MerchantFeeIDR, s.DisbursementFeeIDR, s.NetPayoutIDR,
 		s.Status, s.IdempotencyKey,
 		s.PODConfirmedAt, s.HoldingReleaseAt,
@@ -256,6 +265,37 @@ func (r *merchantSettlementRepository) GetOrderByAWB(ctx context.Context, awbNum
 		return nil, fmt.Errorf("GetOrderByAWB failed: %w", err)
 	}
 	return o, nil
+}
+
+// GetFoodOrderForSettlement — ambil data order food untuk settlement escrow
+// (FOOD-BIKE-067). Gross = SUM(food_order_items.subtotal); hanya order dengan
+// service_sub_type = 'food_delivery' & merchant_id terisi. Return nil jika
+// bukan order food.
+func (r *merchantSettlementRepository) GetFoodOrderForSettlement(ctx context.Context, orderID string) (*domain.FoodOrderSettlementData, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT o.id,
+		       COALESCE(o.merchant_id::text, ''),
+		       COALESCE(o.platform_fee_idr, 0),
+		       COALESCE(SUM(f.subtotal), 0)
+		FROM orders o
+		LEFT JOIN food_order_items f ON f.order_id = o.id
+		WHERE o.id = $1
+		  AND o.service_sub_type = 'food_delivery'
+		  AND o.merchant_id IS NOT NULL
+		GROUP BY o.id, o.merchant_id, o.platform_fee_idr`, orderID)
+
+	var d domain.FoodOrderSettlementData
+	err := row.Scan(&d.OrderID, &d.MerchantID, &d.PlatformFeeIDR, &d.GrossItemIDR)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("GetFoodOrderForSettlement failed: %w", err)
+	}
+	if d.MerchantID == "" {
+		return nil, nil
+	}
+	return &d, nil
 }
 
 func (r *merchantSettlementRepository) GetPaymentLinkByOrderID(ctx context.Context, orderID string) (*domain.PaymentLink, error) {
