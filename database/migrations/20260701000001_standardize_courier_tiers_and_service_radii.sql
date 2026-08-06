@@ -25,6 +25,9 @@ ON CONFLICT (tier_code) DO UPDATE SET
   updated_at = NOW();
 
 -- 3. Update existing courier profiles to use new standardized tiers
+-- IMPORTANT: drop old CHECK constraint FIRST (only allows regular/mitra/elite)
+-- otherwise UPDATE to standart/gold/god_mode violates the constraint.
+ALTER TABLE courier_profiles DROP CONSTRAINT IF EXISTS courier_profiles_tier_check;
 UPDATE courier_profiles
 SET tier = CASE
   WHEN tier IN ('starter', 'regular') THEN 'standart'
@@ -36,6 +39,10 @@ WHERE tier IS NOT NULL;
 
 -- Set default value for tier column
 ALTER TABLE courier_profiles ALTER COLUMN tier SET DEFAULT 'standart';
+-- Re-add CHECK with new standardized tier values
+ALTER TABLE courier_profiles
+  ADD CONSTRAINT courier_profiles_tier_check
+  CHECK (tier IN ('standart','silver','gold','god_mode'));
 
 -- +goose Down
 ALTER TABLE courier_profiles ALTER COLUMN tier SET DEFAULT 'regular';
