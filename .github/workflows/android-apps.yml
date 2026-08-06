@@ -6,6 +6,7 @@ on:
     paths:
       - 'android-app/**'
       - 'android-app-customer/**'
+      - 'android-app-merchant/**'
       - 'scripts/mobile/**'
       - '.github/workflows/android-apps.yml'
     branches: [ staging, production ]
@@ -13,6 +14,7 @@ on:
     paths:
       - 'android-app/**'
       - 'android-app-customer/**'
+      - 'android-app-merchant/**'
       - 'scripts/mobile/**'
       - '.github/workflows/android-apps.yml'
     branches: [ staging ]
@@ -39,10 +41,23 @@ jobs:
             app_slug: "courier"
             asset_prefix: "tembus-courier"
             working_dir: "android-app"
+            needs_firebase: "true"
+            needs_maps: "true"
+            signing_required: "true"
           - app_name: "Customer-App"
             app_slug: "customer"
             asset_prefix: "tembus-customer"
             working_dir: "android-app-customer"
+            needs_firebase: "true"
+            needs_maps: "true"
+            signing_required: "true"
+          - app_name: "Merchant-App"
+            app_slug: "merchant"
+            asset_prefix: "tembus-merchant"
+            working_dir: "android-app-merchant"
+            needs_firebase: "false"
+            needs_maps: "false"
+            signing_required: "false"
 
     
     steps:
@@ -56,7 +71,7 @@ jobs:
           if grep -RInE 'google_maps|GOOGLE_MAPS|maps\.googleapis\.com|routes\.googleapis\.com|GoogleMapCanvas|play-services-maps|com\.google\.maps\.android|com\.google\.android\.gms\.maps|google\.navigation' \
             --exclude-dir=build \
             --exclude-dir=.gradle \
-            android-app android-app-customer scripts/mobile; then
+            android-app android-app-customer android-app-merchant scripts/mobile; then
             echo "Google Maps runtime or SDK residue detected. Firebase google-services and Play Services Location are allowed; Google Maps is not." >&2
             exit 1
           fi
@@ -73,6 +88,7 @@ jobs:
         working-directory: ./${{ matrix.working_dir }}
 
       - name: Prepare Firebase config
+        if: matrix.needs_firebase == 'true'
         shell: bash
         env:
           WORKING_DIR: ${{ matrix.working_dir }}
@@ -130,16 +146,28 @@ jobs:
 
           configs = {
               "android-app": {
+                  "label": "courier",
+                  "required": True,
                   "keystore": "COURIER_RELEASE_KEYSTORE_BASE64",
                   "store_password": "COURIER_RELEASE_KEYSTORE_PASSWORD",
                   "alias": "COURIER_RELEASE_KEY_ALIAS",
                   "key_password": "COURIER_RELEASE_KEY_PASSWORD",
               },
               "android-app-customer": {
+                  "label": "customer",
+                  "required": True,
                   "keystore": "CUSTOMER_RELEASE_KEYSTORE_BASE64",
                   "store_password": "CUSTOMER_RELEASE_KEYSTORE_PASSWORD",
                   "alias": "CUSTOMER_RELEASE_KEY_ALIAS",
                   "key_password": "CUSTOMER_RELEASE_KEY_PASSWORD",
+              },
+              "android-app-merchant": {
+                  "label": "merchant",
+                  "required": False,
+                  "keystore": "MERCHANT_RELEASE_KEYSTORE_BASE64",
+                  "store_password": "MERCHANT_RELEASE_KEYSTORE_PASSWORD",
+                  "alias": "MERCHANT_RELEASE_KEY_ALIAS",
+                  "key_password": "MERCHANT_RELEASE_KEY_PASSWORD",
               },
           }
 
@@ -149,10 +177,26 @@ jobs:
               sys.exit(1)
 
           config = configs[working_dir]
-          missing = [name for name in config.values() if not os.environ.get(name, "").strip()]
+          secret_names = [
+              config["keystore"],
+              config["store_password"],
+              config["alias"],
+              config["key_password"],
+          ]
+          missing = [name for name in secret_names if not os.environ.get(name, "").strip()]
           if missing:
-              print(f"Missing release signing secret(s): {', '.join(missing)}", file=sys.stderr)
-              sys.exit(1)
+              if config["required"]:
+                  print(f"Missing release signing secret(s): {', '.join(missing)}", file=sys.stderr)
+                  sys.exit(1)
+              # Optional signing (merchant): warn and continue unsigned.
+              print(
+                  f"::warning::Missing {config['label']} release signing secret(s): "
+                  f"{', '.join(missing)}. Signed release artifacts will be skipped until secrets are set."
+              )
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as github_output:
+                  github_output.write("has_secrets=false\n")
+                  github_output.write("release_artifacts_enabled=false\n")
+              sys.exit(0)
 
           encoded_keystore = "".join(os.environ[config["keystore"]].split())
           try:
@@ -177,6 +221,10 @@ jobs:
               + "\n",
               encoding="utf-8",
           )
+
+          if not config["required"]:
+              with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as github_output:
+                  github_output.write("release_artifacts_enabled=true\n")
           PY
 
           if [[ "$(cat $GITHUB_OUTPUT | grep 'has_secrets=false')" != "" ]]; then
@@ -203,12 +251,27 @@ jobs:
               echo "RELEASE_KEY_ALIAS=${KEY_ALIAS}"
               echo "RELEASE_KEY_PASSWORD=${KEY_PASSWORD}"
             } >> "$GITHUB_ENV"
-          else
+          elif [[ "${{ matrix.working_dir }}" == "android-app-customer" ]]; then
             keytool -list \
               -keystore "${key_path}" \
               -storepass "${STORE_PASSWORD}" \
               -alias "${KEY_ALIAS}" >/dev/null || {
                 echo "Invalid customer release signing secrets. Recheck CUSTOMER_RELEASE_KEYSTORE_BASE64, CUSTOMER_RELEASE_KEYSTORE_PASSWORD, and CUSTOMER_RELEASE_KEY_ALIAS." >&2
+                exit 1
+              }
+
+            {
+              echo "RELEASE_KEYSTORE_PATH=${key_path}"
+              echo "RELEASE_KEYSTORE_PASSWORD=${STORE_PASSWORD}"
+              echo "RELEASE_KEY_ALIAS=${KEY_ALIAS}"
+              echo "RELEASE_KEY_PASSWORD=${KEY_PASSWORD}"
+            } >> "$GITHUB_ENV"
+          else
+            keytool -list \
+              -keystore "${key_path}" \
+              -storepass "${STORE_PASSWORD}" \
+              -alias "${KEY_ALIAS}" >/dev/null || {
+                echo "Invalid merchant release signing secrets. Recheck MERCHANT_RELEASE_KEYSTORE_BASE64, MERCHANT_RELEASE_KEYSTORE_PASSWORD, and MERCHANT_RELEASE_KEY_ALIAS." >&2
                 exit 1
               }
 
@@ -256,7 +319,7 @@ jobs:
 
       - name: Prepare Android Maps key
         id: android_maps_key
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && matrix.needs_maps == 'true'
         shell: bash
         env:
           WORKING_DIR: ${{ matrix.working_dir }}
@@ -373,8 +436,18 @@ jobs:
           retention-days: 1
           compression-level: 9
 
+      - name: Upload Merchant debug APK (unsigned until secrets set)
+        if: github.event_name != 'pull_request' && matrix.app_slug == 'merchant' && steps.prepare_signing.outputs.release_artifacts_enabled == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tembus-merchant-android-${{ github.run_number }}-debug
+          path: ./android-app-merchant/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 9
+
       - name: Build Signed Release APK
-        if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
+        if: github.event_name != 'pull_request' && (steps.android_maps_key.outputs.release_artifacts_enabled == 'true' || steps.prepare_signing.outputs.release_artifacts_enabled == 'true')
         run: |
           ./gradlew assembleRelease \
             -PversionCode=${{ github.run_number }} \
@@ -382,7 +455,7 @@ jobs:
         working-directory: ./${{ matrix.working_dir }}
 
       - name: Build Signed Release AAB
-        if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
+        if: github.event_name != 'pull_request' && (steps.android_maps_key.outputs.release_artifacts_enabled == 'true' || steps.prepare_signing.outputs.release_artifacts_enabled == 'true')
         run: |
           ./gradlew bundleRelease \
             -PversionCode=${{ github.run_number }} \
@@ -390,7 +463,7 @@ jobs:
         working-directory: ./${{ matrix.working_dir }}
 
       - name: Verify Release AAB
-        if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
+        if: github.event_name != 'pull_request' && (steps.android_maps_key.outputs.release_artifacts_enabled == 'true' || steps.prepare_signing.outputs.release_artifacts_enabled == 'true')
         run: |
           python scripts/mobile/verify_release_aab.py \
             --working-dir "${{ matrix.working_dir }}" \
@@ -398,7 +471,7 @@ jobs:
             --min-size-mb 1
 
       - name: Prepare named release assets
-        if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
+        if: github.event_name != 'pull_request' && (steps.android_maps_key.outputs.release_artifacts_enabled == 'true' || steps.prepare_signing.outputs.release_artifacts_enabled == 'true')
         shell: bash
         run: |
           set -euo pipefail
@@ -437,7 +510,7 @@ jobs:
           ls -lh "${asset_dir}"
 
       - name: Upload named release assets
-        if: github.event_name != 'pull_request' && steps.android_maps_key.outputs.release_artifacts_enabled == 'true'
+        if: github.event_name != 'pull_request' && (steps.android_maps_key.outputs.release_artifacts_enabled == 'true' || steps.prepare_signing.outputs.release_artifacts_enabled == 'true')
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset_prefix }}-android-${{ github.run_number }}
@@ -480,12 +553,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v1.0.${{ github.run_number }}"
-          name: "Release v1.0.${{ github.run_number }} (Courier & Customer)"
+          name: "Release v1.0.${{ github.run_number }} (Courier, Customer & Merchant)"
           files: release-assets/*
           draft: false
           prerelease: true
           body: |
-            Automated Staging Build for Courier and Customer
+            Automated Staging Build for Courier, Customer and Merchant
             - Build Number: ${{ github.run_number }}
             - Branch: ${{ github.ref_name }}
             - Commit: ${{ github.sha }}
