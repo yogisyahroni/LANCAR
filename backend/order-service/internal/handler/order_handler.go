@@ -781,6 +781,16 @@ func (h *OrderHandler) ScanPackage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fix VULN-001: Scan Auth Bypass — hanya petugas (admin/courier/warehouse)
+	// yang boleh mencatat scan; customer tidak boleh inject scan history
+	// atau memaksa state transition order milik orang lain.
+	role := middleware.GetRoleFromContext(r.Context())
+	if role != "admin" && role != "super_admin" && role != "courier" && role != "warehouse" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Hanya petugas yang dapat melakukan scan paket", correlationID)
+		return
+	}
+
 	var req ScanRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		correlationID := middleware.GetCorrelationID(r.Context())
@@ -1011,6 +1021,20 @@ type AutoDetectRequest struct {
 func (h *OrderHandler) AutoDetectScanType(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Fix VULN-001: AutoDetect — hanya petugas yang boleh auto-detect scan type
+	scannedBy := middleware.GetUserIDFromContext(r.Context())
+	role := middleware.GetRoleFromContext(r.Context())
+	if scannedBy == "" || role == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", correlationID)
+		return
+	}
+	if role != "admin" && role != "super_admin" && role != "courier" && role != "warehouse" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Hanya petugas yang dapat melakukan auto-detect scan", correlationID)
 		return
 	}
 
