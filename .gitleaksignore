@@ -26,3 +26,5 @@ da2ef4eb81a5fd1f7d038cf0a3f5f7720c5af88c:frontend/src/app/(portal)/profil/page.t
 58bbac03cb1bcec9b3383a3ccf8e0356326efb7f:database/migrations/20240505000027_add_security_configs.sql:generic-api-key:8
 98c4884611855e86947cd475b2162729d7803606:.agent/skills/code-documentation-doc-generate/SKILL.md:curl-auth-header:536
 98c4884611855e86947cd475b2162729d7803606:.agent/skills/documentation-generation-doc-generate/SKILL.md:curl-auth-header:536
+da3252f173395edc88f25060835d59f2b7cb9037:admin-dashboard/src/pages/Settings.tsx:generic-api-key:***
+d8da6b33d829d0aa6e3ae63b23096835e65ef3fb:admin-dashboard/src/pages/CourierPerformance.tsx:generic-api-key:***
