@@ -131,6 +131,7 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/orders", middleware.BaseChain(h.ListOrders))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/accept", middleware.BaseChain(h.AcceptOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/reject", middleware.BaseChain(h.RejectOrder))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}/struk", middleware.BaseChain(h.GetStruk))
 
 	// Health Check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

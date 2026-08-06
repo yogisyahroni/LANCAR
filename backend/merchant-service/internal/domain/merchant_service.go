@@ -52,4 +52,6 @@ type MerchantService interface {
 	RejectOrder(ctx context.Context, userID string, orderID string, reason string) error
 	// ListOrders list order food milik merchant (belum dikerjakan / riwayat).
 	ListOrders(ctx context.Context, userID string, status string, page, pageSize int) ([]*MerchantOrderView, int, error)
+	// GetStruk ambil data struk pembelian + QR code untuk dicetak (FOOD-BIKE-034).
+	GetStruk(ctx context.Context, userID string, orderID string) (*StrukData, error)
 }

@@ -340,6 +340,37 @@ func (h *MerchantHandler) RejectOrder(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
+// GetStruk godoc
+// @Summary Struk pembelian order food
+// @Description Ambil data struk pembelian + QR code (berisi handover token) untuk dicetak merchant. Hanya order milik merchant yang approved.
+// @Tags merchant
+// @Produce json
+// @Param id path string true "Order ID"
+// @Success 200 {object} domain.StrukData
+// @Failure 400 {object} map[string]string
+// @Router /merchant/orders/{id}/struk [get]
+func (h *MerchantHandler) GetStruk(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	orderID := r.PathValue("id")
+	if orderID == "" {
+		h.respondError(w, http.StatusBadRequest, "order id wajib diisi")
+		return
+	}
+	struk, err := h.svc.GetStruk(r.Context(), userID, orderID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, struk)
+}
+
 // ListOrders godoc
 // @Summary List order food merchant
 // @Tags merchant

@@ -14,4 +14,6 @@ type MerchantOrderRepository interface {
 	ListByMerchant(ctx context.Context, merchantID, status string, limit, offset int) ([]*MerchantOrderView, error)
 	// CountByMerchant total order merchant untuk filter status.
 	CountByMerchant(ctx context.Context, merchantID, status string) (int, error)
+	// GetOrderForStruk ambil order food milik merchant + items untuk struk (FOOD-BIKE-034).
+	GetOrderForStruk(ctx context.Context, merchantID, orderID string) (*StrukData, error)
 }

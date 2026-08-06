@@ -159,3 +159,67 @@ func (r *postgresMerchantOrderRepository) CountByMerchant(ctx context.Context, m
 		  AND ($2 = '' OR status = $2)`, merchantID, status).Scan(&n)
 	return n, err
 }
+
+// GetOrderForStruk — ambil order food milik merchant + items untuk struk
+// (FOOD-BIKE-034). Merupakan satu-satunya path yang meng-ekspos
+// handover_token ke merchant — dipakai untuk generate QR struk.
+func (r *postgresMerchantOrderRepository) GetOrderForStruk(ctx context.Context, merchantID, orderID string) (*domain.StrukData, error) {
+	var s domain.StrukData
+	var createdAt string
+	err := r.readDB.QueryRowContext(ctx, `
+		SELECT o.id, o.order_number, o.status, COALESCE(o.handover_token, ''),
+		       COALESCE(o.total_price_idr, 0),
+		       COALESCE(o.dropoff_address, ''),
+		       COALESCE(c.full_name, ''),
+		       COALESCE(to_char(o.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
+		       COALESCE(m.nama_toko, ''),
+		       COALESCE(m.alamat, '')
+		FROM orders o
+		JOIN merchants m ON m.id = o.merchant_id
+		LEFT JOIN users c ON c.id = o.customer_id
+		WHERE o.id = $1 AND o.merchant_id = $2
+		  AND o.service_sub_type = 'food_delivery'`, orderID, merchantID,
+	).Scan(
+		&s.OrderID, &s.OrderNumber, &s.Status, &s.HandoverToken,
+		&s.TotalPriceIDR, &s.DropoffAddress, &s.CustomerName,
+		&createdAt, &s.MerchantName, &s.MerchantAddress,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("order tidak ditemukan atau bukan milik merchant")
+		}
+		return nil, fmt.Errorf("get order for struk: %w", err)
+	}
+	s.CreatedAt = createdAt
+	s.Items = []domain.FoodOrderItemView{}
+
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT item_name, quantity, item_price, subtotal, COALESCE(notes, '')
+		FROM food_order_items
+		WHERE order_id = $1
+		ORDER BY created_at`, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("get struk items: %w", err)
+	}
+	defer rows.Close()
+
+	var subtotalIDR int64
+	for rows.Next() {
+		var it domain.FoodOrderItemView
+		if err := rows.Scan(&it.ItemName, &it.Quantity, &it.ItemPrice, &it.Subtotal, &it.Notes); err != nil {
+			return nil, err
+		}
+		subtotalIDR += it.Subtotal
+		s.Items = append(s.Items, it)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	s.SubtotalIDR = subtotalIDR
+	s.DeliveryFeeIDR = s.TotalPriceIDR - subtotalIDR
+	if s.DeliveryFeeIDR < 0 {
+		s.DeliveryFeeIDR = 0
+	}
+	return &s, nil
+}
