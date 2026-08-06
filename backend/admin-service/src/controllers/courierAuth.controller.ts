@@ -3824,6 +3824,7 @@ const verifyOnDemandStep = async ({
          COALESCE(dsp.proof_gps_override_policy, '{}'::jsonb) AS proof_gps_override_policy,
          COALESCE(dsp.face_verification_required, TRUE) AS face_verification_required,
          COALESCE(dsp.pod_label, 'POD') AS pod_label,
+         o.handover_token,
          ST_Distance(
            CASE WHEN $2 = 'pickup' THEN o.pickup_location ELSE o.dropoff_location END,
            ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography
@@ -4052,6 +4053,32 @@ const verifyOnDemandStep = async ({
       return;
     }
     const packageId = packageRes.rows[0]?.id || null;
+
+    // FOOD-BIKE-032: validasi barcode terhadap handover token order.
+    // Sebelumnya barcode hanya disimpan untuk audit tanpa dicocokkan —
+    // celah keamanan (barcode/QR asal bisa dipakai bukti pickup palsu).
+    // Sekarang: untuk order tanpa order_packages (single proof flow),
+    // barcode yang di-scan WAJIB cocok dengan order.handover_token.
+    // Backward compatible: token kosong (order lama) → skip validasi.
+    const normalizedBarcode = String(barcodeValue || '').trim();
+    const orderHandoverToken = String(order.handover_token || '').trim();
+    if (
+      step === 'pickup' &&
+      totalPackages === 0 &&
+      normalizedBarcode &&
+      orderHandoverToken &&
+      normalizedBarcode !== orderHandoverToken
+    ) {
+      await client.query('ROLLBACK');
+      await writeRejectedProofAttempt('barcode_mismatch', distanceM);
+      res.status(422).json({
+        success: false,
+        data: null,
+        message: 'Kode barcode tidak cocok dengan token handover order ini. Periksa kembali kode pada paket/struk.',
+        code: 'ERR_BARCODE_MISMATCH',
+      });
+      return;
+    }
 
     const scanType = step === 'pickup'
       ? (photoUrl ? 'pickup_photo' : 'pickup_scan')
