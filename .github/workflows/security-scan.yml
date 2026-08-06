@@ -230,11 +230,12 @@ jobs:
       # -------------------------------------------------------
       - name: Run Snyk to check for vulnerabilities
         # Snyk butuh token — skip kalau secret belum dikonfigurasi.
+        # secrets context tidak tersedia di step if, jadi guard lewat env.
         # SCA utama tetap berjalan via Trivy + npm audit + pip-audit.
-        if: ${{ secrets.SNYK_TOKEN != '' }}
-        uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        if: ${{ env.SNYK_TOKEN != '' }}
+        uses: snyk/actions/node@master
         with:
           args: >
             --severity-threshold=${{ env.SNYK_SEVERITY }}
