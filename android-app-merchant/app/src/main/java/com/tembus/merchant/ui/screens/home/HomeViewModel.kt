@@ -1,0 +1,171 @@
+package com.tembus.merchant.ui.screens.home
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.tembus.merchant.data.model.Merchant
+import com.tembus.merchant.data.model.MerchantOrder
+import com.tembus.merchant.data.repository.MerchantRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+enum class OrderFilter(val label: String, val status: String?) {
+    ALL("Semua", null),
+    NEW("Baru", "pending_merchant"),
+    ACTIVE("Aktif", null), // prepared special: preparing|searching|accepted|picking_up|picked_up|delivering
+    DONE("Selesai", "delivered"),
+    REJECTED("Ditolak", "cancelled_by_merchant")
+}
+
+data class HomeUiState(
+    val merchant: Merchant? = null,
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+    val orders: List<MerchantOrder> = emptyList(),
+    val selectedFilter: OrderFilter = OrderFilter.NEW,
+    val isToggleOpenLoading: Boolean = false,
+    val actionOrderId: String? = null,
+    val actionError: String? = null,
+    val needsRegistration: Boolean = false
+)
+
+class HomeViewModel(
+    private val merchantRepository: MerchantRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    init {
+        load()
+    }
+
+    fun load() {
+        _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        viewModelScope.launch {
+            merchantRepository.getProfile()
+                .onSuccess { profile ->
+                    _uiState.value = _uiState.value.copy(
+                        merchant = profile,
+                        needsRegistration = false,
+                        isLoading = false
+                    )
+                    loadOrders()
+                }
+                .onFailure { e ->
+                    if (e.message?.contains("belum terdaftar") == true || e.message?.contains("404") == true) {
+                        _uiState.value = _uiState.value.copy(
+                            needsRegistration = true,
+                            isLoading = false
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(
+                            errorMessage = e.message ?: "Gagal memuat profil",
+                            isLoading = false
+                        )
+                    }
+                }
+        }
+    }
+
+    fun selectFilter(filter: OrderFilter) {
+        _uiState.value = _uiState.value.copy(selectedFilter = filter)
+        loadOrders(filter)
+    }
+
+    private fun loadOrders(filter: OrderFilter = _uiState.value.selectedFilter) {
+        val status = when (filter) {
+            OrderFilter.NEW -> "pending_merchant"
+            OrderFilter.ALL -> null
+            OrderFilter.DONE -> "delivered"
+            OrderFilter.REJECTED -> "cancelled_by_merchant"
+            OrderFilter.ACTIVE -> null // filter manual di sisi client untuk status aktif
+        }
+        viewModelScope.launch {
+            merchantRepository.listOrders(status = status, pageSize = 50)
+                .onSuccess { orders ->
+                    val filtered = if (filter == OrderFilter.ACTIVE) {
+                        orders.filter { it.status in activeStatuses }
+                    } else {
+                        orders
+                    }
+                    _uiState.value = _uiState.value.copy(orders = filtered, isLoading = false)
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        errorMessage = e.message ?: "Gagal memuat order",
+                        isLoading = false
+                    )
+                }
+        }
+    }
+
+    fun toggleOpen() {
+        val current = _uiState.value.merchant?.isOpen ?: return
+        _uiState.value = _uiState.value.copy(isToggleOpenLoading = true)
+        viewModelScope.launch {
+            merchantRepository.toggleOpen(!current)
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        merchant = updated,
+                        isToggleOpenLoading = false
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isToggleOpenLoading = false,
+                        actionError = e.message ?: "Gagal ubah status toko"
+                    )
+                }
+        }
+    }
+
+    fun acceptOrder(orderId: String) {
+        _uiState.value = _uiState.value.copy(actionOrderId = orderId, actionError = null)
+        viewModelScope.launch {
+            merchantRepository.acceptOrder(orderId)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(actionOrderId = null)
+                    loadOrders()
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        actionOrderId = null,
+                        actionError = e.message ?: "Gagal terima order"
+                    )
+                }
+        }
+    }
+
+    fun rejectOrder(orderId: String, reason: String) {
+        _uiState.value = _uiState.value.copy(actionOrderId = orderId, actionError = null)
+        viewModelScope.launch {
+            merchantRepository.rejectOrder(orderId, reason)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(actionOrderId = null)
+                    loadOrders()
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        actionOrderId = null,
+                        actionError = e.message ?: "Gagal tolak order"
+                    )
+                }
+        }
+    }
+
+    fun clearActionError() {
+        _uiState.value = _uiState.value.copy(actionError = null)
+    }
+
+    fun clearError() {
+        _uiState.value = _uiState.value.copy(errorMessage = null)
+    }
+
+    companion object {
+        val activeStatuses = setOf(
+            "preparing", "searching", "accepted", "picking_up", "picked_up", "delivering"
+        )
+    }
+}

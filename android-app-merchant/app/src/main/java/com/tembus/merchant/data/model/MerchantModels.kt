@@ -1,0 +1,136 @@
+package com.tembus.merchant.data.model
+
+import com.google.gson.annotations.SerializedName
+
+/** Merchant profile — GET /api/v1/merchant/profile (response langsung Merchant, tanpa wrapper). */
+data class Merchant(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("user_id") val userId: String = "",
+    @SerializedName("nama_toko") val namaToko: String = "",
+    @SerializedName("alamat") val alamat: String = "",
+    @SerializedName("lokasi_lat") val lokasiLat: Double? = null,
+    @SerializedName("lokasi_lng") val lokasiLng: Double? = null,
+    @SerializedName("jam_buka") val jamBuka: String? = null,
+    @SerializedName("jam_tutup") val jamTutup: String? = null,
+    @SerializedName("is_open") val isOpen: Boolean = false,
+    @SerializedName("completion_rate_pct") val completionRatePct: Double = 0.0,
+    @SerializedName("verification_status") val verificationStatus: String = "pending",
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("updated_at") val updatedAt: String? = null
+) {
+    val isApproved: Boolean get() = verificationStatus == "approved"
+    val isRejected: Boolean get() = verificationStatus == "rejected"
+}
+
+/** Menu item — CRUD /api/v1/merchant/menu. */
+data class MenuItem(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("merchant_id") val merchantId: String = "",
+    @SerializedName("nama") val nama: String = "",
+    @SerializedName("harga") val harga: Long = 0,
+    @SerializedName("foto") val foto: String? = null,
+    @SerializedName("kategori") val kategori: String = "",
+    @SerializedName("prep_time_minutes") val prepTimeMinutes: Int = 15,
+    @SerializedName("is_available") val isAvailable: Boolean = true,
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("updated_at") val updatedAt: String? = null
+)
+
+/** Request buat/update menu item. */
+data class MenuItemRequest(
+    @SerializedName("nama") val nama: String,
+    @SerializedName("harga") val harga: Long,
+    @SerializedName("foto") val foto: String? = null,
+    @SerializedName("kategori") val kategori: String,
+    @SerializedName("prep_time_minutes") val prepTimeMinutes: Int,
+    @SerializedName("is_available") val isAvailable: Boolean? = null
+)
+
+data class AvailabilityRequest(
+    @SerializedName("is_available") val isAvailable: Boolean
+)
+
+data class ToggleOpenRequest(
+    @SerializedName("is_open") val isOpen: Boolean
+)
+
+/** Reject order food — reason wajib (FOOD-BIKE-017/021). */
+data class RejectOrderRequest(
+    @SerializedName("reason") val reason: String
+)
+
+/** List wrapper: {orders, total, page, page_size}. */
+data class OrderListResponse(
+    @SerializedName("orders") val orders: List<MerchantOrder> = emptyList(),
+    @SerializedName("total") val total: Int = 0,
+    @SerializedName("page") val page: Int = 1,
+    @SerializedName("page_size") val pageSize: Int = 20
+)
+
+/** Order food untuk merchant (MerchantOrderView backend). */
+data class MerchantOrder(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("order_number") val orderNumber: String = "",
+    @SerializedName("status") val status: String = "",
+    @SerializedName("customer_name") val customerName: String? = null,
+    @SerializedName("customer_phone") val customerPhone: String? = null,
+    @SerializedName("dropoff_address") val dropoffAddress: String? = null,
+    @SerializedName("total_price_idr") val totalPriceIdr: Long = 0,
+    @SerializedName("distance_km") val distanceKm: Double = 0.0,
+    @SerializedName("merchant_accepted_at") val merchantAcceptedAt: String? = null,
+    @SerializedName("food_ready_at") val foodReadyAt: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("items") val items: List<FoodOrderItem> = emptyList()
+)
+
+data class FoodOrderItem(
+    @SerializedName("item_name") val itemName: String = "",
+    @SerializedName("quantity") val quantity: Int = 1,
+    @SerializedName("item_price") val itemPrice: Long = 0,
+    @SerializedName("subtotal") val subtotal: Long = 0,
+    @SerializedName("notes") val notes: String? = null
+)
+
+/** List wrapper menu: {items, total, page, page_size}. */
+data class MenuListResponse(
+    @SerializedName("items") val items: List<MenuItem> = emptyList(),
+    @SerializedName("total") val total: Int = 0,
+    @SerializedName("page") val page: Int = 1,
+    @SerializedName("page_size") val pageSize: Int = 20
+)
+
+/** Struk pembelian — GET /api/v1/merchant/orders/{id}/struk. */
+data class StrukData(
+    @SerializedName("order_id") val orderId: String = "",
+    @SerializedName("order_number") val orderNumber: String = "",
+    @SerializedName("status") val status: String = "",
+    @SerializedName("merchant_name") val merchantName: String = "",
+    @SerializedName("merchant_address") val merchantAddress: String? = null,
+    @SerializedName("customer_name") val customerName: String? = null,
+    @SerializedName("dropoff_address") val dropoffAddress: String? = null,
+    @SerializedName("handover_token") val handoverToken: String = "",
+    @SerializedName("qr_code_data_uri") val qrCodeDataUri: String = "",
+    @SerializedName("subtotal_idr") val subtotalIdr: Long = 0,
+    @SerializedName("delivery_fee_idr") val deliveryFeeIdr: Long = 0,
+    @SerializedName("total_price_idr") val totalPriceIdr: Long = 0,
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("items") val items: List<FoodOrderItem> = emptyList()
+)
+
+data class SuccessResponse(
+    @SerializedName("success") val success: Boolean = false
+)
+
+/** Pendaftaran merchant — POST /api/v1/merchant/register. */
+data class RegisterMerchantRequest(
+    @SerializedName("nama_toko") val namaToko: String,
+    @SerializedName("alamat") val alamat: String,
+    @SerializedName("lokasi_lat") val lokasiLat: Double? = null,
+    @SerializedName("lokasi_lng") val lokasiLng: Double? = null,
+    @SerializedName("jam_buka") val jamBuka: String? = null,
+    @SerializedName("jam_tutup") val jamTutup: String? = null,
+    @SerializedName("ktp_pemilik_url") val ktpPemilikUrl: String,
+    @SerializedName("foto_tempat_usaha_url") val fotoTempatUsahaUrl: String,
+    @SerializedName("rekening_bank_url") val rekeningBankUrl: String,
+    @SerializedName("nib_url") val nibUrl: String? = null
+)
