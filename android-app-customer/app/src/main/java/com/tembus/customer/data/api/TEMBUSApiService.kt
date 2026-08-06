@@ -142,7 +142,17 @@ interface TEMBUSApiService {
     suspend fun submitCourierRating(
         @Path("id") id: String,
         @Body request: SubmitRatingRequest
-    ): Response<ApiResponse<Unit>>
+    ): Response<RatingSubmitResponse>
+
+    /**
+     * Submit rating (1-5 bintang) untuk merchant (makanan) — FOOD-BIKE-060.
+     * Terpisah dari rating driver. Backend memvalidasi ownership via JWT.
+     */
+    @POST("api/v1/customer/orders/{id}/merchant-rating")
+    suspend fun submitMerchantRating(
+        @Path("id") id: String,
+        @Body request: SubmitRatingRequest
+    ): Response<RatingSubmitResponse>
 
     /**
      * Ambil list order yang menunggu rating dari customer yang sedang login.
@@ -347,6 +357,27 @@ interface TEMBUSApiService {
     
     @POST("api/v1/order/{orderId}/settlement")
     suspend fun calculateSettlement(@Path("orderId") orderId: String, @Body request: Map<String, Any>): Response<SettlementResult>
+
+    // ============================================================
+    // FOOD DELIVERY — Browse merchant, detail, cart, checkout (FOOD-BIKE-055/056/057/075)
+    // ============================================================
+
+    @GET("api/v1/food/merchants")
+    suspend fun listFoodMerchants(
+        @Query("lat") lat: Double,
+        @Query("lng") lng: Double,
+        @Query("search") search: String? = null
+    ): Response<FoodMerchantListResponse>
+
+    @GET("api/v1/food/merchants/{id}")
+    suspend fun getFoodMerchantDetail(
+        @Path("id") id: String
+    ): Response<FoodMerchantDetailResponse>
+
+    @POST("api/v1/orders/food")
+    suspend fun createFoodOrder(
+        @Body request: CreateFoodOrderRequest
+    ): Response<FoodOrderCreateResponse>
 }
 
 

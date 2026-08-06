@@ -699,6 +699,154 @@ func (s *walletService) CreditSosHelperReward(ctx context.Context, helperID uuid
 	return err
 }
 
+// DeductFromHold memotong AvailableBalance dan mem-freeze ke hold_balance
+// (jaminan anti-ghosting). Gagal jika saldo bebas < amount (FOOD-BIKE-024).
+// Idempotent via reference_id: panggilan ulang dengan reference yang sama
+// tidak akan men-deduct dua kali.
+func (s *walletService) DeductFromHold(ctx context.Context, driverID uuid.UUID, amount int64, referenceID string) error {
+	if amount <= 0 {
+		return errors.New("hold deduction amount must be greater than zero")
+	}
+
+	if referenceID != "" {
+		alreadyProcessed, err := s.repo.GetTransactionByReferenceID(ctx, referenceID)
+		if err == nil && alreadyProcessed != nil {
+			slog.Info("hold_deduct_idempotent_skip", "reference_id", referenceID)
+			return nil
+		}
+	}
+
+	err := s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		wallet, err := s.GetBalance(txCtx, driverID)
+		if err != nil {
+			return err
+		}
+
+		// Jangan pernah menahan saldo yang sudah di-hold atau melebihi saldo bebas.
+		available := wallet.AvailableBalance()
+		if available < amount {
+			return fmt.Errorf("saldo bebas tidak cukup untuk hold: butuh %d, tersedia %d (hold %d)", amount, available, wallet.HoldBalance)
+		}
+
+		// Balance turun, hold naik — transisi atomik dalam satu transaksi.
+		if err = s.repo.UpdateBalance(txCtx, wallet.ID, -amount, wallet.Version); err != nil {
+			return err
+		}
+		// UpdateBalance sudah menaikkan version; ambil ulang untuk hold update.
+		wallet2, err := s.repo.GetByID(txCtx, wallet.ID)
+		if err != nil {
+			return err
+		}
+		if err = s.repo.UpdateHold(txCtx, wallet.ID, amount, wallet2.Version); err != nil {
+			return err
+		}
+
+		walletTx := &domain.WalletTransaction{
+			WalletID:    wallet.ID,
+			Type:        domain.TypeAdjustment,
+			Amount:      amount,
+			Fee:         0,
+			Status:      domain.StatusCompleted,
+			ReferenceID: referenceID,
+			Metadata:    map[string]any{"source": "hold_deposit", "direction": "freeze"},
+		}
+		if err = s.repo.CreateTransaction(txCtx, walletTx); err != nil {
+			return err
+		}
+
+		journal := &domain.LedgerJournal{
+			JournalType:    "hold_deposit",
+			ReferenceType:  "hold_transaction",
+			ReferenceID:    referenceID,
+			IdempotencyKey: fmt.Sprintf("LEDGER-HOLD-%s", referenceID),
+			Reason:         "Driver anti-ghosting hold deposit",
+			CreatedBy:      "system",
+			ActorRole:      "system",
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: "courier_payable", DebitIDR: amount, CreditIDR: 0},
+			{AccountName: "courier_hold_reserve", DebitIDR: 0, CreditIDR: amount},
+		}
+		if err = s.ledgerRepo.CreateJournalWithEntries(txCtx, journal, entries); err != nil {
+			return fmt.Errorf("failed to write ledger for hold deposit: %w", err)
+		}
+
+		return nil
+	})
+
+	return err
+}
+
+// AutoRefillHold menggeser saldo bebas ke hold sampai memenuhi
+// hold_minimum_required — self-funding dari revenue driver (FOOD-BIKE-024).
+// Tidak pernah menyentuh hold yang sudah ada; hanya menambah dari surplus.
+func (s *walletService) AutoRefillHold(ctx context.Context, driverID uuid.UUID) error {
+	return s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		wallet, err := s.GetBalance(txCtx, driverID)
+		if err != nil {
+			return err
+		}
+
+		shortfall := wallet.HoldShortfall()
+		if shortfall <= 0 {
+			return nil // hold sudah terpenuhi
+		}
+
+		available := wallet.AvailableBalance()
+		if available <= 0 {
+			return nil // tidak ada surplus untuk digeser — tunggu revenue berikutnya
+		}
+
+		// Geser min(shortfall, available) dari balance ke hold.
+		moveAmount := shortfall
+		if available < moveAmount {
+			moveAmount = available
+		}
+
+		if err = s.repo.UpdateBalance(txCtx, wallet.ID, -moveAmount, wallet.Version); err != nil {
+			return err
+		}
+		wallet2, err := s.repo.GetByID(txCtx, wallet.ID)
+		if err != nil {
+			return err
+		}
+		if err = s.repo.UpdateHold(txCtx, wallet.ID, moveAmount, wallet2.Version); err != nil {
+			return err
+		}
+
+		referenceID := fmt.Sprintf("HOLD-REFILL-%s-%d", driverID.String(), time.Now().UnixMilli())
+		walletTx := &domain.WalletTransaction{
+			WalletID:    wallet.ID,
+			Type:        domain.TypeAdjustment,
+			Amount:      moveAmount,
+			Fee:         0,
+			Status:      domain.StatusCompleted,
+			ReferenceID: referenceID,
+			Metadata:    map[string]any{"source": "hold_autorefill", "direction": "freeze"},
+		}
+		if err = s.repo.CreateTransaction(txCtx, walletTx); err != nil {
+			return err
+		}
+
+		slog.Info("hold_autorefill_completed", "driver_id", driverID, "moved", moveAmount, "hold_now", wallet2.HoldBalance+moveAmount)
+		return nil
+	})
+}
+
+// SetHoldMinimum menetapkan jaminan minimum driver (FOOD-BIKE-024).
+func (s *walletService) SetHoldMinimum(ctx context.Context, driverID uuid.UUID, minimum int64) error {
+	if minimum < 0 {
+		return errors.New("hold minimum cannot be negative")
+	}
+	return s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		wallet, err := s.GetBalance(txCtx, driverID)
+		if err != nil {
+			return err
+		}
+		return s.repo.UpdateHoldMinimum(txCtx, wallet.ID, minimum)
+	})
+}
+
 func (s *walletService) ReconcileWallet(ctx context.Context, userID uuid.UUID, walletType string) (*domain.WalletReconciliationResult, error) {
 	wallet, err := s.repo.GetByUserID(ctx, userID)
 	if err != nil {

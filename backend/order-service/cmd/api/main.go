@@ -295,6 +295,16 @@ func main() {
 	// FOOD-BIKE-067: order-service ScanPackage perlu akses settlement service
 	// untuk order food delivered (escrow tanpa payment link).
 	orderSvc.SetMerchantSettlementService(merchantSettlementSvc)
+	// FOOD-BIKE-025/027/068: driver incentive (penalty anti-ghosting + tutup poin)
+	driverIncentiveRepo := repository.NewDriverIncentiveRepository(db, readDB)
+	penaltySvc := service.NewDriverPenaltyService(driverIncentiveRepo, configRepo)
+	pointsSvc := service.NewDriverPointsService(driverIncentiveRepo, configRepo)
+	orderSvc.SetDriverIncentiveServices(pointsSvc, penaltySvc)
+	// FOOD-BIKE-064: push FCM — register device token + notif merchant order masuk
+	deviceTokenRepo := repository.NewDeviceTokenRepository(db, readDB)
+	pushSvc := service.NewPushService(deviceTokenRepo, pgRepo)
+	paymentSvc.SetPushService(pushSvc)
+	deviceTokenHandler := handler.NewDeviceTokenHandler(deviceTokenRepo)
 	aggregatorFinanceRepo := repository.NewAggregatorFinanceRepository(db)
 	aggregatorFinanceSvc := service.NewAggregatorFinanceService(aggregatorFinanceRepo, ledgerRepo)
 
@@ -352,6 +362,8 @@ func main() {
 	slaWorker.Start()
 	foodPrepWorker := worker.NewFoodPrepWorker(orderSvc) // FOOD-BIKE-022
 	foodPrepWorker.Start()
+	ghostDetectWorker := worker.NewGhostDetectionWorker(pgRepo, penaltySvc) // FOOD-BIKE-066
+	go ghostDetectWorker.Start(context.Background())
 
 	// LAUNCH-6: Data retention cleanup worker
 	worker.StartCleanupWorker(db)
@@ -416,6 +428,10 @@ func main() {
 		middleware.LimitOrderCreation(rdb)(middleware.ValidateBody(domain.CreateFoodOrderRequest{})(orderHandler.CreateFoodOrder)),
 	)))
 
+	// Food delivery — browse merchant (FOOD-BIKE-055/056)
+	mux.HandleFunc("/api/v1/food/merchants", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.ListFoodMerchants)))
+	mux.HandleFunc("/api/v1/food/merchants/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetFoodMerchantDetail)))
+
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.GetOrder))))
 	mux.HandleFunc("/api/v1/orders/bulk", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitOrderCreation(rdb)(orderHandler.CreateBulkOrder))))
 	mux.HandleFunc("/api/v1/orders/poll", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.PollOrderUpdates))))
@@ -443,6 +459,7 @@ func main() {
 	mux.HandleFunc("/api/v1/couriers/sos/arrive", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.ArriveAtSOS)))
 	mux.HandleFunc("/api/v1/couriers/sos/report", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.SubmitHelperReport)))
 	mux.HandleFunc("/api/v1/couriers/sos/tamper", middleware.BaseChain(middleware.AuthMiddleware(sosHandler.ReportTamper)))
+	mux.HandleFunc("/api/v1/device-tokens", middleware.BaseChain(middleware.AuthMiddleware(deviceTokenHandler.Register)))
 
 	// Tambal Ban & Towing Routes
 	mux.HandleFunc("/api/v1/customer/nearby-couriers", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.GetNearbyCouriers)))
@@ -456,6 +473,10 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})))
+
+	// FOOD-BIKE-029: driver set radius jangkauan food delivery (dropdown 1-20 km)
+	mux.HandleFunc("/api/v1/courier/radius", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.UpdateRadius)))
+
 	mux.HandleFunc("/api/v1/courier/service-report/tambal-ban", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CreateTambalBanReport)))
 	mux.HandleFunc("/api/v1/courier/service-report/towing", middleware.BaseChain(middleware.AuthMiddleware(tambalBanHandler.CreateTowingReport)))
 
@@ -468,6 +489,11 @@ func main() {
 		// Manual routing for /api/v1/customer/orders/{id}/rating
 		if strings.HasSuffix(r.URL.Path, "/rating") && r.Method == http.MethodPost {
 			orderHandler.SubmitCourierRating(w, r)
+			return
+		}
+		// FOOD-BIKE-059/060: rating makanan merchant, terpisah dari driver
+		if strings.HasSuffix(r.URL.Path, "/merchant-rating") && r.Method == http.MethodPost {
+			orderHandler.SubmitMerchantRating(w, r)
 			return
 		}
 		// If other /orders/ routes exist, handle them here...

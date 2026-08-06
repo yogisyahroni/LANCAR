@@ -310,6 +310,31 @@ class OrderViewModel @Inject constructor(
         }
     }
 
+    // FOOD-BIKE-029: driver set radius jangkauan food delivery (1-20 km)
+    suspend fun updateCourierRadius(radiusKm: Int): Result<CourierProfile> {
+        return try {
+            val response = apiService.updateRadius(
+                com.tembus.courier.data.model.UpdateRadiusRequest(radiusKm = radiusKm)
+            )
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.data != null) {
+                _courierProfile.update { body.data }
+                Result.success(body.data)
+            } else {
+                Result.failure(
+                    Exception(
+                        response.errorMessage(
+                            serverMessage = body?.message,
+                            fallback = "Gagal memperbarui radius. Coba lagi."
+                        )
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun retrofit2.Response<*>.errorMessage(
         serverMessage: String? = null,
         fallback: String

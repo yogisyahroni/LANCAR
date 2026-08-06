@@ -103,6 +103,7 @@ type Order struct {
 	// Food delivery (FOOD-BIKE-006): service_sub_type + merchant fields
 	ServiceSubType     string     `json:"service_sub_type,omitempty" db:"service_sub_type"`
 	MerchantID         *string    `json:"merchant_id,omitempty" db:"merchant_id"`
+	MerchantName       *string    `json:"merchant_name,omitempty" db:"merchant_name"` // LEFT JOIN merchants (FOOD-BIKE-060)
 	MerchantAcceptedAt *time.Time `json:"merchant_accepted_at,omitempty" db:"merchant_accepted_at"`
 	PrepTimeMinutes    *int       `json:"prep_time_minutes,omitempty" db:"prep_time_minutes"`
 	FoodReadyAt        *time.Time `json:"food_ready_at,omitempty" db:"food_ready_at"`
@@ -201,6 +202,11 @@ type FoodMerchantInfo struct {
 	Lng                float64  `json:"lng"`
 	JamBuka            *string  `json:"jam_buka,omitempty"`
 	JamTutup           *string  `json:"jam_tutup,omitempty"`
+	// FOOD-BIKE-055: metrik browse merchant
+	DistanceKM   *float64 `json:"distance_km,omitempty"`
+	AvgRating    *float64 `json:"avg_rating,omitempty"`
+	RatingCount  int      `json:"rating_count"`
+	MenuItems    []FoodMenuItemInfo `json:"menu_items,omitempty"`
 }
 
 type FoodMenuItemInfo struct {
@@ -210,6 +216,9 @@ type FoodMenuItemInfo struct {
 	Price           int64  `json:"price"`
 	IsAvailable     bool   `json:"is_available"`
 	PrepTimeMinutes int    `json:"prep_time_minutes"`
+	// FOOD-BIKE-055/056: field UI tambahan
+	Kategori *string `json:"kategori,omitempty"`
+	Foto     *string `json:"foto,omitempty"`
 }
 
 // FoodRepository — akses merchant/menu/items untuk order-service.
@@ -234,6 +243,9 @@ type FoodRepository interface {
 	// GetPendingMerchantFoodOrders: order food pending_merchant yang belum direspon
 	// merchant melebihi timeout (FOOD-BIKE-022: 3 menit) → auto-cancel.
 	GetPendingMerchantFoodOrders(ctx context.Context, timeout time.Duration) ([]*Order, error)
+	// FOOD-BIKE-055: browse merchant terdekat (is_open + approved) + menu
+	ListFoodMerchants(ctx context.Context, lat, lng float64, search string, limit int) ([]FoodMerchantInfo, error)
+	GetFoodMerchantMenu(ctx context.Context, merchantID string) ([]FoodMenuItemInfo, error)
 }
 
 // SubmitRatingRequest adalah request body dari customer untuk memberi rating ke kurir.
@@ -261,6 +273,9 @@ type OrderService interface {
 	// Validasi harga 100% server-side dari merchant_menu_items —
 	// client hanya kirim menu_item_id + quantity.
 	CreateFoodOrder(ctx context.Context, userID string, req CreateFoodOrderRequest) (*Order, error)
+	// FOOD-BIKE-055: browse merchant food terdekat + menu.
+	ListFoodMerchants(ctx context.Context, lat, lng float64, search string) ([]FoodMerchantInfo, error)
+	GetFoodMerchantDetail(ctx context.Context, merchantID string) (*FoodMerchantInfo, error)
 	CreateInternalAggregatorOrder(ctx context.Context, userID string, req CreateOrderRequest) (*Order, error)
 	CreateBulkOrder(ctx context.Context, userID string, req CreateBulkOrderRequest) ([]*Order, string, error)
 	GetOrder(ctx context.Context, orderID string) (*Order, error)
@@ -285,9 +300,15 @@ type OrderService interface {
 	// SetMerchantSettlementService inject settlement service untuk order food
 	// yang delivered tanpa payment link (FOOD-BIKE-067).
 	SetMerchantSettlementService(mss MerchantSettlementService)
+	// SetDriverIncentiveServices inject points + penalty service untuk
+	// anti-ghosting & tutup poin (FOOD-BIKE-068).
+	SetDriverIncentiveServices(pts DriverPointsService, pen DriverPenaltyService)
 	// SubmitRating menerima penilaian 1-5 bintang dari customer terhadap kurir.
 	// Validasi: order harus berstatus delivered, dan belum pernah di-rating.
 	SubmitRating(ctx context.Context, customerID string, orderID string, req SubmitRatingRequest) error
+	// SubmitMerchantRating menilai makanan dari merchant (FOOD-BIKE-059/060),
+	// terpisah dari rating driver. Validasi sama: order milik customer & delivered.
+	SubmitMerchantRating(ctx context.Context, customerID string, orderID string, req SubmitRatingRequest) error
 	// ── FOOD-BIKE-021: accept/reject order oleh merchant ──
 	// AcceptByMerchant: pending_merchant → preparing (merchant terima).
 	// Validasi kepemilikan merchant via foodRepo.GetFoodOrderForMerchant.
@@ -336,6 +357,8 @@ type OrderRepository interface {
 	// SaveOrderRating menyimpan rating (1-5) dan comment ke tabel orders.
 	// Juga menaikkan avg_rating kurir di tabel courier_profiles secara atomik.
 	SaveOrderRating(ctx context.Context, orderID string, courierID string, rating float64, comment string) error
+	// SaveMerchantRating menyimpan rating makanan ke merchant_ratings (FOOD-BIKE-059/060).
+	SaveMerchantRating(ctx context.Context, orderID string, merchantID string, ratedBy string, rating float64, comment string) error
 	// GetDeliveredUnratedOrders mengambil order dengan status delivered, belum di-rating
 	// (courier_rating IS NULL), reminder_count < maxReminder, dan last_rating_reminder_at
 	// lebih dari 12 jam yang lalu (atau NULL). Dipakai oleh worker notifikasi.
@@ -346,6 +369,14 @@ type OrderRepository interface {
 	// Logistics Extensions
 	GetLogisticsProviderConfig(ctx context.Context, provider string) (discountPct float64, markupPct float64, err error)
 	GetUserSenderName(ctx context.Context, userID string) (string, error)
+
+	// FOOD-BIKE-066: Ghost Detection — driver accept tapi tidak bergerak.
+	// GetGhostedAcceptedOrders mengembalikan order status 'accepted' yang
+	// tidak ada progress (updated_at lama) — kandidat soft_ghosting.
+	GetGhostedAcceptedOrders(ctx context.Context, timeout time.Duration) ([]*Order, error)
+	// ReleaseGhostedOrder melepas driver dari order: courier_id → NULL,
+	// status → searching (order bisa diambil driver lain), dispatch_expiry direset.
+	ReleaseGhostedOrder(ctx context.Context, orderID string) error
 }
 
 type MeetingPoint struct {

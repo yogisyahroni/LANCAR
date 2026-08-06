@@ -78,6 +78,7 @@ export * as hr from './hrController';
 export * as news from './newsController';
 export * from './logisticsProviders.controller';
 export * from './merchants.controller'; // FOOD-BIKE-048
+export * from './driverWalletHold.controller'; // FOOD-BIKE-054
 export * as productCatalog from './productCatalog.controller';
 export * as costIntelligence from './costIntelligence.controller';
 export * as merchantSettlement from './merchantSettlement.controller';

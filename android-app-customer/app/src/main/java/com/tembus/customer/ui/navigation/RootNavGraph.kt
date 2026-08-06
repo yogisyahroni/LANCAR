@@ -48,19 +48,25 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.tembus.customer.ui.MainViewModel
 import com.tembus.customer.ui.screens.auth.AuthNavGraph
 import com.tembus.customer.ui.screens.booking.BookingScreen
 import com.tembus.customer.ui.screens.booking.BookingViewModel
+import com.tembus.customer.ui.screens.food.FoodCartScreen
+import com.tembus.customer.ui.screens.food.FoodCheckoutScreen
+import com.tembus.customer.ui.screens.food.FoodHomeScreen
+import com.tembus.customer.ui.screens.food.MerchantDetailScreen
 import com.tembus.customer.ui.screens.main.DashboardScreen
 import com.tembus.customer.ui.screens.tracking.TrackingScreen
 import com.tembus.customer.ui.screens.tracking.TrackingViewModel
-import androidx.navigation.NavType
-import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 
 import com.tembus.customer.ui.screens.history.OrderHistoryScreen
@@ -217,6 +223,9 @@ fun RootNavGraph(
                         // Category-level entry (jika grid pakai kategori, bukan sub-tipe)
                         "tambal_ban", "towing" ->
                             navController.navigate(Screen.ServiceCategory.route)
+                        // FOOD-BIKE-030b: food_delivery → landing page sendiri
+                        "food_delivery" ->
+                            navController.navigate(Screen.FoodHome.route)
                         else ->
                             navController.navigate(Screen.Booking.createRoute(open))
                     }
@@ -236,6 +245,76 @@ fun RootNavGraph(
                 },
                 onProfileClick = {
                     navController.navigate(Screen.Profile.route)
+                }
+            )
+        }
+
+        // ── FOOD DELIVERY (FOOD-BIKE-055/056/057/075) ──
+        composable(Screen.FoodHome.route) {
+            val context = LocalContext.current
+            var userLat by remember { mutableStateOf<Double?>(null) }
+            var userLng by remember { mutableStateOf<Double?>(null) }
+            // Ambil lokasi user (fallback: titik Jakarta kalau permission off)
+            LaunchedEffect(Unit) {
+                val fused = LocationServices.getFusedLocationProviderClient(context)
+                try {
+                    fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                        .addOnSuccessListener { loc ->
+                            if (loc != null) {
+                                userLat = loc.latitude
+                                userLng = loc.longitude
+                            }
+                        }
+                        .addOnFailureListener {
+                            userLat = -6.2088
+                            userLng = 106.8456
+                        }
+                } catch (_: Exception) {
+                    userLat = -6.2088
+                    userLng = 106.8456
+                }
+            }
+            val lat = userLat ?: -6.2088
+            val lng = userLng ?: 106.8456
+            FoodHomeScreen(
+                initialLat = lat,
+                initialLng = lng,
+                onBack = { navController.popBackStack() },
+                onMerchantClick = { merchantId ->
+                    navController.navigate(Screen.FoodMerchantDetail.createRoute(merchantId))
+                },
+                onCartClick = { navController.navigate(Screen.FoodCart.route) }
+            )
+        }
+
+        composable(
+            route = Screen.FoodMerchantDetail.route,
+            arguments = listOf(navArgument("merchantId") {
+                type = NavType.StringType
+            })
+        ) { backStackEntry ->
+            val merchantId = backStackEntry.arguments?.getString("merchantId").orEmpty()
+            MerchantDetailScreen(
+                merchantId = merchantId,
+                onBack = { navController.popBackStack() },
+                onCartClick = { navController.navigate(Screen.FoodCart.route) }
+            )
+        }
+
+        composable(Screen.FoodCart.route) {
+            FoodCartScreen(
+                onBack = { navController.popBackStack() },
+                onCheckout = { navController.navigate(Screen.FoodCheckout.route) }
+            )
+        }
+
+        composable(Screen.FoodCheckout.route) {
+            FoodCheckoutScreen(
+                onBack = { navController.popBackStack() },
+                onOrderCreated = { orderId ->
+                    navController.navigate(Screen.Tracking.createRoute(orderId)) {
+                        popUpTo(Screen.Dashboard.route)
+                    }
                 }
             )
         }

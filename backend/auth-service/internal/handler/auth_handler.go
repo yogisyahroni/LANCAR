@@ -572,10 +572,20 @@ func (h *AuthHandler) RegisterCourier(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		VehicleType  string `json:"vehicle_type"`
 		VehiclePlate string `json:"vehicle_plate"`
+		// FOOD-BIKE-042: app kirim vehicleCategory/vehiclePlate (camelCase) —
+		// terima keduanya untuk backward compat.
+		VehicleCategory string `json:"vehicleCategory"`
+		VehiclePlateAlt string `json:"vehiclePlate"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
+	}
+	if req.VehicleType == "" {
+		req.VehicleType = req.VehicleCategory
+	}
+	if req.VehiclePlate == "" {
+		req.VehiclePlate = req.VehiclePlateAlt
 	}
 
 	err := h.svc.RegisterCourier(r.Context(), userID, req.VehicleType, req.VehiclePlate)

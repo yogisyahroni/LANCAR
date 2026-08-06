@@ -34,6 +34,7 @@ import com.tembus.courier.data.model.DutyStatusRequest
 import com.tembus.courier.data.model.FCMTokenRequest
 import com.tembus.courier.data.model.LocationRequest
 import com.tembus.courier.data.model.UpdateCapacityRequest
+import com.tembus.courier.data.model.UpdateRadiusRequest
 import com.tembus.courier.data.model.LocationResponse
 import com.tembus.courier.data.model.LoginData
 import com.tembus.courier.data.model.LoginRequest
@@ -141,6 +142,12 @@ interface TEMBUSApiService {
     @PUT("api/v1/courier/profile/capacity")
     suspend fun updateCapacity(
         @Body request: UpdateCapacityRequest
+    ): Response<ApiResponse<CourierProfile>>
+
+    // FOOD-BIKE-029: driver set radius jangkauan food delivery (1-20 km)
+    @PUT("api/v1/courier/radius")
+    suspend fun updateRadius(
+        @Body request: UpdateRadiusRequest
     ): Response<ApiResponse<CourierProfile>>
 
     @GET("api/v1/courier/on-demand/services")

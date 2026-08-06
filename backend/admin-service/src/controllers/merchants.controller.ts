@@ -63,6 +63,51 @@ export const listAdminMerchants = async (req: Request, res: Response) => {
   }
 };
 
+// ─────────────────────────────────────────────
+// FOOD-BIKE-051: Dashboard performa merchant
+// Completion rate, rata-rata prep time, rating, volume order food.
+// ─────────────────────────────────────────────
+export const listMerchantPerformance = async (req: Request, res: Response) => {
+  const search = String(req.query.search ?? '').trim();
+  try {
+    const where: string[] = [];
+    const params: any[] = [];
+    if (search) {
+      params.push(`%${search}%`);
+      where.push(`(m.nama_toko ILIKE $${params.length} OR u.phone ILIKE $${params.length} OR u.email ILIKE $${params.length})`);
+    }
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+    const result = await readDb.query(
+      `SELECT
+         m.id AS merchant_id,
+         m.nama_toko,
+         m.is_open,
+         m.verification_status,
+         COALESCE(m.completion_rate_pct, 0)::float AS completion_rate_pct,
+         COUNT(DISTINCT o.id) AS total_orders,
+         COUNT(DISTINCT o.id) FILTER (WHERE o.status IN ('completed','delivered')) AS completed_orders,
+         ROUND(AVG(o.prep_time_minutes) FILTER (WHERE o.prep_time_minutes IS NOT NULL), 1) AS avg_prep_minutes,
+         COALESCE(AVG(r.stars) FILTER (WHERE r.stars IS NOT NULL), 0)::float AS avg_rating,
+         COUNT(DISTINCT r.id) AS rating_count
+       FROM merchants m
+       LEFT JOIN users u ON u.id = m.user_id
+       LEFT JOIN orders o ON o.merchant_id = m.id AND o.service_sub_type = 'food_delivery'
+       LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
+       ${whereSql}
+       GROUP BY m.id, m.nama_toko, m.is_open, m.verification_status, m.completion_rate_pct
+       ORDER BY total_orders DESC, m.nama_toko
+       LIMIT 200`,
+      params
+    );
+
+    res.json({ merchants: result.rows });
+  } catch (error: any) {
+    securityLog.error('admin_merchants_performance_failed', { error: error.message, actor: getActorId(req) });
+    res.status(500).json({ error: 'Failed to load merchant performance' });
+  }
+};
+
 export const getAdminMerchantDetail = async (req: Request, res: Response) => {
   const id = String(req.params.id);
   try {

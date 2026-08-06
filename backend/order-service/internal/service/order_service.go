@@ -36,6 +36,8 @@ type orderServiceImpl struct {
 	taxSvc          domain.TaxService
 	foodRepo        domain.FoodRepository
 	settlementSvc   domain.MerchantSettlementService
+	pointsSvc       domain.DriverPointsService
+	penaltySvc      domain.DriverPenaltyService
 }
 
 func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository, lr domain.FinanceLedgerRepository, ts domain.TaxService) domain.OrderService {
@@ -63,6 +65,13 @@ func (s *orderServiceImpl) SetRefundService(rs domain.RefundService) {
 // Dipanggil dari ScanPackage saat order food delivered tanpa payment link.
 func (s *orderServiceImpl) SetMerchantSettlementService(mss domain.MerchantSettlementService) {
 	s.settlementSvc = mss
+}
+
+// SetDriverIncentiveServices inject points + penalty service (FOOD-BIKE-068).
+// Points ditambah saat order food delivered; penalty dipakai anti-ghosting.
+func (s *orderServiceImpl) SetDriverIncentiveServices(pts domain.DriverPointsService, pen domain.DriverPenaltyService) {
+	s.pointsSvc = pts
+	s.penaltySvc = pen
 }
 
 func (s *orderServiceImpl) SetServiceReportService(reportSvc domain.ServiceReportService) {
@@ -1140,6 +1149,18 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 		}
 	}
 
+	// FOOD-BIKE-068: Tambah poin "tutup poin" saat order delivered dengan
+	// courier terassign. Non-fatal — kegagalan hanya dilog.
+	if targetStatus == domain.StatusDelivered && order.CourierID != nil && s.pointsSvc != nil {
+		courierUserID, errUser := uuid.Parse(*order.CourierID)
+		orderUUID, errOrder := uuid.Parse(order.ID)
+		if errUser == nil && errOrder == nil {
+			if err := s.pointsSvc.AddPoints(ctx, courierUserID, orderUUID); err != nil {
+				log.Printf("[points] FOOD-BIKE-068 failed untuk order %s: %v", order.ID, err)
+			}
+		}
+	}
+
 	// 4. Save order event
 	eventMsg := fmt.Sprintf("Package scan recorded: %s", scan.ScanType)
 	if scan.ScanType == "delivered" {
@@ -1382,6 +1403,38 @@ func (s *orderServiceImpl) SubmitRating(ctx context.Context, customerID string, 
 
 	// Simpan rating ke DB, update avg_rating kurir secara atomik
 	return s.orderRepo.SaveOrderRating(ctx, orderID, courierID, req.Rating, req.Comment)
+}
+
+// SubmitMerchantRating — FOOD-BIKE-059/060: customer menilai makanan merchant,
+// terpisah dari rating driver. Validasi sama (order milik customer + delivered),
+// idempotent via UNIQUE(order_id, merchant_id).
+func (s *orderServiceImpl) SubmitMerchantRating(ctx context.Context, customerID string, orderID string, req domain.SubmitRatingRequest) error {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return domain.ErrNotFound
+	}
+
+	// Security: pastikan order milik customer yang sedang login
+	if order.CustomerID != customerID {
+		return domain.ErrForbidden
+	}
+
+	// Validasi status: hanya order delivered yang bisa di-rating
+	if order.Status != domain.StatusDelivered {
+		return fmt.Errorf("rating hanya bisa diberikan untuk order yang sudah terkirim (status: %s)", order.Status)
+	}
+
+	// Validasi range rating
+	if req.Rating < 1.0 || req.Rating > 5.0 {
+		return fmt.Errorf("rating harus antara 1 sampai 5 bintang")
+	}
+
+	// Order food harus punya merchant
+	if order.MerchantID == nil || *order.MerchantID == "" {
+		return fmt.Errorf("order tidak memiliki data merchant")
+	}
+
+	return s.orderRepo.SaveMerchantRating(ctx, orderID, *order.MerchantID, customerID, req.Rating, req.Comment)
 }
 
 // GetOrdersNeedingRatingReminder mengembalikan order yang perlu mendapat notifikasi
@@ -1673,4 +1726,30 @@ func (s *orderServiceImpl) publishOrderEvent(ctx context.Context, orderID string
 	}
 	_ = s.eventRepo.SaveEvent(ctx, event)
 	_ = s.eventBus.Publish(ctx, "order.updates", event)
+}
+
+// ─────────────────────────────────────────────────────────────
+// FOOD DELIVERY — Browse merchant (FOOD-BIKE-055/056)
+// ─────────────────────────────────────────────────────────────
+func (s *orderServiceImpl) ListFoodMerchants(ctx context.Context, lat, lng float64, search string) ([]domain.FoodMerchantInfo, error) {
+	if s.foodRepo == nil {
+		return nil, fmt.Errorf("food repository not wired")
+	}
+	return s.foodRepo.ListFoodMerchants(ctx, lat, lng, search, 50)
+}
+
+func (s *orderServiceImpl) GetFoodMerchantDetail(ctx context.Context, merchantID string) (*domain.FoodMerchantInfo, error) {
+	if s.foodRepo == nil {
+		return nil, fmt.Errorf("food repository not wired")
+	}
+	merchant, err := s.foodRepo.GetFoodMerchant(ctx, merchantID)
+	if err != nil {
+		return nil, err
+	}
+	menu, err := s.foodRepo.GetFoodMerchantMenu(ctx, merchantID)
+	if err != nil {
+		return nil, err
+	}
+	merchant.MenuItems = menu
+	return merchant, nil
 }

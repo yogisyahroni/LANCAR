@@ -160,6 +160,19 @@ export const createDispute = async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Order ID, category, and description are required' });
   }
 
+  // FOOD-BIKE-052: kategori dispute food delivery
+  const FOOD_DISPUTE_CATEGORIES = [
+    'makanan_tidak_sesuai', // pesanan tidak sesuai (menu/kuantitas)
+    'driver_ghosting_food', // driver menghilang setelah accept (ghosting)
+    'coerced_cancel',       // batal karena paksaan customer/keadaan
+  ];
+  const isFoodCategory = FOOD_DISPUTE_CATEGORIES.includes(category.toLowerCase());
+  if (isFoodCategory && (!evidence_urls || evidence_urls.length === 0)) {
+    return res.status(400).json({
+      error: 'Dispute kategori food memerlukan bukti (foto pesanan / tangkapan layar chat).'
+    });
+  }
+
   // Validate Lost Item Evidence
   const isLostItem = category.toLowerCase().includes('hilang') || category.toLowerCase().includes('lost');
   if (isLostItem && (!evidence_urls || evidence_urls.length === 0)) {

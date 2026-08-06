@@ -114,7 +114,11 @@ data class CourierProfile(
     val maxWeightCapacityKg: Double? = null,
 
     @SerialName("max_packages_capacity")
-    val maxPackagesCapacity: Int? = null
+    val maxPackagesCapacity: Int? = null,
+
+    // FOOD-BIKE-029: radius jangkauan food delivery (1-20 km, dropdown driver)
+    @SerialName("radius_max_km")
+    val radiusMaxKm: Int = 1
 )
 
 @Serializable
@@ -133,6 +137,13 @@ data class UpdateCapacityRequest(
 
     @SerialName("max_packages_capacity")
     val maxPackagesCapacity: Int?
+)
+
+// FOOD-BIKE-029: request update radius jangkauan driver
+@Serializable
+data class UpdateRadiusRequest(
+    @SerialName("radius_km")
+    val radiusKm: Int
 )
 
 @Serializable

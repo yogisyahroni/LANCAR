@@ -59,6 +59,13 @@ type DefaultPaymentService struct {
 	paymentGateway domain.PaymentGateway
 	configRepo     domain.ConfigRepository
 	taxService     domain.TaxService
+	pushSvc        domain.PushService
+}
+
+// SetPushService inject push service (FOOD-BIKE-064): notifikasi FCM ke
+// merchant saat order food paid → pending_merchant.
+func (s *DefaultPaymentService) SetPushService(ps domain.PushService) {
+	s.pushSvc = ps
 }
 
 func NewPaymentService(pr domain.PaymentRepository, or domain.OrderRepository, pg domain.PaymentGateway, cr domain.ConfigRepository, ts domain.TaxService) *DefaultPaymentService {
@@ -305,6 +312,15 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 			return fmt.Errorf("failed to update order status: %w", err)
 		}
 		slog.InfoContext(ctx, "Payment successful, order status updated", "order_id", orderID, "new_status", newOrderStatus)
+
+		// FOOD-BIKE-064: order food → pending_merchant, kirim FCM ke owner
+		// merchant (SLA respon 3 menit). Non-fatal: gagal push tidak
+		// menggagalkan webhook payment.
+		if newOrderStatus == domain.StatusPendingMerchant && s.pushSvc != nil {
+			if err := s.pushSvc.NotifyMerchantNewOrder(ctx, orderID); err != nil {
+				slog.WarnContext(ctx, "push merchant new order failed", "order_id", orderID, "error", err)
+			}
+		}
 
 		// Note: Here we would trigger fund splitting or dispatch workers.
 		// For Sprint 4, dispatching is done by a scheduler checking pending_assignment,

@@ -17,6 +17,18 @@ data class SubmitRatingRequest(
 )
 
 /**
+ * Response POST rating — handler backend return map[string]string:
+ * {"status":"success","message":"...","order_id":"..."}
+ * (bukan ApiResponse — field-nya `status`, bukan `success`)
+ */
+@Serializable
+data class RatingSubmitResponse(
+    @SerialName("status") val status: String = "",
+    @SerialName("message") val message: String = "",
+    @SerialName("order_id") val orderId: String = ""
+)
+
+/**
  * Satu item reminder rating yang dikembalikan dari endpoint /rating-reminders.
  * Berisi data kurir yang cukup untuk ditampilkan di RatingDialog
  * (foto, plat nomor, nama).

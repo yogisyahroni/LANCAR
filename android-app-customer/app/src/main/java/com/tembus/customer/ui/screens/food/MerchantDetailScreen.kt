@@ -1,0 +1,275 @@
+package com.tembus.customer.ui.screens.food
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Store
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.tembus.customer.data.model.FoodMenuItem
+import com.tembus.customer.data.model.FoodMerchant
+import com.tembus.customer.ui.theme.Accent
+import com.tembus.customer.ui.theme.Primary
+import com.tembus.customer.ui.theme.PrimaryLight
+import java.util.Locale
+
+// FOOD-BIKE-056: detail merchant + daftar menu, jam buka/tutup, badge ramah sepeda
+@Composable
+fun MerchantDetailScreen(
+    merchantId: String,
+    onBack: () -> Unit,
+    onCartClick: () -> Unit,
+    viewModel: FoodViewModel = hiltViewModel()
+) {
+    val merchant by viewModel.merchantDetail.collectAsState()
+    val loading by viewModel.loading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    val cartSize by viewModel.cartSize.collectAsState()
+
+    LaunchedEffect(merchantId) {
+        viewModel.loadMerchantDetail(merchantId)
+    }
+
+    Scaffold(
+        containerColor = Color(0xFFF7F8FA),
+        topBar = {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .background(Color.White)
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Primary)
+                }
+                Text(
+                    merchant?.name ?: "Detail Merchant",
+                    modifier = Modifier.weight(1f),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Box {
+                    IconButton(onClick = onCartClick) {
+                        Icon(Icons.Default.ShoppingCart, contentDescription = "Keranjang", tint = Primary)
+                    }
+                    if (cartSize > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 6.dp, end = 6.dp)
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .background(Accent),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(cartSize.toString(), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+    ) { padding ->
+        when {
+            loading && merchant == null -> {
+                Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Primary)
+                }
+            }
+            error != null && merchant == null -> {
+                Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                    Text(error ?: "Terjadi kesalahan", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+                }
+            }
+            merchant != null -> {
+                val m = merchant!!
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(padding),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Header merchant
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(Color.White)
+                                .padding(16.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .background(PrimaryLight),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Store, contentDescription = null, tint = Primary, modifier = Modifier.size(30.dp))
+                                }
+                                Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                                    Text(m.name, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
+                                    Text(m.address, fontSize = 12.sp, color = Color(0xFF64748B), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                            Spacer(Modifier.height(12.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                if (m.avgRating != null && m.avgRating > 0) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
+                                        Text(
+                                            String.format(Locale.US, "%.1f", m.avgRating),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                Text("•", color = Color(0xFFCBD5E1))
+                                Text(
+                                    if (m.isOpen) "Buka sekarang" else "Tutup",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (m.isOpen) Color(0xFF16A34A) else Color(0xFFEF4444)
+                                )
+                                if (m.jamBuka != null && m.jamTutup != null) {
+                                    Text("•", color = Color(0xFFCBD5E1))
+                                    Text("${m.jamBuka} - ${m.jamTutup}", fontSize = 13.sp, color = Color(0xFF64748B))
+                                }
+                            }
+                            // Badge ramah kurir sepeda
+                            Row(
+                                modifier = Modifier
+                                    .padding(top = 12.dp)
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(PrimaryLight)
+                                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Info, contentDescription = null, tint = Primary, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.size(6.dp))
+                                Text(
+                                    "Ramah Kurir Sepeda",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Primary
+                                )
+                            }
+                        }
+                    }
+
+                    // Daftar menu
+                    if (m.menuItems.isEmpty()) {
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color.White)
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("Belum ada menu", fontSize = 14.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    } else {
+                        items(m.menuItems, key = { it.id }) { item ->
+                            MenuItemRow(item = item, onAdd = { viewModel.addToCart(item) })
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuItemRow(item: FoodMenuItem, onAdd: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color.White)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                item.name,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = Color(0xFF0F172A),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            item.kategori?.let {
+                Text(
+                    it.replaceFirstChar { c -> c.uppercase(Locale.US) },
+                    fontSize = 11.sp,
+                    color = Color(0xFF94A3B8)
+                )
+            }
+            Text(
+                "Rp ${item.price.toInt().toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Primary,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            Text(
+                "±${item.prepTimeMinutes} mnt",
+                fontSize = 11.sp,
+                color = Color(0xFF94A3B8)
+            )
+        }
+        Button(
+            onClick = onAdd,
+            modifier = Modifier.size(40.dp),
+            shape = CircleShape,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Tambah", tint = Color.White, modifier = Modifier.size(20.dp))
+        }
+    }
+}

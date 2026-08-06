@@ -31,6 +31,16 @@ func (s *availabilityServiceImpl) GetCourierAvailability(ctx context.Context, co
 	return s.repo.GetAvailabilityState(ctx, courierID)
 }
 
+// UpdateRadius — FOOD-BIKE-029: set radius_max_km driver food delivery.
+// Validasi nilai dropdown (1-20 km, sesuai CHECK constraint DB).
+func (s *availabilityServiceImpl) UpdateRadius(ctx context.Context, courierID string, radiusKM int) error {
+	allowed := map[int]bool{1: true, 2: true, 4: true, 6: true, 10: true, 12: true, 14: true, 16: true, 18: true, 20: true}
+	if !allowed[radiusKM] {
+		return fmt.Errorf("radius tidak valid: %d km (pilihan: 1,2,4,6,10,12,14,16,18,20)", radiusKM)
+	}
+	return s.repo.UpdateCourierRadius(ctx, courierID, radiusKM)
+}
+
 // FindAvailableCouriers returns couriers that can accept new orders.
 // Rules:
 // - IDLE: always available

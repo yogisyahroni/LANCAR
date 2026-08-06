@@ -85,6 +85,14 @@ sealed class Screen(val route: String) {
             return if (query.isEmpty()) base else "$base?${query.joinToString("&")}"
         }
     }
+
+    // FOOD-BIKE-055/056/057/075: Food Delivery
+    object FoodHome : Screen("food-home")
+    object FoodMerchantDetail : Screen("food-merchant/{merchantId}") {
+        fun createRoute(merchantId: String) = "food-merchant/$merchantId"
+    }
+    object FoodCart : Screen("food-cart")
+    object FoodCheckout : Screen("food-checkout")
 }
 
 

@@ -99,6 +99,15 @@ data class Order(
     @SerialName("courier_name")
     var courierName: String? = null,
 
+    // FOOD-BIKE-060: nama merchant (food delivery), untuk dialog rating merchant
+    @ColumnInfo(name = "merchant_name")
+    @SerialName("merchant_name")
+    var merchantName: String? = null,
+
+    @ColumnInfo(name = "merchant_id")
+    @SerialName("merchant_id")
+    var merchantId: String? = null,
+
     @ColumnInfo(name = "courier_vehicle")
     @SerialName("courier_vehicle")
     var courierVehicle: String? = null,

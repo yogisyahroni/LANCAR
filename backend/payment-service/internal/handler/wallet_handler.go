@@ -234,6 +234,75 @@ func (h *WalletHandler) SosReward(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, map[string]string{"message": "Reward credited"}, http.StatusOK)
 }
 
+// HoldDeduct — internal endpoint: mem-freeze saldo driver ke hold_balance
+// (jaminan anti-ghosting). Dipanggil order-service saat order food di-assign
+// (FOOD-BIKE-024). Idempotent via reference_id.
+func (h *WalletHandler) HoldDeduct(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		DriverID    uuid.UUID `json:"driver_id"`
+		Amount      int64     `json:"amount"`
+		ReferenceID string    `json:"reference_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Amount <= 0 {
+		h.respondError(w, "Amount must be positive", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.DeductFromHold(r.Context(), req.DriverID, req.Amount, req.ReferenceID)
+	if err != nil {
+		h.respondError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	h.respondJSON(w, map[string]string{"message": "Hold deducted"}, http.StatusOK)
+}
+
+// HoldAutoRefill — internal endpoint: geser saldo ke hold sampai memenuhi
+// minimum (self-funding dari revenue). Dipanggil berkala oleh worker atau
+// setelah deposit/earning driver (FOOD-BIKE-024).
+func (h *WalletHandler) HoldAutoRefill(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		DriverID uuid.UUID `json:"driver_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.AutoRefillHold(r.Context(), req.DriverID)
+	if err != nil {
+		h.respondError(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	h.respondJSON(w, map[string]string{"message": "Hold refilled"}, http.StatusOK)
+}
+
+// SetHoldMinimum — internal endpoint: tetapkan jaminan minimum driver.
+func (h *WalletHandler) SetHoldMinimum(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		DriverID uuid.UUID `json:"driver_id"`
+		Minimum  int64     `json:"minimum"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.SetHoldMinimum(r.Context(), req.DriverID, req.Minimum)
+	if err != nil {
+		h.respondError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	h.respondJSON(w, map[string]string{"message": "Hold minimum set"}, http.StatusOK)
+}
+
 func (h *WalletHandler) Withdraw(w http.ResponseWriter, r *http.Request) {
 	// ─── ZERO TRUST: Identity Verification ───────────────────────────────────────
 	userID, correlationID, ok := h.parseUserID(w, r)

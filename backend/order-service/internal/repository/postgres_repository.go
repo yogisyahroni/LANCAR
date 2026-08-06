@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"tembus/order-service/internal/domain"
 	"time"
@@ -205,8 +206,11 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				COALESCE(tax_rule_code, ''), COALESCE(ppn_rate_effective_pct, 0), COALESCE(ppn_rate_statutory_pct, 0), COALESCE(dpp_idr, 0), COALESCE(ppn_idr, 0),
 				COALESCE(tax_invoice_required, false), COALESCE(tax_invoice_status, ''), COALESCE(platform_fee_idr, 0), COALESCE(platform_fee_pct, 0), COALESCE(promo_subsidy_idr, 0),
 				COALESCE(service_sub_type, ''), merchant_id::text, merchant_accepted_at, prep_time_minutes, food_ready_at,
+				COALESCE(m.nama_toko, ''),
 				created_at, updated_at
-				FROM orders WHERE id = $1`
+				FROM orders
+				LEFT JOIN merchants m ON m.id = orders.merchant_id
+				WHERE orders.id = $1`
 
 	o := &domain.Order{}
 	err := r.readDB.QueryRowContext(ctx, query, id).Scan(
@@ -223,6 +227,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.TaxRuleCode, &o.PPNRateEffectivePct, &o.PPNRateStatutoryPct, &o.DPPIDR, &o.PPNIDR,
 		&o.TaxInvoiceRequired, &o.TaxInvoiceStatus, &o.PlatformFeeIDR, &o.PlatformFeePct, &o.PromoSubsidyIDR,
 		&o.ServiceSubType, &o.MerchantID, &o.MerchantAcceptedAt, &o.PrepTimeMinutes, &o.FoodReadyAt,
+		&o.MerchantName,
 		&o.CreatedAt, &o.UpdatedAt,
 	)
 	if err != nil {
@@ -495,7 +500,61 @@ func (r *postgresRepo) GetPendingAssignmentOrders(ctx context.Context, threshold
 	return orders, nil
 }
 
-// Order Event Repository Implementation
+// GetGhostedAcceptedOrders — FOOD-BIKE-066: order status 'accepted' yang
+// tidak ada progress (updated_at lama dari threshold). Driver accept tapi
+// tidak bergerak menuju pickup → kandidat soft_ghosting.
+func (r *postgresRepo) GetGhostedAcceptedOrders(ctx context.Context, timeout time.Duration) ([]*domain.Order, error) {
+	query := `
+		SELECT id, order_number, customer_id, model, status,
+			COALESCE(courier_id::text, ''),
+			COALESCE(merchant_id::text, ''),
+			COALESCE(service_sub_type, ''),
+			created_at, updated_at
+		FROM orders
+		WHERE status = 'accepted'
+		  AND updated_at < $1
+		ORDER BY updated_at ASC
+		LIMIT 50`
+
+	thresholdTime := time.Now().Add(-timeout)
+	rows, err := r.readDB.QueryContext(ctx, query, thresholdTime)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []*domain.Order
+	for rows.Next() {
+		o := &domain.Order{}
+		var courierID, merchantID, serviceSubType string
+		if err := rows.Scan(&o.ID, &o.OrderNumber, &o.CustomerID, &o.Model, &o.Status,
+			&courierID, &merchantID, &serviceSubType, &o.CreatedAt, &o.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if courierID != "" {
+			o.CourierID = &courierID
+		}
+		if merchantID != "" {
+			o.MerchantID = &merchantID
+		}
+		o.ServiceSubType = serviceSubType
+		orders = append(orders, o)
+	}
+	return orders, rows.Err()
+}
+
+// ReleaseGhostedOrder — FOOD-BIKE-066: lepas driver dari order ghosting.
+// courier_id → NULL, status → searching, dispatch_expiry direset agar
+// matching worker bisa menawarkan lagi ke driver lain.
+func (r *postgresRepo) ReleaseGhostedOrder(ctx context.Context, orderID string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE orders
+		 SET courier_id = NULL, status = 'searching', dispatch_expiry = NULL, updated_at = NOW()
+		 WHERE id = $1 AND status = 'accepted'`,
+		orderID,
+	)
+	return err
+}
 func (r *postgresRepo) SaveEvent(ctx context.Context, e domain.OrderEvent) error {
 	query := `INSERT INTO order_events (order_id, user_id, status, message, created_at) 
 			  VALUES ($1, $2, $3, $4, $5)`
@@ -881,6 +940,43 @@ func (r *postgresRepo) SaveOrderRating(ctx context.Context, orderID string, cour
 		WHERE user_id = $2
 	`
 	_, err = tx.ExecContext(ctx, queryCourier, rating, courierID)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// SaveMerchantRating menyimpan rating makanan (FOOD-BIKE-059/060).
+// INSERT ke merchant_ratings + update avg_rating merchants secara atomik.
+// Idempotent via UNIQUE (order_id, merchant_id) — second rating → error.
+func (r *postgresRepo) SaveMerchantRating(ctx context.Context, orderID string, merchantID string, ratedBy string, rating float64, comment string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	queryInsert := `
+		INSERT INTO merchant_ratings (order_id, merchant_id, rated_by, stars, comment)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (order_id, merchant_id) DO NOTHING
+		RETURNING id`
+	var insertedID string
+	if err := tx.QueryRowContext(ctx, queryInsert, orderID, merchantID, ratedBy, int(rating), comment).Scan(&insertedID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("merchant already rated for this order")
+		}
+		return err
+	}
+
+	queryMerchant := `
+		UPDATE merchants
+		SET avg_rating = ((COALESCE(avg_rating, 5.0) * COALESCE(rating_count, 0)) + $1) / (COALESCE(rating_count, 0) + 1),
+			rating_count = COALESCE(rating_count, 0) + 1,
+			updated_at = NOW()
+		WHERE id = $2`
+	_, err = tx.ExecContext(ctx, queryMerchant, rating, merchantID)
 	if err != nil {
 		return err
 	}

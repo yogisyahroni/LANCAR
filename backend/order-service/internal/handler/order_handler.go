@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"tembus/order-service/internal/domain"
 	"tembus/order-service/internal/middleware"
@@ -186,6 +187,55 @@ func (h *OrderHandler) CreateFoodOrder(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(order)
+}
+
+// ─────────────────────────────────────────────────────────────
+// FOOD DELIVERY — Browse merchant (FOOD-BIKE-055/056)
+// GET /api/v1/food/merchants?lat=..&lng=..&search=..
+// GET /api/v1/food/merchants/{id}
+// ─────────────────────────────────────────────────────────────
+func (h *OrderHandler) ListFoodMerchants(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	lat, errLat := strconv.ParseFloat(r.URL.Query().Get("lat"), 64)
+	lng, errLng := strconv.ParseFloat(r.URL.Query().Get("lng"), 64)
+	if errLat != nil || errLng != nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_LOCATION", "lat/lng wajib dikirim", correlationID)
+		return
+	}
+	search := r.URL.Query().Get("search")
+
+	merchants, err := h.orderSvc.ListFoodMerchants(r.Context(), lat, lng, search)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"merchants": merchants})
+}
+
+func (h *OrderHandler) GetFoodMerchantDetail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	merchantID := r.PathValue("id")
+	if merchantID == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_INVALID_ID", "merchant id wajib dikirim", correlationID)
+		return
+	}
+
+	merchant, err := h.orderSvc.GetFoodMerchantDetail(r.Context(), merchantID)
+	if err != nil {
+		userSafeError(w, r, err, http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{"merchant": merchant})
 }
 
 // GetOrder godoc
@@ -1107,6 +1157,62 @@ func (h *OrderHandler) SubmitCourierRating(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := h.orderSvc.SubmitRating(r.Context(), customerID, orderID, req); err != nil {
+		userSafeError(w, r, err, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status":   "success",
+		"message":  "Terima kasih atas penilaian Anda!",
+		"order_id": orderID,
+	})
+}
+
+// SubmitMerchantRating godoc — FOOD-BIKE-059/060
+// @Summary Submit food merchant rating
+// @Description Rating 1-5 bintang untuk merchant (makanan), terpisah dari rating driver.
+// @Tags orders
+// @Accept json
+// @Produce json
+// @Security Bearer
+// @Param request body domain.SubmitRatingRequest true "Merchant Rating"
+// @Success 200 {object} map[string]string
+// @Router /api/v1/customer/orders/{id}/merchant-rating [post]
+func (h *OrderHandler) SubmitMerchantRating(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	correlationID := middleware.GetCorrelationID(r.Context())
+
+	customerID := middleware.GetUserIDFromContext(r.Context())
+	if customerID == "" {
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Sesi tidak valid", correlationID)
+		return
+	}
+
+	// Path: /api/v1/customer/orders/{id}/merchant-rating
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 7 {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Order ID tidak ditemukan di URL", correlationID)
+		return
+	}
+	orderID := pathParts[5]
+	if orderID == "" {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Order ID tidak valid", correlationID)
+		return
+	}
+
+	var req domain.SubmitRatingRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_BAD_REQUEST", "Format request tidak valid", correlationID)
+		return
+	}
+
+	if err := h.orderSvc.SubmitMerchantRating(r.Context(), customerID, orderID, req); err != nil {
 		userSafeError(w, r, err, http.StatusBadRequest)
 		return
 	}

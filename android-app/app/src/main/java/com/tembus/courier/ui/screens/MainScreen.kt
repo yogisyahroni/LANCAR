@@ -1298,8 +1298,19 @@ fun MainScreen(
                                     snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Gagal update kapasitas" }.toString())
                                 }
                             },
-                            onRequestServiceUpgrade = { routeState = CourierRouteReducer.serviceUpgrade() }
-                        )
+                            onRequestServiceUpgrade = { routeState = CourierRouteReducer.serviceUpgrade() },
+                            onUpdateRadius = { radiusKm ->
+                                scope.launch {
+                                    val result = orderViewModel.updateCourierRadius(radiusKm)
+                                    snackbarHostState.showSnackbar(
+                                        result.fold(
+                                            onSuccess = { "Radius diubah ke $radiusKm km" },
+                                            onFailure = { it.message ?: "Gagal update radius" }
+                                        )
+                                    )
+                                }
+                            }
+                            )
                     }
                     3 -> ProfileContent(
                     courierProfile = courierProfile,
@@ -1342,7 +1353,18 @@ fun MainScreen(
                             snackbarHostState.showSnackbar(result.getOrElse { it.message ?: "Gagal update kapasitas" }.toString())
                         }
                     },
-                    onRequestServiceUpgrade = { routeState = CourierRouteReducer.serviceUpgrade() }
+                    onRequestServiceUpgrade = { routeState = CourierRouteReducer.serviceUpgrade() },
+                    onUpdateRadius = { radiusKm ->
+                        scope.launch {
+                            val result = orderViewModel.updateCourierRadius(radiusKm)
+                            snackbarHostState.showSnackbar(
+                                result.fold(
+                                    onSuccess = { "Radius diubah ke $radiusKm km" },
+                                    onFailure = { it.message ?: "Gagal update radius" }
+                                )
+                            )
+                        }
+                    }
                 )
                 }
             }
@@ -5163,7 +5185,8 @@ private fun ProfileContent(
     onOptimizeBattery: () -> Unit,
     onClearCache: () -> Unit,
     onUpdateCapacity: (Double?, Int?) -> Unit,
-    onRequestServiceUpgrade: () -> Unit
+    onRequestServiceUpgrade: () -> Unit,
+    onUpdateRadius: (Int) -> Unit = {}
 ) {
     var showDiagnostics by remember { mutableStateOf(false) }
     var showResetLocalDataDialog by remember { mutableStateOf(false) }
@@ -5446,6 +5469,66 @@ private fun ProfileContent(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                    }
+
+                    // FOOD-BIKE-029: dropdown radius jangkauan food delivery
+                    // (1-20 km, sesuai CHECK constraint DB & endpoint PUT /courier/radius)
+                    val radiusOptions = listOf(1, 2, 4, 6, 10, 12, 14, 16, 18, 20)
+                    var selectedRadius by remember(courierProfile?.radiusMaxKm) {
+                        mutableStateOf(courierProfile?.radiusMaxKm ?: 1)
+                    }
+                    var radiusExpanded by remember { mutableStateOf(false) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Radar,
+                            contentDescription = null,
+                            tint = Primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "Radius Jangkauan Food",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                "Driver sepeda: batas jarak terima order food",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Box {
+                            OutlinedButton(
+                                onClick = { radiusExpanded = !radiusExpanded },
+                                modifier = Modifier.height(40.dp)
+                            ) {
+                                Text("$selectedRadius km", fontWeight = FontWeight.Bold)
+                                Icon(
+                                    Icons.Default.ArrowDropDown,
+                                    contentDescription = "Pilih radius",
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = radiusExpanded,
+                                onDismissRequest = { radiusExpanded = false }
+                            ) {
+                                radiusOptions.forEach { r ->
+                                    DropdownMenuItem(
+                                        text = { Text("$r km") },
+                                        onClick = {
+                                            radiusExpanded = false
+                                            selectedRadius = r
+                                            onUpdateRadius(r)
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
 

@@ -89,6 +89,12 @@ func (m *mockOrderRepo) GetActiveCourierOrder(ctx context.Context, courierID str
 func (m *mockOrderRepo) GetPendingAssignmentOrders(ctx context.Context, threshold time.Duration) ([]*domain.Order, error) {
 	return nil, nil
 }
+func (m *mockOrderRepo) GetGhostedAcceptedOrders(ctx context.Context, timeout time.Duration) ([]*domain.Order, error) {
+	return nil, nil
+}
+func (m *mockOrderRepo) ReleaseGhostedOrder(ctx context.Context, orderID string) error {
+	return nil
+}
 func (m *mockOrderRepo) SetDispatchExpiry(ctx context.Context, orderID string, expiry time.Time) error {
 	return nil
 }
@@ -131,6 +137,9 @@ func (m *mockOrderRepo) GetScansByBagNumber(ctx context.Context, bagNumber strin
 	return nil, nil
 }
 func (m *mockOrderRepo) SaveOrderRating(ctx context.Context, orderID string, courierID string, rating float64, comment string) error {
+	return nil
+}
+func (m *mockOrderRepo) SaveMerchantRating(ctx context.Context, orderID string, merchantID string, ratedBy string, rating float64, comment string) error {
 	return nil
 }
 func (m *mockOrderRepo) GetDeliveredUnratedOrders(ctx context.Context, customerID string, maxReminder int, reminderIntervalHours int) ([]*domain.Order, error) {

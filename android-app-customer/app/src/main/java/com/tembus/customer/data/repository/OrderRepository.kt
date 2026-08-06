@@ -391,7 +391,22 @@ class OrderRepository @Inject constructor(
         return try {
             val response = apiService.submitCourierRating(orderId, request)
             val body = response.body()
-            if (response.isSuccessful && body?.success == true) {
+            if (response.isSuccessful && body?.status == "success") {
+                Result.success(body.message ?: "Berhasil mengirim rating")
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal mengirim rating")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Submit rating merchant (makanan) — FOOD-BIKE-060, terpisah dari driver. */
+    suspend fun submitMerchantRating(orderId: String, request: SubmitRatingRequest): Result<String> {
+        return try {
+            val response = apiService.submitMerchantRating(orderId, request)
+            val body = response.body()
+            if (response.isSuccessful && body?.status == "success") {
                 Result.success(body.message ?: "Berhasil mengirim rating")
             } else {
                 Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal mengirim rating")))

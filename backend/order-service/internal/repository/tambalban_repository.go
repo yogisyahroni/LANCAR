@@ -292,6 +292,19 @@ func (r *availabilityRepo) GetActiveOrderRemainingMinutes(ctx context.Context, c
 	return remaining, nil
 }
 
+// UpdateCourierRadius — FOOD-BIKE-029: set radius_max_km driver
+// (CHECK constraint: 1,2,4,6,10,12,14,16,18,20). Dipanggil saat driver
+// mengubah radius jangkauan food delivery dari app.
+// courierID dari JWT = users.id → resolve ke courier_profiles.id dulu.
+func (r *availabilityRepo) UpdateCourierRadius(ctx context.Context, courierID string, radiusKM int) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE courier_profiles SET radius_max_km = $1, updated_at = NOW()
+		 WHERE user_id = $2`,
+		radiusKM, courierID,
+	)
+	return err
+}
+
 // ============================================================
 // Service Report Repository
 // ============================================================

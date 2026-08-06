@@ -56,6 +56,10 @@ data class TrackingOrder(
     val courierPhone: String? = null,
     @SerialName("courier_photo_url")
     val courierPhotoUrl: String? = null,
+    @SerialName("merchant_id")
+    val merchantId: String? = null,
+    @SerialName("merchant_name")
+    val merchantName: String? = null,
     @SerialName("route_snapshot")
     val routeSnapshot: RouteSnapshot? = null,
     @SerialName("route_provider")

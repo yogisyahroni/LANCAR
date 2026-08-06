@@ -160,6 +160,9 @@ func main() {
 	// Internal SOS wallet handlers
 	mux.HandleFunc("/api/internal/wallet/sos-penalty", middleware.BaseChain(h.SosPenalty))
 	mux.HandleFunc("/api/internal/wallet/sos-reward", middleware.BaseChain(h.SosReward))
+	mux.HandleFunc("/api/internal/wallet/hold-deduct", middleware.BaseChain(h.HoldDeduct))
+	mux.HandleFunc("/api/internal/wallet/hold-autorefill", middleware.BaseChain(h.HoldAutoRefill))
+	mux.HandleFunc("/api/internal/wallet/hold-minimum", middleware.BaseChain(h.SetHoldMinimum))
 
 	// Webhooks
 	mux.HandleFunc("/webhooks/xendit", middleware.BaseChain(wh.XenditWebhook))

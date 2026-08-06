@@ -52,6 +52,8 @@ import com.tembus.customer.ui.components.maps.RuntimeMapRenderer
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.screens.rating.CourierRatingDialog
 import com.tembus.customer.ui.screens.rating.CourierRatingViewModel
+import com.tembus.customer.ui.screens.rating.MerchantRatingDialog
+import com.tembus.customer.ui.screens.rating.MerchantRatingViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
@@ -61,10 +63,12 @@ fun TrackingScreen(
     onBackClick: () -> Unit,
     onChatClick: (String, String?) -> Unit,
     onCallClick: (String, String?) -> Unit,
-    ratingViewModel: CourierRatingViewModel = hiltViewModel()
+    ratingViewModel: CourierRatingViewModel = hiltViewModel(),
+    merchantRatingViewModel: MerchantRatingViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val ratingState by ratingViewModel.uiState.collectAsState()
+    val merchantRatingState by merchantRatingViewModel.uiState.collectAsState()
 
     // Tracking start
     LaunchedEffect(orderId) {
@@ -88,6 +92,26 @@ fun TrackingScreen(
                 courierPhotoUrl = order.courierPhotoUrl ?: "",
                 courierPlate = order.courierPlate ?: ""
             )
+        }
+    }
+
+    // FOOD-BIKE-060: dialog rating merchant untuk order food (punya merchant_id).
+    // Muncul setelah dialog rating kurir ditutup (submitted ATAU di-skip).
+    LaunchedEffect(ratingState.isSubmitted, uiState.detail?.order?.merchantName) {
+        val order = uiState.detail?.order
+        if (order != null &&
+            !order.merchantId.isNullOrBlank() &&
+            !merchantRatingState.showDialog &&
+            !merchantRatingState.isSubmitted
+        ) {
+            // Tunggu sampai rating kurir selesai (submitted atau dismiss) sebelum tampil
+            if (ratingState.isSubmitted || ratingState.pendingReminders.isEmpty()) {
+                merchantRatingViewModel.prepare(
+                    orderId = orderId,
+                    orderNumber = order.orderNumber ?: "",
+                    merchantName = order.merchantName ?: "Merchant"
+                )
+            }
         }
     }
 
@@ -214,6 +238,22 @@ fun TrackingScreen(
                 },
                 onDismiss = { ratingViewModel.dismissCurrentReminder() },
                 onDismissError = { ratingViewModel.clearError() }
+            )
+        }
+
+        // FOOD-BIKE-060: dialog rating merchant (muncul setelah rating kurir selesai)
+        if (merchantRatingState.showDialog) {
+            MerchantRatingDialog(
+                merchantName = merchantRatingState.merchantName,
+                orderNumber = merchantRatingState.orderNumber,
+                isSubmitting = merchantRatingState.isSubmitting,
+                isSubmitted = merchantRatingState.isSubmitted,
+                errorMessage = merchantRatingState.error,
+                onSubmit = { rating, comment ->
+                    merchantRatingViewModel.submitRating(rating, comment)
+                },
+                onDismiss = { merchantRatingViewModel.dismiss() },
+                onDismissError = { merchantRatingViewModel.clearError() }
             )
         }
     }

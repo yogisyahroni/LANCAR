@@ -24,13 +24,33 @@ const (
 )
 
 type Wallet struct {
-	ID        uuid.UUID `json:"id" db:"id"`
-	UserID    uuid.UUID `json:"user_id" db:"user_id"`
-	Balance   int64     `json:"balance" db:"balance"`
-	Currency  string    `json:"currency" db:"currency"`
-	Version   int       `json:"version" db:"version"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	ID                  uuid.UUID `json:"id" db:"id"`
+	UserID              uuid.UUID `json:"user_id" db:"user_id"`
+	Balance             int64     `json:"balance" db:"balance"`
+	HoldBalance         int64     `json:"hold_balance" db:"hold_balance"`
+	HoldMinimumRequired int64     `json:"hold_minimum_required" db:"hold_minimum_required"`
+	Currency            string    `json:"currency" db:"currency"`
+	Version             int       `json:"version" db:"version"`
+	CreatedAt           time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// AvailableBalance adalah saldo yang benar-benar bisa dipakai/ditarik:
+// total balance dikurangi hold (jaminan anti-ghosting yang disimpan).
+func (w *Wallet) AvailableBalance() int64 {
+	if w.Balance <= w.HoldBalance {
+		return 0
+	}
+	return w.Balance - w.HoldBalance
+}
+
+// HoldShortfall adalah kekurangan hold terhadap minimum yang diwajibkan.
+// 0 berarti jaminan sudah tercukupi.
+func (w *Wallet) HoldShortfall() int64 {
+	if w.HoldBalance >= w.HoldMinimumRequired {
+		return 0
+	}
+	return w.HoldMinimumRequired - w.HoldBalance
 }
 
 type WalletTransaction struct {
@@ -51,6 +71,12 @@ type WalletRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*Wallet, error)
 	Create(ctx context.Context, userID uuid.UUID) (*Wallet, error)
 	UpdateBalance(ctx context.Context, walletID uuid.UUID, amount int64, version int) error
+	// UpdateHold menambah/mengurangi hold_balance secara atomik dengan optimistic
+	// locking (FOOD-BIKE-023/024). amount positif = tambah hold (freeze saldo),
+	// negatif = rilis hold (unfreeze). Mengembalikan error jika version tidak cocok.
+	UpdateHold(ctx context.Context, walletID uuid.UUID, holdDelta int64, version int) error
+	// UpdateHoldMinimum menetapkan hold_minimum_required (jaminan anti-ghosting).
+	UpdateHoldMinimum(ctx context.Context, walletID uuid.UUID, minimum int64) error
 	CreateTransaction(ctx context.Context, tx *WalletTransaction) error
 	GetTransactions(ctx context.Context, walletID uuid.UUID, limit, offset int) ([]*WalletTransaction, error)
 	GetTransactionByReferenceID(ctx context.Context, referenceID string) (*WalletTransaction, error)
@@ -103,6 +129,15 @@ type WalletService interface {
 	Refund(ctx context.Context, userID uuid.UUID, amount int64, orderID string) error
 	DeductFakeSosPenalty(ctx context.Context, victimID uuid.UUID, amount int64, referenceID string) error
 	CreditSosHelperReward(ctx context.Context, helperID uuid.UUID, amount int64, referenceID string) error
+	// DeductFromHold memotong saldo dan menahannya ke hold_balance (jaminan
+	// anti-ghosting). Gagal jika AvailableBalance < amount (FOOD-BIKE-024).
+	DeductFromHold(ctx context.Context, driverID uuid.UUID, amount int64, referenceID string) error
+	// AutoRefillHold menggeser saldo dari balance ke hold sampai memenuhi
+	// hold_minimum_required — self-funding dari revenue (FOOD-BIKE-024).
+	AutoRefillHold(ctx context.Context, driverID uuid.UUID) error
+	// SetHoldMinimum menetapkan besar jaminan minimum driver (dipanggil saat
+	// driver bergabung ke layanan food atau oleh admin).
+	SetHoldMinimum(ctx context.Context, driverID uuid.UUID, minimum int64) error
 	ReconcileWallet(ctx context.Context, userID uuid.UUID, walletType string) (*WalletReconciliationResult, error)
 	HandleTopUpCallback(ctx context.Context, referenceID string) error
 	HandleDisbursementCallback(ctx context.Context, referenceID string, status string) error

@@ -368,6 +368,10 @@ routes.get('/admin/couriers/export', (req, res) => controllers.exportCouriers(re
 
 // Merchant Management (FOOD-BIKE-048)
 routes.get('/admin/merchants', (req, res) => controllers.listAdminMerchants(req, res));
+routes.get('/admin/merchants/performance', (req, res) => controllers.listMerchantPerformance(req, res));
+// FOOD-BIKE-054: hold balance driver + penalty log + appeal
+routes.get('/admin/driver-wallet-holds', (req, res) => controllers.listDriverWalletHolds(req, res));
+routes.patch('/admin/driver-penalties/:penaltyId/appeal', (req, res) => controllers.updatePenaltyAppeal(req, res));
 routes.get('/admin/merchants/:id', (req, res) => controllers.getAdminMerchantDetail(req, res));
 routes.post('/admin/merchants/:id/approve', (req, res) => controllers.approveAdminMerchant(req, res));
 routes.post('/admin/merchants/:id/reject', (req, res) => controllers.rejectAdminMerchant(req, res));

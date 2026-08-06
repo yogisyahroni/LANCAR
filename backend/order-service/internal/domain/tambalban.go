@@ -208,6 +208,10 @@ type AvailabilityRepository interface {
 	EstimateDistanceKM(ctx context.Context, lat1, lng1, lat2, lng2 float64) (float64, error)
 	GetCourierVehicleType(ctx context.Context, courierID string) (vehicleType string, vehicleTypeCar *string, err error)
 	GetActiveOrderRemainingMinutes(ctx context.Context, courierID string) (int, error)
+	// UpdateCourierRadius — FOOD-BIKE-029: set radius_max_km driver
+	// (dropdown 1-20 km, CHECK constraint di DB). driver food delivery
+	// mengatur radius jangkauan sendiri.
+	UpdateCourierRadius(ctx context.Context, courierID string, radiusKM int) error
 }
 
 type ServiceReportRepository interface {
@@ -230,6 +234,8 @@ type AvailabilityService interface {
 	UpdateCourierState(ctx context.Context, courierID, newState string, orderID *string) error
 	FindAvailableCouriers(ctx context.Context, serviceSubType string, customerLat, customerLng float64, radiusKM float64) (*NearbyCouriersResponse, error)
 	GetCourierAvailability(ctx context.Context, courierID string) (*CourierAvailabilityState, error)
+	// UpdateRadius — FOOD-BIKE-029: set radius_max_km driver food delivery.
+	UpdateRadius(ctx context.Context, courierID string, radiusKM int) error
 }
 
 type VehicleValidator interface {

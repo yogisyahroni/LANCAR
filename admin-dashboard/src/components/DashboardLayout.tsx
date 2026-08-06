@@ -32,6 +32,7 @@ import {
   Calculator,
   Receipt,
   Store,
+  ShieldOff,
   Link as LinkIcon
 } from 'lucide-react'
 import { cn } from '../lib/utils'
@@ -207,6 +208,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: ClipboardCheck, label: "Courier Review", path: "/courier-applications" },
         { icon: Store, label: "Merchants", path: "/merchants" },
         { icon: TrendingUp, label: "Courier Performance", path: "/courier-performance" },
+        { icon: Store, label: "Merchant Performance", path: "/merchant-performance" }, // FOOD-BIKE-051
+        { icon: ShieldOff, label: "Driver Wallet Hold", path: "/driver-wallet-holds" }, // FOOD-BIKE-054
         { icon: ShieldAlert, label: "Face Verifications", path: "/courier-face-verifications" },
         { icon: ShieldAlert, label: "Courier Safety", path: "/courier-safety-events" },
         { icon: TrendingUp, label: "Courier Growth", path: "/courier-growth" },

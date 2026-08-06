@@ -239,6 +239,112 @@ func (r *foodRepo) GetPreparingFoodOrders(ctx context.Context) ([]*domain.Order,
 	return out, rows.Err()
 }
 
+// ListFoodMerchants — FOOD-BIKE-055: browse merchant food terdekat.
+// Hanya merchant is_open = true + verification_status = 'approved'.
+// Distance dihitung dari lokasi customer (Haversine via geography).
+func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, search string, limit int) ([]domain.FoodMerchantInfo, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	var rows *sql.Rows
+	var err error
+	if search == "" {
+		rows, err = r.readDB.QueryContext(ctx, `
+			SELECT
+				m.id::text, m.nama_toko, m.alamat, m.is_open, m.verification_status,
+				COALESCE(ST_Y(m.lokasi::geometry), 0), COALESCE(ST_X(m.lokasi::geometry), 0),
+				m.jam_buka::text, m.jam_tutup::text,
+				ROUND(CAST(ST_Distance(m.lokasi, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000 AS NUMERIC), 2)::float AS distance_km,
+				COALESCE(AVG(r.stars), 0)::float AS avg_rating,
+				COUNT(r.id) AS rating_count
+			FROM merchants m
+			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
+			WHERE m.is_open = TRUE AND m.verification_status = 'approved'
+			GROUP BY m.id
+			ORDER BY distance_km ASC
+			LIMIT $3`,
+			lng, lat, limit,
+		)
+	} else {
+		rows, err = r.readDB.QueryContext(ctx, `
+			SELECT
+				m.id::text, m.nama_toko, m.alamat, m.is_open, m.verification_status,
+				COALESCE(ST_Y(m.lokasi::geometry), 0), COALESCE(ST_X(m.lokasi::geometry), 0),
+				m.jam_buka::text, m.jam_tutup::text,
+				ROUND(CAST(ST_Distance(m.lokasi, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000 AS NUMERIC), 2)::float AS distance_km,
+				COALESCE(AVG(r.stars), 0)::float AS avg_rating,
+				COUNT(r.id) AS rating_count
+			FROM merchants m
+			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
+			WHERE m.is_open = TRUE AND m.verification_status = 'approved'
+			  AND (m.nama_toko ILIKE '%' || $3 || '%' OR m.alamat ILIKE '%' || $3 || '%')
+			GROUP BY m.id
+			ORDER BY distance_km ASC
+			LIMIT $4`,
+			lng, lat, search, limit,
+		)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.FoodMerchantInfo
+	for rows.Next() {
+		var m domain.FoodMerchantInfo
+		var jamBuka, jamTutup sql.NullString
+		if err := rows.Scan(
+			&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
+			&m.Lat, &m.Lng, &jamBuka, &jamTutup, &m.DistanceKM, &m.AvgRating, &m.RatingCount,
+		); err != nil {
+			return nil, err
+		}
+		if jamBuka.Valid {
+			m.JamBuka = &jamBuka.String
+		}
+		if jamTutup.Valid {
+			m.JamTutup = &jamTutup.String
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
+// GetFoodMerchantMenu — FOOD-BIKE-055/056: daftar menu merchant.
+func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) ([]domain.FoodMenuItemInfo, error) {
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT id::text, merchant_id::text, nama, harga, is_available, prep_time_minutes, kategori, foto
+		FROM merchant_menu_items
+		WHERE merchant_id = $1 AND is_available = TRUE
+		ORDER BY kategori NULLS LAST, nama ASC`,
+		merchantID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.FoodMenuItemInfo
+	for rows.Next() {
+		var item domain.FoodMenuItemInfo
+		var kategori, foto sql.NullString
+		if err := rows.Scan(
+			&item.ID, &item.MerchantID, &item.Name, &item.Price, &item.IsAvailable,
+			&item.PrepTimeMinutes, &kategori, &foto,
+		); err != nil {
+			return nil, err
+		}
+		if kategori.Valid {
+			item.Kategori = &kategori.String
+		}
+		if foto.Valid {
+			item.Foto = &foto.String
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
 // GetPendingMerchantFoodOrders — order food pending_merchant yang belum direspon
 // merchant melebihi timeout (FOOD-BIKE-022: 3 menit) → kandidat auto-cancel.
 // updated_at di-update oleh UpdateStatus saat transisi ke pending_merchant,

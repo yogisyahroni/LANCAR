@@ -11,6 +11,8 @@ import CourierFaceVerifications from './pages/CourierFaceVerifications'
 import CourierSafetyEvents from './pages/CourierSafetyEvents'
 import CourierGrowthConfig from './pages/CourierGrowthConfig'
 import CourierPerformance from './pages/CourierPerformance'
+import MerchantPerformance from './pages/MerchantPerformance' // FOOD-BIKE-051
+import DriverWalletHold from './pages/DriverWalletHold' // FOOD-BIKE-054
 import CourierPublicRegistration from './pages/CourierPublicRegistration'
 import PricingConfig from './pages/PricingConfig'
 import SettlementConfig from './pages/SettlementConfig'
@@ -119,6 +121,24 @@ function App() {
             element={
               <ProtectedRoute>
                 <CourierPerformance />
+              </ProtectedRoute>
+            } 
+          />
+          {/* FOOD-BIKE-051: dashboard performa merchant food delivery */}
+          <Route 
+            path="/merchant-performance" 
+            element={
+              <ProtectedRoute>
+                <MerchantPerformance />
+              </ProtectedRoute>
+            } 
+          />
+          {/* FOOD-BIKE-054: hold balance & penalty log driver */}
+          <Route 
+            path="/driver-wallet-holds" 
+            element={
+              <ProtectedRoute>
+                <DriverWalletHold />
               </ProtectedRoute>
             } 
           />

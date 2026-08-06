@@ -1,0 +1,32 @@
+package domain
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+)
+
+// ============================================================
+// FOOD-BIKE-064 — Push Notification (device token + FCM wiring)
+// Tabel user_device_tokens (migration 20260806000011):
+// merchant/courier/customer register token FCM via POST /api/v1/device-tokens.
+// PushService mengirim notifikasi ke merchant saat order food masuk
+// (pending_merchant) — SLA 3 menit respon merchant (FOOD-BIKE-022).
+// ============================================================
+
+// DeviceTokenRepository — akses user_device_tokens.
+type DeviceTokenRepository interface {
+	// UpsertDeviceToken menyimpan/memperbarui token per user (UNIQUE user_id, token).
+	UpsertDeviceToken(ctx context.Context, userID uuid.UUID, token, platform, appName string) error
+	// GetDeviceTokensByUserIDs mengembalikan map[userID][]token aktif.
+	GetDeviceTokensByUserIDs(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID][]string, error)
+	// GetMerchantOwnerUserID me-resolve merchants.user_id dari merchant ID.
+	GetMerchantOwnerUserID(ctx context.Context, merchantID string) (uuid.UUID, error)
+}
+
+// PushService — abstraksi kirim push notification FCM.
+type PushService interface {
+	// NotifyMerchantNewOrder memberi tahu owner merchant ada order food baru
+	// menunggu respon (status pending_merchant). Idempotent per order.
+	NotifyMerchantNewOrder(ctx context.Context, orderID string) error
+}
