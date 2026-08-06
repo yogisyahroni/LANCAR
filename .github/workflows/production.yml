@@ -368,6 +368,9 @@ jobs:
           fetch-depth: 0  # full history for gitleaks
 
       # ── Node.js dependency audit ──────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - name: npm audit (frontend)
         working-directory: ./frontend
         run: |

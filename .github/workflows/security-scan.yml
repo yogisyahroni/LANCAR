@@ -229,6 +229,9 @@ jobs:
       # remediation yang lebih detail dibanding Trivy.
       # -------------------------------------------------------
       - name: Run Snyk to check for vulnerabilities
+        # Snyk butuh token — skip kalau secret belum dikonfigurasi.
+        # SCA utama tetap berjalan via Trivy + npm audit + pip-audit.
+        if: ${{ secrets.SNYK_TOKEN != '' }}
         uses: snyk/actions/node@master
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -259,7 +262,7 @@ jobs:
       # Upload Reports
       # -------------------------------------------------------
       - name: Upload Trivy SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-fs-results.sarif'
@@ -381,19 +384,20 @@ jobs:
       # -------------------------------------------------------
       # SAST Tool 2: CodeQL (GitHub Native)
       # -------------------------------------------------------
-      # CodeQL mendukung: C/C++, C#, Go, Java, JavaScript/TypeScript,
-      # Python, Ruby, Swift. Auto-detect bahasa dari repo.
+      # CodeQL: JavaScript/TypeScript + Python di-scan dengan build-mode: none
+      # (interpreted — tidak butuh autobuild). Go/JVM monorepo multi-module
+      # tidak compatible dengan autobuild di root; Go tetap di-cover oleh
+      # gosec + govulncheck (staging.yml) + Semgrep + Trivy + errcheck.
       # -------------------------------------------------------
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
-          languages: javascript,python,java,go
+          languages: javascript,python
+          build-mode: none
           queries: security-extended,security-and-quality
 
-      - name: Autobuild for compiled languages
-        uses: github/codeql-action/autobuild@v3
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:codeql"
 
@@ -401,7 +405,7 @@ jobs:
       # Upload Semgrep SARIF
       # -------------------------------------------------------
       - name: Upload Semgrep SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         continue-on-error: true
         with:
@@ -460,14 +464,14 @@ jobs:
       # Upload Reports
       # -------------------------------------------------------
       - name: Upload Checkov SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: checkov-results.sarif
           category: 'checkov-iac'
 
       - name: Upload Trivy config SARIF
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-config-results.sarif'
