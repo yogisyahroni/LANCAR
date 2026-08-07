@@ -8,7 +8,7 @@ import (
 type OrderStatus string
 
 const (
-	StatusPendingPayment      OrderStatus = "pending_payment"
+	StatusPendingPayment OrderStatus = "pending_payment"
 	// FOOD-BIKE-020: status food delivery — disisipkan antara pending_payment dan searching.
 	StatusPendingMerchant     OrderStatus = "pending_merchant"
 	StatusPreparing           OrderStatus = "preparing"
@@ -85,7 +85,7 @@ type Order struct {
 	DispatchExpiry         *time.Time   `json:"dispatch_expiry,omitempty"`
 	BatchID                *string      `json:"batch_id,omitempty"`
 	SequenceNo             *int         `json:"sequence_no,omitempty"`
-	CourierID              *string      `json:"courier_id,omitempty"`              // Added for S2-OS-01
+	CourierID              *string      `json:"courier_id,omitempty"` // Added for S2-OS-01
 	LogisticsProvider      string       `json:"logistics_provider,omitempty"`
 	LogisticsServiceType   string       `json:"logistics_service_type,omitempty"`
 	LogisticsTariffIDR     int64        `json:"logistics_tariff_idr,omitempty"`
@@ -98,8 +98,8 @@ type Order struct {
 	Courier                *CourierInfo `json:"courier,omitempty"`                 // Added for Courier Profile
 	CourierRating          *float64     `json:"courier_rating,omitempty"`          // Rating 1-5 diberikan customer setelah delivered
 	RatingComment          *string      `json:"rating_comment,omitempty"`          // Komentar opsional
-	RatingReminderCount    int              `json:"rating_reminder_count,omitempty"`   // Sudah berapa kali diingatkan
-	LastRatingReminderAt   *time.Time       `json:"last_rating_reminder_at,omitempty"` // Kapan terakhir diingatkan
+	RatingReminderCount    int          `json:"rating_reminder_count,omitempty"`   // Sudah berapa kali diingatkan
+	LastRatingReminderAt   *time.Time   `json:"last_rating_reminder_at,omitempty"` // Kapan terakhir diingatkan
 	// Food delivery (FOOD-BIKE-006): service_sub_type + merchant fields
 	ServiceSubType     string     `json:"service_sub_type,omitempty" db:"service_sub_type"`
 	MerchantID         *string    `json:"merchant_id,omitempty" db:"merchant_id"`
@@ -107,10 +107,12 @@ type Order struct {
 	MerchantAcceptedAt *time.Time `json:"merchant_accepted_at,omitempty" db:"merchant_accepted_at"`
 	PrepTimeMinutes    *int       `json:"prep_time_minutes,omitempty" db:"prep_time_minutes"`
 	FoodReadyAt        *time.Time `json:"food_ready_at,omitempty" db:"food_ready_at"`
-	TambalBanReport        *TambalBanReport `json:"tambal_ban_report,omitempty"`       // Laporan Tambal Ban
-	TowingReport           *TowingReport    `json:"towing_report,omitempty"`           // Laporan Towing
-	CreatedAt              time.Time        `json:"created_at"`
-	UpdatedAt              time.Time        `json:"updated_at"`
+	// FB-089: contactless delivery — antar tanpa kontak fisik, POD tetap wajib.
+	Contactless     bool             `json:"contactless,omitempty" db:"contactless"`
+	TambalBanReport *TambalBanReport `json:"tambal_ban_report,omitempty"` // Laporan Tambal Ban
+	TowingReport    *TowingReport    `json:"towing_report,omitempty"`     // Laporan Towing
+	CreatedAt       time.Time        `json:"created_at"`
+	UpdatedAt       time.Time        `json:"updated_at"`
 }
 
 type CourierInfo struct {
@@ -124,31 +126,31 @@ type CourierInfo struct {
 }
 
 type CreateOrderRequest struct {
-	EstimateID             string  `json:"estimate_id" validate:"required"` // For on-demand, or tariff ID for 3PL
-	ItemDescription        string  `json:"item_description" validate:"required,min=5"`
-	ItemImageURL           string  `json:"item_image_url,omitempty"`
-	IsScheduled            bool    `json:"is_scheduled"`
+	EstimateID      string `json:"estimate_id" validate:"required"` // For on-demand, or tariff ID for 3PL
+	ItemDescription string `json:"item_description" validate:"required,min=5"`
+	ItemImageURL    string `json:"item_image_url,omitempty"`
+	IsScheduled     bool   `json:"is_scheduled"`
 	// Logistics fields (optional if using on-demand)
-	LogisticsProvider      string  `json:"logistics_provider,omitempty"`
-	LogisticsServiceType   string  `json:"logistics_service_type,omitempty"`
-	LogisticsTariffIDR     int64   `json:"logistics_tariff_idr,omitempty"`
-	LogisticsNetCostIDR    int64   `json:"logistics_net_cost_idr,omitempty"`
-	PickupAddress          string  `json:"pickup_address,omitempty"`
-	PickupCity             string  `json:"pickup_city,omitempty"`
-	PickupZipCode          string  `json:"pickup_zip_code,omitempty"`
-	PickupLat              float64 `json:"pickup_lat,omitempty"`
-	PickupLng              float64 `json:"pickup_lng,omitempty"`
-	DropoffAddress         string  `json:"dropoff_address,omitempty"`
-	DropoffCity            string  `json:"dropoff_city,omitempty"`
-	DropoffZipCode         string  `json:"dropoff_zip_code,omitempty"`
-	DropoffLat             float64 `json:"dropoff_lat,omitempty"`
-	DropoffLng             float64 `json:"dropoff_lng,omitempty"`
-	Length                 float64 `json:"length,omitempty"`
-	Width                  float64 `json:"width,omitempty"`
-	Height                 float64 `json:"height,omitempty"`
-	Weight                 float64 `json:"weight,omitempty"`
-	ReceiverName           string  `json:"receiver_name,omitempty"`
-	ReceiverPhone          string  `json:"receiver_phone,omitempty"`
+	LogisticsProvider    string  `json:"logistics_provider,omitempty"`
+	LogisticsServiceType string  `json:"logistics_service_type,omitempty"`
+	LogisticsTariffIDR   int64   `json:"logistics_tariff_idr,omitempty"`
+	LogisticsNetCostIDR  int64   `json:"logistics_net_cost_idr,omitempty"`
+	PickupAddress        string  `json:"pickup_address,omitempty"`
+	PickupCity           string  `json:"pickup_city,omitempty"`
+	PickupZipCode        string  `json:"pickup_zip_code,omitempty"`
+	PickupLat            float64 `json:"pickup_lat,omitempty"`
+	PickupLng            float64 `json:"pickup_lng,omitempty"`
+	DropoffAddress       string  `json:"dropoff_address,omitempty"`
+	DropoffCity          string  `json:"dropoff_city,omitempty"`
+	DropoffZipCode       string  `json:"dropoff_zip_code,omitempty"`
+	DropoffLat           float64 `json:"dropoff_lat,omitempty"`
+	DropoffLng           float64 `json:"dropoff_lng,omitempty"`
+	Length               float64 `json:"length,omitempty"`
+	Width                float64 `json:"width,omitempty"`
+	Height               float64 `json:"height,omitempty"`
+	Weight               float64 `json:"weight,omitempty"`
+	ReceiverName         string  `json:"receiver_name,omitempty"`
+	ReceiverPhone        string  `json:"receiver_phone,omitempty"`
 	// FB-078: kode voucher diskon (opsional) — divalidasi server-side.
 	VoucherCode string `json:"voucher_code,omitempty"`
 }
@@ -178,6 +180,9 @@ type CreateFoodOrderRequest struct {
 	ReceiverPhone  string                 `json:"receiver_phone,omitempty"`
 	IsScheduled    bool                   `json:"is_scheduled"`
 
+	// FB-089: antar tanpa kontak fisik (foto lokasi dropoff, POD tetap wajib).
+	Contactless bool `json:"contactless,omitempty"`
+
 	// FB-078: kode voucher diskon (opsional). Divalidasi + dihitung server-side.
 	VoucherCode string `json:"voucher_code,omitempty"`
 }
@@ -198,20 +203,20 @@ type FoodOrderItem struct {
 // FoodMerchantInfo — data merchant yang dibutuhkan order-service untuk
 // validasi & pickup location (diambil dari tabel merchants).
 type FoodMerchantInfo struct {
-	ID                 string   `json:"id"`
-	Name               string   `json:"name"`
-	Address            string   `json:"address"`
-	IsOpen             bool     `json:"is_open"`
-	VerificationStatus string   `json:"verification_status"`
-	Lat                float64  `json:"lat"`
-	Lng                float64  `json:"lng"`
-	JamBuka            *string  `json:"jam_buka,omitempty"`
-	JamTutup           *string  `json:"jam_tutup,omitempty"`
+	ID                 string  `json:"id"`
+	Name               string  `json:"name"`
+	Address            string  `json:"address"`
+	IsOpen             bool    `json:"is_open"`
+	VerificationStatus string  `json:"verification_status"`
+	Lat                float64 `json:"lat"`
+	Lng                float64 `json:"lng"`
+	JamBuka            *string `json:"jam_buka,omitempty"`
+	JamTutup           *string `json:"jam_tutup,omitempty"`
 	// FOOD-BIKE-055: metrik browse merchant
-	DistanceKM   *float64 `json:"distance_km,omitempty"`
-	AvgRating    *float64 `json:"avg_rating,omitempty"`
-	RatingCount  int      `json:"rating_count"`
-	MenuItems    []FoodMenuItemInfo `json:"menu_items,omitempty"`
+	DistanceKM  *float64           `json:"distance_km,omitempty"`
+	AvgRating   *float64           `json:"avg_rating,omitempty"`
+	RatingCount int                `json:"rating_count"`
+	MenuItems   []FoodMenuItemInfo `json:"menu_items,omitempty"`
 }
 
 type FoodMenuItemInfo struct {

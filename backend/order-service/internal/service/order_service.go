@@ -39,7 +39,7 @@ type orderServiceImpl struct {
 	pointsSvc       domain.DriverPointsService
 	penaltySvc      domain.DriverPenaltyService
 	voucherSvc      domain.VoucherService
-	tipSvc          domain.TipService // FB-083: refund tip saat order batal
+	tipSvc          domain.TipService  // FB-083: refund tip saat order batal
 	pushSvc         domain.PushService // FB-084: notif push customer saat merchant reject/timeout
 }
 
@@ -390,7 +390,6 @@ func (s *orderServiceImpl) CreateInternalAggregatorOrder(ctx context.Context, us
 
 	return order, nil
 }
-
 
 func (s *orderServiceImpl) CreateBulkOrder(ctx context.Context, userID string, req domain.CreateBulkOrderRequest) ([]*domain.Order, string, error) {
 	if len(req.Destinations) < 2 {
@@ -1174,7 +1173,7 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 	if targetStatus == domain.StatusDelivered {
 		// Calculate courier earnings based on order BasePrice + Volumetric + Dynamic
 		grossTariff := order.BasePriceIDR + order.VolumetricSurchargeIDR + order.DynamicPriceIDR
-		
+
 		// 80% to courier (example, should be from config but we'll use standard model)
 		// For simplicity we just use 80% of grossTariff for courier payable
 		courierPayable := int64(float64(grossTariff) * 0.8)
@@ -1189,17 +1188,17 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 			CreatedBy:      scannedBy,
 			ActorRole:      "courier",
 		}
-		
+
 		entries := []domain.LedgerEntry{
 			// Revenue Recognition (Realized)
 			{AccountName: "unearned_revenue", DebitIDR: grossTariff, CreditIDR: 0},
 			{AccountName: "delivery_revenue", DebitIDR: 0, CreditIDR: grossTariff},
-			
+
 			// Courier Payable Accrual
 			{AccountName: "courier_payout_expense", DebitIDR: courierPayable, CreditIDR: 0},
 			{AccountName: "courier_payable", DebitIDR: 0, CreditIDR: courierPayable},
 		}
-		
+
 		// If promo applied (we assume TotalPriceIDR < grossTariff indicates promo)
 		promoDiscount := grossTariff - order.TotalPriceIDR
 		if promoDiscount > 0 {
@@ -1683,6 +1682,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		ReceiverName:       req.ReceiverName,
 		ReceiverPhone:      req.ReceiverPhone,
 		ServiceSubType:     serviceSubType,
+		Contactless:        req.Contactless,
 		MerchantID:         &merchantID,
 		PrepTimeMinutes:    &prepMin,
 		CreatedAt:          now,

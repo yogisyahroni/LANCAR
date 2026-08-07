@@ -145,8 +145,9 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 				tax_rule_code, ppn_rate_effective_pct, ppn_rate_statutory_pct, dpp_idr,
 				tax_invoice_required, tax_invoice_status, platform_fee_idr, platform_fee_pct, promo_subsidy_idr,
 				service_sub_type, merchant_id, prep_time_minutes,
+				contactless,
 				created_at, updated_at
-			  ) VALUES (
+				) VALUES (
 				$1, $2, $3, $4, $5, 
 				ST_SetSRID(ST_MakePoint($6, $7), 4326), $8, $9, $10,
 				ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15,
@@ -154,8 +155,9 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 				$22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35,
 				$36, $37, $38, $39, $40, $41, $42, $43, $44,
 				$45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55,
-				$56, $57, $58, $59, $60
-			  )`
+				$56, $57, $58, $59, $60,
+				$61, $62
+				)`
 
 	mdrFixed := r.configRepo.GetIntConfig(ctx, "payment_mdr_fixed", 2500)
 	mdr := int64(mdrFixed)
@@ -186,6 +188,7 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 		o.TaxRuleCode, o.PPNRateEffectivePct, o.PPNRateStatutoryPct, o.DPPIDR,
 		o.TaxInvoiceRequired, o.TaxInvoiceStatus, o.PlatformFeeIDR, o.PlatformFeePct, o.PromoSubsidyIDR,
 		o.ServiceSubType, o.MerchantID, o.PrepTimeMinutes,
+		o.Contactless,
 		o.CreatedAt, o.UpdatedAt,
 	)
 	return err
@@ -206,6 +209,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				COALESCE(tax_rule_code, ''), COALESCE(ppn_rate_effective_pct, 0), COALESCE(ppn_rate_statutory_pct, 0), COALESCE(dpp_idr, 0), COALESCE(ppn_idr, 0),
 				COALESCE(tax_invoice_required, false), COALESCE(tax_invoice_status, ''), COALESCE(platform_fee_idr, 0), COALESCE(platform_fee_pct, 0), COALESCE(promo_subsidy_idr, 0),
 				COALESCE(service_sub_type, ''), merchant_id::text, merchant_accepted_at, prep_time_minutes, food_ready_at,
+				COALESCE(contactless, false),
 				COALESCE(m.nama_toko, ''),
 				created_at, updated_at
 				FROM orders
@@ -227,6 +231,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.TaxRuleCode, &o.PPNRateEffectivePct, &o.PPNRateStatutoryPct, &o.DPPIDR, &o.PPNIDR,
 		&o.TaxInvoiceRequired, &o.TaxInvoiceStatus, &o.PlatformFeeIDR, &o.PlatformFeePct, &o.PromoSubsidyIDR,
 		&o.ServiceSubType, &o.MerchantID, &o.MerchantAcceptedAt, &o.PrepTimeMinutes, &o.FoodReadyAt,
+		&o.Contactless,
 		&o.MerchantName,
 		&o.CreatedAt, &o.UpdatedAt,
 	)
@@ -389,8 +394,6 @@ func (r *postgresRepo) UpdateOrderAWB(ctx context.Context, orderID, awbNumber, t
 	_, err := r.db.ExecContext(ctx, query, awbNumber, trackingURL, time.Now(), orderID)
 	return err
 }
-
-
 
 func (r *postgresRepo) UpdateDimensions(ctx context.Context, id string, length, width, height, weight float64) error {
 	query := `UPDATE orders SET length = $1, width = $2, height = $3, weight = $4, updated_at = $5 WHERE id = $6`
