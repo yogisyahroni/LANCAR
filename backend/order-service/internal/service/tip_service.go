@@ -120,6 +120,40 @@ func (s *tipService) GetTipByOrder(ctx context.Context, orderID uuid.UUID) (*dom
 	return s.tipRepo.GetTipByOrderID(ctx, orderID)
 }
 
+// RefundTipByOrder — FB-083: refund tip saat order dibatalkan.
+// - Tidak ada tip → no-op (bukan error).
+// - Tip sudah refunded → no-op (idempotent).
+// - Tip paid → balik transfer (courier → customer) via payment-service,
+//   lalu status → refunded. Kalau transfer gagal (mis. saldo courier tidak
+//   cukup karena sudah ditarik), error di-return — status tetap paid,
+//   bisa diretry.
+func (s *tipService) RefundTipByOrder(ctx context.Context, orderID uuid.UUID) error {
+	tip, err := s.tipRepo.GetTipByOrderID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("gagal cek tip utk refund: %w", err)
+	}
+	if tip == nil {
+		return nil // tidak ada tip — nothing to refund
+	}
+	if tip.Status == "refunded" {
+		return nil // sudah di-refund — idempotent
+	}
+	if tip.Status != "paid" {
+		return fmt.Errorf("tip order %s berstatus %s (bukan paid/refunded)", orderID, tip.Status)
+	}
+
+	// reference BEDA dari reference tip original (wallet-tip-{order_id})
+	refundRef := fmt.Sprintf("wallet-tip-refund-%s", orderID.String())
+	if err := s.tipGateway.RefundTip(ctx, tip.CustomerID, tip.CourierID, tip.AmountIDR, refundRef); err != nil {
+		return fmt.Errorf("refund tip order %s gagal: %w", orderID, err)
+	}
+
+	if err := s.tipRepo.UpdateTipStatus(ctx, tip.ID, "refunded"); err != nil {
+		return fmt.Errorf("tip refunded tapi gagal update status: %w", err)
+	}
+	return nil
+}
+
 func (s *tipService) ListTipsByCourier(ctx context.Context, courierID uuid.UUID) ([]domain.DriverTip, error) {
 	return s.tipRepo.ListTipsByCourier(ctx, courierID, tipListDefaultPage, 0)
 }

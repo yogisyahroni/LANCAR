@@ -99,3 +99,21 @@ func (r *PostgresTipRepo) SumTipsByCourierSince(ctx context.Context, courierID u
 	}
 	return total, count, nil
 }
+
+// UpdateTipStatus — FB-083: tandai tip refunded setelah dana dikembalikan
+// ke customer. Hanya transisi paid → refunded yang diterima.
+func (r *PostgresTipRepo) UpdateTipStatus(ctx context.Context, tipID uuid.UUID, status string) error {
+	query := `
+		UPDATE driver_tips
+		SET status = $2, updated_at = NOW()
+		WHERE id = $1 AND status = 'paid'
+	`
+	res, err := r.primaryDB.ExecContext(ctx, query, tipID, status)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return errors.New("tip tidak ditemukan atau bukan berstatus paid")
+	}
+	return nil
+}

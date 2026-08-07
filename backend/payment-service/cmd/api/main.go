@@ -164,6 +164,7 @@ func main() {
 	mux.HandleFunc("/api/internal/wallet/hold-autorefill", middleware.BaseChain(h.HoldAutoRefill))
 	mux.HandleFunc("/api/internal/wallet/hold-minimum", middleware.BaseChain(h.SetHoldMinimum))
 	mux.HandleFunc("/api/internal/wallet/tip", middleware.BaseChain(h.Tip))
+	mux.HandleFunc("/api/internal/wallet/tip/refund", middleware.BaseChain(h.TipRefund)) // FB-083
 
 	// Webhooks
 	mux.HandleFunc("/webhooks/xendit", middleware.BaseChain(wh.XenditWebhook))

@@ -71,13 +71,34 @@ func (m *mockTipRepo) SumTipsByCourierSince(ctx context.Context, courierID uuid.
 	return total, count, nil
 }
 
+func (m *mockTipRepo) UpdateTipStatus(ctx context.Context, tipID uuid.UUID, status string) error {
+	for _, t := range m.tips {
+		if t.ID == tipID {
+			if t.Status != "paid" {
+				return errors.New("tip bukan berstatus paid")
+			}
+			t.Status = status
+			t.UpdatedAt = time.Now()
+			return nil
+		}
+	}
+	return errors.New("tip not found")
+}
+
 type mockTipGateway struct {
 	transferred int
+	refunded    int
+	refundErr   error
 }
 
 func (m *mockTipGateway) ProcessTip(ctx context.Context, customerID, courierID uuid.UUID, amount int64, referenceID string) error {
 	m.transferred++
 	return nil
+}
+
+func (m *mockTipGateway) RefundTip(ctx context.Context, customerID, courierID uuid.UUID, amount int64, referenceID string) error {
+	m.refunded++
+	return m.refundErr
 }
 
 func newTipOrder(customerID, courierID uuid.UUID, status domain.OrderStatus) *domain.Order {
@@ -223,5 +244,103 @@ func TestTipService_GetTipSummary(t *testing.T) {
 	}
 	if summary.TodayTips != 3 {
 		t.Fatalf("expected 3 today tips, got %d", summary.TodayTips)
+	}
+}
+
+// ─── FB-083: RefundTipByOrder ────────────────────────────────────────────────
+
+func TestTipService_RefundTipByOrder_Paid_Refunded(t *testing.T) {
+	ctx := context.Background()
+	customerID := uuid.New()
+	courierID := uuid.New()
+	order := newTipOrder(customerID, courierID, domain.StatusDelivered)
+
+	tipRepo := newMockTipRepo()
+	gateway := &mockTipGateway{}
+	svc := service.NewTipService(tipRepo, &mockOrderRepo{order: order}, gateway)
+
+	orderUUID := uuid.MustParse(order.ID)
+	if _, err := svc.CreateTip(ctx, orderUUID, customerID, 10000); err != nil {
+		t.Fatalf("create tip failed: %v", err)
+	}
+
+	// Order batal → refund tip
+	if err := svc.RefundTipByOrder(ctx, orderUUID); err != nil {
+		t.Fatalf("RefundTipByOrder failed: %v", err)
+	}
+
+	// Gateway dipanggil 1x + status → refunded
+	if gateway.refunded != 1 {
+		t.Errorf("expected 1 gateway refund call, got %d", gateway.refunded)
+	}
+	tip, err := svc.GetTipByOrder(ctx, orderUUID)
+	if err != nil {
+		t.Fatalf("get tip failed: %v", err)
+	}
+	if tip.Status != "refunded" {
+		t.Errorf("expected tip status refunded, got %s", tip.Status)
+	}
+}
+
+// RefundTipByOrder idempotent: panggil dua kali → hanya 1 refund ke gateway.
+func TestTipService_RefundTipByOrder_Idempotent(t *testing.T) {
+	ctx := context.Background()
+	customerID := uuid.New()
+	courierID := uuid.New()
+	order := newTipOrder(customerID, courierID, domain.StatusDelivered)
+
+	tipRepo := newMockTipRepo()
+	gateway := &mockTipGateway{}
+	svc := service.NewTipService(tipRepo, &mockOrderRepo{order: order}, gateway)
+
+	orderUUID := uuid.MustParse(order.ID)
+	if _, err := svc.CreateTip(ctx, orderUUID, customerID, 10000); err != nil {
+		t.Fatalf("create tip failed: %v", err)
+	}
+
+	if err := svc.RefundTipByOrder(ctx, orderUUID); err != nil {
+		t.Fatalf("first refund failed: %v", err)
+	}
+	if err := svc.RefundTipByOrder(ctx, orderUUID); err != nil {
+		t.Fatalf("second refund (idempotent) failed: %v", err)
+	}
+	if gateway.refunded != 1 {
+		t.Errorf("expected only 1 gateway refund (idempotent), got %d", gateway.refunded)
+	}
+}
+
+// Tidak ada tip utk order → no-op, bukan error.
+func TestTipService_RefundTipByOrder_NoTip_NoOp(t *testing.T) {
+	ctx := context.Background()
+	svc := service.NewTipService(newMockTipRepo(), &mockOrderRepo{}, &mockTipGateway{})
+
+	if err := svc.RefundTipByOrder(ctx, uuid.New()); err != nil {
+		t.Fatalf("expected no-op for order without tip, got error: %v", err)
+	}
+}
+
+// Refund gagal (saldo courier tidak cukup) → error di-return, status tetap paid.
+func TestTipService_RefundTipByOrder_GatewayError_KeepsPaid(t *testing.T) {
+	ctx := context.Background()
+	customerID := uuid.New()
+	courierID := uuid.New()
+	order := newTipOrder(customerID, courierID, domain.StatusDelivered)
+
+	tipRepo := newMockTipRepo()
+	gateway := &mockTipGateway{refundErr: errors.New("insufficient courier balance")}
+	svc := service.NewTipService(tipRepo, &mockOrderRepo{order: order}, gateway)
+
+	orderUUID := uuid.MustParse(order.ID)
+	if _, err := svc.CreateTip(ctx, orderUUID, customerID, 10000); err != nil {
+		t.Fatalf("create tip failed: %v", err)
+	}
+
+	err := svc.RefundTipByOrder(ctx, orderUUID)
+	if err == nil {
+		t.Fatal("expected error when gateway refund fails")
+	}
+	tip, _ := svc.GetTipByOrder(ctx, orderUUID)
+	if tip.Status != "paid" {
+		t.Errorf("expected status tetap paid (bisa retry), got %s", tip.Status)
 	}
 }

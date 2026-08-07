@@ -338,6 +338,8 @@ func main() {
 	tipRepo := repository.NewPostgresTipRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
 	tipSvc := service.NewTipService(tipRepo, pgRepo, refundGw)
 	tipHandler := handler.NewTipHandler(tipSvc)
+	// FB-083: refund tip otomatis saat order batal
+	orderSvc.SetTipService(tipSvc)
 
 	// FB-078: voucher redeem customer — validate/preview + apply di create order
 	voucherRepo := repository.NewPostgresVoucherRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))

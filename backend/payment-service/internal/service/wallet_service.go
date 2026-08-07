@@ -1111,3 +1111,103 @@ func (s *walletService) HandleDisbursementCallback(ctx context.Context, referenc
 	return nil
 }
 
+// RefundTip membalik ProcessTip saat order dibatalkan: debit wallet courier
+// → credit wallet customer (100%, tanpa fee). Idempotent via referenceID:
+// pakai reference BEDA dari tip original (mis. "wallet-tip-refund-{order_id}")
+// supaya tidak ketuker dengan idempotency tip. Gagal jika saldo courier
+// < amount (kurir sudah menarik dana) — error di-propagate, status tip di
+// order-service tetap 'paid' sehingga bisa diretry (FB-083).
+func (s *walletService) RefundTip(ctx context.Context, customerID uuid.UUID, courierID uuid.UUID, amount int64, referenceID string) error {
+	if amount <= 0 {
+		return errors.New("tip refund amount must be greater than zero")
+	}
+	if referenceID == "" {
+		return errors.New("reference_id is required")
+	}
+	if customerID == courierID {
+		return errors.New("customer and courier cannot be the same")
+	}
+
+	// Idempotency: kalau refund dengan reference ini sudah pernah diproses, no-op.
+	existing, err := s.repo.GetTransactionByReferenceID(ctx, referenceID)
+	if err != nil {
+		return fmt.Errorf("failed to check tip refund idempotency: %w", err)
+	}
+	if existing != nil {
+		slog.InfoContext(ctx, "Tip refund already processed, ignoring duplicate",
+			"reference_id", referenceID, "amount", existing.Amount)
+		return nil
+	}
+
+	err = s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		custWallet, err := s.GetBalance(txCtx, customerID)
+		if err != nil {
+			return fmt.Errorf("customer wallet: %w", err)
+		}
+		courWallet, err := s.GetBalance(txCtx, courierID)
+		if err != nil {
+			return fmt.Errorf("courier wallet: %w", err)
+		}
+
+		if courWallet.Balance < amount {
+			return errors.New("insufficient courier balance for tip refund (courier sudah menarik dana tip?)")
+		}
+
+		// Debit courier wallet (balik dari tip)
+		if err = s.repo.UpdateBalance(txCtx, courWallet.ID, -amount, courWallet.Version); err != nil {
+			return fmt.Errorf("debit courier wallet: %w", err)
+		}
+		// Credit customer wallet (100% tip dikembalikan, tanpa fee)
+		if err = s.repo.UpdateBalance(txCtx, custWallet.ID, amount, custWallet.Version); err != nil {
+			return fmt.Errorf("credit customer wallet: %w", err)
+		}
+
+		// Transaction logs di kedua wallet (audit trail dua arah)
+		courTx := &domain.WalletTransaction{
+			WalletID:    courWallet.ID,
+			Type:        domain.TypeTipRefund,
+			Amount:      amount,
+			Fee:         0,
+			Status:      domain.StatusCompleted,
+			ReferenceID: referenceID,
+			Metadata:    map[string]any{"source": "driver_tip_refund", "to": customerID.String()},
+		}
+		custTx := &domain.WalletTransaction{
+			WalletID:    custWallet.ID,
+			Type:        domain.TypeTipRefund,
+			Amount:      amount,
+			Fee:         0,
+			Status:      domain.StatusCompleted,
+			ReferenceID: referenceID,
+			Metadata:    map[string]any{"source": "driver_tip_refund", "from": courierID.String()},
+		}
+		if err = s.repo.CreateTransaction(txCtx, courTx); err != nil {
+			return fmt.Errorf("log courier tip refund transaction: %w", err)
+		}
+		if err = s.repo.CreateTransaction(txCtx, custTx); err != nil {
+			return fmt.Errorf("log customer tip refund transaction: %w", err)
+		}
+
+		// Ledger: courier_payable debit → customer_wallet_liability credit
+		journal := &domain.LedgerJournal{
+			JournalType:    "transfer",
+			ReferenceType:  "driver_tip_refund",
+			ReferenceID:    referenceID,
+			IdempotencyKey: fmt.Sprintf("LEDGER-TIP-REFUND-%s", referenceID),
+			Reason:         "Driver tip refund from courier to customer (order cancelled)",
+			CreatedBy:      "system",
+			ActorRole:      "system",
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: "courier_payable", DebitIDR: amount, CreditIDR: 0},
+			{AccountName: "customer_wallet_liability", DebitIDR: 0, CreditIDR: amount},
+		}
+		if err = s.ledgerRepo.CreateJournalWithEntries(txCtx, journal, entries); err != nil {
+			return fmt.Errorf("write ledger for tip refund: %w", err)
+		}
+
+		return nil
+	})
+	return err
+}
+

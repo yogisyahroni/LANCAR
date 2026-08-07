@@ -307,6 +307,8 @@ type OrderService interface {
 	SetFoodRepository(fr FoodRepository)
 	// SetVoucherService inject voucher service untuk apply voucher (FB-078)
 	SetVoucherService(vs VoucherService)
+	// SetTipService inject tip service untuk refund tip saat order batal (FB-083)
+	SetTipService(ts TipService)
 	// SetMerchantSettlementService inject settlement service untuk order food
 	// yang delivered tanpa payment link (FOOD-BIKE-067).
 	SetMerchantSettlementService(mss MerchantSettlementService)

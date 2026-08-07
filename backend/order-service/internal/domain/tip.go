@@ -36,11 +36,16 @@ type TipRepository interface {
 	ListTipsByCourier(ctx context.Context, courierID uuid.UUID, limit, offset int) ([]DriverTip, error)
 	SumTipsByCourier(ctx context.Context, courierID uuid.UUID) (total int64, count int, err error)
 	SumTipsByCourierSince(ctx context.Context, courierID uuid.UUID, since time.Time) (int64, int, error)
+	// UpdateTipStatus (FB-083): paid → refunded setelah tip dikembalikan ke customer.
+	UpdateTipStatus(ctx context.Context, tipID uuid.UUID, status string) error
 }
 
 // TipGateway — HTTP ke payment-service /api/internal/wallet/tip.
 type TipGateway interface {
 	ProcessTip(ctx context.Context, customerID, courierID uuid.UUID, amount int64, referenceID string) error
+	// RefundTip (FB-083): balik transfer tip (debit courier → credit customer).
+	// referenceID wajib BEDA dari reference tip original.
+	RefundTip(ctx context.Context, customerID, courierID uuid.UUID, amount int64, referenceID string) error
 }
 
 type TipService interface {
@@ -48,4 +53,7 @@ type TipService interface {
 	GetTipByOrder(ctx context.Context, orderID uuid.UUID) (*DriverTip, error)
 	ListTipsByCourier(ctx context.Context, courierID uuid.UUID) ([]DriverTip, error)
 	GetTipSummary(ctx context.Context, courierID uuid.UUID) (*TipSummary, error)
+	// RefundTipByOrder (FB-083): refund tip order yang batal. Hanya tip
+	// berstatus 'paid' yang di-refund; kalau sudah refunded → no-op.
+	RefundTipByOrder(ctx context.Context, orderID uuid.UUID) error
 }

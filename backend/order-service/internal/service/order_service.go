@@ -39,6 +39,7 @@ type orderServiceImpl struct {
 	pointsSvc       domain.DriverPointsService
 	penaltySvc      domain.DriverPenaltyService
 	voucherSvc      domain.VoucherService
+	tipSvc          domain.TipService // FB-083: refund tip saat order batal
 }
 
 func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository, lr domain.FinanceLedgerRepository, ts domain.TaxService) domain.OrderService {
@@ -60,6 +61,10 @@ func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r
 
 func (s *orderServiceImpl) SetRefundService(rs domain.RefundService) {
 	s.refundSvc = rs
+}
+
+func (s *orderServiceImpl) SetTipService(ts domain.TipService) {
+	s.tipSvc = ts
 }
 
 // SetMerchantSettlementService inject settlement service (FOOD-BIKE-067).
@@ -609,6 +614,18 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 				_, errRefund := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, "Order cancelled", domain.RefundOptions{OriginalStatus: prevStatus})
 				if errRefund != nil {
 					log.Printf("[OrderService] Failed to trigger refund for order %s: %v", orderID, errRefund)
+				}
+			}
+		}
+
+		// FB-083: order batal → tip yang sudah dibayar dikembalikan ke customer
+		// (fire-and-forget: error hanya di-log, tidak menggagalkan cancel flow).
+		if status == domain.StatusCancelled && s.tipSvc != nil {
+			if oid, errParse := uuid.Parse(orderID); errParse == nil {
+				if errTip := s.tipSvc.RefundTipByOrder(ctx, oid); errTip != nil {
+					log.Printf("[OrderService] Failed to refund tip for cancelled order %s: %v", orderID, errTip)
+				} else {
+					log.Printf("[OrderService] Tip refunded for cancelled order %s", orderID)
 				}
 			}
 		}
@@ -1781,6 +1798,12 @@ func (s *orderServiceImpl) triggerRefundOnCancel(ctx context.Context, orderID st
 	}
 	if _, errRefund := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, reason, domain.RefundOptions{OriginalStatus: originalStatus, ChargeCancellationFeeTo: chargeFeeTo}); errRefund != nil {
 		log.Printf("[OrderService] triggerRefundOnCancel: gagal refund order %s: %v", orderID, errRefund)
+	}
+	// FB-083: refund tip juga (kalau ada) — fire-and-forget
+	if s.tipSvc != nil {
+		if errTip := s.tipSvc.RefundTipByOrder(ctx, oid); errTip != nil {
+			log.Printf("[OrderService] triggerRefundOnCancel: gagal refund tip order %s: %v", orderID, errTip)
+		}
 	}
 }
 

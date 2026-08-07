@@ -17,6 +17,7 @@ const (
 	TypeRefund     TransactionType = "REFUND"
 	TypeAdjustment TransactionType = "ADJUSTMENT"
 	TypeTip        TransactionType = "TIP"
+	TypeTipRefund  TransactionType = "TIP_REFUND" // FB-083: tip dikembalikan ke customer saat order batal
 
 	StatusPending   TransactionStatus = "PENDING"
 	StatusCompleted TransactionStatus = "COMPLETED"
@@ -143,6 +144,10 @@ type WalletService interface {
 	// tanpa fee). Debit customer_wallet_liability → credit courier_payable.
 	// Idempotent via referenceID (order_id) — panggilan ulang tidak double-debit.
 	ProcessTip(ctx context.Context, customerID uuid.UUID, courierID uuid.UUID, amount int64, referenceID string) error
+	// RefundTip membalik ProcessTip saat order dibatalkan (FB-083): debit
+	// courier_payable → credit customer_wallet_liability. Idempotent via
+	// referenceID (wajib BEDA dari reference tip original).
+	RefundTip(ctx context.Context, customerID uuid.UUID, courierID uuid.UUID, amount int64, referenceID string) error
 	ReconcileWallet(ctx context.Context, userID uuid.UUID, walletType string) (*WalletReconciliationResult, error)
 	HandleTopUpCallback(ctx context.Context, referenceID string) error
 	HandleDisbursementCallback(ctx context.Context, referenceID string, status string) error

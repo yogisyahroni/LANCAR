@@ -270,6 +270,43 @@ func (h *WalletHandler) Tip(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, map[string]string{"message": "Tip transferred"}, http.StatusOK)
 }
 
+// TipRefund membalik tip saat order dibatalkan: debit wallet courier →
+// credit wallet customer (FB-083). Internal endpoint — dipanggil order-service
+// setelah order di-cancel. Idempotent via reference_id (beda dari reference tip).
+func (h *WalletHandler) TipRefund(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		CustomerID  uuid.UUID `json:"customer_id"`
+		CourierID   uuid.UUID `json:"courier_id"`
+		Amount      int64     `json:"amount"`
+		ReferenceID string    `json:"reference_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Amount <= 0 {
+		h.respondError(w, "Amount must be positive", http.StatusBadRequest)
+		return
+	}
+	if req.ReferenceID == "" {
+		h.respondError(w, "reference_id wajib diisi", http.StatusBadRequest)
+		return
+	}
+	if req.CustomerID == uuid.Nil || req.CourierID == uuid.Nil {
+		h.respondError(w, "customer_id dan courier_id wajib diisi", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.RefundTip(r.Context(), req.CustomerID, req.CourierID, req.Amount, req.ReferenceID)
+	if err != nil {
+		h.safeError(w, r, err, "tip", "tip_refund")
+		return
+	}
+
+	h.respondJSON(w, map[string]string{"message": "Tip refunded"}, http.StatusOK)
+}
+
 // HoldDeduct — internal endpoint: mem-freeze saldo driver ke hold_balance
 // (jaminan anti-ghosting). Dipanggil order-service saat order food di-assign
 // (FOOD-BIKE-024). Idempotent via reference_id.
@@ -534,7 +571,7 @@ func toUpperCase(s string) string {
 func (h *WalletHandler) respondJSON(w http.ResponseWriter, data any, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 func (h *WalletHandler) respondError(w http.ResponseWriter, message string, status int) {
