@@ -29,4 +29,8 @@ type PushService interface {
 	// NotifyMerchantNewOrder memberi tahu owner merchant ada order food baru
 	// menunggu respon (status pending_merchant). Idempotent per order.
 	NotifyMerchantNewOrder(ctx context.Context, orderID string) error
+	// NotifyCustomerOrderCancelled (FB-084) memberi tahu customer bahwa
+	// ordernya dibatalkan karena KESALAHAN MERCHANT (reject / timeout respon).
+	// Message berisi alasan pembatalan. Non-fatal: gagal kirim hanya di-log.
+	NotifyCustomerOrderCancelled(ctx context.Context, orderID string, message string) error
 }

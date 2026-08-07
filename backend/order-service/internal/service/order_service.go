@@ -40,6 +40,7 @@ type orderServiceImpl struct {
 	penaltySvc      domain.DriverPenaltyService
 	voucherSvc      domain.VoucherService
 	tipSvc          domain.TipService // FB-083: refund tip saat order batal
+	pushSvc         domain.PushService // FB-084: notif push customer saat merchant reject/timeout
 }
 
 func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository, lr domain.FinanceLedgerRepository, ts domain.TaxService) domain.OrderService {
@@ -65,6 +66,10 @@ func (s *orderServiceImpl) SetRefundService(rs domain.RefundService) {
 
 func (s *orderServiceImpl) SetTipService(ts domain.TipService) {
 	s.tipSvc = ts
+}
+
+func (s *orderServiceImpl) SetPushService(ps domain.PushService) {
+	s.pushSvc = ps
 }
 
 // SetMerchantSettlementService inject settlement service (FOOD-BIKE-067).
@@ -1803,6 +1808,13 @@ func (s *orderServiceImpl) triggerRefundOnCancel(ctx context.Context, orderID st
 	if s.tipSvc != nil {
 		if errTip := s.tipSvc.RefundTipByOrder(ctx, oid); errTip != nil {
 			log.Printf("[OrderService] triggerRefundOnCancel: gagal refund tip order %s: %v", orderID, errTip)
+		}
+	}
+	// FB-084: notif push customer — order batal karena kesalahan merchant
+	// (reject / timeout respon). Fire-and-forget.
+	if s.pushSvc != nil {
+		if errPush := s.pushSvc.NotifyCustomerOrderCancelled(ctx, orderID, reason); errPush != nil {
+			log.Printf("[OrderService] triggerRefundOnCancel: gagal push notif customer order %s: %v", orderID, errPush)
 		}
 	}
 }

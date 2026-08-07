@@ -308,6 +308,8 @@ func (s *merchantServiceImpl) RejectOrder(ctx context.Context, userID string, or
 
 	// Refund otomatis (async, non-blocking)
 	go s.triggerRefundOnMerchantReject(orderID, reason)
+	// FB-084: notif push customer (async, non-blocking)
+	go s.notifyCustomerRejected(orderID, reason)
 	return nil
 }
 
@@ -347,6 +349,48 @@ func (s *merchantServiceImpl) triggerRefundOnMerchantReject(orderID, reason stri
 	if resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		log.Printf("[MerchantService] RejectOrder: refund %s gagal (status %d): %s", orderID, resp.StatusCode, string(body))
+	}
+}
+
+// notifyCustomerRejected — FB-084: kirim push notification ke customer bahwa
+// pesanannya ditolak merchant. Panggil order-service
+// /api/v1/internal/push/order-cancelled (fire-and-forget, non-blocking —
+// dipanggil dari goroutine; kegagalan hanya di-log, tidak menggagalkan flow).
+func (s *merchantServiceImpl) notifyCustomerRejected(orderID, reason string) {
+	orderServiceURL := strings.TrimSpace(os.Getenv("ORDER_SERVICE_URL"))
+	if orderServiceURL == "" {
+		orderServiceURL = "http://order-service:8080"
+	}
+	message := "Pesanan dibatalkan oleh merchant"
+	if reason != "" {
+		message = "Pesanan dibatalkan merchant: " + reason
+	}
+	payload, _ := json.Marshal(map[string]interface{}{
+		"order_id": orderID,
+		"message":  message,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		orderServiceURL+"/api/v1/internal/push/order-cancelled", bytes.NewReader(payload))
+	if err != nil {
+		log.Printf("[MerchantService] RejectOrder: gagal buat request push %s: %v", orderID, err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Api-Key", os.Getenv("INTERNAL_API_KEY"))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("[MerchantService] RejectOrder: gagal reach order-service utk push %s: %v", orderID, err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		log.Printf("[MerchantService] RejectOrder: push %s gagal (status %d): %s", orderID, resp.StatusCode, string(body))
 	}
 }
 

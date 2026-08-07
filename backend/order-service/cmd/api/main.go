@@ -340,6 +340,9 @@ func main() {
 	tipHandler := handler.NewTipHandler(tipSvc)
 	// FB-083: refund tip otomatis saat order batal
 	orderSvc.SetTipService(tipSvc)
+	// FB-084: notif push customer saat merchant reject/timeout
+	orderSvc.SetPushService(pushSvc)
+	pushHandler := handler.NewPushHandler(pushSvc)
 
 	// FB-078: voucher redeem customer — validate/preview + apply di create order
 	voucherRepo := repository.NewPostgresVoucherRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
@@ -534,6 +537,12 @@ func main() {
 	mux.HandleFunc("/api/v1/internal/refunds/items", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			refundHandler.CreateItemRefund(w, r)
+		}
+	})
+	// FB-084: notif push customer saat merchant reject (dipanggil merchant-service)
+	mux.HandleFunc("/api/v1/internal/push/order-cancelled", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			pushHandler.NotifyCustomerOrderCancelled(w, r)
 		}
 	})
 

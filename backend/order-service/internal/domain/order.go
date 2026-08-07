@@ -309,6 +309,9 @@ type OrderService interface {
 	SetVoucherService(vs VoucherService)
 	// SetTipService inject tip service untuk refund tip saat order batal (FB-083)
 	SetTipService(ts TipService)
+	// SetPushService inject push service untuk notif customer saat merchant
+	// reject / timeout (FB-084)
+	SetPushService(ps PushService)
 	// SetMerchantSettlementService inject settlement service untuk order food
 	// yang delivered tanpa payment link (FOOD-BIKE-067).
 	SetMerchantSettlementService(mss MerchantSettlementService)
