@@ -53,7 +53,7 @@ func (w *GhostDetectionWorker) Start(ctx context.Context) {
 	}
 }
 
-func (w *GhostDetectionWorker) process(ctx context.Context) {
+func (w *GhostDetectionWorker) process(_ context.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 

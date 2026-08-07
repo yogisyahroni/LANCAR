@@ -4386,12 +4386,18 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
 
     // Statuses pelanggan boleh membatalkan (sebelum kurir pick up)
     const cancellableStatuses = ['pending', 'pending_payment', 'paid', 'dispatching', 'offered', 'searching', 'no_courier_found'];
+    // FB-079: food order — window lebih panjang: boleh cancel sampai picking_up
+    // (accepted/picking_up dikenakan biaya layanan sbg cancellation fee)
+    const foodCancellableStatuses = [
+      'pending', 'pending_payment', 'pending_merchant', 'preparing',
+      'ready_for_pickup', 'searching', 'accepted', 'picking_up', 'no_courier_found',
+    ];
 
     await client.query('BEGIN');
 
     // Lock baris order milik customer ini
     const { rows: orderRows } = await client.query(
-      `SELECT id, status, order_number FROM orders
+      `SELECT id, status, order_number, service_sub_type, merchant_id FROM orders
        WHERE id = $1 AND customer_id = $2
        FOR UPDATE`,
       [orderId, customerId]
@@ -4404,12 +4410,20 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
     }
 
     const order = orderRows[0];
+    const isFood = order.service_sub_type === 'food_delivery' || order.merchant_id != null;
+    // Simpan status ASAL sebelum diubah → dipakai refund service utk hitung
+    // refund window (tanpa ini order sudah 'cancelled' → refund selalu 100%)
+    const originalStatus = order.status;
 
-    if (!cancellableStatuses.includes(order.status)) {
+    const allowedStatuses = isFood ? foodCancellableStatuses : cancellableStatuses;
+    if (!allowedStatuses.includes(order.status)) {
       await client.query('ROLLBACK');
+      const disputeHint = isFood && ['picked_up', 'delivering', 'delivered'].includes(order.status)
+        ? ' Pesanan sudah diambil kurir — gunakan menu Bantuan/Komplain untuk dispute.'
+        : '';
       res.status(409).json({
         success: false,
-        error: `Pesanan tidak dapat dibatalkan pada status "${order.status}". Hubungi CS jika memerlukan bantuan.`,
+        error: `Pesanan tidak dapat dibatalkan pada status "${order.status}". Hubungi CS jika memerlukan bantuan.${disputeHint}`,
       });
       return;
     }
@@ -4444,7 +4458,7 @@ export const cancelCustomerOrder = async (req: Request, res: Response): Promise<
     fetch(`${orderServiceClientUrl}/api/v1/internal/refunds/process`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order_id: orderId, reason }),
+      body: JSON.stringify({ order_id: orderId, reason, original_status: originalStatus }),
     }).then(res => {
       if (!res.ok) console.warn(`[OrderService] Refund trigger returned status ${res.status} for ${orderId}`);
     }).catch(err => {

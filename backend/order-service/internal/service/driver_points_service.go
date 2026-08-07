@@ -27,8 +27,6 @@ const (
 	defaultPointsPerOrder = 10
 	// Multiplier poin saat tidak ada ghosting sepanjang hari.
 	defaultCleanDayMultiplier = 2.0
-	// Default persentase revenue untuk pool bonus (0.5%).
-	defaultWeeklyPoolPercent = 0.005
 	// Minimum bonus agar payout layak diproses (IDR).
 	minBonusPayoutIDR = 10000
 )

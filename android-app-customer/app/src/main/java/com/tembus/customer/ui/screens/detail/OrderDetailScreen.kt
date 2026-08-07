@@ -95,8 +95,10 @@ fun OrderDetailScreen(
 
     // S2-CUSTOMER-02: Cancel Reason Dialog
     if (showCancelDialog) {
+        val order = (state as? OrderDetailUiState.Success)?.order
         CancelReasonDialog(
             reasons = cancelReasons,
+            refundHint = order?.let { refundHintForStatus(it.status, it.serviceSubType == "food_delivery") } ?: "",
             onConfirm = { reason ->
                 showCancelDialog = false
                 viewModel.cancelOrder(orderId, reason)
@@ -309,13 +311,44 @@ private fun canCancelOrder(status: String): Boolean {
         "pending_assignment",
         "pending",
         "pending_payment",
-        "no_courier_found"
+        "no_courier_found",
+        // FB-079: food order — cancel window diperpanjang (free sebelum driver,
+        // kena biaya layanan saat accepted/picking_up)
+        "pending_merchant",
+        "preparing",
+        "ready_for_pickup",
+        "picking_up"
     )
+}
+
+/**
+ * FB-079: info refund yang ditampilkan di dialog pembatalan.
+ * - FREE: pembatalan gratis, refund penuh
+ * - FEE: dikenakan biaya layanan (cancellation fee)
+ */
+private fun refundHintForStatus(status: String, isFood: Boolean): String {
+    val s = status.lowercase()
+    if (!isFood) {
+        return if (s in setOf("accepted", "picking_up")) {
+            "Pembatalan dikenakan biaya 20% dari total pesanan."
+        } else {
+            "Pembatalan gratis — dana dikembalikan penuh."
+        }
+    }
+    return when (s) {
+        "accepted", "picking_up" ->
+            "Pembatalan dikenakan biaya layanan (biaya jasa tidak dikembalikan)."
+        "searching" ->
+            "Gratis jika kurir belum ditugaskan. Jika kurir sudah menerima pesanan, biaya layanan ditahan."
+        else ->
+            "Pembatalan gratis — dana dikembalikan penuh."
+    }
 }
 
 @Composable
 private fun CancelReasonDialog(
     reasons: List<String>,
+    refundHint: String,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -326,6 +359,22 @@ private fun CancelReasonDialog(
         title = { Text("Alasan Pembatalan", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // FB-079: info refund window (free / kena biaya layanan)
+                if (refundHint.isNotEmpty()) {
+                    Surface(
+                        color = Color(0xFFFFF3E0),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            refundHint,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFB26A00),
+                            modifier = Modifier.padding(10.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
                 Text(
                     "Pilih alasan pembatalan pesanan:",
                     style = MaterialTheme.typography.bodySmall,

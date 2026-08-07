@@ -42,7 +42,15 @@ type RefundGateway interface {
 	ProcessRefund(ctx context.Context, orderID string, paymentRef string, amount int, reason string) (string, error)
 }
 
+// RefundOptions — parameter tambahan kalkulasi refund (FB-079).
+// OriginalStatus: status order SEBELUM diubah ke cancelled. Wajib dikirim
+// dari cancel flow karena order sudah berstatus cancelled saat refund
+// diproses — tanpa ini refund selalu dihitung sebagai 100% (bug).
+type RefundOptions struct {
+	OriginalStatus OrderStatus
+}
+
 type RefundService interface {
-	CalculateAndTriggerRefund(ctx context.Context, orderID uuid.UUID, cancelReason string) (*RefundRecord, error)
+	CalculateAndTriggerRefund(ctx context.Context, orderID uuid.UUID, cancelReason string, opts RefundOptions) (*RefundRecord, error)
 	ProcessPendingRefunds(ctx context.Context) error
 }

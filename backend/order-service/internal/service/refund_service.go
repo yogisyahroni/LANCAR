@@ -38,7 +38,7 @@ func NewRefundService(
 	}
 }
 
-func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID uuid.UUID, cancelReason string) (*domain.RefundRecord, error) {
+func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID uuid.UUID, cancelReason string, opts domain.RefundOptions) (*domain.RefundRecord, error) {
 	// CEL-NEW #4: Prevent TOCTOU / Double Refund Admin Click via Distributed Lock
 	lockKey := fmt.Sprintf("refund_lock:%s", orderID.String())
 	acquired, err := s.redisRepo.AcquireLock(ctx, lockKey, 30*time.Second)
@@ -58,25 +58,54 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 		return nil, fmt.Errorf("failed to get order: %w", err)
 	}
 
-	// Calculate refund amount
-	// Policy:
-	// - pre-assignment (no courier): 100%
-	// - courier assigned but not picked up: 80%
-	// - picked up (in transit, etc): 0%
+	// Status asal: prefer dari opts (cancel flow), fallback ke status DB
+	// kalau bukan cancelled (manual admin trigger).
+	statusAtCancel := opts.OriginalStatus
+	if statusAtCancel == "" || statusAtCancel == domain.StatusCancelled {
+		statusAtCancel = order.Status
+	}
+	isFood := order.ServiceSubType == "food_delivery" || order.MerchantID != nil
+	courierAssigned := order.CourierID != nil && *order.CourierID != ""
 
+	// Kebijakan refund per status (FB-079):
+	// - FOOD free: pending_payment / pending_merchant / preparing / ready_for_pickup
+	//   / pending / pending_assignment / no_courier_found / searching tanpa driver → 100%
+	// - FOOD kena biaya layanan (platform fee ditahan sbg cancellation fee):
+	//   searching+dengan driver / accepted / picking_up → refund = total − platform_fee
+	// - FOOD picked_up ke atas: 0% (harusnya ditolak di handler → dispute)
+	// - PARCEL: existing policy (100% / 80% / 0%)
 	refundRatio := 0.0
-	switch order.Status {
-	case domain.StatusPendingPayment, domain.StatusPending, domain.StatusPendingAssignment, domain.StatusSearching, domain.StatusNoCourierFound, domain.StatusCancelled:
-		refundRatio = 1.0
-	case domain.StatusAccepted, domain.StatusPickingUp:
-		refundRatio = 0.8
-	default:
-		// Picked up or later -> 0% refund
-		refundRatio = 0.0
+	withholdServiceFee := false
+	if isFood {
+		switch statusAtCancel {
+		case domain.StatusPendingPayment, domain.StatusPendingMerchant, domain.StatusPreparing,
+			domain.StatusReadyForPickup, domain.StatusPending, domain.StatusPendingAssignment,
+			domain.StatusNoCourierFound:
+			refundRatio = 1.0
+		case domain.StatusSearching:
+			refundRatio = 1.0
+			withholdServiceFee = courierAssigned
+		case domain.StatusAccepted, domain.StatusPickingUp:
+			refundRatio = 1.0
+			withholdServiceFee = true
+		default:
+			// picked_up ke atas → 0%
+			refundRatio = 0.0
+		}
+	} else {
+		switch statusAtCancel {
+		case domain.StatusPendingPayment, domain.StatusPending, domain.StatusPendingAssignment, domain.StatusSearching, domain.StatusNoCourierFound, domain.StatusCancelled:
+			refundRatio = 1.0
+		case domain.StatusAccepted, domain.StatusPickingUp:
+			refundRatio = 0.8
+		default:
+			// Picked up or later -> 0% refund
+			refundRatio = 0.0
+		}
 	}
 
 	if refundRatio == 0.0 {
-		log.Printf("No refund applicable for order %s at status %s", orderID, order.Status)
+		log.Printf("No refund applicable for order %s at status %s", orderID, statusAtCancel)
 		return nil, nil // No refund
 	}
 
@@ -91,13 +120,22 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 	}
 
 	refundAmount := int(float64(payment.AmountIDR) * refundRatio)
+	platformFeeReversal := int64(float64(order.PlatformFeeIDR) * refundRatio)
+	if withholdServiceFee {
+		// FB-079: biaya layanan (platform fee) ditahan sebagai cancellation fee,
+		// sisanya (makanan + ongkir) direfund ke customer.
+		refundAmount -= int(order.PlatformFeeIDR)
+		platformFeeReversal = 0
+	}
 	if refundAmount <= 0 {
 		return nil, nil
 	}
 
-	refundPercentage := int(refundRatio * 100)
-	taxReversal := int64(float64(order.PPNIDR) * refundRatio)
-	platformFeeReversal := int64(float64(order.PlatformFeeIDR) * refundRatio)
+	// Ratio aktual dihitung ulang agar RefundPercentage / TaxReversal konsisten
+	// dengan jumlah yang benar-benar direfund (fee case ≠ ratio 100%).
+	actualRatio := float64(refundAmount) / float64(payment.AmountIDR)
+	refundPercentage := int(actualRatio*100 + 0.5)
+	taxReversal := int64(float64(order.PPNIDR) * actualRatio)
 
 	now := time.Now()
 	refundID := uuid.New()

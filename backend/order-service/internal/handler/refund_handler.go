@@ -20,6 +20,9 @@ func NewRefundHandler(refundService domain.RefundService) *RefundHandler {
 type createRefundRequest struct {
 	OrderID string `json:"order_id"`
 	Reason  string `json:"reason"`
+	// FB-079: status order SEBELUM diubah ke cancelled — dipakai utk menghitung
+	// refund window food (free vs kena biaya layanan) secara akurat.
+	OriginalStatus string `json:"original_status,omitempty"`
 }
 
 func (h *RefundHandler) CreateRefund(w http.ResponseWriter, r *http.Request) {
@@ -43,7 +46,9 @@ func (h *RefundHandler) CreateRefund(w http.ResponseWriter, r *http.Request) {
 			reason = "Manual refund triggered by admin"
 		}
 
-		record, err := h.refundService.CalculateAndTriggerRefund(r.Context(), oid, reason)
+		record, err := h.refundService.CalculateAndTriggerRefund(r.Context(), oid, reason, domain.RefundOptions{
+			OriginalStatus: domain.OrderStatus(req.OriginalStatus),
+		})
 		if err != nil {
 			middleware.WriteError(w, http.StatusInternalServerError, "ERR_REFUND_FAILED", err.Error(), middleware.GetCorrelationID(r.Context()))
 			return

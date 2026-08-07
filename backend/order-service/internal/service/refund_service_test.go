@@ -88,7 +88,7 @@ func TestRefundService_CalculateAndTriggerRefund_WalletPayment(t *testing.T) {
 		// ProviderReference is nil for Wallet payment
 	}
 
-	rec, err := svc.CalculateAndTriggerRefund(ctx, orderID, "Customer cancelled")
+	rec, err := svc.CalculateAndTriggerRefund(ctx, orderID, "Customer cancelled", domain.RefundOptions{})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -134,7 +134,7 @@ func TestRefundService_CalculateAndTriggerRefund_AcceptedStatus_80Percent(t *tes
 		Status:    domain.PaymentStatusPaid,
 	}
 
-	rec, err := svc.CalculateAndTriggerRefund(ctx, orderID, "Customer cancelled after accept")
+	rec, err := svc.CalculateAndTriggerRefund(ctx, orderID, "Customer cancelled after accept", domain.RefundOptions{})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -144,4 +144,134 @@ func TestRefundService_CalculateAndTriggerRefund_AcceptedStatus_80Percent(t *tes
 	if rec.AmountIDR != 80000 { // 80% of 100000
 		t.Errorf("expected 80%% refund amount 80000, got %d", rec.AmountIDR)
 	}
+}
+
+// FB-079: food preparing → refund penuh (sebelum ada driver)
+func TestRefundService_FoodPreparing_FullRefund(t *testing.T) {
+	ctx := context.Background()
+	refundRepo := newMockRefundRepo()
+	orderRepo := &mockOrderRepo{}
+	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
+	gateway := &mockRefundGateway{}
+
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil)
+
+	orderID := uuid.New()
+	orderRepo.order = &domain.Order{
+		ID:             orderID.String(),
+		CustomerID:     "cust-1",
+		Status:         domain.StatusCancelled, // sudah di-cancel saat refund diproses
+		ServiceSubType: "food_delivery",
+		MerchantID:     ptrString("merchant-1"),
+		PlatformFeeIDR: 5000,
+		PPNIDR:         1000,
+	}
+	paymentRepo.payments["pay-1"] = &domain.Payment{
+		ID:        "pay-1",
+		OrderID:   orderID.String(),
+		AmountIDR: 50000,
+		Status:    domain.PaymentStatusPaid,
+	}
+
+	// OriginalStatus = preparing (status sebelum cancel) → 100% refund
+	rec, err := svc.CalculateAndTriggerRefund(ctx, orderID, "Customer cancelled (preparing)", domain.RefundOptions{
+		OriginalStatus: domain.StatusPreparing,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if rec == nil {
+		t.Fatal("expected refund record, got nil")
+	}
+	if rec.AmountIDR != 50000 {
+		t.Errorf("expected full refund 50000, got %d", rec.AmountIDR)
+	}
+}
+
+// FB-079: food accepted (driver assigned) → refund dikurangi biaya layanan
+func TestRefundService_FoodAccepted_WithholdServiceFee(t *testing.T) {
+	ctx := context.Background()
+	refundRepo := newMockRefundRepo()
+	orderRepo := &mockOrderRepo{}
+	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
+	gateway := &mockRefundGateway{}
+
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil)
+
+	orderID := uuid.New()
+	courierID := "courier-1"
+	orderRepo.order = &domain.Order{
+		ID:             orderID.String(),
+		CustomerID:     "cust-1",
+		Status:         domain.StatusCancelled,
+		ServiceSubType: "food_delivery",
+		MerchantID:     ptrString("merchant-1"),
+		CourierID:      &courierID,
+		PlatformFeeIDR: 5000,
+		PPNIDR:         1000,
+	}
+	paymentRepo.payments["pay-1"] = &domain.Payment{
+		ID:        "pay-1",
+		OrderID:   orderID.String(),
+		AmountIDR: 50000,
+		Status:    domain.PaymentStatusPaid,
+	}
+
+	// OriginalStatus = accepted → kena biaya layanan: refund = 50000 - 5000
+	rec, err := svc.CalculateAndTriggerRefund(ctx, orderID, "Customer cancelled (accepted)", domain.RefundOptions{
+		OriginalStatus: domain.StatusAccepted,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if rec == nil {
+		t.Fatal("expected refund record, got nil")
+	}
+	if rec.AmountIDR != 45000 {
+		t.Errorf("expected refund 45000 (50000 - 5000 fee), got %d", rec.AmountIDR)
+	}
+	if rec.PlatformFeeReversalIDR != 0 {
+		t.Errorf("expected platform fee reversal 0 (fee ditahan), got %d", rec.PlatformFeeReversalIDR)
+	}
+}
+
+// FB-079: food picked_up → 0% refund (harusnya ditolak di handler → dispute)
+func TestRefundService_FoodPickedUp_NoRefund(t *testing.T) {
+	ctx := context.Background()
+	refundRepo := newMockRefundRepo()
+	orderRepo := &mockOrderRepo{}
+	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
+	gateway := &mockRefundGateway{}
+
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil)
+
+	orderID := uuid.New()
+	orderRepo.order = &domain.Order{
+		ID:             orderID.String(),
+		CustomerID:     "cust-1",
+		Status:         domain.StatusCancelled,
+		ServiceSubType: "food_delivery",
+		MerchantID:     ptrString("merchant-1"),
+		PlatformFeeIDR: 5000,
+	}
+	paymentRepo.payments["pay-1"] = &domain.Payment{
+		ID:        "pay-1",
+		OrderID:   orderID.String(),
+		AmountIDR: 50000,
+		Status:    domain.PaymentStatusPaid,
+	}
+
+	rec, err := svc.CalculateAndTriggerRefund(ctx, orderID, "Customer cancelled (picked up)", domain.RefundOptions{
+		OriginalStatus: domain.StatusPickedUp,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if rec != nil {
+		t.Errorf("expected nil refund for picked_up, got %+v", rec)
+	}
+}
+
+func ptrString(s string) *string {
+	return &s
 }

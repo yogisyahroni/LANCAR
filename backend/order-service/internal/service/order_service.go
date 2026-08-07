@@ -598,7 +598,7 @@ func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, sta
 		if status == domain.StatusCancelled && s.refundSvc != nil {
 			if oid, errParse := uuid.Parse(orderID); errParse == nil {
 				log.Printf("[OrderService] Order %s cancelled, triggering automatic refund...", orderID)
-				_, errRefund := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, "Order cancelled")
+				_, errRefund := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, "Order cancelled", domain.RefundOptions{})
 				if errRefund != nil {
 					log.Printf("[OrderService] Failed to trigger refund for order %s: %v", orderID, errRefund)
 				}
