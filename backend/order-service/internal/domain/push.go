@@ -33,4 +33,8 @@ type PushService interface {
 	// ordernya dibatalkan karena KESALAHAN MERCHANT (reject / timeout respon).
 	// Message berisi alasan pembatalan. Non-fatal: gagal kirim hanya di-log.
 	NotifyCustomerOrderCancelled(ctx context.Context, orderID string, message string) error
+	// NotifyCustomerOrderUpdated (FB-087) memberi tahu customer bahwa item
+	// ordernya diubah merchant sebelum konfirmasi (nilai tidak boleh naik).
+	// Non-fatal: gagal kirim hanya di-log.
+	NotifyCustomerOrderUpdated(ctx context.Context, orderID string, message string) error
 }

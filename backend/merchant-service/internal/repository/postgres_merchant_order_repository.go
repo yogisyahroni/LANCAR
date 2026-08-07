@@ -259,3 +259,94 @@ func isOrderInactive(status string) bool {
 		return false
 	}
 }
+
+// GetOrderForEdit — FB-087: ambil order food milik merchant untuk edit item.
+// Order harus status pending_merchant (belum dikonfirmasi merchant).
+func (r *postgresMerchantOrderRepository) GetOrderForEdit(ctx context.Context, merchantID, orderID string) (*domain.OrderEditData, error) {
+	var d domain.OrderEditData
+	err := r.readDB.QueryRowContext(ctx, `
+		SELECT o.id, o.status,
+		       COALESCE(o.base_price_idr, 0),
+		       COALESCE(o.distance_fee_idr, 0),
+		       COALESCE(o.platform_fee_idr, 0),
+		       COALESCE(o.platform_fee_pct, 0),
+		       COALESCE(o.discount_idr, 0)
+		FROM orders o
+		WHERE o.id = $1 AND o.merchant_id = $2
+		  AND o.service_sub_type = 'food_delivery'`, orderID, merchantID,
+	).Scan(&d.ID, &d.Status, &d.SubtotalOldIDR, &d.DeliveryFeeIDR, &d.PlatformFeeIDR, &d.PlatformFeePct, &d.DiscountIDR)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("order tidak ditemukan atau bukan milik merchant")
+		}
+		return nil, fmt.Errorf("get order for edit: %w", err)
+	}
+	if d.Status != "pending_merchant" {
+		return nil, errors.New("order hanya bisa diedit sebelum dikonfirmasi (status pending_merchant)")
+	}
+
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT item_name, quantity, item_price, subtotal, COALESCE(notes, '')
+		FROM food_order_items
+		WHERE order_id = $1
+		ORDER BY created_at`, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("get order edit items: %w", err)
+	}
+	defer rows.Close()
+
+	d.Items = []domain.FoodOrderItemView{}
+	for rows.Next() {
+		var it domain.FoodOrderItemView
+		if err := rows.Scan(&it.ItemName, &it.Quantity, &it.ItemPrice, &it.Subtotal, &it.Notes); err != nil {
+			return nil, fmt.Errorf("scan edit item: %w", err)
+		}
+		d.Items = append(d.Items, it)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("get order edit items rows: %w", err)
+	}
+	return &d, nil
+}
+
+// ReplaceOrderItems — FB-087: replace snapshot items + update harga order
+// dalam SATU transaksi. Dipanggil hanya saat status pending_merchant
+// (sudah divalidasi di GetOrderForEdit / service).
+func (r *postgresMerchantOrderRepository) ReplaceOrderItems(ctx context.Context, orderID string, items []domain.FoodOrderItemSnapshot, subtotal, platformFee, total int64) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM food_order_items WHERE order_id = $1`, orderID); err != nil {
+		return fmt.Errorf("delete order items: %w", err)
+	}
+
+	for i := range items {
+		it := &items[i]
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO food_order_items (
+				order_id, menu_item_id, item_name, item_price,
+				quantity, notes, subtotal, created_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+			orderID, it.MenuItemID, it.ItemName, it.ItemPrice,
+			it.Quantity, it.Notes, it.Subtotal,
+		); err != nil {
+			return fmt.Errorf("insert replaced order item: %w", err)
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE orders
+		SET base_price_idr = $2,
+		    dynamic_price_idr = $2,
+		    platform_fee_idr = $3,
+		    total_price_idr = $4,
+		    updated_at = NOW()
+		WHERE id = $1 AND service_sub_type = 'food_delivery'`, orderID, subtotal, platformFee, total); err != nil {
+		return fmt.Errorf("update order prices: %w", err)
+	}
+
+	return tx.Commit()
+}

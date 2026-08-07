@@ -455,6 +455,43 @@ func (h *MerchantHandler) ExportSalesReport(w http.ResponseWriter, r *http.Reque
 	_, _ = w.Write([]byte(csvData))
 }
 
+// EditOrderItems godoc
+// @Summary Edit item order food sebelum konfirmasi
+// @Description Merchant ganti/tambah/hapus item saat status pending_merchant. Nilai baru tidak boleh melebihi nilai order awal. Customer di-notif via push.
+// @Tags merchant
+// @Accept json
+// @Produce json
+// @Param id path string true "Order ID"
+// @Param request body domain.EditOrderItemsRequest true "Items baru"
+// @Success 200 {object} domain.EditOrderResult
+// @Router /merchant/orders/{id}/items [put]
+func (h *MerchantHandler) EditOrderItems(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	orderID := r.PathValue("id")
+	if orderID == "" {
+		h.respondError(w, http.StatusBadRequest, "order id wajib diisi")
+		return
+	}
+	var req domain.EditOrderItemsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	result, err := h.svc.EditOrderItems(r.Context(), userID, orderID, req)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, result)
+}
+
 func parsePagination(r *http.Request) (int, int) {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))

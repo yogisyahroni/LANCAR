@@ -546,6 +546,12 @@ func main() {
 			pushHandler.NotifyCustomerOrderCancelled(w, r)
 		}
 	})
+	// FB-087: notif push customer saat merchant ubah item order (dipanggil merchant-service)
+	mux.HandleFunc("/api/v1/internal/push/order-updated", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			pushHandler.NotifyCustomerOrderUpdated(w, r)
+		}
+	})
 
 	// Tracking Routes
 	mux.HandleFunc("/api/v1/tracking/location", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.UpdateLocation)))

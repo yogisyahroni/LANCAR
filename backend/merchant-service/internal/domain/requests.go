@@ -51,3 +51,16 @@ type UpdateMenuItemRequest struct {
 type MerchantOrderActionRequest struct {
 	Reason string `json:"reason,omitempty"`
 }
+
+// EditOrderItemRequest — item baru saat merchant edit order (FB-087).
+type EditOrderItemRequest struct {
+	MenuID   string `json:"menu_item_id"`
+	Quantity int    `json:"quantity"`
+	Notes    string `json:"notes,omitempty"`
+}
+
+// EditOrderItemsRequest — body edit item order oleh merchant (FB-087).
+// Berlaku HANYA saat status pending_merchant (belum dikonfirmasi).
+type EditOrderItemsRequest struct {
+	Items []EditOrderItemRequest `json:"items"`
+}

@@ -117,3 +117,50 @@ func (s *pushService) NotifyCustomerOrderCancelled(ctx context.Context, orderID 
 	slog.Info("push_customer_order_cancelled_sent", "order_id", orderID, "devices", sent)
 	return nil
 }
+
+// NotifyCustomerOrderUpdated — FB-087: kirim push ke customer saat merchant
+// mengubah item order sebelum konfirmasi (pending_merchant). Data-only push:
+// type "order_updated" + order_no + reason. Non-fatal: tidak ada device /
+// gagal kirim hanya di-log (pola NotifyCustomerOrderCancelled).
+func (s *pushService) NotifyCustomerOrderUpdated(ctx context.Context, orderID string, message string) error {
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("get order %s: %w", orderID, err)
+	}
+	if order == nil {
+		return fmt.Errorf("order %s tidak ditemukan", orderID)
+	}
+
+	customerUUID, err := uuid.Parse(order.CustomerID)
+	if err != nil {
+		return fmt.Errorf("order %s customer_id invalid: %w", orderID, err)
+	}
+
+	tokens, err := s.deviceTokenRepo.GetDeviceTokensByUserIDs(ctx, []uuid.UUID{customerUUID})
+	if err != nil {
+		return fmt.Errorf("get device tokens: %w", err)
+	}
+	devices := tokens[customerUUID]
+	if len(devices) == 0 {
+		slog.Info("push_customer_no_device", "order_id", orderID, "customer_id", order.CustomerID)
+		return nil
+	}
+
+	data := map[string]string{
+		"type":     "order_updated",
+		"order_id": orderID,
+		"order_no": order.OrderNumber,
+		"reason":   message,
+	}
+
+	sent := 0
+	for _, token := range devices {
+		if err := sendFCMPushNotification(token, data); err != nil {
+			slog.Warn("push_customer_order_updated_failed", "order_id", orderID, "error", err)
+			continue
+		}
+		sent++
+	}
+	slog.Info("push_customer_order_updated_sent", "order_id", orderID, "devices", sent)
+	return nil
+}

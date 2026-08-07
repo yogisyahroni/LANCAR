@@ -61,4 +61,10 @@ type MerchantService interface {
 	GetSalesReport(ctx context.Context, userID, period string) (*SalesReportSummary, error)
 	// ExportSalesReportCSV export baris transaksi periode ke CSV (string).
 	ExportSalesReportCSV(ctx context.Context, userID, period string) (string, error)
+
+	// Edit order (FB-087)
+	// EditOrderItems mengubah item order food sebelum konfirmasi merchant.
+	// Berlaku hanya status pending_merchant; nilai baru TIDAK boleh melebihi
+	// nilai order awal (Grab pattern). Notif push otomatis ke customer.
+	EditOrderItems(ctx context.Context, userID, orderID string, req EditOrderItemsRequest) (*EditOrderResult, error)
 }
