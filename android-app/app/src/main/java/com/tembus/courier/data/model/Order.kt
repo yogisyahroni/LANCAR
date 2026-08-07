@@ -352,6 +352,14 @@ data class Order(
     @SerialName("pickup_photo_verified")
     val pickupPhotoVerified: Boolean = false,
 
+    /**
+     * FB-089: contactless delivery — antar tanpa kontak fisik
+     * (letakkan paket di lokasi). POD foto tetap wajib.
+     */
+    @ColumnInfo(name = "contactless")
+    @SerialName("contactless")
+    val contactless: Boolean = false,
+
     @ColumnInfo(name = "length")
     @SerialName("length")
     var length: Double? = null,

@@ -21,7 +21,7 @@ import kotlinx.serialization.json.Json
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 16,
+    version = 17,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -102,6 +102,14 @@ abstract class OrderDatabase : RoomDatabase() {
          */
         private fun addVersion16Columns(db: SupportSQLiteDatabase) {
             addOrderColumnIfMissing(db, "tip_amount_idr", "ALTER TABLE `orders` ADD COLUMN `tip_amount_idr` INTEGER NOT NULL DEFAULT 0")
+        }
+
+        /**
+         * Version 17: FB-089 contactless delivery — flag antar tanpa kontak.
+         * POD foto tetap wajib; kolom hanya penanda instruksi untuk driver.
+         */
+        private fun addVersion17Columns(db: SupportSQLiteDatabase) {
+            addOrderColumnIfMissing(db, "contactless", "ALTER TABLE `orders` ADD COLUMN `contactless` INTEGER NOT NULL DEFAULT 0")
         }
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
@@ -211,6 +219,12 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addVersion17Columns(db)
+            }
+        }
+
         val MIGRATION_10_13 = object : Migration(10, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 addVersion11Columns(db)
@@ -241,6 +255,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_13_14,
             MIGRATION_14_15,
             MIGRATION_15_16,
+            MIGRATION_16_17,
             MIGRATION_10_13,
             MIGRATION_11_13
         )
