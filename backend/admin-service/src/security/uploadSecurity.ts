@@ -17,7 +17,7 @@ declare global {
   }
 }
 
-export type UploadProfileName = 'courierDocument' | 'evidenceImage' | 'customerAttachment' | 'profileImage' | 'bulkCsv' | 'newsImage';
+export type UploadProfileName = 'courierDocument' | 'merchantDocument' | 'evidenceImage' | 'customerAttachment' | 'profileImage' | 'bulkCsv' | 'newsImage';
 
 export type AllowedUploadMime =
   | 'application/pdf'
@@ -39,6 +39,11 @@ const uploadProfiles: Record<UploadProfileName, UploadProfile> = {
     maxBytes: 10 * 1024 * 1024,
     allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
     filenamePrefix: 'courier-document',
+  },
+  merchantDocument: {
+    maxBytes: 10 * 1024 * 1024,
+    allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'],
+    filenamePrefix: 'merchant-document',
   },
   evidenceImage: {
     maxBytes: 5 * 1024 * 1024,

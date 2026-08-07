@@ -347,7 +347,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       PUBLIC_APP_URL: ${PUBLIC_APP_URL:-http://localhost:3000}
       RECEIVER_LOCATION_PUBLIC_URL: ${RECEIVER_LOCATION_PUBLIC_URL:-http://localhost:3000/location-requests}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3002,https://admin.bawain.my.id,https://bawain.my.id}}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3002,https://admin.bawain.my.id,https://bawain.my.id,https://merchant.bawain.my.id}}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
       TOMTOM_SERVER_API_KEY: ${TOMTOM_SERVER_API_KEY:-}
       TOMTOM_API_KEY: ${TOMTOM_API_KEY:-}
@@ -558,8 +558,10 @@ services:
       ADMIN_SERVICE_URL: "http://admin-service:3000"
       ROUTING_SERVICE_URL: "http://routing-service:8082"
       PAYMENT_SERVICE_URL: "http://payment-service:8084"
+      # merchant-service jalan lokal di host (dev) → host.docker.internal
+      MERCHANT_SERVICE_URL: ${MERCHANT_SERVICE_URL:-http://host.docker.internal:8085}
       GATEWAY_PORT: 8080
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3002,https://admin.bawain.my.id,https://bawain.my.id}}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3002,https://admin.bawain.my.id,https://bawain.my.id,https://merchant.bawain.my.id}}
       JWT_SECRET: ${JWT_SECRET:-changeme_in_production_min32chars}
       OTEL_ENABLED: ${OTEL_ENABLED:-true}
       OTEL_SERVICE_NAME: ${GATEWAY_OTEL_SERVICE_NAME:-api-gateway}
@@ -590,6 +592,24 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
     ports:
       - "${LANDING_PORT:-3003}:3000"
+    networks:
+      - tembus-net
+
+  # ─────────────────────────────────────────────
+  # MERCHANT WEB — Vite + React (Portal Mitra)
+  # Akses: http://localhost:3004
+  # Tunnel domain target: https://merchant.bawain.my.id
+  # ─────────────────────────────────────────────
+  merchant-web:
+    build:
+      context: ./merchant-web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080/api/v1}
+    container_name: tembus-merchant-web
+    restart: unless-stopped
+    ports:
+      - "${MERCHANT_WEB_PORT:-3004}:80"
     networks:
       - tembus-net
 

@@ -187,10 +187,10 @@ export const rejectAdminMerchant = async (req: Request, res: Response) => {
   try {
     const result = await db.query(
       `UPDATE merchants
-       SET verification_status = 'rejected', updated_at = NOW()
+       SET verification_status = 'rejected', rejection_reason = $2, updated_at = NOW()
        WHERE id = $1 AND verification_status = 'pending'
        RETURNING id, nama_toko, verification_status`,
-      [id]
+      [id, String(reason ?? '').trim() || null]
     );
     if (result.rows.length === 0) {
       const check = await readDb.query(`SELECT id, verification_status FROM merchants WHERE id = $1`, [id]);

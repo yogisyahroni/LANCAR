@@ -62,7 +62,7 @@ const runSeed = async () => {
       `, [
         uuidv4(), id, 
         randomElement(['matic', 'bebek', 'sport']), 
-        randomElement(['regular', 'mitra', 'elite']), 
+        randomElement(['standart', 'gold', 'god_mode']), 
         getRandomCoords(),
         `B ${randomInt(1000, 9999)} ${randomElement(['ABC', 'XYZ', 'LCR', 'KJH', 'POQ'])}`,
         (Math.random() * 4 + 1).toFixed(1),

@@ -14,6 +14,9 @@ export * from './orders.controller';
 export * from './couriers.controller';
 export * from './faceVerifications.controller';
 
+// Merchant public web registration (merchant.bawain.my.id)
+export * from './merchants-public.controller';
+
 // Finance (Payouts, Revenue, Emergency Fund)
 export * from './finance.controller';
 export * as financeLedger from './financeLedger.controller';

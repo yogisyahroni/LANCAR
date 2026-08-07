@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+:root {
+  --tembus-emerald: #003d2b;
+  --tembus-accent: #ff6908;
+  --tembus-lime: #7bc043;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-zinc-50 text-zinc-900 antialiased;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}

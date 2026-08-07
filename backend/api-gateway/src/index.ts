@@ -607,6 +607,22 @@ app.use(createProxyMiddleware({
   }
 }));
 
+// Merchant Public Web Registration (merchant.bawain.my.id)
+// Upload dokumen + cek status pendaftaran → admin-service (pola courier).
+// Diletakkan SEBELUM '/api/v1/auth' general (auth-service) supaya tidak
+// ketimpa — endpoint ini hanya ada di admin-service.
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/auth/merchant',
+  target: ADMIN_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('merchant_auth', req, ADMIN_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    }
+  }
+}));
+
 // Auth Service - General Routes
 app.use('/api/v1/auth', proxyWithResilience(AUTH_SERVICE_URL, authBreaker));
 
@@ -997,7 +1013,21 @@ app.use('/api/v1/wallet', authenticateJWT, proxyWithResilience(PAYMENT_SERVICE_U
 // ─────────────────────────────────────────────
 // Merchant Routes (Merchant Service — FOOD-BIKE-019)
 // ─────────────────────────────────────────────
-app.use('/api/v1/merchant', authenticateJWT, proxyWithResilience(MERCHANT_SERVICE_URL, merchantBreaker));
+app.use('/api/v1/merchant', authenticateJWT);
+// NOTE: pakai pathFilter (BUKAN express app.use prefix) supaya full path
+// /api/v1/merchant/... diteruskan utuh — app.use prefix strip req.url jadi
+// '/register' → merchant-service 404 "404 page not found" tanpa log.
+app.use(createProxyMiddleware({
+  pathFilter: '/api/v1/merchant',
+  target: MERCHANT_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('merchant_register', req, MERCHANT_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    }
+  }
+}));
 
 
 // ─────────────────────────────────────────────

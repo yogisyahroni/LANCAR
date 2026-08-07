@@ -115,6 +115,12 @@ export const GATEWAY_ROUTE_AUTH_MATRIX: GatewayRouteRule[] = [
     matches: prefix('/api/v1/auth/courier'),
   },
   {
+    id: 'merchant-auth-public',
+    requirement: 'public',
+    publicReason: 'Merchant web registration (merchant.bawain.my.id) uploads documents and checks registration status before authentication.',
+    matches: prefix('/api/v1/auth/merchant'),
+  },
+  {
     id: 'web-auth-public',
     requirement: 'public',
     publicReason: 'Web login/session exchange and public delivery-service discovery are pre-auth flows.',
