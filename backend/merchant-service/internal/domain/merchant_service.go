@@ -54,4 +54,11 @@ type MerchantService interface {
 	ListOrders(ctx context.Context, userID string, status string, page, pageSize int) ([]*MerchantOrderView, int, error)
 	// GetStruk ambil data struk pembelian + QR code untuk dicetak (FOOD-BIKE-034).
 	GetStruk(ctx context.Context, userID string, orderID string) (*StrukData, error)
+
+	// Report (FB-086)
+	// GetSalesReport rekap penjualan merchant (daily | weekly): total order,
+	// GMV, rata-rata nilai order, item terlaris.
+	GetSalesReport(ctx context.Context, userID, period string) (*SalesReportSummary, error)
+	// ExportSalesReportCSV export baris transaksi periode ke CSV (string).
+	ExportSalesReportCSV(ctx context.Context, userID, period string) (string, error)
 }

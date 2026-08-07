@@ -23,10 +23,11 @@ type merchantServiceImpl struct {
 	merchantRepo domain.MerchantRepository
 	menuRepo     domain.MenuItemRepository
 	orderRepo    domain.MerchantOrderRepository
+	reportRepo   domain.MerchantReportRepository
 }
 
-func NewMerchantService(mr domain.MerchantRepository, mi domain.MenuItemRepository, or domain.MerchantOrderRepository) domain.MerchantService {
-	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or}
+func NewMerchantService(mr domain.MerchantRepository, mi domain.MenuItemRepository, or domain.MerchantOrderRepository, rr domain.MerchantReportRepository) domain.MerchantService {
+	return &merchantServiceImpl{merchantRepo: mr, menuRepo: mi, orderRepo: or, reportRepo: rr}
 }
 
 // ─────────────────────────────────────────────

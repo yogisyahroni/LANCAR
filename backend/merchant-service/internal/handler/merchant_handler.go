@@ -397,6 +397,64 @@ func (h *MerchantHandler) ListOrders(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ─────────────────────────────────────────────
+// Report Penjualan (FB-086)
+// ─────────────────────────────────────────────
+
+// GetSalesReport godoc
+// @Summary Rekap penjualan merchant
+// @Description Rekap order + GMV + item terlaris periode daily (hari ini) / weekly (7 hari terakhir).
+// @Tags merchant
+// @Produce json
+// @Param period query string false "daily | weekly (default daily)"
+// @Success 200 {object} domain.SalesReportSummary
+// @Router /merchant/reports [get]
+func (h *MerchantHandler) GetSalesReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	summary, err := h.svc.GetSalesReport(r.Context(), userID, r.URL.Query().Get("period"))
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, summary)
+}
+
+// ExportSalesReport godoc
+// @Summary Export CSV transaksi penjualan
+// @Description Download CSV baris transaksi periode (order delivered).
+// @Tags merchant
+// @Produce text/csv
+// @Param period query string false "daily | weekly (default daily)"
+// @Success 200 {string} string "CSV"
+// @Router /merchant/reports/export [get]
+func (h *MerchantHandler) ExportSalesReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	period := r.URL.Query().Get("period")
+	csvData, err := h.svc.ExportSalesReportCSV(r.Context(), userID, period)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", "attachment; filename=merchant-sales-"+period+".csv")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(csvData))
+}
+
 func parsePagination(r *http.Request) (int, int) {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))

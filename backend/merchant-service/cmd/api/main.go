@@ -84,7 +84,8 @@ func main() {
 	merchantRepo := repository.NewPostgresMerchantRepository(db, db)
 	menuRepo := repository.NewPostgresMenuItemRepository(db, db)
 	orderRepo := repository.NewPostgresMerchantOrderRepository(db, db)
-	svc := service.NewMerchantService(merchantRepo, menuRepo, orderRepo)
+	reportRepo := repository.NewPostgresReportRepository(db, db)
+	svc := service.NewMerchantService(merchantRepo, menuRepo, orderRepo, reportRepo)
 	h := handler.NewMerchantHandler(svc)
 
 	// Router
@@ -132,6 +133,10 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/accept", middleware.BaseChain(h.AcceptOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/reject", middleware.BaseChain(h.RejectOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/struk", middleware.BaseChain(h.GetStruk))
+
+	// Report penjualan (FB-086)
+	mux.HandleFunc("/api/v1/merchant/reports", middleware.BaseChain(h.GetSalesReport))
+	mux.HandleFunc("/api/v1/merchant/reports/export", middleware.BaseChain(h.ExportSalesReport))
 
 	// Health Check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
