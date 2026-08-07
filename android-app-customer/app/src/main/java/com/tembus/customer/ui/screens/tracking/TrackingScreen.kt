@@ -512,11 +512,23 @@ fun CourierStatusCard(
 private fun TrackingTimeline(detail: OrderTrackingDetail) {
     val completedTypes = remember(detail.events) { detail.events.map { it.eventType.lowercase() }.toSet() }
     val status = detail.order.status.lowercase()
+    val isFood = !detail.order.merchantId.isNullOrBlank() || detail.order.model?.lowercase() == "food_delivery"
     val isCancelled = status in setOf("cancelled", "failed") || completedTypes.contains("pickup_cancelled_by_courier")
     val steps = if (isCancelled) {
         listOf(
-            TimelineStep("accepted", "Kurir menerima order", true),
-            TimelineStep("cancelled", "Pickup tidak dilanjutkan", true)
+            TimelineStep("merchant_order", "Order diterima", true),
+            TimelineStep("cancelled", "Pengiriman tidak dilanjutkan", true)
+        )
+    } else if (isFood) {
+        // FOOD-BIKE-058: timeline khusus food — tahap merchant sebelum kurir
+        fun pastOrAt(vararg states: String) = status in states || status == "delivered" || status == "completed"
+        listOf(
+            TimelineStep("merchant_order", "Merchant menerima pesanan", pastOrAt("pending_merchant", "preparing", "searching", "accepted", "picking_up", "picked_up", "delivering")),
+            TimelineStep("merchant_prep", "Makanan disiapkan", pastOrAt("preparing", "searching", "accepted", "picking_up", "picked_up", "delivering")),
+            TimelineStep("accepted", "Kurir sepeda mengambil", pastOrAt("accepted", "picking_up", "picked_up", "delivering")),
+            TimelineStep("pickup", "Diverifikasi di merchant", pastOrAt("picked_up", "delivering")),
+            TimelineStep("delivery", "Dalam pengantaran", pastOrAt("delivering")),
+            TimelineStep("pod", "POD diterima", status in setOf("delivered", "completed"))
         )
     } else listOf(
         TimelineStep("accepted", "Kurir menerima order", completedTypes.any { it in setOf("accepted", "courier_assigned", "assigned") } || status in setOf("accepted", "picking_up", "picked_up", "in_transit", "delivered", "completed")),
@@ -653,10 +665,12 @@ private data class TimelineStep(val key: String, val label: String, val done: Bo
 private fun eventMatchesStep(eventType: String, step: String): Boolean {
     val normalized = eventType.lowercase()
     return when (step) {
+        "merchant_order" -> normalized in setOf("pending_merchant", "merchant_accepted", "order_accepted")
+        "merchant_prep" -> normalized in setOf("preparing", "food_preparing", "food_ready")
         "accepted" -> normalized in setOf("accepted", "assigned", "courier_assigned")
-        "pickup" -> normalized == "pickup_verified"
-        "delivery" -> normalized in setOf("delivery_started", "in_transit", "picked_up")
-        "pod" -> normalized == "pod_verified"
+        "pickup" -> normalized in setOf("pickup_verified", "picked_up")
+        "delivery" -> normalized in setOf("delivery_started", "in_transit", "picked_up", "delivering")
+        "pod" -> normalized in setOf("pod_verified", "delivered")
         "cancelled" -> normalized in setOf("pickup_cancelled_by_courier", "cancelled", "failed")
         else -> false
     }
@@ -675,6 +689,9 @@ private fun absoluteUploadUrl(path: String?): String {
 
 private fun trackingStageText(status: String?): String {
     return when (status?.lowercase()) {
+        "pending_merchant" -> "Menunggu merchant menerima pesanan"
+        "preparing" -> "Merchant sedang menyiapkan makanan"
+        "searching" -> "Mencari kurir sepeda terdekat"
         "accepted", "picking_up", "assigned" -> "Kurir menuju titik pickup"
         "picked_up", "in_transit", "delivering" -> "Barang sudah dipickup dan sedang diantar"
         "delivered", "completed" -> "Pengiriman selesai"

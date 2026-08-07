@@ -359,6 +359,8 @@ const publicCustomerPaymentSession = (row: any) => {
     active_payment_provider: process.env.ACTIVE_PAYMENT_PROVIDER || 'midtrans',
     amount_idr: Number(row.amount_idr || row.total_price_idr || 0),
     wallet_balance_idr: Number(row.wallet_balance || 0),
+    // FOOD-BIKE-076: breakdown item makanan (null untuk order non-food)
+    items: row.items || null,
     snap_token: row.snap_token || null,
     redirect_url: row.redirect_url || null,
     midtrans_order_id: row.provider_reference || null,
@@ -378,6 +380,8 @@ const getCustomerOrderPaymentRow = async (customerId: string, orderId: string) =
             o.service_snapshot,
             o.recipient_name,
             o.recipient_phone_masked,
+            o.merchant_id,
+            o.model,
             p.id AS payment_id,
             p.provider,
             p.method,
@@ -396,6 +400,19 @@ const getCustomerOrderPaymentRow = async (customerId: string, orderId: string) =
   );
   if (!rows[0]) return null;
   rows[0].wallet_balance = await getCustomerWalletBalance(customerId);
+  // FOOD-BIKE-076: breakdown multi-item untuk order food (merchant_id terisi)
+  if (rows[0].merchant_id) {
+    const itemRows = await db.query(
+      `SELECT item_name, item_price, quantity, notes, subtotal
+         FROM food_order_items
+        WHERE order_id = $1
+        ORDER BY created_at ASC`,
+      [orderId]
+    );
+    rows[0].items = itemRows.rows;
+  } else {
+    rows[0].items = null;
+  }
   return rows[0];
 };
 
@@ -1497,6 +1514,8 @@ const completeCustomerLapayPayment = async (customerId: string, orderId: string)
               o.service_snapshot,
               o.recipient_name,
               o.recipient_phone_masked,
+              o.merchant_id,
+              o.model,
               p.id AS payment_id,
               p.provider,
               p.method,
@@ -1522,6 +1541,19 @@ const completeCustomerLapayPayment = async (customerId: string, orderId: string)
     }
 
     const order = rows[0];
+    // FOOD-BIKE-076: breakdown item makanan (flow LAPAY)
+    if (order.merchant_id) {
+      const itemRows = await client.query(
+        `SELECT item_name, item_price, quantity, notes, subtotal
+           FROM food_order_items
+          WHERE order_id = $1
+          ORDER BY created_at ASC`,
+        [orderId]
+      );
+      order.items = itemRows.rows;
+    } else {
+      order.items = null;
+    }
     const amountIdr = Number(order.amount_idr || order.total_price_idr || 0);
     if (!Number.isInteger(amountIdr) || amountIdr <= 0) {
       const error = new Error('Nominal pembayaran tidak valid.');

@@ -2,6 +2,7 @@ package com.tembus.customer.ui.screens.payment
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tembus.customer.data.model.FoodPaymentItem
 import com.tembus.customer.data.repository.OrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,7 @@ sealed class PaymentUiState {
         val amountIdr: Long = 0L,
         val walletBalanceIdr: Long = 0L,
         val activePaymentProvider: String? = null,
+        val items: List<FoodPaymentItem>? = null,
         val message: String? = null
     ) : PaymentUiState()
     data class Loading(val method: CustomerPaymentMethod) : PaymentUiState()
@@ -62,6 +64,7 @@ class PaymentViewModel @Inject constructor(
                         amountIdr = payment.amountIdr,
                         walletBalanceIdr = payment.walletBalanceIdr,
                         activePaymentProvider = payment.activePaymentProvider,
+                        items = payment.items,
                         message = "Sesi pembayaran sebelumnya kedaluwarsa. Pilih metode pembayaran lagi."
                     )
                     !payment.redirectUrl.isNullOrBlank() && payment.method.equals("QRIS", ignoreCase = true) -> {
@@ -70,6 +73,7 @@ class PaymentViewModel @Inject constructor(
                             amountIdr = payment.amountIdr,
                             walletBalanceIdr = payment.walletBalanceIdr,
                             activePaymentProvider = payment.activePaymentProvider,
+                            items = payment.items,
                             message = "Sesi QRIS tersedia. Lanjutkan jika ingin memakai QRIS."
                         )
                     }
@@ -77,7 +81,8 @@ class PaymentViewModel @Inject constructor(
                         selectedMethod = selected,
                         amountIdr = payment.amountIdr,
                         walletBalanceIdr = payment.walletBalanceIdr,
-                        activePaymentProvider = payment.activePaymentProvider
+                        activePaymentProvider = payment.activePaymentProvider,
+                        items = payment.items
                     )
                 }
             }
@@ -92,11 +97,13 @@ class PaymentViewModel @Inject constructor(
         val amount = amountFrom(current)
         val wallet = walletFrom(current)
         val activeProvider = (current as? PaymentUiState.Choosing)?.activePaymentProvider
+        val items = (current as? PaymentUiState.Choosing)?.items
         _uiState.value = PaymentUiState.Choosing(
             selectedMethod = method,
             amountIdr = amount,
             walletBalanceIdr = wallet,
-            activePaymentProvider = activeProvider
+            activePaymentProvider = activeProvider,
+            items = items
         )
     }
 
