@@ -163,6 +163,7 @@ func main() {
 	mux.HandleFunc("/api/internal/wallet/hold-deduct", middleware.BaseChain(h.HoldDeduct))
 	mux.HandleFunc("/api/internal/wallet/hold-autorefill", middleware.BaseChain(h.HoldAutoRefill))
 	mux.HandleFunc("/api/internal/wallet/hold-minimum", middleware.BaseChain(h.SetHoldMinimum))
+	mux.HandleFunc("/api/internal/wallet/tip", middleware.BaseChain(h.Tip))
 
 	// Webhooks
 	mux.HandleFunc("/webhooks/xendit", middleware.BaseChain(wh.XenditWebhook))

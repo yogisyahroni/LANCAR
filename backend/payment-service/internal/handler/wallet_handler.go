@@ -234,6 +234,42 @@ func (h *WalletHandler) SosReward(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, map[string]string{"message": "Reward credited"}, http.StatusOK)
 }
 
+// Tip mentransfer tip dari wallet customer ke wallet courier (FB-077).
+// Internal endpoint — dipanggil order-service setelah validasi order.
+func (h *WalletHandler) Tip(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		CustomerID  uuid.UUID `json:"customer_id"`
+		CourierID   uuid.UUID `json:"courier_id"`
+		Amount      int64     `json:"amount"`
+		ReferenceID string    `json:"reference_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Amount <= 0 {
+		h.respondError(w, "Amount must be positive", http.StatusBadRequest)
+		return
+	}
+	if req.ReferenceID == "" {
+		h.respondError(w, "reference_id wajib diisi", http.StatusBadRequest)
+		return
+	}
+	if req.CustomerID == uuid.Nil || req.CourierID == uuid.Nil {
+		h.respondError(w, "customer_id dan courier_id wajib diisi", http.StatusBadRequest)
+		return
+	}
+
+	err := h.svc.ProcessTip(r.Context(), req.CustomerID, req.CourierID, req.Amount, req.ReferenceID)
+	if err != nil {
+		h.safeError(w, r, err, "tip", "tip")
+		return
+	}
+
+	h.respondJSON(w, map[string]string{"message": "Tip transferred"}, http.StatusOK)
+}
+
 // HoldDeduct — internal endpoint: mem-freeze saldo driver ke hold_balance
 // (jaminan anti-ghosting). Dipanggil order-service saat order food di-assign
 // (FOOD-BIKE-024). Idempotent via reference_id.

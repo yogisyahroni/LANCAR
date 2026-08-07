@@ -699,6 +699,105 @@ func (s *walletService) CreditSosHelperReward(ctx context.Context, helperID uuid
 	return err
 }
 
+// ProcessTip mentransfer tip dari wallet customer ke wallet courier secara
+// atomik: debit customer_wallet_liability → credit courier_payable (100%,
+// tanpa fee — tip bukan revenue platform). Idempotent via referenceID:
+// kalau transaksi dengan reference yang sama sudah pernah dibuat, tidak
+// double-debit. Gagal jika saldo customer < amount (FB-077).
+func (s *walletService) ProcessTip(ctx context.Context, customerID uuid.UUID, courierID uuid.UUID, amount int64, referenceID string) error {
+	if amount <= 0 {
+		return errors.New("tip amount must be greater than zero")
+	}
+	if referenceID == "" {
+		return errors.New("reference_id is required")
+	}
+	if customerID == courierID {
+		return errors.New("customer and courier cannot be the same")
+	}
+
+	// Idempotency: kalau sudah pernah diproses dengan reference ini, no-op.
+	existing, err := s.repo.GetTransactionByReferenceID(ctx, referenceID)
+	if err != nil {
+		return fmt.Errorf("failed to check tip idempotency: %w", err)
+	}
+	if existing != nil {
+		slog.InfoContext(ctx, "Tip already processed, ignoring duplicate",
+			"reference_id", referenceID, "amount", existing.Amount)
+		return nil
+	}
+
+	err = s.repo.WithTx(ctx, func(txCtx context.Context) error {
+		custWallet, err := s.GetBalance(txCtx, customerID)
+		if err != nil {
+			return fmt.Errorf("customer wallet: %w", err)
+		}
+		courWallet, err := s.GetBalance(txCtx, courierID)
+		if err != nil {
+			return fmt.Errorf("courier wallet: %w", err)
+		}
+
+		if custWallet.Balance < amount {
+			return errors.New("insufficient customer balance for tip")
+		}
+
+		// Debit customer wallet
+		if err = s.repo.UpdateBalance(txCtx, custWallet.ID, -amount, custWallet.Version); err != nil {
+			return fmt.Errorf("debit customer wallet: %w", err)
+		}
+		// Credit courier wallet (100% tip, tanpa fee)
+		if err = s.repo.UpdateBalance(txCtx, courWallet.ID, amount, courWallet.Version); err != nil {
+			return fmt.Errorf("credit courier wallet: %w", err)
+		}
+
+		// Transaction logs di kedua wallet (audit trail dua arah)
+		custTx := &domain.WalletTransaction{
+			WalletID:    custWallet.ID,
+			Type:        domain.TypeTip,
+			Amount:      amount,
+			Fee:         0,
+			Status:      domain.StatusCompleted,
+			ReferenceID: referenceID,
+			Metadata:    map[string]any{"source": "driver_tip", "to": courierID.String()},
+		}
+		courTx := &domain.WalletTransaction{
+			WalletID:    courWallet.ID,
+			Type:        domain.TypeTip,
+			Amount:      amount,
+			Fee:         0,
+			Status:      domain.StatusCompleted,
+			ReferenceID: referenceID,
+			Metadata:    map[string]any{"source": "driver_tip", "from": customerID.String()},
+		}
+		if err = s.repo.CreateTransaction(txCtx, custTx); err != nil {
+			return fmt.Errorf("log customer tip transaction: %w", err)
+		}
+		if err = s.repo.CreateTransaction(txCtx, courTx); err != nil {
+			return fmt.Errorf("log courier tip transaction: %w", err)
+		}
+
+		// Ledger: customer_wallet_liability debit → courier_payable credit
+		journal := &domain.LedgerJournal{
+			JournalType:    "transfer",
+			ReferenceType:  "driver_tip",
+			ReferenceID:    referenceID,
+			IdempotencyKey: fmt.Sprintf("LEDGER-TIP-%s", referenceID),
+			Reason:         "Driver tip from customer to courier",
+			CreatedBy:      "system",
+			ActorRole:      "system",
+		}
+		entries := []domain.LedgerEntry{
+			{AccountName: "customer_wallet_liability", DebitIDR: amount, CreditIDR: 0},
+			{AccountName: "courier_payable", DebitIDR: 0, CreditIDR: amount},
+		}
+		if err = s.ledgerRepo.CreateJournalWithEntries(txCtx, journal, entries); err != nil {
+			return fmt.Errorf("write ledger for tip: %w", err)
+		}
+
+		return nil
+	})
+	return err
+}
+
 // DeductFromHold memotong AvailableBalance dan mem-freeze ke hold_balance
 // (jaminan anti-ghosting). Gagal jika saldo bebas < amount (FOOD-BIKE-024).
 // Idempotent via reference_id: panggilan ulang dengan reference yang sama

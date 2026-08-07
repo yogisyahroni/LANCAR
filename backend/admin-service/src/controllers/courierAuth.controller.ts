@@ -906,11 +906,14 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
              AND ps.scan_type IN ('pickup_photo')
          ) AS pickup_photo_verified,
          (SELECT row_to_json(tr) FROM tambal_ban_reports tr WHERE tr.order_id = o.id LIMIT 1) AS tambal_ban_report,
-         (SELECT row_to_json(twr) FROM towing_reports twr WHERE twr.order_id = o.id LIMIT 1) AS towing_report
-       FROM order_legs ol
-       JOIN orders o ON o.id = ol.order_id
-       LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
-       LEFT JOIN users c ON c.id = o.customer_id
+         (SELECT row_to_json(twr) FROM towing_reports twr WHERE twr.order_id = o.id LIMIT 1) AS towing_report,
+         -- FB-077: tip dari customer (LEFT JOIN — 0/null kalau belum di-tip)
+         COALESCE(dt.amount_idr, 0)::bigint AS tip_amount_idr
+         FROM order_legs ol
+         JOIN orders o ON o.id = ol.order_id
+         LEFT JOIN delivery_service_products dsp ON dsp.code = o.service_code
+         LEFT JOIN users c ON c.id = o.customer_id
+         LEFT JOIN driver_tips dt ON dt.order_id = o.id
        WHERE ol.courier_id = $1
        ORDER BY o.id, o.sequence_no ASC NULLS FIRST, o.created_at ASC
        LIMIT 100`,
@@ -1080,6 +1083,7 @@ const normalizeMobileOrder = (order: any) => {
     offer_ttl_seconds: order.offer_ttl_seconds ? Number(order.offer_ttl_seconds) : null,
     tambal_ban_report: order.tambal_ban_report || null,
     towing_report: order.towing_report || null,
+    tip_amount_idr: Number(order.tip_amount_idr || 0),
   };
 };
 

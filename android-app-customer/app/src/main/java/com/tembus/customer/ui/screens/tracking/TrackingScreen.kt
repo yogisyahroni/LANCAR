@@ -55,6 +55,9 @@ import com.tembus.customer.ui.screens.rating.CourierRatingViewModel
 import com.tembus.customer.ui.screens.rating.MerchantRatingDialog
 import com.tembus.customer.ui.screens.rating.MerchantRatingViewModel
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.tembus.customer.ui.screens.tip.TipDialog
+import com.tembus.customer.ui.screens.tip.TipViewModel
+import androidx.compose.material.icons.filled.VolunteerActivism
 
 @Composable
 fun TrackingScreen(
@@ -64,15 +67,18 @@ fun TrackingScreen(
     onChatClick: (String, String?) -> Unit,
     onCallClick: (String, String?) -> Unit,
     ratingViewModel: CourierRatingViewModel = hiltViewModel(),
-    merchantRatingViewModel: MerchantRatingViewModel = hiltViewModel()
+    merchantRatingViewModel: MerchantRatingViewModel = hiltViewModel(),
+    tipViewModel: TipViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val ratingState by ratingViewModel.uiState.collectAsState()
     val merchantRatingState by merchantRatingViewModel.uiState.collectAsState()
+    val tipState by tipViewModel.uiState.collectAsState()
 
     // Tracking start
     LaunchedEffect(orderId) {
         viewModel.startTracking(orderId)
+        tipViewModel.checkTipStatus(orderId)
     }
 
     // Tampilkan dialog rating otomatis ketika order DELIVERED dan belum di-rating
@@ -202,6 +208,18 @@ fun TrackingScreen(
                     )
                 },
                 hasUnreadMessage = uiState.hasUnreadMessage,
+                // FB-077: tip — tampil saat kurir sudah ditugaskan, status eligible, belum di-tip
+                canTip = !tipState.tipped &&
+                    uiState.detail?.order?.courierName != null &&
+                    (uiState.detail?.order?.status?.lowercase() in tipEligibleCustomerStatuses),
+                onTipClick = {
+                    val order = uiState.detail?.order
+                    tipViewModel.prepare(
+                        orderId = orderId,
+                        orderNumber = order?.orderNumber ?: "",
+                        courierName = order?.courierName ?: ""
+                    )
+                },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 24.dp)
             )
         }
@@ -256,8 +274,30 @@ fun TrackingScreen(
                 onDismissError = { merchantRatingViewModel.clearError() }
             )
         }
+
+        // FB-077: dialog tip kurir (semua service)
+        if (tipState.showDialog) {
+            TipDialog(
+                courierName = tipState.courierName,
+                orderNumber = tipState.orderNumber,
+                isSubmitting = tipState.isSubmitting,
+                isSubmitted = tipState.isSubmitted,
+                errorMessage = tipState.error,
+                onSubmit = { amount -> tipViewModel.submitTip(amount) },
+                onDismiss = { tipViewModel.dismiss() },
+                onDismissError = { tipViewModel.clearError() }
+            )
+        }
     }
 }
+
+// FB-077: status order customer yang masih bisa di-tip
+// (selaras dengan eligible statuses di backend tip_service.go)
+private val tipEligibleCustomerStatuses = setOf(
+    "accepted", "picking_up", "picked_up",
+    "inbound_origin", "outbound_origin", "inbound_destination", "outbound_destination",
+    "delivering", "delivered"
+)
 
 @Composable
 private fun RuntimeMapFallback(
@@ -335,6 +375,8 @@ fun CourierStatusCard(
     onCallClick: () -> Unit,
     onChatClick: () -> Unit,
     hasUnreadMessage: Boolean,
+    canTip: Boolean = false,
+    onTipClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -496,6 +538,33 @@ fun CourierStatusCard(
                             )
                         }
                     }
+                }
+            }
+
+            // FB-077: tombol Kasih Tip — tampil saat kurir ditugaskan & status eligible
+            if (canTip) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Button(
+                    onClick = onTipClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFF4E5))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.VolunteerActivism,
+                        contentDescription = null,
+                        tint = Primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Kasih Tip ke Kurir",
+                        color = Primary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
                 }
             }
 

@@ -163,6 +163,28 @@ interface TEMBUSApiService {
     @GET("api/v1/customer/rating-reminders")
     suspend fun getRatingReminders(): Response<RatingReminderListResponse>
 
+    // ============================================================
+    // FB-077: TIPS DRIVER — semua service (parcel/tambal/towing/food)
+    // ============================================================
+
+    /**
+     * Beri tip ke kurir (Rp1.000–Rp200.000, 1x per order).
+     * Berjalan untuk order berstatus accepted → delivered.
+     */
+    @POST("api/v1/orders/{id}/tips")
+    suspend fun createTip(
+        @Path("id") id: String,
+        @Body request: CreateTipRequest
+    ): Response<ApiResponse<TipCreateResponse>>
+
+    /**
+     * Cek apakah order sudah di-tip (untuk menyembunyikan tombol saat sudah tip).
+     */
+    @GET("api/v1/orders/{id}/tip")
+    suspend fun getTipStatus(
+        @Path("id") id: String
+    ): Response<ApiResponse<TipStatusResponse>>
+
     @GET("api/v1/customer/addresses")
     suspend fun getCustomerAddresses(
         @Query("kind") kind: String? = null

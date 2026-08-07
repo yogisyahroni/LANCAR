@@ -2,6 +2,8 @@ package com.tembus.courier.data.api
 
 import com.tembus.courier.data.model.AppVersion
 import com.tembus.courier.data.model.ApiResponse
+import com.tembus.courier.data.model.CourierTipsSummary
+import com.tembus.courier.data.model.CourierTip
 import com.tembus.courier.data.model.RuntimeConfigResponse
 import com.tembus.courier.data.model.SosTamperRequest
 import com.tembus.courier.data.model.SosTriggerRequest
@@ -433,6 +435,15 @@ interface TEMBUSApiService {
     // PERFORMANCE & TIERING
     @GET("api/v1/couriers/me/performance")
     suspend fun getMyPerformanceStats(): Response<ApiResponse<com.tembus.courier.data.model.CourierPerformanceStats>>
+
+    // ============================================================
+    // FB-077: TIPS DRIVER — rekap tip dari customer
+    // ============================================================
+    @GET("api/v1/couriers/tips/summary")
+    suspend fun getCourierTipsSummary(): Response<ApiResponse<CourierTipsSummary>>
+
+    @GET("api/v1/couriers/tips")
+    suspend fun getCourierTips(): Response<ApiResponse<List<CourierTip>>>
 
     // ============================================================
     // TAMBAL BAN & TOWING — Service Endpoints

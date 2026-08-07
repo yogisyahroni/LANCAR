@@ -329,6 +329,10 @@ func main() {
 	productCatalogHandler := handler.NewProductCatalogHandler(productCatalogSvc)
 	deliveryWebhookHandler := handler.NewDeliveryWebhookHandler(merchantSettlementSvc)
 	taxHandler := handler.NewTaxHandler(taxSvc)
+	// FB-077: tips driver — semua service (parcel/tambal/towing/food)
+	tipRepo := repository.NewPostgresTipRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
+	tipSvc := service.NewTipService(tipRepo, pgRepo, refundGw)
+	tipHandler := handler.NewTipHandler(tipSvc)
 
 	// Tambal Ban & Towing Services
 	settlementRepo := repository.NewSettlementRepository(db)
@@ -442,6 +446,12 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/{id}/chats", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(chatHandler.HandleChats))))
 	mux.HandleFunc("/api/v1/orders/{id}/conversation", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(chatHandler.HandleChats))))
 	mux.HandleFunc("/api/v1/orders/{id}/conversation/read", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(chatHandler.HandleChats))))
+
+	// FB-077: Tips driver — semua service (parcel/tambal/towing/food)
+	mux.HandleFunc("/api/v1/orders/{id}/tips", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(tipHandler.CreateTip))))
+	mux.HandleFunc("/api/v1/orders/{id}/tip", middleware.BaseChain(middleware.AuthMiddleware(tipHandler.GetTipByOrder)))
+	mux.HandleFunc("/api/v1/couriers/tips", middleware.BaseChain(middleware.AuthMiddleware(tipHandler.ListCourierTips)))
+	mux.HandleFunc("/api/v1/couriers/tips/summary", middleware.BaseChain(middleware.AuthMiddleware(tipHandler.GetCourierTipSummary)))
 
 	// Courier Workflow Routes
 	mux.HandleFunc("/api/v1/couriers/orders/accept", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AcceptOrder)))

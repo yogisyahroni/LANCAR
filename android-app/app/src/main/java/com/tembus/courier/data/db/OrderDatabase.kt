@@ -21,7 +21,7 @@ import kotlinx.serialization.json.Json
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -95,6 +95,13 @@ abstract class OrderDatabase : RoomDatabase() {
         private fun addVersion15Columns(db: SupportSQLiteDatabase) {
             addOrderColumnIfMissing(db, "tambal_ban_report", "ALTER TABLE `orders` ADD COLUMN `tambal_ban_report` TEXT")
             addOrderColumnIfMissing(db, "towing_report", "ALTER TABLE `orders` ADD COLUMN `towing_report` TEXT")
+        }
+
+        /**
+         * Version 16: FB-077 driver tips — tip_amount_idr dari customer.
+         */
+        private fun addVersion16Columns(db: SupportSQLiteDatabase) {
+            addOrderColumnIfMissing(db, "tip_amount_idr", "ALTER TABLE `orders` ADD COLUMN `tip_amount_idr` INTEGER NOT NULL DEFAULT 0")
         }
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
@@ -198,6 +205,12 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addVersion16Columns(db)
+            }
+        }
+
         val MIGRATION_10_13 = object : Migration(10, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 addVersion11Columns(db)
@@ -227,6 +240,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_12_13,
             MIGRATION_13_14,
             MIGRATION_14_15,
+            MIGRATION_15_16,
             MIGRATION_10_13,
             MIGRATION_11_13
         )

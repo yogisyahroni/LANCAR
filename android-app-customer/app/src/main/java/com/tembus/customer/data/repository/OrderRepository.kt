@@ -416,6 +416,40 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    // ============================================================
+    // FB-077: TIPS DRIVER — semua service (parcel/tambal/towing/food)
+    // ============================================================
+
+    /** Beri tip ke kurir (Rp1.000–Rp200.000, 1x per order). */
+    suspend fun giveTip(orderId: String, amountIdr: Long): Result<TipCreateResponse> {
+        return try {
+            val response = apiService.createTip(orderId, CreateTipRequest(amountIdr))
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.data != null) {
+                Result.success(body.data)
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal mengirim tip")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** Cek apakah order sudah di-tip (untuk sembunyikan tombol tip). */
+    suspend fun getTipStatus(orderId: String): Result<Boolean> {
+        return try {
+            val response = apiService.getTipStatus(orderId)
+            val body = response.body()
+            if (response.isSuccessful && body?.success == true && body.data != null) {
+                Result.success(body.data.tipped)
+            } else {
+                Result.failure(Exception(response.readErrorMessage(body?.message ?: "Gagal cek status tip")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun <T> Response<T>.readErrorMessage(fallback: String): String {
         return try {
             val raw = errorBody()?.string()?.takeIf { it.isNotBlank() } ?: return fallback.withRequestReference(this)

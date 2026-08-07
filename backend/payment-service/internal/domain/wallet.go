@@ -16,6 +16,7 @@ const (
 	TypePayment    TransactionType = "PAYMENT"
 	TypeRefund     TransactionType = "REFUND"
 	TypeAdjustment TransactionType = "ADJUSTMENT"
+	TypeTip        TransactionType = "TIP"
 
 	StatusPending   TransactionStatus = "PENDING"
 	StatusCompleted TransactionStatus = "COMPLETED"
@@ -138,6 +139,10 @@ type WalletService interface {
 	// SetHoldMinimum menetapkan besar jaminan minimum driver (dipanggil saat
 	// driver bergabung ke layanan food atau oleh admin).
 	SetHoldMinimum(ctx context.Context, driverID uuid.UUID, minimum int64) error
+	// ProcessTip mentransfer tip dari wallet customer ke wallet courier (100%,
+	// tanpa fee). Debit customer_wallet_liability → credit courier_payable.
+	// Idempotent via referenceID (order_id) — panggilan ulang tidak double-debit.
+	ProcessTip(ctx context.Context, customerID uuid.UUID, courierID uuid.UUID, amount int64, referenceID string) error
 	ReconcileWallet(ctx context.Context, userID uuid.UUID, walletType string) (*WalletReconciliationResult, error)
 	HandleTopUpCallback(ctx context.Context, referenceID string) error
 	HandleDisbursementCallback(ctx context.Context, referenceID string, status string) error

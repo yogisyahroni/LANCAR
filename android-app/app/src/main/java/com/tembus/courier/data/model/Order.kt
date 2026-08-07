@@ -130,6 +130,11 @@ data class Order(
     @SerialName("fee")
     val fee: String = "",
 
+    // FB-077: tip dari customer (Rp). 0 = belum di-tip.
+    @ColumnInfo(name = "tip_amount_idr")
+    @SerialName("tip_amount_idr")
+    val tipAmountIdr: Long = 0,
+
     @ColumnInfo(name = "courier_payout_estimate_idr")
     @SerialName("courier_payout_estimate_idr")
     val courierPayoutEstimateIdr: Int = 0,

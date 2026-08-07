@@ -1762,6 +1762,14 @@ private fun OrderInfoCard(order: Order) {
             InfoRow(label = "Waktu Pickup", value = order.pickupTime)
             InfoRow(label = "Jarak", value = order.distance)
             InfoRow(label = "Pendapatan", value = order.fee)
+            // FB-077: tip dari customer — tampil hanya kalau > 0
+            if (order.tipAmountIdr > 0) {
+                InfoRow(
+                    label = "Tip Customer",
+                    value = "Rp${formatRp(order.tipAmountIdr)}",
+                    valueColor = Color(0xFF7BC043)
+                )
+            }
             
             if (order.length != null || order.width != null || order.height != null) {
                 val dims = "${order.length ?: 0} x ${order.width ?: 0} x ${order.height ?: 0} cm"
@@ -1777,7 +1785,7 @@ private fun OrderInfoCard(order: Order) {
 }
 
 @Composable
-private fun InfoRow(label: String, value: String) {
+private fun InfoRow(label: String, value: String, valueColor: Color = Color.Unspecified) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
@@ -1786,10 +1794,17 @@ private fun InfoRow(label: String, value: String) {
         Text(
             text = value.ifBlank { "Data sedang disinkronkan" },
             style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium
+            fontWeight = FontWeight.Medium,
+            color = valueColor
         )
     }
     Spacer(modifier = Modifier.height(8.dp))
+}
+
+/** Format angka ke rupiah tanpa desimal: 10000 → "10.000". */
+private fun formatRp(value: Long): String {
+    val s = value.toString()
+    return s.reversed().chunked(3).joinToString(".").reversed()
 }
 
 @Composable
