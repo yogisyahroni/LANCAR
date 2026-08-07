@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"tembus/merchant-service/internal/domain"
+	"tembus/merchant-service/internal/util"
 )
 
 // postgresMerchantOrderRepository — implementasi domain.MerchantOrderRepository.
@@ -126,6 +127,12 @@ func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, me
 			v.FoodReadyAt = &readyAt
 		}
 		v.CreatedAt = createdAt
+		// FB-085 Number Masking (UU PDP): nomor customer hanya dibuka saat order
+		// MASIH AKTIF. Setelah order selesai/dibatalkan/gagal, nomor di-mask
+		// (0812-XXXX-XX34) — merchant tidak perlu menghubungi customer lagi.
+		if isOrderInactive(v.Status) {
+			v.CustomerPhone = util.MaskPhone(v.CustomerPhone)
+		}
 		v.Items = []domain.FoodOrderItemView{}
 		out = append(out, &v)
 		index[v.ID] = &v
@@ -237,4 +244,18 @@ func (r *postgresMerchantOrderRepository) GetOrderForStruk(ctx context.Context, 
 		s.DeliveryFeeIDR = 0
 	}
 	return &s, nil
+}
+
+// isOrderInactive — FB-085: true kalau order sudah di terminal state
+// (selesai / batal / gagal). Di state ini nomor customer di-mask karena
+// merchant tidak perlu menghubungi customer lagi. Semua status lain
+// (pending_merchant, preparing, searching, assigned, picked_up, in_transit)
+// dianggap AKTIF → nomor asli tetap dibuka.
+func isOrderInactive(status string) bool {
+	switch status {
+	case "delivered", "cancelled", "failed", "no_courier_found", "fraud_review":
+		return true
+	default:
+		return false
+	}
 }
