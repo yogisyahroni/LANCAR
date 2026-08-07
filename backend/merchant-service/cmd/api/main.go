@@ -14,6 +14,7 @@ import (
 	"tembus/merchant-service/internal/middleware"
 	"tembus/merchant-service/internal/repository"
 	"tembus/merchant-service/internal/service"
+	"tembus/merchant-service/internal/worker"
 	"tembus/merchant-service/pkg/logger"
 	"tembus/merchant-service/pkg/sentry"
 
@@ -88,6 +89,10 @@ func main() {
 	svc := service.NewMerchantService(merchantRepo, menuRepo, orderRepo, reportRepo)
 	h := handler.NewMerchantHandler(svc)
 
+	// FB-092: auto-suspend toko saat dokumen pangan kedaluwarsa (re-KYC)
+	foodDocsWorker := worker.NewFoodDocsExpiryWorker(merchantRepo)
+	foodDocsWorker.Start()
+
 	// Router
 	mux := http.NewServeMux()
 
@@ -104,6 +109,7 @@ func main() {
 		}
 	}))
 	mux.HandleFunc("/api/v1/merchant/toggle-open", middleware.BaseChain(h.ToggleOpen))
+	mux.HandleFunc("/api/v1/merchant/food-docs", middleware.BaseChain(h.UpdateFoodDocs))
 
 	// Menu CRUD (FOOD-BIKE-018)
 	mux.HandleFunc("/api/v1/merchant/menu", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {

@@ -19,6 +19,9 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun toggleOpen(isOpen: Boolean): Result<Merchant> =
         request { api.toggleOpen(ToggleOpenRequest(isOpen)) }
 
+    suspend fun updateFoodDocs(req: UpdateFoodDocsRequest): Result<Merchant> =
+        request { api.updateFoodDocs(req) }
+
     suspend fun listMenu(page: Int = 1, pageSize: Int = 50): Result<List<MenuItem>> =
         request { api.listMenu(page, pageSize) }.map { it.items }
 

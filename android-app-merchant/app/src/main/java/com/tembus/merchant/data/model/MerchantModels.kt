@@ -15,11 +15,23 @@ data class Merchant(
     @SerializedName("is_open") val isOpen: Boolean = false,
     @SerializedName("completion_rate_pct") val completionRatePct: Double = 0.0,
     @SerializedName("verification_status") val verificationStatus: String = "pending",
+    @SerializedName("halal_cert_number") val halalCertNumber: String? = null,
+    @SerializedName("halal_expiry_date") val halalExpiryDate: String? = null,
+    @SerializedName("spp_irt_number") val sppIrtNumber: String? = null,
+    @SerializedName("spp_irt_expiry_date") val sppIrtExpiryDate: String? = null,
+    @SerializedName("bpom_number") val bpomNumber: String? = null,
+    @SerializedName("bpom_expiry_date") val bpomExpiryDate: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("updated_at") val updatedAt: String? = null
 ) {
     val isApproved: Boolean get() = verificationStatus == "approved"
     val isRejected: Boolean get() = verificationStatus == "rejected"
+
+    /** FB-092: dokumen pangan lengkap = halal + (SPP-IRT atau BPOM), belum expired. */
+    val hasCompleteFoodDocs: Boolean
+        get() = !halalCertNumber.isNullOrBlank() && !halalExpiryDate.isNullOrBlank() &&
+            ((!sppIrtNumber.isNullOrBlank() && !sppIrtExpiryDate.isNullOrBlank()) ||
+                (!bpomNumber.isNullOrBlank() && !bpomExpiryDate.isNullOrBlank()))
 }
 
 /** Menu item — CRUD /api/v1/merchant/menu. */
@@ -132,5 +144,22 @@ data class RegisterMerchantRequest(
     @SerializedName("ktp_pemilik_url") val ktpPemilikUrl: String,
     @SerializedName("foto_tempat_usaha_url") val fotoTempatUsahaUrl: String,
     @SerializedName("rekening_bank_url") val rekeningBankUrl: String,
-    @SerializedName("nib_url") val nibUrl: String? = null
+    @SerializedName("nib_url") val nibUrl: String? = null,
+    // FB-092: dokumen pangan opsional saat daftar
+    @SerializedName("halal_cert_number") val halalCertNumber: String? = null,
+    @SerializedName("halal_expiry_date") val halalExpiryDate: String? = null,
+    @SerializedName("spp_irt_number") val sppIrtNumber: String? = null,
+    @SerializedName("spp_irt_expiry_date") val sppIrtExpiryDate: String? = null,
+    @SerializedName("bpom_number") val bpomNumber: String? = null,
+    @SerializedName("bpom_expiry_date") val bpomExpiryDate: String? = null
+)
+
+/** FB-092: update dokumen pangan — PUT /api/v1/merchant/food-docs (patch). */
+data class UpdateFoodDocsRequest(
+    @SerializedName("halal_cert_number") val halalCertNumber: String? = null,
+    @SerializedName("halal_expiry_date") val halalExpiryDate: String? = null,
+    @SerializedName("spp_irt_number") val sppIrtNumber: String? = null,
+    @SerializedName("spp_irt_expiry_date") val sppIrtExpiryDate: String? = null,
+    @SerializedName("bpom_number") val bpomNumber: String? = null,
+    @SerializedName("bpom_expiry_date") val bpomExpiryDate: String? = null
 )

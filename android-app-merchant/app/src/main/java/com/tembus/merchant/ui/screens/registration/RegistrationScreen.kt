@@ -40,6 +40,13 @@ fun RegistrationScreen(
     var ktpUrl by remember { mutableStateOf("") }
     var fotoTokoUrl by remember { mutableStateOf("") }
     var rekeningUrl by remember { mutableStateOf("") }
+    // FB-092: dokumen pangan (opsional saat daftar, wajib sebelum buka toko)
+    var halalNumber by remember { mutableStateOf("") }
+    var halalExpiry by remember { mutableStateOf("") }
+    var sppIrtNumber by remember { mutableStateOf("") }
+    var sppIrtExpiry by remember { mutableStateOf("") }
+    var bpomNumber by remember { mutableStateOf("") }
+    var bpomExpiry by remember { mutableStateOf("") }
 
     state.errorMessage?.let { msg ->
         AlertDialog(
@@ -166,6 +173,71 @@ fun RegistrationScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // ── FB-092: Dokumen pangan (opsional) ──
+            Text(
+                text = "Dokumen Pangan (Opsional)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = "Sertifikat halal BPJPH + SPP-IRT atau izin edar BPOM (UU 33/2014, PerBPOM 4/2024). " +
+                    "Boleh diisi nanti, tapi wajib lengkap sebelum buka toko.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = halalNumber,
+                onValueChange = { halalNumber = it },
+                label = { Text("Nomor Sertifikat Halal") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = halalExpiry,
+                onValueChange = { halalExpiry = it },
+                label = { Text("Masa Berlaku Halal (YYYY-MM-DD)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = sppIrtNumber,
+                onValueChange = { sppIrtNumber = it },
+                label = { Text("Nomor SPP-IRT (awalan P-IRT)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = sppIrtExpiry,
+                onValueChange = { sppIrtExpiry = it },
+                label = { Text("Masa Berlaku SPP-IRT (YYYY-MM-DD)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = bpomNumber,
+                onValueChange = { bpomNumber = it },
+                label = { Text("Nomor Izin Edar BPOM (awalan MD/ML)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedTextField(
+                value = bpomExpiry,
+                onValueChange = { bpomExpiry = it },
+                label = { Text("Masa Berlaku BPOM (YYYY-MM-DD)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             Button(
                 onClick = {
                     viewModel.register(
@@ -176,7 +248,14 @@ fun RegistrationScreen(
                             jamTutup = jamTutup.trim().ifBlank { null },
                             ktpPemilikUrl = ktpUrl.trim(),
                             fotoTempatUsahaUrl = fotoTokoUrl.trim(),
-                            rekeningBankUrl = rekeningUrl.trim()
+                            rekeningBankUrl = rekeningUrl.trim(),
+                            // FB-092: dokumen pangan opsional saat daftar
+                            halalCertNumber = halalNumber.trim().ifBlank { null },
+                            halalExpiryDate = halalExpiry.trim().ifBlank { null },
+                            sppIrtNumber = sppIrtNumber.trim().ifBlank { null },
+                            sppIrtExpiryDate = sppIrtExpiry.trim().ifBlank { null },
+                            bpomNumber = bpomNumber.trim().ifBlank { null },
+                            bpomExpiryDate = bpomExpiry.trim().ifBlank { null }
                         )
                     )
                 },

@@ -156,6 +156,33 @@ func (h *MerchantHandler) ToggleOpen(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, m)
 }
 
+// UpdateFoodDocs godoc
+// @Summary Update dokumen pangan (FB-092): sertifikat halal BPJPH, SPP-IRT,
+// izin edar BPOM + masa berlaku. Patch: hanya field yang diisi yang diperbarui.
+// @Tags merchant
+// @Accept json
+// @Produce json
+// @Param request body domain.UpdateFoodDocsRequest true "Dokumen pangan"
+// @Success 200 {object} domain.Merchant
+// @Router /merchant/food-docs [put]
+func (h *MerchantHandler) UpdateFoodDocs(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var req domain.UpdateFoodDocsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	m, err := h.svc.UpdateFoodDocs(r.Context(), userID, req)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, m)
+}
+
 // ─────────────────────────────────────────────
 // Menu CRUD (FOOD-BIKE-018)
 // ─────────────────────────────────────────────

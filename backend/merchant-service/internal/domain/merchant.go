@@ -21,6 +21,15 @@ type Merchant struct {
 	IsOpen             bool       `json:"is_open"`
 	CompletionRatePct  float64    `json:"completion_rate_pct"`
 	VerificationStatus string     `json:"verification_status"`
+	// Dokumen pangan (FB-092): UU 33/2014 + PP 39/2021 (halal BPJPH),
+	// PerBPOM 4/2024 (SPP-IRT / izin edar BPOM). Opsional saat daftar,
+	// WAJIB lengkap & belum expired sebelum is_open = true.
+	HalalCertNumber   *string    `json:"halal_cert_number,omitempty"`
+	HalalExpiryDate   *string    `json:"halal_expiry_date,omitempty"` // YYYY-MM-DD
+	SppIrtNumber      *string    `json:"spp_irt_number,omitempty"`
+	SppIrtExpiryDate  *string    `json:"spp_irt_expiry_date,omitempty"` // YYYY-MM-DD
+	BpomNumber        *string    `json:"bpom_number,omitempty"`
+	BpomExpiryDate    *string    `json:"bpom_expiry_date,omitempty"` // YYYY-MM-DD
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
 }
@@ -56,6 +65,12 @@ type MerchantRepository interface {
 	CountByVerificationStatus(ctx context.Context, status string) (int, error)
 	// ListDocuments ambil dokumen verifikasi merchant.
 	ListDocuments(ctx context.Context, merchantID string) ([]MerchantDocument, error)
+	// UpdateFoodDocs update nomor + masa berlaku dokumen pangan + upsert
+	// dokumen bukti (sertifikat_halal/spp_irt/izin_edar_bpom) dalam 1 transaksi.
+	UpdateFoodDocs(ctx context.Context, m *Merchant, docs []MerchantDocument) error
+	// ListOpenWithExpiredFoodDocs merchant is_open=true dengan dokumen pangan
+	// yang sudah kedaluwarsa (untuk worker auto-suspend FB-092).
+	ListOpenWithExpiredFoodDocs(ctx context.Context) ([]*Merchant, error)
 }
 
 // Ensure sql import is used (tx helper di repository).

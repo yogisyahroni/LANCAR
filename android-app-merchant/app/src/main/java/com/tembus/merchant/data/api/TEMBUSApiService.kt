@@ -30,6 +30,11 @@ interface TEMBUSApiService {
         @Body request: ToggleOpenRequest
     ): Response<Merchant>
 
+    @PUT("api/v1/merchant/food-docs")
+    suspend fun updateFoodDocs(
+        @Body request: UpdateFoodDocsRequest
+    ): Response<Merchant>
+
     // ── Menu CRUD ──
     @GET("api/v1/merchant/menu")
     suspend fun listMenu(

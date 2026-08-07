@@ -46,6 +46,9 @@ export const listAdminMerchants = async (req: Request, res: Response) => {
               to_char(m.jam_buka, 'HH24:MI') AS jam_buka,
               to_char(m.jam_tutup, 'HH24:MI') AS jam_tutup,
               m.is_open, m.completion_rate_pct, m.verification_status,
+              m.halal_cert_number, to_char(m.halal_expiry_date, 'YYYY-MM-DD') AS halal_expiry_date,
+              m.spp_irt_number, to_char(m.spp_irt_expiry_date, 'YYYY-MM-DD') AS spp_irt_expiry_date,
+              m.bpom_number, to_char(m.bpom_expiry_date, 'YYYY-MM-DD') AS bpom_expiry_date,
               m.created_at, m.updated_at,
               u.phone, u.email, u.full_name
        FROM merchants m
@@ -117,6 +120,9 @@ export const getAdminMerchantDetail = async (req: Request, res: Response) => {
               to_char(m.jam_buka, 'HH24:MI') AS jam_buka,
               to_char(m.jam_tutup, 'HH24:MI') AS jam_tutup,
               m.is_open, m.completion_rate_pct, m.verification_status,
+              m.halal_cert_number, to_char(m.halal_expiry_date, 'YYYY-MM-DD') AS halal_expiry_date,
+              m.spp_irt_number, to_char(m.spp_irt_expiry_date, 'YYYY-MM-DD') AS spp_irt_expiry_date,
+              m.bpom_number, to_char(m.bpom_expiry_date, 'YYYY-MM-DD') AS bpom_expiry_date,
               m.created_at, m.updated_at,
               u.phone, u.email, u.full_name
        FROM merchants m

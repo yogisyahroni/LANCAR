@@ -37,6 +37,10 @@ type MerchantService interface {
 	UpdateProfile(ctx context.Context, userID string, req UpdateMerchantRequest) (*Merchant, error)
 	// ToggleOpen buka/tutup merchant (hanya jika approved).
 	ToggleOpen(ctx context.Context, userID string, isOpen bool) (*Merchant, error)
+	// UpdateFoodDocs update dokumen pangan (FB-092): nomor sertifikat halal
+	// BPJPH, SPP-IRT, izin edar BPOM + masa berlaku. Buka toko ditolak
+	// kalau belum lengkap / expired.
+	UpdateFoodDocs(ctx context.Context, userID string, req UpdateFoodDocsRequest) (*Merchant, error)
 
 	// Menu
 	CreateMenuItem(ctx context.Context, userID string, req CreateMenuItemRequest) (*MenuItem, error)

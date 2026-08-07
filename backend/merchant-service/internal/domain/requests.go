@@ -14,6 +14,33 @@ type RegisterMerchantRequest struct {
 	RekeningURL   string   `json:"rekening_bank_url"`
 	// NIB opsional
 	NibURL *string `json:"nib_url,omitempty"`
+
+	// Dokumen pangan (FB-092) — OPSIONAL saat daftar, wajib sebelum is_open=true.
+	// Nomor + tanggal kedaluwarsa; URL bukti dokumen.
+	HalalCertNumber  *string `json:"halal_cert_number,omitempty"`
+	HalalExpiryDate  *string `json:"halal_expiry_date,omitempty"` // YYYY-MM-DD, wajib jika nomor diisi
+	SertifikatHalalURL *string `json:"sertifikat_halal_url,omitempty"`
+	SppIrtNumber     *string `json:"spp_irt_number,omitempty"`
+	SppIrtExpiryDate *string `json:"spp_irt_expiry_date,omitempty"` // YYYY-MM-DD, wajib jika nomor diisi
+	SppIrtURL        *string `json:"spp_irt_url,omitempty"`
+	BpomNumber       *string `json:"bpom_number,omitempty"`
+	BpomExpiryDate   *string `json:"bpom_expiry_date,omitempty"` // YYYY-MM-DD, wajib jika nomor diisi
+	IzinEdarBPOMURL  *string `json:"izin_edar_bpom_url,omitempty"`
+}
+
+// UpdateFoodDocsRequest — update/upload dokumen pangan merchant (FB-092).
+// Field opsional (patch): hanya field yang diisi yang diperbarui.
+// Kalau nomor diisi, expiry wajib; URL opsional (sudah diunggah saat daftar).
+type UpdateFoodDocsRequest struct {
+	HalalCertNumber    *string `json:"halal_cert_number,omitempty"`
+	HalalExpiryDate    *string `json:"halal_expiry_date,omitempty"`
+	SertifikatHalalURL *string `json:"sertifikat_halal_url,omitempty"`
+	SppIrtNumber       *string `json:"spp_irt_number,omitempty"`
+	SppIrtExpiryDate   *string `json:"spp_irt_expiry_date,omitempty"`
+	SppIrtURL          *string `json:"spp_irt_url,omitempty"`
+	BpomNumber         *string `json:"bpom_number,omitempty"`
+	BpomExpiryDate     *string `json:"bpom_expiry_date,omitempty"`
+	IzinEdarBPOMURL    *string `json:"izin_edar_bpom_url,omitempty"`
 }
 
 // UpdateMerchantRequest — update profil merchant (nama, alamat, lokasi, jam).
