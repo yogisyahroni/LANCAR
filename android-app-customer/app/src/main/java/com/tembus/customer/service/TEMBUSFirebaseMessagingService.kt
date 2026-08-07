@@ -59,11 +59,21 @@ class TEMBUSFirebaseMessagingService : FirebaseMessagingService() {
         if (remoteMessage.data.isNotEmpty()) {
             debugLog("FCM data payload received")
             CustomerResyncWorker.enqueue(this, "fcm_data_message")
-            
+
             // If there's no notification payload but there is data, we might still want to show a notification
             if (remoteMessage.notification == null) {
-                val title = remoteMessage.data["title"] ?: "TEMBUS"
-                val body = remoteMessage.data["body"] ?: "New message from TEMBUS"
+                val type = remoteMessage.data["type"]
+                val (title, body) = when (type) {
+                    // FB-084: backend kirim data-only {type: order_cancelled, order_no, reason}
+                    "order_cancelled" -> {
+                        "Pesanan Dibatalkan" to
+                            (remoteMessage.data["reason"] ?: "Pesanan dibatalkan oleh merchant")
+                    }
+                    else -> {
+                        (remoteMessage.data["title"] ?: "TEMBUS") to
+                            (remoteMessage.data["body"] ?: "New message from TEMBUS")
+                    }
+                }
                 notificationHelper.showNotification(
                     title = title,
                     message = body,
