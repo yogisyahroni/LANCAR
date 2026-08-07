@@ -236,6 +236,52 @@ func TestRefundService_FoodAccepted_WithholdServiceFee(t *testing.T) {
 	}
 }
 
+// FB-081: merchant reject / auto-cancel timeout → original_status=pending_merchant
+// (free window) → refund 100% penuh, tanpa potongan.
+func TestRefundService_FoodPendingMerchant_FullRefund(t *testing.T) {
+	ctx := context.Background()
+	refundRepo := newMockRefundRepo()
+	orderRepo := &mockOrderRepo{}
+	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
+	gateway := &mockRefundGateway{}
+
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil)
+
+	orderID := uuid.New()
+	orderRepo.order = &domain.Order{
+		ID:             orderID.String(),
+		CustomerID:     "cust-1",
+		Status:         domain.StatusCancelled, // DB sudah cancelled saat refund diproses
+		ServiceSubType: "food_delivery",
+		MerchantID:     ptrString("merchant-1"),
+		PlatformFeeIDR: 5000,
+	}
+	paymentRepo.payments["pay-1"] = &domain.Payment{
+		ID:        "pay-1",
+		OrderID:   orderID.String(),
+		AmountIDR: 50000,
+		Status:    domain.PaymentStatusPaid,
+	}
+
+	// Merchant menolak: order di-DB cancelled, tapi original_status dikirim
+	// eksplisit = pending_merchant → refund penuh 50000 (bukan 0%).
+	rec, err := svc.CalculateAndTriggerRefund(ctx, orderID, "Pesanan ditolak merchant", domain.RefundOptions{
+		OriginalStatus: domain.StatusPendingMerchant,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if rec == nil {
+		t.Fatal("expected refund record, got nil")
+	}
+	if rec.AmountIDR != 50000 {
+		t.Errorf("expected full refund 50000 utk pending_merchant, got %d", rec.AmountIDR)
+	}
+	if rec.PlatformFeeReversalIDR != 5000 {
+		t.Errorf("expected platform fee reversal 5000 (refund penuh), got %d", rec.PlatformFeeReversalIDR)
+	}
+}
+
 // FB-079: food picked_up → 0% refund (harusnya ditolak di handler → dispute)
 func TestRefundService_FoodPickedUp_NoRefund(t *testing.T) {
 	ctx := context.Background()

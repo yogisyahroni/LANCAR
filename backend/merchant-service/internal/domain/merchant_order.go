@@ -16,4 +16,7 @@ type MerchantOrderRepository interface {
 	CountByMerchant(ctx context.Context, merchantID, status string) (int, error)
 	// GetOrderForStruk ambil order food milik merchant + items untuk struk (FOOD-BIKE-034).
 	GetOrderForStruk(ctx context.Context, merchantID, orderID string) (*StrukData, error)
+	// RecordOrderEvent (FB-081): catat event ke order_events — dipakai saat
+	// merchant reject order supaya customer/tracking dapat jejak pembatalan.
+	RecordOrderEvent(ctx context.Context, orderID, eventType, description string) error
 }

@@ -65,6 +65,21 @@ func (r *postgresMerchantOrderRepository) RejectOrder(ctx context.Context, merch
 	return nil
 }
 
+// RecordOrderEvent (FB-081) — insert order_events dengan user_id = customer
+// order (konsisten dgn pola admin-service). Dipakai saat merchant reject
+// supaya customer/tracking dapat jejak pembatalan.
+func (r *postgresMerchantOrderRepository) RecordOrderEvent(ctx context.Context, orderID, eventType, description string) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO order_events (order_id, user_id, event_type, description, metadata)
+		SELECT o.id, o.customer_id, $2, $3, jsonb_build_object('source', 'merchant-service')
+		FROM orders o
+		WHERE o.id = $1`, orderID, eventType, description)
+	if err != nil {
+		return fmt.Errorf("record order event: %w", err)
+	}
+	return nil
+}
+
 func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, merchantID, status string, limit, offset int) ([]*domain.MerchantOrderView, error) {
 	query := `
 		SELECT o.id, o.order_number, o.status,

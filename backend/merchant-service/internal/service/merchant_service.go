@@ -1,10 +1,17 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
 	"strings"
+	"time"
 
 	"tembus/merchant-service/internal/domain"
 
@@ -277,7 +284,11 @@ func (s *merchantServiceImpl) AcceptOrder(ctx context.Context, userID string, or
 	return s.orderRepo.AcceptOrder(ctx, m.ID, orderID)
 }
 
-// RejectOrder: merchant menolak order food. Status → cancelled_by_merchant + reason.
+// RejectOrder: merchant menolak order food. Status → cancelled + reason.
+// FB-081: setelah tolak sukses → catat order_event + trigger refund 100%
+// otomatis (pending_merchant = free window). Refund fire-and-forget ke
+// order-service — kegagalan HTTP tidak menggagalkan reject (bisa di-trigger
+// ulang manual oleh admin via /internal/refunds/process).
 func (s *merchantServiceImpl) RejectOrder(ctx context.Context, userID string, orderID string, reason string) error {
 	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
@@ -286,7 +297,56 @@ func (s *merchantServiceImpl) RejectOrder(ctx context.Context, userID string, or
 	if strings.TrimSpace(reason) == "" {
 		return errors.New("reason wajib diisi saat menolak order")
 	}
-	return s.orderRepo.RejectOrder(ctx, m.ID, orderID, reason)
+	if err := s.orderRepo.RejectOrder(ctx, m.ID, orderID, reason); err != nil {
+		return err
+	}
+
+	// Jejak pembatalan utk customer/tracking
+	if evErr := s.orderRepo.RecordOrderEvent(ctx, orderID, "cancelled", "Pesanan ditolak merchant: "+reason); evErr != nil {
+		log.Printf("[MerchantService] RejectOrder: gagal catat order_events utk %s: %v", orderID, evErr)
+	}
+
+	// Refund otomatis (async, non-blocking)
+	go s.triggerRefundOnMerchantReject(orderID, reason)
+	return nil
+}
+
+// triggerRefundOnMerchantReject — FB-081: panggil order-service
+// /api/v1/internal/refunds/process dengan original_status=pending_merchant
+// (free window → refund 100%). Pola sama dgn cancel customer di admin-service.
+func (s *merchantServiceImpl) triggerRefundOnMerchantReject(orderID, reason string) {
+	orderServiceURL := strings.TrimSpace(os.Getenv("ORDER_SERVICE_URL"))
+	if orderServiceURL == "" {
+		orderServiceURL = "http://order-service:8080"
+	}
+	payload, _ := json.Marshal(map[string]interface{}{
+		"order_id":        orderID,
+		"reason":          "Pesanan ditolak merchant: " + reason,
+		"original_status": "pending_merchant",
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		orderServiceURL+"/api/v1/internal/refunds/process", bytes.NewReader(payload))
+	if err != nil {
+		log.Printf("[MerchantService] RejectOrder: gagal buat request refund %s: %v", orderID, err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-Api-Key", os.Getenv("INTERNAL_API_KEY"))
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("[MerchantService] RejectOrder: gagal reach order-service utk refund %s: %v", orderID, err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		log.Printf("[MerchantService] RejectOrder: refund %s gagal (status %d): %s", orderID, resp.StatusCode, string(body))
+	}
 }
 
 func (s *merchantServiceImpl) ListOrders(ctx context.Context, userID string, status string, page, pageSize int) ([]*domain.MerchantOrderView, int, error) {
