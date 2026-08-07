@@ -23,6 +23,7 @@ type merchantSettlementService struct {
 	notificationSvc domain.NotificationService
 	awbClient       domain.AWBClient
 	ledgerRepo      domain.FinanceLedgerRepository
+	cancelFeeRepo   domain.MerchantCancellationFeeRepository // FB-082: potong piutang fee saat settlement dibuat
 	gatewayURL      string
 	internalAPIKey  string
 	httpClient      *http.Client
@@ -35,6 +36,7 @@ func NewMerchantSettlementService(
 	notificationSvc domain.NotificationService,
 	awbClient domain.AWBClient,
 	ledgerRepo domain.FinanceLedgerRepository,
+	cancelFeeRepo domain.MerchantCancellationFeeRepository,
 ) domain.MerchantSettlementService {
 	gatewayURL := os.Getenv("INTEGRATION_GATEWAY_URL")
 	if gatewayURL == "" {
@@ -46,6 +48,7 @@ func NewMerchantSettlementService(
 		notificationSvc: notificationSvc,
 		awbClient:       awbClient,
 		ledgerRepo:      ledgerRepo,
+		cancelFeeRepo:   cancelFeeRepo,
 		gatewayURL:      gatewayURL,
 		internalAPIKey:  os.Getenv("INTERNAL_API_KEY"),
 		httpClient:      &http.Client{Timeout: 15 * time.Second},
@@ -133,6 +136,14 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 	}
 	_, _ = uuid.Parse(order.ID)
 
+	// 6b. FB-082: potong piutang cancellation fee merchant (order food batal
+	// karena kesalahan merchant) dari payout parcel ini.
+	deductedFees, feeErr := s.deductOutstandingCancellationFees(ctx, paymentLink.MerchantID, &netPayoutIDR, settlementID, order.ID)
+	if feeErr != nil {
+		slog.WarnContext(ctx, "merchant_settlement: gagal potong cancellation fees (lanjut tanpa potongan)",
+			"merchant_id", paymentLink.MerchantID, "error", feeErr)
+	}
+
 	settlement := &domain.MerchantSettlement{
 		ID:                 settlementID,
 		PaymentLinkID:      paymentLink.ID,
@@ -153,6 +164,7 @@ func (s *merchantSettlementService) HandleDeliveryConfirmed(ctx context.Context,
 			"pod_url":       req.PodURL,
 			"holding_days":  holdingDays,
 			"merchant_id":   merchantUUID.String(),
+			"cancellation_fee_deducted_idr": deductedFees,
 		},
 	}
 
@@ -277,6 +289,15 @@ func (s *merchantSettlementService) HandleFoodOrderDelivered(ctx context.Context
 	now := time.Now()
 	holdingReleaseAt := now.Add(time.Duration(holdingDays) * 24 * time.Hour)
 	settlementID := uuid.New()
+
+	// 5b. FB-082: potong piutang cancellation fee merchant (order food batal
+	// karena kesalahan merchant) dari payout ini.
+	deductedFees, feeErr := s.deductOutstandingCancellationFees(ctx, data.MerchantID, &netPayoutIDR, settlementID, data.OrderID)
+	if feeErr != nil {
+		slog.WarnContext(ctx, "merchant_settlement: gagal potong cancellation fees (lanjut tanpa potongan)",
+			"merchant_id", data.MerchantID, "error", feeErr)
+	}
+
 	settlement := &domain.MerchantSettlement{
 		ID:                 settlementID,
 		PaymentLinkID:      "", // food on-demand tanpa payment link (insert NULL)
@@ -292,10 +313,11 @@ func (s *merchantSettlementService) HandleFoodOrderDelivered(ctx context.Context
 		HoldingReleaseAt:   &holdingReleaseAt,
 		RetryCount:         0,
 		Metadata: map[string]any{
-			"source":       "food_delivery",
-			"order_id":     data.OrderID,
-			"merchant_id":  data.MerchantID,
-			"holding_days": holdingDays,
+			"source":                  "food_delivery",
+			"order_id":                data.OrderID,
+			"merchant_id":             data.MerchantID,
+			"holding_days":            holdingDays,
+			"cancellation_fee_deducted_idr": deductedFees,
 		},
 	}
 	if err := s.repo.Create(ctx, settlement); err != nil {
@@ -683,6 +705,46 @@ func (s *merchantSettlementService) ListByMerchant(ctx context.Context, merchant
 
 func (s *merchantSettlementService) ListAll(ctx context.Context, status string, limit, offset int) ([]*domain.MerchantSettlement, error) {
 	return s.repo.ListAll(ctx, status, limit, offset)
+}
+
+// deductOutstandingCancellationFees — FB-082: potong piutang cancellation fee
+// merchant (PENDING) dari net payout settlement yang sedang dibuat.
+// Fee dipotong penuh hanya jika payout mencukupi; kalau tidak, sisa fee tetap
+// PENDING (carry forward ke settlement berikutnya). Mengembalikan total yang
+// berhasil dipotong.
+func (s *merchantSettlementService) deductOutstandingCancellationFees(ctx context.Context, merchantID string, netPayout *int64, settlementID uuid.UUID, orderID string) (int64, error) {
+	if s.cancelFeeRepo == nil {
+		return 0, nil
+	}
+	fees, err := s.cancelFeeRepo.GetOutstandingByMerchant(ctx, merchantID)
+	if err != nil {
+		return 0, fmt.Errorf("get outstanding cancellation fees: %w", err)
+	}
+
+	var totalDeducted int64
+	for _, f := range fees {
+		if *netPayout <= 0 {
+			break // payout habis — sisa fee carry forward
+		}
+		if f.AmountIDR <= *netPayout {
+			*netPayout -= f.AmountIDR
+			totalDeducted += f.AmountIDR
+			if err := s.cancelFeeRepo.MarkDeducted(ctx, f.ID, settlementID); err != nil {
+				slog.WarnContext(ctx, "merchant_settlement: gagal mark fee deducted (fee dipotong tp status tetap PENDING)",
+					"fee_id", f.ID, "error", err)
+			}
+			slog.InfoContext(ctx, "merchant_settlement: cancellation fee deducted",
+				"fee_id", f.ID, "order_id", f.OrderID, "settlement_id", settlementID,
+				"amount_idr", f.AmountIDR)
+		}
+		// fee > payout → tidak cukup, carry forward (tidak dipotong sebagian)
+	}
+	if totalDeducted > 0 {
+		slog.InfoContext(ctx, "merchant_settlement: cancellation fees deducted from payout",
+			"merchant_id", merchantID, "order_id", orderID, "settlement_id", settlementID,
+			"total_deducted_idr", totalDeducted, "net_after", *netPayout)
+	}
+	return totalDeducted, nil
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

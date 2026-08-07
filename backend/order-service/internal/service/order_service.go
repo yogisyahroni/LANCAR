@@ -1744,7 +1744,7 @@ func (s *orderServiceImpl) AcceptByMerchant(ctx context.Context, orderID string,
 
 // RejectByMerchant — merchant menolak order food: pending_merchant → cancelled.
 // Reason wajib (alasan penolakan merchant). FB-081: setelah reject sukses →
-// trigger refund 100% otomatis (pending_merchant = free window).
+// trigger refund 100% otomatis. FB-082: fee di-charge ke merchant (piutang).
 func (s *orderServiceImpl) RejectByMerchant(ctx context.Context, orderID string, merchantID string, reason string) error {
 	if s.foodRepo == nil {
 		return fmt.Errorf("food repository not wired")
@@ -1762,13 +1762,15 @@ func (s *orderServiceImpl) RejectByMerchant(ctx context.Context, orderID string,
 	s.publishOrderEvent(ctx, orderID, domain.StatusCancelled, "Pesanan ditolak merchant: "+reason)
 
 	// FB-081: merchant menolak = kesalahan merchant → refund penuh
-	s.triggerRefundOnCancel(ctx, orderID, "Pesanan ditolak merchant: "+reason, domain.StatusPendingMerchant)
+	// FB-082: fee di-charge ke merchant (customer refund 100%, platform tidak rugi)
+	s.triggerRefundOnCancel(ctx, orderID, "Pesanan ditolak merchant: "+reason, domain.StatusPendingMerchant, "merchant")
 	return nil
 }
 
 // triggerRefundOnCancel — helper: trigger refund dgn original status eksplisit
 // (fire-and-forget — error hanya di-log, tidak menggagalkan flow utama).
-func (s *orderServiceImpl) triggerRefundOnCancel(ctx context.Context, orderID string, reason string, originalStatus domain.OrderStatus) {
+// chargeFeeTo: "customer" (default) | "merchant" (FB-082) | "none".
+func (s *orderServiceImpl) triggerRefundOnCancel(ctx context.Context, orderID string, reason string, originalStatus domain.OrderStatus, chargeFeeTo string) {
 	if s.refundSvc == nil {
 		return
 	}
@@ -1777,7 +1779,7 @@ func (s *orderServiceImpl) triggerRefundOnCancel(ctx context.Context, orderID st
 		log.Printf("[OrderService] triggerRefundOnCancel: invalid order id %s", orderID)
 		return
 	}
-	if _, errRefund := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, reason, domain.RefundOptions{OriginalStatus: originalStatus}); errRefund != nil {
+	if _, errRefund := s.refundSvc.CalculateAndTriggerRefund(ctx, oid, reason, domain.RefundOptions{OriginalStatus: originalStatus, ChargeCancellationFeeTo: chargeFeeTo}); errRefund != nil {
 		log.Printf("[OrderService] triggerRefundOnCancel: gagal refund order %s: %v", orderID, errRefund)
 	}
 }
@@ -1818,7 +1820,8 @@ func (s *orderServiceImpl) ProcessFoodPrepTransitions(ctx context.Context) error
 		s.publishOrderEvent(ctx, o.ID, domain.StatusCancelled, "Merchant tidak merespon dalam 3 menit — order dibatalkan otomatis")
 		// FB-081: auto-cancel karena merchant tidak merespon → refund 100%
 		// (status asal pending_merchant = free window).
-		s.triggerRefundOnCancel(ctx, o.ID, "Merchant tidak merespon dalam 3 menit", domain.StatusPendingMerchant)
+		// FB-082: fee di-charge ke merchant (piutang).
+		s.triggerRefundOnCancel(ctx, o.ID, "Merchant tidak merespon dalam 3 menit", domain.StatusPendingMerchant, "merchant")
 	}
 
 	return nil

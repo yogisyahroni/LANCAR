@@ -320,9 +320,10 @@ func (s *merchantServiceImpl) triggerRefundOnMerchantReject(orderID, reason stri
 		orderServiceURL = "http://order-service:8080"
 	}
 	payload, _ := json.Marshal(map[string]interface{}{
-		"order_id":        orderID,
-		"reason":          "Pesanan ditolak merchant: " + reason,
-		"original_status": "pending_merchant",
+		"order_id":                  orderID,
+		"reason":                    "Pesanan ditolak merchant: " + reason,
+		"original_status":           "pending_merchant",
+		"charge_cancellation_fee_to": "merchant", // FB-082: fee jadi piutang merchant
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

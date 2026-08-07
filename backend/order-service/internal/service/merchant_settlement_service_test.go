@@ -74,6 +74,7 @@ func newSettlementTestSvc(repo *mockSettlementRepo) domain.MerchantSettlementSer
 		&mockSettlementNotifSvc{},
 		nil,
 		nil,
+		nil, // FB-082: cancelFeeRepo nil OK (di-guard di service)
 	)
 }
 

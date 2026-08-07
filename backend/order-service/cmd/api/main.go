@@ -264,8 +264,11 @@ func main() {
 	// Food delivery (FOOD-BIKE-073): inject food repository untuk CreateFoodOrder
 	foodRepo := repository.NewFoodRepository(db, readDB, configRepo)
 	orderSvc.SetFoodRepository(foodRepo)
+	// FB-082: piutang cancellation fee merchant (dipotong dari settlement berikutnya)
+	merchantCancelFeeRepo := repository.NewMerchantCancellationFeeRepository(db, readDB)
 	// FB-080: refund partial per item butuh foodRepo (snapshot food_order_items)
-	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw, redisRepo, ledgerRepo, foodRepo)
+	// FB-082: cancelFeeRepo utk piutang cancellation fee merchant
+	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw, redisRepo, ledgerRepo, foodRepo, merchantCancelFeeRepo)
 	orderSvc.SetRefundService(refundSvc)
 	slaSvc := service.NewSLAService(slaRepo, notificationSvc, payoutRepo)
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc, configRepo)
@@ -292,6 +295,7 @@ func main() {
 		notificationSvc,
 		infrastructure.NewIntegrationGatewayClient(configRepo),
 		ledgerRepo,
+		merchantCancelFeeRepo,
 	)
 	// FOOD-BIKE-067: order-service ScanPackage perlu akses settlement service
 	// untuk order food delivered (escrow tanpa payment link).

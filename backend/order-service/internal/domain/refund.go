@@ -46,8 +46,19 @@ type RefundGateway interface {
 // OriginalStatus: status order SEBELUM diubah ke cancelled. Wajib dikirim
 // dari cancel flow karena order sudah berstatus cancelled saat refund
 // diproses — tanpa ini refund selalu dihitung sebagai 100% (bug).
+//
+// ChargeCancellationFeeTo (FB-082): pihak yang menanggung cancellation fee
+// saat order batal:
+//   - "" | "customer" (default): platform fee ditahan dari refund customer
+//     (perilaku FB-079 — customer cancel di window berbayar).
+//   - "merchant": customer refund 100%, fee TIDAK direversal — menjadi
+//     piutang merchant (merchant_cancellation_fees) yang dipotong dari
+//     settlement berikutnya (perilaku FB-082 — kesalahan merchant).
+//   - "none": refund 100% + fee direversal penuh ke customer (platform rugi,
+//     dipakai kalau blm ada mekanisme piutang).
 type RefundOptions struct {
-	OriginalStatus OrderStatus
+	OriginalStatus        OrderStatus
+	ChargeCancellationFeeTo string
 }
 
 // ItemRefundRequest — satu baris item untuk refund partial per item (FB-080).

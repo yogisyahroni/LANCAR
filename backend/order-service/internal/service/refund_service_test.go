@@ -72,7 +72,7 @@ func TestRefundService_CalculateAndTriggerRefund_WalletPayment(t *testing.T) {
 	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
 	gateway := &mockRefundGateway{}
 
-	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil)
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil, nil)
 
 	orderID := uuid.New()
 	orderRepo.order = &domain.Order{
@@ -119,7 +119,7 @@ func TestRefundService_CalculateAndTriggerRefund_AcceptedStatus_80Percent(t *tes
 	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
 	gateway := &mockRefundGateway{}
 
-	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil)
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil, nil)
 
 	orderID := uuid.New()
 	orderRepo.order = &domain.Order{
@@ -155,7 +155,7 @@ func TestRefundService_FoodPreparing_FullRefund(t *testing.T) {
 	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
 	gateway := &mockRefundGateway{}
 
-	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil)
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil, nil)
 
 	orderID := uuid.New()
 	orderRepo.order = &domain.Order{
@@ -197,7 +197,7 @@ func TestRefundService_FoodAccepted_WithholdServiceFee(t *testing.T) {
 	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
 	gateway := &mockRefundGateway{}
 
-	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil)
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil, nil)
 
 	orderID := uuid.New()
 	courierID := "courier-1"
@@ -245,7 +245,7 @@ func TestRefundService_FoodPendingMerchant_FullRefund(t *testing.T) {
 	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
 	gateway := &mockRefundGateway{}
 
-	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil)
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil, nil)
 
 	orderID := uuid.New()
 	orderRepo.order = &domain.Order{
@@ -290,7 +290,7 @@ func TestRefundService_FoodPickedUp_NoRefund(t *testing.T) {
 	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
 	gateway := &mockRefundGateway{}
 
-	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil)
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil, nil)
 
 	orderID := uuid.New()
 	orderRepo.order = &domain.Order{
@@ -373,7 +373,7 @@ func TestRefundService_CalculateItemRefund_ItemsOnly(t *testing.T) {
 	gateway := &mockRefundGateway{}
 	foodRepo := &mockFoodRepo{}
 
-	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, foodRepo)
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, foodRepo, nil)
 
 	orderID := uuid.New()
 	orderRepo.order = &domain.Order{
@@ -421,7 +421,7 @@ func TestRefundService_CalculateItemRefund_IncludeDeliveryFee(t *testing.T) {
 	gateway := &mockRefundGateway{}
 	foodRepo := &mockFoodRepo{}
 
-	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, foodRepo)
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, foodRepo, nil)
 
 	orderID := uuid.New()
 	orderRepo.order = &domain.Order{
@@ -468,7 +468,7 @@ func TestRefundService_CalculateItemRefund_QtyExceeds(t *testing.T) {
 	gateway := &mockRefundGateway{}
 	foodRepo := &mockFoodRepo{}
 
-	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, foodRepo)
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, foodRepo, nil)
 
 	orderID := uuid.New()
 	orderRepo.order = &domain.Order{
@@ -493,5 +493,139 @@ func TestRefundService_CalculateItemRefund_QtyExceeds(t *testing.T) {
 	}, domain.RefundItemOptions{})
 	if err == nil {
 		t.Fatal("expected error for qty exceeding order, got nil")
+	}
+}
+
+// ─── Mock MerchantCancellationFeeRepository (FB-082) ─────────────────────────
+
+type mockCancelFeeRepo struct {
+	created []*domain.MerchantCancellationFee
+}
+
+func (m *mockCancelFeeRepo) Create(ctx context.Context, fee *domain.MerchantCancellationFee) error {
+	m.created = append(m.created, fee)
+	return nil
+}
+
+func (m *mockCancelFeeRepo) GetOutstandingByMerchant(ctx context.Context, merchantID string) ([]*domain.MerchantCancellationFee, error) {
+	return nil, nil
+}
+
+func (m *mockCancelFeeRepo) MarkDeducted(ctx context.Context, id uuid.UUID, settlementID uuid.UUID) error {
+	return nil
+}
+
+// FB-082: merchant reject/timeout (original_status=pending_merchant) →
+// customer refund 100%, fee TIDAK direversal (platform tidak rugi),
+// piutang fee merchant dicatat.
+func TestRefundService_FoodMerchantFault_FullRefund_ChargeFeeToMerchant(t *testing.T) {
+	ctx := context.Background()
+	refundRepo := newMockRefundRepo()
+	orderRepo := &mockOrderRepo{}
+	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
+	gateway := &mockRefundGateway{}
+	cancelFeeRepo := &mockCancelFeeRepo{}
+
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil, cancelFeeRepo)
+
+	orderID := uuid.New()
+	orderRepo.order = &domain.Order{
+		ID:             orderID.String(),
+		CustomerID:     "cust-1",
+		Status:         domain.StatusCancelled, // sudah di-cancel saat refund diproses
+		ServiceSubType: "food_delivery",
+		MerchantID:     ptrString("merchant-1"),
+		PlatformFeeIDR: 5000,
+		PPNIDR:         1000,
+	}
+	paymentRepo.payments["pay-1"] = &domain.Payment{
+		ID:        "pay-1",
+		OrderID:   orderID.String(),
+		AmountIDR: 50000,
+		Status:    domain.PaymentStatusPaid,
+	}
+
+	// Kesalahan merchant (reject / timeout pending_merchant) → fee charge ke merchant
+	rec, err := svc.CalculateAndTriggerRefund(ctx, orderID, "Merchant reject", domain.RefundOptions{
+		OriginalStatus:        domain.StatusPendingMerchant,
+		ChargeCancellationFeeTo: "merchant",
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if rec == nil {
+		t.Fatal("expected refund record, got nil")
+	}
+	// Customer refund penuh 100% (50000) — kesalahan merchant
+	if rec.AmountIDR != 50000 {
+		t.Errorf("expected full refund 50000 (merchant fault), got %d", rec.AmountIDR)
+	}
+	// Fee (5000) tidak direversal → platform tidak rugi
+	if rec.PlatformFeeReversalIDR != 0 {
+		t.Errorf("expected fee reversal 0 (charged to merchant), got %d", rec.PlatformFeeReversalIDR)
+	}
+	// Piutang fee merchant tercatat (UNIQUE per order → idempotent)
+	if len(cancelFeeRepo.created) != 1 {
+		t.Fatalf("expected 1 merchant cancellation fee recorded, got %d", len(cancelFeeRepo.created))
+	}
+	fee := cancelFeeRepo.created[0]
+	if fee.MerchantID != "merchant-1" {
+		t.Errorf("expected fee merchant_id merchant-1, got %s", fee.MerchantID)
+	}
+	if fee.OrderID != orderID.String() {
+		t.Errorf("expected fee order_id %s, got %s", orderID.String(), fee.OrderID)
+	}
+	if fee.AmountIDR != 5000 {
+		t.Errorf("expected fee amount 5000 (platform fee), got %d", fee.AmountIDR)
+	}
+	if fee.Status != domain.CancellationFeePending {
+		t.Errorf("expected fee status PENDING, got %s", fee.Status)
+	}
+}
+
+// FB-082: pembanding — customer fault di window berbayar (accepted) tetap
+// charge ke customer (perilaku FB-079 tidak berubah).
+func TestRefundService_FoodCustomerFault_WithholdServiceFee_NoMerchantFee(t *testing.T) {
+	ctx := context.Background()
+	refundRepo := newMockRefundRepo()
+	orderRepo := &mockOrderRepo{}
+	paymentRepo := &mockPaymentRepo{payments: make(map[string]*domain.Payment)}
+	gateway := &mockRefundGateway{}
+	cancelFeeRepo := &mockCancelFeeRepo{}
+
+	svc := service.NewRefundService(refundRepo, orderRepo, paymentRepo, gateway, &MockRedisRepo{}, nil, nil, cancelFeeRepo)
+
+	orderID := uuid.New()
+	orderRepo.order = &domain.Order{
+		ID:             orderID.String(),
+		CustomerID:     "cust-1",
+		Status:         domain.StatusCancelled,
+		ServiceSubType: "food_delivery",
+		MerchantID:     ptrString("merchant-1"),
+		PlatformFeeIDR: 5000,
+		PPNIDR:         1000,
+	}
+	paymentRepo.payments["pay-1"] = &domain.Payment{
+		ID:        "pay-1",
+		OrderID:   orderID.String(),
+		AmountIDR: 50000,
+		Status:    domain.PaymentStatusPaid,
+	}
+
+	// Tanpa flag → default customer fault: refund dikurangi biaya layanan
+	rec, err := svc.CalculateAndTriggerRefund(ctx, orderID, "Customer cancelled", domain.RefundOptions{
+		OriginalStatus: domain.StatusAccepted,
+	})
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if rec == nil {
+		t.Fatal("expected refund record, got nil")
+	}
+	if rec.AmountIDR != 45000 { // 50000 - 5000 fee
+		t.Errorf("expected refund 45000 (fee ditahan), got %d", rec.AmountIDR)
+	}
+	if len(cancelFeeRepo.created) != 0 {
+		t.Errorf("expected NO merchant fee recorded for customer fault, got %d", len(cancelFeeRepo.created))
 	}
 }

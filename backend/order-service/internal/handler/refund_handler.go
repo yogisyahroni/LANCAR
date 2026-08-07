@@ -23,6 +23,9 @@ type createRefundRequest struct {
 	// FB-079: status order SEBELUM diubah ke cancelled — dipakai utk menghitung
 	// refund window food (free vs kena biaya layanan) secara akurat.
 	OriginalStatus string `json:"original_status,omitempty"`
+	// FB-082: pihak yang menanggung cancellation fee: "customer" (default) |
+	// "merchant" (kesalahan merchant → fee jadi piutang merchant).
+	ChargeCancellationFeeTo string `json:"charge_cancellation_fee_to,omitempty"`
 }
 
 // CreateItemRefund — endpoint internal refund partial per item food (FB-080).
@@ -92,7 +95,8 @@ func (h *RefundHandler) CreateRefund(w http.ResponseWriter, r *http.Request) {
 		}
 
 		record, err := h.refundService.CalculateAndTriggerRefund(r.Context(), oid, reason, domain.RefundOptions{
-			OriginalStatus: domain.OrderStatus(req.OriginalStatus),
+			OriginalStatus:        domain.OrderStatus(req.OriginalStatus),
+			ChargeCancellationFeeTo: req.ChargeCancellationFeeTo,
 		})
 		if err != nil {
 			middleware.WriteError(w, http.StatusInternalServerError, "ERR_REFUND_FAILED", err.Error(), middleware.GetCorrelationID(r.Context()))

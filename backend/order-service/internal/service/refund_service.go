@@ -19,6 +19,7 @@ type refundService struct {
 	redisRepo   domain.RedisRepository
 	ledgerRepo  domain.FinanceLedgerRepository
 	foodRepo    domain.FoodRepository // FB-080: snapshot food_order_items utk partial refund
+	cancelFeeRepo domain.MerchantCancellationFeeRepository // FB-082: piutang fee merchant
 }
 
 func NewRefundService(
@@ -29,15 +30,17 @@ func NewRefundService(
 	redisRepo domain.RedisRepository,
 	ledgerRepo domain.FinanceLedgerRepository,
 	foodRepo domain.FoodRepository,
+	cancelFeeRepo domain.MerchantCancellationFeeRepository,
 ) domain.RefundService {
 	return &refundService{
-		refundRepo:  refundRepo,
-		orderRepo:   orderRepo,
-		paymentRepo: paymentRepo,
-		gateway:     gateway,
-		redisRepo:   redisRepo,
-		ledgerRepo:  ledgerRepo,
-		foodRepo:    foodRepo,
+		refundRepo:    refundRepo,
+		orderRepo:     orderRepo,
+		paymentRepo:   paymentRepo,
+		gateway:       gateway,
+		redisRepo:     redisRepo,
+		ledgerRepo:    ledgerRepo,
+		foodRepo:      foodRepo,
+		cancelFeeRepo: cancelFeeRepo,
 	}
 }
 
@@ -130,6 +133,13 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 		refundAmount -= int(order.PlatformFeeIDR)
 		platformFeeReversal = 0
 	}
+	if opts.ChargeCancellationFeeTo == "merchant" {
+		// FB-082: kesalahan merchant (reject/timeout) — customer refund 100%,
+		// fee TIDAK direversal (platform tidak rugi): menjadi piutang merchant
+		// yang dipotong dari settlement berikutnya.
+		refundAmount = int(payment.AmountIDR)
+		platformFeeReversal = 0
+	}
 	if refundAmount <= 0 {
 		return nil, nil
 	}
@@ -142,6 +152,23 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 
 	now := time.Now()
 	refundID := uuid.New()
+
+	// FB-082: kesalahan merchant → catat piutang cancellation fee (dipotong
+	// dari settlement merchant berikutnya). Idempotent via UNIQUE(order_id).
+	if opts.ChargeCancellationFeeTo == "merchant" && s.cancelFeeRepo != nil && order.MerchantID != nil && order.PlatformFeeIDR > 0 {
+		fee := &domain.MerchantCancellationFee{
+			ID:         uuid.New(),
+			MerchantID: *order.MerchantID,
+			OrderID:    order.ID,
+			AmountIDR:  order.PlatformFeeIDR,
+			Reason:     cancelReason,
+			Status:     domain.CancellationFeePending,
+			CreatedAt:  now,
+		}
+		if feeErr := s.cancelFeeRepo.Create(ctx, fee); feeErr != nil {
+			log.Printf("Warning: gagal catat merchant cancellation fee utk order %s: %v", orderID, feeErr)
+		}
+	}
 
 	var journalIDPtr *uuid.UUID
 	if s.ledgerRepo != nil {
@@ -159,6 +186,14 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 				CreatedAt:   now,
 			})
 		}
+		if opts.ChargeCancellationFeeTo == "merchant" {
+			// Double-entry seimbang: piutang dari merchant (debit) = fee,
+			// pendapatan platform (credit) = fee. Balance tetap terjaga.
+			entries = append(entries,
+				domain.LedgerEntry{ID: uuid.New(), AccountName: "merchant_cancellation_fee_receivable", DebitIDR: order.PlatformFeeIDR, CreditIDR: 0, CreatedAt: now},
+				domain.LedgerEntry{ID: uuid.New(), AccountName: "platform_fee_revenue", DebitIDR: 0, CreditIDR: order.PlatformFeeIDR, CreatedAt: now},
+			)
+		}
 
 		journal := &domain.LedgerJournal{
 			ID:             uuid.New(),
@@ -168,10 +203,11 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 			IdempotencyKey: fmt.Sprintf("REFUND-JRN-%s", refundID.String()),
 			Reason:         cancelReason,
 			Metadata: map[string]any{
-				"refund_id":           refundID.String(),
-				"refund_percentage":   refundPercentage,
-				"tax_reversal_idr":    taxReversal,
-				"fee_reversal_idr":    platformFeeReversal,
+				"refund_id":                  refundID.String(),
+				"refund_percentage":          refundPercentage,
+				"tax_reversal_idr":           taxReversal,
+				"fee_reversal_idr":           platformFeeReversal,
+				"charge_cancellation_fee_to": opts.ChargeCancellationFeeTo,
 			},
 			CreatedBy: "system",
 			ActorRole: "system",
