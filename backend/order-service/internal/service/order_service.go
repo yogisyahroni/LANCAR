@@ -38,6 +38,7 @@ type orderServiceImpl struct {
 	settlementSvc   domain.MerchantSettlementService
 	pointsSvc       domain.DriverPointsService
 	penaltySvc      domain.DriverPenaltyService
+	voucherSvc      domain.VoucherService
 }
 
 func NewOrderService(o domain.OrderRepository, er domain.OrderEventRepository, r domain.RedisRepository, p domain.PricingRepository, relayRepo domain.RelayRepository, eb domain.EventBus, tq queue.Queue, f featureflags.FlagReader, ns domain.NotificationService, cr domain.ConfigRepository, lr domain.FinanceLedgerRepository, ts domain.TaxService) domain.OrderService {
@@ -82,6 +83,12 @@ func (s *orderServiceImpl) SetServiceReportService(reportSvc domain.ServiceRepor
 // Dipanggil dari wiring setelah service di-construct.
 func (s *orderServiceImpl) SetFoodRepository(fr domain.FoodRepository) {
 	s.foodRepo = fr
+}
+
+// SetVoucherService — inject voucher service (FB-078).
+// Dipanggil dari wiring setelah service di-construct.
+func (s *orderServiceImpl) SetVoucherService(vs domain.VoucherService) {
+	s.voucherSvc = vs
 }
 
 func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req domain.CreateOrderRequest) (*domain.Order, error) {
@@ -215,9 +222,45 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, userID string, req d
 		order.TaxInvoiceStatus = taxSnapshot.TaxInvoiceStatus
 	}
 
+	// 5.c FB-078: apply voucher diskon (kalau ada) — zero-trust server-side.
+	// Tidak bisa digabung dengan promo lain (estimate.DiscountIDR != 0).
+	var voucherUsage *domain.VoucherValidationResult
+	if req.VoucherCode != "" && s.voucherSvc != nil {
+		if order.DiscountIDR > 0 {
+			return nil, fmt.Errorf("voucher tidak bisa digabung dengan promo lain")
+		}
+		baseIDR := order.DynamicPriceIDR + order.DistanceFeeIDR
+		// Validate dulu (tanpa catat usage) — usage dicatat SETELAH order tersimpan.
+		vres, verr := s.voucherSvc.Validate(ctx, req.VoucherCode, userID, baseIDR, order.Model)
+		if verr != nil {
+			return nil, fmt.Errorf("voucher: %w", verr)
+		}
+		if !vres.Valid {
+			return nil, fmt.Errorf("voucher tidak valid: %s", vres.Error)
+		}
+		discount := vres.DiscountIDR
+		if discount > order.TotalPriceIDR {
+			discount = order.TotalPriceIDR
+		}
+		order.DiscountIDR += discount
+		order.PromoCode = req.VoucherCode
+		order.TotalPriceIDR -= discount
+		voucherUsage = vres
+	}
+
 	// 6. Save to DB
 	if err := s.orderRepo.Create(ctx, order); err != nil {
 		return nil, fmt.Errorf("failed to save order: %w", err)
+	}
+
+	// 6.b Catat pemakaian voucher SETELAH order sukses dibuat — kalau order
+	// gagal, voucher tidak hangus (single-use tetap valid utk retry).
+	if voucherUsage != nil {
+		if oid, errO := uuid.Parse(order.ID); errO == nil {
+			if uid, errU := uuid.Parse(order.CustomerID); errU == nil {
+				_ = s.voucherSvc.RecordUsage(ctx, voucherUsage.VoucherID, oid, uid, voucherUsage.DiscountIDR)
+			}
+		}
 	}
 
 	// 7. Publish and Persist creation event
@@ -1546,6 +1589,28 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 
 	total := subtotal + deliveryFee + platformFee
 
+	// 6b. FB-078: apply voucher diskon (kalau ada) — zero-trust server-side.
+	// Base diskon = subtotal + deliveryFee (platform fee tidak boleh kena diskon).
+	// Validate dulu (tanpa catat usage); usage dicatat SETELAH order tersimpan.
+	orderID := uuid.New().String()
+	var voucherDiscount int64
+	var voucherUsage *domain.VoucherValidationResult
+	if req.VoucherCode != "" && s.voucherSvc != nil {
+		vres, verr := s.voucherSvc.Validate(ctx, req.VoucherCode, userID, subtotal+deliveryFee, "p2p")
+		if verr != nil {
+			return nil, fmt.Errorf("voucher: %w", verr)
+		}
+		if !vres.Valid {
+			return nil, fmt.Errorf("voucher tidak valid: %s", vres.Error)
+		}
+		voucherDiscount = vres.DiscountIDR
+		if voucherDiscount > total {
+			voucherDiscount = total
+		}
+		total -= voucherDiscount
+		voucherUsage = vres
+	}
+
 	// 7. Build Order (status awal pending_payment, service_sub_type food_delivery)
 	orderNum := fmt.Sprintf("TMBS%s", strings.ToUpper(uuid.New().String()[:6]))
 	handoverToken := uuid.New().String()
@@ -1559,7 +1624,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	serviceSubType := "food_delivery"
 	now := time.Now()
 	order := &domain.Order{
-		ID:                 uuid.New().String(),
+		ID:                 orderID,
 		OrderNumber:        orderNum,
 		CustomerID:         userID,
 		Model:              "p2p", // CHECK constraint orders_model_check — hanya p2p/two_legs/three_legs/hub_and_spoke; food = p2p + service_sub_type food_delivery
@@ -1579,6 +1644,8 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		BasePriceIDR:       subtotal,
 		DynamicPriceIDR:    subtotal,
 		TotalPriceIDR:      total,
+		DiscountIDR:        voucherDiscount,
+		PromoCode:          req.VoucherCode,
 		PlatformFeeIDR:     platformFee,
 		PlatformFeePct:     platformFeePct,
 		HandoverToken:      handoverToken,
@@ -1595,6 +1662,16 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	// 8. Simpan order + items dalam SATU transaksi
 	if err := s.foodRepo.CreateFoodOrderWithItems(ctx, order, orderItems); err != nil {
 		return nil, err
+	}
+
+	// 8.b Catat pemakaian voucher SETELAH order sukses — kalau order gagal,
+	// voucher tidak hangus (single-use tetap valid utk retry).
+	if voucherUsage != nil {
+		if oid, errO := uuid.Parse(order.ID); errO == nil {
+			if uid, errU := uuid.Parse(order.CustomerID); errU == nil {
+				_ = s.voucherSvc.RecordUsage(ctx, voucherUsage.VoucherID, oid, uid, voucherUsage.DiscountIDR)
+			}
+		}
 	}
 
 	// 9. Event + broadcast (pola CreateOrder)

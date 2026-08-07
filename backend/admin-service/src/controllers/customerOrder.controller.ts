@@ -1055,6 +1055,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       price_breakdown,
       service_code,
       promo_code,
+      voucher_code, // FB-078: kode voucher diskon (opsional, terpisah dari promo)
       logistics_provider,
       logistics_service_type,
       logistics_tariff_idr,
@@ -1182,8 +1183,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       appliedPromoCode = promoResult.campaign?.code || normalizedPromoCode;
     }
 
-    const totalPrice = Math.max(0, grossTotalPrice - promoDiscountIdr);
-    const settlement = {
+    let totalPrice = Math.max(0, grossTotalPrice - promoDiscountIdr);
+    let settlement = {
       ...grossSettlement,
       platform_commission_idr: Math.max(0, grossSettlement.platform_commission_idr - promoDiscountIdr),
       settlement_snapshot: {
@@ -1197,6 +1198,101 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
     };
 
     await client.query('BEGIN');
+
+    // ── FB-078: Voucher redeem customer ──────────────────────────────
+    // Tabel vouchers/voucher_usages (migration 00008). Terpisah dari promo
+    // campaign; voucher TIDAK bisa digabung dengan promo.
+    // Semua early-return di blok ini WAJIB ROLLBACK dulu (sudah BEGIN).
+    let voucherDiscountIdr = 0;
+    let voucherId: string | null = null;
+    const voucherFail = async (status: number, code: string, error: string) => {
+      await client.query('ROLLBACK').catch(() => undefined);
+      client.release();
+      res.status(status).json({ code, error });
+    };
+    if (voucher_code) {
+      if (normalizedPromoCode) {
+        await voucherFail(409, 'ERR_VOUCHER_CONFLICT', 'Voucher tidak bisa digabung dengan promo.');
+        return;
+      }
+      const vResult = await client.query(
+        `SELECT id, name, type, value, max_discount_idr, min_order_idr,
+                quota, used_count, is_single_use, applicable_models,
+                valid_from, valid_until
+           FROM vouchers
+          WHERE code = $1 AND is_active = TRUE`,
+        [String(voucher_code).trim().toUpperCase()]
+      );
+      const v = vResult.rows[0];
+      if (!v) {
+        await voucherFail(404, 'ERR_VOUCHER_NOT_FOUND', 'Kode voucher tidak ditemukan atau sudah nonaktif.');
+        return;
+      }
+      const now = new Date();
+      if (new Date(v.valid_from) > now || (v.valid_until && new Date(v.valid_until) < now)) {
+        await voucherFail(400, 'ERR_VOUCHER_EXPIRED', 'Voucher sudah kedaluwarsa atau belum aktif.');
+        return;
+      }
+      if (v.quota != null && v.used_count >= v.quota) {
+        await voucherFail(409, 'ERR_VOUCHER_QUOTA', 'Kuota voucher sudah habis.');
+        return;
+      }
+      if (v.is_single_use) {
+        const usedRes = await client.query(
+          `SELECT 1 FROM voucher_usages WHERE voucher_id = $1 AND user_id = $2 LIMIT 1`,
+          [v.id, customer_id]
+        );
+        if (usedRes.rows.length > 0) {
+          await voucherFail(409, 'ERR_VOUCHER_USED', 'Voucher sudah pernah dipakai.');
+          return;
+        }
+      }
+      if (v.min_order_idr && grossTotalPrice < Number(v.min_order_idr)) {
+        await voucherFail(400, 'ERR_VOUCHER_MIN_ORDER', 'Minimal belanja belum terpenuhi untuk voucher ini.');
+        return;
+      }
+      const vModels = Array.isArray(v.applicable_models) ? v.applicable_models : [];
+      if (vModels.length > 0 && !vModels.includes(service.route_model)) {
+        await voucherFail(400, 'ERR_VOUCHER_MODEL', 'Voucher tidak berlaku untuk layanan ini.');
+        return;
+      }
+
+      let discount = 0;
+      if (v.type === 'percentage') {
+        discount = Math.round((grossTotalPrice * Number(v.value)) / 100);
+        if (v.max_discount_idr && discount > Number(v.max_discount_idr)) {
+          discount = Number(v.max_discount_idr);
+        }
+      } else if (v.type === 'fixed') {
+        discount = Number(v.value);
+      } else if (v.type === 'free_shipping') {
+        discount = Number(trustedPriceBreakdown.dynamic_price_idr || 0) || 8000;
+      } else {
+        await voucherFail(400, 'ERR_VOUCHER_TYPE', 'Jenis voucher tidak didukung.');
+        return;
+      }
+      voucherDiscountIdr = Math.max(0, Math.min(discount, grossTotalPrice));
+      if (voucherDiscountIdr <= 0) {
+        await voucherFail(400, 'ERR_VOUCHER_ZERO', 'Nilai diskon voucher Rp0.');
+        return;
+      }
+      voucherId = v.id;
+      appliedPromoCode = String(voucher_code).trim().toUpperCase();
+    }
+
+    // Terapkan diskon voucher ke total & settlement (konsisten dgn promo)
+    if (voucherDiscountIdr > 0) {
+      totalPrice = Math.max(0, totalPrice - voucherDiscountIdr);
+      settlement = {
+        ...settlement,
+        platform_commission_idr: Math.max(0, settlement.platform_commission_idr - voucherDiscountIdr),
+        settlement_snapshot: {
+          ...settlement.settlement_snapshot,
+          final_total_price_idr: Math.max(0, totalPrice),
+          voucher_discount_idr: voucherDiscountIdr,
+        } as any,
+      };
+    }
 
     // Generate simple order number
     const order_number = `TMB-${Date.now().toString().slice(-6)}`;
@@ -1278,7 +1374,7 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
       trustedPriceBreakdown.volumetric_surcharge_idr || 0,
       trustedPriceBreakdown.insurance_premium_idr || 0,
       trustedPriceBreakdown.dynamic_price_idr || 0,
-      promoDiscountIdr,
+      promoDiscountIdr + voucherDiscountIdr, // total diskon (promo + voucher FB-078)
       totalPrice,
       settlement.ppn_idr,
       settlement.mdr_idr,
@@ -1311,6 +1407,19 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
 
     const result = await client.query(insertQuery, values);
     const newOrder = result.rows[0];
+
+    if (voucherId) {
+      await client.query(
+        `INSERT INTO voucher_usages (voucher_id, order_id, user_id, discount_idr)
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (voucher_id, order_id) DO NOTHING`,
+        [voucherId, newOrder.id, customer_id, voucherDiscountIdr]
+      );
+      await client.query(
+        `UPDATE vouchers SET used_count = used_count + 1, updated_at = NOW() WHERE id = $1`,
+        [voucherId]
+      );
+    }
 
     if (reservedPromoKey && promoCampaignId) {
       await client.query(
@@ -1420,6 +1529,8 @@ export const createCustomerOrder = async (req: Request, res: Response): Promise<
         promo_discount_idr: promoDiscountIdr,
         promo_campaign_id: promoCampaignId,
         promo_code: appliedPromoCode,
+        voucher_discount_idr: voucherDiscountIdr, // FB-078
+        voucher_code: voucherId ? (appliedPromoCode || voucher_code) : null, // FB-078
         distance_km: trustedPriceBreakdown.distance_km || 0,
         route_snapshot_hash: trustedRouteSnapshot.snapshot_hash || null,
         route_provider: trustedRouteSnapshot.provider || null,

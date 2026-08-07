@@ -69,6 +69,21 @@ class OrderRepository @Inject constructor(
         }
     }
 
+    // FB-078: validasi kode voucher (preview diskon sebelum submit)
+    suspend fun validateVoucher(code: String, baseIdr: Long, model: String = "p2p"): Result<VoucherValidateResponse> {
+        return try {
+            val response = apiService.validateVoucher(VoucherValidateRequest(code, baseIdr, model))
+            val body = response.body()
+            if (response.isSuccessful && body != null && body.valid) {
+                Result.success(body)
+            } else {
+                Result.failure(Exception(body?.error ?: "Kode voucher tidak valid (${response.code()})"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun calculateCustomerOrderPrices(request: CustomerPriceEstimateRequest): Result<List<PriceBreakdown>> {
         return try {
             val response = apiService.calculateCustomerOrderPrices(request)

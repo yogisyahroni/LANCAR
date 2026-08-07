@@ -334,6 +334,12 @@ func main() {
 	tipSvc := service.NewTipService(tipRepo, pgRepo, refundGw)
 	tipHandler := handler.NewTipHandler(tipSvc)
 
+	// FB-078: voucher redeem customer — validate/preview + apply di create order
+	voucherRepo := repository.NewPostgresVoucherRepo(sqlx.NewDb(db, "postgres"), sqlx.NewDb(readDB, "postgres"))
+	voucherSvc := service.NewVoucherService(voucherRepo)
+	voucherHandler := handler.NewVoucherHandler(voucherSvc)
+	orderSvc.SetVoucherService(voucherSvc)
+
 	// Tambal Ban & Towing Services
 	settlementRepo := repository.NewSettlementRepository(db)
 	availabilityRepo := repository.NewAvailabilityRepository(db)
@@ -452,6 +458,8 @@ func main() {
 	mux.HandleFunc("/api/v1/orders/{id}/tip", middleware.BaseChain(middleware.AuthMiddleware(tipHandler.GetTipByOrder)))
 	mux.HandleFunc("/api/v1/couriers/tips", middleware.BaseChain(middleware.AuthMiddleware(tipHandler.ListCourierTips)))
 	mux.HandleFunc("/api/v1/couriers/tips/summary", middleware.BaseChain(middleware.AuthMiddleware(tipHandler.GetCourierTipSummary)))
+	// FB-078: voucher validate (customer preview)
+	mux.HandleFunc("/api/v1/vouchers/validate", middleware.BaseChain(middleware.AuthMiddleware(voucherHandler.ValidateVoucher)))
 
 	// Courier Workflow Routes
 	mux.HandleFunc("/api/v1/couriers/orders/accept", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.AcceptOrder)))

@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.LocalActivity
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Map
@@ -52,6 +53,7 @@ import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -76,6 +78,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -436,6 +439,15 @@ fun BookingScreen(
                         )
                     }
                 }
+                // FB-078: voucher diskon (opsional, terpisah dari promo)
+                item {
+                    VoucherCard(
+                        state = uiState,
+                        onCodeChange = viewModel::setVoucherCode,
+                        onApply = viewModel::validateVoucher,
+                        onClear = viewModel::clearVoucher
+                    )
+                }
                 if (uiState.isRouteComplete()) {
                     item {
                         PackageCard(
@@ -757,6 +769,117 @@ private fun PreselectedPromoCard(
             }
             TextButton(onClick = onClear) {
                 Text("Lepas", color = Primary, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+    }
+}
+
+// FB-078: kartu input/redeem voucher di booking
+@Composable
+private fun VoucherCard(
+    state: BookingState,
+    onCodeChange: (String) -> Unit,
+    onApply: () -> Unit,
+    onClear: () -> Unit
+) {
+    var localCode by rememberSaveable { mutableStateOf("") }
+    val applied = state.voucherApplied
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (applied) Color(0xFFEAF7EC) else Color.White
+        ),
+        border = BorderStroke(1.dp, if (applied) Color(0xFF4ADE80).copy(alpha = 0.5f) else Color(0xFFE2E8F0))
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (applied) Color(0xFFDCFCE7) else AccentLight),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.LocalActivity,
+                        contentDescription = null,
+                        tint = if (applied) Color(0xFF16A34A) else Accent
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Kode Voucher", color = OnSurface, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                    Text(
+                        if (applied) "${state.voucherName} (${state.voucherCode})" else "Diskon tambahan di luar promo",
+                        color = if (applied) Color(0xFF166534) else Color(0xFF64748B),
+                        fontSize = 12.sp
+                    )
+                }
+                if (applied) {
+                    TextButton(onClick = onClear) {
+                        Text("Hapus", color = Color(0xFFEF4444), fontWeight = FontWeight.ExtraBold)
+                    }
+                }
+            }
+            if (applied) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Diskon", fontSize = 13.sp, color = Color(0xFF166534), fontWeight = FontWeight.Bold)
+                    Text(
+                        "− Rp ${state.voucherDiscountIdr.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
+                        fontSize = 14.sp,
+                        color = Color(0xFF16A34A),
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            } else {
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = localCode,
+                        onValueChange = {
+                            localCode = it
+                            onCodeChange(it)
+                        },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Masukkan kode (mis. HEMAT10)", fontSize = 13.sp) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(14.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = onApply,
+                        enabled = localCode.isNotBlank() && !state.voucherLoading,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                    ) {
+                        if (state.voucherLoading) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text("Pakai", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                state.voucherError?.let { err ->
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        err,
+                        color = Color(0xFFEF4444),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }

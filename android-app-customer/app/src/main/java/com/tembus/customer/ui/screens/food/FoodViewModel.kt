@@ -8,6 +8,7 @@ import com.tembus.customer.data.model.CreateFoodOrderRequest
 import com.tembus.customer.data.model.FoodMenuItem
 import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.data.model.FoodOrderCreateResponse
+import com.tembus.customer.data.model.VoucherValidateRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +55,10 @@ class FoodViewModel @Inject constructor(
     // ── Checkout result ──
     private val _checkoutResult = MutableStateFlow<FoodOrderCreateResponse?>(null)
     val checkoutResult: StateFlow<FoodOrderCreateResponse?> = _checkoutResult.asStateFlow()
+
+    // ── FB-078: Voucher redeem ──
+    private val _voucherState = MutableStateFlow<VoucherState>(VoucherState.Idle)
+    val voucherState: StateFlow<VoucherState> = _voucherState.asStateFlow()
 
     // Lokasi user terakhir — dipakai default dropoff saat checkout
     private val _userLat = MutableStateFlow(-6.2088)
@@ -146,6 +151,7 @@ class FoodViewModel @Inject constructor(
         dropoffLng: Double,
         receiverName: String?,
         receiverPhone: String?,
+        voucherCode: String? = null,
         onResult: (Result<FoodOrderCreateResponse>) -> Unit
     ) {
         val items = _cart.value.filter { it.quantity > 0 }
@@ -170,7 +176,8 @@ class FoodViewModel @Inject constructor(
                     dropoffLat = dropoffLat,
                     dropoffLng = dropoffLng,
                     receiverName = receiverName,
-                    receiverPhone = receiverPhone
+                    receiverPhone = receiverPhone,
+                    voucherCode = voucherCode?.ifBlank { null }
                 )
                 val res: Response<FoodOrderCreateResponse> = apiService.createFoodOrder(request)
                 if (res.isSuccessful && res.body() != null) {
@@ -186,4 +193,47 @@ class FoodViewModel @Inject constructor(
             }
         }
     }
+
+    // ── FB-078: validasi kode voucher (preview sebelum submit) ──
+    fun validateVoucher(code: String, baseIdr: Long) {
+        val trimmed = code.trim()
+        if (trimmed.isEmpty()) {
+            _voucherState.value = VoucherState.Idle
+            return
+        }
+        viewModelScope.launch {
+            _voucherState.value = VoucherState.Loading
+            try {
+                val res = apiService.validateVoucher(
+                    VoucherValidateRequest(code = trimmed, baseIdr = baseIdr, model = "p2p")
+                )
+                val body = res.body()
+                if (res.isSuccessful && body != null && body.valid) {
+                    _voucherState.value = VoucherState.Applied(
+                        code = body.code,
+                        name = body.name,
+                        discountIdr = body.discountIdr
+                    )
+                } else {
+                    _voucherState.value = VoucherState.Error(
+                        body?.error ?: "Kode voucher tidak valid (${res.code()})"
+                    )
+                }
+            } catch (e: Exception) {
+                _voucherState.value = VoucherState.Error(e.localizedMessage ?: "Gagal validasi voucher")
+            }
+        }
+    }
+
+    fun clearVoucher() {
+        _voucherState.value = VoucherState.Idle
+    }
+}
+
+/** FB-078: state voucher di checkout food. */
+sealed class VoucherState {
+    object Idle : VoucherState()
+    object Loading : VoucherState()
+    data class Applied(val code: String, val name: String, val discountIdr: Long) : VoucherState()
+    data class Error(val message: String) : VoucherState()
 }

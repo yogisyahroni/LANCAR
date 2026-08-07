@@ -185,6 +185,15 @@ interface TEMBUSApiService {
         @Path("id") id: String
     ): Response<ApiResponse<TipStatusResponse>>
 
+    // ============================================================
+    // FB-078: VOUCHER REDEEM — preview diskon sebelum checkout
+    // ============================================================
+
+    @POST("api/v1/vouchers/validate")
+    suspend fun validateVoucher(
+        @Body request: VoucherValidateRequest
+    ): Response<VoucherValidateResponse>
+
     @GET("api/v1/customer/addresses")
     suspend fun getCustomerAddresses(
         @Query("kind") kind: String? = null

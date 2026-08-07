@@ -154,6 +154,7 @@ data class CustomerOrderCreateRequest(
     @SerialName("price_breakdown") val priceBreakdown: PriceBreakdown,
     @SerialName("service_code") val serviceCode: String,
     @SerialName("promo_code") val promoCode: String? = null,
+    @SerialName("voucher_code") val voucherCode: String? = null, // FB-078
     @SerialName("preferred_courier_id") val preferredCourierId: String? = null
 )
 

@@ -24,6 +24,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -59,6 +60,8 @@ fun FoodCheckoutScreen(
     var receiverName by remember { mutableStateOf("") }
     var receiverPhone by remember { mutableStateOf("") }
     var submitError by remember { mutableStateOf<String?>(null) }
+    var voucherInput by remember { mutableStateOf("") }
+    val voucherState by viewModel.voucherState.collectAsState()
 
     val merchantId = cart.firstOrNull()?.menuItem?.merchantId ?: ""
     val formatRupiah = { v: Long -> v.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".") }
@@ -139,6 +142,78 @@ fun FoodCheckoutScreen(
 
             Spacer(Modifier.height(16.dp))
 
+            // FB-078: voucher diskon
+            Text("Kode Voucher", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
+            Spacer(Modifier.height(10.dp))
+            when (val vs = voucherState) {
+                is VoucherState.Applied -> {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFEAF7EC), RoundedCornerShape(14.dp))
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                "${vs.name} (${vs.code})",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF166534)
+                            )
+                            Text(
+                                "Diskon Rp ${formatRupiah(vs.discountIdr)}",
+                                fontSize = 12.sp,
+                                color = Color(0xFF166534)
+                            )
+                        }
+                        TextButton(onClick = { viewModel.clearVoucher(); voucherInput = "" }) {
+                            Text("Hapus", color = Color(0xFFEF4444), fontSize = 13.sp)
+                        }
+                    }
+                }
+                else -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = voucherInput,
+                            onValueChange = {
+                                voucherInput = it
+                                if (it.isBlank()) viewModel.clearVoucher()
+                            },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text("Masukkan kode (mis. HEMAT10)", fontSize = 14.sp) },
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                submitError = null
+                                viewModel.validateVoucher(voucherInput, cartTotal)
+                            },
+                            enabled = voucherInput.isNotBlank() && voucherState !is VoucherState.Loading,
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            if (voucherState is VoucherState.Loading) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.height(18.dp).width(18.dp))
+                            } else {
+                                Text("Pakai", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                    (voucherState as? VoucherState.Error)?.let { err ->
+                        Spacer(Modifier.height(6.dp))
+                        Text(err.message, color = Color(0xFFEF4444), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
             // Alamat pengantaran
             Text("Alamat Pengantaran", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
             Spacer(Modifier.height(10.dp))
@@ -195,6 +270,7 @@ fun FoodCheckoutScreen(
                             dropoffLng = userLng,
                             receiverName = receiverName.ifBlank { null },
                             receiverPhone = receiverPhone.ifBlank { null },
+                            voucherCode = (voucherState as? VoucherState.Applied)?.code ?: voucherInput,
                             onResult = { result ->
                                 result.onSuccess { order ->
                                     viewModel.clearCart()

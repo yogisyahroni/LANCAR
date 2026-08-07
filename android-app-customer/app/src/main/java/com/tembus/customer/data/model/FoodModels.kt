@@ -58,7 +58,8 @@ data class CreateFoodOrderRequest(
     @SerialName("dropoff_lng") val dropoffLng: Double,
     @SerialName("receiver_name") val receiverName: String? = null,
     @SerialName("receiver_phone") val receiverPhone: String? = null,
-    @SerialName("is_scheduled") val isScheduled: Boolean = false
+    @SerialName("is_scheduled") val isScheduled: Boolean = false,
+    @SerialName("voucher_code") val voucherCode: String? = null // FB-078
 )
 
 @Serializable

@@ -149,6 +149,8 @@ type CreateOrderRequest struct {
 	Weight                 float64 `json:"weight,omitempty"`
 	ReceiverName           string  `json:"receiver_name,omitempty"`
 	ReceiverPhone          string  `json:"receiver_phone,omitempty"`
+	// FB-078: kode voucher diskon (opsional) — divalidasi server-side.
+	VoucherCode string `json:"voucher_code,omitempty"`
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -175,6 +177,9 @@ type CreateFoodOrderRequest struct {
 	ReceiverName   string                 `json:"receiver_name,omitempty"`
 	ReceiverPhone  string                 `json:"receiver_phone,omitempty"`
 	IsScheduled    bool                   `json:"is_scheduled"`
+
+	// FB-078: kode voucher diskon (opsional). Divalidasi + dihitung server-side.
+	VoucherCode string `json:"voucher_code,omitempty"`
 }
 
 // FoodOrderItem — snapshot item saat order (nama & harga beku di waktu order,
@@ -297,6 +302,8 @@ type OrderService interface {
 	SetServiceReportService(s ServiceReportService)
 	// SetFoodRepository inject food repository untuk CreateFoodOrder (FOOD-BIKE-073)
 	SetFoodRepository(fr FoodRepository)
+	// SetVoucherService inject voucher service untuk apply voucher (FB-078)
+	SetVoucherService(vs VoucherService)
 	// SetMerchantSettlementService inject settlement service untuk order food
 	// yang delivered tanpa payment link (FOOD-BIKE-067).
 	SetMerchantSettlementService(mss MerchantSettlementService)
