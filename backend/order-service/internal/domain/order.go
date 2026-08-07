@@ -232,6 +232,9 @@ type FoodRepository interface {
 	GetFoodMerchant(ctx context.Context, merchantID string) (*FoodMerchantInfo, error)
 	GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]FoodMenuItemInfo, error)
 	CreateFoodOrderWithItems(ctx context.Context, order *Order, items []FoodOrderItem) error
+	// GetFoodOrderItems — snapshot item food sebuah order (harga beku saat order,
+	// dipakai refund partial per item FB-080).
+	GetFoodOrderItems(ctx context.Context, orderID string) ([]FoodOrderItem, error)
 	// ── FOOD-BIKE-021/022: transisi status food delivery ──
 	// GetFoodOrderForMerchant mengambil order food milik merchant tertentu
 	// (validasi ownership sebelum accept/reject).

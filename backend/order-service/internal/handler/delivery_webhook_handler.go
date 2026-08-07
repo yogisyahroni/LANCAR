@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"tembus/order-service/internal/domain"
 )
 
@@ -37,6 +39,54 @@ type deliveryWebhookPayload struct {
 	PodURL      string `json:"pod_url,omitempty"`
 	ConfirmedAt string `json:"confirmed_at,omitempty"` // RFC3339
 	RawPayload  string `json:"raw_payload,omitempty"`
+}
+
+// HandleChargeback adalah endpoint POST /api/v1/internal/settlements/chargeback.
+// FB-080: dipanggil admin-service saat dispute food resolved memihak customer —
+// settlement merchant untuk order ditahan (DISPUTED), dana tidak di-disburse.
+func (h *DeliveryWebhookHandler) HandleChargeback(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	receivedKey := r.Header.Get("X-Internal-Api-Key")
+	if h.internalAPIKey != "" && receivedKey != h.internalAPIKey {
+		slog.WarnContext(r.Context(), "settlement_chargeback: unauthorized attempt", "remote_addr", r.RemoteAddr)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var payload struct {
+		OrderID string `json:"order_id"`
+		AdminID string `json:"admin_id"`
+		Reason  string `json:"reason"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 64*1024)).Decode(&payload); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if payload.OrderID == "" {
+		http.Error(w, "order_id is required", http.StatusBadRequest)
+		return
+	}
+
+	adminUUID, err := uuid.Parse(payload.AdminID)
+	if err != nil {
+		adminUUID = uuid.Nil
+	}
+
+	if err := h.settlementSvc.ChargebackByOrder(r.Context(), payload.OrderID, adminUUID, payload.Reason); err != nil {
+		slog.ErrorContext(r.Context(), "settlement_chargeback: failed", "order_id", payload.OrderID, "error", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"status":  "success",
+		"message": "Chargeback applied (settlement DISPUTED) untuk order " + payload.OrderID,
+	})
 }
 
 // HandleDeliveryEvent adalah endpoint POST /api/internal/delivery/webhook.

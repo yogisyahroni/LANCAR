@@ -50,7 +50,25 @@ type RefundOptions struct {
 	OriginalStatus OrderStatus
 }
 
+// ItemRefundRequest — satu baris item untuk refund partial per item (FB-080).
+// Refund dihitung dari snapshot food_order_items (harga beku saat order).
+type ItemRefundRequest struct {
+	MenuItemID string `json:"menu_item_id" validate:"required"`
+	Quantity   int    `json:"quantity" validate:"required,min=1"`
+	Reason     string `json:"reason,omitempty"`
+}
+
+// RefundItemOptions — opsi tambahan untuk refund partial per item.
+type RefundItemOptions struct {
+	// IncludeDeliveryFee: true hanya jika kesalahan driver/platform
+	// (spec FB-080: ongkir tidak direfund kecuali kesalahan driver/platform).
+	IncludeDeliveryFee bool
+}
+
 type RefundService interface {
 	CalculateAndTriggerRefund(ctx context.Context, orderID uuid.UUID, cancelReason string, opts RefundOptions) (*RefundRecord, error)
+	// CalculateItemRefund — refund partial per item food (FB-080):
+	// refund = Σ(snapshot item_price × qty), ongkir opsional.
+	CalculateItemRefund(ctx context.Context, orderID uuid.UUID, items []ItemRefundRequest, opts RefundItemOptions) (*RefundRecord, error)
 	ProcessPendingRefunds(ctx context.Context) error
 }

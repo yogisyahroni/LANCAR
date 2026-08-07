@@ -261,11 +261,12 @@ func main() {
 	orderSvc := service.NewOrderService(pgRepo, pgRepo, redisRepo, pgRepo, relayRepo, eb, tq, flagReader, notificationSvc, configRepo, ledgerRepo, taxSvc)
 	paymentSvc := service.NewPaymentService(paymentRepo, pgRepo, paymentGw, configRepo, taxSvc)
 	payoutSvc := service.NewPayoutService(payoutRepo, payoutGw, relayRepo, taxRepo, configRepo, ledgerRepo)
-	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw, redisRepo, ledgerRepo)
-	orderSvc.SetRefundService(refundSvc)
 	// Food delivery (FOOD-BIKE-073): inject food repository untuk CreateFoodOrder
 	foodRepo := repository.NewFoodRepository(db, readDB, configRepo)
 	orderSvc.SetFoodRepository(foodRepo)
+	// FB-080: refund partial per item butuh foodRepo (snapshot food_order_items)
+	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw, redisRepo, ledgerRepo, foodRepo)
+	orderSvc.SetRefundService(refundSvc)
 	slaSvc := service.NewSLAService(slaRepo, notificationSvc, payoutRepo)
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc, configRepo)
 	relayScoreSvc := service.NewRelayScoreService(relayRepo)
@@ -524,6 +525,11 @@ func main() {
 			refundHandler.CreateRefund(w, r)
 		}
 	})
+	mux.HandleFunc("/api/v1/internal/refunds/items", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			refundHandler.CreateItemRefund(w, r)
+		}
+	})
 
 	// Tracking Routes
 	mux.HandleFunc("/api/v1/tracking/location", middleware.BaseChain(middleware.AuthMiddleware(trackingHandler.UpdateLocation)))
@@ -576,6 +582,8 @@ func main() {
 	// Internal Delivery & Merchant Settlement Routes
 	mux.HandleFunc("/api/v1/internal/delivery/webhook", middleware.BaseChain(deliveryWebhookHandler.HandleDeliveryEvent))
 	mux.HandleFunc("/api/v1/internal/merchant-settlements", middleware.BaseChain(deliveryWebhookHandler.HandleListSettlements))
+	// FB-080: chargeback settlement merchant per order (dipanggil admin-service saat dispute food resolved memihak customer)
+	mux.HandleFunc("/api/v1/internal/settlements/chargeback", middleware.BaseChain(deliveryWebhookHandler.HandleChargeback))
 
 	// Aggregator Finance Routes (Invoices & Claims)
 	mux.HandleFunc("/api/v1/internal/aggregator-finance/invoices", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {

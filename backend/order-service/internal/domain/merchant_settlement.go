@@ -132,6 +132,12 @@ type MerchantSettlementService interface {
 	// MarkDisputed menandai settlement sebagai DISPUTED (tahan dana karena sengketa).
 	MarkDisputed(ctx context.Context, settlementID uuid.UUID, adminID uuid.UUID, reason string) error
 
+	// ChargebackByOrder (FB-080): cari settlement milik order (idempotency
+	// "settle-order-<orderID>") lalu tandai DISPUTED — dana merchant ditahan
+	// saat dispute food resolved memihak customer. No-op jika settlement
+	// belum dibuat / bukan HOLDING lagi.
+	ChargebackByOrder(ctx context.Context, orderID string, adminID uuid.UUID, reason string) error
+
 	// GetByPaymentLink mengambil status settlement untuk payment link tertentu.
 	GetByPaymentLink(ctx context.Context, paymentLinkID string) (*MerchantSettlement, error)
 

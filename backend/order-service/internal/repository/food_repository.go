@@ -137,6 +137,32 @@ func (r *foodRepo) CreateFoodOrderWithItems(ctx context.Context, order *domain.O
 	return tx.Commit()
 }
 
+// GetFoodOrderItems — snapshot item food sebuah order (FB-080: dipakai refund
+// partial per item — harga beku di waktu order, bukan harga menu live).
+func (r *foodRepo) GetFoodOrderItems(ctx context.Context, orderID string) ([]domain.FoodOrderItem, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, order_id, menu_item_id, item_name, item_price,
+		       quantity, notes, subtotal
+		FROM food_order_items
+		WHERE order_id = $1
+		ORDER BY created_at ASC`, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("query food_order_items: %w", err)
+	}
+	defer rows.Close()
+
+	var items []domain.FoodOrderItem
+	for rows.Next() {
+		var it domain.FoodOrderItem
+		if err := rows.Scan(&it.ID, &it.OrderID, &it.MenuItemID, &it.ItemName,
+			&it.ItemPrice, &it.Quantity, &it.Notes, &it.Subtotal); err != nil {
+			return nil, err
+		}
+		items = append(items, it)
+	}
+	return items, rows.Err()
+}
+
 // ── FOOD-BIKE-021/022: transisi status food delivery ─────────────────────────
 
 // GetFoodOrderForMerchant — validasi kepemilikan order food sebelum accept/reject.

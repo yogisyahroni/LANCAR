@@ -639,6 +639,39 @@ func (s *merchantSettlementService) MarkDisputed(ctx context.Context, settlement
 	return nil
 }
 
+// ChargebackByOrder — FB-080: saat dispute food resolved memihak customer,
+// settlement merchant untuk order tsb ditahan (DISPUTED) — dana tidak di-
+// disbursement sampai admin memutuskan (chargeback potong payout merchant).
+func (s *merchantSettlementService) ChargebackByOrder(ctx context.Context, orderID string, adminID uuid.UUID, reason string) error {
+	key := fmt.Sprintf("settle-order-%s", orderID)
+	settlement, err := s.repo.GetByIdempotencyKey(ctx, key)
+	if err != nil {
+		return fmt.Errorf("ChargebackByOrder: lookup settlement for order %s: %w", orderID, err)
+	}
+	if settlement == nil {
+		// Settlement belum dibuat (order belum delivered / bukan food on-demand).
+		// No-op — bukan error: admin bisa retry nanti setelah settlement ada.
+		slog.InfoContext(ctx, "merchant_settlement: chargeback no-op, settlement not found",
+			"order_id", orderID)
+		return nil
+	}
+
+	moved, err := s.repo.AtomicSetStatus(ctx, settlement.ID, domain.SettlementStatusHolding, domain.SettlementStatusDisputed)
+	if err != nil {
+		return fmt.Errorf("ChargebackByOrder: mark disputed for order %s: %w", orderID, err)
+	}
+	if !moved {
+		slog.InfoContext(ctx, "merchant_settlement: chargeback no-op, settlement not HOLDING",
+			"order_id", orderID, "settlement_id", settlement.ID, "status", settlement.Status)
+		return nil
+	}
+
+	_ = s.repo.UpdateFailed(ctx, settlement.ID, fmt.Sprintf("CHARGEBACK by admin %s: %s", adminID, reason))
+	slog.InfoContext(ctx, "merchant_settlement: chargeback applied (DISPUTED)",
+		"order_id", orderID, "settlement_id", settlement.ID, "admin_id", adminID)
+	return nil
+}
+
 func (s *merchantSettlementService) GetByPaymentLink(ctx context.Context, paymentLinkID string) (*domain.MerchantSettlement, error) {
 	key := fmt.Sprintf("settle-%s", paymentLinkID)
 	return s.repo.GetByIdempotencyKey(ctx, key)
