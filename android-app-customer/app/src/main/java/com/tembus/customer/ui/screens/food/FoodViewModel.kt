@@ -6,6 +6,7 @@ import com.tembus.customer.data.CartStore
 import com.tembus.customer.data.api.TEMBUSApiService
 import com.tembus.customer.data.model.CartItem
 import com.tembus.customer.data.model.CreateFoodOrderRequest
+import com.tembus.customer.data.model.CustomerAddress
 import com.tembus.customer.data.model.FoodMenuItem
 import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.data.model.FoodOrderCreateResponse
@@ -58,6 +59,23 @@ class FoodViewModel @Inject constructor(
     val userLat: StateFlow<Double> = _userLat.asStateFlow()
     private val _userLng = MutableStateFlow(106.8456)
     val userLng: StateFlow<Double> = _userLng.asStateFlow()
+
+    // ── FB-090: Saved addresses — reuse alamat favorit customer di checkout food ──
+    private val _addressBook = MutableStateFlow<List<CustomerAddress>>(emptyList())
+    val addressBook: StateFlow<List<CustomerAddress>> = _addressBook.asStateFlow()
+
+    fun loadSavedAddresses() {
+        viewModelScope.launch {
+            try {
+                val res = apiService.getCustomerAddresses(kind = "receiver")
+                if (res.isSuccessful) {
+                    _addressBook.value = res.body()?.data ?: emptyList()
+                }
+            } catch (_: Exception) {
+                // Non-fatal — user tetap bisa isi alamat manual
+            }
+        }
+    }
 
     fun loadMerchants(lat: Double, lng: Double, search: String = "") {
         _userLat.value = lat
