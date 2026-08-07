@@ -360,6 +360,10 @@ fun RootNavGraph(
                 onBackClick = { navController.popBackStack() },
                 onOrderClick = { orderId ->
                     navController.navigate(Screen.OrderDetail.createRoute(orderId))
+                },
+                onReorderNavigate = {
+                    // FB-084: "Pesan Lagi" — cart sudah diisi CartStore, langsung ke keranjang
+                    navController.navigate(Screen.FoodCart.route)
                 }
             )
         }

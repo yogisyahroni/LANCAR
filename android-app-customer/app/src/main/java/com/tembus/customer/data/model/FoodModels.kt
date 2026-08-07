@@ -89,3 +89,38 @@ data class CartItem(
 ) {
     val subtotal: Long get() = menuItem.price * quantity
 }
+
+// ============================================================
+// FB-084 REORDER — validasi ulang order lama sebelum "Pesan Lagi"
+// ============================================================
+
+@Serializable
+data class ReorderInfoResponse(
+    @SerialName("success") val success: Boolean,
+    @SerialName("data") val data: ReorderInfo? = null,
+    @SerialName("message") val message: String? = null
+)
+
+@Serializable
+data class ReorderInfo(
+    @SerialName("order_id") val orderId: String = "",
+    @SerialName("merchant_id") val merchantId: String = "",
+    @SerialName("merchant_name") val merchantName: String = "",
+    @SerialName("merchant_open") val merchantOpen: Boolean = false,
+    @SerialName("items") val items: List<ReorderItem> = emptyList(),
+    @SerialName("total_old") val totalOld: Long = 0,
+    @SerialName("total_new") val totalNew: Long = 0,
+    @SerialName("has_changes") val hasChanges: Boolean = false
+)
+
+@Serializable
+data class ReorderItem(
+    @SerialName("menu_item_id") val menuItemId: String = "",
+    @SerialName("item_name") val itemName: String = "",
+    @SerialName("quantity") val quantity: Int = 1,
+    @SerialName("notes") val notes: String = "",
+    @SerialName("old_price") val oldPrice: Long = 0,
+    @SerialName("new_price") val newPrice: Long = 0,
+    @SerialName("available") val available: Boolean = true,
+    @SerialName("price_changed") val priceChanged: Boolean = false
+)

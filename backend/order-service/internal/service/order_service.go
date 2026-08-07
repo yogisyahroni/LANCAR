@@ -1899,3 +1899,92 @@ func (s *orderServiceImpl) GetFoodMerchantDetail(ctx context.Context, merchantID
 	merchant.MenuItems = menu
 	return merchant, nil
 }
+
+// ─────────────────────────────────────────────────────────────
+// FB-084 REORDER — validasi ulang item order food lama
+// ─────────────────────────────────────────────────────────────
+// CheckReorder membandingkan snapshot food_order_items (harga beku saat
+// order) vs harga/availability merchant_menu_items saat ini. Hasilnya
+// dipakai client untuk prefill cart + dialog perbedaan harga.
+func (s *orderServiceImpl) CheckReorder(ctx context.Context, orderID string) (*domain.ReorderCheckResult, error) {
+	if s.foodRepo == nil {
+		return nil, fmt.Errorf("food repository not wired")
+	}
+
+	order, err := s.orderRepo.GetByID(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if order == nil {
+		return nil, errors.New("order not found")
+	}
+	if order.ServiceSubType != "food_delivery" {
+		return nil, errors.New("reorder hanya untuk order food delivery")
+	}
+
+	// 1. Snapshot item saat order (harga beku).
+	snapshotItems, err := s.foodRepo.GetFoodOrderItems(ctx, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("get food order items: %w", err)
+	}
+
+	// 2. Merchant saat ini (is_open + nama) untuk konteks checkout.
+	if order.MerchantID == nil || *order.MerchantID == "" {
+		return nil, errors.New("order bukan pesanan merchant (tidak bisa reorder)")
+	}
+	merchant, err := s.foodRepo.GetFoodMerchant(ctx, *order.MerchantID)
+	if err != nil {
+		return nil, fmt.Errorf("get food merchant: %w", err)
+	}
+
+	// 3. Harga & availability menu SAAT INI untuk tiap menu_item_id.
+	menuIDs := make([]string, 0, len(snapshotItems))
+	for _, it := range snapshotItems {
+		menuIDs = append(menuIDs, it.MenuItemID)
+	}
+	currentMenu := map[string]domain.FoodMenuItemInfo{}
+	if len(menuIDs) > 0 {
+		list, err := s.foodRepo.GetFoodMenuItems(ctx, menuIDs)
+		if err != nil {
+			return nil, fmt.Errorf("get current menu items: %w", err)
+		}
+		for _, m := range list {
+			currentMenu[m.ID] = m
+		}
+	}
+
+	// 4. Bangun hasil per item + total.
+	result := &domain.ReorderCheckResult{
+		OrderID:      order.ID,
+		MerchantID:   *order.MerchantID,
+		MerchantName: merchant.Name,
+		MerchantOpen: merchant.IsOpen,
+		Items:        make([]domain.ReorderCheckItem, 0, len(snapshotItems)),
+	}
+	for _, it := range snapshotItems {
+		cur, found := currentMenu[it.MenuItemID]
+		newPrice := it.ItemPrice
+		available := found && cur.IsAvailable
+		if found {
+			newPrice = cur.Price
+		}
+		item := domain.ReorderCheckItem{
+			MenuItemID:   it.MenuItemID,
+			ItemName:     it.ItemName,
+			Quantity:     it.Quantity,
+			Notes:        it.Notes,
+			OldPrice:     it.ItemPrice,
+			NewPrice:     newPrice,
+			Available:    available,
+			PriceChanged: !found || cur.Price != it.ItemPrice,
+		}
+		result.Items = append(result.Items, item)
+		result.TotalOld += it.ItemPrice * int64(it.Quantity)
+		result.TotalNew += newPrice * int64(it.Quantity)
+		if item.PriceChanged || !item.Available {
+			result.HasChanges = true
+		}
+	}
+
+	return result, nil
+}

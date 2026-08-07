@@ -226,6 +226,34 @@ type FoodMenuItemInfo struct {
 	Foto     *string `json:"foto,omitempty"`
 }
 
+// ── FB-084 REORDER — validasi ulang item order lama sebelum "Pesan Lagi" ──
+// ReorderCheckItem: perbandingan snapshot harga saat order vs harga menu
+// sekarang + availability. Client pakai ini untuk (a) prefill cart dan
+// (b) menampilkan perbedaan harga kalau berubah.
+type ReorderCheckItem struct {
+	MenuItemID   string `json:"menu_item_id"`
+	ItemName     string `json:"item_name"`
+	Quantity     int    `json:"quantity"`
+	Notes        string `json:"notes,omitempty"`
+	OldPrice     int64  `json:"old_price"`
+	NewPrice     int64  `json:"new_price"`
+	Available    bool   `json:"available"`
+	PriceChanged bool   `json:"price_changed"`
+}
+
+// ReorderCheckResult — hasil validasi ulang satu order food utk reorder.
+// TotalOld = total snapshot saat order; TotalNew = total harga saat ini.
+type ReorderCheckResult struct {
+	OrderID      string             `json:"order_id"`
+	MerchantID   string             `json:"merchant_id"`
+	MerchantName string             `json:"merchant_name"`
+	MerchantOpen bool               `json:"merchant_open"`
+	Items        []ReorderCheckItem `json:"items"`
+	TotalOld     int64              `json:"total_old"`
+	TotalNew     int64              `json:"total_new"`
+	HasChanges   bool               `json:"has_changes"`
+}
+
 // FoodRepository — akses merchant/menu/items untuk order-service.
 // (merchant-service terpisah; order-service cuma butuh baca + tulis order items)
 type FoodRepository interface {
@@ -284,6 +312,9 @@ type OrderService interface {
 	// FOOD-BIKE-055: browse merchant food terdekat + menu.
 	ListFoodMerchants(ctx context.Context, lat, lng float64, search string) ([]FoodMerchantInfo, error)
 	GetFoodMerchantDetail(ctx context.Context, merchantID string) (*FoodMerchantInfo, error)
+	// FB-084 REORDER: validasi ulang item order food lama (harga + availability)
+	// sebelum customer klik "Pesan Lagi". Return snapshot vs harga sekarang.
+	CheckReorder(ctx context.Context, orderID string) (*ReorderCheckResult, error)
 	CreateInternalAggregatorOrder(ctx context.Context, userID string, req CreateOrderRequest) (*Order, error)
 	CreateBulkOrder(ctx context.Context, userID string, req CreateBulkOrderRequest) ([]*Order, string, error)
 	GetOrder(ctx context.Context, orderID string) (*Order, error)

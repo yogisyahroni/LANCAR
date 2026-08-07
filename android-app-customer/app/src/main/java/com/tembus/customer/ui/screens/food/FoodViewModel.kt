@@ -2,6 +2,7 @@ package com.tembus.customer.ui.screens.food
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tembus.customer.data.CartStore
 import com.tembus.customer.data.api.TEMBUSApiService
 import com.tembus.customer.data.model.CartItem
 import com.tembus.customer.data.model.CreateFoodOrderRequest
@@ -13,15 +14,17 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import retrofit2.Response
 import javax.inject.Inject
 
-// FOOD-BIKE-055/056/057/075: state browse + cart + checkout food delivery
+// FOOD-BIKE-055/056/057/075: state browse + cart + checkout food delivery.
+// FB-084: cart dipindah ke CartStore @Singleton supaya persist antar screen
+// (Navigation Compose memberi ViewModelStore terpisah per backstack entry).
 @HiltViewModel
 class FoodViewModel @Inject constructor(
-    private val apiService: TEMBUSApiService
+    private val apiService: TEMBUSApiService,
+    private val cartStore: CartStore
 ) : ViewModel() {
 
     // ── Browse state ──
@@ -37,20 +40,10 @@ class FoodViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    // ── Cart state (in-memory) ──
-    private val _cart = MutableStateFlow<List<CartItem>>(emptyList())
-    val cart: StateFlow<List<CartItem>> = _cart.asStateFlow()
-
-    val cartSize: StateFlow<Int> = MutableStateFlow(0).also { size ->
-        viewModelScope.launch {
-            _cart.collect { list -> size.value = list.sumOf { it.quantity } }
-        }
-    }
-    val cartTotal: StateFlow<Long> = MutableStateFlow(0L).also { total ->
-        viewModelScope.launch {
-            _cart.collect { list -> total.value = list.sumOf { it.subtotal } }
-        }
-    }
+    // ── Cart state (FB-084: shared via CartStore @Singleton) ──
+    val cart: StateFlow<List<CartItem>> = cartStore.cart
+    val cartSize: StateFlow<Int> = cartStore.cartSize
+    val cartTotal: StateFlow<Long> = cartStore.cartTotal
 
     // ── Checkout result ──
     private val _checkoutResult = MutableStateFlow<FoodOrderCreateResponse?>(null)
@@ -106,43 +99,16 @@ class FoodViewModel @Inject constructor(
         }
     }
 
-    // ── Cart operations ──
-    fun addToCart(item: FoodMenuItem, notes: String = "") {
-        _cart.update { current ->
-            val existing = current.find { it.menuItem.id == item.id }
-            if (existing != null) {
-                current.map { if (it.menuItem.id == item.id) it.copy(quantity = it.quantity + 1) else it }
-            } else {
-                current + CartItem(menuItem = item, quantity = 1, notes = notes)
-            }
-        }
-    }
+    // ── Cart operations (FB-084: delegasi ke CartStore) ──
+    fun addToCart(item: FoodMenuItem, notes: String = "") = cartStore.addToCart(item, notes)
 
-    fun incrementItem(itemId: String) {
-        _cart.update { current ->
-            current.map { if (it.menuItem.id == itemId) it.copy(quantity = it.quantity + 1) else it }
-        }
-    }
+    fun incrementItem(itemId: String) = cartStore.incrementItem(itemId)
 
-    fun decrementItem(itemId: String) {
-        _cart.update { current ->
-            current.map {
-                if (it.menuItem.id == itemId) {
-                    if (it.quantity <= 1) it.copy(quantity = 0) else it.copy(quantity = it.quantity - 1)
-                } else it
-            }.filter { it.quantity > 0 }
-        }
-    }
+    fun decrementItem(itemId: String) = cartStore.decrementItem(itemId)
 
-    fun updateNotes(itemId: String, notes: String) {
-        _cart.update { current ->
-            current.map { if (it.menuItem.id == itemId) it.copy(notes = notes) else it }
-        }
-    }
+    fun updateNotes(itemId: String, notes: String) = cartStore.updateNotes(itemId, notes)
 
-    fun clearCart() {
-        _cart.value = emptyList()
-    }
+    fun clearCart() = cartStore.clearCart()
 
     fun checkout(
         merchantId: String,
@@ -154,7 +120,7 @@ class FoodViewModel @Inject constructor(
         voucherCode: String? = null,
         onResult: (Result<FoodOrderCreateResponse>) -> Unit
     ) {
-        val items = _cart.value.filter { it.quantity > 0 }
+        val items = cartStore.cart.value.filter { it.quantity > 0 }
         if (items.isEmpty()) {
             onResult(Result.failure(Exception("Keranjang kosong")))
             return

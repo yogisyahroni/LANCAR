@@ -409,6 +409,12 @@ interface TEMBUSApiService {
     suspend fun createFoodOrder(
         @Body request: CreateFoodOrderRequest
     ): Response<FoodOrderCreateResponse>
+
+    // FB-084 REORDER: validasi ulang item order food lama (harga + availability)
+    @GET("api/v1/orders/reorder-info")
+    suspend fun getReorderInfo(
+        @Query("id") orderId: String
+    ): Response<ReorderInfoResponse>
 }
 
 

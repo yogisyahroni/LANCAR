@@ -356,6 +356,60 @@ func (h *OrderHandler) GetOrder(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(order)
 }
 
+// ReorderCheck godoc
+// @Summary Cek validasi ulang order food sebelum "Pesan Lagi" (FB-084)
+// @Description Bandingkan snapshot harga item order lama vs harga/availability
+// menu saat ini. Hanya pemilik order. Order harus food_delivery.
+// @Tags orders
+// @Produce json
+// @Security Bearer
+// @Param id query string true "Order ID"
+// @Success 200 {object} domain.ReorderCheckResult
+// @Router /orders/reorder-info [get]
+func (h *OrderHandler) ReorderCheck(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusMethodNotAllowed, "ERR_METHOD_NOT_ALLOWED", "Method not allowed", correlationID)
+		return
+	}
+
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "Unauthorized", correlationID)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_MISSING_PARAM", "Order ID is required", correlationID)
+		return
+	}
+
+	// Ownership check: hanya pemilik order (pola GetOrder).
+	order, err := h.orderSvc.GetOrder(r.Context(), id)
+	if err != nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Order tidak ditemukan", correlationID)
+		return
+	}
+	if order.CustomerID != userID {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Akses ditolak", correlationID)
+		return
+	}
+
+	result, err := h.orderSvc.CheckReorder(r.Context(), id)
+	if err != nil {
+		correlationID := middleware.GetCorrelationID(r.Context())
+		middleware.WriteError(w, http.StatusBadRequest, "ERR_REORDER_UNAVAILABLE", err.Error(), correlationID)
+		return
+	}
+
+	middleware.WriteSuccess(w, http.StatusOK, result)
+}
+
 // ListOrders godoc
 // @Summary List customer orders
 // @Description Get a list of orders for the authenticated user

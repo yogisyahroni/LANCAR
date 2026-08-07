@@ -453,6 +453,7 @@ func main() {
 	mux.HandleFunc("/api/v1/food/merchants/{id}", middleware.BaseChain(middleware.AuthMiddleware(orderHandler.GetFoodMerchantDetail)))
 
 	mux.HandleFunc("/api/v1/orders/detail", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.GetOrder))))
+	mux.HandleFunc("/api/v1/orders/reorder-info", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.ReorderCheck))))
 	mux.HandleFunc("/api/v1/orders/bulk", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitOrderCreation(rdb)(orderHandler.CreateBulkOrder))))
 	mux.HandleFunc("/api/v1/orders/poll", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.PollOrderUpdates))))
 	mux.HandleFunc("/api/v1/orders/retry-matching", middleware.BaseChain(middleware.AuthMiddleware(middleware.LimitByIP(rdb)(orderHandler.RetryMatching))))
