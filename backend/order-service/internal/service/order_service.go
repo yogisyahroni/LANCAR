@@ -734,6 +734,14 @@ func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, cour
 		}
 	}
 
+	// FB-088: kalau batch ini adalah food batch → tandai courier di
+	// food_batches (forming → assigned). Tidak fatal kalau batch parcel biasa.
+	if order.BatchID != nil && s.foodRepo != nil {
+		if err := s.foodRepo.UpdateFoodBatchCourier(ctx, *order.BatchID, courierID); err != nil {
+			log.Printf("failed to update food batch courier %s: %v", *order.BatchID, err)
+		}
+	}
+
 	return nil
 }
 
@@ -1187,6 +1195,12 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 			Metadata:       map[string]any{"courier_id": order.CourierID},
 			CreatedBy:      scannedBy,
 			ActorRole:      "courier",
+		}
+		// FB-088: catat batch_id di metadata untuk rekonsiliasi earnings
+		// (order batch food: payout tetap per-order saat tiap delivery —
+		// pickup di-share 1 trip, tanpa double-count).
+		if order.BatchID != nil {
+			journal.Metadata["batch_id"] = *order.BatchID
 		}
 
 		entries := []domain.LedgerEntry{
@@ -1862,7 +1876,78 @@ func (s *orderServiceImpl) ProcessFoodPrepTransitions(ctx context.Context) error
 	return nil
 }
 
-// publishOrderEvent — helper: simpan + broadcast event order (sinkron dgn pola CreateOrder).
+// PairFoodBatches — FB-088: pairing 2 order food `searching` dari merchant
+// sama + dropoff berdekatan (≤ 1.5 km) menjadi 1 batch trip courier.
+//
+// GATE SLA assessment:
+//   - Pairing hanya terjadi di window `searching` (matching driver sudah mulai
+//     5 menit sebelum makanan siap) → tidak menambah ETA.
+//   - Timebox ≤ 2 menit (GetSearchingFoodOrdersForBatch) → kalau tidak ada
+//     pasangan, order jalan solo (broadcast normal) — delay bounded.
+//   - Radius antar dropoff ≤ 1.5 km → detour maks ~5 menit.
+//   - Max 2 order per batch → terukur & aman untuk SLA.
+//
+// Setelah pairing, courier yang accept order pertama otomatis di-assign ke
+// semua order dalam batch (AcceptOrder sudah batch-aware via GetByBatchID).
+func (s *orderServiceImpl) PairFoodBatches(ctx context.Context) error {
+	if s.foodRepo == nil {
+		return nil // food belum di-wire — skip aman
+	}
+
+	const (
+		maxRadiusKM  = 1.5
+		maxETAMin    = 30
+	)
+
+	candidates, err := s.foodRepo.GetSearchingFoodOrdersForBatch(ctx)
+	if err != nil {
+		return fmt.Errorf("get searching food orders for batch: %w", err)
+	}
+
+	paired := make(map[string]bool, len(candidates))
+	for _, o := range candidates {
+		if paired[o.ID] {
+			continue
+		}
+		// Cari pasangan yang juga masih searching & tanpa batch
+		cand, distM, err := s.foodRepo.FindBatchCandidate(ctx, o.ID, maxRadiusKM)
+		if err != nil {
+			log.Printf("[FoodBatchWorker] FindBatchCandidate %s: %v", o.ID, err)
+			continue
+		}
+		if cand == nil {
+			continue // tidak ada pasangan — order jalan solo (GATE)
+		}
+
+		// Ambil merchant_id order A (pasangan pasti merchant sama — query menjamin)
+		orderA, err := s.orderRepo.GetByID(ctx, o.ID)
+		if err != nil {
+			continue
+		}
+		batch := &domain.FoodBatch{
+			ID:               uuid.New().String(),
+			MerchantID:       *orderA.MerchantID,
+			DropoffDistanceM: int(distM),
+			MaxETAMinutes:    maxETAMin,
+		}
+		if err := s.foodRepo.CreateFoodBatch(ctx, batch, o.ID, cand.ID); err != nil {
+			log.Printf("[FoodBatchWorker] CreateFoodBatch %s+%s: %v", o.ID, cand.ID, err)
+			continue
+		}
+
+		paired[o.ID] = true
+		paired[cand.ID] = true
+		log.Printf("[FoodBatchWorker] batch %s terbentuk: %s + %s (jarak dropoff %dm)", batch.ID, o.ID, cand.ID, int(distM))
+
+		// Notify kedua customer — pesanan digabung 1 trip, ETA tetap aman
+		for _, oid := range []string{o.ID, cand.ID} {
+			s.publishOrderEvent(ctx, oid, domain.StatusSearching,
+				"Pesanan digabung dengan pesanan lain di sekitar — driver akan antar keduanya dalam satu perjalanan")
+		}
+	}
+
+	return nil
+}
 func (s *orderServiceImpl) publishOrderEvent(ctx context.Context, orderID string, status domain.OrderStatus, message string) {
 	event := domain.OrderEvent{
 		OrderID:   orderID,

@@ -382,6 +382,8 @@ func main() {
 	slaWorker.Start()
 	foodPrepWorker := worker.NewFoodPrepWorker(orderSvc) // FOOD-BIKE-022
 	foodPrepWorker.Start()
+	foodBatchWorker := worker.NewFoodBatchWorker(orderSvc) // FB-088
+	foodBatchWorker.Start()
 	ghostDetectWorker := worker.NewGhostDetectionWorker(pgRepo, penaltySvc) // FOOD-BIKE-066
 	go ghostDetectWorker.Start(context.Background())
 

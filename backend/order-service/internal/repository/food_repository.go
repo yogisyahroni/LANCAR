@@ -399,3 +399,155 @@ func (r *foodRepo) GetPendingMerchantFoodOrders(ctx context.Context, timeout tim
 	}
 	return out, rows.Err()
 }
+
+// ── FB-088: batching driver food ──────────────────────────────────────────
+
+// GetSearchingFoodOrdersForBatch — order food `searching` (matching driver
+// aktif) tanpa batch_id yang siap dipairing. Timebox: searching ≤ 2 menit
+// supaya GATE SLA aman — kalau belum ada pasangan dalam window, order jalan
+// solo (broadcast normal).
+func (r *foodRepo) GetSearchingFoodOrdersForBatch(ctx context.Context) ([]*domain.Order, error) {
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT id::text
+		FROM orders
+		WHERE service_sub_type = 'food_delivery'
+		  AND status = 'searching'
+		  AND batch_id IS NULL
+		  AND updated_at >= NOW() - INTERVAL '2 minutes'
+		ORDER BY updated_at ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*domain.Order
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, &domain.Order{ID: id})
+	}
+	return out, rows.Err()
+}
+
+// FindBatchCandidate — cari pasangan batch untuk order tertentu:
+// merchant sama, dropoff ≤ maxRadiusKM (Haversine), bukan customer yang sama,
+// belum punya batch, masih searching, dan status bukan pending/cancelled.
+// Return kandidat + jarak antar dropoff (meter).
+func (r *foodRepo) FindBatchCandidate(ctx context.Context, orderID string, maxRadiusKM float64) (*domain.Order, float64, error) {
+	var (
+		candID     string
+		distMeters float64
+	)
+	err := r.readDB.QueryRowContext(ctx, `
+		SELECT o2.id::text,
+		       ST_Distance(
+		           ST_SetSRID(ST_MakePoint(o1.dropoff_lng, o1.dropoff_lat), 4326)::geography,
+		           ST_SetSRID(ST_MakePoint(o2.dropoff_lng, o2.dropoff_lat), 4326)::geography
+		       ) AS distance_m
+		FROM orders o1
+		JOIN orders o2 ON o2.merchant_id = o1.merchant_id
+		              AND o2.service_sub_type = 'food_delivery'
+		              AND o2.status = 'searching'
+		              AND o2.batch_id IS NULL
+		              AND o2.customer_id <> o1.customer_id
+		              AND o2.id <> o1.id
+		WHERE o1.id = $1
+		  AND o1.service_sub_type = 'food_delivery'
+		  AND o1.status = 'searching'
+		  AND o1.batch_id IS NULL
+		ORDER BY distance_m ASC
+		LIMIT 1`,
+		orderID,
+	).Scan(&candID, &distMeters)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, 0, nil
+		}
+		return nil, 0, err
+	}
+	if maxRadiusKM > 0 && distMeters > maxRadiusKM*1000 {
+		return nil, 0, nil
+	}
+	return &domain.Order{ID: candID}, distMeters, nil
+}
+
+// CreateFoodBatch — insert food_batches (status forming) + set batch_id
+// kedua order dalam SATU transaksi. Atomic: gagal satu → batal semua.
+func (r *foodRepo) CreateFoodBatch(ctx context.Context, batch *domain.FoodBatch, orderAID, orderBID string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if err := tx.QueryRowContext(ctx, `
+		INSERT INTO food_batches (
+			id, merchant_id, status, order_a_id, order_b_id,
+			dropoff_distance_m, max_eta_minutes, created_at, updated_at
+		) VALUES ($1, $2, 'forming', $3, $4, $5, $6, $7, $7)
+		RETURNING id::text`,
+		batch.ID, batch.MerchantID, orderAID, orderBID,
+		batch.DropoffDistanceM, batch.MaxETAMinutes, time.Now(),
+	).Scan(&batch.ID); err != nil {
+		return fmt.Errorf("insert food_batches: %w", err)
+	}
+
+	for _, oid := range []string{orderAID, orderBID} {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE orders SET batch_id = $1, updated_at = NOW() WHERE id = $2`,
+			batch.ID, oid,
+		); err != nil {
+			return fmt.Errorf("set batch_id on order %s: %w", oid, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetFoodBatchByOrderID — ambil batch tempat order berada (audit earnings).
+func (r *foodRepo) GetFoodBatchByOrderID(ctx context.Context, orderID string) (*domain.FoodBatch, error) {
+	b := &domain.FoodBatch{}
+	var courierID sql.NullString
+	var orderBID sql.NullString
+	var completedAt sql.NullTime
+	err := r.readDB.QueryRowContext(ctx, `
+		SELECT id::text, merchant_id::text, courier_id::text, status,
+		       order_a_id::text, order_b_id::text, dropoff_distance_m,
+		       max_eta_minutes, created_at, completed_at
+		FROM food_batches
+		WHERE order_a_id = $1 OR order_b_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1`,
+		orderID,
+	).Scan(&b.ID, &b.MerchantID, &courierID, &b.Status,
+		&b.OrderAID, &orderBID, &b.DropoffDistanceM,
+		&b.MaxETAMinutes, &b.CreatedAt, &completedAt)
+	if err != nil {
+		return nil, err
+	}
+	if courierID.Valid {
+		b.CourierID = &courierID.String
+	}
+	if orderBID.Valid {
+		b.OrderBID = &orderBID.String
+	}
+	if completedAt.Valid {
+		b.CompletedAt = &completedAt.Time
+	}
+	return b, nil
+}
+
+// UpdateFoodBatchCourier — set courier_id saat courier accept order batch
+// (status forming → assigned). Bukan fatal kalau batch tak ditemukan
+// (order mungkin di-assign solo setelah pairing batal).
+func (r *foodRepo) UpdateFoodBatchCourier(ctx context.Context, batchID, courierID string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE food_batches
+		SET courier_id = $1, status = 'assigned', updated_at = NOW()
+		WHERE id = $2 AND status IN ('forming', 'assigned')`,
+		courierID, batchID,
+	)
+	return err
+}

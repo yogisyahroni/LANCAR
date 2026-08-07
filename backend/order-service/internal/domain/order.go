@@ -287,6 +287,37 @@ type FoodRepository interface {
 	// FOOD-BIKE-055: browse merchant terdekat (is_open + approved) + menu
 	ListFoodMerchants(ctx context.Context, lat, lng float64, search string, limit int) ([]FoodMerchantInfo, error)
 	GetFoodMerchantMenu(ctx context.Context, merchantID string) ([]FoodMenuItemInfo, error)
+	// ── FB-088: batching driver food ──
+	// GetSearchingFoodOrdersForBatch: order food `searching` tanpa batch_id
+	// yang siap dipairing (sudah searching ≤ 2 menit, service food_delivery).
+	GetSearchingFoodOrdersForBatch(ctx context.Context) ([]*Order, error)
+	// FindBatchCandidate: pasangan untuk order tertentu — merchant sama,
+	// dropoff ≤ maxRadiusKM, bukan customer yang sama, total max 2 order.
+	FindBatchCandidate(ctx context.Context, orderID string, maxRadiusKM float64) (*Order, float64, error)
+	// CreateFoodBatch: buat baris food_batches (status forming) + set batch_id
+	// kedua order dalam SATU transaksi.
+	CreateFoodBatch(ctx context.Context, batch *FoodBatch, orderAID, orderBID string) error
+	// GetFoodBatchByOrderID: batch tempat order berada (untuk earnings/audit).
+	GetFoodBatchByOrderID(ctx context.Context, orderID string) (*FoodBatch, error)
+	// UpdateFoodBatchCourier: status forming/assigned → set courier_id saat
+	// courier accept (dipanggil AcceptOrder untuk order batch food).
+	UpdateFoodBatchCourier(ctx context.Context, batchID, courierID string) error
+}
+
+// FoodBatch — FB-088: dua order food dari merchant sama yang digabung
+// jadi satu trip courier (pickup sekali, antar dua titik).
+type FoodBatch struct {
+	ID                string
+	MerchantID        string
+	CourierID         *string
+	Status            string // forming | assigned | in_progress | completed | cancelled
+	OrderAID          string
+	OrderBID          *string
+	DropoffDistanceM  int
+	MaxETAMinutes     int
+	CreatedAt         time.Time
+	CompletedAt       *time.Time
+	UpdatedAt         time.Time
 }
 
 // SubmitRatingRequest adalah request body dari customer untuk memberi rating ke kurir.
@@ -370,6 +401,10 @@ type OrderService interface {
 	// 1) preparing yang food_ready_at-5m sudah lewat → searching (mulai matching);
 	// 2) pending_merchant yang melewati timeout 3 menit → auto-cancel.
 	ProcessFoodPrepTransitions(ctx context.Context) error
+	// PairFoodBatches dipanggil food_batch_worker (FB-088): pasangkan 2 order
+	// food `searching` dari merchant sama + dropoff berdekatan → 1 trip courier.
+	// GATE SLA: timebox ≤ 2 menit; tanpa pasangan → order jalan solo.
+	PairFoodBatches(ctx context.Context) error
 	// GetOrdersNeedingRatingReminder mengambil order delivered milik customer yang
 	// belum di-rating, reminder_count < 4, dan sudah 12 jam sejak terakhir diingatkan.
 	GetOrdersNeedingRatingReminder(ctx context.Context, customerID string) ([]*Order, error)

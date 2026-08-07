@@ -363,6 +363,23 @@ func (m *mockFoodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID strin
 	return nil, nil
 }
 
+// ── FB-088: stub batching (mock food repo) ──
+func (m *mockFoodRepo) GetSearchingFoodOrdersForBatch(ctx context.Context) ([]*domain.Order, error) {
+	return nil, nil
+}
+func (m *mockFoodRepo) FindBatchCandidate(ctx context.Context, orderID string, maxRadiusKM float64) (*domain.Order, float64, error) {
+	return nil, 0, nil
+}
+func (m *mockFoodRepo) CreateFoodBatch(ctx context.Context, batch *domain.FoodBatch, orderAID, orderBID string) error {
+	return nil
+}
+func (m *mockFoodRepo) GetFoodBatchByOrderID(ctx context.Context, orderID string) (*domain.FoodBatch, error) {
+	return nil, nil
+}
+func (m *mockFoodRepo) UpdateFoodBatchCourier(ctx context.Context, batchID, courierID string) error {
+	return nil
+}
+
 // FB-080: partial refund per item — refund = Σ(snapshot item_price × qty),
 // ongkir TIDAK direfund kecuali IncludeDeliveryFee.
 func TestRefundService_CalculateItemRefund_ItemsOnly(t *testing.T) {
