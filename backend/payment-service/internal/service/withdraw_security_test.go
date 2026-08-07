@@ -18,7 +18,7 @@ package service_test
 import (
 	"context"
 	"errors"
-	"math"
+	"strconv"
 	"testing"
 
 	"tembus/payment-service/internal/domain"
@@ -71,25 +71,6 @@ func (m *mockWalletRepo) IsWithdrawIdempotent(ctx context.Context, key string) (
 		return m.isIdempotentFn(key)
 	}
 	return false, nil
-}
-
-// mockSettingsRepo adalah implementasi mock dari domain.SettingsRepository
-type mockSettingsRepo struct {
-	feeByRole map[string]int64
-	settings  map[string]string
-}
-
-func (m *mockSettingsRepo) GetFee(ctx context.Context, role string) (int64, error) {
-	if fee, ok := m.feeByRole[role]; ok {
-		return fee, nil
-	}
-	return 0, errors.New("fee not configured")
-}
-func (m *mockSettingsRepo) GetSetting(ctx context.Context, key string) (string, error) {
-	if val, ok := m.settings[key]; ok {
-		return val, nil
-	}
-	return "", errors.New("setting not found: " + key)
 }
 
 // ─── A. Amount Exploitation Tests ────────────────────────────────────────────
@@ -155,20 +136,26 @@ func TestWithdraw_FloatPrecisionExploit(t *testing.T) {
 	// Dengan int64 di handler, nilai sudah pasti: tidak ada ambiguitas
 	intAmount := int64(50000) // tepat Rp 50.000, tidak ada presisi error
 
-	// Verifikasi bahwa int64 tidak bisa di-overflow dari JSON kecil
-	// JSON: {"amount": 9223372036854775808} → overflow ke negatif
-	var overflowAmount int64 = math.MaxInt64
-	if overflowAmount < 0 {
-		t.Fatal("MaxInt64 should not be negative — overflow detected")
+	// Verifikasi bahwa int64 tidak bisa di-overflow dari JSON kecil:
+	// JSON: {"amount": 9223372036854775808} (MaxInt64+1) harus GAGAL parse —
+	// bukan jadi negatif. Parser int64 menolak nilai di luar range.
+	if _, err := strconv.ParseInt("9223372036854775808", 10, 64); err == nil {
+		t.Fatal("MaxInt64+1 should NOT parse — overflow JSON harus ditolak")
 	}
 
-	// Verifikasi WithdrawMaxAmount sudah jauh di bawah MaxInt64
-	if domain.WithdrawMaxAmount >= math.MaxInt64 {
-		t.Fatal("WithdrawMaxAmount should be safely below MaxInt64")
+	// Verifikasi WithdrawMaxAmount sudah jauh di bawah MaxInt64: jumlah
+	// terbesar yang sah (MaxInt64) harus MELEBIHI batas max, sehingga
+	// validasi amount>max di runtime selalu menolaknya sebelum gateway.
+	maxParsable, err := strconv.ParseInt("9223372036854775807", 10, 64)
+	if err != nil {
+		t.Fatalf("MaxInt64 should parse: %v", err)
+	}
+	if maxParsable <= domain.WithdrawMaxAmount {
+		t.Fatal("WithdrawMaxAmount must be safely below MaxInt64 — batas max harus menolak nilai terbesar")
 	}
 
 	t.Logf("intAmount: %d (no float ambiguity)", intAmount)
-	t.Logf("MaxInt64: %d, WithdrawMaxAmount: %d", overflowAmount, domain.WithdrawMaxAmount)
+	t.Logf("MaxInt64: %d, WithdrawMaxAmount: %d", maxParsable, domain.WithdrawMaxAmount)
 }
 
 // ─── B. Input Injection Tests ─────────────────────────────────────────────────

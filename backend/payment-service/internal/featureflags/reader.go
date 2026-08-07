@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sync"
 )
 
 // FeatureFlag represents the DB model for feature_flags
@@ -26,8 +25,7 @@ type FlagReader interface {
 }
 
 type flagReaderImpl struct {
-	readDB     *sql.DB
-	localCache sync.Map
+	readDB *sql.DB
 }
 
 // NewFlagReader creates a new instance of FlagReader
@@ -56,7 +54,7 @@ func (f *flagReaderImpl) GetFlag(ctx context.Context, key string) (*FeatureFlag,
 	}
 
 	if len(configData) > 0 {
-		json.Unmarshal(configData, &flag.Config)
+		_ = json.Unmarshal(configData, &flag.Config)
 	} else {
 		flag.Config = make(map[string]interface{})
 	}

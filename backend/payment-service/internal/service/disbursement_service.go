@@ -36,13 +36,9 @@ type disbursementRequest struct {
 	ReferenceID        string `json:"ReferenceID"`
 	Amount             int64  `json:"Amount"`
 	BeneficiaryName    string `json:"BeneficiaryName"`
-	BeneficiaryAccount string  `json:"BeneficiaryAccount"`
-	BeneficiaryBank    string  `json:"BeneficiaryBank"`
-	Notes              string  `json:"Notes"`
-}
-
-type disbursementResponse struct {
-	Status string `json:"Status"`
+	BeneficiaryAccount string `json:"BeneficiaryAccount"`
+	BeneficiaryBank    string `json:"BeneficiaryBank"`
+	Notes              string `json:"Notes"`
 }
 
 func (s *DisbursementService) CreatePayout(ctx context.Context, referenceID string, amount int64, bankDetails map[string]any) error {
@@ -91,7 +87,7 @@ func (s *DisbursementService) CreatePayout(ctx context.Context, referenceID stri
 
 	if resp.StatusCode >= 400 {
 		var errResp map[string]any
-		json.NewDecoder(resp.Body).Decode(&errResp)
+		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		return fmt.Errorf("payment gateway error: %v", errResp)
 	}
 

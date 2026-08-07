@@ -48,7 +48,7 @@ func (h *WebhookHandler) XenditWebhook(w http.ResponseWriter, r *http.Request) {
 				}
 				
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("SUCCESS"))
+				_, _ = w.Write([]byte("SUCCESS"))
 				return
 			}
 		} else if status == "COMPLETED" { // Disbursement completed
@@ -62,7 +62,7 @@ func (h *WebhookHandler) XenditWebhook(w http.ResponseWriter, r *http.Request) {
 				}
 				
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("SUCCESS"))
+				_, _ = w.Write([]byte("SUCCESS"))
 				return
 			}
 		} else if status == "FAILED" { // Disbursement failed
@@ -76,18 +76,18 @@ func (h *WebhookHandler) XenditWebhook(w http.ResponseWriter, r *http.Request) {
 				}
 				
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("SUCCESS"))
+				_, _ = w.Write([]byte("SUCCESS"))
 				return
 			}
 		}
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("IGNORED"))
+	_, _ = w.Write([]byte("IGNORED"))
 }
 
 func (h *WebhookHandler) respondError(w http.ResponseWriter, message string, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }

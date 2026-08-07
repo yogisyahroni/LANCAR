@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sync"
 )
 
 // FeatureFlag represents the DB model for feature_flags
@@ -26,8 +25,7 @@ type FlagReader interface {
 }
 
 type flagReaderImpl struct {
-	readDB     *sql.DB
-	localCache sync.Map
+	readDB *sql.DB
 }
 
 // NewFlagReader creates a new instance of FlagReader

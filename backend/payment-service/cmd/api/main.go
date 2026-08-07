@@ -172,7 +172,7 @@ func main() {
 	// Health Check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 
 	// LAUNCH-5: Swagger UI (enabled via SWAGGER_ENABLED=true env, default: non-production only)
