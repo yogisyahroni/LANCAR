@@ -3,6 +3,7 @@ package com.tembus.merchant.data.repository
 import com.tembus.merchant.data.api.TEMBUSApiService
 import com.tembus.merchant.data.model.AuthResponse
 import com.tembus.merchant.data.model.LoginRequest
+import com.tembus.merchant.data.onboarding.OnboardingPreferences
 import com.tembus.merchant.data.session.AuthSessionManager
 
 /**
@@ -11,7 +12,8 @@ import com.tembus.merchant.data.session.AuthSessionManager
  */
 class AuthRepository(
     private val api: TEMBUSApiService,
-    private val sessionManager: AuthSessionManager
+    private val sessionManager: AuthSessionManager,
+    private val onboardingPreferences: OnboardingPreferences
 ) {
 
     suspend fun login(email: String, password: String): Result<AuthResponse> {
@@ -42,6 +44,7 @@ class AuthRepository(
             val emailSaved = auth.authUser?.email ?: email
 
             sessionManager.saveLogin(token, userId, name, emailSaved)
+            onboardingPreferences.markHadLoggedIn()
             auth
         }
     }

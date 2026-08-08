@@ -2,6 +2,7 @@ package com.tembus.merchant.ui.screens.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.tembus.merchant.data.onboarding.OnboardingPreferences
 import com.tembus.merchant.data.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,15 +14,25 @@ data class LoginUiState(
     val password: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val loginSuccess: Boolean = false
+    val loginSuccess: Boolean = false,
+    val hadLoggedIn: Boolean = false
 )
 
 class LoginViewModel(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val onboardingPreferences: OnboardingPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            onboardingPreferences.hadLoggedIn.collect { hadLoggedIn ->
+                _uiState.value = _uiState.value.copy(hadLoggedIn = hadLoggedIn)
+            }
+        }
+    }
 
     fun onEmailChange(value: String) {
         _uiState.value = _uiState.value.copy(email = value, errorMessage = null)

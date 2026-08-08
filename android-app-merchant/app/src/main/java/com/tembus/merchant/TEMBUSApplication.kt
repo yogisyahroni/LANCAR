@@ -20,7 +20,7 @@ class AppContainer(context: Context) {
 
     val apiService: TEMBUSApiService = ApiClient.createService(sessionManager)
 
-    val authRepository: AuthRepository = AuthRepository(apiService, sessionManager)
+    val authRepository: AuthRepository = AuthRepository(apiService, sessionManager, onboardingPreferences)
     val merchantRepository: MerchantRepository = MerchantRepository(apiService)
 }
 

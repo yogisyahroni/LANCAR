@@ -25,7 +25,19 @@ class OnboardingPreferences(private val context: Context) {
         prefs[KEY_ONBOARDING_DONE] ?: false
     }
 
+    /** Flag "pernah login" — persist meski logout, untuk copywriting login (kembali vs baru). */
+    suspend fun markHadLoggedIn() {
+        context.merchantDataStore.edit { prefs ->
+            prefs[KEY_HAD_LOGGED_IN] = true
+        }
+    }
+
+    val hadLoggedIn: Flow<Boolean> = context.merchantDataStore.data.map { prefs ->
+        prefs[KEY_HAD_LOGGED_IN] ?: false
+    }
+
     companion object {
         private val KEY_ONBOARDING_DONE = booleanPreferencesKey("onboarding_completed")
+        private val KEY_HAD_LOGGED_IN = booleanPreferencesKey("had_logged_in")
     }
 }
