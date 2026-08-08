@@ -17,15 +17,15 @@ type RegisterMerchantRequest struct {
 
 	// Dokumen pangan (FB-092) — OPSIONAL saat daftar, wajib sebelum is_open=true.
 	// Nomor + tanggal kedaluwarsa; URL bukti dokumen.
-	HalalCertNumber  *string `json:"halal_cert_number,omitempty"`
-	HalalExpiryDate  *string `json:"halal_expiry_date,omitempty"` // YYYY-MM-DD, wajib jika nomor diisi
+	HalalCertNumber    *string `json:"halal_cert_number,omitempty"`
+	HalalExpiryDate    *string `json:"halal_expiry_date,omitempty"` // YYYY-MM-DD, wajib jika nomor diisi
 	SertifikatHalalURL *string `json:"sertifikat_halal_url,omitempty"`
-	SppIrtNumber     *string `json:"spp_irt_number,omitempty"`
-	SppIrtExpiryDate *string `json:"spp_irt_expiry_date,omitempty"` // YYYY-MM-DD, wajib jika nomor diisi
-	SppIrtURL        *string `json:"spp_irt_url,omitempty"`
-	BpomNumber       *string `json:"bpom_number,omitempty"`
-	BpomExpiryDate   *string `json:"bpom_expiry_date,omitempty"` // YYYY-MM-DD, wajib jika nomor diisi
-	IzinEdarBPOMURL  *string `json:"izin_edar_bpom_url,omitempty"`
+	SppIrtNumber       *string `json:"spp_irt_number,omitempty"`
+	SppIrtExpiryDate   *string `json:"spp_irt_expiry_date,omitempty"` // YYYY-MM-DD, wajib jika nomor diisi
+	SppIrtURL          *string `json:"spp_irt_url,omitempty"`
+	BpomNumber         *string `json:"bpom_number,omitempty"`
+	BpomExpiryDate     *string `json:"bpom_expiry_date,omitempty"` // YYYY-MM-DD, wajib jika nomor diisi
+	IzinEdarBPOMURL    *string `json:"izin_edar_bpom_url,omitempty"`
 }
 
 // UpdateFoodDocsRequest — update/upload dokumen pangan merchant (FB-092).
@@ -90,4 +90,26 @@ type EditOrderItemRequest struct {
 // Berlaku HANYA saat status pending_merchant (belum dikonfirmasi).
 type EditOrderItemsRequest struct {
 	Items []EditOrderItemRequest `json:"items"`
+}
+
+// CreateMerchantPromoRequest — body buat promo merchant (FB-099).
+// discount_type: percent | fixed | buy1get1. max_discount_idr hanya
+// relevan untuk percent (cap diskon). Harga tidak boleh negatif/nol.
+type CreateMerchantPromoRequest struct {
+	MenuItemID     *string `json:"menu_item_id,omitempty"`
+	DiscountType   string  `json:"discount_type"`
+	DiscountValue  int64   `json:"discount_value"`
+	MaxDiscountIDR *int64  `json:"max_discount_idr,omitempty"`
+	StartsAt       string  `json:"starts_at"` // RFC3339
+	EndsAt         string  `json:"ends_at"`   // RFC3339
+}
+
+// UpdateMerchantPromoRequest — body update promo (patch, semua opsional).
+type UpdateMerchantPromoRequest struct {
+	MenuItemID     *string `json:"menu_item_id,omitempty"`
+	DiscountType   *string `json:"discount_type,omitempty"`
+	DiscountValue  *int64  `json:"discount_value,omitempty"`
+	MaxDiscountIDR *int64  `json:"max_discount_idr,omitempty"`
+	StartsAt       *string `json:"starts_at,omitempty"`
+	EndsAt         *string `json:"ends_at,omitempty"`
 }

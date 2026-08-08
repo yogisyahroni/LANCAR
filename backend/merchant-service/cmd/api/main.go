@@ -89,6 +89,11 @@ func main() {
 	svc := service.NewMerchantService(merchantRepo, menuRepo, orderRepo, reportRepo)
 	h := handler.NewMerchantHandler(svc)
 
+	// FB-099: promo merchant self-serve (dibiayai merchant, bukan duit PT)
+	promoRepo := repository.NewPostgresMerchantPromoRepository(db, db)
+	promoSvc := service.NewMerchantPromoService(promoRepo, menuRepo)
+	promoH := handler.NewPromoHandler(promoSvc)
+
 	// FB-092: auto-suspend toko saat dokumen pangan kedaluwarsa (re-KYC)
 	foodDocsWorker := worker.NewFoodDocsExpiryWorker(merchantRepo)
 	foodDocsWorker.Start()
@@ -137,6 +142,29 @@ func main() {
 		}
 	}))
 	mux.HandleFunc("/api/v1/merchant/menu/{id}/availability", middleware.BaseChain(h.SetMenuItemAvailability))
+
+	// Promo merchant (FB-099): CRUD self-serve, tanpa approval admin
+	mux.HandleFunc("/api/v1/merchant/promos", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			promoH.Create(w, r)
+		case http.MethodGet:
+			promoH.List(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+	mux.HandleFunc("/api/v1/merchant/promos/{id}", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPatch:
+			promoH.Update(w, r)
+		case http.MethodDelete:
+			promoH.Delete(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+	mux.HandleFunc("/api/v1/merchant/promos/{id}/active", middleware.BaseChain(promoH.SetActive))
 
 	// Order action (FOOD-BIKE-017/021)
 	mux.HandleFunc("/api/v1/merchant/orders", middleware.BaseChain(h.ListOrders))
