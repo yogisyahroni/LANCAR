@@ -404,13 +404,13 @@ private fun OrderCard(
 private fun StatusBadge(status: String) {
     val (label, color, bg) = when (status) {
         "pending_merchant" -> Triple("Baru", Accent, AccentLight)
-        "preparing" -> Triple("Siap", Primary, PrimaryLight)
-        "searching" -> Triple("Cari Kurir", Primary, PrimaryLight)
-        "accepted", "picking_up", "picked_up" -> Triple("Kurir Menjemput", Primary, PrimaryLight)
+        "preparing" -> Triple("Diproses", Primary, PrimaryLight)
+        "searching" -> Triple("Siap", Primary, PrimaryLight)
+        "accepted", "picking_up", "picked_up" -> Triple("Diambil Driver", Primary, PrimaryLight)
         "delivering" -> Triple("Diantar", Primary, PrimaryLight)
         "delivered" -> Triple("Selesai", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
         "cancelled_by_merchant" -> Triple("Ditolak", MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer)
-        "cancelled" -> Triple("Batal", MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer)
+        "cancelled" -> Triple("Dibatalkan", MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer)
         else -> Triple(status, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.surfaceVariant)
     }
     Surface(color = bg, shape = RoundedCornerShape(8.dp)) {
