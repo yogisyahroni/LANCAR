@@ -1,11 +1,15 @@
 package com.tembus.merchant.ui.screens.profile
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.*
@@ -18,12 +22,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tembus.merchant.ui.appViewModel
+import com.tembus.merchant.ui.screens.promo.PromoScreen
+import com.tembus.merchant.ui.theme.Accent
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryLight
 
 /**
  * ProfileScreen — tab Profil: info merchant, status verifikasi,
- * dan logout. (FOOD-BIKE-049: status "menunggu verifikasi" ditampilkan di sini.)
+ * akses Promo & Diskon, dan logout. (FOOD-BIKE-049: status verifikasi di sini.)
  */
 @Composable
 fun ProfileScreen(
@@ -34,6 +40,36 @@ fun ProfileScreen(
     }
 ) {
     val state by viewModel.uiState.collectAsState()
+    var showPromo by remember { mutableStateOf(false) }
+
+    if (showPromo) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header promo dengan tombol kembali
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Primary)
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { showPromo = false }) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Kembali",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+                Text(
+                    text = "Promo & Diskon",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+            PromoScreen()
+        }
+        return
+    }
 
     state.errorMessage?.let { msg ->
         AlertDialog(
@@ -132,6 +168,50 @@ fun ProfileScreen(
                     ProfileInfoRow("Completion Rate", "${m.completionRatePct}%")
                     m.createdAt?.let { ProfileInfoRow("Terdaftar", it.substring(0, 10)) }
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Promo & Diskon (pindah dari tab, akses via Profil)
+        Card(
+            onClick = { showPromo = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        androidx.compose.material.icons.Icons.Filled.LocalOffer,
+                        contentDescription = null,
+                        tint = Accent,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Promo & Diskon",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Kelola promo menu-mu",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 

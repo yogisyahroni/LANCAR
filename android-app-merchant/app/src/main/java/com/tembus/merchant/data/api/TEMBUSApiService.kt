@@ -89,6 +89,12 @@ interface TEMBUSApiService {
         @Path("id") id: String
     ): Response<StrukData>
 
+    // ── Laporan penjualan (FB-086) ──
+    @GET("api/v1/merchant/reports")
+    suspend fun getSalesReport(
+        @Query("period") period: String = "daily"
+    ): Response<SalesReportSummary>
+
     // ── Promo merchant (FB-099/100): self-serve, tanpa approval admin ──
     @GET("api/v1/merchant/promos")
     suspend fun listPromos(

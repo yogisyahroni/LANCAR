@@ -133,6 +133,23 @@ data class SuccessResponse(
     @SerializedName("success") val success: Boolean = false
 )
 
+// ── FB-086: Laporan penjualan merchant — GET /api/v1/merchant/reports?period=daily|weekly ──
+/** TopSellingItem — item terlaris dalam periode. */
+data class TopSellingItem(
+    @SerializedName("item_name") val itemName: String = "",
+    @SerializedName("quantity") val quantity: Int = 0,
+    @SerializedName("revenue_idr") val revenueIdr: Long = 0
+)
+
+/** SalesReportSummary — ringkasan penjualan periode (response langsung, tanpa wrapper). */
+data class SalesReportSummary(
+    @SerializedName("period") val period: String = "daily",
+    @SerializedName("total_orders") val totalOrders: Int = 0,
+    @SerializedName("gmv_idr") val gmvIdr: Long = 0,
+    @SerializedName("avg_order_value_idr") val avgOrderValueIdr: Long = 0,
+    @SerializedName("top_items") val topItems: List<TopSellingItem> = emptyList()
+)
+
 /** Pendaftaran merchant — POST /api/v1/merchant/register. */
 data class RegisterMerchantRequest(
     @SerializedName("nama_toko") val namaToko: String,

@@ -1,5 +1,6 @@
 package com.tembus.merchant.ui.screens.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -24,12 +26,15 @@ import com.tembus.merchant.data.model.MerchantOrder
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.AccentLight
+import com.tembus.merchant.ui.theme.GreenText
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryLight
 
 /**
- * HomeScreen — tab Pesanan: list order merchant dengan filter status,
- * toggle buka/tutup toko, accept/reject order, dan akses struk.
+ * HomeScreen — tab Pesanan (design merchant 2026):
+ * header hijau + toggle toko, filter status, order cards dengan badge
+ * Baru/Siap + tombol Terima/Tolak, akses struk.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,9 +83,9 @@ fun HomeScreen(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Header merchant + toggle buka/tutup
+        // Header hijau + toggle buka/tutup
         state.merchant?.let { m ->
-            StoreHeaderCard(
+            OrdersHeader(
                 namaToko = m.namaToko,
                 isOpen = m.isOpen,
                 isToggleLoading = state.isToggleOpenLoading,
@@ -176,39 +181,38 @@ private fun RejectOrderDialog(
 }
 
 @Composable
-private fun StoreHeaderCard(
+private fun OrdersHeader(
     namaToko: String,
     isOpen: Boolean,
     isToggleLoading: Boolean,
     verificationStatus: String,
     onToggle: () -> Unit
 ) {
-    Surface(
-        color = Primary,
-        modifier = Modifier.fillMaxWidth()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Primary)
+            .padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 18.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = namaToko,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    text = "Pesanan",
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
                 Text(
                     text = when (verificationStatus) {
-                        "approved" -> if (isOpen) "Toko Buka" else "Toko Tutup"
+                        "approved" -> if (isOpen) "$namaToko — toko buka" else "$namaToko — toko tutup"
                         "pending" -> "Menunggu verifikasi admin"
                         "rejected" -> "Verifikasi ditolak"
-                        else -> "Status: $verificationStatus"
+                        else -> namaToko
                     },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             if (verificationStatus == "approved") {
@@ -222,7 +226,12 @@ private fun StoreHeaderCard(
                     Switch(
                         checked = isOpen,
                         onCheckedChange = { if (!isToggleLoading) onToggle() },
-                        enabled = !isToggleLoading
+                        enabled = !isToggleLoading,
+                        colors = SwitchDefaults.colors(
+                            checkedTrackColor = Accent,
+                            checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                            uncheckedTrackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f)
+                        )
                     )
                 }
             }
@@ -239,15 +248,28 @@ private fun FilterChipsRow(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         OrderFilter.entries.forEach { filter ->
-            FilterChip(
-                selected = selected == filter,
-                onClick = { onSelect(filter) },
-                label = { Text(filter.label) }
-            )
+            val isSelected = selected == filter
+            Surface(
+                color = if (isSelected) AccentLight else MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(20.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (isSelected) Accent else MaterialTheme.colorScheme.outline
+                ),
+                onClick = { onSelect(filter) }
+            ) {
+                Text(
+                    text = filter.label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isSelected) Accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
         }
     }
 }
@@ -262,7 +284,8 @@ private fun OrderCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -277,19 +300,26 @@ private fun OrderCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            order.customerName?.let {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Customer: $it",
+                    text = order.customerName ?: "Customer",
                     style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = Format.time(order.createdAt),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
             order.dropoffAddress?.let {
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
@@ -311,8 +341,12 @@ private fun OrderCard(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.padding(top = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text(
                     text = "Total",
                     style = MaterialTheme.typography.bodyMedium,
@@ -323,7 +357,7 @@ private fun OrderCard(
                     text = Format.rupiah(order.totalPriceIdr),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Primary
+                    color = GreenText
                 )
             }
 
@@ -369,8 +403,8 @@ private fun OrderCard(
 @Composable
 private fun StatusBadge(status: String) {
     val (label, color, bg) = when (status) {
-        "pending_merchant" -> Triple("Menunggu", Accent, MaterialTheme.colorScheme.tertiaryContainer)
-        "preparing" -> Triple("Menyiapkan", Primary, PrimaryLight)
+        "pending_merchant" -> Triple("Baru", Accent, AccentLight)
+        "preparing" -> Triple("Siap", Primary, PrimaryLight)
         "searching" -> Triple("Cari Kurir", Primary, PrimaryLight)
         "accepted", "picking_up", "picked_up" -> Triple("Kurir Menjemput", Primary, PrimaryLight)
         "delivering" -> Triple("Diantar", Primary, PrimaryLight)
@@ -383,8 +417,9 @@ private fun StatusBadge(status: String) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
             color = color,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
         )
     }
 }
@@ -468,7 +503,7 @@ private fun NotRegisteredContent(onGoToRegistration: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Daftarkan tokomu untuk mulai menerima pesanan makanan.",
+            text = "Daftarkan tokomu untuk mulai menerima pesanan.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
