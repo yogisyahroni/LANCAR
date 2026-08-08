@@ -156,6 +156,25 @@ export const approveAdminMerchant = async (req: Request, res: Response) => {
   const id = String(req.params.id);
   const actor = getActorId(req) ?? 'unknown';
   try {
+    // FB-094: tolak approve kalau lokasi toko belum terisi (lokasi = pin di peta saat daftar).
+    // Tanpa lokasi, ongkir food & "resto terdekat" tidak bisa dihitung.
+    const locCheck = await readDb.query(
+      `SELECT id, nama_toko,
+              COALESCE(ST_Y(lokasi::geometry), 0) AS lat,
+              COALESCE(ST_X(lokasi::geometry), 0) AS lng
+       FROM merchants WHERE id = $1`,
+      [id]
+    );
+    if (locCheck.rows.length === 0) {
+      res.status(404).json({ error: 'Merchant not found' });
+      return;
+    }
+    const { lat, lng } = locCheck.rows[0] as { lat: number; lng: number };
+    if (!lat || !lng) {
+      res.status(409).json({ error: 'Merchant belum mengisi lokasi toko (pin di peta). Minta merchant melengkapi lokasi dulu sebelum di-approve.' });
+      return;
+    }
+
     const result = await db.query(
       `UPDATE merchants
        SET verification_status = 'approved', updated_at = NOW()

@@ -46,6 +46,17 @@ func (s *merchantServiceImpl) Register(ctx context.Context, userID string, req d
 	if req.KtpPemilikURL == "" || req.FotoTokoURL == "" || req.RekeningURL == "" {
 		return nil, errors.New("dokumen wajib: ktp_pemilik_url, foto_tempat_usaha_url, rekening_bank_url")
 	}
+	// FB-094: lokasi toko WAJIB saat daftar (pin di peta di web/Android).
+	// Tanpa lokasi: ongkir food salah, "resto terdekat" tidak muncul, approve ditolak admin.
+	if req.LokasiLat == nil || req.LokasiLng == nil {
+		return nil, errors.New("lokasi toko wajib diisi (lokasi_lat, lokasi_lng) — tandai pin di peta")
+	}
+	if *req.LokasiLat < -90 || *req.LokasiLat > 90 || *req.LokasiLng < -180 || *req.LokasiLng > 180 {
+		return nil, errors.New("lokasi toko tidak valid — periksa kembali pin di peta")
+	}
+	if *req.LokasiLat == 0 && *req.LokasiLng == 0 {
+		return nil, errors.New("lokasi toko tidak valid (0,0) — tandai pin di peta")
+	}
 
 	existing, err := s.merchantRepo.GetByUserID(ctx, userID)
 	if err != nil {

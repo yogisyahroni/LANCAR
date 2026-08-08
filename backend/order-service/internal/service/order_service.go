@@ -1561,6 +1561,11 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	if !merchant.IsOpen {
 		return nil, fmt.Errorf("merchant tutup")
 	}
+	// FB-094: merchant wajib punya lokasi (pin di peta saat daftar).
+	// Tanpa lokasi, ongkir & "resto terdekat" tidak bisa dihitung dengan benar.
+	if merchant.Lat == 0 && merchant.Lng == 0 {
+		return nil, fmt.Errorf("merchant belum melengkapi lokasi toko — lengkapi pin lokasi di profil merchant dulu")
+	}
 
 	// 2. Ambil menu items by ID — harga dari server, bukan client
 	menuIDs := make([]string, 0, len(req.Items))
