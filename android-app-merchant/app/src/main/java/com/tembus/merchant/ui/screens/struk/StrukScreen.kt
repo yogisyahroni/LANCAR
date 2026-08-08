@@ -1,8 +1,12 @@
 package com.tembus.merchant.ui.screens.struk
 
+import android.Manifest
+import android.bluetooth.BluetoothDevice
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfDocument
+import android.os.Build
 import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.ParcelFileDescriptor
@@ -11,6 +15,8 @@ import android.print.PrintAttributes
 import android.print.PrintDocumentAdapter
 import android.print.PrintDocumentInfo
 import android.print.PrintManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -19,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,11 +40,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.tembus.merchant.data.model.StrukData
+import com.tembus.merchant.data.printer.EscPos
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Primary
 import java.io.FileOutputStream
+import kotlinx.coroutines.launch
 
 /**
  * StrukScreen — tampilkan struk pembelian + QR handover token, cetak via
@@ -52,6 +62,38 @@ fun StrukScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // FB-096: cetak thermal bluetooth (ESC/POS)
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showPrinterPicker by remember { mutableStateOf(false) }
+    var printingThermal by remember { mutableStateOf(false) }
+    val bluetoothPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) showPrinterPicker = true
+        else scope.launch { snackbarHostState.showSnackbar("Izin Bluetooth ditolak") }
+    }
+    val openPrinterPicker = {
+        val perm = Manifest.permission.BLUETOOTH_CONNECT
+        val granted = Build.VERSION.SDK_INT < 31 ||
+            ContextCompat.checkSelfPermission(context, perm) == PackageManager.PERMISSION_GRANTED
+        if (granted) showPrinterPicker = true
+        else bluetoothPermissionLauncher.launch(perm)
+    }
+    val onPrintThermal: (BluetoothDevice) -> Unit = { device ->
+        scope.launch {
+            val struk = state.struk ?: return@launch
+            if (printingThermal) return@launch
+            printingThermal = true
+            val err = EscPos.print(device, struk)
+            printingThermal = false
+            snackbarHostState.showSnackbar(
+                if (err == null) "Struk terkirim ke ${device.name}"
+                else "Gagal cetak: $err"
+            )
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -63,7 +105,8 @@ fun StrukScreen(
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         when {
             state.isLoading -> {
@@ -104,6 +147,8 @@ fun StrukScreen(
                             printBitmap(context, bitmap, "Struk-${state.struk!!.orderNumber}")
                         }
                     },
+                    onPrintThermal = openPrinterPicker,
+                    printingThermal = printingThermal,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding)
@@ -111,6 +156,61 @@ fun StrukScreen(
             }
         }
     }
+
+    // FB-096: dialog pilih printer Bluetooth paired
+    if (showPrinterPicker) {
+        PrinterPickerDialog(
+            onDismiss = { showPrinterPicker = false },
+            onPick = { device ->
+                showPrinterPicker = false
+                onPrintThermal(device)
+            }
+        )
+    }
+}
+
+@Composable
+private fun PrinterPickerDialog(onDismiss: () -> Unit, onPick: (BluetoothDevice) -> Unit) {
+    val printers = remember { EscPos.pairedPrinters() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pilih Printer Bluetooth") },
+        text = {
+            if (printers.isEmpty()) {
+                Text(
+                    "Tidak ada printer Bluetooth ter-pairing. " +
+                        "Pairing dulu printer thermal di Settings → Bluetooth, lalu coba lagi."
+                )
+            } else {
+                Column {
+                    printers.forEach { device ->
+                        TextButton(
+                            onClick = { onPick(device) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                Icons.Filled.Bluetooth,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(device.name ?: "Printer", fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (printers.isEmpty()) {
+                TextButton(onClick = onDismiss) { Text("Tutup") }
+            }
+        },
+        dismissButton = {
+            if (printers.isNotEmpty()) {
+                TextButton(onClick = onDismiss) { Text("Batal") }
+            }
+        }
+    )
 }
 
 @Composable
@@ -118,6 +218,8 @@ private fun StrukContent(
     struk: StrukData,
     qrBitmap: android.graphics.Bitmap?,
     onPrint: () -> Unit,
+    onPrintThermal: () -> Unit,
+    printingThermal: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -264,7 +366,32 @@ private fun StrukContent(
         ) {
             Icon(Icons.Filled.Print, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Cetak Struk", style = MaterialTheme.typography.titleMedium)
+            Text("Cetak Struk (PDF / Printer Biasa)", style = MaterialTheme.typography.titleMedium)
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // FB-096: cetak langsung ke printer thermal Bluetooth (ESC/POS 58/80mm)
+        OutlinedButton(
+            onClick = onPrintThermal,
+            enabled = !printingThermal,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+        ) {
+            if (printingThermal) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Icon(Icons.Filled.Bluetooth, contentDescription = null, modifier = Modifier.size(20.dp))
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                if (printingThermal) "Mencetak..." else "Cetak Thermal (Bluetooth)",
+                style = MaterialTheme.typography.titleMedium
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
