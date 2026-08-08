@@ -69,6 +69,9 @@ func (r *foodDocsRepo) UpdateFoodDocs(ctx context.Context, m *domain.Merchant, d
 func (r *foodDocsRepo) ListOpenWithExpiredFoodDocs(ctx context.Context) ([]*domain.Merchant, error) {
 	return nil, nil
 }
+func (r *foodDocsRepo) ListForOperatingHoursSync(ctx context.Context) ([]*domain.Merchant, error) {
+	return nil, nil
+}
 
 func newFoodDocsService(repo domain.MerchantRepository) domain.MerchantService {
 	return service.NewMerchantService(repo, nil, nil, nil)

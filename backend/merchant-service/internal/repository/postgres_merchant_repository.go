@@ -348,3 +348,26 @@ func (r *postgresMerchantRepository) ListOpenWithExpiredFoodDocs(ctx context.Con
 	}
 	return out, rows.Err()
 }
+
+// ListForOperatingHoursSync — FB-095: merchant approved dengan jam_buka/jam_tutup
+// terisi → kandidat auto-toggle is_open sesuai jam operasional oleh worker.
+func (r *postgresMerchantRepository) ListForOperatingHoursSync(ctx context.Context) ([]*domain.Merchant, error) {
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT `+merchantColumns+` FROM merchants
+		WHERE verification_status = 'approved'
+		  AND jam_buka IS NOT NULL AND jam_tutup IS NOT NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []*domain.Merchant{}
+	for rows.Next() {
+		m, err := scanMerchant(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}

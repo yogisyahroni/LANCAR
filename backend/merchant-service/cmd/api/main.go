@@ -93,6 +93,10 @@ func main() {
 	foodDocsWorker := worker.NewFoodDocsExpiryWorker(merchantRepo)
 	foodDocsWorker.Start()
 
+	// FB-095: auto buka/tutup toko sesuai jam operasional (5 menit sekali)
+	hoursWorker := worker.NewOperatingHoursWorker(merchantRepo)
+	hoursWorker.Start()
+
 	// Router
 	mux := http.NewServeMux()
 

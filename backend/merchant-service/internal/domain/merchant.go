@@ -34,6 +34,43 @@ type Merchant struct {
 	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
+// FoodDocsReady — gate FB-092 untuk buka toko: (1) sertifikat halal terisi &
+// belum expired, DAN (2) salah satu SPP-IRT / izin edar BPOM terisi & belum
+// expired. Dipakai service ToggleOpen (pesan error detail) DAN worker
+// auto jam operasional (FB-095) supaya auto-buka tidak melanggar KYC.
+// Logika harus SINKRON dengan validateFoodDocsReady di service.
+func (m *Merchant) FoodDocsReady() bool {
+	now := time.Now().UTC()
+
+	hasHalal := m.HalalCertNumber != nil && *m.HalalCertNumber != "" &&
+		m.HalalExpiryDate != nil && *m.HalalExpiryDate != ""
+	if !hasHalal {
+		return false
+	}
+	if exp, err := time.Parse("2006-01-02", *m.HalalExpiryDate); err != nil || exp.Before(now) {
+		return false
+	}
+
+	hasSpp := m.SppIrtNumber != nil && *m.SppIrtNumber != "" &&
+		m.SppIrtExpiryDate != nil && *m.SppIrtExpiryDate != ""
+	hasBpom := m.BpomNumber != nil && *m.BpomNumber != "" &&
+		m.BpomExpiryDate != nil && *m.BpomExpiryDate != ""
+	if !hasSpp && !hasBpom {
+		return false
+	}
+	if hasSpp {
+		if exp, err := time.Parse("2006-01-02", *m.SppIrtExpiryDate); err == nil && exp.Before(now) {
+			return false
+		}
+	}
+	if hasBpom {
+		if exp, err := time.Parse("2006-01-02", *m.BpomExpiryDate); err == nil && exp.Before(now) {
+			return false
+		}
+	}
+	return true
+}
+
 // MerchantDocument — dokumen verifikasi (KTP pemilik, foto tempat usaha,
 // rekening bank; NIB/izin usaha opsional). Pola courier_documents doc_type/file_url.
 type MerchantDocument struct {
@@ -71,6 +108,9 @@ type MerchantRepository interface {
 	// ListOpenWithExpiredFoodDocs merchant is_open=true dengan dokumen pangan
 	// yang sudah kedaluwarsa (untuk worker auto-suspend FB-092).
 	ListOpenWithExpiredFoodDocs(ctx context.Context) ([]*Merchant, error)
+	// ListForOperatingHoursSync merchant approved dengan jam_buka/jam_tutup
+	// terisi — kandidat auto-toggle is_open sesuai jam operasional (FB-095).
+	ListForOperatingHoursSync(ctx context.Context) ([]*Merchant, error)
 }
 
 // Ensure sql import is used (tx helper di repository).
