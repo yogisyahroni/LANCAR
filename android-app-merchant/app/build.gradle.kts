@@ -203,6 +203,8 @@ dependencies {
 
     // Coil for image loading
     implementation("io.coil-kt:coil-compose:2.5.0")
+    // FB-093: peta OSM untuk pin lokasi saat registrasi (tanpa API key)
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

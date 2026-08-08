@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tembus.merchant.data.model.RegisterMerchantRequest
 import com.tembus.merchant.ui.appViewModel
+import com.tembus.merchant.ui.components.LocationPickerSection
 import com.tembus.merchant.ui.theme.Primary
 
 /**
@@ -37,6 +38,9 @@ fun RegistrationScreen(
     var alamat by remember { mutableStateOf("") }
     var jamBuka by remember { mutableStateOf("08:00") }
     var jamTutup by remember { mutableStateOf("21:00") }
+    // FB-093: lokasi toko WAJIB (pin di peta OSM)
+    var lokasiLat by remember { mutableStateOf<Double?>(null) }
+    var lokasiLng by remember { mutableStateOf<Double?>(null) }
     var ktpUrl by remember { mutableStateOf("") }
     var fotoTokoUrl by remember { mutableStateOf("") }
     var rekeningUrl by remember { mutableStateOf("") }
@@ -129,6 +133,19 @@ fun RegistrationScreen(
                     modifier = Modifier.weight(1f)
                 )
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // FB-093: lokasi toko wajib — pin di peta OSM
+            LocationPickerSection(
+                lat = lokasiLat,
+                lng = lokasiLng,
+                onChange = { newLat, newLng ->
+                    lokasiLat = newLat
+                    lokasiLng = newLng
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -244,6 +261,9 @@ fun RegistrationScreen(
                         RegisterMerchantRequest(
                             namaToko = namaToko.trim(),
                             alamat = alamat.trim(),
+                            // FB-093: lokasi wajib
+                            lokasiLat = lokasiLat,
+                            lokasiLng = lokasiLng,
                             jamBuka = jamBuka.trim().ifBlank { null },
                             jamTutup = jamTutup.trim().ifBlank { null },
                             ktpPemilikUrl = ktpUrl.trim(),
@@ -262,6 +282,8 @@ fun RegistrationScreen(
                 enabled = !state.isLoading &&
                     namaToko.isNotBlank() &&
                     alamat.isNotBlank() &&
+                    lokasiLat != null &&
+                    lokasiLng != null &&
                     ktpUrl.isNotBlank() &&
                     fotoTokoUrl.isNotBlank() &&
                     rekeningUrl.isNotBlank(),

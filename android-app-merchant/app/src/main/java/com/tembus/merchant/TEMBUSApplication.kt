@@ -32,5 +32,10 @@ class TEMBUSApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        // FB-093: inisialisasi osmdroid (user agent wajib, kalau tidak tile 403)
+        org.osmdroid.config.Configuration.getInstance().load(
+            this, android.preference.PreferenceManager.getDefaultSharedPreferences(this)
+        )
+        org.osmdroid.config.Configuration.getInstance().userAgentValue = packageName
     }
 }
