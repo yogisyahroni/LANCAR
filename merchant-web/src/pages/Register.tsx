@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { api } from '../lib/api'
 import { toast } from 'sonner'
+import LocationPicker from '../components/LocationPicker'
 
 // ─── Types ────────────────────────────────────────────────
 type FormData = {
@@ -20,8 +21,8 @@ type FormData = {
   address: string
   openHour: string
   closeHour: string
-  latitude: string
-  longitude: string
+  latitude: number | null
+  longitude: number | null
   // dokumen (file_url dari upload)
   ktpPemilikUrl: string
   fotoTempatUsahaUrl: string
@@ -32,7 +33,7 @@ type FormData = {
 const emptyForm: FormData = {
   businessType: 'perorangan',
   fullName: '', email: '', phoneNumber: '', password: '',
-  storeName: '', address: '', openHour: '08:00', closeHour: '22:00', latitude: '', longitude: '',
+  storeName: '', address: '', openHour: '08:00', closeHour: '22:00', latitude: null, longitude: null,
   ktpPemilikUrl: '', fotoTempatUsahaUrl: '', rekeningBankUrl: '', nibUrl: '',
 }
 
@@ -109,6 +110,7 @@ export default function Register() {
     if (step === 2) {
       if (form.storeName.trim().length < 3) return 'Nama toko minimal 3 karakter.'
       if (form.address.trim().length < 10) return 'Alamat terlalu pendek.'
+      if (form.latitude === null || form.longitude === null) return 'Tandai lokasi toko di peta (wajib).'
       return ''
     }
     if (step === 3) {
@@ -181,9 +183,9 @@ export default function Register() {
         foto_tempat_usaha_url: form.fotoTempatUsahaUrl,
         rekening_bank_url: form.rekeningBankUrl,
       }
-      if (form.latitude && form.longitude) {
-        payload.lokasi_lat = Number(form.latitude)
-        payload.lokasi_lng = Number(form.longitude)
+      if (form.latitude !== null && form.longitude !== null) {
+        payload.lokasi_lat = form.latitude
+        payload.lokasi_lng = form.longitude
       }
       if (form.nibUrl) payload.nib_url = form.nibUrl
 
@@ -327,10 +329,11 @@ export default function Register() {
                 <Field label="Jam buka" required value={form.openHour} onChange={update('openHour')} type="time" />
                 <Field label="Jam tutup" required value={form.closeHour} onChange={update('closeHour')} type="time" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Latitude (opsional)" value={form.latitude} onChange={update('latitude')} placeholder="-6.200000" />
-                <Field label="Longitude (opsional)" value={form.longitude} onChange={update('longitude')} placeholder="106.800000" />
-              </div>
+              <LocationPicker
+                lat={form.latitude}
+                lng={form.longitude}
+                onChange={(lat, lng) => setForm((f) => ({ ...f, latitude: lat, longitude: lng }))}
+              />
             </div>
           )}
 
@@ -357,6 +360,9 @@ export default function Register() {
                   ['Nama toko', form.storeName],
                   ['Alamat', form.address],
                   ['Jam operasional', `${form.openHour} – ${form.closeHour}`],
+                  ['Lokasi toko', form.latitude !== null && form.longitude !== null
+                    ? `${form.latitude.toFixed(6)}, ${form.longitude.toFixed(6)}`
+                    : 'Belum ditandai di peta'],
                 ].map(([label, value]) => (
                   <div key={label} className="flex items-start justify-between gap-6 border-b border-zinc-100 px-5 py-3.5 last:border-0">
                     <span className="text-sm text-zinc-500">{label}</span>
