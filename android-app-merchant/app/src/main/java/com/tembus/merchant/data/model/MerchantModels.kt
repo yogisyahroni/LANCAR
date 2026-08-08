@@ -15,6 +15,9 @@ data class Merchant(
     @SerializedName("is_open") val isOpen: Boolean = false,
     @SerializedName("completion_rate_pct") val completionRatePct: Double = 0.0,
     @SerializedName("verification_status") val verificationStatus: String = "pending",
+    // Rating restoran — di-update order-service tiap customer submit rating (FOOD-BIKE-059/060).
+    @SerializedName("avg_rating") val avgRating: Double = 0.0,
+    @SerializedName("rating_count") val ratingCount: Int = 0,
     @SerializedName("halal_cert_number") val halalCertNumber: String? = null,
     @SerializedName("halal_expiry_date") val halalExpiryDate: String? = null,
     @SerializedName("spp_irt_number") val sppIrtNumber: String? = null,

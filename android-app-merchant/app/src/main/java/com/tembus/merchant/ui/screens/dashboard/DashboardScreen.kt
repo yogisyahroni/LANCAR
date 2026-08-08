@@ -67,7 +67,8 @@ fun DashboardScreen(
         item {
             SummarySection(
                 report = state.report,
-                completionRate = state.merchant?.completionRatePct ?: 0.0
+                avgRating = state.merchant?.avgRating ?: 0.0,
+                ratingCount = state.merchant?.ratingCount ?: 0
             )
         }
 
@@ -225,7 +226,8 @@ private fun RevenueCard(report: com.tembus.merchant.data.model.SalesReportSummar
 @Composable
 private fun SummarySection(
     report: com.tembus.merchant.data.model.SalesReportSummary?,
-    completionRate: Double
+    avgRating: Double,
+    ratingCount: Int
 ) {
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
         Text(
@@ -246,8 +248,8 @@ private fun SummarySection(
                 modifier = Modifier.weight(1f)
             )
             SummaryCard(
-                value = "${completionRate.toInt()}%",
-                label = "Penyelesaian",
+                value = if (ratingCount > 0) "%.1f★".format(avgRating) else "—",
+                label = if (ratingCount > 0) "Rating ($ratingCount)" else "Rating Restoran",
                 modifier = Modifier.weight(1f)
             )
         }

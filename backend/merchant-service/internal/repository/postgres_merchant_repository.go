@@ -77,6 +77,7 @@ const merchantColumns = `id, user_id, nama_toko, alamat,
 	ST_Y(lokasi::geometry), ST_X(lokasi::geometry),
 	to_char(jam_buka, 'HH24:MI'), to_char(jam_tutup, 'HH24:MI'),
 	is_open, completion_rate_pct, verification_status,
+	avg_rating, rating_count,
 	halal_cert_number, to_char(halal_expiry_date, 'YYYY-MM-DD'),
 	spp_irt_number, to_char(spp_irt_expiry_date, 'YYYY-MM-DD'),
 	bpom_number, to_char(bpom_expiry_date, 'YYYY-MM-DD'),
@@ -86,17 +87,26 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	var m domain.Merchant
 	var lat, lng sql.NullFloat64
 	var jamBuka, jamTutup sql.NullString
+	var avgRating sql.NullFloat64
+	var ratingCount sql.NullInt64
 	var halalNo, halalExp, sppNo, sppExp, bpomNo, bpomExp sql.NullString
 	err := row.Scan(
 		&m.ID, &m.UserID, &m.NamaToko, &m.Alamat,
 		&lat, &lng,
 		&jamBuka, &jamTutup,
 		&m.IsOpen, &m.CompletionRatePct, &m.VerificationStatus,
+		&avgRating, &ratingCount,
 		&halalNo, &halalExp, &sppNo, &sppExp, &bpomNo, &bpomExp,
 		&m.CreatedAt, &m.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if avgRating.Valid {
+		m.AvgRating = avgRating.Float64
+	}
+	if ratingCount.Valid {
+		m.RatingCount = int(ratingCount.Int64)
 	}
 	if lat.Valid {
 		m.LokasiLat = &lat.Float64

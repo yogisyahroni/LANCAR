@@ -21,6 +21,10 @@ type Merchant struct {
 	IsOpen             bool       `json:"is_open"`
 	CompletionRatePct  float64    `json:"completion_rate_pct"`
 	VerificationStatus string     `json:"verification_status"`
+	// Rating restoran (FOOD-BIKE-059/060): di-update order-service tiap
+	// customer submit rating setelah order delivered.
+	AvgRating          float64    `json:"avg_rating"`
+	RatingCount        int        `json:"rating_count"`
 	// Dokumen pangan (FB-092): UU 33/2014 + PP 39/2021 (halal BPJPH),
 	// PerBPOM 4/2024 (SPP-IRT / izin edar BPOM). Opsional saat daftar,
 	// WAJIB lengkap & belum expired sebelum is_open = true.
