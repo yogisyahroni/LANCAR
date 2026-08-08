@@ -22,28 +22,31 @@ const (
 // MerchantSettlement adalah ledger escrow untuk setiap pembayaran payment link
 // yang menunggu release ke merchant setelah POD dikonfirmasi oleh 3PL.
 type MerchantSettlement struct {
-	ID                uuid.UUID        `json:"id"`
-	PaymentLinkID     string           `json:"payment_link_id"`
-	MerchantID        string           `json:"merchant_id"`
-	OrderID           string           `json:"order_id"`
-	GrossItemPriceIDR  int64            `json:"gross_item_price_idr"`
-	MerchantFeeIDR     int64            `json:"merchant_fee_idr"`
-	DisbursementFeeIDR int64            `json:"disbursement_fee_idr"`
-	NetPayoutIDR       int64            `json:"net_payout_idr"`
-	Status             SettlementStatus `json:"status"`
+	ID                 uuid.UUID `json:"id"`
+	PaymentLinkID      string    `json:"payment_link_id"`
+	MerchantID         string    `json:"merchant_id"`
+	OrderID            string    `json:"order_id"`
+	GrossItemPriceIDR  int64     `json:"gross_item_price_idr"`
+	MerchantFeeIDR     int64     `json:"merchant_fee_idr"`
+	DisbursementFeeIDR int64     `json:"disbursement_fee_idr"`
+	// MerchantPromoDiscountIDR (FB-101): potongan promo merchant (dibiayai
+	// merchant) — mengurangi payout merchant, BUKAN komisi PT.
+	MerchantPromoDiscountIDR int64            `json:"merchant_promo_discount_idr"`
+	NetPayoutIDR             int64            `json:"net_payout_idr"`
+	Status                   SettlementStatus `json:"status"`
 	// IdempotencyKey = "settle-" + payment_link_id (satu PL hanya satu settlement)
-	IdempotencyKey   string            `json:"idempotency_key"`
-	PODConfirmedAt   *time.Time        `json:"pod_confirmed_at,omitempty"`
-	HoldingReleaseAt *time.Time        `json:"holding_release_at,omitempty"`
-	SettledAt        *time.Time        `json:"settled_at,omitempty"`
-	DisbursementRef  string            `json:"disbursement_ref,omitempty"`
-	FailureReason    string            `json:"failure_reason,omitempty"`
-	RetryCount       int               `json:"retry_count"`
+	IdempotencyKey   string     `json:"idempotency_key"`
+	PODConfirmedAt   *time.Time `json:"pod_confirmed_at,omitempty"`
+	HoldingReleaseAt *time.Time `json:"holding_release_at,omitempty"`
+	SettledAt        *time.Time `json:"settled_at,omitempty"`
+	DisbursementRef  string     `json:"disbursement_ref,omitempty"`
+	FailureReason    string     `json:"failure_reason,omitempty"`
+	RetryCount       int        `json:"retry_count"`
 	// Metadata menyimpan audit trail: bank_snapshot pada saat disburse, admin_id jika manual
-	Metadata         map[string]any    `json:"metadata"`
-	CreatedByAdminID *uuid.UUID        `json:"created_by_admin_id,omitempty"`
-	CreatedAt        time.Time         `json:"created_at"`
-	UpdatedAt        time.Time         `json:"updated_at"`
+	Metadata         map[string]any `json:"metadata"`
+	CreatedByAdminID *uuid.UUID     `json:"created_by_admin_id,omitempty"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
 }
 
 // MerchantBankInfo adalah informasi rekening bank merchant
@@ -108,6 +111,14 @@ type MerchantSettlementRepository interface {
 
 	// UpdateOrderDeliveryConfirmed mengupdate order setelah POD dikonfirmasi.
 	UpdateOrderDeliveryConfirmed(ctx context.Context, orderID string, confirmedAt time.Time, podURL string) error
+
+	// ListFoodOrderItemsForPromo (FB-101): item order food (menu_item_id,
+	// harga, qty, subtotal) untuk kalkulasi potongan promo merchant.
+	ListFoodOrderItemsForPromo(ctx context.Context, orderID string) ([]FoodOrderItemForPromo, error)
+
+	// ListActiveMerchantPromos (FB-101): promo merchant aktif pada saat ini
+	// (is_active + window waktu) — untuk potongan payout settlement.
+	ListActiveMerchantPromos(ctx context.Context, merchantID string, now time.Time) ([]ActiveMerchantPromo, error)
 }
 
 // MerchantSettlementService mendefinisikan use-case untuk merchant escrow settlement.
@@ -156,7 +167,7 @@ type DeliveryConfirmedRequest struct {
 	PodURL      string    `json:"pod_url,omitempty"`
 	ConfirmedAt time.Time `json:"confirmed_at"`
 	// RawPayload menyimpan raw webhook body untuk audit trail
-	RawPayload  string    `json:"raw_payload,omitempty"`
+	RawPayload string `json:"raw_payload,omitempty"`
 }
 
 // FoodOrderSettlementData — data order food yang dibutuhkan untuk membuat
@@ -168,4 +179,20 @@ type FoodOrderSettlementData struct {
 	MerchantID     string
 	PlatformFeeIDR int64
 	GrossItemIDR   int64
+}
+
+// FoodOrderItemForPromo — baris item order food untuk kalkulasi promo (FB-101).
+type FoodOrderItemForPromo struct {
+	MenuItemID string
+	ItemPrice  int64
+	Quantity   int
+	Subtotal   int64
+}
+
+// ActiveMerchantPromo — snapshot promo merchant aktif (FB-101).
+type ActiveMerchantPromo struct {
+	MenuItemID     *string
+	DiscountType   string
+	DiscountValue  int64
+	MaxDiscountIDR *int64
 }

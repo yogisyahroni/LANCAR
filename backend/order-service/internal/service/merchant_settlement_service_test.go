@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"tembus/order-service/internal/domain"
@@ -41,6 +42,16 @@ func (m *mockSettlementRepo) GetByIdempotencyKey(ctx context.Context, key string
 func (m *mockSettlementRepo) Create(ctx context.Context, s *domain.MerchantSettlement) error {
 	m.created = append(m.created, s)
 	return nil
+}
+
+// FB-101: override 2 method promo — mock kosong (tanpa promo) biar
+// kalkulasi settlement test lama tetap berjalan.
+func (m *mockSettlementRepo) ListFoodOrderItemsForPromo(ctx context.Context, orderID string) ([]domain.FoodOrderItemForPromo, error) {
+	return nil, nil
+}
+
+func (m *mockSettlementRepo) ListActiveMerchantPromos(ctx context.Context, merchantID string, now time.Time) ([]domain.ActiveMerchantPromo, error) {
+	return nil, nil
 }
 
 type mockSettlementConfigRepo struct {
