@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material3.*
@@ -17,17 +18,19 @@ import androidx.compose.ui.unit.dp
 import com.tembus.merchant.ui.screens.home.HomeScreen
 import com.tembus.merchant.ui.screens.menu.MenuScreen
 import com.tembus.merchant.ui.screens.profile.ProfileScreen
+import com.tembus.merchant.ui.screens.promo.PromoScreen
 
 private data class MainTab(val label: String, val icon: ImageVector)
 
 private val tabs = listOf(
     MainTab("Pesanan", Icons.Filled.Home),
     MainTab("Menu", Icons.Filled.RestaurantMenu),
+    MainTab("Promo", Icons.Filled.LocalOffer),
     MainTab("Profil", Icons.Filled.Person)
 )
 
 /**
- * MainScreen — container 3 tab: Pesanan / Menu / Profil (bottom navigation).
+ * MainScreen — container 4 tab: Pesanan / Menu / Promo / Profil (bottom navigation).
  */
 @Composable
 fun MainScreen(
@@ -44,7 +47,8 @@ fun MainScreen(
                     onGoToRegistration = onGoToRegistration
                 )
                 1 -> MenuScreen()
-                2 -> ProfileScreen(
+                2 -> PromoScreen()
+                3 -> ProfileScreen(
                     onGoToRegistration = onGoToRegistration,
                     onLoggedOut = { /* logout di-handle NavHost via session flow */ }
                 )

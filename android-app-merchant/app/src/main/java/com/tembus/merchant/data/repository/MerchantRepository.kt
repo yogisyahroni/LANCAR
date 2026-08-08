@@ -49,6 +49,22 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun getStruk(orderId: String): Result<StrukData> =
         request { api.getStruk(orderId) }
 
+    // ── Promo merchant (FB-099/100) ──
+    suspend fun listPromos(page: Int = 1, pageSize: Int = 50): Result<List<MerchantPromo>> =
+        request { api.listPromos(page, pageSize) }.map { it.items }
+
+    suspend fun createPromo(req: MerchantPromoRequest): Result<MerchantPromo> =
+        request { api.createPromo(req) }
+
+    suspend fun updatePromo(id: String, req: MerchantPromoRequest): Result<MerchantPromo> =
+        request { api.updatePromo(id, req) }
+
+    suspend fun deletePromo(id: String): Result<Boolean> =
+        request { api.deletePromo(id) }.map { it.success }
+
+    suspend fun setPromoActive(id: String, active: Boolean): Result<Boolean> =
+        request { api.setPromoActive(id, PromoActiveRequest(active)) }.map { it.success }
+
     private suspend fun <T> request(block: suspend () -> retrofit2.Response<T>): Result<T> {
         return runCatching {
             val resp = block()

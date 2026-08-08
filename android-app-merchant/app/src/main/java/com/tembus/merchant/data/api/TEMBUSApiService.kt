@@ -88,4 +88,33 @@ interface TEMBUSApiService {
     suspend fun getStruk(
         @Path("id") id: String
     ): Response<StrukData>
+
+    // ── Promo merchant (FB-099/100): self-serve, tanpa approval admin ──
+    @GET("api/v1/merchant/promos")
+    suspend fun listPromos(
+        @Query("page") page: Int = 1,
+        @Query("page_size") pageSize: Int = 50
+    ): Response<PromoListResponse>
+
+    @POST("api/v1/merchant/promos")
+    suspend fun createPromo(
+        @Body request: MerchantPromoRequest
+    ): Response<MerchantPromo>
+
+    @PATCH("api/v1/merchant/promos/{id}")
+    suspend fun updatePromo(
+        @Path("id") id: String,
+        @Body request: MerchantPromoRequest
+    ): Response<MerchantPromo>
+
+    @DELETE("api/v1/merchant/promos/{id}")
+    suspend fun deletePromo(
+        @Path("id") id: String
+    ): Response<SuccessResponse>
+
+    @POST("api/v1/merchant/promos/{id}/active")
+    suspend fun setPromoActive(
+        @Path("id") id: String,
+        @Body request: PromoActiveRequest
+    ): Response<SuccessResponse>
 }

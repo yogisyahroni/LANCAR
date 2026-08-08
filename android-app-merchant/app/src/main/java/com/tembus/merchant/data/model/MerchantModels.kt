@@ -163,3 +163,41 @@ data class UpdateFoodDocsRequest(
     @SerializedName("bpom_number") val bpomNumber: String? = null,
     @SerializedName("bpom_expiry_date") val bpomExpiryDate: String? = null
 )
+
+// ── FB-098/099/100: Promo merchant (dibiayai merchant, bukan duit PT) ──
+/** Promo merchant — /api/v1/merchant/promos (self-serve, tanpa approval admin). */
+data class MerchantPromo(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("merchant_id") val merchantId: String = "",
+    @SerializedName("menu_item_id") val menuItemId: String? = null,
+    @SerializedName("discount_type") val discountType: String = "percent",
+    @SerializedName("discount_value") val discountValue: Long = 0,
+    @SerializedName("max_discount_idr") val maxDiscountIdr: Long? = null,
+    @SerializedName("starts_at") val startsAt: String = "",
+    @SerializedName("ends_at") val endsAt: String = "",
+    @SerializedName("is_active") val isActive: Boolean = true,
+    @SerializedName("created_at") val createdAt: String? = null,
+    @SerializedName("updated_at") val updatedAt: String? = null
+)
+
+/** Request buat promo. starts_at/ends_at RFC3339 (UTC). */
+data class MerchantPromoRequest(
+    @SerializedName("menu_item_id") val menuItemId: String? = null,
+    @SerializedName("discount_type") val discountType: String,
+    @SerializedName("discount_value") val discountValue: Long,
+    @SerializedName("max_discount_idr") val maxDiscountIdr: Long? = null,
+    @SerializedName("starts_at") val startsAt: String,
+    @SerializedName("ends_at") val endsAt: String
+)
+
+/** List wrapper promo: {items, total, page, page_size}. */
+data class PromoListResponse(
+    @SerializedName("items") val items: List<MerchantPromo> = emptyList(),
+    @SerializedName("total") val total: Int = 0,
+    @SerializedName("page") val page: Int = 1,
+    @SerializedName("page_size") val pageSize: Int = 20
+)
+
+data class PromoActiveRequest(
+    @SerializedName("is_active") val isActive: Boolean
+)
