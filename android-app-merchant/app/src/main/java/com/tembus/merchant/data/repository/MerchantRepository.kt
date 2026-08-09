@@ -53,6 +53,10 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun getSalesReport(period: String = "daily"): Result<SalesReportSummary> =
         request { api.getSalesReport(period) }
 
+    // ── Settlement / payout (FB-113) ──
+    suspend fun getSettlements(): Result<SettlementSummary> =
+        request { api.getSettlements() }
+
     // ── Promo merchant (FB-099/100) ──
     suspend fun listPromos(page: Int = 1, pageSize: Int = 50): Result<List<MerchantPromo>> =
         request { api.listPromos(page, pageSize) }.map { it.items }

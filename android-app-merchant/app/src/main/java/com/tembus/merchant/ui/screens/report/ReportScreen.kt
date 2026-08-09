@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.tembus.merchant.data.model.SalesReportSummary
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
+import com.tembus.merchant.ui.screens.settlement.SettlementScreen
 import com.tembus.merchant.ui.theme.Accent
 import com.tembus.merchant.ui.theme.GreenText
 import com.tembus.merchant.ui.theme.Primary
@@ -32,6 +35,13 @@ fun ReportScreen(
     viewModel: ReportViewModel = appViewModel { ReportViewModel(it.merchantRepository) }
 ) {
     val state by viewModel.uiState.collectAsState()
+
+    // FB-113: navigasi internal ke screen "Riwayat Pencairan".
+    var showSettlement by remember { mutableStateOf(false) }
+    if (showSettlement) {
+        SettlementScreen(onBack = { showSettlement = false })
+        return
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // Header hijau
@@ -155,6 +165,45 @@ fun ReportScreen(
 
             item {
                 SummaryCard(report = report)
+            }
+
+            // FB-113: pintu masuk ke riwayat pencairan/payout.
+            item {
+                Card(
+                    onClick = { showSettlement = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.AccountBalanceWallet,
+                            contentDescription = null,
+                            tint = Accent
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Riwayat Pencairan",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Status payout & settlement ke rekening",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }

@@ -153,6 +153,33 @@ data class SalesReportSummary(
     @SerializedName("top_items") val topItems: List<TopSellingItem> = emptyList()
 )
 
+// ── FB-113: Settlement / Payout Merchant ──
+// GET /api/v1/merchant/settlements — riwayat pencairan (backend cron 5 menit).
+
+/** SettlementRecord — satu baris riwayat pencairan. */
+data class SettlementRecord(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("order_id") val orderId: String = "",
+    @SerializedName("payment_link_id") val paymentLinkId: String = "",
+    @SerializedName("gross_item_price_idr") val grossItemPriceIdr: Long = 0,
+    @SerializedName("merchant_fee_idr") val merchantFeeIdr: Long = 0,
+    @SerializedName("promo_discount_idr") val promoDiscountIdr: Long = 0,
+    @SerializedName("net_payout_idr") val netPayoutIdr: Long = 0,
+    @SerializedName("status") val status: String = "HOLDING",
+    @SerializedName("holding_release_at") val holdingReleaseAt: String? = null,
+    @SerializedName("settled_at") val settledAt: String? = null,
+    @SerializedName("disbursement_ref") val disbursementRef: String? = null,
+    @SerializedName("failure_reason") val failureReason: String? = null,
+    @SerializedName("created_at") val createdAt: String = ""
+)
+
+/** SettlementSummary — total cair, total ditahan, + daftar riwayat. */
+data class SettlementSummary(
+    @SerializedName("total_idr") val totalIdr: Long = 0,
+    @SerializedName("holding_idr") val holdingIdr: Long = 0,
+    @SerializedName("records") val records: List<SettlementRecord> = emptyList()
+)
+
 /** Pendaftaran merchant — POST /api/v1/merchant/register. */
 data class RegisterMerchantRequest(
     @SerializedName("nama_toko") val namaToko: String,

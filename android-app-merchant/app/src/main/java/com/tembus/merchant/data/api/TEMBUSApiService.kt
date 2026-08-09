@@ -92,8 +92,12 @@ interface TEMBUSApiService {
     // ── Laporan penjualan (FB-086) ──
     @GET("api/v1/merchant/reports")
     suspend fun getSalesReport(
-        @Query("period") period: String = "daily"
+        @Query("period") period: String
     ): Response<SalesReportSummary>
+
+    // FB-113: riwayat pencairan/payout merchant.
+    @GET("api/v1/merchant/settlements")
+    suspend fun getSettlements(): Response<SettlementSummary>
 
     // ── Promo merchant (FB-099/100): self-serve, tanpa approval admin ──
     @GET("api/v1/merchant/promos")
