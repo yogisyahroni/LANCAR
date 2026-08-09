@@ -26,11 +26,13 @@ type MerchantOrderView struct {
 
 // FoodOrderItemView — item dalam order food (dari food_order_items snapshot).
 type FoodOrderItemView struct {
-	ItemName  string                     `json:"item_name"`
-	Quantity  int                        `json:"quantity"`
-	ItemPrice int64                      `json:"item_price"`
-	Subtotal  int64                      `json:"subtotal"`
-	Notes     string                     `json:"notes,omitempty"`
+	// FB-087: menu_item_id diperlukan UI edit order untuk PUT items baru.
+	MenuItemID string                     `json:"menu_item_id"`
+	ItemName   string                     `json:"item_name"`
+	Quantity   int                        `json:"quantity"`
+	ItemPrice  int64                      `json:"item_price"`
+	Subtotal   int64                      `json:"subtotal"`
+	Notes      string                     `json:"notes,omitempty"`
 	// FB-108-FIX: varian/opsi terpilih (snapshot saat order dibuat).
 	Variants []FoodOrderItemVariantView `json:"variants,omitempty"`
 }
@@ -99,6 +101,9 @@ type MerchantService interface {
 	ListSettlements(ctx context.Context, userID string) (*SettlementSummary, error)
 
 	// Edit order (FB-087)
+	// GetOrderEdit mengambil data order untuk layar edit merchant (status
+	// pending_merchant, items + harga lama). Dipakai UI sebelum PUT items.
+	GetOrderEdit(ctx context.Context, userID, orderID string) (*OrderEditData, error)
 	// EditOrderItems mengubah item order food sebelum konfirmasi merchant.
 	// Berlaku hanya status pending_merchant; nilai baru TIDAK boleh melebihi
 	// nilai order awal (Grab pattern). Notif push otomatis ke customer.

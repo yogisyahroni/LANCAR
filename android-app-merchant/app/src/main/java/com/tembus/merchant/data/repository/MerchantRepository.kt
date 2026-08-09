@@ -64,6 +64,13 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun rejectOrder(orderId: String, reason: String, rejectReason: String = "lainnya"): Result<Boolean> =
         request { api.rejectOrder(orderId, RejectOrderRequest(reason, rejectReason)) }.map { it.success }
 
+    // ── FB-087: Edit order items ──
+    suspend fun getOrderEdit(orderId: String): Result<OrderEditData> =
+        request { api.getOrderEdit(orderId) }
+
+    suspend fun editOrderItems(orderId: String, items: List<EditOrderItemRequest>): Result<EditOrderResult> =
+        request { api.editOrderItems(orderId, EditOrderItemsRequest(items)) }
+
     // FB-114: update rekening bank.
     suspend fun updateBankAccount(req: UpdateBankAccountRequest): Result<Merchant> =
         request { api.updateBankAccount(req) }

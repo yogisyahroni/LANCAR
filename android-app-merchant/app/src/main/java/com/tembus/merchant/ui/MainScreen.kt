@@ -42,6 +42,7 @@ fun MainScreen(
     onOpenStruk: (String) -> Unit,
     onOpenChat: (String, String) -> Unit, // FB-119
     onOpenVariants: (String) -> Unit, // FB-108
+    onOpenEditOrder: (String) -> Unit, // FB-087
     onGoToRegistration: () -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
@@ -58,6 +59,7 @@ fun MainScreen(
                 1 -> HomeScreen(
                     onOpenStruk = onOpenStruk,
                     onOpenChat = onOpenChat, // FB-119
+                    onOpenEditOrder = onOpenEditOrder, // FB-087
                     onGoToRegistration = onGoToRegistration
                 )
                 2 -> MenuScreen(onOpenVariants = onOpenVariants) // FB-108

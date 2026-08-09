@@ -19,6 +19,7 @@ import com.tembus.merchant.ui.screens.registration.RegistrationScreen
 import com.tembus.merchant.ui.screens.menu.VariantEditorScreen
 import com.tembus.merchant.ui.screens.menu.VariantEditorViewModel
 import com.tembus.merchant.ui.screens.struk.StrukScreen
+import com.tembus.merchant.ui.screens.home.EditOrderScreen
 import kotlinx.coroutines.launch
 
 object MerchantRoutes {
@@ -31,10 +32,13 @@ object MerchantRoutes {
     const val CHAT = "chat/{orderId}/{orderNumber}"
     // FB-108: editor varian menu item.
     const val VARIANTS = "variants/{menuItemId}"
+    // FB-087: edit item order food (pending_merchant).
+    const val EDIT_ORDER = "edit_order/{orderId}"
 
     fun struk(orderId: String) = "struk/$orderId"
     fun chat(orderId: String, orderNumber: String) = "chat/$orderId/$orderNumber"
     fun variants(menuItemId: String) = "variants/$menuItemId"
+    fun editOrder(orderId: String) = "edit_order/$orderId"
 }
 
 /**
@@ -114,6 +118,10 @@ fun AppNavHost() {
                 onOpenVariants = { menuItemId ->
                     navController.navigate(MerchantRoutes.variants(menuItemId))
                 },
+                // FB-087: edit item order food (pending_merchant).
+                onOpenEditOrder = { orderId ->
+                    navController.navigate(MerchantRoutes.editOrder(orderId))
+                },
                 onGoToRegistration = {
                     navController.navigate(MerchantRoutes.REGISTRATION)
                 }
@@ -127,6 +135,20 @@ fun AppNavHost() {
             StrukScreen(
                 orderId = backStackEntry.arguments?.getString("orderId").orEmpty(),
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        // FB-087: edit item order food (pending_merchant).
+        composable(
+            route = MerchantRoutes.EDIT_ORDER,
+            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            EditOrderScreen(
+                orderId = backStackEntry.arguments?.getString("orderId").orEmpty(),
+                onBack = { navController.popBackStack() },
+                onSaved = {
+                    navController.popBackStack()
+                }
             )
         }
 

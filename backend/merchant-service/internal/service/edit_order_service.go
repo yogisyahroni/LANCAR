@@ -22,6 +22,23 @@ import (
 // (auto-approve bila turun; naik = tolak). Notif push ke customer.
 // ─────────────────────────────────────────────
 
+// GetOrderEdit — FB-087: ambil data order untuk layar edit merchant.
+// Validasi sama dengan EditOrderItems (merchant terdaftar + approved,
+// order pending_merchant milik merchant). Return harga lama + items.
+func (s *merchantServiceImpl) GetOrderEdit(ctx context.Context, userID, orderID string) (*domain.OrderEditData, error) {
+	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m == nil {
+		return nil, errors.New("merchant belum terdaftar")
+	}
+	if m.VerificationStatus != "approved" {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	return s.orderRepo.GetOrderForEdit(ctx, m.ID, orderID)
+}
+
 // EditOrderItems — ganti/tambah/hapus item order food saat status
 // pending_merchant. Harga dihitung ulang server-side dari menu SEKARANG
 // (zero-trust, jangan percaya harga dari client).

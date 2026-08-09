@@ -188,7 +188,13 @@ func main() {
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/accept", middleware.BaseChain(h.AcceptOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/reject", middleware.BaseChain(h.RejectOrder))
 	mux.HandleFunc("/api/v1/merchant/orders/{id}/struk", middleware.BaseChain(h.GetStruk))
-	mux.HandleFunc("/api/v1/merchant/orders/{id}/items", middleware.BaseChain(h.EditOrderItems))
+	mux.HandleFunc("/api/v1/merchant/orders/{id}/items", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			h.GetOrderEdit(w, r)
+			return
+		}
+		h.EditOrderItems(w, r)
+	}))
 
 	// Report penjualan (FB-086)
 	mux.HandleFunc("/api/v1/merchant/reports", middleware.BaseChain(h.GetSalesReport))

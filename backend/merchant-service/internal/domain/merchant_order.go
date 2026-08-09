@@ -48,14 +48,14 @@ type FoodOrderItemSnapshot struct {
 // OrderEditData — data order untuk edit item oleh merchant (FB-087).
 // Hanya order status pending_merchant milik merchant yang boleh di-edit.
 type OrderEditData struct {
-	ID             string
-	Status         string
-	SubtotalOldIDR int64
-	DeliveryFeeIDR int64
-	PlatformFeeIDR int64
-	PlatformFeePct float64
-	DiscountIDR    int64
-	Items          []FoodOrderItemView
+	ID             string              `json:"order_id"`
+	Status         string              `json:"status"`
+	SubtotalOldIDR int64               `json:"subtotal_old_idr"`
+	DeliveryFeeIDR int64               `json:"delivery_fee_idr"`
+	PlatformFeeIDR int64               `json:"platform_fee_idr"`
+	PlatformFeePct float64             `json:"platform_fee_pct"`
+	DiscountIDR    int64               `json:"discount_idr"`
+	Items          []FoodOrderItemView `json:"items"`
 }
 
 // EditOrderResult — hasil edit item order (FB-087): harga baru terhitung.

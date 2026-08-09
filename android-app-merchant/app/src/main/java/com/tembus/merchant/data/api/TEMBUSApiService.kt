@@ -116,6 +116,18 @@ interface TEMBUSApiService {
         @Body request: RejectOrderRequest
     ): Response<SuccessResponse>
 
+    // ── FB-087: Edit order items ──
+    @GET("api/v1/merchant/orders/{id}/items")
+    suspend fun getOrderEdit(
+        @Path("id") id: String
+    ): Response<OrderEditData>
+
+    @PUT("api/v1/merchant/orders/{id}/items")
+    suspend fun editOrderItems(
+        @Path("id") id: String,
+        @Body request: EditOrderItemsRequest
+    ): Response<EditOrderResult>
+
     // ── Struk ──
     @GET("api/v1/merchant/orders/{id}/struk")
     suspend fun getStruk(

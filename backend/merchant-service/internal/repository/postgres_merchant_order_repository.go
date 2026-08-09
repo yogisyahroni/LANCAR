@@ -186,7 +186,7 @@ func queryItemsWithVariants(ctx context.Context, db *sql.DB, whereClause string,
 	default:
 		return nil, fmt.Errorf("queryItemsWithVariants: whereClause tidak dikenal")
 	}
-	q := `SELECT foi.id, foi.order_id, foi.item_name, foi.quantity, foi.item_price, foi.subtotal,
+	q := `SELECT foi.id, foi.order_id, COALESCE(foi.menu_item_id, ''), foi.item_name, foi.quantity, foi.item_price, foi.subtotal,
 	       COALESCE(foi.notes, ''),
 	       COALESCE(foiv.variant_name, ''), COALESCE(foiv.option_name, ''), COALESCE(foiv.price_delta, 0)
 	FROM food_order_items foi
@@ -205,7 +205,7 @@ func queryItemsWithVariants(ctx context.Context, db *sql.DB, whereClause string,
 		var itemID, orderID, notes, vName, oName string
 		var vDelta int64
 		var it domain.FoodOrderItemView
-		if err := rows.Scan(&itemID, &orderID, &it.ItemName, &it.Quantity, &it.ItemPrice, &it.Subtotal,
+		if err := rows.Scan(&itemID, &orderID, &it.MenuItemID, &it.ItemName, &it.Quantity, &it.ItemPrice, &it.Subtotal,
 			&notes, &vName, &oName, &vDelta); err != nil {
 			return nil, err
 		}

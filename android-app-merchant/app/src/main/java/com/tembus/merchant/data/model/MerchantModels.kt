@@ -172,6 +172,8 @@ data class MerchantOrder(
 )
 
 data class FoodOrderItem(
+    // FB-087: menu_item_id dari snapshot — dipakai UI edit order untuk PUT.
+    @SerializedName("menu_item_id") val menuItemId: String = "",
     @SerializedName("item_name") val itemName: String = "",
     @SerializedName("quantity") val quantity: Int = 1,
     @SerializedName("item_price") val itemPrice: Long = 0,
@@ -186,6 +188,40 @@ data class FoodOrderItemVariant(
     @SerializedName("variant_name") val variantName: String = "",
     @SerializedName("option_name") val optionName: String = "",
     @SerializedName("price_delta") val priceDelta: Long = 0
+)
+
+// ── FB-087: Edit order — GET/PUT /api/v1/merchant/orders/{id}/items ──
+
+/** OrderEditData — data order untuk layar edit merchant (items + harga lama). */
+data class OrderEditData(
+    @SerializedName("order_id") val orderId: String = "",
+    @SerializedName("status") val status: String = "",
+    @SerializedName("subtotal_old_idr") val subtotalOldIdr: Long = 0,
+    @SerializedName("delivery_fee_idr") val deliveryFeeIdr: Long = 0,
+    @SerializedName("platform_fee_idr") val platformFeeIdr: Long = 0,
+    @SerializedName("platform_fee_pct") val platformFeePct: Double = 0.0,
+    @SerializedName("discount_idr") val discountIdr: Long = 0,
+    @SerializedName("items") val items: List<FoodOrderItem> = emptyList()
+)
+
+/** EditOrderItemRequest — satu item dalam payload PUT edit order. */
+data class EditOrderItemRequest(
+    @SerializedName("menu_item_id") val menuItemId: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("notes") val notes: String? = null
+)
+
+/** EditOrderItemsRequest — body PUT edit order. */
+data class EditOrderItemsRequest(
+    @SerializedName("items") val items: List<EditOrderItemRequest>
+)
+
+/** EditOrderResult — respon PUT edit order (harga baru). */
+data class EditOrderResult(
+    @SerializedName("order_id") val orderId: String = "",
+    @SerializedName("subtotal_idr") val subtotalIdr: Long = 0,
+    @SerializedName("platform_fee_idr") val platformFeeIdr: Long = 0,
+    @SerializedName("total_idr") val totalIdr: Long = 0
 )
 
 /** List wrapper menu: {items, total, page, page_size}. */

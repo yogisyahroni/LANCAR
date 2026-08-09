@@ -639,6 +639,36 @@ func (h *MerchantHandler) GetSettlements(w http.ResponseWriter, r *http.Request)
 	h.respondJSON(w, http.StatusOK, summary)
 }
 
+// GetOrderEdit godoc
+// @Summary Ambil data order untuk edit item (FB-087)
+// @Description Return items + harga lama order food status pending_merchant milik merchant.
+// @Tags merchant
+// @Produce json
+// @Param id path string true "Order ID"
+// @Success 200 {object} domain.OrderEditData
+// @Router /merchant/orders/{id}/items [get]
+func (h *MerchantHandler) GetOrderEdit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	orderID := r.PathValue("id")
+	if orderID == "" {
+		h.respondError(w, http.StatusBadRequest, "order id wajib diisi")
+		return
+	}
+	data, err := h.svc.GetOrderEdit(r.Context(), userID, orderID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, data)
+}
+
 // EditOrderItems godoc
 // @Summary Edit item order food sebelum konfirmasi
 // @Description Merchant ganti/tambah/hapus item saat status pending_merchant. Nilai baru tidak boleh melebihi nilai order awal. Customer di-notif via push.

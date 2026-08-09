@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storefront
@@ -50,6 +51,7 @@ import java.time.format.DateTimeFormatter
 fun HomeScreen(
     onOpenStruk: (String) -> Unit,
     onOpenChat: (String, String) -> Unit, // FB-119
+    onOpenEditOrder: (String) -> Unit, // FB-087
     onGoToRegistration: () -> Unit,
     viewModel: HomeViewModel = appViewModel { HomeViewModel(it.merchantRepository, it.orderAlertNotifier) }
 ) {
@@ -160,6 +162,7 @@ fun HomeScreen(
                     isActionLoading = state.actionOrderId == order.id,
                     onAccept = { viewModel.acceptOrder(order.id) },
                     onReject = { rejectTarget = order },
+                    onOpenEdit = { onOpenEditOrder(order.id) }, // FB-087
                     onOpenStruk = { onOpenStruk(order.id) },
                     onOpenChat = { onOpenChat(order.id, order.orderNumber) } // FB-119
                 )
@@ -404,6 +407,7 @@ private fun OrderCard(
     isActionLoading: Boolean,
     onAccept: () -> Unit,
     onReject: () -> Unit,
+    onOpenEdit: () -> Unit, // FB-087: edit item order (pending_merchant)
     onOpenStruk: () -> Unit,
     onOpenChat: () -> Unit // FB-119: chat customer↔merchant
 ) {
@@ -511,6 +515,16 @@ private fun OrderCard(
             if (order.status == "pending_merchant") {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // FB-087: edit item order sebelum konfirmasi.
+                    OutlinedButton(
+                        onClick = onOpenEdit,
+                        enabled = !isActionLoading,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Edit")
+                    }
                     OutlinedButton(
                         onClick = onReject,
                         enabled = !isActionLoading,
