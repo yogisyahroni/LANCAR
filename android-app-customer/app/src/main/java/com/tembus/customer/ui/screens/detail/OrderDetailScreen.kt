@@ -84,12 +84,14 @@ fun OrderDetailScreen(
     }
 
     if (showDisputeDialog) {
+        val order = (state as? OrderDetailUiState.Success)?.order
         DisputeDialog(
             onDismiss = { showDisputeDialog = false },
             onSubmit = { type, desc, bytes, mime ->
                 viewModel.submitDispute(orderId, type, desc, bytes, mime)
             },
-            submitState = disputeState
+            submitState = disputeState,
+            isFood = order?.serviceSubType == "food_delivery"
         )
     }
 

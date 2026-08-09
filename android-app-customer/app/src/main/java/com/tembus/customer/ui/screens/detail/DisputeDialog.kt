@@ -28,10 +28,11 @@ import coil.compose.rememberAsyncImagePainter
 fun DisputeDialog(
     onDismiss: () -> Unit,
     onSubmit: (type: String, description: String, evidenceBytes: ByteArray?, evidenceMimeType: String?) -> Unit,
-    submitState: DisputeSubmitState
+    submitState: DisputeSubmitState,
+    isFood: Boolean = false
 ) {
     val context = LocalContext.current
-    var type by remember { mutableStateOf("lost_item") }
+    var type by remember { mutableStateOf(if (isFood) "makanan_tidak_sesuai" else "lost_item") }
     var description by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var imageBytes by remember { mutableStateOf<ByteArray?>(null) }
@@ -60,7 +61,18 @@ fun DisputeDialog(
         text = {
             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("Kategori Masalah", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                val categories = listOf("lost_item" to "Barang Hilang", "damaged" to "Barang Rusak", "other" to "Lainnya")
+                val categories = if (isFood) {
+                    listOf(
+                        "makanan_tidak_sesuai" to "Makanan Tidak Sesuai",
+                        "kurang_item" to "Item Kurang/Hilang",
+                        "kualitas_buruk" to "Makanan Basi/Rusak",
+                        "driver_ghosting_food" to "Driver Menghilang",
+                        "coerced_cancel" to "Dibatalkan Paksa",
+                        "other" to "Lainnya"
+                    )
+                } else {
+                    listOf("lost_item" to "Barang Hilang", "damaged" to "Barang Rusak", "other" to "Lainnya")
+                }
                 categories.forEach { (key, label) ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = type == key, onClick = { type = key })
@@ -76,8 +88,8 @@ fun DisputeDialog(
                     minLines = 3
                 )
 
-                if (type == "lost_item") {
-                    Text("Bukti Pembelian/Barang (Wajib)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
+                if (type == "lost_item" || isFood) {
+                    Text("Bukti Foto (Wajib)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
                 } else {
                     Text("Upload Bukti Foto", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
@@ -111,7 +123,9 @@ fun DisputeDialog(
             }
         },
         confirmButton = {
-            val isButtonEnabled = description.isNotBlank() && submitState !is DisputeSubmitState.Loading && (type != "lost_item" || (imageBytes != null && agreed))
+            // Food: bukti foto wajib (backend menolak food category tanpa evidence).
+            val evidenceRequired = type == "lost_item" || isFood
+            val isButtonEnabled = description.isNotBlank() && submitState !is DisputeSubmitState.Loading && (!evidenceRequired || (imageBytes != null && (type != "lost_item" || agreed)))
             Button(
                 onClick = { onSubmit(type, description, imageBytes, mimeType) },
                 enabled = isButtonEnabled,
