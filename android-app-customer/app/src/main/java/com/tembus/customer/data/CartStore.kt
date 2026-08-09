@@ -22,6 +22,9 @@ import javax.inject.Singleton
  * backstack entry, cart HILANG saat pindah FoodHome → FoodCart → Checkout.
  * Dengan CartStore singleton, semua screen (termasuk OrderHistory untuk
  * "Pesan Lagi") membaca/menulis keranjang yang sama.
+ *
+ * FB-102: cart divalidasi satu merchant — menambah item dari merchant lain
+ * ditolak (return Conflict) supaya checkout tidak campur 2 toko.
  */
 @Singleton
 class CartStore @Inject constructor() {
@@ -35,17 +38,37 @@ class CartStore @Inject constructor() {
     private val _cartTotal = MutableStateFlow(0L)
     val cartTotal: StateFlow<Long> = _cartTotal.asStateFlow()
 
+    // FB-102: nama merchant pemilik isi cart saat ini (null = cart kosong /
+    // berasal dari reorder yang tidak menyimpan nama merchant).
+    private val _cartMerchantName = MutableStateFlow<String?>(null)
+    val cartMerchantName: StateFlow<String?> = _cartMerchantName.asStateFlow()
+
     init {
         // Keep derived flows in sync with the cart whenever it changes.
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Default).launch {
             _cart.collect { list ->
                 _cartSize.value = list.sumOf { it.quantity }
                 _cartTotal.value = list.sumOf { it.subtotal }
+                if (list.isEmpty()) _cartMerchantName.value = null
             }
         }
     }
 
-    fun addToCart(item: FoodMenuItem, notes: String = "") {
+    /**
+     * FB-102: hasil tambah ke cart. [Added] sukses; [Conflict] ditolak karena
+     * cart sudah berisi item dari merchant lain (name = nama merchant lama).
+     */
+    sealed interface AddToCartResult {
+        data object Added : AddToCartResult
+        data class Conflict(val otherMerchantName: String?) : AddToCartResult
+    }
+
+    fun addToCart(item: FoodMenuItem, notes: String = "", merchantName: String? = null): AddToCartResult {
+        val currentMerchantId = _cart.value.firstOrNull()?.menuItem?.merchantId
+        if (currentMerchantId != null && currentMerchantId != item.merchantId) {
+            // Cart berisi merchant lain — tolak, biarkan UI konfirmasi dulu.
+            return AddToCartResult.Conflict(_cartMerchantName.value)
+        }
         _cart.update { current ->
             val existing = current.find { it.menuItem.id == item.id }
             if (existing != null) {
@@ -54,6 +77,10 @@ class CartStore @Inject constructor() {
                 current + CartItem(menuItem = item, quantity = 1, notes = notes)
             }
         }
+        if (merchantName != null && _cartMerchantName.value == null) {
+            _cartMerchantName.value = merchantName
+        }
+        return AddToCartResult.Added
     }
 
     fun incrementItem(itemId: String) {

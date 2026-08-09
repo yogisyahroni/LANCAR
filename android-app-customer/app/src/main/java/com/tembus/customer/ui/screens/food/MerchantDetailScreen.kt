@@ -24,12 +24,14 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Store
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -63,6 +65,7 @@ fun MerchantDetailScreen(
     val loading by viewModel.loading.collectAsState()
     val error by viewModel.error.collectAsState()
     val cartSize by viewModel.cartSize.collectAsState()
+    val conflict by viewModel.conflictRequest.collectAsState()
 
     LaunchedEffect(merchantId) {
         viewModel.loadMerchantDetail(merchantId)
@@ -215,12 +218,37 @@ fun MerchantDetailScreen(
                         }
                     } else {
                         items(m.menuItems, key = { it.id }) { item ->
-                            MenuItemRow(item = item, onAdd = { viewModel.addToCart(item) })
+                            MenuItemRow(item = item, onAdd = { viewModel.addToCart(item, merchantName = merchant?.name) })
                         }
                     }
                 }
             }
         }
+    }
+
+    // FB-102: konfirmasi ganti merchant — cart berisi item dari toko lain.
+    conflict?.let { c ->
+        AlertDialog(
+            onDismissRequest = { viewModel.resolveConflict(proceed = false) },
+            title = { Text("Ganti merchant?", fontWeight = FontWeight.ExtraBold) },
+            text = {
+                Text(
+                    "Keranjang kamu berisi item dari ${c.otherMerchantName ?: "merchant lain"}. " +
+                        "Mulai order baru dari ${c.newMerchantName ?: "merchant ini"}? " +
+                        "Item sebelumnya akan dihapus."
+                )
+            },
+            confirmButton = {
+                Button(onClick = { viewModel.resolveConflict(proceed = true) }) {
+                    Text("Mulai Order Baru", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.resolveConflict(proceed = false) }) {
+                    Text("Batal", color = Color(0xFF64748B))
+                }
+            }
+        )
     }
 }
 

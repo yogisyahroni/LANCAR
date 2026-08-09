@@ -118,7 +118,45 @@ class FoodViewModel @Inject constructor(
     }
 
     // ── Cart operations (FB-084: delegasi ke CartStore) ──
-    fun addToCart(item: FoodMenuItem, notes: String = "") = cartStore.addToCart(item, notes)
+
+    // FB-102: item yang ditolak karena cart berisi merchant lain (null = tidak
+    // ada konflik). UI menampilkan dialog konfirmasi sebelum clear cart.
+    data class CartConflictRequest(
+        val item: FoodMenuItem,
+        val notes: String,
+        val otherMerchantName: String?,
+        val newMerchantName: String?
+    )
+
+    private val _conflictRequest = MutableStateFlow<CartConflictRequest?>(null)
+    val conflictRequest: StateFlow<CartConflictRequest?> = _conflictRequest.asStateFlow()
+
+    fun addToCart(item: FoodMenuItem, notes: String = "", merchantName: String? = null) {
+        when (val result = cartStore.addToCart(item, notes, merchantName)) {
+            is CartStore.AddToCartResult.Conflict -> {
+                _conflictRequest.value = CartConflictRequest(
+                    item = item,
+                    notes = notes,
+                    otherMerchantName = result.otherMerchantName,
+                    newMerchantName = merchantName
+                )
+            }
+            CartStore.AddToCartResult.Added -> Unit
+        }
+    }
+
+    /**
+     * FB-102: hasil keputusan dialog konflik merchant. proceed=true → cart lama
+     * di-clear lalu item baru ditambahkan; false → batal, cart tetap utuh.
+     */
+    fun resolveConflict(proceed: Boolean) {
+        val request = _conflictRequest.value ?: return
+        _conflictRequest.value = null
+        if (proceed) {
+            cartStore.clearCart()
+            cartStore.addToCart(request.item, request.notes, request.newMerchantName)
+        }
+    }
 
     fun incrementItem(itemId: String) = cartStore.incrementItem(itemId)
 
