@@ -446,6 +446,11 @@ type OrderService interface {
 	GetOrder(ctx context.Context, orderID string) (*Order, error)
 	ListOrders(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, orderID string, status OrderStatus) error
+	// GetCourierIDByUserID — AUDIT-FIX m5: cari courier_profiles.id milik
+	// user (JWT) — dipakai handler untuk validasi kepemilikan order sebelum
+	// kurir mengubah status (sebelumnya kurir mana pun bisa ubah order mana
+	// pun, termasuk cancel order yang tidak di-assign ke dia).
+	GetCourierIDByUserID(ctx context.Context, userID string) (string, error)
 	UpdateDimensions(ctx context.Context, orderID string, length, width, height, weight *float64) error
 	AcceptOrder(ctx context.Context, orderID string, courierID string) error
 	FindAndAssignCourier(ctx context.Context, orderID string) error
@@ -513,6 +518,8 @@ type OrderRepository interface {
 	GetByBatchID(ctx context.Context, batchID string) ([]*Order, error)
 	ListByUserID(ctx context.Context, userID string, filter map[string]interface{}) ([]*Order, error)
 	UpdateStatus(ctx context.Context, id string, status OrderStatus) error
+	// GetCourierIDByUserID — AUDIT-FIX m5: courier_profiles.id milik user.
+	GetCourierIDByUserID(ctx context.Context, userID string) (string, error)
 	// UpdateOrderAWB menyimpan nomor AWB dan tracking URL ke order setelah AWB berhasil dibuat.
 	UpdateOrderAWB(ctx context.Context, orderID, awbNumber, trackingURL string) error
 	UpdateDimensions(ctx context.Context, id string, length, width, height, weight float64) error

@@ -397,6 +397,19 @@ func (r *postgresRepo) UpdateStatus(ctx context.Context, id string, status domai
 	return err
 }
 
+// GetCourierIDByUserID — AUDIT-FIX m5: ambil courier_profiles.id milik user.
+// Dipakai validasi kepemilikan: kurir hanya boleh update status order yang
+// courier_id-nya = profil dia.
+func (r *postgresRepo) GetCourierIDByUserID(ctx context.Context, userID string) (string, error) {
+	var courierID string
+	err := r.readDB.QueryRowContext(ctx,
+		`SELECT id FROM courier_profiles WHERE user_id = $1`, userID).Scan(&courierID)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return courierID, err
+}
+
 // UpdateOrderAWB menyimpan nomor AWB dan URL tracking ke tabel orders.
 // Dipanggil oleh payment_link_service setelah AWB berhasil dibuat via integration-gateway.
 func (r *postgresRepo) UpdateOrderAWB(ctx context.Context, orderID, awbNumber, trackingURL string) error {

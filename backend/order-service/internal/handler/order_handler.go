@@ -586,6 +586,26 @@ var courierOnlyStatuses = map[domain.OrderStatus]bool{
 	domain.StatusDelivered:           true, // Critical: courier fraud prevention
 }
 
+// cancellableStatuses — AUDIT-FIX m5: status yang masih boleh di-cancel
+// lewat endpoint generic /orders/status, berlaku untuk SEMUA role.
+// Order delivered (selesai, uang sudah pindah) dan cancelled (sudah batal,
+// refund sudah jalan) TIDAK boleh di-cancel lagi → anti-refund order selesai
+// & anti double-cancel. failed_delivery / return_to_sender tetap boleh
+// (order macet yang butuh resolver admin).
+var cancellableStatuses = map[domain.OrderStatus]bool{
+	domain.StatusPending:           true,
+	domain.StatusPendingPayment:    true,
+	domain.StatusPendingAssignment: true,
+	domain.StatusSearching:         true,
+	domain.StatusNoCourierFound:    true,
+	// FB-123: order terjadwal bisa dibatalkan kapanpun sebelum aktivasi
+	// (belum ada pihak lain yang mulai kerja).
+	domain.StatusScheduled:        true,
+	domain.StatusFailedDelivery:   true,
+	domain.StatusReturnToSender:   true,
+	domain.StatusPendingMerchant:  true, // food: masih menunggu merchant
+}
+
 // UpdateStatus godoc
 // @Summary Update order status (Courier/Admin)
 // @Description Update the status of an order
@@ -645,6 +665,16 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	isCustomer := role == "customer"
 
 	// ── Role-based state machine enforcement ──────────────────────────────
+	// AUDIT-FIX m5: validasi diperluas ke SEMUA role (bukan cuma customer):
+	//   • kurir hanya boleh ubah status order yang courier_id = profil dia
+	//     (sebelumnya kurir mana pun bisa ubah/cancel order mana pun);
+	//   • cancel tidak lagi "bebas" untuk admin/kurir — status order harus
+	//     dalam daftar cancellable (membunuh cancel order delivered →
+	//     refund order yang sudah selesai).
+	var targetOrder *domain.Order
+	if order, errGet := h.orderSvc.GetOrder(r.Context(), orderID); errGet == nil {
+		targetOrder = order
+	}
 	if courierOnlyStatuses[status] {
 		// Only couriers and admins may set delivery-lifecycle statuses.
 		// This is the primary fix for courier-fraud: customer cannot self-mark as delivered.
@@ -660,33 +690,56 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 				"Hanya kurir yang dapat mengubah status pengiriman ini", correlationID)
 			return
 		}
-	} else if status == domain.StatusCancelled {
-		// Customers can cancel but only their own orders
-		if isCustomer {
-			order, err := h.orderSvc.GetOrder(r.Context(), orderID)
-			if err != nil {
-				middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Order tidak ditemukan", correlationID)
+		// AUDIT-FIX m5: kurir wajib punya order ini (courier_id = profil dia).
+		if isCourier {
+			courierID, errC := h.orderSvc.GetCourierIDByUserID(r.Context(), userID)
+			if errC != nil || courierID == "" {
+				middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN",
+					"Profil kurir tidak ditemukan", correlationID)
 				return
 			}
-			if order.CustomerID != userID {
-				middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Akses ditolak", correlationID)
-				return
-			}
-			// Only allow cancellation before pickup
-			if order.Status != domain.StatusPending &&
-				order.Status != domain.StatusPendingPayment &&
-				order.Status != domain.StatusPendingAssignment &&
-				order.Status != domain.StatusSearching &&
-				order.Status != domain.StatusNoCourierFound &&
-				// FB-123: order terjadwal bisa dibatalkan customer kapanpun
-				// sebelum aktivasi (belum ada pihak lain yang mulai kerja).
-				order.Status != domain.StatusScheduled {
-				middleware.WriteError(w, http.StatusConflict, "ERR_CONFLICT",
-					"Order tidak dapat dibatalkan setelah proses pengambilan dimulai", correlationID)
+			if targetOrder == nil || targetOrder.CourierID == nil || *targetOrder.CourierID != courierID {
+				middleware.LogJSON("warn", "courier_not_assigned", middleware.StructuredFields{
+					"correlation_id": correlationID,
+					"order_id":       orderID,
+					"courier_id":     courierID,
+					"status":         string(status),
+				})
+				middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN",
+					"Order ini bukan tugas kurir kamu", correlationID)
 				return
 			}
 		}
-		// Admins and couriers can cancel freely
+	} else if status == domain.StatusCancelled {
+		if targetOrder == nil {
+			middleware.WriteError(w, http.StatusNotFound, "ERR_NOT_FOUND", "Order tidak ditemukan", correlationID)
+			return
+		}
+		// Kepemilikan: customer hanya order sendiri, kurir hanya order sendiri.
+		if isCustomer && targetOrder.CustomerID != userID {
+			middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN", "Akses ditolak", correlationID)
+			return
+		}
+		if isCourier {
+			courierID, errC := h.orderSvc.GetCourierIDByUserID(r.Context(), userID)
+			if errC != nil || courierID == "" {
+				middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN",
+					"Profil kurir tidak ditemukan", correlationID)
+				return
+			}
+			if targetOrder.CourierID == nil || *targetOrder.CourierID != courierID {
+				middleware.WriteError(w, http.StatusForbidden, "ERR_FORBIDDEN",
+					"Order ini bukan tugas kurir kamu", correlationID)
+				return
+			}
+		}
+		// Eligibility status untuk SEMUA role — tidak bisa cancel order yang
+		// sudah selesai/final (delivered) atau sudah batal (double cancel).
+		if !cancellableStatuses[targetOrder.Status] {
+			middleware.WriteError(w, http.StatusConflict, "ERR_CONFLICT",
+				"Order tidak dapat dibatalkan pada status ini", correlationID)
+			return
+		}
 	}
 	// ─────────────────────────────────────────────────────────────────────
 

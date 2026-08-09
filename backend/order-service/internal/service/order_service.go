@@ -573,13 +573,35 @@ func (s *orderServiceImpl) ListOrders(ctx context.Context, userID string, filter
 	return s.orderRepo.ListByUserID(ctx, userID, filter)
 }
 
+func (s *orderServiceImpl) GetCourierIDByUserID(ctx context.Context, userID string) (string, error) {
+	return s.orderRepo.GetCourierIDByUserID(ctx, userID)
+}
+
 func (s *orderServiceImpl) UpdateStatus(ctx context.Context, orderID string, status domain.OrderStatus) error {
 	// FB-081: tangkap status lama SEBELUM update — dipakai sbg original_status
 	// refund. Tanpa ini, order sudah berstatus cancelled saat refund dihitung
 	// → food cancel lewat jalur ini dihitung 0% (salah untuk pending_merchant dll).
 	var prevStatus domain.OrderStatus
-	if prevOrder, errPrev := s.orderRepo.GetByID(ctx, orderID); errPrev == nil && prevOrder != nil {
+	prevOrder, errPrev := s.orderRepo.GetByID(ctx, orderID)
+	if errPrev == nil && prevOrder != nil {
 		prevStatus = prevOrder.Status
+	}
+
+	// AUDIT-FIX m5: guard transisi terakhir (defense in depth) —
+	// 1) idempotent: target == status sekarang → no-op, JANGAN trigger
+	//    refund/event dua kali (order sudah cancelled, dana sudah kembali).
+	// 2) status final (delivered/cancelled) TIDAK boleh berubah lagi —
+	//    membunuh resurrection via endpoint generic (order delivered →
+	//    di-cancel → refund order selesai; order cancelled → di-delivered).
+	if prevOrder != nil {
+		if prevOrder.Status == status {
+			return nil
+		}
+		if (prevOrder.Status == domain.StatusDelivered || prevOrder.Status == domain.StatusCancelled) &&
+			status != prevOrder.Status {
+			return fmt.Errorf("order %s sudah berstatus final (%s), tidak bisa diubah ke %s",
+				orderID, prevOrder.Status, status)
+		}
 	}
 
 	err := s.orderRepo.UpdateStatus(ctx, orderID, status)

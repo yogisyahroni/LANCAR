@@ -70,6 +70,9 @@ func (m *mockOrderRepo) UpdateStatus(ctx context.Context, id string, status doma
 	}
 	return nil
 }
+func (m *mockOrderRepo) GetCourierIDByUserID(ctx context.Context, userID string) (string, error) {
+	return "courier-1", nil
+}
 func (m *mockOrderRepo) UpdateOrderAWB(ctx context.Context, orderID, awbNumber, trackingURL string) error {
 	return nil
 }
