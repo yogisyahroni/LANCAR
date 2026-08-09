@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertTriangle, CheckCircle2, Clock, ExternalLink, FileCheck2, Store, XCircle
+  AlertTriangle, CheckCircle2, Clock, ExternalLink, FileCheck2, Search, Store, X, XCircle
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { api } from '../lib/api'
@@ -33,6 +33,8 @@ export default function Merchants() {
   const [selected, setSelected] = useState<any>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [showReject, setShowReject] = useState(false)
+  // FB-125: text search cari merchant by nama/telepon/email.
+  const [search, setSearch] = useState('')
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-merchants', status],
@@ -80,6 +82,15 @@ export default function Merchants() {
   })
 
   const merchants = data || []
+  // FB-125: filter client-side by nama toko / telepon / email (case-insensitive).
+  const query = search.trim().toLowerCase()
+  const filtered = query
+    ? merchants.filter((m: any) =>
+        [m.nama_toko, m.phone, m.email, m.alamat].some((v) =>
+          String(v ?? '').toLowerCase().includes(query)
+        )
+      )
+    : merchants
   const active = selected || merchants[0]
   const documents = active ? (detail?.documents || []) : []
   const menuItems = active ? (detail?.menu_items || []) : []
@@ -114,15 +125,38 @@ export default function Merchants() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[420px_1fr]">
         <div className="rounded-3xl border border-white/10 bg-white/[0.03]">
           <div className="border-b border-white/10 p-5">
-            <p className="text-sm font-bold text-zinc-100">{merchants.length} merchant</p>
+            <p className="text-sm font-bold text-zinc-100">{filtered.length} merchant</p>
             <p className="mt-1 text-xs text-zinc-500">Klik merchant untuk membuka detail review.</p>
+            {/* FB-125: pencarian merchant by nama/telepon/email */}
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-zinc-950/60 px-3 py-2">
+              <Search className="h-4 w-4 shrink-0 text-zinc-500" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setSelected(null) }}
+                placeholder="Cari nama toko / telepon / email…"
+                className="w-full bg-transparent text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="text-zinc-500 hover:text-zinc-300"
+                  aria-label="Bersihkan pencarian"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
-          <div className="max-h-[680px] overflow-y-auto p-3">
+          <div className="max-h-[640px] overflow-y-auto p-3">
             {isLoading ? (
               <div className="p-6 text-sm text-zinc-500">Loading merchants...</div>
-            ) : merchants.length === 0 ? (
-              <div className="p-6 text-sm text-zinc-500">Belum ada merchant pada status ini.</div>
-            ) : merchants.map((item: any) => (
+            ) : filtered.length === 0 ? (
+              <div className="p-6 text-sm text-zinc-500">
+                {query ? 'Tidak ada merchant yang cocok dengan pencarian.' : 'Belum ada merchant pada status ini.'}
+              </div>
+            ) : filtered.map((item: any) => (
               <button
                 key={item.id}
                 type="button"
