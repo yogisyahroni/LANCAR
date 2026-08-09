@@ -482,6 +482,30 @@ func (h *MerchantHandler) ExportSalesReport(w http.ResponseWriter, r *http.Reque
 	_, _ = w.Write([]byte(csvData))
 }
 
+// GetSettlements godoc
+// @Summary Riwayat pencairan/payout merchant
+// @Description Daftar settlement (status, nominal, referensi) + total cair & ditahan.
+// @Tags merchant
+// @Produce json
+// @Success 200 {object} domain.SettlementSummary
+// @Router /merchant/settlements [get]
+func (h *MerchantHandler) GetSettlements(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	summary, err := h.svc.ListSettlements(r.Context(), userID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, summary)
+}
+
 // EditOrderItems godoc
 // @Summary Edit item order food sebelum konfirmasi
 // @Description Merchant ganti/tambah/hapus item saat status pending_merchant. Nilai baru tidak boleh melebihi nilai order awal. Customer di-notif via push.

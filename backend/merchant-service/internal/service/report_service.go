@@ -56,6 +56,38 @@ func (s *merchantServiceImpl) GetSalesReport(ctx context.Context, userID, period
 	return s.reportRepo.SalesReport(ctx, m.ID, p)
 }
 
+// ListSettlements — riwayat pencairan/payout merchant (FB-113).
+// Total cair = status COMPLETED; ditahan = HOLDING/PROCESSING.
+func (s *merchantServiceImpl) ListSettlements(ctx context.Context, userID string) (*domain.SettlementSummary, error) {
+	if s.reportRepo == nil {
+		return nil, errors.New("report repository not wired")
+	}
+	m, err := s.merchantRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m == nil {
+		return nil, errors.New("merchant belum terdaftar")
+	}
+	if m.VerificationStatus != "approved" {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	records, err := s.reportRepo.Settlements(ctx, m.ID, 50)
+	if err != nil {
+		return nil, err
+	}
+	summary := &domain.SettlementSummary{Records: records}
+	for _, rec := range records {
+		switch rec.Status {
+		case "COMPLETED":
+			summary.TotalIDR += rec.NetPayoutIDR
+		case "HOLDING", "PROCESSING":
+			summary.HoldingIDR += rec.NetPayoutIDR
+		}
+	}
+	return summary, nil
+}
+
 // ExportSalesReportCSV — baris transaksi periode dalam format CSV.
 // Header: order_number, created_at, status, item_name, quantity,
 // item_price_idr, subtotal_idr, order_total_idr.

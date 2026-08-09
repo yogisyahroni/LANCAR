@@ -176,6 +176,7 @@ func main() {
 	// Report penjualan (FB-086)
 	mux.HandleFunc("/api/v1/merchant/reports", middleware.BaseChain(h.GetSalesReport))
 	mux.HandleFunc("/api/v1/merchant/reports/export", middleware.BaseChain(h.ExportSalesReport))
+	mux.HandleFunc("/api/v1/merchant/settlements", middleware.BaseChain(h.GetSettlements))
 
 	// Health Check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

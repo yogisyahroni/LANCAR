@@ -81,6 +81,73 @@ func (r *postgresReportRepository) SalesReport(ctx context.Context, merchantID, 
 	return &summary, nil
 }
 
+// Settlements — riwayat pencairan merchant (FB-113), terbaru dulu.
+// Tanggal diformat ke string via TO_CHAR supaya scan sederhana.
+func (r *postgresReportRepository) Settlements(ctx context.Context, merchantID string, limit int) ([]*domain.SettlementRecord, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT ms.id,
+		       ms.order_id::text,
+		       ms.payment_link_id,
+		       ms.gross_item_price_idr,
+		       ms.merchant_fee_idr,
+		       COALESCE(ms.merchant_promo_discount_idr, 0),
+		       ms.net_payout_idr,
+		       ms.status,
+		       TO_CHAR(ms.holding_release_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		       TO_CHAR(ms.settled_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+		       ms.disbursement_ref,
+		       ms.failure_reason,
+		       TO_CHAR(ms.created_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
+		FROM merchant_settlements ms
+		WHERE ms.merchant_id = $1
+		ORDER BY ms.created_at DESC
+		LIMIT $2
+	`, merchantID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("settlements query: %w", err)
+	}
+	defer rows.Close()
+
+	records := []*domain.SettlementRecord{}
+	for rows.Next() {
+		var (
+			rec             domain.SettlementRecord
+			holding, settled sql.NullString
+		)
+		if err := rows.Scan(
+			&rec.ID,
+			&rec.OrderID,
+			&rec.PaymentLinkID,
+			&rec.GrossItemPriceIDR,
+			&rec.MerchantFeeIDR,
+			&rec.PromoDiscountIDR,
+			&rec.NetPayoutIDR,
+			&rec.Status,
+			&holding,
+			&settled,
+			&rec.DisbursementRef,
+			&rec.FailureReason,
+			&rec.CreatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan settlement: %w", err)
+		}
+		if holding.Valid {
+			rec.HoldingReleaseAt = &holding.String
+		}
+		if settled.Valid {
+			rec.SettledAt = &settled.String
+		}
+		records = append(records, &rec)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("settlements rows: %w", err)
+	}
+	return records, nil
+}
+
 func (r *postgresReportRepository) SalesReportRows(ctx context.Context, merchantID, period string) ([]*domain.SalesReportRow, error) {
 	filter := periodFilter(period)
 

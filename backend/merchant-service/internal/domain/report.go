@@ -44,4 +44,39 @@ type MerchantReportRepository interface {
 	SalesReport(ctx context.Context, merchantID, period string) (*SalesReportSummary, error)
 	// SalesReportRows ambil baris transaksi detail (untuk export CSV).
 	SalesReportRows(ctx context.Context, merchantID, period string) ([]*SalesReportRow, error)
+	// Settlements ambil riwayat pencairan/payout merchant (FB-113),
+	// terbaru dulu, dibatasi [limit] baris.
+	Settlements(ctx context.Context, merchantID string, limit int) ([]*SettlementRecord, error)
+}
+
+// ─────────────────────────────────────────────
+// FB-113 — Settlement / Payout Merchant
+// Riwayat pencairan dari tabel merchant_settlements (cron 5 menit).
+// Status: HOLDING → PROCESSING → COMPLETED | FAILED | DISPUTED.
+// ─────────────────────────────────────────────
+
+// SettlementRecord — satu baris riwayat pencairan merchant.
+type SettlementRecord struct {
+	ID                string  `json:"id"`
+	OrderID           string  `json:"order_id"`
+	PaymentLinkID     string  `json:"payment_link_id"`
+	GrossItemPriceIDR int64   `json:"gross_item_price_idr"`
+	MerchantFeeIDR    int64   `json:"merchant_fee_idr"`
+	PromoDiscountIDR  int64   `json:"promo_discount_idr,omitempty"`
+	NetPayoutIDR      int64   `json:"net_payout_idr"`
+	Status            string  `json:"status"`
+	HoldingReleaseAt  *string `json:"holding_release_at,omitempty"`
+	SettledAt         *string `json:"settled_at,omitempty"`
+	DisbursementRef   *string `json:"disbursement_ref,omitempty"`
+	FailureReason     *string `json:"failure_reason,omitempty"`
+	CreatedAt         string  `json:"created_at"`
+}
+
+// SettlementSummary — ringkasan + riwayat (respons endpoint settlements).
+type SettlementSummary struct {
+	// TotalIDR total yang sudah CAIR (COMPLETED).
+	TotalIDR int64               `json:"total_idr"`
+	// HoldingIDR total yang masih ditahan (HOLDING/PROCESSING).
+	HoldingIDR int64             `json:"holding_idr"`
+	Records    []*SettlementRecord `json:"records"`
 }

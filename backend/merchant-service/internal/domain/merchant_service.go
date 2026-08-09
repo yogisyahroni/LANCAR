@@ -65,6 +65,9 @@ type MerchantService interface {
 	GetSalesReport(ctx context.Context, userID, period string) (*SalesReportSummary, error)
 	// ExportSalesReportCSV export baris transaksi periode ke CSV (string).
 	ExportSalesReportCSV(ctx context.Context, userID, period string) (string, error)
+	// ListSettlements riwayat pencairan/payout merchant (FB-113):
+	// total cair, total ditahan, + daftar settlement terbaru.
+	ListSettlements(ctx context.Context, userID string) (*SettlementSummary, error)
 
 	// Edit order (FB-087)
 	// EditOrderItems mengubah item order food sebelum konfirmasi merchant.
