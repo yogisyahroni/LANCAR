@@ -873,6 +873,16 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          COALESCE(dsp.failed_delivery_policy, 'must_deliver') AS service_failed_delivery_policy,
          COALESCE(dsp.pod_label, 'POD') AS service_pod_label,
          NULLIF(COALESCE(o.package_details->>'description', o.customer_notes, o.pickup_notes, ''), '') AS item_description,
+         -- FB-105: rincian item food untuk driver app (snapshot food_order_items).
+         COALESCE((
+           SELECT jsonb_agg(jsonb_build_object(
+             'name', foi.item_name,
+             'quantity', foi.quantity,
+             'notes', foi.notes
+           ) ORDER BY foi.id)
+           FROM food_order_items foi
+           WHERE foi.order_id = o.id
+         ), '[]'::jsonb) AS food_items,
          NULLIF(o.package_details->>'length_cm', '')::float8 AS length,
          NULLIF(o.package_details->>'width_cm', '')::float8 AS width,
          NULLIF(o.package_details->>'height_cm', '')::float8 AS height,
@@ -1025,6 +1035,16 @@ const mobileOrderSelect = `
   COALESCE(dsp.failed_delivery_policy, 'must_deliver') AS service_failed_delivery_policy,
   COALESCE(dsp.pod_label, 'POD') AS service_pod_label,
   NULLIF(COALESCE(o.package_details->>'description', o.customer_notes, o.pickup_notes, ''), '') AS item_description,
+  -- FB-105: rincian item food untuk driver app (snapshot food_order_items).
+  COALESCE((
+    SELECT jsonb_agg(jsonb_build_object(
+      'name', foi.item_name,
+      'quantity', foi.quantity,
+      'notes', foi.notes
+    ) ORDER BY foi.id)
+    FROM food_order_items foi
+    WHERE foi.order_id = o.id
+  ), '[]'::jsonb) AS food_items,
   NULLIF(o.package_details->>'length_cm', '')::float8 AS length,
   NULLIF(o.package_details->>'width_cm', '')::float8 AS width,
   NULLIF(o.package_details->>'height_cm', '')::float8 AS height,

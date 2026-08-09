@@ -2751,7 +2751,16 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
       ORDER BY COALESCE(scanned_at, created_at) ASC
     `, [id]);
 
-    res.json({ success: true, order, events, proofs });
+    // FB-111: rincian item food untuk customer (snapshot food_order_items —
+    // harga beku saat order). Kosong [] untuk order non-food.
+    const { rows: foodItems } = await db.query(`
+      SELECT item_name AS name, quantity, notes, item_price AS price, subtotal
+      FROM food_order_items
+      WHERE order_id = $1
+      ORDER BY id ASC
+    `, [id]);
+
+    res.json({ success: true, order, events, proofs, food_items: foodItems });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
