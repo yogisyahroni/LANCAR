@@ -128,7 +128,8 @@ fun DashboardScreen(
     onProfileClick: () -> Unit = {}
 ) {
     val customerName by viewModel.customerName.collectAsState()
-    val activeOrder by viewModel.activeOrder.collectAsState()
+    // FB-126: list SEMUA order aktif (bisa >1: food + parcel).
+    val activeOrders by viewModel.activeOrders.collectAsState()
     val incomingPackages by viewModel.incomingPackages.collectAsState()
     val services by viewModel.services.collectAsState()
     val dataError by viewModel.dataError.collectAsState()
@@ -219,10 +220,13 @@ fun DashboardScreen(
                     )
                 }
             }
-            activeOrder?.let { order ->
-                item {
+            // FB-126: tampilkan SEMUA order aktif — kartu per order.
+            // (Backend tidak memblokir order food kedua, jadi banner
+            // tunggal tidak cukup kalau customer punya >1 order jalan.)
+            activeOrders.forEach { order ->
+                item(key = "active-${order.orderId}") {
                     ActiveOrderCard(
-                        title = "Pengiriman aktif",
+                        title = if (order.serviceSubType == "food_delivery") "Pesanan makanan aktif" else "Pengiriman aktif",
                         subtitle = order.dropAddress.ifBlank { order.pickupAddress.ifBlank { order.orderId } },
                         status = order.status,
                         hasUnreadMessage = hasUnreadMessages,
