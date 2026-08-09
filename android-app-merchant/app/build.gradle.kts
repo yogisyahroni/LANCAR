@@ -75,6 +75,14 @@ val debugBaseUrl = getConfigValue("DEBUG_BASE_URL")
     .ifBlank { getConfigValue("MOBILE_API_BASE_URL") }
     .ifBlank { "https://api.bawain.my.id/api/v1/" }  // SECURITY: Always HTTPS, never cleartext
 val debugBuildConfigBaseUrl = normalizedBaseUrl(debugBaseUrl)
+// ── Auto-update (FB-2026-08): GitHub Releases untuk debug/staging, backend contract utk release ──
+val githubReleasesApiUrl = getConfigValue("GITHUB_RELEASES_API_URL")
+    .ifBlank { "https://api.github.com/repos/yogisyahroni/LANCAR/releases" }
+val githubReleaseUpdatesEnabled = isEnabledFlag(getConfigValue("GITHUB_RELEASE_UPDATES_ENABLED").ifBlank { "true" })
+
+fun isEnabledFlag(value: String): Boolean {
+    return value.trim().lowercase() in setOf("1", "true", "yes", "on", "required")
+}
 val hasReleaseSigning = listOf(
     releaseKeystorePath,
     releaseKeystorePassword,
@@ -141,10 +149,18 @@ android {
             }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             buildConfigField("String", "BASE_URL", quoteBuildConfigString(releaseBuildConfigBaseUrl))
+            // SECURITY: Release builds use backend-only update contract.
+            buildConfigField("boolean", "GITHUB_RELEASE_UPDATES_ENABLED", "false")
+            buildConfigField("String", "GITHUB_RELEASES_API_URL", quoteBuildConfigString(githubReleasesApiUrl))
+            buildConfigField("String", "GITHUB_RELEASE_ASSET_NAME", quoteBuildConfigString("tembus-merchant-release.apk"))
         }
         debug {
             isMinifyEnabled = false
             buildConfigField("String", "BASE_URL", quoteBuildConfigString(debugBuildConfigBaseUrl))
+            // Debug/staging builds may sideload the latest APK from GitHub Releases.
+            buildConfigField("boolean", "GITHUB_RELEASE_UPDATES_ENABLED", githubReleaseUpdatesEnabled.toString())
+            buildConfigField("String", "GITHUB_RELEASES_API_URL", quoteBuildConfigString(githubReleasesApiUrl))
+            buildConfigField("String", "GITHUB_RELEASE_ASSET_NAME", quoteBuildConfigString("tembus-merchant-release.apk"))
         }
     }
 

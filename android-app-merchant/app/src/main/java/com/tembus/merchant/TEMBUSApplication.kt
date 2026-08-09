@@ -10,6 +10,7 @@ import com.tembus.merchant.data.repository.AuthRepository
 import com.tembus.merchant.data.repository.ChatRepository
 import com.tembus.merchant.data.repository.MerchantRepository
 import com.tembus.merchant.data.session.AuthSessionManager
+import com.tembus.merchant.util.UpdateManager
 
 /**
  * AppContainer — manual dependency injection (tanpa Hilt; pola ringan & langsung).
@@ -31,6 +32,9 @@ class AppContainer(context: Context) {
 
     // FB-106: alert suara/getar order baru (local notification dari polling).
     val orderAlertNotifier: OrderAlertNotifier = OrderAlertNotifier(appContext)
+
+    // Auto-update: GitHub Releases (debug/staging) + backend contract (release).
+    val updateManager: UpdateManager = UpdateManager(apiService, appContext)
 }
 
 class TEMBUSApplication : Application() {

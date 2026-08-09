@@ -10,6 +10,12 @@ import retrofit2.http.*
  */
 interface TEMBUSApiService {
 
+    // ── System (auto-update) ──
+    @GET("api/v1/system/latest-version")
+    suspend fun getLatestVersion(
+        @Query("type") type: String
+    ): Response<AppVersion>
+
     // ── Auth (auth-service, generic untuk semua role) ──
     @POST("api/v1/auth/customer/login/start")
     suspend fun login(

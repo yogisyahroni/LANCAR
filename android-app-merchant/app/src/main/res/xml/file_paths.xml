@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Auto-update: APK di-cache di cacheDir/updates lalu dibagikan ke installer. -->
+    <cache-path name="updates" path="updates/" />
+    <external-cache-path name="updates_ext" path="updates/" />
+</paths>

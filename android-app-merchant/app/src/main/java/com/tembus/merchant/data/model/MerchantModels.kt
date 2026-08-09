@@ -224,6 +224,17 @@ data class EditOrderResult(
     @SerializedName("total_idr") val totalIdr: Long = 0
 )
 
+// ── Auto-update (FB-2026-08): contract backend + GitHub Releases ──
+
+/** AppVersion — versi terbaru dari backend (GET api/v1/system/latest-version) atau GitHub Releases. */
+data class AppVersion(
+    @SerializedName("code") val code: Int,
+    @SerializedName("name") val name: String,
+    @SerializedName("force") val force: Boolean = false,
+    @SerializedName("update_url") val updateUrl: String,
+    @SerializedName("checksum_sha256") val checksumSha256: String? = null
+)
+
 /** List wrapper menu: {items, total, page, page_size}. */
 data class MenuListResponse(
     @SerializedName("items") val items: List<MenuItem> = emptyList(),
