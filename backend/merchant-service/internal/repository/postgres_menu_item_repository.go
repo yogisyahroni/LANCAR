@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"tembus/merchant-service/internal/domain"
 )
@@ -128,4 +129,147 @@ func (r *postgresMenuItemRepository) CountByMerchant(ctx context.Context, mercha
 	err := r.readDB.QueryRowContext(ctx, `
 		SELECT COUNT(*) FROM merchant_menu_items WHERE merchant_id = $1`, merchantID).Scan(&n)
 	return n, err
+}
+
+// ── FB-108: varian menu ──────────────────────────────────────────────────
+
+// GetVariantsByMenuItem — grup varian + opsi milik menu item (dengan
+// validasi kepemilikan merchant: menu item harus milik merchantID).
+func (r *postgresMenuItemRepository) GetVariantsByMenuItem(ctx context.Context, menuItemID, merchantID string) ([]*domain.MenuItemVariant, error) {
+	// Validasi kepemilikan dulu — menu item harus milik merchant ini.
+	var owner string
+	err := r.readDB.QueryRowContext(ctx,
+		`SELECT merchant_id::text FROM merchant_menu_items WHERE id = $1`, menuItemID).Scan(&owner)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("menu item tidak ditemukan")
+		}
+		return nil, err
+	}
+	if owner != merchantID {
+		return nil, fmt.Errorf("menu item bukan milik merchant ini")
+	}
+
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT id::text, menu_item_id::text, nama, is_required, min_select, max_select
+		FROM menu_item_variants
+		WHERE menu_item_id = $1
+		ORDER BY sort_order ASC, created_at ASC`, menuItemID)
+	if err != nil {
+		return nil, fmt.Errorf("query menu_item_variants: %w", err)
+	}
+	defer rows.Close()
+
+	var variants []*domain.MenuItemVariant
+	var variantIDs []string
+	for rows.Next() {
+		v := &domain.MenuItemVariant{}
+		if err := rows.Scan(&v.ID, &v.MenuItemID, &v.Nama, &v.IsRequired, &v.MinSelect, &v.MaxSelect); err != nil {
+			return nil, err
+		}
+		v.Options = []domain.MenuItemVariantOption{}
+		variants = append(variants, v)
+		variantIDs = append(variantIDs, v.ID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(variants) == 0 {
+		return []*domain.MenuItemVariant{}, nil
+	}
+
+	// Ambil semua opsi sekaligus
+	placeholders := make([]string, len(variantIDs))
+	args := make([]any, len(variantIDs))
+	for i, id := range variantIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+	optRows, err := r.readDB.QueryContext(ctx, fmt.Sprintf(`
+		SELECT id::text, variant_id::text, nama, price_delta, is_default
+		FROM menu_item_variant_options
+		WHERE variant_id IN (%s)
+		ORDER BY created_at ASC`, strings.Join(placeholders, ", ")), args...)
+	if err != nil {
+		return nil, fmt.Errorf("query menu_item_variant_options: %w", err)
+	}
+	defer optRows.Close()
+
+	byVariant := make(map[string][]domain.MenuItemVariantOption)
+	for optRows.Next() {
+		var o domain.MenuItemVariantOption
+		if err := optRows.Scan(&o.ID, &o.VariantID, &o.Nama, &o.PriceDelta, &o.IsDefault); err != nil {
+			return nil, err
+		}
+		byVariant[o.VariantID] = append(byVariant[o.VariantID], o)
+	}
+	if err := optRows.Err(); err != nil {
+		return nil, err
+	}
+	for _, v := range variants {
+		v.Options = byVariant[v.ID]
+	}
+	return variants, nil
+}
+
+// ReplaceVariants — replace semua varian menu item dalam SATU transaksi:
+// validasi kepemilikan → DELETE lama (CASCADE hapus opsi) → INSERT baru.
+func (r *postgresMenuItemRepository) ReplaceVariants(ctx context.Context, menuItemID, merchantID string, variants []*domain.MenuItemVariant) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var owner string
+	err = tx.QueryRowContext(ctx,
+		`SELECT merchant_id::text FROM merchant_menu_items WHERE id = $1 FOR UPDATE`, menuItemID).Scan(&owner)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("menu item tidak ditemukan")
+		}
+		return err
+	}
+	if owner != merchantID {
+		return fmt.Errorf("menu item bukan milik merchant ini")
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM menu_item_variants WHERE menu_item_id = $1`, menuItemID); err != nil {
+		return fmt.Errorf("delete variants lama: %w", err)
+	}
+
+	for gi, v := range variants {
+		if v.Nama == "" {
+			return fmt.Errorf("nama varian tidak boleh kosong")
+		}
+		if len(v.Options) == 0 {
+			return fmt.Errorf("varian %q minimal punya 1 opsi", v.Nama)
+		}
+		var variantID string
+		if err := tx.QueryRowContext(ctx, `
+			INSERT INTO menu_item_variants (menu_item_id, nama, is_required, min_select, max_select, sort_order)
+			VALUES ($1, $2, $3, $4, $5, $6) RETURNING id::text`,
+			menuItemID, v.Nama, v.IsRequired, v.MinSelect, v.MaxSelect, gi,
+		).Scan(&variantID); err != nil {
+			return fmt.Errorf("insert variant %q: %w", v.Nama, err)
+		}
+		for _, o := range v.Options {
+			if o.Nama == "" {
+				return fmt.Errorf("nama opsi tidak boleh kosong")
+			}
+			if o.PriceDelta < 0 {
+				return fmt.Errorf("price_delta tidak boleh negatif")
+			}
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO menu_item_variant_options (variant_id, nama, price_delta, is_default)
+				VALUES ($1, $2, $3, $4)`,
+				variantID, o.Nama, o.PriceDelta, o.IsDefault,
+			); err != nil {
+				return fmt.Errorf("insert option %q: %w", o.Nama, err)
+			}
+		}
+	}
+
+	return tx.Commit()
 }

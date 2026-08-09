@@ -16,6 +16,8 @@ import com.tembus.merchant.ui.screens.chat.ChatScreen
 import com.tembus.merchant.ui.screens.chat.ChatViewModel
 import com.tembus.merchant.ui.screens.onboarding.OnboardingScreen
 import com.tembus.merchant.ui.screens.registration.RegistrationScreen
+import com.tembus.merchant.ui.screens.menu.VariantEditorScreen
+import com.tembus.merchant.ui.screens.menu.VariantEditorViewModel
 import com.tembus.merchant.ui.screens.struk.StrukScreen
 import kotlinx.coroutines.launch
 
@@ -27,9 +29,12 @@ object MerchantRoutes {
     const val REGISTRATION = "registration"
     // FB-119: chat customer↔merchant per order.
     const val CHAT = "chat/{orderId}/{orderNumber}"
+    // FB-108: editor varian menu item.
+    const val VARIANTS = "variants/{menuItemId}"
 
     fun struk(orderId: String) = "struk/$orderId"
     fun chat(orderId: String, orderNumber: String) = "chat/$orderId/$orderNumber"
+    fun variants(menuItemId: String) = "variants/$menuItemId"
 }
 
 /**
@@ -105,6 +110,10 @@ fun AppNavHost() {
                 onOpenChat = { orderId, orderNumber ->
                     navController.navigate(MerchantRoutes.chat(orderId, orderNumber))
                 },
+                // FB-108: editor varian menu item.
+                onOpenVariants = { menuItemId ->
+                    navController.navigate(MerchantRoutes.variants(menuItemId))
+                },
                 onGoToRegistration = {
                     navController.navigate(MerchantRoutes.REGISTRATION)
                 }
@@ -152,6 +161,27 @@ fun AppNavHost() {
                 orderId = orderId,
                 orderNumber = orderNumber,
                 viewModel = chatViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        // FB-108: editor varian menu item (dari tab Menu).
+        composable(
+            route = MerchantRoutes.VARIANTS,
+            arguments = listOf(navArgument("menuItemId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val menuItemId = backStackEntry.arguments?.getString("menuItemId").orEmpty()
+            val variantViewModel: VariantEditorViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                key = "variants-$menuItemId",
+                factory = AppViewModelFactory {
+                    VariantEditorViewModel(
+                        merchantRepository = app.container.merchantRepository,
+                        menuItemId = menuItemId
+                    )
+                }
+            )
+            VariantEditorScreen(
+                viewModel = variantViewModel,
                 onBack = { navController.popBackStack() }
             )
         }

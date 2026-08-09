@@ -33,7 +33,32 @@ data class FoodMenuItem(
     @SerialName("is_available") val isAvailable: Boolean = true,
     @SerialName("prep_time_minutes") val prepTimeMinutes: Int = 10,
     @SerialName("kategori") val kategori: String? = null,
-    @SerialName("foto") val foto: String? = null
+    @SerialName("foto") val foto: String? = null,
+    // FB-108: grup varian menu (Ukuran, Level Pedas, Tambahan...).
+    // Kosong = item single-variant.
+    @SerialName("variants") val variants: List<MenuItemVariant> = emptyList()
+)
+
+// FB-108: grup varian menu item (dengan opsi-opsinya).
+@Serializable
+data class MenuItemVariant(
+    @SerialName("id") val id: String,
+    @SerialName("menu_item_id") val menuItemId: String = "",
+    @SerialName("nama") val nama: String,
+    @SerialName("is_required") val isRequired: Boolean = false,
+    @SerialName("min_select") val minSelect: Int = 0,
+    @SerialName("max_select") val maxSelect: Int = 1,
+    @SerialName("options") val options: List<MenuItemVariantOption> = emptyList()
+)
+
+// FB-108: satu opsi dalam grup varian (harga delta IDR).
+@Serializable
+data class MenuItemVariantOption(
+    @SerialName("id") val id: String,
+    @SerialName("variant_id") val variantId: String = "",
+    @SerialName("nama") val nama: String,
+    @SerialName("price_delta") val priceDelta: Long = 0,
+    @SerialName("is_default") val isDefault: Boolean = false
 )
 
 @Serializable
@@ -67,7 +92,16 @@ data class CreateFoodOrderRequest(
 data class FoodOrderItemRequest(
     @SerialName("menu_item_id") val menuItemId: String,
     @SerialName("quantity") val quantity: Int,
-    @SerialName("notes") val notes: String? = null
+    @SerialName("notes") val notes: String? = null,
+    // FB-108: pilihan varian yang dipilih (opsional).
+    @SerialName("variants") val variants: List<FoodOrderItemVariantRequest> = emptyList()
+)
+
+// FB-108: satu pilihan varian dalam request checkout.
+@Serializable
+data class FoodOrderItemVariantRequest(
+    @SerialName("variant_id") val variantId: String,
+    @SerialName("option_id") val optionId: String
 )
 
 // Response POST /orders/food — handler return Order object langsung
@@ -86,9 +120,25 @@ data class FoodOrderCreateResponse(
 data class CartItem(
     val menuItem: FoodMenuItem,
     val quantity: Int = 1,
-    val notes: String = ""
+    val notes: String = "",
+    // FB-108: pilihan varian yang dipilih customer (opsi per grup).
+    val selectedVariants: List<FoodOrderItemVariantRequest> = emptyList(),
+    // FB-108: label pilihan untuk ditampilkan (mis. "Level Pedas: Extra Pedas")
+    val variantLabels: List<String> = emptyList()
 ) {
-    val subtotal: Long get() = menuItem.price * quantity
+    // FB-108: harga satuan = harga dasar + total delta opsi terpilih.
+    val unitPrice: Long
+        get() = menuItem.price + selectedVariants.sumOf { sel ->
+            menuItem.variants.flatMap { v -> v.options }
+                .firstOrNull { it.id == sel.optionId }?.priceDelta ?: 0L
+        }
+
+    val subtotal: Long get() = unitPrice * quantity
+
+    // FB-108: key unik per kombinasi varian (untuk LazyColumn key).
+    val cartKey: String
+        get() = if (selectedVariants.isEmpty()) menuItem.id
+                else menuItem.id + "|" + selectedVariants.joinToString(",") { it.optionId }
 }
 
 // ============================================================

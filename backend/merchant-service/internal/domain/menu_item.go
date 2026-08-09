@@ -34,4 +34,30 @@ type MenuItemRepository interface {
 	Delete(ctx context.Context, id string, merchantID string) error
 	// CountByMerchant total menu (pagination).
 	CountByMerchant(ctx context.Context, merchantID string) (int, error)
+	// GetVariantsByMenuItem — FB-108: grup varian + opsi milik menu item.
+	GetVariantsByMenuItem(ctx context.Context, menuItemID, merchantID string) ([]*MenuItemVariant, error)
+	// ReplaceVariants — FB-108: replace SEMUA varian menu item dalam SATU
+	// transaksi (hapus lama + insert baru). Dipakai editor varian mobile.
+	ReplaceVariants(ctx context.Context, menuItemID, merchantID string, variants []*MenuItemVariant) error
+}
+
+// MenuItemVariant — grup varian menu (Ukuran, Level Pedas, Tambahan...).
+type MenuItemVariant struct {
+	ID         string                  `json:"id"`
+	MenuItemID string                  `json:"menu_item_id"`
+	Nama       string                  `json:"nama"`
+	IsRequired bool                    `json:"is_required"`
+	MinSelect  int                     `json:"min_select"`
+	MaxSelect  int                     `json:"max_select"`
+	SortOrder  int                     `json:"sort_order"`
+	Options    []MenuItemVariantOption `json:"options"`
+}
+
+// MenuItemVariantOption — satu opsi dalam grup varian (harga delta IDR).
+type MenuItemVariantOption struct {
+	ID         string `json:"id"`
+	VariantID  string `json:"variant_id"`
+	Nama       string `json:"nama"`
+	PriceDelta int64  `json:"price_delta"`
+	IsDefault  bool   `json:"is_default"`
 }

@@ -18,6 +18,19 @@ data class CourierOrderFoodItem(
     val quantity: Int = 1,
     @SerialName("notes")
     val notes: String? = null,
+    // FB-108: pilihan varian yang dipilih customer (mis. "Level Pedas: Extra
+    // Pedas") — driver harus tahu persis apa yang diserah terima merchant.
+    @SerialName("variants")
+    val variants: List<CourierOrderItemVariantSnapshot> = emptyList(),
+)
+
+// FB-108: snapshot satu pilihan varian untuk driver.
+@Serializable
+data class CourierOrderItemVariantSnapshot(
+    @SerialName("variant_name")
+    val variantName: String = "",
+    @SerialName("option_name")
+    val optionName: String = "",
 )
 
 @Serializable

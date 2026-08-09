@@ -874,11 +874,23 @@ export const getMobileCourierOrders = async (req: Request, res: Response) => {
          COALESCE(dsp.pod_label, 'POD') AS service_pod_label,
          NULLIF(COALESCE(o.package_details->>'description', o.customer_notes, o.pickup_notes, ''), '') AS item_description,
          -- FB-105: rincian item food untuk driver app (snapshot food_order_items).
+         -- FB-108: + variants (nama grup/opsi + harga delta) supaya driver tahu
+         -- pilihan yang harus diserahkan (mis. "Level Pedas: Extra Pedas").
          COALESCE((
            SELECT jsonb_agg(jsonb_build_object(
              'name', foi.item_name,
              'quantity', foi.quantity,
-             'notes', foi.notes
+             'notes', foi.notes,
+             'price', foi.item_price,
+             'variants', COALESCE((
+               SELECT jsonb_agg(jsonb_build_object(
+                 'variant_name', foiv.variant_name,
+                 'option_name', foiv.option_name,
+                 'price_delta', foiv.price_delta
+               ) ORDER BY foiv.id)
+               FROM food_order_item_variants foiv
+               WHERE foiv.order_item_id = foi.id
+             ), '[]'::jsonb)
            ) ORDER BY foi.id)
            FROM food_order_items foi
            WHERE foi.order_id = o.id
@@ -1036,11 +1048,23 @@ const mobileOrderSelect = `
   COALESCE(dsp.pod_label, 'POD') AS service_pod_label,
   NULLIF(COALESCE(o.package_details->>'description', o.customer_notes, o.pickup_notes, ''), '') AS item_description,
   -- FB-105: rincian item food untuk driver app (snapshot food_order_items).
+  -- FB-108: + variants (nama grup/opsi + harga delta) supaya driver tahu
+  -- pilihan yang harus diserahkan (mis. "Level Pedas: Extra Pedas").
   COALESCE((
     SELECT jsonb_agg(jsonb_build_object(
       'name', foi.item_name,
       'quantity', foi.quantity,
-      'notes', foi.notes
+      'notes', foi.notes,
+      'price', foi.item_price,
+      'variants', COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'variant_name', foiv.variant_name,
+          'option_name', foiv.option_name,
+          'price_delta', foiv.price_delta
+        ) ORDER BY foiv.id)
+        FROM food_order_item_variants foiv
+        WHERE foiv.order_item_id = foi.id
+      ), '[]'::jsonb)
     ) ORDER BY foi.id)
     FROM food_order_items foi
     WHERE foi.order_id = o.id

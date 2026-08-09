@@ -338,6 +338,9 @@ func (m *mockFoodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (
 func (m *mockFoodRepo) GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]domain.FoodMenuItemInfo, error) {
 	return nil, nil
 }
+func (m *mockFoodRepo) GetMenuItemVariants(ctx context.Context, menuIDs []string) (map[string][]domain.MenuItemVariant, error) {
+	return map[string][]domain.MenuItemVariant{}, nil
+}
 func (m *mockFoodRepo) CreateFoodOrderWithItems(ctx context.Context, order *domain.Order, items []domain.FoodOrderItem) error {
 	return nil
 }

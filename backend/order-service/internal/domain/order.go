@@ -168,6 +168,15 @@ type FoodOrderItemRequest struct {
 	MenuID   string `json:"menu_item_id" validate:"required"`
 	Quantity int    `json:"quantity" validate:"required,min=1,max=99"`
 	Notes    string `json:"notes,omitempty"`
+	// FB-108: pilihan varian (opsional). Harga delta dihitung server-side
+	// dari menu_item_variant_options — client TIDAK kirim harga.
+	Variants []FoodOrderItemVariantRequest `json:"variants,omitempty"`
+}
+
+// FoodOrderItemVariantRequest — satu pilihan varian yang dipilih customer.
+type FoodOrderItemVariantRequest struct {
+	VariantID string `json:"variant_id" validate:"required"`
+	OptionID  string `json:"option_id" validate:"required"`
 }
 
 type CreateFoodOrderRequest struct {
@@ -203,6 +212,17 @@ type FoodOrderItem struct {
 	Quantity   int    `json:"quantity"`
 	Notes      string `json:"notes,omitempty"`
 	Subtotal   int64  `json:"subtotal"`
+	// FB-108: snapshot pilihan varian (nama + price_delta beku saat order).
+	Variants []FoodOrderItemVariant `json:"variants,omitempty"`
+}
+
+// FoodOrderItemVariant — snapshot satu pilihan varian di item order.
+type FoodOrderItemVariant struct {
+	VariantID   string `json:"variant_id"`
+	OptionID    string `json:"option_id"`
+	VariantName string `json:"variant_name"`
+	OptionName  string `json:"option_name"`
+	PriceDelta  int64  `json:"price_delta"`
 }
 
 // FoodMerchantInfo — data merchant yang dibutuhkan order-service untuk
@@ -239,6 +259,29 @@ type FoodMenuItemInfo struct {
 	// FOOD-BIKE-055/056: field UI tambahan
 	Kategori *string `json:"kategori,omitempty"`
 	Foto     *string `json:"foto,omitempty"`
+	// FB-108: grup varian menu (Ukuran, Level Pedas, Tambahan, ...).
+	// Kosong [] = item single-variant (perilaku lama).
+	Variants []MenuItemVariant `json:"variants,omitempty"`
+}
+
+// MenuItemVariant — grup varian sebuah menu item (dengan opsi-opsinya).
+type MenuItemVariant struct {
+	ID         string                 `json:"id"`
+	MenuID     string                 `json:"menu_item_id"`
+	Nama       string                 `json:"nama"`
+	IsRequired bool                   `json:"is_required"`
+	MinSelect  int                    `json:"min_select"`
+	MaxSelect  int                    `json:"max_select"`
+	Options    []MenuItemVariantOption `json:"options"`
+}
+
+// MenuItemVariantOption — satu opsi dalam grup varian (harga delta IDR).
+type MenuItemVariantOption struct {
+	ID         string `json:"id"`
+	VariantID  string `json:"variant_id"`
+	Nama       string `json:"nama"`
+	PriceDelta int64  `json:"price_delta"`
+	IsDefault  bool   `json:"is_default"`
 }
 
 // ── FB-084 REORDER — validasi ulang item order lama sebelum "Pesan Lagi" ──
@@ -274,6 +317,9 @@ type ReorderCheckResult struct {
 type FoodRepository interface {
 	GetFoodMerchant(ctx context.Context, merchantID string) (*FoodMerchantInfo, error)
 	GetFoodMenuItems(ctx context.Context, menuIDs []string) ([]FoodMenuItemInfo, error)
+	// GetMenuItemVariants — FB-108: ambil grup varian + opsi untuk menu IDs.
+	// Map key = menu_item_id. Item tanpa varian tidak ada di map.
+	GetMenuItemVariants(ctx context.Context, menuIDs []string) (map[string][]MenuItemVariant, error)
 	CreateFoodOrderWithItems(ctx context.Context, order *Order, items []FoodOrderItem) error
 	// GetFoodOrderItems — snapshot item food sebuah order (harga beku saat order,
 	// dipakai refund partial per item FB-080).

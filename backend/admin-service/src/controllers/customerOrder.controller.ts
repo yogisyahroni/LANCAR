@@ -403,10 +403,19 @@ const getCustomerOrderPaymentRow = async (customerId: string, orderId: string) =
   // FOOD-BIKE-076: breakdown multi-item untuk order food (merchant_id terisi)
   if (rows[0].merchant_id) {
     const itemRows = await db.query(
-      `SELECT item_name, item_price, quantity, notes, subtotal
-         FROM food_order_items
+      `SELECT item_name, item_price, quantity, notes, subtotal,
+              COALESCE((
+                SELECT jsonb_agg(jsonb_build_object(
+                  'variant_name', foiv.variant_name,
+                  'option_name', foiv.option_name,
+                  'price_delta', foiv.price_delta
+                ) ORDER BY foiv.id)
+                FROM food_order_item_variants foiv
+                WHERE foiv.order_item_id = foi.id
+              ), '[]'::jsonb) AS variants
+         FROM food_order_items foi
         WHERE order_id = $1
-        ORDER BY created_at ASC`,
+        ORDER BY foi.created_at ASC`,
       [orderId]
     );
     rows[0].items = itemRows.rows;
@@ -1655,10 +1664,19 @@ const completeCustomerLapayPayment = async (customerId: string, orderId: string)
     // FOOD-BIKE-076: breakdown item makanan (flow LAPAY)
     if (order.merchant_id) {
       const itemRows = await client.query(
-        `SELECT item_name, item_price, quantity, notes, subtotal
-           FROM food_order_items
+        `SELECT item_name, item_price, quantity, notes, subtotal,
+                COALESCE((
+                  SELECT jsonb_agg(jsonb_build_object(
+                    'variant_name', foiv.variant_name,
+                    'option_name', foiv.option_name,
+                    'price_delta', foiv.price_delta
+                  ) ORDER BY foiv.id)
+                  FROM food_order_item_variants foiv
+                  WHERE foiv.order_item_id = foi.id
+                ), '[]'::jsonb) AS variants
+           FROM food_order_items foi
           WHERE order_id = $1
-          ORDER BY created_at ASC`,
+          ORDER BY foi.created_at ASC`,
         [orderId]
       );
       order.items = itemRows.rows;
@@ -2753,11 +2771,22 @@ export const getCustomerOrderById = async (req: Request, res: Response): Promise
 
     // FB-111: rincian item food untuk customer (snapshot food_order_items —
     // harga beku saat order). Kosong [] untuk order non-food.
+    // FB-108: + variants (nama grup/opsi + harga delta) supaya customer
+    // bisa lihat kembali pilihan yang dipesan.
     const { rows: foodItems } = await db.query(`
-      SELECT item_name AS name, quantity, notes, item_price AS price, subtotal
-      FROM food_order_items
+      SELECT item_name AS name, quantity, notes, item_price AS price, subtotal,
+             COALESCE((
+               SELECT jsonb_agg(jsonb_build_object(
+                 'variant_name', foiv.variant_name,
+                 'option_name', foiv.option_name,
+                 'price_delta', foiv.price_delta
+               ) ORDER BY foiv.id)
+               FROM food_order_item_variants foiv
+               WHERE foiv.order_item_id = foi.id
+             ), '[]'::jsonb) AS variants
+      FROM food_order_items foi
       WHERE order_id = $1
-      ORDER BY id ASC
+      ORDER BY foi.id ASC
     `, [id]);
 
     res.json({ success: true, order, events, proofs, food_items: foodItems });

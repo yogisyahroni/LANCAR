@@ -223,6 +223,17 @@ fun OrderDetailScreen(
                                             )
                                             Column(modifier = Modifier.weight(1f)) {
                                                 Text(item.name, fontWeight = FontWeight.SemiBold, color = OnSurface)
+                                                // FB-108: tampilkan pilihan varian yang dipilih
+                                                // (mis. "Level Pedas: Extra Pedas").
+                                                if (!item.variants.isNullOrEmpty()) {
+                                                    Text(
+                                                        item.variants.joinToString(" · ") { v ->
+                                                            "${v.variantName ?: ""}${if (v.variantName.isNullOrBlank()) "" else ": "}${v.optionName ?: ""}"
+                                                        },
+                                                        fontSize = 12.sp,
+                                                        color = OnSurfaceVariant
+                                                    )
+                                                }
                                                 if (!item.notes.isNullOrBlank()) {
                                                     Text(
                                                         "Catatan: ${item.notes}",

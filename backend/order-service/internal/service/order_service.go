@@ -1633,13 +1633,83 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		}
 	}
 
+	// 3b. FB-108: ambil grup varian semua menu item (map[menuID][]variant).
+	variantMap, err := s.foodRepo.GetMenuItemVariants(ctx, menuIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get menu variants: %w", err)
+	}
+
 	// 4. Hitung ulang harga (server-side) + snapshot item
 	var subtotal int64
 	maxPrep := 0
 	orderItems := make([]domain.FoodOrderItem, 0, len(req.Items))
 	for _, it := range req.Items {
 		mi := menuByID[it.MenuID]
-		sub := mi.Price * int64(it.Quantity)
+		variants, hasVariants := variantMap[it.MenuID]
+
+		// FB-108: validasi pilihan varian — zero-trust, semua dicek server.
+		var itemDelta int64
+		itemVariants := make([]domain.FoodOrderItemVariant, 0, len(it.Variants))
+		if hasVariants && len(it.Variants) > 0 {
+			selectedByVariant := make(map[string][]string) // variantID -> optionIDs
+			optionByID := make(map[string]domain.MenuItemVariantOption)
+			for _, v := range variants {
+				for _, o := range v.Options {
+					optionByID[o.ID] = o
+				}
+			}
+			for _, sel := range it.Variants {
+				// variant harus milik menu item ini
+				var varFound *domain.MenuItemVariant
+				for i := range variants {
+					if variants[i].ID == sel.VariantID {
+						varFound = &variants[i]
+						break
+					}
+				}
+				if varFound == nil {
+					return nil, fmt.Errorf("variant %s bukan milik menu item %s", sel.VariantID, mi.Name)
+				}
+				// option harus milik variant itu
+				opt, okOpt := optionByID[sel.OptionID]
+				if !okOpt || opt.VariantID != sel.VariantID {
+					return nil, fmt.Errorf("option %s bukan milik variant %s", sel.OptionID, sel.VariantID)
+				}
+				selectedByVariant[sel.VariantID] = append(selectedByVariant[sel.VariantID], sel.OptionID)
+				itemDelta += opt.PriceDelta
+				itemVariants = append(itemVariants, domain.FoodOrderItemVariant{
+					VariantID:   varFound.ID,
+					OptionID:    opt.ID,
+					VariantName: varFound.Nama,
+					OptionName:  opt.Nama,
+					PriceDelta:  opt.PriceDelta,
+				})
+			}
+			// validasi aturan per grup: required + max_select
+			for _, v := range variants {
+				selCount := len(selectedByVariant[v.ID])
+				if v.IsRequired && selCount == 0 {
+					return nil, fmt.Errorf("pilih %s dulu untuk %s", v.Nama, mi.Name)
+				}
+				if selCount > v.MaxSelect {
+					return nil, fmt.Errorf("maksimal %d pilihan untuk %s (%s)", v.MaxSelect, v.Nama, mi.Name)
+				}
+				if selCount > 0 && selCount < v.MinSelect {
+					return nil, fmt.Errorf("minimal %d pilihan untuk %s (%s)", v.MinSelect, v.Nama, mi.Name)
+				}
+			}
+		} else if hasVariants {
+			// Item punya varian tapi client tidak kirim satupun — tolak kalau
+			// ada grup required. Grup optional tanpa pilihan = skip (boleh).
+			for _, v := range variants {
+				if v.IsRequired {
+					return nil, fmt.Errorf("pilih %s dulu untuk %s", v.Nama, mi.Name)
+				}
+			}
+		}
+
+		unitPrice := mi.Price + itemDelta
+		sub := unitPrice * int64(it.Quantity)
 		subtotal += sub
 		if mi.PrepTimeMinutes > maxPrep {
 			maxPrep = mi.PrepTimeMinutes
@@ -1647,10 +1717,11 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		orderItems = append(orderItems, domain.FoodOrderItem{
 			MenuItemID: mi.ID,
 			ItemName:   mi.Name,
-			ItemPrice:  mi.Price,
+			ItemPrice:  unitPrice,
 			Quantity:   it.Quantity,
 			Notes:      it.Notes,
 			Subtotal:   sub,
+			Variants:   itemVariants,
 		})
 	}
 

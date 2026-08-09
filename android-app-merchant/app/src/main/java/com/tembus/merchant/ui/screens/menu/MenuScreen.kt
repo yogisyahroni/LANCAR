@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.RestaurantMenu
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,6 +32,7 @@ import com.tembus.merchant.ui.theme.Primary
  */
 @Composable
 fun MenuScreen(
+    onOpenVariants: (String) -> Unit, // FB-108
     viewModel: MenuViewModel = appViewModel { MenuViewModel(it.merchantRepository) }
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -106,6 +108,7 @@ fun MenuScreen(
                         isActionLoading = state.actionLoadingId == item.id,
                         onToggleAvailability = { viewModel.toggleAvailability(item) },
                         onEdit = { editorTarget = item },
+                        onVariants = { onOpenVariants(item.id) }, // FB-108
                         onDelete = { viewModel.deleteItem(item.id) }
                     )
                 }
@@ -120,6 +123,7 @@ private fun MenuItemCard(
     isActionLoading: Boolean,
     onToggleAvailability: () -> Unit,
     onEdit: () -> Unit,
+    onVariants: () -> Unit, // FB-108
     onDelete: () -> Unit
 ) {
     Card(
@@ -170,6 +174,9 @@ private fun MenuItemCard(
                 )
             }
 
+            IconButton(onClick = onVariants, enabled = !isActionLoading) {
+                Icon(Icons.Filled.Tune, contentDescription = "Varian", modifier = Modifier.size(20.dp))
+            }
             IconButton(onClick = onEdit, enabled = !isActionLoading) {
                 Icon(Icons.Filled.Edit, contentDescription = "Edit", modifier = Modifier.size(20.dp))
             }

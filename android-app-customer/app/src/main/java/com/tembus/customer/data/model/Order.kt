@@ -152,5 +152,22 @@ data class FoodOrderItem(
     @SerialName("price")
     val price: Long = 0,
     @SerialName("subtotal")
-    val subtotal: Long = 0
+    val subtotal: Long = 0,
+    // FB-108: pilihan varian yang dipilih customer saat order
+    // (mis. [Level Pedas → Extra Pedas]).
+    @SerialName("variants")
+    val variants: List<FoodOrderItemVariantSnapshot> = emptyList()
+)
+
+// FB-108: snapshot satu pilihan varian (nama grup + opsi, harga delta).
+@Serializable
+data class FoodOrderItemVariantSnapshot(
+    @SerialName("variant_id")
+    val variantId: String = "",
+    @SerialName("variant_name")
+    val variantName: String = "",
+    @SerialName("option_name")
+    val optionName: String = "",
+    @SerialName("price_delta")
+    val priceDelta: Long = 0
 )

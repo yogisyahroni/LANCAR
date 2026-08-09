@@ -59,6 +59,11 @@ type MerchantService interface {
 	DeleteMenuItem(ctx context.Context, userID string, itemID string) error
 	SetMenuItemAvailability(ctx context.Context, userID string, itemID string, available bool) (*MenuItem, error)
 	ListMenuItems(ctx context.Context, userID string, page, pageSize int) ([]*MenuItem, int, error)
+	// GetMenuItemVariants (FB-108): grup varian + opsi menu item milik user.
+	GetMenuItemVariants(ctx context.Context, userID string, itemID string) ([]*MenuItemVariant, error)
+	// ReplaceMenuItemVariants (FB-108): replace semua varian menu item
+	// (transaksi atomik). Array kosong = hapus semua (single-variant lagi).
+	ReplaceMenuItemVariants(ctx context.Context, userID string, itemID string, req ReplaceMenuItemVariantsRequest) ([]*MenuItemVariant, error)
 
 	// Order action (FOOD-BIKE-017/021)
 	// AcceptOrder menyetujui order food: status → preparing, set merchant_accepted_at.

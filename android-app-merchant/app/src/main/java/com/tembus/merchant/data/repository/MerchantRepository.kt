@@ -48,6 +48,13 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun setMenuItemAvailability(id: String, available: Boolean): Result<MenuItem> =
         request { api.setMenuItemAvailability(id, AvailabilityRequest(available)) }
 
+    // ── FB-108: varian menu ────────────────────────────────────────────
+    suspend fun getMenuItemVariants(id: String): Result<List<MenuItemVariant>> =
+        request { api.getMenuItemVariants(id) }
+
+    suspend fun replaceMenuItemVariants(id: String, req: ReplaceVariantsRequest): Result<List<MenuItemVariant>> =
+        request { api.replaceMenuItemVariants(id, req) }
+
     suspend fun listOrders(status: String? = null, page: Int = 1, pageSize: Int = 20): Result<List<MerchantOrder>> =
         request { api.listOrders(status, page, pageSize) }.map { it.orders }
 

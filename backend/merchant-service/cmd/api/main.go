@@ -148,6 +148,18 @@ func main() {
 	}))
 	mux.HandleFunc("/api/v1/merchant/menu/{id}/availability", middleware.BaseChain(h.SetMenuItemAvailability))
 
+	// FB-108: varian menu — GET lihat, PUT replace atomik (hapus+insert).
+	mux.HandleFunc("/api/v1/merchant/menu/{id}/variants", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			h.GetMenuItemVariants(w, r)
+		case http.MethodPut:
+			h.ReplaceMenuItemVariants(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
+
 	// Promo merchant (FB-099): CRUD self-serve, tanpa approval admin
 	mux.HandleFunc("/api/v1/merchant/promos", middleware.BaseChain(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {

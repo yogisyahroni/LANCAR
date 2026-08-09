@@ -10,13 +10,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -27,12 +31,14 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +65,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.tembus.customer.data.model.FoodMenuItem
 import com.tembus.customer.data.model.FoodMerchant
+import com.tembus.customer.data.model.FoodOrderItemVariantRequest
+import com.tembus.customer.data.model.MenuItemVariant
 import com.tembus.customer.ui.theme.Accent
 import com.tembus.customer.ui.theme.Primary
 import com.tembus.customer.ui.theme.PrimaryLight
@@ -244,7 +253,12 @@ fun MerchantDetailScreen(
                             items(items, key = { it.id }) { item ->
                                 MenuItemRow(
                                     item = item,
-                                    onAdd = { viewModel.addToCart(item, merchantName = merchant?.name) },
+                                    // FB-108: item ber-varian wajib lewat detail sheet
+                                    // (pilih opsi dulu), yang polos langsung add.
+                                    onAdd = {
+                                        if (item.variants.isNotEmpty()) detailItem = item
+                                        else viewModel.addToCart(item, merchantName = merchant?.name)
+                                    },
                                     onClick = { detailItem = item }
                                 )
                             }
@@ -281,13 +295,19 @@ fun MerchantDetailScreen(
     }
 
     // FB-120: bottom sheet detail item — foto besar + quantity stepper.
+    // FB-108: bottom sheet juga jadi variant picker (radio/checkbox per grup).
     detailItem?.let { item ->
         ItemDetailSheet(
             item = item,
             onDismiss = { detailItem = null },
-            onAdd = { qty ->
+            onAdd = { qty, selections, labels ->
                 repeat(qty) {
-                    viewModel.addToCart(item, merchantName = merchant?.name)
+                    viewModel.addToCart(
+                        item,
+                        merchantName = merchant?.name,
+                        selectedVariants = selections,
+                        variantLabels = labels
+                    )
                 }
                 detailItem = null
             }
@@ -295,15 +315,48 @@ fun MerchantDetailScreen(
     }
 }
 
-/** FB-120: detail item menu — foto besar, harga, stepper qty, tombol tambah. */
+/** FB-120+FB-108: detail item menu — foto besar, harga, PICKER VARIAN,
+ * stepper qty, tombol tambah. Varian wajib (is_required) harus dipilih dulu
+ * sebelum tombol aktif. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ItemDetailSheet(
     item: FoodMenuItem,
     onDismiss: () -> Unit,
-    onAdd: (Int) -> Unit
+    onAdd: (Int, List<FoodOrderItemVariantRequest>, List<String>) -> Unit
 ) {
     var quantity by remember(item.id) { mutableStateOf(1) }
+    // FB-108: variantId → pilihan (optionId) untuk multi-select (max_select > 1)
+    var multiSelect by remember(item.id) { mutableStateOf<Map<String, Set<String>>>(emptyMap()) }
+    // FB-108: variantId → optionId untuk single-select (radio)
+    var singleSelect by remember(item.id) { mutableStateOf<Map<String, String>>(emptyMap()) }
+
+    val variants = item.variants
+    // Harga total = harga dasar + delta semua opsi terpilih
+    val selectedDelta = variants.sumOf { v ->
+        val chosen: List<String> = if (v.maxSelect > 1) multiSelect[v.id].orEmpty().toList() else listOfNotNull(singleSelect[v.id])
+        chosen.sumOf { optionId ->
+            v.options.firstOrNull { it.id == optionId }?.priceDelta ?: 0L
+        }
+    }
+    val totalPrice = item.price + selectedDelta
+
+    // Validasi: semua grup required sudah terpilih
+    val requiredMissing = variants.any { v ->
+        v.isRequired && if (v.maxSelect > 1) multiSelect[v.id].isNullOrEmpty() else singleSelect[v.id] == null
+    }
+
+    // Label ringkas untuk display (mis. "Level Pedas: Extra Pedas")
+    val selectionLabels = remember(singleSelect, multiSelect) {
+        variants.mapNotNull { v ->
+            val chosen: List<String> = if (v.maxSelect > 1) multiSelect[v.id].orEmpty().toList() else listOfNotNull(singleSelect[v.id])
+            if (chosen.isEmpty()) null
+            else {
+                val names = chosen.mapNotNull { optionId -> v.options.firstOrNull { it.id == optionId }?.nama }
+                "${v.nama}: ${names.joinToString(", ")}"
+            }
+        }
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
@@ -334,7 +387,7 @@ private fun ItemDetailSheet(
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                "Rp ${item.price.toInt().toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
+                "Rp ${totalPrice.toInt().toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Primary
@@ -345,6 +398,38 @@ private fun ItemDetailSheet(
                 fontSize = 12.sp,
                 color = Color(0xFF94A3B8)
             )
+
+            // FB-108: pilihan varian — scrollable kalau banyak
+            if (variants.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 300.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    variants.forEach { v ->
+                        VariantGroupPicker(
+                            variant = v,
+                            selectedMulti = multiSelect[v.id].orEmpty(),
+                            selectedSingle = singleSelect[v.id],
+                            onSingle = { optionId ->
+                                singleSelect = singleSelect + (v.id to optionId)
+                            },
+                            onMultiToggle = { optionId, checked ->
+                                val current = multiSelect[v.id].orEmpty().toMutableSet()
+                                if (checked) {
+                                    // Batasi max_select
+                                    if (current.size < v.maxSelect) current.add(optionId)
+                                } else current.remove(optionId)
+                                multiSelect = multiSelect + (v.id to current)
+                            }
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
 
             // Quantity stepper
@@ -370,18 +455,125 @@ private fun ItemDetailSheet(
             }
             Spacer(modifier = Modifier.height(20.dp))
             Button(
-                onClick = { onAdd(quantity) },
+                onClick = {
+                    // Build request variants: semua grup yang terpilih (required
+                    // maupun opsional yang user pilih).
+                    val selections = buildList {
+                        variants.forEach { v ->
+                            val chosen: List<String> = if (v.maxSelect > 1) multiSelect[v.id].orEmpty().toList() else listOfNotNull(singleSelect[v.id])
+                            chosen.forEach { optionId ->
+                                add(FoodOrderItemVariantRequest(variantId = v.id, optionId = optionId))
+                            }
+                        }
+                    }
+                    onAdd(quantity, selections, selectionLabels)
+                },
+                enabled = !requiredMissing,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
-                    "Tambah $quantity ke Keranjang",
+                    if (requiredMissing) "Pilih varian wajib dulu" else "Tambah $quantity ke Keranjang",
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
                 )
             }
+        }
+    }
+}
+
+/** FB-108: satu grup varian — radio (single) atau checkbox (multi). */
+@Composable
+private fun VariantGroupPicker(
+    variant: MenuItemVariant,
+    selectedMulti: Set<String>,
+    selectedSingle: String?,
+    onSingle: (String) -> Unit,
+    onMultiToggle: (String, Boolean) -> Unit
+) {
+    val multi = variant.maxSelect > 1
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                variant.nama,
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 14.sp,
+                color = Color(0xFF0F172A)
+            )
+            if (variant.isRequired) {
+                Text(
+                    " • Wajib",
+                    fontSize = 11.sp,
+                    color = Color(0xFFEF4444),
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            if (multi) {
+                Text(
+                    " • max ${variant.maxSelect}",
+                    fontSize = 11.sp,
+                    color = Color(0xFF94A3B8)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        variant.options.forEach { opt ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (multi) {
+                        if (opt.id in selectedMulti) Color(0xFFFFF3E8) else Color(0xFFF8FAFC)
+                    } else {
+                        if (opt.id == selectedSingle) Color(0xFFFFF3E8) else Color(0xFFF8FAFC)
+                    })
+                    .clickable {
+                        if (multi) onMultiToggle(opt.id, opt.id !in selectedMulti)
+                        else onSingle(opt.id)
+                    }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (multi) {
+                    Checkbox(
+                        checked = opt.id in selectedMulti,
+                        onCheckedChange = { onMultiToggle(opt.id, it) },
+                        modifier = Modifier.scale(0.9f)
+                    )
+                } else {
+                    RadioButton(
+                        selected = opt.id == selectedSingle,
+                        onClick = { onSingle(opt.id) },
+                        modifier = Modifier.scale(0.9f)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    opt.nama,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF334155),
+                    modifier = Modifier.weight(1f)
+                )
+                if (opt.priceDelta > 0) {
+                    Text(
+                        "+Rp ${opt.priceDelta.toInt().toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Primary
+                    )
+                } else if (opt.priceDelta < 0) {
+                    Text(
+                        "-Rp ${(-opt.priceDelta).toInt().toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF16A34A)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
         }
     }
 }

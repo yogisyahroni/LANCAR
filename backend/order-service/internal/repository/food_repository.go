@@ -138,9 +138,105 @@ func (r *foodRepo) CreateFoodOrderWithItems(ctx context.Context, order *domain.O
 		); err != nil {
 			return fmt.Errorf("insert food_order_items: %w", err)
 		}
+		// FB-108: snapshot pilihan varian per item (nama + delta beku).
+		for _, v := range it.Variants {
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO food_order_item_variants (
+					order_item_id, variant_id, option_id,
+					variant_name, option_name, price_delta, created_at
+				) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+				it.ID, v.VariantID, v.OptionID,
+				v.VariantName, v.OptionName, v.PriceDelta, time.Now(),
+			); err != nil {
+				return fmt.Errorf("insert food_order_item_variants: %w", err)
+			}
+		}
 	}
 
 	return tx.Commit()
+}
+
+// GetMenuItemVariants — FB-108: ambil semua grup varian + opsi untuk menu IDs.
+// Map key = menu_item_id. Menu tanpa varian tidak muncul di map (caller
+// treat sebagai item single-variant).
+func (r *foodRepo) GetMenuItemVariants(ctx context.Context, menuIDs []string) (map[string][]domain.MenuItemVariant, error) {
+	result := make(map[string][]domain.MenuItemVariant)
+	if len(menuIDs) == 0 {
+		return result, nil
+	}
+
+	placeholders := make([]string, len(menuIDs))
+	args := make([]any, len(menuIDs))
+	for i, id := range menuIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+
+	// 1. Grup varian
+	variantRows, err := r.readDB.QueryContext(ctx, fmt.Sprintf(`
+		SELECT id::text, menu_item_id::text, nama, is_required, min_select, max_select
+		FROM menu_item_variants
+		WHERE menu_item_id IN (%s)
+		ORDER BY sort_order ASC, created_at ASC`, strings.Join(placeholders, ", ")), args...)
+	if err != nil {
+		return nil, fmt.Errorf("query menu_item_variants: %w", err)
+	}
+	defer variantRows.Close()
+
+	variants := make([]domain.MenuItemVariant, 0)
+	for variantRows.Next() {
+		var v domain.MenuItemVariant
+		if err := variantRows.Scan(&v.ID, &v.MenuID, &v.Nama, &v.IsRequired, &v.MinSelect, &v.MaxSelect); err != nil {
+			return nil, err
+		}
+		variants = append(variants, v)
+	}
+	if err := variantRows.Err(); err != nil {
+		return nil, err
+	}
+	if len(variants) == 0 {
+		return result, nil
+	}
+
+	// 2. Opsi untuk semua varian (sekali query, IN variants)
+	variantIDs := make([]string, len(variants))
+	for i := range variants {
+		variantIDs[i] = variants[i].ID
+	}
+	optPlaceholders := make([]string, len(variantIDs))
+	optArgs := make([]any, len(variantIDs))
+	for i, id := range variantIDs {
+		optPlaceholders[i] = fmt.Sprintf("$%d", i+1)
+		optArgs[i] = id
+	}
+	optRows, err := r.readDB.QueryContext(ctx, fmt.Sprintf(`
+		SELECT id::text, variant_id::text, nama, price_delta, is_default
+		FROM menu_item_variant_options
+		WHERE variant_id IN (%s)
+		ORDER BY created_at ASC`, strings.Join(optPlaceholders, ", ")), optArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("query menu_item_variant_options: %w", err)
+	}
+	defer optRows.Close()
+
+	optionsByVariant := make(map[string][]domain.MenuItemVariantOption)
+	for optRows.Next() {
+		var o domain.MenuItemVariantOption
+		if err := optRows.Scan(&o.ID, &o.VariantID, &o.Nama, &o.PriceDelta, &o.IsDefault); err != nil {
+			return nil, err
+		}
+		optionsByVariant[o.VariantID] = append(optionsByVariant[o.VariantID], o)
+	}
+	if err := optRows.Err(); err != nil {
+		return nil, err
+	}
+
+	for i := range variants {
+		v := variants[i]
+		v.Options = optionsByVariant[v.ID]
+		result[v.MenuID] = append(result[v.MenuID], v)
+	}
+	return result, nil
 }
 
 // GetFoodOrderItems — snapshot item food sebuah order (FB-080: dipakai refund
@@ -371,6 +467,7 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 	defer rows.Close()
 
 	var out []domain.FoodMenuItemInfo
+	menuIDs := make([]string, 0)
 	for rows.Next() {
 		var item domain.FoodMenuItemInfo
 		var kategori, foto sql.NullString
@@ -387,8 +484,21 @@ func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) (
 			item.Foto = &foto.String
 		}
 		out = append(out, item)
+		menuIDs = append(menuIDs, item.ID)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// FB-108: attach grup varian per item (sekali query batch).
+	variantMap, err := r.GetMenuItemVariants(ctx, menuIDs)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].Variants = variantMap[out[i].ID]
+	}
+	return out, nil
 }
 
 // GetPendingMerchantFoodOrders — order food pending_merchant yang belum direspon

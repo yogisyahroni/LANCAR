@@ -595,6 +595,99 @@ func (s *merchantServiceImpl) ListMenuItems(ctx context.Context, userID string, 
 	return items, total, nil
 }
 
+// GetMenuItemVariants — FB-108: grup varian + opsi menu item milik merchant.
+func (s *merchantServiceImpl) GetMenuItemVariants(ctx context.Context, userID string, itemID string) ([]*domain.MenuItemVariant, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.menuRepo.GetVariantsByMenuItem(ctx, itemID, m.ID)
+}
+
+// ReplaceMenuItemVariants — FB-108: replace semua varian menu item.
+// Validasi: nama wajib, opsi minimal 1, max_select >= min_select.
+// Array kosong = hapus semua varian (kembali single-variant).
+func (s *merchantServiceImpl) ReplaceMenuItemVariants(ctx context.Context, userID string, itemID string, req domain.ReplaceMenuItemVariantsRequest) ([]*domain.MenuItemVariant, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Normalisasi + validasi sebelum transaksi.
+	groups := make([]*domain.MenuItemVariant, 0, len(req.Variants))
+	seenNames := map[string]bool{}
+	for _, g := range req.Variants {
+		name := strings.TrimSpace(g.Nama)
+		if name == "" {
+			return nil, errors.New("nama varian wajib diisi")
+		}
+		if len(name) > 80 {
+			return nil, errors.New("nama varian maksimal 80 karakter")
+		}
+		if seenNames[name] {
+			return nil, fmt.Errorf("nama varian duplikat: %s", name)
+		}
+		seenNames[name] = true
+		if len(g.Options) == 0 {
+			return nil, fmt.Errorf("varian %q minimal punya 1 opsi", name)
+		}
+		minSel, maxSel := g.MinSelect, g.MaxSelect
+		if maxSel < 1 {
+			maxSel = 1
+		}
+		if maxSel > 10 {
+			maxSel = 10
+		}
+		if minSel < 0 {
+			minSel = 0
+		}
+		if minSel > maxSel {
+			return nil, fmt.Errorf("min_select tidak boleh melebihi max_select di varian %q", name)
+		}
+		if g.IsRequired && minSel == 0 {
+			minSel = 1 // varian wajib = minimal pilih 1
+		}
+		if len(g.Options) > 10 {
+			return nil, fmt.Errorf("varian %q maksimal 10 opsi", name)
+		}
+
+		opts := make([]domain.MenuItemVariantOption, 0, len(g.Options))
+		seenOpts := map[string]bool{}
+		for _, o := range g.Options {
+			optName := strings.TrimSpace(o.Nama)
+			if optName == "" {
+				return nil, errors.New("nama opsi wajib diisi")
+			}
+			if len(optName) > 80 {
+				return nil, errors.New("nama opsi maksimal 80 karakter")
+			}
+			if seenOpts[optName] {
+				return nil, fmt.Errorf("nama opsi duplikat di varian %q: %s", name, optName)
+			}
+			seenOpts[optName] = true
+			if o.PriceDelta < 0 {
+				return nil, fmt.Errorf("harga tambahan opsi %q tidak boleh negatif", optName)
+			}
+			opts = append(opts, domain.MenuItemVariantOption{
+				Nama:       optName,
+				PriceDelta: o.PriceDelta,
+			})
+		}
+		groups = append(groups, &domain.MenuItemVariant{
+			Nama:       name,
+			IsRequired: g.IsRequired,
+			MinSelect:  minSel,
+			MaxSelect:  maxSel,
+			Options:    opts,
+		})
+	}
+
+	if err := s.menuRepo.ReplaceVariants(ctx, itemID, m.ID, groups); err != nil {
+		return nil, err
+	}
+	return s.menuRepo.GetVariantsByMenuItem(ctx, itemID, m.ID)
+}
+
 // ─────────────────────────────────────────────
 // Order Action (FOOD-BIKE-017/021)
 // ─────────────────────────────────────────────

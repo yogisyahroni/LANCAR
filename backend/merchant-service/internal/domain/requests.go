@@ -85,6 +85,28 @@ type MerchantOrderActionRequest struct {
 	RejectReason string `json:"reject_reason,omitempty"`
 }
 
+// ── FB-108: varian menu ────────────────────────────────────────────────
+// ReplaceMenuItemVariantsRequest — body PUT /merchant/menu/{id}/variants.
+// Array kosong = hapus semua varian (kembali single-variant).
+type ReplaceMenuItemVariantsRequest struct {
+	Variants []ReplaceVariantGroup `json:"variants"`
+}
+
+// ReplaceVariantGroup — satu grup varian lengkap dengan opsi-opsinya.
+type ReplaceVariantGroup struct {
+	Nama       string                    `json:"nama" validate:"required,max=80"`
+	IsRequired bool                      `json:"is_required"`
+	MinSelect  int                       `json:"min_select"`
+	MaxSelect  int                       `json:"max_select"`
+	Options    []ReplaceVariantOption    `json:"options"`
+}
+
+// ReplaceVariantOption — satu opsi varian (harga delta IDR, >= 0).
+type ReplaceVariantOption struct {
+	Nama       string `json:"nama" validate:"required,max=80"`
+	PriceDelta int64  `json:"price_delta"`
+}
+
 // EditOrderItemRequest — item baru saat merchant edit order (FB-087).
 type EditOrderItemRequest struct {
 	MenuID   string `json:"menu_item_id"`

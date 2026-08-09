@@ -2,6 +2,7 @@ package com.tembus.customer.data
 
 import com.tembus.customer.data.model.CartItem
 import com.tembus.customer.data.model.FoodMenuItem
+import com.tembus.customer.data.model.FoodOrderItemVariantRequest
 import com.tembus.customer.data.model.ReorderItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -63,18 +64,39 @@ class CartStore @Inject constructor() {
         data class Conflict(val otherMerchantName: String?) : AddToCartResult
     }
 
-    fun addToCart(item: FoodMenuItem, notes: String = "", merchantName: String? = null): AddToCartResult {
+    fun addToCart(
+        item: FoodMenuItem,
+        notes: String = "",
+        merchantName: String? = null,
+        // FB-108: pilihan varian (opsi per grup) + label untuk ditampilkan.
+        selectedVariants: List<FoodOrderItemVariantRequest> = emptyList(),
+        variantLabels: List<String> = emptyList()
+    ): AddToCartResult {
         val currentMerchantId = _cart.value.firstOrNull()?.menuItem?.merchantId
         if (currentMerchantId != null && currentMerchantId != item.merchantId) {
             // Cart berisi merchant lain — tolak, biarkan UI konfirmasi dulu.
             return AddToCartResult.Conflict(_cartMerchantName.value)
         }
         _cart.update { current ->
-            val existing = current.find { it.menuItem.id == item.id }
+            // FB-108: entri berbeda per kombinasi varian — Nasi Goreng (level 1)
+            // dan Nasi Goreng (level 3) adalah 2 baris cart terpisah.
+            val existing = current.find {
+                it.menuItem.id == item.id && it.selectedVariants == selectedVariants
+            }
             if (existing != null) {
-                current.map { if (it.menuItem.id == item.id) it.copy(quantity = it.quantity + 1) else it }
+                current.map {
+                    if (it.menuItem.id == item.id && it.selectedVariants == selectedVariants) {
+                        it.copy(quantity = it.quantity + 1)
+                    } else it
+                }
             } else {
-                current + CartItem(menuItem = item, quantity = 1, notes = notes)
+                current + CartItem(
+                    menuItem = item,
+                    quantity = 1,
+                    notes = notes,
+                    selectedVariants = selectedVariants,
+                    variantLabels = variantLabels
+                )
             }
         }
         if (merchantName != null && _cartMerchantName.value == null) {
@@ -83,16 +105,22 @@ class CartStore @Inject constructor() {
         return AddToCartResult.Added
     }
 
-    fun incrementItem(itemId: String) {
+    // FB-108: increment/decrement per KOMBINASI varian — cart bisa punya
+    // 2 baris item yang sama dengan pilihan berbeda.
+    fun incrementItem(itemId: String, variants: List<FoodOrderItemVariantRequest> = emptyList()) {
         _cart.update { current ->
-            current.map { if (it.menuItem.id == itemId) it.copy(quantity = it.quantity + 1) else it }
+            current.map {
+                if (it.menuItem.id == itemId && it.selectedVariants == variants) {
+                    it.copy(quantity = it.quantity + 1)
+                } else it
+            }
         }
     }
 
-    fun decrementItem(itemId: String) {
+    fun decrementItem(itemId: String, variants: List<FoodOrderItemVariantRequest> = emptyList()) {
         _cart.update { current ->
             current.map {
-                if (it.menuItem.id == itemId) {
+                if (it.menuItem.id == itemId && it.selectedVariants == variants) {
                     if (it.quantity <= 1) it.copy(quantity = 0) else it.copy(quantity = it.quantity - 1)
                 } else it
             }.filter { it.quantity > 0 }

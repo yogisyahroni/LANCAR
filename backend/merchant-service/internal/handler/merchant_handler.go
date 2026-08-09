@@ -372,6 +372,55 @@ func (h *MerchantHandler) SetMenuItemAvailability(w http.ResponseWriter, r *http
 	h.respondJSON(w, http.StatusOK, item)
 }
 
+// GetMenuItemVariants godoc
+// @Summary Ambil varian menu item
+// @Description FB-108: grup varian + opsi (Ukuran, Level Pedas, Tambahan...).
+// @Tags merchant
+// @Param id path string true "Menu item ID"
+// @Success 200 {array} domain.MenuItemVariant
+// @Router /merchant/menu/{id}/variants [get]
+func (h *MerchantHandler) GetMenuItemVariants(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	itemID := r.PathValue("id")
+	variants, err := h.svc.GetMenuItemVariants(r.Context(), userID, itemID)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, variants)
+}
+
+// ReplaceMenuItemVariants godoc
+// @Summary Replace semua varian menu item
+// @Description FB-108: replace atomik (hapus lama + insert baru). Array
+// kosong = hapus semua varian (kembali single-variant).
+// @Tags merchant
+// @Param id path string true "Menu item ID"
+// @Param request body domain.ReplaceMenuItemVariantsRequest true "Varian"
+// @Success 200 {array} domain.MenuItemVariant
+// @Router /merchant/menu/{id}/variants [put]
+func (h *MerchantHandler) ReplaceMenuItemVariants(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	itemID := r.PathValue("id")
+	var req domain.ReplaceMenuItemVariantsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	variants, err := h.svc.ReplaceMenuItemVariants(r.Context(), userID, itemID, req)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, variants)
+}
+
 // ─────────────────────────────────────────────
 // Order Action (FOOD-BIKE-017/021)
 // ─────────────────────────────────────────────

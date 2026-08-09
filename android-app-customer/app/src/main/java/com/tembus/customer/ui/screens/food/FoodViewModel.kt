@@ -10,6 +10,7 @@ import com.tembus.customer.data.model.CustomerAddress
 import com.tembus.customer.data.model.FoodMenuItem
 import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.data.model.FoodOrderCreateResponse
+import com.tembus.customer.data.model.FoodOrderItemVariantRequest
 import com.tembus.customer.data.model.VoucherValidateRequest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -125,20 +126,32 @@ class FoodViewModel @Inject constructor(
         val item: FoodMenuItem,
         val notes: String,
         val otherMerchantName: String?,
-        val newMerchantName: String?
+        val newMerchantName: String?,
+        // FB-108: pilihan varian ikut disimpan untuk dipakai saat retry.
+        val selectedVariants: List<FoodOrderItemVariantRequest> = emptyList(),
+        val variantLabels: List<String> = emptyList()
     )
 
     private val _conflictRequest = MutableStateFlow<CartConflictRequest?>(null)
     val conflictRequest: StateFlow<CartConflictRequest?> = _conflictRequest.asStateFlow()
 
-    fun addToCart(item: FoodMenuItem, notes: String = "", merchantName: String? = null) {
-        when (val result = cartStore.addToCart(item, notes, merchantName)) {
+    fun addToCart(
+        item: FoodMenuItem,
+        notes: String = "",
+        merchantName: String? = null,
+        // FB-108: pilihan varian (opsi per grup) + label untuk ditampilkan.
+        selectedVariants: List<FoodOrderItemVariantRequest> = emptyList(),
+        variantLabels: List<String> = emptyList()
+    ) {
+        when (val result = cartStore.addToCart(item, notes, merchantName, selectedVariants, variantLabels)) {
             is CartStore.AddToCartResult.Conflict -> {
                 _conflictRequest.value = CartConflictRequest(
                     item = item,
                     notes = notes,
                     otherMerchantName = result.otherMerchantName,
-                    newMerchantName = merchantName
+                    newMerchantName = merchantName,
+                    selectedVariants = selectedVariants,
+                    variantLabels = variantLabels
                 )
             }
             CartStore.AddToCartResult.Added -> Unit
@@ -154,13 +167,18 @@ class FoodViewModel @Inject constructor(
         _conflictRequest.value = null
         if (proceed) {
             cartStore.clearCart()
-            cartStore.addToCart(request.item, request.notes, request.newMerchantName)
+            cartStore.addToCart(
+                request.item, request.notes, request.newMerchantName,
+                request.selectedVariants, request.variantLabels
+            )
         }
     }
 
-    fun incrementItem(itemId: String) = cartStore.incrementItem(itemId)
+    fun incrementItem(itemId: String, variants: List<FoodOrderItemVariantRequest> = emptyList()) =
+        cartStore.incrementItem(itemId, variants)
 
-    fun decrementItem(itemId: String) = cartStore.decrementItem(itemId)
+    fun decrementItem(itemId: String, variants: List<FoodOrderItemVariantRequest> = emptyList()) =
+        cartStore.decrementItem(itemId, variants)
 
     fun updateNotes(itemId: String, notes: String) = cartStore.updateNotes(itemId, notes)
 
@@ -192,7 +210,9 @@ class FoodViewModel @Inject constructor(
                         com.tembus.customer.data.model.FoodOrderItemRequest(
                             menuItemId = it.menuItem.id,
                             quantity = it.quantity,
-                            notes = it.notes.ifBlank { null }
+                            notes = it.notes.ifBlank { null },
+                            // FB-108: kirim pilihan varian (kosong kalau item polos).
+                            variants = it.selectedVariants
                         )
                     },
                     dropoffAddress = dropoffAddress,

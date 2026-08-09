@@ -127,11 +127,13 @@ fun FoodCartScreen(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(cart, key = { it.menuItem.id }) { item ->
+                // FB-108: key per kombinasi varian — 2 baris item sama dengan
+                // pilihan berbeda tidak boleh bentrok.
+                items(cart, key = { it.cartKey }) { item ->
                     CartItemRow(
                         item = item,
-                        onIncrement = { viewModel.incrementItem(item.menuItem.id) },
-                        onDecrement = { viewModel.decrementItem(item.menuItem.id) }
+                        onIncrement = { viewModel.incrementItem(item.menuItem.id, item.selectedVariants) },
+                        onDecrement = { viewModel.decrementItem(item.menuItem.id, item.selectedVariants) }
                     )
                 }
                 item {
@@ -167,6 +169,17 @@ private fun CartItemRow(
             )
             if (item.notes.isNotBlank()) {
                 Text("Catatan: ${item.notes}", fontSize = 11.sp, color = Color(0xFF94A3B8), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            // FB-108: tampilkan pilihan varian (mis. "Level Pedas: Extra Pedas")
+            if (item.variantLabels.isNotEmpty()) {
+                Text(
+                    item.variantLabels.joinToString(" · "),
+                    fontSize = 11.sp,
+                    color = Color(0xFF64748B),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
             }
             Text(
                 "Rp ${item.subtotal.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",

@@ -76,6 +76,47 @@ data class AvailabilityRequest(
     @SerializedName("is_available") val isAvailable: Boolean
 )
 
+// ── FB-108: varian menu ────────────────────────────────────────────────
+/** Grup varian menu (Ukuran, Level Pedas, Tambahan...). */
+data class MenuItemVariant(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("menu_item_id") val menuItemId: String = "",
+    @SerializedName("nama") val nama: String = "",
+    @SerializedName("is_required") val isRequired: Boolean = false,
+    @SerializedName("min_select") val minSelect: Int = 0,
+    @SerializedName("max_select") val maxSelect: Int = 1,
+    @SerializedName("options") val options: List<MenuItemVariantOption> = emptyList()
+)
+
+/** Satu opsi dalam grup varian (harga delta IDR). */
+data class MenuItemVariantOption(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("variant_id") val variantId: String = "",
+    @SerializedName("nama") val nama: String = "",
+    @SerializedName("price_delta") val priceDelta: Long = 0,
+    @SerializedName("is_default") val isDefault: Boolean = false
+)
+
+/** Request PUT /merchant/menu/{id}/variants — replace atomik. */
+data class ReplaceVariantsRequest(
+    @SerializedName("variants") val variants: List<VariantGroupRequest>
+)
+
+/** Satu grup varian dalam request replace. */
+data class VariantGroupRequest(
+    @SerializedName("nama") val nama: String,
+    @SerializedName("is_required") val isRequired: Boolean,
+    @SerializedName("min_select") val minSelect: Int,
+    @SerializedName("max_select") val maxSelect: Int,
+    @SerializedName("options") val options: List<VariantOptionRequest>
+)
+
+/** Satu opsi dalam request replace. */
+data class VariantOptionRequest(
+    @SerializedName("nama") val nama: String,
+    @SerializedName("price_delta") val priceDelta: Long
+)
+
 data class ToggleOpenRequest(
     @SerializedName("is_open") val isOpen: Boolean
 )

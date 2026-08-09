@@ -1174,6 +1174,17 @@ private fun FoodItemsCard(order: Order) {
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(item.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = DeepForest)
+                        // FB-108: pilihan varian — driver harus tahu persis isi
+                        // pesanan yang diserah terima (mis. "Level Pedas: Extra Pedas").
+                        if (item.variants.isNotEmpty()) {
+                            Text(
+                                item.variants.joinToString(" · ") { v ->
+                                    "${v.variantName}${if (v.variantName.isBlank()) "" else ": "}${v.optionName}"
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         if (!item.notes.isNullOrBlank()) {
                             Text(
                                 "Catatan: ${item.notes}",
