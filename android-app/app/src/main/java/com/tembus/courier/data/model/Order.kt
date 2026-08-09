@@ -7,6 +7,19 @@ import androidx.room.PrimaryKey
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+// FB-105: rincian item pesanan food (snapshot food_order_items dari
+// backend courier order detail). Driver butuh tahu isi pesanan yang
+// dijemput/diantar — tidak bisa hanya andalkan struk fisik.
+@Serializable
+data class CourierOrderFoodItem(
+    @SerialName("name")
+    val name: String = "",
+    @SerialName("quantity")
+    val quantity: Int = 1,
+    @SerialName("notes")
+    val notes: String? = null,
+)
+
 @Serializable
 data class CourierOrderPackage(
     @SerialName("package_id")
@@ -206,6 +219,12 @@ data class Order(
     @ColumnInfo(name = "item_description")
     @SerialName("item_description")
     val itemDescription: String? = null,
+
+    // FB-105: rincian item food (snapshot food_order_items dari backend).
+    // Kosong [] untuk order parcel biasa. Dipakai OrderDetailScreen.
+    @ColumnInfo(name = "food_items")
+    @SerialName("food_items")
+    val foodItems: List<CourierOrderFoodItem> = emptyList(),
 
     @ColumnInfo(name = "item_image_url")
     @SerialName("item_image_url")

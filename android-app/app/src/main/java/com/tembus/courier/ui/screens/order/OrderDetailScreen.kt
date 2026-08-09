@@ -578,7 +578,14 @@ private fun OnDemandTaskActions(
             OnDemandProgressTimeline(pickupDone = flowState.pickupDone, deliveryDone = flowState.deliveryDone)
 
             if (!flowState.pickupDone) {
-                PackageChecklistCard(order = order, deliveryDone = flowState.deliveryDone)
+                // FB-105: order food tampilkan isi pesanan (snapshot
+                // food_order_items) — driver tidak boleh buta terhadap
+                // menu yang dijemput. Parcel tetap pakai checklist paket.
+                if (order.foodItems.isNotEmpty()) {
+                    FoodItemsCard(order = order)
+                } else {
+                    PackageChecklistCard(order = order, deliveryDone = flowState.deliveryDone)
+                }
                 MandatoryPickupChecklist(
                     faceDone = faceVerifiedForPickup,
                     scanDone = pickupScanVerified,
@@ -1117,6 +1124,67 @@ private fun MandatoryPickupChecklist(
                 label = "Foto Barang Saat Pickup",
                 description = "Bukti kondisi barang sebelum dibawa."
             )
+        }
+    }
+}
+
+// FoodItemsCard — FB-105: daftar isi pesanan food untuk driver
+// (snapshot food_order_items dari backend). Menampilkan nama, qty,
+// dan catatan per item — driver tahu apa yang dijemput/diantar.
+@Composable
+private fun FoodItemsCard(order: Order) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Primary.copy(alpha = 0.16f))
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Isi Pesanan", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = DeepForest)
+                    Text("${order.foodItems.size} item makanan", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Surface(color = PrimaryLight, shape = RoundedCornerShape(8.dp)) {
+                    Text(
+                        "FOOD",
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                        color = Primary,
+                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+
+            order.foodItems.forEach { item ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        "${item.quantity}×",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Black,
+                        color = Primary
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(item.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = DeepForest)
+                        if (!item.notes.isNullOrBlank()) {
+                            Text(
+                                "Catatan: ${item.notes}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                HorizontalDivider(color = Primary.copy(alpha = 0.08f))
+            }
         }
     }
 }

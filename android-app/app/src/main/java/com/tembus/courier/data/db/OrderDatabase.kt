@@ -5,6 +5,7 @@ import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
+import com.tembus.courier.data.model.CourierOrderFoodItem
 import com.tembus.courier.data.model.CourierOrderPackage
 import com.tembus.courier.data.model.Location
 import com.tembus.courier.data.model.Order
@@ -21,7 +22,7 @@ import kotlinx.serialization.json.Json
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 17,
+    version = 18,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -110,6 +111,14 @@ abstract class OrderDatabase : RoomDatabase() {
          */
         private fun addVersion17Columns(db: SupportSQLiteDatabase) {
             addOrderColumnIfMissing(db, "contactless", "ALTER TABLE `orders` ADD COLUMN `contactless` INTEGER NOT NULL DEFAULT 0")
+        }
+
+        /**
+         * Version 18: FB-105 rincian item food (snapshot food_order_items) —
+         * driver tidak buta isi pesanan yang dijemput/diantar.
+         */
+        private fun addVersion18Columns(db: SupportSQLiteDatabase) {
+            addOrderColumnIfMissing(db, "food_items", "ALTER TABLE `orders` ADD COLUMN `food_items` TEXT NOT NULL DEFAULT '[]'")
         }
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
@@ -225,6 +234,12 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                addVersion18Columns(db)
+            }
+        }
+
         val MIGRATION_10_13 = object : Migration(10, 13) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 addVersion11Columns(db)
@@ -256,6 +271,7 @@ abstract class OrderDatabase : RoomDatabase() {
             MIGRATION_14_15,
             MIGRATION_15_16,
             MIGRATION_16_17,
+            MIGRATION_17_18,
             MIGRATION_10_13,
             MIGRATION_11_13
         )
@@ -306,6 +322,20 @@ class Converters {
         if (value.isNullOrBlank()) return emptyList()
         return runCatching {
             json.decodeFromString(ListSerializer(CourierOrderPackage.serializer()), value)
+        }.getOrElse { emptyList() }
+    }
+
+    // FB-105: item food (snapshot food_order_items) — JSON string di Room.
+    @TypeConverter
+    fun foodItemsToString(items: List<CourierOrderFoodItem>): String {
+        return json.encodeToString(ListSerializer(CourierOrderFoodItem.serializer()), items)
+    }
+
+    @TypeConverter
+    fun stringToFoodItems(value: String?): List<CourierOrderFoodItem> {
+        if (value.isNullOrBlank()) return emptyList()
+        return runCatching {
+            json.decodeFromString(ListSerializer(CourierOrderFoodItem.serializer()), value)
         }.getOrElse { emptyList() }
     }
 
