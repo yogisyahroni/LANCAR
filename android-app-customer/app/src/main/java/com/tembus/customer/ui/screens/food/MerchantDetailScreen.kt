@@ -21,14 +21,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,16 +40,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
 import com.tembus.customer.data.model.FoodMenuItem
 import com.tembus.customer.data.model.FoodMerchant
 import com.tembus.customer.ui.theme.Accent
@@ -66,6 +76,9 @@ fun MerchantDetailScreen(
     val error by viewModel.error.collectAsState()
     val cartSize by viewModel.cartSize.collectAsState()
     val conflict by viewModel.conflictRequest.collectAsState()
+
+    // FB-120: item yang dipilih untuk dilihat detail (bottom sheet).
+    var detailItem by remember { mutableStateOf<FoodMenuItem?>(null) }
 
     LaunchedEffect(merchantId) {
         viewModel.loadMerchantDetail(merchantId)
@@ -229,7 +242,11 @@ fun MerchantDetailScreen(
                                 CategoryHeader(title = kategori)
                             }
                             items(items, key = { it.id }) { item ->
-                                MenuItemRow(item = item, onAdd = { viewModel.addToCart(item, merchantName = merchant?.name) })
+                                MenuItemRow(
+                                    item = item,
+                                    onAdd = { viewModel.addToCart(item, merchantName = merchant?.name) },
+                                    onClick = { detailItem = item }
+                                )
                             }
                         }
                     }
@@ -262,15 +279,121 @@ fun MerchantDetailScreen(
             }
         )
     }
+
+    // FB-120: bottom sheet detail item — foto besar + quantity stepper.
+    detailItem?.let { item ->
+        ItemDetailSheet(
+            item = item,
+            onDismiss = { detailItem = null },
+            onAdd = { qty ->
+                repeat(qty) {
+                    viewModel.addToCart(item, merchantName = merchant?.name)
+                }
+                detailItem = null
+            }
+        )
+    }
+}
+
+/** FB-120: detail item menu — foto besar, harga, stepper qty, tombol tambah. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ItemDetailSheet(
+    item: FoodMenuItem,
+    onDismiss: () -> Unit,
+    onAdd: (Int) -> Unit
+) {
+    var quantity by remember(item.id) { mutableStateOf(1) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (!item.foto.isNullOrBlank()) {
+                AsyncImage(
+                    model = item.foto,
+                    contentDescription = item.name,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp)
+                        .clip(RoundedCornerShape(20.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            Text(
+                item.name,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF0F172A),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                "Rp ${item.price.toInt().toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Primary
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Estimasi siap ±${item.prepTimeMinutes} menit",
+                fontSize = 12.sp,
+                color = Color(0xFF94A3B8)
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Quantity stepper
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                FilledTonalIconButton(
+                    onClick = { if (quantity > 1) quantity-- },
+                    enabled = quantity > 1
+                ) {
+                    Icon(Icons.Default.Remove, contentDescription = "Kurangi")
+                }
+                Text(
+                    "$quantity",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF0F172A)
+                )
+                FilledTonalIconButton(onClick = { if (quantity < 99) quantity++ }) {
+                    Icon(Icons.Default.Add, contentDescription = "Tambah")
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                onClick = { onAdd(quantity) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text(
+                    "Tambah $quantity ke Keranjang",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            }
+        }
+    }
 }
 
 @Composable
-private fun MenuItemRow(item: FoodMenuItem, onAdd: () -> Unit) {
+private fun MenuItemRow(item: FoodMenuItem, onAdd: () -> Unit, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(Color.White)
+            .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
