@@ -33,9 +33,7 @@ import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
 import com.tembus.merchant.ui.theme.AccentLight
-import com.tembus.merchant.ui.theme.GreenText
 import com.tembus.merchant.ui.theme.Primary
-import com.tembus.merchant.ui.theme.PrimaryLight
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.LocalDate
@@ -252,7 +250,8 @@ private fun OrdersHeader(
         modifier = Modifier
             .fillMaxWidth()
             .background(Primary)
-            .padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 18.dp)
+            .statusBarsPadding()
+            .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 18.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
@@ -508,7 +507,7 @@ private fun OrderCard(
                     text = Format.rupiah(order.totalPriceIdr),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = GreenText
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
 
@@ -577,10 +576,10 @@ private fun OrderCard(
 private fun StatusBadge(status: String) {
     val (label, color, bg) = when (status) {
         "pending_merchant" -> Triple("Baru", Accent, AccentLight)
-        "preparing" -> Triple("Diproses", Primary, PrimaryLight)
-        "searching" -> Triple("Siap", Primary, PrimaryLight)
-        "accepted", "picking_up", "picked_up" -> Triple("Diambil Driver", Primary, PrimaryLight)
-        "delivering" -> Triple("Diantar", Primary, PrimaryLight)
+        "preparing" -> Triple("Diproses", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
+        "searching" -> Triple("Siap", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
+        "accepted", "picking_up", "picked_up" -> Triple("Diambil Driver", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
+        "delivering" -> Triple("Diantar", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
         "delivered" -> Triple("Selesai", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
         "cancelled_by_merchant" -> Triple("Ditolak", MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer)
         "cancelled" -> Triple("Dibatalkan", MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer)
@@ -759,7 +758,7 @@ private fun NotRegisteredContent(onGoToRegistration: () -> Unit) {
             imageVector = Icons.Filled.Storefront,
             contentDescription = null,
             modifier = Modifier.size(64.dp),
-            tint = Primary
+            tint = MaterialTheme.colorScheme.primary
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(

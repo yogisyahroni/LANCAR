@@ -70,30 +70,32 @@ fun PromoScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            if (state.isLoading && state.items.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+            when {
+                state.isLoading && state.items.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
                 }
-                return@Column
-            }
 
-            if (state.items.isEmpty()) {
-                EmptyPromoContent(onAdd = { showCreate = true })
-                return@Column
-            }
+                state.items.isEmpty() -> {
+                    EmptyPromoContent(onAdd = { showCreate = true })
+                }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(state.items, key = { it.id }) { promo ->
-                    PromoCard(
-                        promo = promo,
-                        isActionLoading = state.actionLoadingId == promo.id,
-                        onToggleActive = { viewModel.toggleActive(promo) },
-                        onDelete = { viewModel.deletePromo(promo.id) }
-                    )
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(state.items, key = { it.id }) { promo ->
+                            PromoCard(
+                                promo = promo,
+                                isActionLoading = state.actionLoadingId == promo.id,
+                                onToggleActive = { viewModel.toggleActive(promo) },
+                                onDelete = { viewModel.deletePromo(promo.id) }
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -101,27 +101,28 @@ fun ChatScreen(
             }
         }
 
-        if (state.isLoading && state.messages.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+        when {
+            state.isLoading && state.messages.isEmpty() -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
-            return@Column
-        }
 
-        state.error?.let {
-            TextButton(onClick = { viewModel.clearError() }) {
-                Text("⚠️ ${it}", color = MaterialTheme.colorScheme.error)
-            }
-        }
+            else -> {
+                state.error?.let {
+                    TextButton(onClick = { viewModel.clearError() }) {
+                        Text("⚠️ ${it}", color = MaterialTheme.colorScheme.error)
+                    }
+                }
 
-        // Pesan
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                // Pesan
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             if (state.messages.isEmpty()) {
                 item {
@@ -185,6 +186,8 @@ fun ChatScreen(
                 }
             }
         }
+        }
+    }
     }
 }
 

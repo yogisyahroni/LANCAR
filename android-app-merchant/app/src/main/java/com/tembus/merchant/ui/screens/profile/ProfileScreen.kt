@@ -101,9 +101,7 @@ fun ProfileScreen(
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-            return@Column
-        }
-
+        } else {
         if (state.needsRegistration) {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                 Column(
@@ -350,6 +348,7 @@ fun ProfileScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
+        }
     }
 
     // FB-109: dialog atur minimal order value.

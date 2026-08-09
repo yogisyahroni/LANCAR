@@ -24,9 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tembus.merchant.R
-import com.tembus.merchant.ui.theme.Accent
-import com.tembus.merchant.ui.theme.Primary
-import com.tembus.merchant.ui.theme.PrimaryLight
 import kotlinx.coroutines.launch
 
 /**
@@ -84,7 +81,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                             modifier = Modifier
                                 .size(if (pagerState.currentPage == index) 10.dp else 8.dp)
                                 .background(
-                                    color = if (pagerState.currentPage == index) Accent else PrimaryLight,
+                                    color = if (pagerState.currentPage == index) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primaryContainer,
                                     shape = CircleShape
                                 )
                         )
@@ -125,29 +122,29 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // Logo kecil di atas
+                // Logo TEMBUS — proporsional (lebih besar dari sebelumnya)
                 Image(
                     painter = painterResource(id = R.drawable.tembus_login_logo),
                     contentDescription = "TEMBUS Logo",
                     modifier = Modifier
-                        .width(72.dp)
-                        .height(72.dp),
+                        .width(120.dp)
+                        .height(120.dp),
                     contentScale = ContentScale.Fit
                 )
 
-                Spacer(modifier = Modifier.height(40.dp))
+                Spacer(modifier = Modifier.height(36.dp))
 
                 Surface(
-                    color = PrimaryLight,
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     shape = CircleShape,
-                    modifier = Modifier.size(120.dp)
+                    modifier = Modifier.size(132.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = item.icon,
                             contentDescription = null,
-                            tint = Primary,
-                            modifier = Modifier.size(56.dp)
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(60.dp)
                         )
                     }
                 }
@@ -158,7 +155,7 @@ fun OnboardingScreen(onFinish: () -> Unit) {
                     text = item.title,
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Primary,
+                    color = MaterialTheme.colorScheme.onBackground,
                     textAlign = TextAlign.Center
                 )
 

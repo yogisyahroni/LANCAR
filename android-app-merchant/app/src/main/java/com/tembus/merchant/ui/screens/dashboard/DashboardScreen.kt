@@ -22,8 +22,6 @@ import com.tembus.merchant.data.model.MerchantOrder
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
-import com.tembus.merchant.ui.theme.GreenText
-import com.tembus.merchant.ui.theme.OnSurfaceVariant
 import com.tembus.merchant.ui.theme.Primary
 
 /**
@@ -136,7 +134,8 @@ private fun DashboardHeader(
         modifier = Modifier
             .fillMaxWidth()
             .background(Primary)
-            .padding(start = 20.dp, end = 20.dp, top = 28.dp, bottom = 28.dp)
+            .statusBarsPadding()
+            .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 28.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
@@ -273,7 +272,7 @@ private fun SummaryCard(
                 text = value,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = GreenText,
+                color = MaterialTheme.colorScheme.primary,
                 maxLines = 1
             )
             Spacer(modifier = Modifier.height(6.dp))
@@ -313,7 +312,7 @@ private fun RecentOrderRow(
                 Icon(
                     Icons.Filled.ReceiptLong,
                     contentDescription = null,
-                    tint = Primary,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -337,7 +336,7 @@ private fun RecentOrderRow(
                     text = Format.rupiah(order.totalPriceIdr),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = GreenText
+                    color = MaterialTheme.colorScheme.primary
                 )
                 TextButton(
                     onClick = onOpenStruk,
@@ -363,7 +362,7 @@ private fun NotRegisteredCard(onGoToRegistration: () -> Unit) {
             imageVector = Icons.Filled.Storefront,
             contentDescription = null,
             modifier = Modifier.size(64.dp),
-            tint = Primary
+            tint = MaterialTheme.colorScheme.primary
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(

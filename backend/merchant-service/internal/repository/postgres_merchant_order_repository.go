@@ -91,7 +91,7 @@ func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, me
 	query := `
 		SELECT o.id, o.order_number, o.status,
 		       COALESCE(c.full_name, '') AS customer_name,
-		       COALESCE(c.phone, '') AS customer_phone,
+		       COALESCE(c.phone_number, '') AS customer_phone,
 		       COALESCE(o.dropoff_address, '') AS dropoff_address,
 		       COALESCE(o.total_price_idr, 0),
 		       COALESCE(o.distance_km, 0),

@@ -25,7 +25,6 @@ import com.tembus.merchant.data.model.MenuItemRequest
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
-import com.tembus.merchant.ui.theme.Primary
 
 /**
  * MenuScreen — tab Menu: CRUD menu item + toggle ketersediaan.
@@ -70,50 +69,57 @@ fun MenuScreen(
         )
     }
 
-    Scaffold(
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { showEditor = true },
-                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                text = { Text("Tambah Menu") },
-                containerColor = Accent
-            )
-        }
-    ) { padding ->
+    // Layout manual (Box) — tanpa early-return@label (return@Column dari lambda
+    // non-inline + recompose = group imbalance Compose → IntStack.peek2 crash,
+    // bug report 2026-08). Semua cabang pakai if/else EKSPLISIT biar struktur
+    // group statis antar recomposition.
+    Box(modifier = Modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .statusBarsPadding()
         ) {
-            if (state.isLoading && state.items.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+            when {
+                state.isLoading && state.items.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
                 }
-                return@Column
-            }
 
-            if (state.items.isEmpty()) {
-                EmptyMenuContent(onAdd = { showEditor = true })
-                return@Column
-            }
+                state.items.isEmpty() -> {
+                    EmptyMenuContent(onAdd = { showEditor = true })
+                }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(state.items, key = { it.id }) { item ->
-                    MenuItemCard(
-                        item = item,
-                        isActionLoading = state.actionLoadingId == item.id,
-                        onToggleAvailability = { viewModel.toggleAvailability(item) },
-                        onEdit = { editorTarget = item },
-                        onVariants = { onOpenVariants(item.id) }, // FB-108
-                        onDelete = { viewModel.deleteItem(item.id) }
-                    )
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 88.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(state.items, key = { it.id }) { item ->
+                            MenuItemCard(
+                                item = item,
+                                isActionLoading = state.actionLoadingId == item.id,
+                                onToggleAvailability = { viewModel.toggleAvailability(item) },
+                                onEdit = { editorTarget = item },
+                                onVariants = { onOpenVariants(item.id) }, // FB-108
+                                onDelete = { viewModel.deleteItem(item.id) }
+                            )
+                        }
+                    }
                 }
             }
         }
+
+        ExtendedFloatingActionButton(
+            onClick = { showEditor = true },
+            icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+            text = { Text("Tambah Menu") },
+            containerColor = Accent,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        )
     }
 }
 
@@ -152,7 +158,7 @@ private fun MenuItemCard(
                     text = Format.rupiah(item.harga),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Primary
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Text(
                     text = "Prep: ${item.prepTimeMinutes} menit",
@@ -170,7 +176,7 @@ private fun MenuItemCard(
                 Text(
                     text = if (item.isAvailable) "Tersedia" else "Habis",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (item.isAvailable) Primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (item.isAvailable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
