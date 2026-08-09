@@ -5,6 +5,7 @@ import androidx.room.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
+import com.tembus.customer.data.model.FoodOrderItem
 import com.tembus.customer.data.model.Location
 import com.tembus.customer.data.model.Order
 
@@ -16,9 +17,10 @@ import com.tembus.customer.data.model.Order
  */
 @Database(
     entities = [Order::class, Location::class],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
+@TypeConverters(Converters::class)
 abstract class OrderDatabase : RoomDatabase() {
 
     abstract fun orderDao(): OrderDao
@@ -56,6 +58,14 @@ abstract class OrderDatabase : RoomDatabase() {
             }
         }
 
+        // FB-111: rincian item pesanan food (JSON string snapshot
+        // food_order_items) — customer bisa lihat lagi isi pesanan sendiri.
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `orders` ADD COLUMN `food_items` TEXT NOT NULL DEFAULT '[]'")
+            }
+        }
+
         fun getDatabase(context: Context): OrderDatabase {
             return INSTANCE ?: synchronized(this) {
                 // 🔐 SECURITY: Implementation of SQLCipher SupportFactory for on-disk encryption
@@ -71,7 +81,7 @@ abstract class OrderDatabase : RoomDatabase() {
                     "order_database"
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
                     .build()
                 INSTANCE = instance
                 instance
@@ -87,6 +97,28 @@ abstract class OrderDatabase : RoomDatabase() {
  */
 class Converters {
 
-    // Add converters if needed for custom types
-    // Currently Order uses String for podImageUri which is compatible
+    private val json = kotlinx.serialization.json.Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
+
+    // FB-111: item food — List<FoodOrderItem> ↔ JSON string di Room.
+    @TypeConverter
+    fun foodItemsToString(items: List<FoodOrderItem>): String {
+        return json.encodeToString(
+            kotlinx.serialization.builtins.ListSerializer(FoodOrderItem.serializer()),
+            items
+        )
+    }
+
+    @TypeConverter
+    fun stringToFoodItems(value: String?): List<FoodOrderItem> {
+        if (value.isNullOrBlank()) return emptyList()
+        return runCatching {
+            json.decodeFromString(
+                kotlinx.serialization.builtins.ListSerializer(FoodOrderItem.serializer()),
+                value
+            )
+        }.getOrElse { emptyList() }
+    }
 }

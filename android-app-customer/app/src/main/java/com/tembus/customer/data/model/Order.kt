@@ -126,5 +126,26 @@ data class Order(
 
     @ColumnInfo(name = "service_sub_type")
     @SerialName("service_sub_type")
-    var serviceSubType: String? = null
+    var serviceSubType: String? = null,
+
+    // FB-111: rincian item pesanan food (snapshot food_order_items dari
+    // backend getCustomerOrderById). Kosong [] untuk order non-food.
+    @ColumnInfo(name = "food_items")
+    @SerialName("food_items")
+    var foodItems: List<FoodOrderItem> = emptyList()
+)
+
+// FB-111: satu baris item pesanan food (nama, qty, catatan, harga beku).
+@Serializable
+data class FoodOrderItem(
+    @SerialName("name")
+    val name: String = "",
+    @SerialName("quantity")
+    val quantity: Int = 1,
+    @SerialName("notes")
+    val notes: String? = null,
+    @SerialName("price")
+    val price: Long = 0,
+    @SerialName("subtotal")
+    val subtotal: Long = 0
 )

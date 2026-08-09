@@ -195,6 +195,55 @@ fun OrderDetailScreen(
 
                         Spacer(Modifier.height(16.dp))
 
+                        // FB-111: Rincian item pesanan food (snapshot
+                        // food_order_items dari backend) — customer bisa lihat
+                        // lagi isi pesanan setelah order selesai.
+                        if (order.foodItems.isNotEmpty()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(20.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                border = BorderStroke(1.dp, Outline)
+                            ) {
+                                Column(Modifier.padding(20.dp)) {
+                                    Text("Rincian Pesanan", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OnSurface)
+                                    Spacer(Modifier.height(12.dp))
+                                    order.foodItems.forEach { item ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                            verticalAlignment = Alignment.Top,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Text(
+                                                "${item.quantity}×",
+                                                fontWeight = FontWeight.Black,
+                                                color = Accent
+                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(item.name, fontWeight = FontWeight.SemiBold, color = OnSurface)
+                                                if (!item.notes.isNullOrBlank()) {
+                                                    Text(
+                                                        "Catatan: ${item.notes}",
+                                                        fontSize = 12.sp,
+                                                        color = OnSurfaceVariant
+                                                    )
+                                                }
+                                            }
+                                            if (item.subtotal > 0) {
+                                                Text(
+                                                    "Rp ${item.subtotal}",
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = Primary
+                                                )
+                                            }
+                                        }
+                                        HorizontalDivider(color = Outline.copy(alpha = 0.4f))
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(16.dp))
+                        }
+
                         // Info Pembayaran
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -255,8 +304,13 @@ fun OrderDetailScreen(
                                     }
                                 }
                                 
-                                // Service Report button for tambal ban/towing
-                                if (order.serviceSubType != null && order.status.lowercase() == "delivered") {
+                                // Service Report button for tambal ban/towing only
+                                // FB-112: sebelumnya muncul utk SEMUA serviceSubType
+                                // (termasuk food) padahal aslinya utk tambal ban/towing.
+                                if (order.serviceSubType in setOf(
+                                        "tambal_ban_motor", "tambal_ban_mobil",
+                                        "towing_motor", "towing_mobil"
+                                    ) && order.status.lowercase() == "delivered") {
                                     OutlinedButton(
                                         onClick = { /* Navigate to service report */ },
                                         modifier = Modifier.fillMaxWidth().height(52.dp),
