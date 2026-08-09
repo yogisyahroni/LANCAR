@@ -497,8 +497,10 @@ export default function ActiveOrdersTable() {
                         order.status === 'delayed' ? "text-red-400" :
                         order.status === 'scheduled' ? "text-violet-300" : "text-zinc-200"
                       )}>{order.status}</span>
-                      {/* FB-123: badge Terjadwal untuk order food terjadwal */}
-                      {order.scheduled_at && (
+                      {/* FB-123: badge Terjadwal hanya untuk order yang MASIH terjadwal
+                          (AUDIT-FIX: setelah aktivasi status berubah tapi scheduled_at
+                          masih terisi → badge tidak boleh muncul di non-scheduled) */}
+                      {order.status === 'scheduled' && order.scheduled_at && (
                         <span className="text-[10px] font-bold bg-violet-500/10 text-violet-300 border border-violet-500/30 rounded-full px-2 py-0.5 ml-1">
                           🕐 Terjadwal — {formatScheduledTime(order.scheduled_at)}
                         </span>

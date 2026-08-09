@@ -47,9 +47,17 @@ func (s *merchantServiceImpl) EditOrderItems(ctx context.Context, userID, orderI
 		return nil, err
 	}
 
-	// 2. Validasi + hitung subtotal baru dari menu SEKARANG (server-side)
+	// 2. Validasi + hitung subtotal baru dari menu SEKARANG (server-side).
+	// AUDIT-FIX M3: subtotal MENYERTAKAN price_delta varian yang akan
+	// di-restore (konsisten dengan rumus CreateFoodOrder unitPrice =
+	// menu.Price + itemDelta). Sebelumnya harga edit = harga menu polos →
+	// order ber-varian ditagih lebih murah diam-diam setelah edit qty.
 	var newSubtotal int64
 	snapshots := make([]domain.FoodOrderItemSnapshot, 0, len(req.Items))
+	variantDeltas, errDeltas := s.orderRepo.GetOrderItemVariantDeltas(ctx, orderID)
+	if errDeltas != nil {
+		return nil, fmt.Errorf("get variant deltas: %w", errDeltas)
+	}
 	for _, it := range req.Items {
 		if it.Quantity < 1 {
 			return nil, fmt.Errorf("quantity untuk item %s harus minimal 1", it.MenuID)
@@ -64,12 +72,13 @@ func (s *merchantServiceImpl) EditOrderItems(ctx context.Context, userID, orderI
 		if !menu.IsAvailable {
 			return nil, fmt.Errorf("menu item tidak tersedia: %s", menu.Nama)
 		}
-		sub := menu.Harga * int64(it.Quantity)
+		unitPrice := menu.Harga + variantDeltas[it.MenuID] // M3: + delta varian
+		sub := unitPrice * int64(it.Quantity)
 		newSubtotal += sub
 		snapshots = append(snapshots, domain.FoodOrderItemSnapshot{
 			MenuItemID: menu.ID,
 			ItemName:   menu.Nama,
-			ItemPrice:  menu.Harga,
+			ItemPrice:  unitPrice, // M3: snapshot harga termasuk delta
 			Quantity:   it.Quantity,
 			Notes:      it.Notes,
 			Subtotal:   sub,

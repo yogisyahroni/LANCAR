@@ -60,12 +60,26 @@ type DefaultPaymentService struct {
 	configRepo     domain.ConfigRepository
 	taxService     domain.TaxService
 	pushSvc        domain.PushService
+	refundSvc      domain.RefundService // AUDIT-FIX: refund late-payment/resurrection
+	foodRepo       domain.FoodRepository // AUDIT-FIX: auto-cancel scheduled lewat jadwal
 }
 
 // SetPushService inject push service (FOOD-BIKE-064): notifikasi FCM ke
 // merchant saat order food paid → pending_merchant.
 func (s *DefaultPaymentService) SetPushService(ps domain.PushService) {
 	s.pushSvc = ps
+}
+
+// SetRefundService inject refund service (AUDIT-FIX C2/M4): refund otomatis
+// untuk pembayaran yang datang setelah order dibatalkan / jadwal lewat.
+func (s *DefaultPaymentService) SetRefundService(rs domain.RefundService) {
+	s.refundSvc = rs
+}
+
+// SetFoodRepository inject food repository (AUDIT-FIX M4): auto-cancel order
+// terjadwal yang dibayar setelah scheduled_at lewat.
+func (s *DefaultPaymentService) SetFoodRepository(fr domain.FoodRepository) {
+	s.foodRepo = fr
 }
 
 func NewPaymentService(pr domain.PaymentRepository, or domain.OrderRepository, pg domain.PaymentGateway, cr domain.ConfigRepository, ts domain.TaxService) *DefaultPaymentService {
@@ -302,9 +316,57 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 		// FB-123: order food TERJADWAL → 'scheduled' (ditahan, belum masuk radar
 		// merchant sama sekali; diaktivasi scheduled_order_worker mendekati
 		// scheduled_at). Merchant TIDAK di-notify di titik ini.
-		newOrderStatus := domain.StatusPendingAssignment
 		order, err := s.orderRepo.GetByID(ctx, orderID)
-		if err == nil && order.ServiceSubType == "food_delivery" {
+		if err != nil {
+			slog.ErrorContext(ctx, "Failed to load order for payment settlement", "order_id", orderID, "error", err)
+			if hasAuditRepo {
+				_ = auditRepo.UpdateWebhookAuditEvent(ctx, auditEventID, "failed", stringPtr("order_load_failed"))
+			}
+			return fmt.Errorf("failed to load order: %w", err)
+		}
+
+		// C2-AUDIT-FIX: jangan bangkitkan order yang sudah dibatalkan
+		// (resurrection). Kalau customer cancel dulu (status cancelled) lalu
+		// payment webhook datang terlambat, order TIDAK boleh kembali aktif —
+		// dana yang telanjur masuk akan di-refund via jalur cancel.
+		if order.Status == domain.StatusCancelled {
+			slog.WarnContext(ctx, "Payment settlement for cancelled order — tidak membangkitkan order", "order_id", orderID)
+			if s.refundSvc != nil {
+				oid, _ := uuid.Parse(orderID)
+				if _, rerr := s.refundSvc.CalculateAndTriggerRefund(ctx, oid,
+					"Pembayaran diterima setelah order dibatalkan — dana dikembalikan",
+					domain.RefundOptions{OriginalStatus: domain.StatusCancelled}); rerr != nil {
+					slog.WarnContext(ctx, "refund for late payment after cancel failed", "order_id", orderID, "error", rerr)
+				}
+			}
+			return nil
+		}
+
+		// M4-AUDIT-FIX: re-validasi scheduled_at saat settlement — kalau customer
+		// membayar SETELAH jadwal lewat, order terjadwal dibatalkan + refund 100%
+		// (tidak bisa ditahan lalu diaktivasi dengan waktu lampau).
+		if order.IsScheduled && order.ScheduledAt != nil && order.ScheduledAt.Before(time.Now()) {
+			slog.WarnContext(ctx, "Scheduled order paid after scheduled_at — auto-cancel + refund", "order_id", orderID)
+			if err := s.foodRepo.CancelScheduledFoodOrder(ctx, orderID, "scheduled_at_sudah_lewat_saat_pembayaran"); err != nil {
+				slog.WarnContext(ctx, "auto-cancel late scheduled order failed", "order_id", orderID, "error", err)
+			}
+			if s.refundSvc != nil {
+				oid, _ := uuid.Parse(orderID)
+				if _, rerr := s.refundSvc.CalculateAndTriggerRefund(ctx, oid,
+					"Jadwal pesanan sudah lewat saat pembayaran — dana dikembalikan penuh",
+					domain.RefundOptions{OriginalStatus: domain.StatusScheduled}); rerr != nil {
+					slog.WarnContext(ctx, "refund for late scheduled order failed", "order_id", orderID, "error", rerr)
+				}
+			}
+			if s.pushSvc != nil {
+				_ = s.pushSvc.NotifyCustomerOrderCancelled(ctx, orderID,
+					"Jadwal pesanan sudah lewat saat pembayaran — dana dikembalikan penuh")
+			}
+			return nil
+		}
+
+		newOrderStatus := domain.StatusPendingAssignment
+		if order != nil && order.ServiceSubType == "food_delivery" {
 			if order.IsScheduled {
 				newOrderStatus = domain.StatusScheduled
 			} else {

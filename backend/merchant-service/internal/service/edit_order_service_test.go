@@ -15,6 +15,14 @@ type mockOrderRepoForEdit struct {
 	orderEdit         func(ctx context.Context, merchantID, orderID string) (*domain.OrderEditData, error)
 	replaceItems      func(ctx context.Context, orderID string, items []domain.FoodOrderItemSnapshot, subtotal, platformFee, total int64) error
 	recordEvent       func(ctx context.Context, orderID, eventType, description string) error
+	variantDeltas     func(ctx context.Context, orderID string) (map[string]int64, error)
+}
+
+func (m *mockOrderRepoForEdit) GetOrderItemVariantDeltas(ctx context.Context, orderID string) (map[string]int64, error) {
+	if m.variantDeltas != nil {
+		return m.variantDeltas(ctx, orderID)
+	}
+	return map[string]int64{}, nil
 }
 
 func (m *mockOrderRepoForEdit) GetOrderForEdit(ctx context.Context, merchantID, orderID string) (*domain.OrderEditData, error) {
@@ -169,5 +177,33 @@ func TestEditOrderItems_SuksesTurunDenganRecalc(t *testing.T) {
 	}
 	if res.SubtotalIDR != 15000 || res.PlatformFeeIDR != 1500 || res.TotalIDR != 21500 {
 		t.Fatalf("recalc salah: subtotal=%d platform=%d total=%d", res.SubtotalIDR, res.PlatformFeeIDR, res.TotalIDR)
+	}
+}
+
+// TestEditOrderItems_SubtotalTermasukDeltaVarian — AUDIT-FIX M3: kalau order
+// punya varian (price_delta 5000, mis. Level 3 Pedas), subtotal edit HARUS
+// menyertakan delta — tidak boleh diam-diam lebih murah dari order asli.
+func TestEditOrderItems_SubtotalTermasukDeltaVarian(t *testing.T) {
+	items := map[string]*domain.MenuItem{"menu-1": menuItem("menu-1", "merchant-1", "Nasi Goreng", 15000, true)}
+	editData := &domain.OrderEditData{
+		ID: "order-1", Status: "pending_merchant",
+		SubtotalOldIDR: 40000, DeliveryFeeIDR: 5000,
+		PlatformFeeIDR: 4000, PlatformFeePct: 10, DiscountIDR: 0,
+		Items: []domain.FoodOrderItemView{
+			{ItemName: "Nasi Goreng", Quantity: 2, ItemPrice: 20000, Subtotal: 40000,
+				Variants: []domain.FoodOrderItemVariantView{{VariantName: "Level", OptionName: "Level 3 Pedas", PriceDelta: 5000}}},
+		},
+	}
+	svc := newEditTestService(approvedMerchant(), editData, items, nil)
+	svc.orderRepo.(*mockOrderRepoForEdit).variantDeltas = func(ctx context.Context, orderID string) (map[string]int64, error) {
+		return map[string]int64{"menu-1": 5000}, nil
+	}
+	res, err := svc.EditOrderItems(context.Background(), "user-1", "order-1", editReq(1))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// unitPrice = 15000 + 5000 = 20000; subtotal = 20000; fee 10% = 2000; total = 20000+5000+2000 = 27000.
+	if res.SubtotalIDR != 20000 || res.PlatformFeeIDR != 2000 || res.TotalIDR != 27000 {
+		t.Fatalf("delta varian tidak masuk recalc: subtotal=%d platform=%d total=%d", res.SubtotalIDR, res.PlatformFeeIDR, res.TotalIDR)
 	}
 }

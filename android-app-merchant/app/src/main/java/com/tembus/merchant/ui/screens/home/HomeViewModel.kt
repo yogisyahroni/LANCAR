@@ -90,10 +90,20 @@ class HomeViewModel(
         viewModelScope.launch {
             merchantRepository.listOrders(status = status, pageSize = 50)
                 .onSuccess { orders ->
+                    var loaded = orders
+                    // AUDIT-FIX #2: di tab "Baru", sertakan order terjadwal
+                    // (status scheduled) supaya section "Pesanan Terjadwal Hari
+                    // Ini" tampil — sebelumnya state.orders cuma berisi
+                    // pending_merchant → section selalu kosong di tab default.
+                    if (filter == OrderFilter.NEW) {
+                        val scheduled = merchantRepository.listOrders(status = "scheduled", pageSize = 50)
+                            .getOrElse { emptyList() }
+                        loaded = orders + scheduled
+                    }
                     val filtered = if (filter == OrderFilter.ACTIVE) {
-                        orders.filter { it.status in activeStatuses }
+                        loaded.filter { it.status in activeStatuses }
                     } else {
-                        orders
+                        loaded
                     }
                     _uiState.value = _uiState.value.copy(orders = filtered, isLoading = false)
 

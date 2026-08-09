@@ -469,7 +469,8 @@ func (r *foodRepo) GetScheduledFoodOrdersDue(ctx context.Context) ([]domain.Sche
 		  AND merchant_id IS NOT NULL
 		  AND scheduled_at IS NOT NULL
 		  AND scheduled_at <= NOW() + ((COALESCE(prep_time_minutes, 10) + 5) * INTERVAL '1 minute')
-		ORDER BY scheduled_at ASC`)
+		ORDER BY scheduled_at ASC
+		LIMIT 100`)
 	if err != nil {
 		return nil, err
 	}

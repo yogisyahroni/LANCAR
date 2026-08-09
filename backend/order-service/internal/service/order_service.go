@@ -1611,7 +1611,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	// 'scheduled' terjadi di payment callback (payment_service.go).
 	var scheduledAt *time.Time
 	if req.IsScheduled {
-		if errV := validateScheduledAt(req.ScheduledAt, merchant.JamBuka, merchant.JamTutup); errV != nil {
+		if errV := validateScheduledAt(req.ScheduledAt, merchant.JamBuka, merchant.JamTutup, time.Now()); errV != nil {
 			return nil, errV
 		}
 		scheduledAt = req.ScheduledAt
@@ -1898,32 +1898,62 @@ func validateFoodDeliveryDistance(distanceKM float64) error {
 	return nil
 }
 
+// jakartaLoc — AUDIT-FIX M1: semua perbandingan jam operasional & same-day
+// memakai zona WIB (Asia/Jakarta) eksplisit, TIDAK bergantung TZ OS server
+// (container Docker default UTC → geser 7 jam). Merchant beroperasi di
+// Indonesia; jadwal customer dikirim dengan offset lokal dan dikonversi ke
+// WIB untuk dibandingkan dengan jam_buka/jam_tutup merchant.
+var jakartaLoc = func() *time.Location {
+	loc, err := time.LoadLocation("Asia/Jakarta")
+	if err != nil {
+		return time.FixedZone("WIB", 7*60*60) // fallback aman kalau tzdata hilang
+	}
+	return loc
+}()
+
+// inJakarta — konversi time ke zona WIB (AUDIT-FIX M1).
+func inJakarta(t time.Time) time.Time {
+	return t.In(jakartaLoc)
+}
+
 // validateScheduledAt — FB-123: aturan pesanan terjadwal yang dipakai
 // CreateFoodOrder: wajib ada waktu, min lead 30 menit, same-day only,
 // dalam jam operasional merchant (jam_buka/jam_tutup TIME "HH:MM[:SS]").
-func validateScheduledAt(sa *time.Time, jamBuka, jamTutup *string) error {
+// AUDIT-FIX M1: perbandingan jam/tanggal memakai zona WIB eksplisit;
+// AUDIT-FIX M3: dukung jam operasional lintas tengah malam (buka 18:00–02:00).
+// Pure function (terima `now` eksplisit) — testable & tidak time-dependent.
+func validateScheduledAt(sa *time.Time, jamBuka, jamTutup *string, now time.Time) error {
 	if sa == nil {
 		return fmt.Errorf("waktu jadwal wajib diisi (scheduled_at)")
 	}
-	now := time.Now()
 	if sa.Before(now.Add(30 * time.Minute)) {
 		return fmt.Errorf("waktu jadwal minimal 30 menit dari sekarang")
 	}
-	// Same-day only (V1): tanggal harus sama dengan hari ini.
-	y1, m1, d1 := sa.Date()
-	y2, m2, d2 := now.Date()
+	// Same-day only (V1): tanggal harus sama dengan hari ini (zona WIB).
+	saJkt := inJakarta(*sa)
+	nowJkt := inJakarta(now)
+	y1, m1, d1 := saJkt.Date()
+	y2, m2, d2 := nowJkt.Date()
 	if y1 != y2 || m1 != m2 || d1 != d2 {
 		return fmt.Errorf("pesanan terjadwal hanya bisa untuk hari ini — pilih jam yang masih hari ini")
 	}
 	// Jam operasional merchant (jam_buka/jam_tutup TIME "HH:MM[:SS]").
+	// Jam merchant diasumsikan zona WIB (operasi di Indonesia).
 	if jamBuka != nil && jamTutup != nil {
 		openH, openM, errO := parseHHMM(*jamBuka)
 		closeH, closeM, errC := parseHHMM(*jamTutup)
 		if errO == nil && errC == nil {
-			targetMin := sa.Hour()*60 + sa.Minute()
+			targetMin := saJkt.Hour()*60 + saJkt.Minute()
 			openMin := openH*60 + openM
 			closeMin := closeH*60 + closeM
-			if targetMin < openMin || targetMin > closeMin {
+			// M3: rentang lintas tengah malam (tutup < buka, mis. 18:00–02:00):
+			// valid kalau target >= buka ATAU target <= tutup.
+			if closeMin < openMin {
+				if targetMin < openMin && targetMin > closeMin {
+					return fmt.Errorf("merchant buka jam %s–%s — pilih waktu di dalam jam operasional",
+						*jamBuka, *jamTutup)
+				}
+			} else if targetMin < openMin || targetMin > closeMin {
 				return fmt.Errorf("merchant buka jam %s–%s — pilih waktu di dalam jam operasional",
 					*jamBuka, *jamTutup)
 			}
@@ -2128,12 +2158,31 @@ func (s *orderServiceImpl) ProcessScheduledOrderActivation(ctx context.Context) 
 			merchant.VerificationStatus == "approved" &&
 			merchant.IsOpen &&
 			(merchant.PausedUntil == nil || merchant.PausedUntil.Before(now))
-		// Jam operasional: kalau jam tutup sudah lewat saat aktivasi → cancel.
-		if valid && merchant.JamTutup != nil {
-			if closeH, closeM, errP := parseHHMM(*merchant.JamTutup); errP == nil {
+		// Jam operasional saat aktivasi (zona WIB — AUDIT-FIX M1).
+		// M2: kalau belum jam buka → JANGAN cancel, tunggu tick berikutnya
+		// (merchant baru is_open pagi hari; auto-cancel prematur merugikan).
+		// M3: dukung rentang lintas tengah malam.
+		// m3: aktivasi tepat jam tutup (nowMin == closeMin) dianggap TUTUP.
+		nowJkt := inJakarta(now)
+		nowMin := nowJkt.Hour()*60 + nowJkt.Minute()
+		if valid && merchant.JamBuka != nil && merchant.JamTutup != nil {
+			openH, openM, errO := parseHHMM(*merchant.JamBuka)
+			closeH, closeM, errC := parseHHMM(*merchant.JamTutup)
+			if errO == nil && errC == nil {
+				openMin := openH*60 + openM
 				closeMin := closeH*60 + closeM
-				nowMin := now.Hour()*60 + now.Minute()
-				if nowMin > closeMin {
+				if closeMin < openMin {
+					// Lintas tengah malam: tutup kalau di luar [buka..24:00] ∪ [00:00..tutup]
+					if nowMin < openMin && nowMin > closeMin {
+						log.Printf("[ScheduledOrderWorker] %s: di luar jam operasional %s–%s (lintas tengah malam) — skip, coba tick berikutnya", so.OrderID, *merchant.JamBuka, *merchant.JamTutup)
+						continue
+					}
+				} else if nowMin < openMin {
+					// M2: BELUM jam buka → skip (jangan cancel), tunggu tick berikutnya.
+					log.Printf("[ScheduledOrderWorker] %s: belum jam buka (%s) — skip, coba tick berikutnya", so.OrderID, *merchant.JamBuka)
+					continue
+				} else if nowMin >= closeMin {
+					// m3: sudah lewat/tepat jam tutup → cancel.
 					valid = false
 				}
 			}
@@ -2149,12 +2198,8 @@ func (s *orderServiceImpl) ProcessScheduledOrderActivation(ctx context.Context) 
 				"Maaf, merchant tidak bisa menerima pesanan terjadwal kamu saat ini — dana dikembalikan penuh")
 			s.triggerRefundOnCancel(ctx, so.OrderID,
 				"Merchant tidak bisa menerima pesanan terjadwal saat aktivasi", domain.StatusScheduled, "platform")
-			if s.pushSvc != nil {
-				if errP := s.pushSvc.NotifyCustomerOrderCancelled(ctx, so.OrderID,
-					"Merchant tidak bisa menerima pesanan terjadwal kamu saat ini — dana dikembalikan penuh"); errP != nil {
-					log.Printf("[ScheduledOrderWorker] gagal push notif cancel %s: %v", so.OrderID, errP)
-				}
-			}
+			// m2-AUDIT-FIX: triggerRefundOnCancel sudah mengirim
+			// NotifyCustomerOrderCancelled — tidak perlu push kedua (duplikat).
 			log.Printf("[ScheduledOrderWorker] auto-cancel scheduled %s (merchant tidak valid)", so.OrderID)
 			continue
 		}

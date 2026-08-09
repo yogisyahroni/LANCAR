@@ -124,8 +124,10 @@ object EscPos {
                 line("  - $it")
             }
             // FB-108-FIX: varian/opsi terpilih ikut tercetak (mis. Level: Level 3 Pedas)
-            item.variants.takeIf { it.isNotEmpty() }?.forEach { v ->
-                line("  - ${v.variantName}: ${v.optionName}")
+            // AUDIT-FIX: truncate ke lebar kertas 58mm (nama opsi panjang
+            // tidak boleh bikin printer wrap berantakan).
+            item.variants?.takeIf { it.isNotEmpty() }?.forEach { v ->
+                line("  - ${truncate("${v.variantName}: ${v.optionName}", WIDTH - 4)}")
             }
         }
         divider()
@@ -176,6 +178,13 @@ object EscPos {
         val bytes = ByteArray(sb.length)
         for (i in sb.indices) bytes[i] = sb[i].code.toByte()
         return bytes
+    }
+
+    /** AUDIT-FIX: potong teks ke maxLen karakter dengan ellipsis (58mm aman). */
+    private fun truncate(text: String, maxLen: Int): String {
+        if (text.length <= maxLen) return text
+        if (maxLen <= 1) return text.take(maxLen)
+        return text.take(maxLen - 1) + "…"
     }
 
     private fun rupiah(value: Long): String {

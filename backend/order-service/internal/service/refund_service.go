@@ -126,6 +126,20 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 		return nil, nil // Payment not settled, maybe just cancel the payment instead
 	}
 
+	// C1-AUDIT-FIX: idempotensi refund — kalau refund aktif (pending/processed)
+	// sudah ada untuk order ini, jangan buat duplikat. (Jaring pengaman DB:
+	// partial unique index idx_refunds_single_active_per_order.)
+	existing, errExists := s.refundRepo.GetRefundsByOrder(ctx, orderID)
+	if errExists != nil {
+		return nil, fmt.Errorf("failed to check existing refunds: %w", errExists)
+	}
+	for _, r := range existing {
+		if r.Status == domain.RefundStatusPending || r.Status == domain.RefundStatusProcessed {
+			log.Printf("Refund already active for order %s (status %s) — skip duplicate", orderID, r.Status)
+			return &r, nil
+		}
+	}
+
 	refundAmount := int(float64(payment.AmountIDR) * refundRatio)
 	platformFeeReversal := int64(float64(order.PlatformFeeIDR) * refundRatio)
 	if withholdServiceFee {

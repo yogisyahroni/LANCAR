@@ -37,6 +37,7 @@ import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryLight
 import java.time.OffsetDateTime
 import java.time.ZoneId
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /**
@@ -140,9 +141,10 @@ fun HomeScreen(
         ) {
             // FB-123: section pesanan terjadwal hari ini — supaya merchant bisa
             // rencanakan kapasitas dari awal, meski order belum masuk antrian.
-            val scheduledToday = state.orders.filter {
-                it.status == "scheduled" && it.scheduledAt?.startsWith(todayPrefix()) == true
-            }
+            // AUDIT-FIX #4: isScheduledToday pakai konversi UTC → zona lokal
+            // (bukan prefix string UTC — order 07:00 WIB tidak tampil sampai
+            // jam 07:00 kalau pakai LocalDate.now(UTC)).
+            val scheduledToday = state.orders.filter { it.status == "scheduled" && isScheduledToday(it.scheduledAt) }
             if (scheduledToday.isNotEmpty()) {
                 item(key = "scheduled_header") {
                     ScheduledTodayHeader(count = scheduledToday.size)
@@ -152,7 +154,7 @@ fun HomeScreen(
                 }
             }
 
-            items(state.orders, key = { it.id }) { order ->
+            items(state.orders.filter { it.status != "scheduled" }, key = { it.id }) { order -> // AUDIT-FIX #3: exclude scheduled (sudah di section atas)
                 OrderCard(
                     order = order,
                     isActionLoading = state.actionOrderId == order.id,
@@ -620,10 +622,18 @@ private fun EmptyOrdersContent(onRefresh: () -> Unit) {
 
 // ── FB-123: pesanan terjadwal hari ini ──
 
-// todayPrefix — prefix tanggal UTC (YYYY-MM-DD) untuk filter scheduled_at
-// milik hari ini (scheduled_at dikirim UTC ISO oleh backend merchant).
-private fun todayPrefix(): String {
-    return java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString()
+// isScheduledToday — AUDIT-FIX #4: scheduled_at (UTC ISO) masuk kategori
+// "hari ini" kalau TANGGAL LOKAL-nya sama dengan hari ini (konversi
+// UTC → zona perangkat, bukan prefix string UTC).
+private fun isScheduledToday(scheduledAt: String?): Boolean {
+    if (scheduledAt.isNullOrBlank()) return false
+    return try {
+        OffsetDateTime.parse(scheduledAt)
+            .atZoneSameInstant(ZoneId.systemDefault())
+            .toLocalDate() == LocalDate.now()
+    } catch (_: Exception) {
+        false
+    }
 }
 
 // parseScheduledTime — scheduled_at UTC ISO → jam lokal (HH:mm).

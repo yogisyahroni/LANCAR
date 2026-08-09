@@ -21,6 +21,10 @@ export const getAllOrders = async (req: Request, res: Response) => {
         o.total_price_idr as total_amount, 
         o.base_price_idr as base_fare,
         o.created_at,
+        -- AUDIT-FIX: kirim scheduled_at (UTC ISO) supaya badge "Terjadwal"
+        -- di dashboard benar-benar tampil (sebelumnya tidak di-SELECT →
+        -- badge mati permanen).
+        to_char(o.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as scheduled_at,
         u.full_name as customer_name,
         u.phone_number as customer_phone,
         (SELECT cu.full_name 
@@ -43,7 +47,9 @@ export const getAllOrders = async (req: Request, res: Response) => {
 
     if (search) {
       values.push(`%${search}%`);
-      query += ` AND (o.id::text ILIKE $${values.length} OR u.full_name ILIKE $${values.length} OR cu.full_name ILIKE $${values.length})`;
+      // AUDIT-FIX: cu.full_name sebelumnya pakai alias yang tidak ada di
+      // FROM (JOIN pakai `u`) → SQL error kalau admin pakai search.
+      query += ` AND (o.id::text ILIKE $${values.length} OR u.full_name ILIKE $${values.length} OR o.order_number ILIKE $${values.length})`;
     }
 
     if (status) {

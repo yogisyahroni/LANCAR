@@ -290,7 +290,8 @@ private fun StrukContent(
                         )
                     }
                     // FB-108-FIX: varian/opsi terpilih di struk digital.
-                    item.variants.takeIf { it.isNotEmpty() }?.let { variants ->
+                    // AUDIT-FIX: safe-call konsisten (?. + orEmpty fallback).
+                    item.variants?.takeIf { it.isNotEmpty() }?.let { variants ->
                         Text(
                             text = variants.joinToString("\n") { v ->
                                 "   • ${v.variantName}: ${v.optionName}"

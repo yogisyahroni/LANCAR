@@ -10,56 +10,46 @@ func strPtr(s string) *string { return &s }
 
 func timePtr(t time.Time) *time.Time { return &t }
 
-// validScheduledTime — waktu jadwal yang pasti valid saat test dijalankan:
-// now + 45 menit (≥30 menit, same day). Kalau melewati tengah malam atau di
-// luar jam operasional test, fallback ke siang ini (12:00) selama masih
-// ≥30 menit dari sekarang.
-func validScheduledTime(now time.Time, buka, tutup int) time.Time {
-	cand := now.Add(45 * time.Minute)
-	inHours := cand.Hour()*60+cand.Minute() >= buka*60 && cand.Hour()*60+cand.Minute() <= tutup*60
-	if cand.Day() == now.Day() && cand.Month() == now.Month() && inHours {
-		return cand
-	}
-	noon := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
-	if noon.After(now.Add(30 * time.Minute)) {
-		return noon
-	}
-	return now.Add(30*time.Minute + time.Second)
-}
-
 // TestValidateScheduledAt_FB123 — aturan pesanan terjadwal:
 // 1) nil → tolak; 2) < 30 menit → tolak; 3) bukan hari ini → tolak;
 // 4) di luar jam operasional → tolak; 5) valid → lolos.
+// AUDIT-FIX M1: deterministik — `now` eksplisit di zona WIB, semua case
+// dibangun di WIB (validasi memakai Asia/Jakarta, bukan TZ runner).
 func TestValidateScheduledAt_FB123(t *testing.T) {
-	now := time.Now()
+	now := time.Date(2026, 8, 9, 10, 0, 0, 0, jakartaLoc) // Sabtu 10:00 WIB
 	buka, tutup := strPtr("08:00"), strPtr("22:00")
 
-	valid := validScheduledTime(now, 8, 22)
+	valid := time.Date(2026, 8, 9, 12, 0, 0, 0, jakartaLoc)
 	// Besok pukul sama (salah hari).
-	tomorrow := valid.Add(24 * time.Hour)
+	tomorrow := time.Date(2026, 8, 10, 12, 0, 0, 0, jakartaLoc)
 	// Hari ini pukul 07:00 (sebelum buka 08:00).
-	todayBeforeOpen := time.Date(now.Year(), now.Month(), now.Day(), 7, 0, 0, 0, now.Location())
+	todayBeforeOpen := time.Date(2026, 8, 9, 7, 0, 0, 0, jakartaLoc)
 	// Hari ini pukul 23:00 (setelah tutup 22:00).
-	todayAfterClose := time.Date(now.Year(), now.Month(), now.Day(), 23, 0, 0, 0, now.Location())
+	todayAfterClose := time.Date(2026, 8, 9, 23, 0, 0, 0, jakartaLoc)
 
 	cases := []struct {
 		name    string
+		now     time.Time
 		sa      *time.Time
 		buka    *string
 		tutup   *string
 		wantErr bool
 	}{
-		{"nil_waktu_ditolak", nil, buka, tutup, true},
-		{"kurang_dari_30_menit", timePtr(now.Add(10 * time.Minute)), buka, tutup, true},
-		{"bukan_hari_ini", &tomorrow, buka, tutup, true},
-		{"sebelum_jam_buka", &todayBeforeOpen, buka, tutup, true},
-		{"setelah_jam_tutup", &todayAfterClose, buka, tutup, true},
-		{"valid_di_dalam_jam_operasional", &valid, buka, tutup, false},
-		{"valid_tanpa_jam_operasional", &valid, nil, nil, false},
+		{"nil_waktu_ditolak", now, nil, buka, tutup, true},
+		{"kurang_dari_30_menit", now, timePtr(now.Add(10 * time.Minute)), buka, tutup, true},
+		{"bukan_hari_ini", now, &tomorrow, buka, tutup, true},
+		{"sebelum_jam_buka", now, &todayBeforeOpen, buka, tutup, true},
+		{"setelah_jam_tutup", now, &todayAfterClose, buka, tutup, true},
+		{"valid_di_dalam_jam_operasional", now, &valid, buka, tutup, false},
+		{"valid_tanpa_jam_operasional", now, &valid, nil, nil, false},
+		// AUDIT-FIX M3: jam operasional lintas tengah malam (18:00–02:00).
+		{"lintas_malam_valid_20:00", now, timePtr(time.Date(2026, 8, 9, 20, 0, 0, 0, jakartaLoc)), strPtr("18:00"), strPtr("02:00"), false},
+		{"lintas_malam_valid_01:00", time.Date(2026, 8, 10, 0, 30, 0, 0, jakartaLoc), timePtr(time.Date(2026, 8, 10, 1, 0, 0, 0, jakartaLoc)), strPtr("18:00"), strPtr("02:00"), false},
+		{"lintas_malam_ditolak_12:00", now, timePtr(time.Date(2026, 8, 9, 12, 0, 0, 0, jakartaLoc)), strPtr("18:00"), strPtr("02:00"), true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateScheduledAt(tc.sa, tc.buka, tc.tutup)
+			err := validateScheduledAt(tc.sa, tc.buka, tc.tutup, tc.now)
 			if tc.wantErr && err == nil {
 				t.Fatalf("expected error, got nil")
 			}
@@ -73,8 +63,8 @@ func TestValidateScheduledAt_FB123(t *testing.T) {
 // TestValidateScheduledAt_PesanMinimal_FB123 — error message harus
 // menjelaskan aturan minimal 30 menit (customer butuh pesan yang jelas).
 func TestValidateScheduledAt_PesanMinimal_FB123(t *testing.T) {
-	now := time.Now()
-	err := validateScheduledAt(timePtr(now.Add(5*time.Minute)), nil, nil)
+	now := time.Date(2026, 8, 9, 10, 0, 0, 0, jakartaLoc)
+	err := validateScheduledAt(timePtr(now.Add(5*time.Minute)), nil, nil, now)
 	if err == nil || !strings.Contains(err.Error(), "minimal 30 menit") {
 		t.Fatalf("pesan error tidak menjelaskan minimal 30 menit: %v", err)
 	}

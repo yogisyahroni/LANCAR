@@ -27,6 +27,10 @@ type MerchantOrderRepository interface {
 	// ReplaceOrderItems (FB-087): dalam SATU transaksi — hapus food_order_items,
 	// insert snapshot items baru, update base_price/dynamic_price/platform_fee/total.
 	ReplaceOrderItems(ctx context.Context, orderID string, items []FoodOrderItemSnapshot, subtotal, platformFee, total int64) error
+	// GetOrderItemVariantDeltas (AUDIT-FIX M3): total price_delta varian per
+	// menu_item_id untuk order ini (varian yang akan di-restore saat edit) —
+	// dipakai service supaya subtotal edit menyertakan delta varian.
+	GetOrderItemVariantDeltas(ctx context.Context, orderID string) (map[string]int64, error)
 }
 
 // FoodOrderItemSnapshot — snapshot item untuk replace saat edit order (FB-087).

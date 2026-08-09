@@ -200,10 +200,14 @@ fun FoodCheckoutScreen(
                 Spacer(Modifier.height(10.dp))
                 val context = LocalContext.current
                 val timeFmt = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+                var scheduleError by remember { mutableStateOf<String?>(null) }
                 // Min lead time: 30 menit dari sekarang (sesuai backend FB-123).
-                val minMs = remember { System.currentTimeMillis() + 30 * 60 * 1000L }
+                // AUDIT-FIX: dihitung FRESH setiap buka picker — minMs yang
+                // di-remember sekali akan stale kalau layar kebuka >30 menit
+                // (waktu terkirim < 30 menit dari now aktual → ditolak backend).
                 OutlinedButton(
                     onClick = {
+                        val minMs = System.currentTimeMillis() + 30 * 60 * 1000L
                         val cal = Calendar.getInstance().apply {
                             timeInMillis = (scheduledAtMs ?: minMs).coerceAtLeast(minMs)
                         }
@@ -216,7 +220,16 @@ fun FoodCheckoutScreen(
                                     set(Calendar.SECOND, 0)
                                     set(Calendar.MILLISECOND, 0)
                                 }.timeInMillis
-                                scheduledAtMs = if (picked < minMs) minMs else picked
+                                val freshMin = System.currentTimeMillis() + 30 * 60 * 1000L
+                                if (picked < freshMin) {
+                                    // AUDIT-FIX: feedback eksplisit, bukan clamp siluman
+                                    // (user pilih 13:00 tapi dikirim 13:45 diam-diam).
+                                    scheduleError = "Pilih minimal 30 menit dari sekarang — jam dipilih terlalu dekat"
+                                    scheduledAtMs = null
+                                } else {
+                                    scheduleError = null
+                                    scheduledAtMs = picked
+                                }
                             },
                             cal.get(Calendar.HOUR_OF_DAY),
                             cal.get(Calendar.MINUTE),
@@ -232,6 +245,10 @@ fun FoodCheckoutScreen(
                         fontSize = 14.sp,
                         color = if (scheduledAtMs != null) Primary else Color(0xFF475569)
                     )
+                }
+                scheduleError?.let {
+                    Spacer(Modifier.height(4.dp))
+                    Text(it, color = Color(0xFFEF4444), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.height(6.dp))
                 Text(

@@ -270,6 +270,10 @@ func main() {
 	// FB-082: cancelFeeRepo utk piutang cancellation fee merchant
 	refundSvc := service.NewRefundService(refundRepo, pgRepo, paymentRepo, refundGw, redisRepo, ledgerRepo, foodRepo, merchantCancelFeeRepo)
 	orderSvc.SetRefundService(refundSvc)
+	// AUDIT-FIX (C2/M4): payment webhook butuh refund + food repo untuk
+	// menolak resurrection order cancelled & auto-cancel scheduled lewat jadwal.
+	paymentSvc.SetRefundService(refundSvc)
+	paymentSvc.SetFoodRepository(foodRepo)
 	slaSvc := service.NewSLAService(slaRepo, notificationSvc, payoutRepo)
 	insuranceSvc := service.NewInsuranceService(insuranceRepo, notificationSvc, configRepo)
 	relayScoreSvc := service.NewRelayScoreService(relayRepo)
