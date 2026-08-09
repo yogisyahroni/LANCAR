@@ -720,6 +720,15 @@ func (s *orderServiceImpl) AcceptOrder(ctx context.Context, orderID string, cour
 			_ = s.eventRepo.SaveEvent(ctx, event)
 			_ = s.eventBus.Publish(ctx, "order.updates", event)
 
+			// FB-124: notif customer bahwa driver sudah di-assign (hanya
+			// order food — parcel sudah dapat notif "order_accepted" di atas).
+			// Fire-and-forget — gagal kirim hanya di-log.
+			if o.MerchantID != nil && s.pushSvc != nil {
+				if errPush := s.pushSvc.NotifyCustomerDriverAssigned(ctx, o.ID, "Driver ditemukan — sedang menuju merchant"); errPush != nil {
+					log.Printf("[OrderService] FB-124 push driver_assigned gagal order %s: %v", o.ID, errPush)
+				}
+			}
+
 			// 5. Notify Customer
 			_ = s.notificationSvc.Send(ctx, domain.NotificationRequest{
 				UserID:  o.CustomerID,
@@ -1247,6 +1256,29 @@ func (s *orderServiceImpl) ScanPackage(ctx context.Context, scannedBy string, sc
 		}
 	}
 
+	// FB-124: Push progress ke customer + merchant pada transisi food.
+	// pickup (accepted → picked_up): customer tahu pesanan diambil driver,
+	// merchant dapat konfirmasi serah terima. delivered: keduanya di-notif.
+	// Fire-and-forget — gagal kirim hanya di-log, tidak menggagalkan scan.
+	if order.MerchantID != nil && s.pushSvc != nil {
+		if targetStatus == domain.StatusPickedUp {
+			if errPush := s.pushSvc.NotifyCustomerPickedUp(ctx, order.ID, "Pesananmu sudah diambil driver dan sedang dalam perjalanan"); errPush != nil {
+				log.Printf("[OrderService] FB-124 push picked_up customer gagal order %s: %v", order.ID, errPush)
+			}
+			if errPush := s.pushSvc.NotifyMerchantPickedUp(ctx, order.ID, "Pesanan sudah diambil driver — terima kasih!"); errPush != nil {
+				log.Printf("[OrderService] FB-124 push picked_up merchant gagal order %s: %v", order.ID, errPush)
+			}
+		}
+		if targetStatus == domain.StatusDelivered {
+			if errPush := s.pushSvc.NotifyCustomerDelivered(ctx, order.ID, "Pesananmu sudah diantar — selamat menikmati!"); errPush != nil {
+				log.Printf("[OrderService] FB-124 push delivered customer gagal order %s: %v", order.ID, errPush)
+			}
+			if errPush := s.pushSvc.NotifyMerchantDelivered(ctx, order.ID, "Pesanan sudah diantar ke customer"); errPush != nil {
+				log.Printf("[OrderService] FB-124 push delivered merchant gagal order %s: %v", order.ID, errPush)
+			}
+		}
+	}
+
 	// 4. Save order event
 	eventMsg := fmt.Sprintf("Package scan recorded: %s", scan.ScanType)
 	if scan.ScanType == "delivered" {
@@ -1618,6 +1650,15 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 
 	// 5. Ongkir: jarak merchant → dropoff, tarif dari service product food_delivery
 	distanceKM := haversineKM(merchant.Lat, merchant.Lng, req.DropoffLat, req.DropoffLng)
+
+	// FB-104: tolak order yang jaraknya melebihi radius maksimum kurir
+	// (20 km = batas atas dropdown radius kurir sepeda). Tanpa ini order
+	// tetap dibuat, masuk searching, lalu timeout tanpa peringatan awal —
+	// customer sudah bayar duluan baru tahu tidak ada kurir.
+	if err := validateFoodDeliveryDistance(distanceKM); err != nil {
+		return nil, err
+	}
+
 	svc, err := s.pricingRepo.GetDeliveryServiceByCode(ctx, "food_delivery")
 	if err != nil || svc == nil {
 		return nil, fmt.Errorf("service product food_delivery tidak ditemukan: %w", err)
@@ -1745,6 +1786,19 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	return order, nil
 }
 
+// validateFoodDeliveryDistance — FB-104: tolak order food kalau jarak
+// merchant → dropoff melebihi radius maksimum kurir (20 km = batas atas
+// dropdown radius kurir sepeda). Dipanggil di CreateFoodOrder SEBELUM
+// customer bayar, supaya tidak ada order yang masuk searching lalu
+// timeout tanpa kurir bersedia.
+func validateFoodDeliveryDistance(distanceKM float64) error {
+	const foodMaxRadiusKM = 20.0
+	if distanceKM > foodMaxRadiusKM {
+		return fmt.Errorf("jarak pengantaran %.1f km melebihi radius maksimum kurir (%.0f km) — pilih merchant yang lebih dekat atau alamat antar yang lain", distanceKM, foodMaxRadiusKM)
+	}
+	return nil
+}
+
 // haversineKM — jarak dua titik koordinat dalam kilometer.
 func haversineKM(lat1, lng1, lat2, lng2 float64) float64 {
 	const earthRadiusKM = 6371.0
@@ -1780,6 +1834,14 @@ func (s *orderServiceImpl) AcceptByMerchant(ctx context.Context, orderID string,
 		return err
 	}
 	s.publishOrderEvent(ctx, orderID, domain.StatusPreparing, "Merchant menerima pesanan — makanan disiapkan")
+
+	// FB-124: notif customer bahwa merchant menerima pesanannya
+	// (fire-and-forget — gagal kirim hanya di-log, tidak menggagalkan accept).
+	if s.pushSvc != nil {
+		if errPush := s.pushSvc.NotifyCustomerMerchantAccepted(ctx, orderID, "Merchant menerima pesananmu — makanan sedang disiapkan"); errPush != nil {
+			log.Printf("[OrderService] FB-124 push merchant_accepted gagal order %s: %v", orderID, errPush)
+		}
+	}
 	return nil
 }
 

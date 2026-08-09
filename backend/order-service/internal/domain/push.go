@@ -37,4 +37,22 @@ type PushService interface {
 	// ordernya diubah merchant sebelum konfirmasi (nilai tidak boleh naik).
 	// Non-fatal: gagal kirim hanya di-log.
 	NotifyCustomerOrderUpdated(ctx context.Context, orderID string, message string) error
+	// NotifyCustomerMerchantAccepted (FB-124) memberi tahu customer bahwa
+	// merchant menerima pesanan food (status preparing).
+	NotifyCustomerMerchantAccepted(ctx context.Context, orderID string, message string) error
+	// NotifyCustomerDriverAssigned (FB-124) memberi tahu customer bahwa
+	// driver sudah di-assign ke order food (status accepted).
+	NotifyCustomerDriverAssigned(ctx context.Context, orderID string, message string) error
+	// NotifyCustomerPickedUp (FB-124) memberi tahu customer bahwa pesanan
+	// food sudah diambil driver dari merchant (status picked_up).
+	NotifyCustomerPickedUp(ctx context.Context, orderID string, message string) error
+	// NotifyCustomerDelivered (FB-124) memberi tahu customer bahwa pesanan
+	// food sudah diantar (status delivered).
+	NotifyCustomerDelivered(ctx context.Context, orderID string, message string) error
+	// NotifyMerchantPickedUp (FB-124) memberi tahu merchant bahwa driver
+	// sudah mengambil pesanan (konfirmasi serah terima, status picked_up).
+	NotifyMerchantPickedUp(ctx context.Context, orderID string, message string) error
+	// NotifyMerchantDelivered (FB-124) memberi tahu merchant bahwa pesanan
+	// sudah diantar ke customer (status delivered).
+	NotifyMerchantDelivered(ctx context.Context, orderID string, message string) error
 }
