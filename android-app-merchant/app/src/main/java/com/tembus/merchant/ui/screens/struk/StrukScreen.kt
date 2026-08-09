@@ -289,6 +289,16 @@ private fun StrukContent(
                             color = Color(0xFF6B7280)
                         )
                     }
+                    // FB-108-FIX: varian/opsi terpilih di struk digital.
+                    item.variants.takeIf { it.isNotEmpty() }?.let { variants ->
+                        Text(
+                            text = variants.joinToString("\n") { v ->
+                                "   • ${v.variantName}: ${v.optionName}"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF6B7280)
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))

@@ -454,6 +454,17 @@ private fun OrderCard(
                     text = "${item.quantity}× ${item.itemName}",
                     style = MaterialTheme.typography.bodySmall
                 )
+                // FB-108-FIX: varian/opsi terpilih — format konsisten dengan
+                // driver app (FoodItemsCard): "Level: Level 3 Pedas".
+                item.variants?.takeIf { it.isNotEmpty() }?.let { variants ->
+                    Text(
+                        text = variants.joinToString(" · ") { v ->
+                            "${v.variantName}: ${v.optionName}"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             if (order.items.size > 3) {
                 Text(

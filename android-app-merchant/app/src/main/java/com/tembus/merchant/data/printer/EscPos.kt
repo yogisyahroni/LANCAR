@@ -123,6 +123,10 @@ object EscPos {
             item.notes?.takeIf { it.isNotBlank() }?.let {
                 line("  - $it")
             }
+            // FB-108-FIX: varian/opsi terpilih ikut tercetak (mis. Level: Level 3 Pedas)
+            item.variants.takeIf { it.isNotEmpty() }?.forEach { v ->
+                line("  - ${v.variantName}: ${v.optionName}")
+            }
         }
         divider()
 

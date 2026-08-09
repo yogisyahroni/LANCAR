@@ -164,27 +164,74 @@ func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, me
 	return out, nil
 }
 
-func (r *postgresMerchantOrderRepository) attachItems(ctx context.Context, index map[string]*domain.MerchantOrderView, orderIDs []string) error {
-	q := `SELECT order_id, item_name, quantity, item_price, subtotal, COALESCE(notes, '')
-	      FROM food_order_items WHERE order_id = ANY($1) ORDER BY created_at`
-	rows, err := r.readDB.QueryContext(ctx, q, orderIDs)
+// itemWithOrder — hasil query items + varian, membawa order_id asal.
+type itemWithOrder struct {
+	OrderID string
+	Item    domain.FoodOrderItemView
+}
+
+// queryItemsWithVariants — FB-108-FIX: query snapshot food_order_items
+// dengan LEFT JOIN food_order_item_variants (varian opsional, item tanpa
+// varian tetap muncul). Satu item bisa menghasilkan beberapa baris (per
+// varian) → dikelompokkan kembali di Go memakai foi.id.
+func queryItemsWithVariants(ctx context.Context, db *sql.DB, whereClause string, args ...any) ([]itemWithOrder, error) {
+	q := `SELECT foi.id, foi.order_id, foi.item_name, foi.quantity, foi.item_price, foi.subtotal,
+	       COALESCE(foi.notes, ''),
+	       COALESCE(foiv.variant_name, ''), COALESCE(foiv.option_name, ''), COALESCE(foiv.price_delta, 0)
+	FROM food_order_items foi
+	LEFT JOIN food_order_item_variants foiv ON foiv.order_item_id = foi.id
+	WHERE ` + whereClause + `
+	ORDER BY foi.created_at, foiv.created_at`
+	rows, err := db.QueryContext(ctx, q, args...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rows.Close()
 
+	var out []itemWithOrder
+	var lastItemID string
+	var lastIdx int
 	for rows.Next() {
-		var orderID, notes string
-		var item domain.FoodOrderItemView
-		if err := rows.Scan(&orderID, &item.ItemName, &item.Quantity, &item.ItemPrice, &item.Subtotal, &notes); err != nil {
-			return err
+		var itemID, orderID, notes, vName, oName string
+		var vDelta int64
+		var it domain.FoodOrderItemView
+		if err := rows.Scan(&itemID, &orderID, &it.ItemName, &it.Quantity, &it.ItemPrice, &it.Subtotal,
+			&notes, &vName, &oName, &vDelta); err != nil {
+			return nil, err
 		}
-		item.Notes = notes
-		if v, ok := index[orderID]; ok {
-			v.Items = append(v.Items, item)
+		it.Notes = notes
+
+		if itemID == lastItemID && len(out) > 0 {
+			// Baris varian lanjutan untuk item yang sama → append ke item
+			// yang sudah masuk slice (hindari entry item ganda).
+			if vName != "" {
+				out[lastIdx].Item.Variants = append(out[lastIdx].Item.Variants,
+					domain.FoodOrderItemVariantView{VariantName: vName, OptionName: oName, PriceDelta: vDelta})
+			}
+			continue
+		}
+		lastItemID = itemID
+		lastIdx = len(out)
+		if vName != "" {
+			it.Variants = append(it.Variants,
+				domain.FoodOrderItemVariantView{VariantName: vName, OptionName: oName, PriceDelta: vDelta})
+		}
+		out = append(out, itemWithOrder{OrderID: orderID, Item: it})
+	}
+	return out, rows.Err()
+}
+
+func (r *postgresMerchantOrderRepository) attachItems(ctx context.Context, index map[string]*domain.MerchantOrderView, orderIDs []string) error {
+	items, err := queryItemsWithVariants(ctx, r.readDB, "foi.order_id = ANY($1)", orderIDs)
+	if err != nil {
+		return err
+	}
+	for _, iw := range items {
+		if v, ok := index[iw.OrderID]; ok {
+			v.Items = append(v.Items, iw.Item)
 		}
 	}
-	return rows.Err()
+	return nil
 }
 
 func (r *postgresMerchantOrderRepository) CountByMerchant(ctx context.Context, merchantID, status string) (int, error) {
@@ -229,29 +276,15 @@ func (r *postgresMerchantOrderRepository) GetOrderForStruk(ctx context.Context, 
 	s.CreatedAt = createdAt
 	s.Items = []domain.FoodOrderItemView{}
 
-	rows, err := r.readDB.QueryContext(ctx, `
-		SELECT item_name, quantity, item_price, subtotal, COALESCE(notes, '')
-		FROM food_order_items
-		WHERE order_id = $1
-		ORDER BY created_at`, orderID)
+	items, err := queryItemsWithVariants(ctx, r.readDB, "foi.order_id = $1", orderID)
 	if err != nil {
 		return nil, fmt.Errorf("get struk items: %w", err)
 	}
-	defer rows.Close()
-
 	var subtotalIDR int64
-	for rows.Next() {
-		var it domain.FoodOrderItemView
-		if err := rows.Scan(&it.ItemName, &it.Quantity, &it.ItemPrice, &it.Subtotal, &it.Notes); err != nil {
-			return nil, err
-		}
-		subtotalIDR += it.Subtotal
-		s.Items = append(s.Items, it)
+	for _, iw := range items {
+		subtotalIDR += iw.Item.Subtotal
+		s.Items = append(s.Items, iw.Item)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
 	s.SubtotalIDR = subtotalIDR
 	s.DeliveryFeeIDR = s.TotalPriceIDR - subtotalIDR
 	if s.DeliveryFeeIDR < 0 {
@@ -299,26 +332,14 @@ func (r *postgresMerchantOrderRepository) GetOrderForEdit(ctx context.Context, m
 		return nil, errors.New("order hanya bisa diedit sebelum dikonfirmasi (status pending_merchant)")
 	}
 
-	rows, err := r.readDB.QueryContext(ctx, `
-		SELECT item_name, quantity, item_price, subtotal, COALESCE(notes, '')
-		FROM food_order_items
-		WHERE order_id = $1
-		ORDER BY created_at`, orderID)
+	items, err := queryItemsWithVariants(ctx, r.readDB, "foi.order_id = $1", orderID)
 	if err != nil {
 		return nil, fmt.Errorf("get order edit items: %w", err)
 	}
-	defer rows.Close()
 
 	d.Items = []domain.FoodOrderItemView{}
-	for rows.Next() {
-		var it domain.FoodOrderItemView
-		if err := rows.Scan(&it.ItemName, &it.Quantity, &it.ItemPrice, &it.Subtotal, &it.Notes); err != nil {
-			return nil, fmt.Errorf("scan edit item: %w", err)
-		}
-		d.Items = append(d.Items, it)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("get order edit items rows: %w", err)
+	for _, iw := range items {
+		d.Items = append(d.Items, iw.Item)
 	}
 	return &d, nil
 }
@@ -326,6 +347,9 @@ func (r *postgresMerchantOrderRepository) GetOrderForEdit(ctx context.Context, m
 // ReplaceOrderItems — FB-087: replace snapshot items + update harga order
 // dalam SATU transaksi. Dipanggil hanya saat status pending_merchant
 // (sudah divalidasi di GetOrderForEdit / service).
+// FB-108-FIX: varian dari item lama dengan menu_item_id yang sama
+// DI-PERTAHANKAN — edit qty tidak boleh menghapus pilihan varian
+// (mis. "Level 3 Pedas" harus tetap ada saat merchant kurangi porsi).
 func (r *postgresMerchantOrderRepository) ReplaceOrderItems(ctx context.Context, orderID string, items []domain.FoodOrderItemSnapshot, subtotal, platformFee, total int64) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -333,21 +357,65 @@ func (r *postgresMerchantOrderRepository) ReplaceOrderItems(ctx context.Context,
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	// FB-108-FIX: snapshot varian lama sebelum dihapus, keyed by menu_item_id.
+	type oldVariant struct {
+		VariantID, OptionID, VariantName, OptionName string
+		PriceDelta                                   int64
+	}
+	oldVariants := map[string][]oldVariant{}
+	vRows, err := tx.QueryContext(ctx, `
+		SELECT foi.menu_item_id, foiv.variant_id, foiv.option_id,
+		       foiv.variant_name, foiv.option_name, foiv.price_delta
+		FROM food_order_items foi
+		JOIN food_order_item_variants foiv ON foiv.order_item_id = foi.id
+		WHERE foi.order_id = $1`, orderID)
+	if err != nil {
+		return fmt.Errorf("get old variants: %w", err)
+	}
+	for vRows.Next() {
+		var menuID string
+		var v oldVariant
+		if err := vRows.Scan(&menuID, &v.VariantID, &v.OptionID, &v.VariantName, &v.OptionName, &v.PriceDelta); err != nil {
+			vRows.Close()
+			return fmt.Errorf("scan old variant: %w", err)
+		}
+		oldVariants[menuID] = append(oldVariants[menuID], v)
+	}
+	vRows.Close()
+	if err := vRows.Err(); err != nil {
+		return err
+	}
+
 	if _, err := tx.ExecContext(ctx, `DELETE FROM food_order_items WHERE order_id = $1`, orderID); err != nil {
 		return fmt.Errorf("delete order items: %w", err)
 	}
 
 	for i := range items {
 		it := &items[i]
-		if _, err := tx.ExecContext(ctx, `
+		var newItemID string
+		if err := tx.QueryRowContext(ctx, `
 			INSERT INTO food_order_items (
 				order_id, menu_item_id, item_name, item_price,
 				quantity, notes, subtotal, created_at
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+			RETURNING id`,
 			orderID, it.MenuItemID, it.ItemName, it.ItemPrice,
 			it.Quantity, it.Notes, it.Subtotal,
-		); err != nil {
+		).Scan(&newItemID); err != nil {
 			return fmt.Errorf("insert replaced order item: %w", err)
+		}
+
+		// FB-108-FIX: restore varian item lama yang menu-nya sama (edit qty).
+		for _, v := range oldVariants[it.MenuItemID] {
+			if _, err := tx.ExecContext(ctx, `
+				INSERT INTO food_order_item_variants (
+					order_item_id, variant_id, option_id,
+					variant_name, option_name, price_delta
+				) VALUES ($1, $2, $3, $4, $5, $6)`,
+				newItemID, v.VariantID, v.OptionID, v.VariantName, v.OptionName, v.PriceDelta,
+			); err != nil {
+				return fmt.Errorf("restore order item variant: %w", err)
+			}
 		}
 	}
 

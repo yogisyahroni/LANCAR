@@ -176,7 +176,16 @@ data class FoodOrderItem(
     @SerializedName("quantity") val quantity: Int = 1,
     @SerializedName("item_price") val itemPrice: Long = 0,
     @SerializedName("subtotal") val subtotal: Long = 0,
-    @SerializedName("notes") val notes: String? = null
+    @SerializedName("notes") val notes: String? = null,
+    // FB-108-FIX: snapshot varian/opsi terpilih saat order dibuat.
+    @SerializedName("variants") val variants: List<FoodOrderItemVariant> = emptyList()
+)
+
+/** FoodOrderItemVariant — FB-108-FIX: satu varian terpilih (mis. Level: Level 3 Pedas). */
+data class FoodOrderItemVariant(
+    @SerializedName("variant_name") val variantName: String = "",
+    @SerializedName("option_name") val optionName: String = "",
+    @SerializedName("price_delta") val priceDelta: Long = 0
 )
 
 /** List wrapper menu: {items, total, page, page_size}. */

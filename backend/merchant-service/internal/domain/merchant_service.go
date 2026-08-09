@@ -26,11 +26,20 @@ type MerchantOrderView struct {
 
 // FoodOrderItemView — item dalam order food (dari food_order_items snapshot).
 type FoodOrderItemView struct {
-	ItemName  string `json:"item_name"`
-	Quantity  int    `json:"quantity"`
-	ItemPrice int64  `json:"item_price"`
-	Subtotal  int64  `json:"subtotal"`
-	Notes     string `json:"notes,omitempty"`
+	ItemName  string                     `json:"item_name"`
+	Quantity  int                        `json:"quantity"`
+	ItemPrice int64                      `json:"item_price"`
+	Subtotal  int64                      `json:"subtotal"`
+	Notes     string                     `json:"notes,omitempty"`
+	// FB-108-FIX: varian/opsi terpilih (snapshot saat order dibuat).
+	Variants []FoodOrderItemVariantView `json:"variants,omitempty"`
+}
+
+// FoodOrderItemVariantView — snapshot varian terpilih per item order.
+type FoodOrderItemVariantView struct {
+	VariantName string `json:"variant_name"`
+	OptionName  string `json:"option_name"`
+	PriceDelta  int64  `json:"price_delta"`
 }
 
 // MerchantService — interface layanan merchant (FOOD-BIKE-017).
