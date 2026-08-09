@@ -117,3 +117,13 @@ type UpdateMerchantPromoRequest struct {
 	StartsAt       *string `json:"starts_at,omitempty"`
 	EndsAt         *string `json:"ends_at,omitempty"`
 }
+
+// UpdateBankAccountRequest — body update rekening bank merchant (FB-114).
+// Dipakai payout settlement (FB-113). Rekening baru butuh verifikasi ulang
+// (bank_account_verified di-reset false sampai admin approve).
+type UpdateBankAccountRequest struct {
+	BankName            string `json:"bank_name"`
+	BankAccountNumber   string `json:"bank_account_number"`
+	BankAccountHolder   string `json:"bank_account_holder"`
+	RekeningBankURL     string `json:"rekening_bank_url,omitempty"` // foto buku tabungan baru (opsional)
+}

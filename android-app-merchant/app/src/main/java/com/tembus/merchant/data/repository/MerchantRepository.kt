@@ -46,6 +46,10 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun rejectOrder(orderId: String, reason: String, rejectReason: String = "lainnya"): Result<Boolean> =
         request { api.rejectOrder(orderId, RejectOrderRequest(reason, rejectReason)) }.map { it.success }
 
+    // FB-114: update rekening bank.
+    suspend fun updateBankAccount(req: UpdateBankAccountRequest): Result<Merchant> =
+        request { api.updateBankAccount(req) }
+
     suspend fun getStruk(orderId: String): Result<StrukData> =
         request { api.getStruk(orderId) }
 

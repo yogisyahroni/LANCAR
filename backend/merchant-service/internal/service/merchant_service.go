@@ -225,6 +225,45 @@ func (s *merchantServiceImpl) UpdateFoodDocs(ctx context.Context, userID string,
 	return s.merchantRepo.GetByID(ctx, m.ID)
 }
 
+// UpdateBankAccount — FB-114: update rekening bank merchant untuk payout.
+// Semua field wajib. Rekening baru → bank_account_verified di-reset false
+// sampai admin approve (verifikasi ulang).
+func (s *merchantServiceImpl) UpdateBankAccount(ctx context.Context, userID string, req domain.UpdateBankAccountRequest) (*domain.Merchant, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	bankName := strings.TrimSpace(req.BankName)
+	accountNumber := strings.TrimSpace(req.BankAccountNumber)
+	accountHolder := strings.TrimSpace(req.BankAccountHolder)
+	if bankName == "" || accountNumber == "" || accountHolder == "" {
+		return nil, errors.New("bank_name, bank_account_number, dan bank_account_holder wajib diisi")
+	}
+	if len(accountNumber) < 5 || len(accountNumber) > 30 {
+		return nil, errors.New("nomor rekening tidak valid (5-30 digit)")
+	}
+	// Rekening berubah? Kalau sama persis, jangan reset verifikasi.
+	changed := m.BankName == nil || m.BankAccountNumber == nil ||
+		bankName != *ptrOr(m.BankName, "") || accountNumber != *ptrOr(m.BankAccountNumber, "")
+	if err := s.merchantRepo.UpdateBankAccount(ctx, m.ID, domain.UpdateBankAccountRequest{
+		BankName:          bankName,
+		BankAccountNumber: accountNumber,
+		BankAccountHolder: accountHolder,
+		RekeningBankURL:   req.RekeningBankURL,
+	}, changed); err != nil {
+		return nil, err
+	}
+	return s.merchantRepo.GetByID(ctx, m.ID)
+}
+
+// ptrOr — helper kecil: return isi pointer atau fallback string.
+func ptrOr(p *string, fallback string) *string {
+	if p == nil {
+		return &fallback
+	}
+	return p
+}
+
 // buildFoodDocs — validasi + pasang field dokumen pangan ke merchant,
 // return list MerchantDocument bukti (hanya doc_type yang punya nomor).
 // requireComplete=true → wajib lengkap (update KYC); false → opsional (daftar).

@@ -341,6 +341,36 @@ func (h *MerchantHandler) AcceptOrder(w http.ResponseWriter, r *http.Request) {
 	h.respondJSON(w, http.StatusOK, map[string]bool{"success": true})
 }
 
+// UpdateBankAccount godoc
+// @Summary Update rekening bank merchant
+// @Description Update rekening bank untuk payout settlement (FB-114).
+// @Tags merchant
+// @Accept json
+// @Param request body domain.UpdateBankAccountRequest true "rekening baru"
+// @Success 200 {object} domain.Merchant
+// @Router /merchant/bank-account [put]
+func (h *MerchantHandler) UpdateBankAccount(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var body domain.UpdateBankAccountRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	merchant, err := h.svc.UpdateBankAccount(r.Context(), userID, body)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, merchant)
+}
+
 // RejectOrder godoc
 // @Summary Tolak order food (wajib reason)
 // @Tags merchant

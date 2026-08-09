@@ -34,6 +34,12 @@ type Merchant struct {
 	SppIrtExpiryDate  *string    `json:"spp_irt_expiry_date,omitempty"` // YYYY-MM-DD
 	BpomNumber        *string    `json:"bpom_number,omitempty"`
 	BpomExpiryDate    *string    `json:"bpom_expiry_date,omitempty"` // YYYY-MM-DD
+	// Rekening bank untuk payout (FB-114) — di-update dari app; verifikasi
+	// ulang oleh admin saat rekening berubah.
+	BankName             *string  `json:"bank_name,omitempty"`
+	BankAccountNumber    *string  `json:"bank_account_number,omitempty"`
+	BankAccountHolder    *string  `json:"bank_account_holder,omitempty"`
+	BankAccountVerified  bool     `json:"bank_account_verified"`
 	CreatedAt          time.Time  `json:"created_at"`
 	UpdatedAt          time.Time  `json:"updated_at"`
 }
@@ -107,8 +113,12 @@ type MerchantRepository interface {
 	// ListDocuments ambil dokumen verifikasi merchant.
 	ListDocuments(ctx context.Context, merchantID string) ([]MerchantDocument, error)
 	// UpdateFoodDocs update nomor + masa berlaku dokumen pangan + upsert
-	// dokumen bukti (sertifikat_halal/spp_irt/izin_edar_bpom) dalam 1 transaksi.
+	// merchant_documents dalam satu transaksi.
 	UpdateFoodDocs(ctx context.Context, m *Merchant, docs []MerchantDocument) error
+	// UpdateBankAccount (FB-114): update rekening bank + reset verifikasi
+	// (bank_account_verified=false) sampai admin setujui rekening baru.
+	// changed=false → data sama persis, verifikasi dipertahankan.
+	UpdateBankAccount(ctx context.Context, merchantID string, req UpdateBankAccountRequest, changed bool) error
 	// ListOpenWithExpiredFoodDocs merchant is_open=true dengan dokumen pangan
 	// yang sudah kedaluwarsa (untuk worker auto-suspend FB-092).
 	ListOpenWithExpiredFoodDocs(ctx context.Context) ([]*Merchant, error)

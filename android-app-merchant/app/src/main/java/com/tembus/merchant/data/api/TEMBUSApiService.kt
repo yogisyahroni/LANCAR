@@ -35,6 +35,12 @@ interface TEMBUSApiService {
         @Body request: UpdateFoodDocsRequest
     ): Response<Merchant>
 
+    // FB-114: update rekening bank (payout).
+    @PUT("api/v1/merchant/bank-account")
+    suspend fun updateBankAccount(
+        @Body request: UpdateBankAccountRequest
+    ): Response<Merchant>
+
     // ── Menu CRUD ──
     @GET("api/v1/merchant/menu")
     suspend fun listMenu(

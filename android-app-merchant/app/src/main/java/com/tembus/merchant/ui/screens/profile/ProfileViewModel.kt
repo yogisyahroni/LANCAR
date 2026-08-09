@@ -3,6 +3,7 @@ package com.tembus.merchant.ui.screens.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.merchant.data.model.Merchant
+import com.tembus.merchant.data.model.UpdateBankAccountRequest
 import com.tembus.merchant.data.repository.AuthRepository
 import com.tembus.merchant.data.repository.MerchantRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +17,11 @@ data class ProfileUiState(
     val name: String? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val needsRegistration: Boolean = false
+    val needsRegistration: Boolean = false,
+    // FB-114: status form update rekening bank.
+    val isSavingBank: Boolean = false,
+    val bankSaved: Boolean = false,
+    val bankSaveError: String? = null
 )
 
 class ProfileViewModel(
@@ -71,6 +76,31 @@ class ProfileViewModel(
 
     fun logout() {
         authRepository.logout()
+    }
+
+    // FB-114: simpan rekening bank baru.
+    fun updateBankAccount(req: UpdateBankAccountRequest) {
+        _uiState.value = _uiState.value.copy(isSavingBank = true, bankSaved = false, bankSaveError = null)
+        viewModelScope.launch {
+            merchantRepository.updateBankAccount(req)
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        merchant = updated,
+                        isSavingBank = false,
+                        bankSaved = true
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSavingBank = false,
+                        bankSaveError = e.message ?: "Gagal menyimpan rekening"
+                    )
+                }
+        }
+    }
+
+    fun clearBankSaved() {
+        _uiState.value = _uiState.value.copy(bankSaved = false, bankSaveError = null)
     }
 
     fun clearError() {

@@ -24,6 +24,11 @@ data class Merchant(
     @SerializedName("spp_irt_expiry_date") val sppIrtExpiryDate: String? = null,
     @SerializedName("bpom_number") val bpomNumber: String? = null,
     @SerializedName("bpom_expiry_date") val bpomExpiryDate: String? = null,
+    // FB-114: rekening bank untuk payout (dari backend, verifikasi admin).
+    @SerializedName("bank_name") val bankName: String? = null,
+    @SerializedName("bank_account_number") val bankAccountNumber: String? = null,
+    @SerializedName("bank_account_holder") val bankAccountHolder: String? = null,
+    @SerializedName("bank_account_verified") val bankAccountVerified: Boolean = false,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("updated_at") val updatedAt: String? = null
 ) {
@@ -73,6 +78,14 @@ data class ToggleOpenRequest(
 data class RejectOrderRequest(
     @SerializedName("reason") val reason: String,
     @SerializedName("reject_reason") val rejectReason: String
+)
+
+/** FB-114: update rekening bank merchant (payout settlement). */
+data class UpdateBankAccountRequest(
+    @SerializedName("bank_name") val bankName: String,
+    @SerializedName("bank_account_number") val bankAccountNumber: String,
+    @SerializedName("bank_account_holder") val bankAccountHolder: String,
+    @SerializedName("rekening_bank_url") val rekeningBankUrl: String? = null
 )
 
 /** List wrapper: {orders, total, page, page_size}. */

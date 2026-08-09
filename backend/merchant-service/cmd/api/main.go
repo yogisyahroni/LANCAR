@@ -117,6 +117,8 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
+	// FB-114: update rekening bank untuk payout.
+	mux.HandleFunc("/api/v1/merchant/bank-account", middleware.BaseChain(h.UpdateBankAccount))
 	mux.HandleFunc("/api/v1/merchant/toggle-open", middleware.BaseChain(h.ToggleOpen))
 	mux.HandleFunc("/api/v1/merchant/food-docs", middleware.BaseChain(h.UpdateFoodDocs))
 

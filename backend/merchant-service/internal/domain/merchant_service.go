@@ -41,6 +41,9 @@ type MerchantService interface {
 	// BPJPH, SPP-IRT, izin edar BPOM + masa berlaku. Buka toko ditolak
 	// kalau belum lengkap / expired.
 	UpdateFoodDocs(ctx context.Context, userID string, req UpdateFoodDocsRequest) (*Merchant, error)
+	// UpdateBankAccount update rekening bank merchant (FB-114) — payout
+	// settlement (FB-113). Rekening baru otomatis perlu verifikasi ulang admin.
+	UpdateBankAccount(ctx context.Context, userID string, req UpdateBankAccountRequest) (*Merchant, error)
 
 	// Menu
 	CreateMenuItem(ctx context.Context, userID string, req CreateMenuItemRequest) (*MenuItem, error)

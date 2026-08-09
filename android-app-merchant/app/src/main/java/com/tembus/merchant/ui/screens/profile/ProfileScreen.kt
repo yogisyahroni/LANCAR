@@ -4,10 +4,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Logout
@@ -20,11 +22,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.tembus.merchant.data.model.Merchant
+import com.tembus.merchant.data.model.UpdateBankAccountRequest
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.screens.promo.PromoScreen
 import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.GreenText
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryLight
 
@@ -170,6 +176,21 @@ fun ProfileScreen(
                     m.createdAt?.let { ProfileInfoRow("Terdaftar", it.substring(0, 10)) }
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // FB-114: rekening bank untuk payout — lihat & ubah dari app.
+            BankAccountSection(
+                bankName = m.bankName,
+                bankAccountNumber = m.bankAccountNumber,
+                bankAccountHolder = m.bankAccountHolder,
+                bankAccountVerified = m.bankAccountVerified,
+                isSaving = state.isSavingBank,
+                saveError = state.bankSaveError,
+                saved = state.bankSaved,
+                onSavedDismiss = viewModel::clearBankSaved,
+                onSave = viewModel::updateBankAccount
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -406,5 +427,156 @@ private fun ProfileActionRow(title: String, subtitle: String?) {
                 )
             }
         }
+    }
+}
+
+/**
+ * FB-114: kartu rekening bank — tampilkan data saat ini + tombol ubah
+ * yang membuka form (nama bank, nomor rekening, pemilik).
+ */
+@Composable
+private fun BankAccountSection(
+    bankName: String?,
+    bankAccountNumber: String?,
+    bankAccountHolder: String?,
+    bankAccountVerified: Boolean,
+    isSaving: Boolean,
+    saveError: String?,
+    saved: Boolean,
+    onSavedDismiss: () -> Unit,
+    onSave: (UpdateBankAccountRequest) -> Unit
+) {
+    var editing by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf(bankName ?: "") }
+    var number by remember { mutableStateOf(bankAccountNumber ?: "") }
+    var holder by remember { mutableStateOf(bankAccountHolder ?: "") }
+
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.AccountBalance,
+                        contentDescription = null,
+                        tint = Primary,
+                        modifier = Modifier.padding(10.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Rekening Bank",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = if (bankAccountVerified) "Terverifikasi — untuk pencairan pendapatan"
+                        else "Perlu verifikasi ulang admin",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (bankAccountVerified) GreenText else MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (editing) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Nama Bank") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = number,
+                    onValueChange = { number = it.filter { c -> c.isDigit() }.take(30) },
+                    label = { Text("Nomor Rekening") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = holder,
+                    onValueChange = { holder = it },
+                    label = { Text("Nama Pemilik Rekening") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                saveError?.let {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                    TextButton(onClick = { editing = false }) { Text("Batal") }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            onSave(
+                                UpdateBankAccountRequest(
+                                    bankName = name.trim(),
+                                    bankAccountNumber = number.trim(),
+                                    bankAccountHolder = holder.trim()
+                                )
+                            )
+                            editing = false
+                        },
+                        enabled = name.isNotBlank() && number.length >= 5 && holder.isNotBlank() && !isSaving
+                    ) {
+                        if (isSaving) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Simpan")
+                        }
+                    }
+                }
+            } else {
+                if (bankName.isNullOrBlank()) {
+                    Text(
+                        text = "Belum mengisi rekening bank. Lengkapi untuk menerima pencairan pendapatan.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    ProfileInfoRow("Bank", bankName)
+                    ProfileInfoRow("Nomor", bankAccountNumber.orEmpty())
+                    ProfileInfoRow("Pemilik", bankAccountHolder.orEmpty())
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(onClick = {
+                    name = bankName ?: ""
+                    number = bankAccountNumber ?: ""
+                    holder = bankAccountHolder ?: ""
+                    editing = true
+                }) { Text("Ubah Rekening") }
+            }
+        }
+    }
+
+    // Toast-like: sukses simpan
+    if (saved) {
+        LaunchedEffect(saved) {
+            onSavedDismiss()
+        }
+        AlertDialog(
+            onDismissRequest = onSavedDismiss,
+            confirmButton = {
+                TextButton(onClick = onSavedDismiss) { Text("OK") }
+            },
+            title = { Text("Rekening Disimpan") },
+            text = {
+                Text("Rekening bank berhasil diperbarui. Rekening baru perlu verifikasi admin sebelum digunakan untuk pencairan.")
+            }
+        )
     }
 }

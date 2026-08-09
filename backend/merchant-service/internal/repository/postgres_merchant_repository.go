@@ -81,6 +81,7 @@ const merchantColumns = `id, user_id, nama_toko, alamat,
 	halal_cert_number, to_char(halal_expiry_date, 'YYYY-MM-DD'),
 	spp_irt_number, to_char(spp_irt_expiry_date, 'YYYY-MM-DD'),
 	bpom_number, to_char(bpom_expiry_date, 'YYYY-MM-DD'),
+	bank_name, bank_account_number, bank_account_holder, bank_account_verified,
 	created_at, updated_at`
 
 func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error) {
@@ -90,6 +91,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	var avgRating sql.NullFloat64
 	var ratingCount sql.NullInt64
 	var halalNo, halalExp, sppNo, sppExp, bpomNo, bpomExp sql.NullString
+	var bankName, bankAccountNumber, bankAccountHolder sql.NullString
 	err := row.Scan(
 		&m.ID, &m.UserID, &m.NamaToko, &m.Alamat,
 		&lat, &lng,
@@ -97,6 +99,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 		&m.IsOpen, &m.CompletionRatePct, &m.VerificationStatus,
 		&avgRating, &ratingCount,
 		&halalNo, &halalExp, &sppNo, &sppExp, &bpomNo, &bpomExp,
+		&bankName, &bankAccountNumber, &bankAccountHolder, &m.BankAccountVerified,
 		&m.CreatedAt, &m.UpdatedAt,
 	)
 	if err != nil {
@@ -146,6 +149,18 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 		v := bpomExp.String
 		m.BpomExpiryDate = &v
 	}
+	if bankName.Valid {
+		v := bankName.String
+		m.BankName = &v
+	}
+	if bankAccountNumber.Valid {
+		v := bankAccountNumber.String
+		m.BankAccountNumber = &v
+	}
+	if bankAccountHolder.Valid {
+		v := bankAccountHolder.String
+		m.BankAccountHolder = &v
+	}
 	return &m, nil
 }
 
@@ -191,6 +206,39 @@ func (r *postgresMerchantRepository) Update(ctx context.Context, m *domain.Merch
 		m.ID, m.NamaToko, m.Alamat, lokasi, jamBuka, jamTutup,
 	)
 	return err
+}
+
+func (r *postgresMerchantRepository) UpdateBankAccount(ctx context.Context, merchantID string, req domain.UpdateBankAccountRequest, changed bool) error {
+	// changed=false → data sama persis, jaga bank_account_verified tetap TRUE.
+	var verifiedClause string
+	if changed {
+		verifiedClause = "bank_account_verified = FALSE,"
+	} else {
+		verifiedClause = ""
+	}
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE merchants SET
+			bank_name = $2,
+			bank_account_number = $3,
+			bank_account_holder = $4,
+			`+verifiedClause+`
+			updated_at = NOW()
+		WHERE id = $1`, merchantID, req.BankName, req.BankAccountNumber, req.BankAccountHolder)
+	if err != nil {
+		return err
+	}
+	// Foto buku tabungan baru (opsional) — upsert ke merchant_documents.
+	if req.RekeningBankURL != "" {
+		if _, err := r.db.ExecContext(ctx, `
+			INSERT INTO merchant_documents (merchant_id, doc_type, file_url, created_at)
+			VALUES ($1, 'rekening_bank', $2, NOW())
+			ON CONFLICT (merchant_id, doc_type)
+			DO UPDATE SET file_url = EXCLUDED.file_url, updated_at = NOW()`,
+			merchantID, req.RekeningBankURL); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *postgresMerchantRepository) UpdateVerification(ctx context.Context, id, status string) error {
