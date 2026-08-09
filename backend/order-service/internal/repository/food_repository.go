@@ -452,6 +452,88 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 	return out, rows.Err()
 }
 
+// GetScheduledFoodOrdersDue — FB-123: order status 'scheduled' yang sudah due
+// untuk aktivasi. Due = scheduled_at ≤ NOW() + prep_time_minutes + buffer 5
+// menit (matching merchant dimulai 5 menit sebelum makanan harus siap).
+func (r *foodRepo) GetScheduledFoodOrdersDue(ctx context.Context) ([]domain.ScheduledFoodOrder, error) {
+	rows, err := r.readDB.QueryContext(ctx, `
+		SELECT
+			id::text,
+			customer_id::text,
+			order_number,
+			merchant_id::text,
+			scheduled_at,
+			COALESCE(prep_time_minutes, 10)
+		FROM orders
+		WHERE status = 'scheduled'
+		  AND merchant_id IS NOT NULL
+		  AND scheduled_at IS NOT NULL
+		  AND scheduled_at <= NOW() + ((COALESCE(prep_time_minutes, 10) + 5) * INTERVAL '1 minute')
+		ORDER BY scheduled_at ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []domain.ScheduledFoodOrder
+	for rows.Next() {
+		var so domain.ScheduledFoodOrder
+		if err := rows.Scan(&so.OrderID, &so.CustomerID, &so.OrderNumber, &so.MerchantID, &so.ScheduledAt, &so.PrepTimeMinutes); err != nil {
+			return nil, err
+		}
+		out = append(out, so)
+	}
+	return out, rows.Err()
+}
+
+// CancelScheduledFoodOrder — FB-123: auto-cancel order terjadwal saat
+// aktivasi gagal (merchant tidak valid / lewat jam tutup). Guard
+// WHERE status='scheduled' supaya tidak menimpa transisi yang sudah jalan.
+func (r *foodRepo) CancelScheduledFoodOrder(ctx context.Context, orderID, reason string) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE orders SET
+			status = 'cancelled',
+			cancellation_reason = $2,
+			cancelled_at = NOW()
+		WHERE id = $1 AND status = 'scheduled'`,
+		orderID, reason,
+	)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("order %s tidak dalam status scheduled", orderID)
+	}
+	return nil
+}
+
+// ActivateScheduledFoodOrder — FB-123: transisi scheduled → pending_merchant
+// saat aktivasi (merchant re-validated OK). Guard status supaya tidak
+// menimpa cancel yang sudah jalan duluan.
+func (r *foodRepo) ActivateScheduledFoodOrder(ctx context.Context, orderID string) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE orders SET
+			status = 'pending_merchant'
+		WHERE id = $1 AND status = 'scheduled'`,
+		orderID,
+	)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return fmt.Errorf("order %s tidak dalam status scheduled", orderID)
+	}
+	return nil
+}
+
 // GetFoodMerchantMenu — FOOD-BIKE-055/056: daftar menu merchant.
 func (r *foodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) ([]domain.FoodMenuItemInfo, error) {
 	rows, err := r.readDB.QueryContext(ctx, `

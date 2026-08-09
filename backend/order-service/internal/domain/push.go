@@ -37,6 +37,10 @@ type PushService interface {
 	// ordernya diubah merchant sebelum konfirmasi (nilai tidak boleh naik).
 	// Non-fatal: gagal kirim hanya di-log.
 	NotifyCustomerOrderUpdated(ctx context.Context, orderID string, message string) error
+	// NotifyCustomerOrderScheduled (FB-123) memberi tahu customer bahwa order
+	// food mereka dijadwalkan — type "order_scheduled" + scheduled time.
+	// Non-fatal: gagal kirim hanya di-log (pola NotifyCustomerOrderCancelled).
+	NotifyCustomerOrderScheduled(ctx context.Context, orderID string, message string) error
 	// NotifyCustomerMerchantAccepted (FB-124) memberi tahu customer bahwa
 	// merchant menerima pesanan food (status preparing).
 	NotifyCustomerMerchantAccepted(ctx context.Context, orderID string, message string) error

@@ -383,6 +383,17 @@ func (m *mockFoodRepo) UpdateFoodBatchCourier(ctx context.Context, batchID, cour
 	return nil
 }
 
+// ── FB-123: scheduled order ──
+func (m *mockFoodRepo) GetScheduledFoodOrdersDue(ctx context.Context) ([]domain.ScheduledFoodOrder, error) {
+	return nil, nil
+}
+func (m *mockFoodRepo) CancelScheduledFoodOrder(ctx context.Context, orderID, reason string) error {
+	return nil
+}
+func (m *mockFoodRepo) ActivateScheduledFoodOrder(ctx context.Context, orderID string) error {
+	return nil
+}
+
 // FB-080: partial refund per item — refund = Σ(snapshot item_price × qty),
 // ongkir TIDAK direfund kecuali IncludeDeliveryFee.
 func TestRefundService_CalculateItemRefund_ItemsOnly(t *testing.T) {

@@ -86,7 +86,8 @@ func (s *refundService) CalculateAndTriggerRefund(ctx context.Context, orderID u
 		switch statusAtCancel {
 		case domain.StatusPendingPayment, domain.StatusPendingMerchant, domain.StatusPreparing,
 			domain.StatusReadyForPickup, domain.StatusPending, domain.StatusPendingAssignment,
-			domain.StatusNoCourierFound:
+			domain.StatusNoCourierFound,
+			domain.StatusScheduled: // FB-123: terjadwal belum dikerjakan siapa pun → 100%
 			refundRatio = 1.0
 		case domain.StatusSearching:
 			refundRatio = 1.0

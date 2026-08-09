@@ -193,6 +193,9 @@ class FoodViewModel @Inject constructor(
         receiverPhone: String?,
         voucherCode: String? = null,
         orderNotes: String? = null, // FB-121: catatan level order
+        // FB-123: pesanan terjadwal — isScheduled + scheduledAt (ISO-8601).
+        isScheduled: Boolean = false,
+        scheduledAt: String? = null,
         onResult: (Result<FoodOrderCreateResponse>) -> Unit
     ) {
         val items = cartStore.cart.value.filter { it.quantity > 0 }
@@ -221,7 +224,10 @@ class FoodViewModel @Inject constructor(
                     receiverName = receiverName,
                     receiverPhone = receiverPhone,
                     voucherCode = voucherCode?.ifBlank { null },
-                    orderNotes = orderNotes?.ifBlank { null }
+                    orderNotes = orderNotes?.ifBlank { null },
+                    // FB-123: kalau jadwalkan, kirim flag + waktu ISO-8601.
+                    isScheduled = isScheduled,
+                    scheduledAt = if (isScheduled) scheduledAt?.ifBlank { null } else null
                 )
                 val res: Response<FoodOrderCreateResponse> = apiService.createFoodOrder(request)
                 if (res.isSuccessful && res.body() != null) {

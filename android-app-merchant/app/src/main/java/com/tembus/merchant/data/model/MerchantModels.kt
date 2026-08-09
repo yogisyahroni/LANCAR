@@ -167,6 +167,7 @@ data class MerchantOrder(
     @SerializedName("food_ready_at") val foodReadyAt: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     @SerializedName("order_notes") val orderNotes: String? = null, // FB-121
+    @SerializedName("scheduled_at") val scheduledAt: String? = null, // FB-123: order terjadwal
     @SerializedName("items") val items: List<FoodOrderItem> = emptyList()
 )
 

@@ -25,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -41,13 +42,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.customer.ui.theme.Primary
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
+import android.app.TimePickerDialog
 
 // FOOD-BIKE-075: checkout — alamat antar + receiver + ringkasan + submit
 @Composable
@@ -70,6 +80,9 @@ fun FoodCheckoutScreen(
     var submitError by remember { mutableStateOf<String?>(null) }
     var voucherInput by remember { mutableStateOf("") }
     val voucherState by viewModel.voucherState.collectAsState()
+    // FB-123: pesanan terjadwal — toggle Pesan Sekarang / Jadwalkan.
+    var scheduleNow by remember { mutableStateOf(true) }
+    var scheduledAtMs by remember { mutableStateOf<Long?>(null) }
 
     val merchantId = cart.firstOrNull()?.menuItem?.merchantId ?: ""
     val formatRupiah = { v: Long -> v.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".") }
@@ -145,6 +158,90 @@ fun FoodCheckoutScreen(
                         fontWeight = FontWeight.ExtraBold,
                         color = Primary
                     )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // ── FB-123: pesanan terjadwal ──
+            Text("Waktu Pesanan", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0F172A))
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(14.dp))
+                    .padding(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf(true to "Pesan Sekarang", false to "Jadwalkan").forEach { (isNow, label) ->
+                    val selected = scheduleNow == isNow
+                    Surface(
+                        onClick = {
+                            scheduleNow = isNow
+                            if (isNow) scheduledAtMs = null
+                            submitError = null
+                        },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (selected) Primary else Color.Transparent,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            label,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                            color = if (selected) Color.White else Color(0xFF475569),
+                            fontSize = 13.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
+            if (!scheduleNow) {
+                Spacer(Modifier.height(10.dp))
+                val context = LocalContext.current
+                val timeFmt = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+                // Min lead time: 30 menit dari sekarang (sesuai backend FB-123).
+                val minMs = remember { System.currentTimeMillis() + 30 * 60 * 1000L }
+                OutlinedButton(
+                    onClick = {
+                        val cal = Calendar.getInstance().apply {
+                            timeInMillis = (scheduledAtMs ?: minMs).coerceAtLeast(minMs)
+                        }
+                        TimePickerDialog(
+                            context,
+                            { _, hour, minute ->
+                                val picked = Calendar.getInstance().apply {
+                                    set(Calendar.HOUR_OF_DAY, hour)
+                                    set(Calendar.MINUTE, minute)
+                                    set(Calendar.SECOND, 0)
+                                    set(Calendar.MILLISECOND, 0)
+                                }.timeInMillis
+                                scheduledAtMs = if (picked < minMs) minMs else picked
+                            },
+                            cal.get(Calendar.HOUR_OF_DAY),
+                            cal.get(Calendar.MINUTE),
+                            true
+                        ).show()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text(
+                        if (scheduledAtMs != null) "🕐 Diantar ~${timeFmt.format(Date(scheduledAtMs!!))}"
+                        else "Pilih waktu jadwal (min 30 menit lagi)",
+                        fontSize = 14.sp,
+                        color = if (scheduledAtMs != null) Primary else Color(0xFF475569)
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Pesanan akan mulai diproses merchant mendekati waktu pilihan. Minimal 30 menit dari sekarang, hanya untuk hari ini.",
+                    fontSize = 11.sp,
+                    color = Color(0xFF94A3B8)
+                )
+                if (scheduledAtMs == null) {
+                    Spacer(Modifier.height(6.dp))
+                    Text("Pilih waktu jadwal dulu sebelum membuat pesanan", color = Color(0xFFEF4444), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
 
@@ -317,6 +414,11 @@ fun FoodCheckoutScreen(
                         submitError = "Keranjang kosong"
                         return@Button
                     }
+                    // FB-123: kalau jadwalkan, waktu wajib dipilih dulu.
+                    if (!scheduleNow && scheduledAtMs == null) {
+                        submitError = "Pilih waktu jadwal dulu (minimal 30 menit lagi)"
+                        return@Button
+                    }
                     scope.launch {
                         viewModel.checkout(
                             merchantId = merchantId,
@@ -327,6 +429,15 @@ fun FoodCheckoutScreen(
                             receiverPhone = receiverPhone.ifBlank { null },
                             voucherCode = (voucherState as? VoucherState.Applied)?.code ?: voucherInput,
                             orderNotes = orderNotes, // FB-121
+                            isScheduled = !scheduleNow, // FB-123
+                            scheduledAt = scheduledAtMs?.let {
+                                // ISO-8601 dengan offset lokal (mis. 2026-08-09T13:30:00+07:00).
+                                Instant.ofEpochMilli(it)
+                                    .atZone(ZoneId.systemDefault())
+                                    .toOffsetDateTime()
+                                    .withSecond(0).withNano(0)
+                                    .toString()
+                            },
                             onResult = { result ->
                                 result.onSuccess { order ->
                                     viewModel.clearCart()

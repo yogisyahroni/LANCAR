@@ -144,21 +144,22 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 				dispatch_expiry, batch_id, sequence_no, receiver_name, receiver_phone, routing_code,
 					tax_rule_code, ppn_rate_effective_pct, ppn_rate_statutory_pct, dpp_idr,
 					tax_invoice_required, tax_invoice_status, platform_fee_idr, platform_fee_pct, promo_subsidy_idr,
-					service_sub_type, merchant_id, prep_time_minutes,
-				contactless,
-				order_notes,
-				created_at, updated_at
-				) VALUES (
-				$1, $2, $3, $4, $5, 
-				ST_SetSRID(ST_MakePoint($6, $7), 4326), $8, $9, $10,
-				ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15,
-				$16, $17, $18, $19, $20, $21,
-				$22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35,
-				$36, $37, $38, $39, $40, $41, $42, $43, $44,
-				$45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55,
-				$56, $57, $58, $59, $60,
-				$61, $62, $63
-				)`
+						service_sub_type, merchant_id, prep_time_minutes,
+					contactless,
+					order_notes,
+					scheduled_at, -- FB-123: NULL = pesan langsung; diisi = terjadwal
+					created_at, updated_at
+					) VALUES (
+					$1, $2, $3, $4, $5, 
+					ST_SetSRID(ST_MakePoint($6, $7), 4326), $8, $9, $10,
+					ST_SetSRID(ST_MakePoint($11, $12), 4326), $13, $14, $15,
+					$16, $17, $18, $19, $20, $21,
+					$22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35,
+					$36, $37, $38, $39, $40, $41, $42, $43, $44,
+					$45, $46, $47, $48, $49, $50, $51, $52, $53, $54, $55,
+					$56, $57, $58, $59, $60,
+					$61, $62, $63, $64
+					)`
 
 	mdrFixed := r.configRepo.GetIntConfig(ctx, "payment_mdr_fixed", 2500)
 	mdr := int64(mdrFixed)
@@ -191,6 +192,7 @@ func (r *postgresRepo) insertOrder(ctx context.Context, q execer, o *domain.Orde
 		o.ServiceSubType, o.MerchantID, o.PrepTimeMinutes,
 		o.Contactless,
 		o.OrderNotes,
+		o.ScheduledAt, // FB-123
 		o.CreatedAt, o.UpdatedAt,
 	)
 	return err
@@ -213,6 +215,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 				COALESCE(service_sub_type, ''), merchant_id::text, merchant_accepted_at, prep_time_minutes, food_ready_at,
 				COALESCE(contactless, false),
 				COALESCE(order_notes, ''),
+				scheduled_at,
 				COALESCE(m.nama_toko, ''),
 				created_at, updated_at
 				FROM orders
@@ -236,6 +239,7 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		&o.ServiceSubType, &o.MerchantID, &o.MerchantAcceptedAt, &o.PrepTimeMinutes, &o.FoodReadyAt,
 		&o.Contactless,
 		&o.OrderNotes,
+		&o.ScheduledAt, // FB-123: NULL = pesan langsung
 		&o.MerchantName,
 		&o.CreatedAt, &o.UpdatedAt,
 	)
@@ -245,6 +249,8 @@ func (r *postgresRepo) GetByID(ctx context.Context, id string) (*domain.Order, e
 		}
 		return nil, err
 	}
+	// FB-123: IsScheduled = turunan dari scheduled_at (computed).
+	o.IsScheduled = o.ScheduledAt != nil
 	return o, nil
 }
 

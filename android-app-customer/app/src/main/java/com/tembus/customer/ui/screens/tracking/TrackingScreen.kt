@@ -590,8 +590,16 @@ private fun TrackingTimeline(detail: OrderTrackingDetail) {
         )
     } else if (isFood) {
         // FOOD-BIKE-058: timeline khusus food — tahap merchant sebelum kurir
+        // FB-123: kalau status 'scheduled', tampilkan step jadwal dulu.
         fun pastOrAt(vararg states: String) = status in states || status == "delivered" || status == "completed"
-        listOf(
+        if (status == "scheduled") {
+            listOf(
+                TimelineStep("scheduled", "Pesanan dijadwalkan", true),
+                TimelineStep("merchant_order", "Merchant menerima pesanan", false),
+                TimelineStep("merchant_prep", "Makanan disiapkan", false),
+                TimelineStep("delivery", "Dalam pengantaran", false)
+            )
+        } else listOf(
             TimelineStep("merchant_order", "Merchant menerima pesanan", pastOrAt("pending_merchant", "preparing", "searching", "accepted", "picking_up", "picked_up", "delivering")),
             TimelineStep("merchant_prep", "Makanan disiapkan", pastOrAt("preparing", "searching", "accepted", "picking_up", "picked_up", "delivering")),
             TimelineStep("accepted", "Kurir sepeda mengambil", pastOrAt("accepted", "picking_up", "picked_up", "delivering")),
@@ -758,6 +766,7 @@ private fun absoluteUploadUrl(path: String?): String {
 
 private fun trackingStageText(status: String?): String {
     return when (status?.lowercase()) {
+        "scheduled" -> "Pesanan terjadwal — akan diproses merchant mendekati jam pilihan" // FB-123
         "pending_merchant" -> "Menunggu merchant menerima pesanan"
         "preparing" -> "Merchant sedang menyiapkan makanan"
         "searching" -> "Mencari kurir sepeda terdekat"

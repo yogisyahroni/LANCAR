@@ -19,7 +19,9 @@ type MerchantOrderView struct {
 	FoodReadyAt       *string `json:"food_ready_at,omitempty"`
 	CreatedAt         string  `json:"created_at"`
 	OrderNotes        string  `json:"order_notes,omitempty"` // FB-121
-	Items             []FoodOrderItemView `json:"items"`
+	// FB-123: order terjadwal — scheduled_at (UTC ISO). NULL = pesan langsung.
+	ScheduledAt *string `json:"scheduled_at,omitempty"`
+	Items       []FoodOrderItemView `json:"items"`
 }
 
 // FoodOrderItemView — item dalam order food (dari food_order_items snapshot).

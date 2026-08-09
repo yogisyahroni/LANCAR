@@ -163,7 +163,7 @@ fun OrderDetailScreen(
                                 Spacer(Modifier.width(16.dp))
                                 Column {
                                     Text("Status Saat Ini", color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
-                                    Text(order.status.uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                                    Text(statusDisplayText(order.status), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                                 }
                             }
                         }
@@ -374,6 +374,22 @@ fun OrderDetailScreen(
     }
 }
 
+// statusDisplayText — label status yang ramah user (FB-123: scheduled → "Terjadwal").
+private fun statusDisplayText(status: String): String {
+    return when (status.lowercase()) {
+        "scheduled" -> "Terjadwal"
+        "pending_merchant" -> "Menunggu Merchant"
+        "preparing" -> "Disiapkan"
+        "searching" -> "Mencari Kurir"
+        "accepted" -> "Kurir Menuju Merchant"
+        "picked_up" -> "Sedang Diantar"
+        "delivering" -> "Sedang Diantar"
+        "delivered" -> "Selesai"
+        "cancelled" -> "Dibatalkan"
+        else -> status.uppercase()
+    }
+}
+
 private fun canOpenConversation(status: String): Boolean {
     return status.lowercase() in setOf(
         "assigned",
@@ -400,7 +416,9 @@ private fun canCancelOrder(status: String): Boolean {
         "pending_merchant",
         "preparing",
         "ready_for_pickup",
-        "picking_up"
+        "picking_up",
+        // FB-123: order terjadwal — masih ditahan, bebas dibatalkan.
+        "scheduled"
     )
 }
 

@@ -677,7 +677,10 @@ func (h *OrderHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 				order.Status != domain.StatusPendingPayment &&
 				order.Status != domain.StatusPendingAssignment &&
 				order.Status != domain.StatusSearching &&
-				order.Status != domain.StatusNoCourierFound {
+				order.Status != domain.StatusNoCourierFound &&
+				// FB-123: order terjadwal bisa dibatalkan customer kapanpun
+				// sebelum aktivasi (belum ada pihak lain yang mulai kerja).
+				order.Status != domain.StatusScheduled {
 				middleware.WriteError(w, http.StatusConflict, "ERR_CONFLICT",
 					"Order tidak dapat dibatalkan setelah proses pengambilan dimulai", correlationID)
 				return

@@ -21,10 +21,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.tembus.merchant.data.model.MerchantOrder
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
@@ -33,6 +35,9 @@ import com.tembus.merchant.ui.theme.AccentLight
 import com.tembus.merchant.ui.theme.GreenText
 import com.tembus.merchant.ui.theme.Primary
 import com.tembus.merchant.ui.theme.PrimaryLight
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 /**
  * HomeScreen — tab Pesanan (design merchant 2026):
@@ -133,6 +138,20 @@ fun HomeScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // FB-123: section pesanan terjadwal hari ini — supaya merchant bisa
+            // rencanakan kapasitas dari awal, meski order belum masuk antrian.
+            val scheduledToday = state.orders.filter {
+                it.status == "scheduled" && it.scheduledAt?.startsWith(todayPrefix()) == true
+            }
+            if (scheduledToday.isNotEmpty()) {
+                item(key = "scheduled_header") {
+                    ScheduledTodayHeader(count = scheduledToday.size)
+                }
+                items(scheduledToday, key = { "sched_${it.id}" }) { order ->
+                    ScheduledOrderCard(order = order, onOpenStruk = { onOpenStruk(order.id) })
+                }
+            }
+
             items(state.orders, key = { it.id }) { order ->
                 OrderCard(
                     order = order,
@@ -538,6 +557,8 @@ private fun StatusBadge(status: String) {
         "delivered" -> Triple("Selesai", MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
         "cancelled_by_merchant" -> Triple("Ditolak", MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer)
         "cancelled" -> Triple("Dibatalkan", MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.errorContainer)
+        // FB-123: order terjadwal — belum masuk antrian, hanya informasi.
+        "scheduled" -> Triple("🕐 Terjadwal", Color(0xFF7C3AED), Color(0xFFEDE9FE))
         else -> Triple(status, MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.surfaceVariant)
     }
     Surface(color = bg, shape = RoundedCornerShape(8.dp)) {
@@ -582,6 +603,90 @@ private fun EmptyOrdersContent(onRefresh: () -> Unit) {
             Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(4.dp))
             Text("Muat Ulang")
+        }
+    }
+}
+
+// ── FB-123: pesanan terjadwal hari ini ──
+
+// todayPrefix — prefix tanggal UTC (YYYY-MM-DD) untuk filter scheduled_at
+// milik hari ini (scheduled_at dikirim UTC ISO oleh backend merchant).
+private fun todayPrefix(): String {
+    return java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString()
+}
+
+// parseScheduledTime — scheduled_at UTC ISO → jam lokal (HH:mm).
+private fun parseScheduledTime(scheduledAt: String?): String {
+    if (scheduledAt.isNullOrBlank()) return ""
+    return try {
+        OffsetDateTime.parse(scheduledAt)
+            .atZoneSameInstant(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("HH:mm"))
+    } catch (e: Exception) {
+        ""
+    }
+}
+
+@Composable
+private fun ScheduledTodayHeader(count: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFEDE9FE), RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "🕐 Pesanan Terjadwal Hari Ini",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF5B21B6)
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = "$count order",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF7C3AED)
+        )
+    }
+}
+
+@Composable
+private fun ScheduledOrderCard(order: MerchantOrder, onOpenStruk: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFAF5FF))
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = order.orderNumber,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                StatusBadge(status = order.status)
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Diantar ~${parseScheduledTime(order.scheduledAt)} — ${order.customerName ?: "Customer"}",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF6D28D9)
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Belum masuk antrian — akan aktif otomatis mendekati jam dijadwalkan.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            TextButton(onClick = onOpenStruk, modifier = Modifier.align(Alignment.End)) {
+                Icon(Icons.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Lihat Struk", fontSize = 12.sp)
+            }
         }
     }
 }

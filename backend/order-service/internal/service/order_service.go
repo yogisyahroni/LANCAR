@@ -1605,6 +1605,18 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		return nil, fmt.Errorf("merchant belum melengkapi lokasi toko — lengkapi pin lokasi di profil merchant dulu")
 	}
 
+	// 1b. FB-123: validasi pesanan terjadwal (kalau IsScheduled).
+	// Aturan: wajib isi waktu, min lead 30 menit, same-day only, dalam jam
+	// operasional merchant. Status tetap pending_payment — transisi ke
+	// 'scheduled' terjadi di payment callback (payment_service.go).
+	var scheduledAt *time.Time
+	if req.IsScheduled {
+		if errV := validateScheduledAt(req.ScheduledAt, merchant.JamBuka, merchant.JamTutup); errV != nil {
+			return nil, errV
+		}
+		scheduledAt = req.ScheduledAt
+	}
+
 	// 2. Ambil menu items by ID — harga dari server, bukan client
 	menuIDs := make([]string, 0, len(req.Items))
 	for _, it := range req.Items {
@@ -1830,6 +1842,8 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		OrderNotes:         req.OrderNotes, // FB-121: catatan level order
 		MerchantID:         &merchantID,
 		PrepTimeMinutes:    &prepMin,
+		ScheduledAt:        scheduledAt,   // FB-123: NULL = pesan langsung
+		IsScheduled:        scheduledAt != nil,
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
@@ -1882,6 +1896,53 @@ func validateFoodDeliveryDistance(distanceKM float64) error {
 		return fmt.Errorf("jarak pengantaran %.1f km melebihi radius maksimum kurir (%.0f km) — pilih merchant yang lebih dekat atau alamat antar yang lain", distanceKM, foodMaxRadiusKM)
 	}
 	return nil
+}
+
+// validateScheduledAt — FB-123: aturan pesanan terjadwal yang dipakai
+// CreateFoodOrder: wajib ada waktu, min lead 30 menit, same-day only,
+// dalam jam operasional merchant (jam_buka/jam_tutup TIME "HH:MM[:SS]").
+func validateScheduledAt(sa *time.Time, jamBuka, jamTutup *string) error {
+	if sa == nil {
+		return fmt.Errorf("waktu jadwal wajib diisi (scheduled_at)")
+	}
+	now := time.Now()
+	if sa.Before(now.Add(30 * time.Minute)) {
+		return fmt.Errorf("waktu jadwal minimal 30 menit dari sekarang")
+	}
+	// Same-day only (V1): tanggal harus sama dengan hari ini.
+	y1, m1, d1 := sa.Date()
+	y2, m2, d2 := now.Date()
+	if y1 != y2 || m1 != m2 || d1 != d2 {
+		return fmt.Errorf("pesanan terjadwal hanya bisa untuk hari ini — pilih jam yang masih hari ini")
+	}
+	// Jam operasional merchant (jam_buka/jam_tutup TIME "HH:MM[:SS]").
+	if jamBuka != nil && jamTutup != nil {
+		openH, openM, errO := parseHHMM(*jamBuka)
+		closeH, closeM, errC := parseHHMM(*jamTutup)
+		if errO == nil && errC == nil {
+			targetMin := sa.Hour()*60 + sa.Minute()
+			openMin := openH*60 + openM
+			closeMin := closeH*60 + closeM
+			if targetMin < openMin || targetMin > closeMin {
+				return fmt.Errorf("merchant buka jam %s–%s — pilih waktu di dalam jam operasional",
+					*jamBuka, *jamTutup)
+			}
+		}
+	}
+	return nil
+}
+
+// parseHHMM — FB-123: parse jam operasional merchant (TIME "HH:MM" atau
+// "HH:MM:SS") → jam + menit. Return error kalau format tidak dikenal.
+func parseHHMM(s string) (int, int, error) {
+	t, err := time.Parse("15:04:05", s)
+	if err != nil {
+		t, err = time.Parse("15:04", s)
+	}
+	if err != nil {
+		return 0, 0, err
+	}
+	return t.Hour(), t.Minute(), nil
 }
 
 // haversineKM — jarak dua titik koordinat dalam kilometer.
@@ -2023,6 +2084,94 @@ func (s *orderServiceImpl) ProcessFoodPrepTransitions(ctx context.Context) error
 		// (status asal pending_merchant = free window).
 		// FB-082: fee di-charge ke merchant (piutang).
 		s.triggerRefundOnCancel(ctx, o.ID, "Merchant tidak merespon dalam 3 menit", domain.StatusPendingMerchant, "merchant")
+	}
+
+	return nil
+}
+
+// ProcessScheduledOrderActivation — dipanggil scheduled_order_worker tiap 1
+// menit (FB-123). Order status 'scheduled' yang sudah due (scheduled_at ≤
+// NOW() + prep_time + buffer 5 menit):
+//
+//  1. Re-validasi merchant masih layak terima order:
+//     - approved (verification_status)
+//     - is_open
+//     - tidak sedang paused_until > NOW()
+//     - scheduled_at masih dalam jam operasional (jam tutup tidak dimajukan)
+//  2. Valid → scheduled → pending_merchant + NotifyMerchantNewOrder (dari
+//     titik ini alur sama persis dengan order normal: SLA 3 menit accept).
+//  3. Tidak valid → auto-cancel + refund 100% + notif customer (belum ada
+//     pihak lain yang mulai kerja → tidak ada fee ke siapapun).
+func (s *orderServiceImpl) ProcessScheduledOrderActivation(ctx context.Context) error {
+	if s.foodRepo == nil {
+		return nil // food belum di-wire — skip aman
+	}
+
+	due, err := s.foodRepo.GetScheduledFoodOrdersDue(ctx)
+	if err != nil {
+		return fmt.Errorf("get scheduled food orders due: %w", err)
+	}
+	if len(due) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	for _, so := range due {
+		// Re-validasi merchant (bisa berubah sejak order dibuat).
+		merchant, errM := s.foodRepo.GetFoodMerchant(ctx, so.MerchantID)
+		if errM != nil {
+			log.Printf("[ScheduledOrderWorker] gagal load merchant %s untuk order %s: %v", so.MerchantID, so.OrderID, errM)
+			// Jangan cancel karena error teknis — biarkan di run berikutnya.
+			continue
+		}
+		valid := merchant != nil &&
+			merchant.VerificationStatus == "approved" &&
+			merchant.IsOpen &&
+			(merchant.PausedUntil == nil || merchant.PausedUntil.Before(now))
+		// Jam operasional: kalau jam tutup sudah lewat saat aktivasi → cancel.
+		if valid && merchant.JamTutup != nil {
+			if closeH, closeM, errP := parseHHMM(*merchant.JamTutup); errP == nil {
+				closeMin := closeH*60 + closeM
+				nowMin := now.Hour()*60 + now.Minute()
+				if nowMin > closeMin {
+					valid = false
+				}
+			}
+		}
+
+		if !valid {
+			reason := "merchant_tidak_tersedia_saat_aktivasi"
+			if errC := s.foodRepo.CancelScheduledFoodOrder(ctx, so.OrderID, reason); errC != nil {
+				log.Printf("[ScheduledOrderWorker] gagal auto-cancel scheduled %s: %v", so.OrderID, errC)
+				continue
+			}
+			s.publishOrderEvent(ctx, so.OrderID, domain.StatusCancelled,
+				"Maaf, merchant tidak bisa menerima pesanan terjadwal kamu saat ini — dana dikembalikan penuh")
+			s.triggerRefundOnCancel(ctx, so.OrderID,
+				"Merchant tidak bisa menerima pesanan terjadwal saat aktivasi", domain.StatusScheduled, "platform")
+			if s.pushSvc != nil {
+				if errP := s.pushSvc.NotifyCustomerOrderCancelled(ctx, so.OrderID,
+					"Merchant tidak bisa menerima pesanan terjadwal kamu saat ini — dana dikembalikan penuh"); errP != nil {
+					log.Printf("[ScheduledOrderWorker] gagal push notif cancel %s: %v", so.OrderID, errP)
+				}
+			}
+			log.Printf("[ScheduledOrderWorker] auto-cancel scheduled %s (merchant tidak valid)", so.OrderID)
+			continue
+		}
+
+		// Valid → aktivasi.
+		if errA := s.foodRepo.ActivateScheduledFoodOrder(ctx, so.OrderID); errA != nil {
+			log.Printf("[ScheduledOrderWorker] gagal aktivasi scheduled %s: %v", so.OrderID, errA)
+			continue
+		}
+		s.publishOrderEvent(ctx, so.OrderID, domain.StatusPendingMerchant,
+			"Pesanan terjadwal kamu mulai diproses merchant")
+		if s.pushSvc != nil {
+			if errN := s.pushSvc.NotifyMerchantNewOrder(ctx, so.OrderID); errN != nil {
+				log.Printf("[ScheduledOrderWorker] gagal notify merchant order %s: %v", so.OrderID, errN)
+			}
+		}
+		log.Printf("[ScheduledOrderWorker] aktivasi scheduled %s → pending_merchant", so.OrderID)
 	}
 
 	return nil

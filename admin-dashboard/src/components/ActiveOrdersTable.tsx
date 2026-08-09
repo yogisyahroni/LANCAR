@@ -25,6 +25,16 @@ import { adminApiRootUrl } from '../lib/runtimeConfig'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 
+// FB-123: scheduled_at (ISO UTC) → jam lokal "HH:mm".
+const formatScheduledTime = (iso?: string | null) => {
+  if (!iso) return ''
+  try {
+    return format(new Date(iso), 'HH:mm')
+  } catch {
+    return ''
+  }
+}
+
 const uploadUrl = (path?: string | null) => {
   if (!path) return ''
   if (path.startsWith('http://') || path.startsWith('https://')) return path
@@ -479,12 +489,20 @@ export default function ActiveOrdersTable() {
                         "w-2 h-2 rounded-full",
                         order.status === 'delivered' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
                         order.status === 'delayed' || order.status === 'failed' ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" :
+                        order.status === 'scheduled' ? "bg-violet-500 shadow-[0_0_8px_rgba(139,92,246,0.5)]" :
                         "bg-primary animate-pulse shadow-[0_0_8px_rgba(0,100,55,0.5)]"
                       )} />
                       <span className={cn(
                         "text-xs font-black uppercase tracking-widest",
-                        order.status === 'delayed' ? "text-red-400" : "text-zinc-200"
+                        order.status === 'delayed' ? "text-red-400" :
+                        order.status === 'scheduled' ? "text-violet-300" : "text-zinc-200"
                       )}>{order.status}</span>
+                      {/* FB-123: badge Terjadwal untuk order food terjadwal */}
+                      {order.scheduled_at && (
+                        <span className="text-[10px] font-bold bg-violet-500/10 text-violet-300 border border-violet-500/30 rounded-full px-2 py-0.5 ml-1">
+                          🕐 Terjadwal — {formatScheduledTime(order.scheduled_at)}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-5 text-right">

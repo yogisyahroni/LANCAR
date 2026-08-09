@@ -98,7 +98,8 @@ func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, me
 		       COALESCE(to_char(o.merchant_accepted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
 		       COALESCE(to_char(o.food_ready_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
 		       COALESCE(to_char(o.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), ''),
-		       COALESCE(o.order_notes, '')
+		       COALESCE(o.order_notes, ''),
+		       COALESCE(to_char(o.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '') -- FB-123
 		FROM orders o
 		LEFT JOIN users c ON c.id = o.customer_id
 		WHERE o.merchant_id = $1
@@ -118,17 +119,21 @@ func (r *postgresMerchantOrderRepository) ListByMerchant(ctx context.Context, me
 	orderIDs := []string{}
 	for rows.Next() {
 		var v domain.MerchantOrderView
-		var acceptedAt, readyAt, createdAt, orderNotes string
+		var acceptedAt, readyAt, createdAt, orderNotes, scheduledAt string
 		if err := rows.Scan(
 			&v.ID, &v.OrderNumber, &v.Status,
 			&v.CustomerName, &v.CustomerPhone, &v.DropoffAddress,
 			&v.TotalPriceIDR, &v.DistanceKM,
 			&acceptedAt, &readyAt, &createdAt,
 			&orderNotes,
+			&scheduledAt, // FB-123
 		); err != nil {
 			return nil, err
 		}
 		v.OrderNotes = orderNotes // FB-121
+		if scheduledAt != "" {
+			v.ScheduledAt = &scheduledAt // FB-123
+		}
 		if acceptedAt != "" {
 			v.MerchantAcceptedAt = &acceptedAt
 		}

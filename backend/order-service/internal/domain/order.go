@@ -11,6 +11,10 @@ const (
 	StatusPendingPayment OrderStatus = "pending_payment"
 	// FOOD-BIKE-020: status food delivery — disisipkan antara pending_payment dan searching.
 	StatusPendingMerchant     OrderStatus = "pending_merchant"
+	// FB-123: order food terjadwal — dibayar, tapi "ditahan" dan belum masuk
+	// radar merchant. Diaktivasi worker scheduled_order_worker → pending_merchant
+	// mendekati scheduled_at. Bisa di-cancel customer (refund 100%).
+	StatusScheduled OrderStatus = "scheduled"
 	StatusPreparing           OrderStatus = "preparing"
 	StatusPending             OrderStatus = "pending"
 	StatusPendingAssignment   OrderStatus = "pending_assignment"
@@ -58,6 +62,11 @@ type Order struct {
 	DistanceKM             float64      `json:"distance_km"`
 	IncludedDistanceKM     float64      `json:"included_distance_km"`
 	DistanceFeeIDR         int64        `json:"distance_fee_idr"`
+	// FB-123: order food terjadwal — scheduled_at kapan order mulai diproses
+	// merchant (aktivasi → pending_merchant). NULL = pesan langsung.
+	// IsScheduled = turunan dari scheduled_at (computed saat scan).
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
+	IsScheduled bool       `json:"is_scheduled"`
 	BasePriceIDR           int64        `json:"base_price_idr"`
 	VolumetricWeightKG     float64      `json:"volumetric_weight_kg"`
 	VolumetricSurchargeIDR int64        `json:"volumetric_surcharge_idr"`
@@ -190,6 +199,10 @@ type CreateFoodOrderRequest struct {
 	ReceiverName   string                 `json:"receiver_name,omitempty"`
 	ReceiverPhone  string                 `json:"receiver_phone,omitempty"`
 	IsScheduled    bool                   `json:"is_scheduled"`
+	// FB-123: waktu mulai diproses (aktivasi → pending_merchant). Wajib diisi
+	// kalau IsScheduled. Same-day only, minimal now+30 menit, dalam jam
+	// operasional merchant.
+	ScheduledAt *time.Time `json:"scheduled_at,omitempty"`
 
 	// FB-121: catatan keseluruhan order (mis. "pisahin sambal semua").
 	OrderNotes string `json:"order_notes,omitempty"`
@@ -358,6 +371,27 @@ type FoodRepository interface {
 	// UpdateFoodBatchCourier: status forming/assigned → set courier_id saat
 	// courier accept (dipanggil AcceptOrder untuk order batch food).
 	UpdateFoodBatchCourier(ctx context.Context, batchID, courierID string) error
+	// GetScheduledFoodOrdersDue — FB-123: order status 'scheduled' yang
+	// scheduled_at ≤ NOW() + prep_time_minutes + buffer 5 menit → saatnya
+	// diaktivasi ke pending_merchant atau auto-cancel (merchant tidak valid).
+	GetScheduledFoodOrdersDue(ctx context.Context) ([]ScheduledFoodOrder, error)
+	// CancelScheduledFoodOrder — FB-123: auto-cancel order terjadwal saat
+	// aktivasi gagal (merchant tidak valid / lewat jam tutup). Guard status.
+	CancelScheduledFoodOrder(ctx context.Context, orderID, reason string) error
+	// ActivateScheduledFoodOrder — FB-123: transisi scheduled → pending_merchant
+	// saat aktivasi (merchant re-validated OK). Guard status.
+	ActivateScheduledFoodOrder(ctx context.Context, orderID string) error
+}
+
+// ScheduledFoodOrder — FB-123: order terjadwal yang sudah due untuk aktivasi.
+// Ringan (bukan full Order) — hanya field yang dibutuhkan worker.
+type ScheduledFoodOrder struct {
+	OrderID         string
+	CustomerID      string
+	OrderNumber     string
+	MerchantID      string
+	ScheduledAt     time.Time
+	PrepTimeMinutes int
 }
 
 // FoodBatch — FB-088: dua order food dari merchant sama yang digabung
@@ -457,6 +491,10 @@ type OrderService interface {
 	// 1) preparing yang food_ready_at-5m sudah lewat → searching (mulai matching);
 	// 2) pending_merchant yang melewati timeout 3 menit → auto-cancel.
 	ProcessFoodPrepTransitions(ctx context.Context) error
+	// ProcessScheduledOrderActivation dipanggil scheduled_order_worker (FB-123):
+	// order status 'scheduled' yang sudah due → re-validasi merchant →
+	// pending_merchant + NotifyMerchantNewOrder, atau auto-cancel + refund 100%.
+	ProcessScheduledOrderActivation(ctx context.Context) error
 	// PairFoodBatches dipanggil food_batch_worker (FB-088): pasangkan 2 order
 	// food `searching` dari merchant sama + dropoff berdekatan → 1 trip courier.
 	// GATE SLA: timebox ≤ 2 menit; tanpa pasangan → order jalan solo.

@@ -84,6 +84,9 @@ data class CreateFoodOrderRequest(
     @SerialName("receiver_name") val receiverName: String? = null,
     @SerialName("receiver_phone") val receiverPhone: String? = null,
     @SerialName("is_scheduled") val isScheduled: Boolean = false,
+    // FB-123: waktu mulai diproses (aktivasi → pending_merchant). Wajib kalau
+    // is_scheduled=true. Same-day only, min now+30 menit.
+    @SerialName("scheduled_at") val scheduledAt: String? = null,
     @SerialName("voucher_code") val voucherCode: String? = null, // FB-078
     @SerialName("order_notes") val orderNotes: String? = null // FB-121
 )

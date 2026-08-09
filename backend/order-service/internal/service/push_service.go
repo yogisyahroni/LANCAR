@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"tembus/order-service/internal/domain"
 
@@ -336,5 +337,26 @@ func (s *pushService) NotifyMerchantDelivered(ctx context.Context, orderID strin
 		"order_id": orderID,
 		"order_no": order.OrderNumber,
 		"reason":   message,
+	})
+}
+
+// NotifyCustomerOrderScheduled — FB-123: order food dijadwalkan (dibayar,
+// status 'scheduled'). Type "order_scheduled" + scheduled_at supaya app
+// customer bisa render label "Terjadwal — [waktu]". Non-fatal.
+func (s *pushService) NotifyCustomerOrderScheduled(ctx context.Context, orderID string, message string) error {
+	order, err := s.resolveOrder(ctx, orderID)
+	if err != nil {
+		return err
+	}
+	scheduledAt := ""
+	if order.ScheduledAt != nil {
+		scheduledAt = order.ScheduledAt.Format(time.RFC3339)
+	}
+	return s.sendToCustomer(ctx, order, map[string]string{
+		"type":         "order_scheduled",
+		"order_id":     orderID,
+		"order_no":     order.OrderNumber,
+		"reason":       message,
+		"scheduled_at": scheduledAt,
 	})
 }

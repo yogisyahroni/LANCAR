@@ -299,10 +299,17 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 	if newStatus == domain.PaymentStatusPaid {
 		// FOOD-BIKE-021: order food → pending_merchant (merchant wajib respon dulu),
 		// order reguler → pending_assignment (matching driver langsung).
+		// FB-123: order food TERJADWAL → 'scheduled' (ditahan, belum masuk radar
+		// merchant sama sekali; diaktivasi scheduled_order_worker mendekati
+		// scheduled_at). Merchant TIDAK di-notify di titik ini.
 		newOrderStatus := domain.StatusPendingAssignment
 		order, err := s.orderRepo.GetByID(ctx, orderID)
 		if err == nil && order.ServiceSubType == "food_delivery" {
-			newOrderStatus = domain.StatusPendingMerchant
+			if order.IsScheduled {
+				newOrderStatus = domain.StatusScheduled
+			} else {
+				newOrderStatus = domain.StatusPendingMerchant
+			}
 		}
 		if err := s.orderRepo.UpdateStatus(ctx, orderID, newOrderStatus); err != nil {
 			slog.ErrorContext(ctx, "Failed to update order status", "order_id", orderID, "error", err)
@@ -319,6 +326,22 @@ func (s *DefaultPaymentService) HandleWebhook(ctx context.Context, payload []byt
 		if newOrderStatus == domain.StatusPendingMerchant && s.pushSvc != nil {
 			if err := s.pushSvc.NotifyMerchantNewOrder(ctx, orderID); err != nil {
 				slog.WarnContext(ctx, "push merchant new order failed", "order_id", orderID, "error", err)
+			}
+		}
+
+		// FB-123: order terjadwal → konfirmasi ke customer (type
+		// "order_scheduled" + scheduled_at). Fire-and-forget, non-fatal.
+		if newOrderStatus == domain.StatusScheduled && s.pushSvc != nil && order != nil {
+			var when string
+			if order.ScheduledAt != nil {
+				when = order.ScheduledAt.Format("15:04")
+			}
+			msg := "Pesanan kamu dijadwalkan"
+			if when != "" {
+				msg += " untuk " + when
+			}
+			if err := s.pushSvc.NotifyCustomerOrderScheduled(ctx, orderID, msg); err != nil {
+				slog.WarnContext(ctx, "push customer order scheduled failed", "order_id", orderID, "error", err)
 			}
 		}
 
