@@ -15,8 +15,10 @@ import (
 )
 
 // deviceIDRegex enforces a safe format for device_id values (LGN-05).
+// Allows "android:<hex>" style IDs from mobile apps (customer/merchant/courier)
+// plus plain alphanumeric UUIDs. Colon is harmless — value is stored hashed.
 // Prevents overly-long or special-character device IDs from being stored in DB.
-var deviceIDRegex = regexp.MustCompile(`^[A-Za-z0-9_\-]{8,256}$`)
+var deviceIDRegex = regexp.MustCompile(`^[A-Za-z0-9_\-:]{8,256}$`)
 
 type AuthHandler struct {
 	abuse *middleware.AuthAbuseProtector

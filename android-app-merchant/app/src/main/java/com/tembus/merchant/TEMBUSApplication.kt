@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.tembus.merchant.data.api.ApiClient
 import com.tembus.merchant.data.api.TEMBUSApiService
+import com.tembus.merchant.data.device.DeviceIdentityProvider
 import com.tembus.merchant.data.notifications.OrderAlertNotifier
 import com.tembus.merchant.data.onboarding.OnboardingPreferences
 import com.tembus.merchant.data.repository.AuthRepository
@@ -21,10 +22,11 @@ class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
     val sessionManager: AuthSessionManager = AuthSessionManager(context)
     val onboardingPreferences: OnboardingPreferences = OnboardingPreferences(context)
+    val deviceIdentityProvider: DeviceIdentityProvider = DeviceIdentityProvider(context)
 
     val apiService: TEMBUSApiService = ApiClient.createService(sessionManager)
 
-    val authRepository: AuthRepository = AuthRepository(apiService, sessionManager, onboardingPreferences)
+    val authRepository: AuthRepository = AuthRepository(apiService, sessionManager, onboardingPreferences, deviceIdentityProvider)
     val merchantRepository: MerchantRepository = MerchantRepository(apiService)
 
     // FB-119: chat customer↔merchant per order.
