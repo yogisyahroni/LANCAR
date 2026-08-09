@@ -30,6 +30,15 @@ interface TEMBUSApiService {
         @Body request: ToggleOpenRequest
     ): Response<Merchant>
 
+    // FB-107: pause sementara + resume — tidak mengubah is_open/jam operasional.
+    @POST("api/v1/merchant/pause")
+    suspend fun pause(
+        @Body request: PauseRequest
+    ): Response<Merchant>
+
+    @POST("api/v1/merchant/resume")
+    suspend fun resume(): Response<Merchant>
+
     @PUT("api/v1/merchant/food-docs")
     suspend fun updateFoodDocs(
         @Body request: UpdateFoodDocsRequest

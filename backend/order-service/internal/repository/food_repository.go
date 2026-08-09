@@ -35,6 +35,7 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 			alamat,
 			is_open,
 			verification_status,
+			paused_until,
 			COALESCE(ST_Y(lokasi::geometry), 0),
 			COALESCE(ST_X(lokasi::geometry), 0),
 			jam_buka::text,
@@ -44,15 +45,19 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 
 	m := &domain.FoodMerchantInfo{}
 	var jamBuka, jamTutup sql.NullString
+	var pausedUntil sql.NullTime
 	err := r.readDB.QueryRowContext(ctx, query, merchantID).Scan(
 		&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
-		&m.Lat, &m.Lng, &jamBuka, &jamTutup,
+		&pausedUntil, &m.Lat, &m.Lng, &jamBuka, &jamTutup,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("merchant not found: %s", merchantID)
 		}
 		return nil, err
+	}
+	if pausedUntil.Valid {
+		m.PausedUntil = &pausedUntil.Time
 	}
 	if jamBuka.Valid {
 		m.JamBuka = &jamBuka.String
@@ -286,6 +291,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 			FROM merchants m
 			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
 			WHERE m.is_open = TRUE AND m.verification_status = 'approved'
+			  AND (m.paused_until IS NULL OR m.paused_until <= NOW()) -- FB-107
 			GROUP BY m.id
 			ORDER BY distance_km ASC
 			LIMIT $3`,
@@ -303,8 +309,9 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 			FROM merchants m
 			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
 			WHERE m.is_open = TRUE AND m.verification_status = 'approved'
+			AND (m.paused_until IS NULL OR m.paused_until <= NOW()) -- FB-107
 			  AND (
-				  m.nama_toko ILIKE '%' || $3 || '%'
+			  m.nama_toko ILIKE '%' || $3 || '%'
 				  OR m.alamat ILIKE '%' || $3 || '%'
 				  -- FB-117: search juga cocokkan nama menu (mekanisme discovery
 				  -- utama — customer search "nasi goreng" harus menemukan merchant

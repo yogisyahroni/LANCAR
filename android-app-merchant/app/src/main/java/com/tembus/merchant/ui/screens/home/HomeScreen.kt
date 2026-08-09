@@ -1,6 +1,7 @@
 package com.tembus.merchant.ui.screens.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -91,7 +92,11 @@ fun HomeScreen(
                 isOpen = m.isOpen,
                 isToggleLoading = state.isToggleOpenLoading,
                 verificationStatus = m.verificationStatus,
-                onToggle = { viewModel.toggleOpen() }
+                pausedUntil = m.pausedUntil,
+                isPauseLoading = state.isPauseLoading,
+                onToggle = { viewModel.toggleOpen() },
+                onPause = viewModel::pause,
+                onResume = viewModel::resume
             )
         }
 
@@ -210,7 +215,11 @@ private fun OrdersHeader(
     isOpen: Boolean,
     isToggleLoading: Boolean,
     verificationStatus: String,
-    onToggle: () -> Unit
+    pausedUntil: String?,
+    isPauseLoading: Boolean,
+    onToggle: () -> Unit,
+    onPause: (Int) -> Unit,
+    onResume: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -257,6 +266,73 @@ private fun OrdersHeader(
                             uncheckedTrackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f)
                         )
                     )
+                }
+            }
+        }
+
+        // FB-107: pause sementara — merchant tetap "buka" tapi tidak terima
+        // order baru selama durasi. Auto un-pause backend, tanpa aksi manual.
+        if (verificationStatus == "approved") {
+            Spacer(modifier = Modifier.height(12.dp))
+            val pausedEpoch = remember(pausedUntil) {
+                pausedUntil?.let {
+                    try {
+                        java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli()
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+            }
+            if (pausedEpoch != null && pausedEpoch > System.currentTimeMillis()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "⏸ Sedang pause sementara",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(
+                        onClick = onResume,
+                        enabled = !isPauseLoading
+                    ) {
+                        Text(
+                            if (isPauseLoading) "..." else "Resume sekarang",
+                            color = Accent,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            } else if (isOpen) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Pause sementara:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                    )
+                    listOf(15, 30, 60).forEach { minutes ->
+                        OutlinedButton(
+                            onClick = { onPause(minutes) },
+                            enabled = !isPauseLoading,
+                            modifier = Modifier.height(32.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f))
+                        ) {
+                            Text(
+                                text = if (isPauseLoading) "..." else "${minutes}m",
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
                 }
             }
         }

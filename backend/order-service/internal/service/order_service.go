@@ -1593,6 +1593,12 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 	if !merchant.IsOpen {
 		return nil, fmt.Errorf("merchant tutup")
 	}
+	// FB-107: merchant sedang pause sementara — tolak order baru sampai
+	// paused_until lewat (auto un-pause, tidak butuh aksi merchant).
+	if merchant.PausedUntil != nil && merchant.PausedUntil.After(time.Now()) {
+		return nil, fmt.Errorf("merchant sedang pause — coba lagi setelah %s",
+			merchant.PausedUntil.Format("15:04"))
+	}
 	// FB-094: merchant wajib punya lokasi (pin di peta saat daftar).
 	// Tanpa lokasi, ongkir & "resto terdekat" tidak bisa dihitung dengan benar.
 	if merchant.Lat == 0 && merchant.Lng == 0 {

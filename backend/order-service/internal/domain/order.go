@@ -217,6 +217,9 @@ type FoodMerchantInfo struct {
 	Lng                float64 `json:"lng"`
 	JamBuka            *string `json:"jam_buka,omitempty"`
 	JamTutup           *string `json:"jam_tutup,omitempty"`
+	// FB-107: pause sementara — merchant tidak terima order baru selama
+	// PausedUntil > NOW(). NULL = tidak pause.
+	PausedUntil *time.Time `json:"paused_until,omitempty"`
 	// FOOD-BIKE-055: metrik browse merchant
 	DistanceKM  *float64           `json:"distance_km,omitempty"`
 	AvgRating   *float64           `json:"avg_rating,omitempty"`

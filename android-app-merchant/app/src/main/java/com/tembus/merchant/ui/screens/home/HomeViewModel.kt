@@ -26,6 +26,9 @@ data class HomeUiState(
     val orders: List<MerchantOrder> = emptyList(),
     val selectedFilter: OrderFilter = OrderFilter.NEW,
     val isToggleOpenLoading: Boolean = false,
+    // FB-107: pause sementara — loading + sisa menit countdown (0 = tidak pause)
+    val isPauseLoading: Boolean = false,
+    val pauseRemainingMinutes: Long = 0L,
     val actionOrderId: String? = null,
     val actionError: String? = null,
     val needsRegistration: Boolean = false
@@ -132,6 +135,46 @@ class HomeViewModel(
                     _uiState.value = _uiState.value.copy(
                         isToggleOpenLoading = false,
                         actionError = e.message ?: "Gagal ubah status toko"
+                    )
+                }
+        }
+    }
+
+    // FB-107: pause sementara (menit 1-180). Tidak mengubah is_open.
+    fun pause(durationMinutes: Int) {
+        _uiState.value = _uiState.value.copy(isPauseLoading = true, actionError = null)
+        viewModelScope.launch {
+            merchantRepository.pause(durationMinutes)
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        merchant = updated,
+                        isPauseLoading = false
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isPauseLoading = false,
+                        actionError = e.message ?: "Gagal pause toko"
+                    )
+                }
+        }
+    }
+
+    // FB-107: batalkan pause lebih awal.
+    fun resume() {
+        _uiState.value = _uiState.value.copy(isPauseLoading = true, actionError = null)
+        viewModelScope.launch {
+            merchantRepository.resume()
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        merchant = updated,
+                        isPauseLoading = false
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isPauseLoading = false,
+                        actionError = e.message ?: "Gagal resume toko"
                     )
                 }
         }

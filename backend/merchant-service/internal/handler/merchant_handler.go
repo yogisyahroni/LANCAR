@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"tembus/merchant-service/internal/domain"
 
@@ -149,6 +150,59 @@ func (h *MerchantHandler) ToggleOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m, err := h.svc.ToggleOpen(r.Context(), userID, body.IsOpen)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, m)
+}
+
+// Pause godoc
+// @Summary Pause sementara (FB-107): merchant tidak terima order baru
+// sampai waktu tertentu. Tidak mengubah is_open / jam operasional.
+// @Tags merchant
+// @Accept json
+// @Produce json
+// @Param body body object true "{\"duration_minutes\": 15}"
+// @Success 200 {object} domain.Merchant
+// @Router /merchant/pause [post]
+func (h *MerchantHandler) Pause(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		DurationMinutes int `json:"duration_minutes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
+		return
+	}
+	if body.DurationMinutes <= 0 || body.DurationMinutes > 180 {
+		h.respondError(w, http.StatusBadRequest, "duration_minutes harus 1-180")
+		return
+	}
+	until := time.Now().Add(time.Duration(body.DurationMinutes) * time.Minute)
+	m, err := h.svc.Pause(r.Context(), userID, until)
+	if err != nil {
+		h.respondError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	h.respondJSON(w, http.StatusOK, m)
+}
+
+// Resume godoc
+// @Summary Resume (FB-107): batalkan pause sementara lebih awal.
+// @Tags merchant
+// @Produce json
+// @Success 200 {object} domain.Merchant
+// @Router /merchant/resume [post]
+func (h *MerchantHandler) Resume(w http.ResponseWriter, r *http.Request) {
+	userID, ok := h.parseUserID(w, r)
+	if !ok {
+		return
+	}
+	m, err := h.svc.Resume(r.Context(), userID)
 	if err != nil {
 		h.respondError(w, http.StatusBadRequest, err.Error())
 		return

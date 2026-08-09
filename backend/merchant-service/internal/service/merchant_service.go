@@ -168,6 +168,38 @@ func (s *merchantServiceImpl) ToggleOpen(ctx context.Context, userID string, isO
 	return s.merchantRepo.GetByID(ctx, m.ID)
 }
 
+// Pause (FB-107): pause sementara — merchant tidak terima order baru sampai
+// `until`. Auto un-pause oleh order-service (cek paused_until < NOW()).
+// Tidak mengubah is_open maupun jam operasional.
+func (s *merchantServiceImpl) Pause(ctx context.Context, userID string, until time.Time) (*domain.Merchant, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if m.VerificationStatus != "approved" {
+		return nil, errors.New("merchant belum disetujui")
+	}
+	if until.Before(time.Now()) {
+		return nil, errors.New("waktu pause harus di masa depan")
+	}
+	if err := s.merchantRepo.SetPaused(ctx, m.ID, &until); err != nil {
+		return nil, err
+	}
+	return s.merchantRepo.GetByID(ctx, m.ID)
+}
+
+// Resume (FB-107): batalkan pause sementara lebih awal.
+func (s *merchantServiceImpl) Resume(ctx context.Context, userID string) (*domain.Merchant, error) {
+	m, err := s.requireMerchant(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.merchantRepo.SetPaused(ctx, m.ID, nil); err != nil {
+		return nil, err
+	}
+	return s.merchantRepo.GetByID(ctx, m.ID)
+}
+
 // UpdateFoodDocs — FB-092: update nomor + masa berlaku dokumen pangan.
 // Patch semantics: hanya field yang diisi yang diperbarui; field yang tidak
 // diisi dipertahankan dari data lama. Nomor tanpa expiry → tolak.

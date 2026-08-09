@@ -19,6 +19,9 @@ type Merchant struct {
 	JamBuka            *string    `json:"jam_buka,omitempty"`
 	JamTutup           *string    `json:"jam_tutup,omitempty"`
 	IsOpen             bool       `json:"is_open"`
+	// FB-107: pause sementara sampai jam ini (NULL = tidak pause). Auto
+	// un-pause ketika waktu habis — tidak mengubah is_open / jam operasional.
+	PausedUntil        *time.Time `json:"paused_until,omitempty"`
 	CompletionRatePct  float64    `json:"completion_rate_pct"`
 	VerificationStatus string     `json:"verification_status"`
 	// Rating restoran (FOOD-BIKE-059/060): di-update order-service tiap
@@ -106,6 +109,9 @@ type MerchantRepository interface {
 	UpdateVerification(ctx context.Context, id, status string) error
 	// ToggleOpen buka/tutup merchant.
 	ToggleOpen(ctx context.Context, id string, isOpen bool) error
+	// SetPaused (FB-107): pause sementara sampai waktu tertentu (nil = resume).
+	// Tidak mengubah is_open — pause & buka/tutup adalah dua dimensi terpisah.
+	SetPaused(ctx context.Context, id string, until *time.Time) error
 	// ListByVerificationStatus list merchant untuk admin review (FOOD-BIKE-048).
 	ListByVerificationStatus(ctx context.Context, status string, limit, offset int) ([]*Merchant, error)
 	// CountByVerificationStatus total merchant per status (untuk pagination/badge).

@@ -120,6 +120,9 @@ func main() {
 	// FB-114: update rekening bank untuk payout.
 	mux.HandleFunc("/api/v1/merchant/bank-account", middleware.BaseChain(h.UpdateBankAccount))
 	mux.HandleFunc("/api/v1/merchant/toggle-open", middleware.BaseChain(h.ToggleOpen))
+	// FB-107: pause sementara + resume — tidak mengubah is_open/jam operasional.
+	mux.HandleFunc("/api/v1/merchant/pause", middleware.BaseChain(h.Pause))
+	mux.HandleFunc("/api/v1/merchant/resume", middleware.BaseChain(h.Resume))
 	mux.HandleFunc("/api/v1/merchant/food-docs", middleware.BaseChain(h.UpdateFoodDocs))
 
 	// Menu CRUD (FOOD-BIKE-018)

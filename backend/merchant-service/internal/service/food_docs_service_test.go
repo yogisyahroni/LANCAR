@@ -45,6 +45,12 @@ func (r *foodDocsRepo) ToggleOpen(ctx context.Context, id string, isOpen bool) e
 	}
 	return nil
 }
+func (r *foodDocsRepo) SetPaused(ctx context.Context, id string, until *time.Time) error {
+	if r.merchant != nil {
+		r.merchant.PausedUntil = until
+	}
+	return nil
+}
 func (r *foodDocsRepo) ListByVerificationStatus(ctx context.Context, status string, limit, offset int) ([]*domain.Merchant, error) {
 	return nil, nil
 }

@@ -19,6 +19,13 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun toggleOpen(isOpen: Boolean): Result<Merchant> =
         request { api.toggleOpen(ToggleOpenRequest(isOpen)) }
 
+    // FB-107: pause sementara + resume.
+    suspend fun pause(durationMinutes: Int): Result<Merchant> =
+        request { api.pause(PauseRequest(durationMinutes)) }
+
+    suspend fun resume(): Result<Merchant> =
+        request { api.resume() }
+
     suspend fun updateFoodDocs(req: UpdateFoodDocsRequest): Result<Merchant> =
         request { api.updateFoodDocs(req) }
 

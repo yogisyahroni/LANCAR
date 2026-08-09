@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"tembus/merchant-service/internal/domain"
 )
@@ -76,7 +77,7 @@ func (r *postgresMerchantRepository) Create(ctx context.Context, m *domain.Merch
 const merchantColumns = `id, user_id, nama_toko, alamat,
 	ST_Y(lokasi::geometry), ST_X(lokasi::geometry),
 	to_char(jam_buka, 'HH24:MI'), to_char(jam_tutup, 'HH24:MI'),
-	is_open, completion_rate_pct, verification_status,
+	is_open, paused_until, completion_rate_pct, verification_status,
 	avg_rating, rating_count,
 	halal_cert_number, to_char(halal_expiry_date, 'YYYY-MM-DD'),
 	spp_irt_number, to_char(spp_irt_expiry_date, 'YYYY-MM-DD'),
@@ -88,6 +89,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	var m domain.Merchant
 	var lat, lng sql.NullFloat64
 	var jamBuka, jamTutup sql.NullString
+	var pausedUntil sql.NullTime
 	var avgRating sql.NullFloat64
 	var ratingCount sql.NullInt64
 	var halalNo, halalExp, sppNo, sppExp, bpomNo, bpomExp sql.NullString
@@ -96,7 +98,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 		&m.ID, &m.UserID, &m.NamaToko, &m.Alamat,
 		&lat, &lng,
 		&jamBuka, &jamTutup,
-		&m.IsOpen, &m.CompletionRatePct, &m.VerificationStatus,
+		&m.IsOpen, &pausedUntil, &m.CompletionRatePct, &m.VerificationStatus,
 		&avgRating, &ratingCount,
 		&halalNo, &halalExp, &sppNo, &sppExp, &bpomNo, &bpomExp,
 		&bankName, &bankAccountNumber, &bankAccountHolder, &m.BankAccountVerified,
@@ -104,6 +106,9 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	)
 	if err != nil {
 		return nil, err
+	}
+	if pausedUntil.Valid {
+		m.PausedUntil = &pausedUntil.Time
 	}
 	if avgRating.Valid {
 		m.AvgRating = avgRating.Float64
@@ -259,6 +264,17 @@ func (r *postgresMerchantRepository) UpdateVerification(ctx context.Context, id,
 func (r *postgresMerchantRepository) ToggleOpen(ctx context.Context, id string, isOpen bool) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE merchants SET is_open = $2, updated_at = NOW() WHERE id = $1`, id, isOpen)
+	return err
+}
+
+// SetPaused (FB-107): pause sementara sampai waktu tertentu (nil = resume).
+// ToggleOpen & pause saling independen — merchant bisa tutup permanen + pause,
+// atau buka + pause 15 menit. Order-service cek paused_until > NOW() saat
+// validasi order, jadi merchant pause otomatis tidak terima order baru.
+func (r *postgresMerchantRepository) SetPaused(ctx context.Context, id string, until *time.Time) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE merchants SET paused_until = $2, updated_at = NOW() WHERE id = $1`,
+		id, until)
 	return err
 }
 

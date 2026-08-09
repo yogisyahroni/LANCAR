@@ -1,6 +1,9 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // MerchantOrderView — tampilan order food untuk merchant (ringkasan + items).
 type MerchantOrderView struct {
@@ -38,6 +41,10 @@ type MerchantService interface {
 	UpdateProfile(ctx context.Context, userID string, req UpdateMerchantRequest) (*Merchant, error)
 	// ToggleOpen buka/tutup merchant (hanya jika approved).
 	ToggleOpen(ctx context.Context, userID string, isOpen bool) (*Merchant, error)
+	// Pause (FB-107): pause sementara sampai `until` — tidak mengubah is_open.
+	Pause(ctx context.Context, userID string, until time.Time) (*Merchant, error)
+	// Resume (FB-107): batalkan pause sementara lebih awal.
+	Resume(ctx context.Context, userID string) (*Merchant, error)
 	// UpdateFoodDocs update dokumen pangan (FB-092): nomor sertifikat halal
 	// BPJPH, SPP-IRT, izin edar BPOM + masa berlaku. Buka toko ditolak
 	// kalau belum lengkap / expired.
