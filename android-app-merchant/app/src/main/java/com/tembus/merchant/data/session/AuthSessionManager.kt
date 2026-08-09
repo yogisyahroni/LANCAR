@@ -81,6 +81,9 @@ class AuthSessionManager(private val context: Context) {
 
     fun isTokenExpired(token: String): Boolean = false // JWT expiry di-handle refresh interceptor / 401 flow
 
+    /** Baca userId sinkron dari SharedPreferences (untuk ViewModel init). */
+    fun getUserIdSync(): String? = sharedPreferences.getString(KEY_USER_ID, null)
+
     companion object {
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_USER_ID = "user_id"

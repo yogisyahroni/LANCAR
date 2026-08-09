@@ -148,4 +148,24 @@ interface TEMBUSApiService {
         @Path("id") id: String,
         @Body request: PromoActiveRequest
     ): Response<SuccessResponse>
+
+    // ── Chat order (FB-119): merchant ↔ customer ──
+    // Endpoint sama dengan customer/courier — backend mengizinkan
+    // role 'merchant' via orderCommunication.ts (member_type 'merchant').
+    @GET("api/v1/mobile/chats/orders/{id}/chats")
+    suspend fun getOrderChats(
+        @Path("id") orderId: String
+    ): Response<ChatResponse>
+
+    @POST("api/v1/mobile/chats/orders/{id}/chats")
+    suspend fun sendOrderChat(
+        @Path("id") orderId: String,
+        @Body request: SendMessageRequest
+    ): Response<SendMessageResponse>
+
+    @PATCH("api/v1/mobile/chats/orders/{id}/conversation/read")
+    suspend fun markOrderConversationRead(
+        @Path("id") orderId: String,
+        @Body request: ReadReceiptRequest
+    ): Response<SuccessResponse>
 }

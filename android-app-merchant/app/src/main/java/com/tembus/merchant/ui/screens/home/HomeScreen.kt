@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.ReceiptLong
@@ -42,6 +43,7 @@ import com.tembus.merchant.ui.theme.PrimaryLight
 @Composable
 fun HomeScreen(
     onOpenStruk: (String) -> Unit,
+    onOpenChat: (String, String) -> Unit, // FB-119
     onGoToRegistration: () -> Unit,
     viewModel: HomeViewModel = appViewModel { HomeViewModel(it.merchantRepository, it.orderAlertNotifier) }
 ) {
@@ -137,7 +139,8 @@ fun HomeScreen(
                     isActionLoading = state.actionOrderId == order.id,
                     onAccept = { viewModel.acceptOrder(order.id) },
                     onReject = { rejectTarget = order },
-                    onOpenStruk = { onOpenStruk(order.id) }
+                    onOpenStruk = { onOpenStruk(order.id) },
+                    onOpenChat = { onOpenChat(order.id, order.orderNumber) } // FB-119
                 )
             }
         }
@@ -380,7 +383,8 @@ private fun OrderCard(
     isActionLoading: Boolean,
     onAccept: () -> Unit,
     onReject: () -> Unit,
-    onOpenStruk: () -> Unit
+    onOpenStruk: () -> Unit,
+    onOpenChat: () -> Unit // FB-119: chat customer↔merchant
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -501,10 +505,22 @@ private fun OrderCard(
 
             if (order.status in HomeViewModel.activeStatuses || order.status == "delivered") {
                 Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = onOpenStruk, modifier = Modifier.align(Alignment.End)) {
-                    Icon(Icons.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Lihat Struk")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // FB-119: chat dengan customer seputar order ini.
+                    TextButton(onClick = onOpenChat) {
+                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Chat")
+                    }
+                    TextButton(onClick = onOpenStruk) {
+                        Icon(Icons.Filled.ReceiptLong, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Lihat Struk")
+                    }
                 }
             }
         }

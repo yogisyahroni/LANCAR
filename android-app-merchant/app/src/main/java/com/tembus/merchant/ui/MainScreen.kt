@@ -40,6 +40,7 @@ private val tabs = listOf(
 @Composable
 fun MainScreen(
     onOpenStruk: (String) -> Unit,
+    onOpenChat: (String, String) -> Unit, // FB-119
     onGoToRegistration: () -> Unit
 ) {
     var selectedTab by rememberSaveable { mutableStateOf(0) }
@@ -50,10 +51,12 @@ fun MainScreen(
                 0 -> DashboardScreen(
                     onGoToOrders = { selectedTab = 1 },
                     onOpenStruk = onOpenStruk,
+                    onOpenChat = onOpenChat, // FB-119
                     onGoToRegistration = onGoToRegistration
                 )
                 1 -> HomeScreen(
                     onOpenStruk = onOpenStruk,
+                    onOpenChat = onOpenChat, // FB-119
                     onGoToRegistration = onGoToRegistration
                 )
                 2 -> MenuScreen()

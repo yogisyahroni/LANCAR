@@ -9,8 +9,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.tembus.merchant.TEMBUSApplication
+import com.tembus.merchant.ui.AppViewModelFactory
 import com.tembus.merchant.ui.MainScreen
 import com.tembus.merchant.ui.screens.auth.LoginScreen
+import com.tembus.merchant.ui.screens.chat.ChatScreen
+import com.tembus.merchant.ui.screens.chat.ChatViewModel
 import com.tembus.merchant.ui.screens.onboarding.OnboardingScreen
 import com.tembus.merchant.ui.screens.registration.RegistrationScreen
 import com.tembus.merchant.ui.screens.struk.StrukScreen
@@ -22,8 +25,11 @@ object MerchantRoutes {
     const val MAIN = "main"
     const val STRUK = "struk/{orderId}"
     const val REGISTRATION = "registration"
+    // FB-119: chat customer↔merchant per order.
+    const val CHAT = "chat/{orderId}/{orderNumber}"
 
     fun struk(orderId: String) = "struk/$orderId"
+    fun chat(orderId: String, orderNumber: String) = "chat/$orderId/$orderNumber"
 }
 
 /**
@@ -95,6 +101,10 @@ fun AppNavHost() {
                 onOpenStruk = { orderId ->
                     navController.navigate(MerchantRoutes.struk(orderId))
                 },
+                // FB-119: buka chat customer↔merchant.
+                onOpenChat = { orderId, orderNumber ->
+                    navController.navigate(MerchantRoutes.chat(orderId, orderNumber))
+                },
                 onGoToRegistration = {
                     navController.navigate(MerchantRoutes.REGISTRATION)
                 }
@@ -115,6 +125,34 @@ fun AppNavHost() {
             RegistrationScreen(
                 onBack = { navController.popBackStack() },
                 onRegistered = { navController.popBackStack() }
+            )
+        }
+
+        // FB-119: chat customer↔merchant per order.
+        composable(
+            route = MerchantRoutes.CHAT,
+            arguments = listOf(
+                navArgument("orderId") { type = NavType.StringType },
+                navArgument("orderNumber") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId").orEmpty()
+            val orderNumber = backStackEntry.arguments?.getString("orderNumber").orEmpty()
+            val chatViewModel: ChatViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                key = "chat-$orderId",
+                factory = AppViewModelFactory {
+                    ChatViewModel(
+                        chatRepository = app.container.chatRepository,
+                        sessionManager = app.container.sessionManager,
+                        orderId = orderId
+                    )
+                }
+            )
+            ChatScreen(
+                orderId = orderId,
+                orderNumber = orderNumber,
+                viewModel = chatViewModel,
+                onBack = { navController.popBackStack() }
             )
         }
     }

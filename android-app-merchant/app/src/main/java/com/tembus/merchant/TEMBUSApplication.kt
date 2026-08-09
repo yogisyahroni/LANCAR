@@ -7,6 +7,7 @@ import com.tembus.merchant.data.api.TEMBUSApiService
 import com.tembus.merchant.data.notifications.OrderAlertNotifier
 import com.tembus.merchant.data.onboarding.OnboardingPreferences
 import com.tembus.merchant.data.repository.AuthRepository
+import com.tembus.merchant.data.repository.ChatRepository
 import com.tembus.merchant.data.repository.MerchantRepository
 import com.tembus.merchant.data.session.AuthSessionManager
 
@@ -24,6 +25,9 @@ class AppContainer(context: Context) {
 
     val authRepository: AuthRepository = AuthRepository(apiService, sessionManager, onboardingPreferences)
     val merchantRepository: MerchantRepository = MerchantRepository(apiService)
+
+    // FB-119: chat customer↔merchant per order.
+    val chatRepository: ChatRepository = ChatRepository(apiService)
 
     // FB-106: alert suara/getar order baru (local notification dari polling).
     val orderAlertNotifier: OrderAlertNotifier = OrderAlertNotifier(appContext)

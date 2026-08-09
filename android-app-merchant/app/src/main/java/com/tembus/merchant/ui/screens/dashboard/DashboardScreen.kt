@@ -34,6 +34,7 @@ import com.tembus.merchant.ui.theme.Primary
 fun DashboardScreen(
     onGoToOrders: () -> Unit,
     onOpenStruk: (String) -> Unit,
+    onOpenChat: (String, String) -> Unit, // FB-119
     onGoToRegistration: () -> Unit,
     viewModel: DashboardViewModel = appViewModel { DashboardViewModel(it.merchantRepository) }
 ) {
