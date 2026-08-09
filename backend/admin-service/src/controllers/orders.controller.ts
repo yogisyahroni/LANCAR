@@ -278,6 +278,31 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       WHERE order_id = $1
     `, [id]);
 
+    // FB-110: rincian food (item pesanan + merchant) untuk investigasi CS.
+    const foodItemsRes = await readDb.query(`
+      SELECT foi.menu_item_id,
+             foi.item_name,
+             foi.item_price,
+             foi.quantity,
+             foi.notes,
+             foi.subtotal,
+             foi.created_at
+      FROM food_order_items foi
+      WHERE foi.order_id = $1
+      ORDER BY foi.created_at ASC
+    `, [id]);
+
+    const foodMerchantRes = await readDb.query(`
+      SELECT m.id AS merchant_id,
+             m.nama_toko AS merchant_name,
+             m.alamat AS merchant_address,
+             o.merchant_accepted_at,
+             o.food_ready_at
+      FROM orders o
+      LEFT JOIN merchants m ON m.id = o.merchant_id
+      WHERE o.id = $1
+    `, [id]);
+
     res.json({
       ...orderRes.rows[0],
       events: eventsRes.rows,
@@ -289,7 +314,9 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       proof_attempts: proofAttemptsRes.rows,
       face_verifications: faceVerificationsRes.rows,
       tambal_ban_report: tambalBanReportsRes.rows.length > 0 ? tambalBanReportsRes.rows[0] : null,
-      towing_report: towingReportsRes.rows.length > 0 ? towingReportsRes.rows[0] : null
+      towing_report: towingReportsRes.rows.length > 0 ? towingReportsRes.rows[0] : null,
+      food_items: foodItemsRes.rows,
+      food_merchant: foodMerchantRes.rows.length > 0 ? foodMerchantRes.rows[0] : null
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
