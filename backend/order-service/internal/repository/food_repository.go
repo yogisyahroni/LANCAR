@@ -303,7 +303,19 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 			FROM merchants m
 			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
 			WHERE m.is_open = TRUE AND m.verification_status = 'approved'
-			  AND (m.nama_toko ILIKE '%' || $3 || '%' OR m.alamat ILIKE '%' || $3 || '%')
+			  AND (
+				  m.nama_toko ILIKE '%' || $3 || '%'
+				  OR m.alamat ILIKE '%' || $3 || '%'
+				  -- FB-117: search juga cocokkan nama menu (mekanisme discovery
+				  -- utama — customer search "nasi goreng" harus menemukan merchant
+				  -- yang menjualnya). EXISTS, BUKAN LEFT JOIN: join menu item
+				  -- bakal melipat-gandakan baris rating (cartesian) dan
+				  -- merusak agregasi AVG/COUNT.
+				  OR EXISTS (
+					  SELECT 1 FROM merchant_menu_items mi
+					  WHERE mi.merchant_id = m.id AND mi.nama ILIKE '%' || $3 || '%'
+				  )
+			  )
 			GROUP BY m.id
 			ORDER BY distance_km ASC
 			LIMIT $4`,
