@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.merchant.data.model.Merchant
 import com.tembus.merchant.data.model.MerchantOrder
+import com.tembus.merchant.data.notifications.OrderAlertNotifier
 import com.tembus.merchant.data.repository.MerchantRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,7 +32,8 @@ data class HomeUiState(
 )
 
 class HomeViewModel(
-    private val merchantRepository: MerchantRepository
+    private val merchantRepository: MerchantRepository,
+    private val alertNotifier: OrderAlertNotifier? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -91,6 +93,20 @@ class HomeViewModel(
                         orders
                     }
                     _uiState.value = _uiState.value.copy(orders = filtered, isLoading = false)
+
+                    // FB-106: alert suara/getar untuk order baru (pending_merchant)
+                    // yang belum pernah terlihat. Baseline seen diperbarui dengan
+                    // SEMUA order yang baru saja dimuat (order lama tidak boleh
+                    // re-alert setiap refresh).
+                    alertNotifier?.let { notifier ->
+                        val merchantName = _uiState.value.merchant?.namaToko
+                        val pendingIds = orders.filter { it.status == "pending_merchant" }
+                            .mapNotNull { it.id }.toSet()
+                        val alerted = notifier.alertNewOrders(pendingIds, merchantName)
+                        if (alerted.isNotEmpty()) {
+                            notifier.markOrdersSeen(pendingIds)
+                        }
+                    }
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(

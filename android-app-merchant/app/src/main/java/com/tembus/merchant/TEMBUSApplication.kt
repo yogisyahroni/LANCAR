@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import com.tembus.merchant.data.api.ApiClient
 import com.tembus.merchant.data.api.TEMBUSApiService
+import com.tembus.merchant.data.notifications.OrderAlertNotifier
 import com.tembus.merchant.data.onboarding.OnboardingPreferences
 import com.tembus.merchant.data.repository.AuthRepository
 import com.tembus.merchant.data.repository.MerchantRepository
@@ -15,6 +16,7 @@ import com.tembus.merchant.data.session.AuthSessionManager
  */
 class AppContainer(context: Context) {
 
+    val appContext: Context = context.applicationContext
     val sessionManager: AuthSessionManager = AuthSessionManager(context)
     val onboardingPreferences: OnboardingPreferences = OnboardingPreferences(context)
 
@@ -22,6 +24,9 @@ class AppContainer(context: Context) {
 
     val authRepository: AuthRepository = AuthRepository(apiService, sessionManager, onboardingPreferences)
     val merchantRepository: MerchantRepository = MerchantRepository(apiService)
+
+    // FB-106: alert suara/getar order baru (local notification dari polling).
+    val orderAlertNotifier: OrderAlertNotifier = OrderAlertNotifier(appContext)
 }
 
 class TEMBUSApplication : Application() {

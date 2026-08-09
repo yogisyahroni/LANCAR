@@ -41,7 +41,7 @@ import com.tembus.merchant.ui.theme.PrimaryLight
 fun HomeScreen(
     onOpenStruk: (String) -> Unit,
     onGoToRegistration: () -> Unit,
-    viewModel: HomeViewModel = appViewModel { HomeViewModel(it.merchantRepository) }
+    viewModel: HomeViewModel = appViewModel { HomeViewModel(it.merchantRepository, it.orderAlertNotifier) }
 ) {
     val state by viewModel.uiState.collectAsState()
     var rejectTarget by remember { mutableStateOf<MerchantOrder?>(null) }
