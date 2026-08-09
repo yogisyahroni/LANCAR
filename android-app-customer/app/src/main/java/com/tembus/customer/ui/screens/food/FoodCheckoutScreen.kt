@@ -66,6 +66,7 @@ fun FoodCheckoutScreen(
     var address by remember { mutableStateOf("") }
     var receiverName by remember { mutableStateOf("") }
     var receiverPhone by remember { mutableStateOf("") }
+    var orderNotes by remember { mutableStateOf("") } // FB-121: catatan level order
     var submitError by remember { mutableStateOf<String?>(null) }
     var voucherInput by remember { mutableStateOf("") }
     val voucherState by viewModel.voucherState.collectAsState()
@@ -287,6 +288,16 @@ fun FoodCheckoutScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp)
             )
+            Spacer(Modifier.height(10.dp))
+            // FB-121: catatan untuk seluruh order (mis. "pisahin sambal semua")
+            OutlinedTextField(
+                value = orderNotes,
+                onValueChange = { orderNotes = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Catatan untuk merchant (mis. pisahin sambal semua)", fontSize = 14.sp) },
+                minLines = 2,
+                shape = RoundedCornerShape(14.dp)
+            )
 
             submitError?.let {
                 Spacer(Modifier.height(10.dp))
@@ -315,6 +326,7 @@ fun FoodCheckoutScreen(
                             receiverName = receiverName.ifBlank { null },
                             receiverPhone = receiverPhone.ifBlank { null },
                             voucherCode = (voucherState as? VoucherState.Applied)?.code ?: voucherInput,
+                            orderNotes = orderNotes, // FB-121
                             onResult = { result ->
                                 result.onSuccess { order ->
                                     viewModel.clearCart()

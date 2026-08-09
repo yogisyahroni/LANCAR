@@ -255,7 +255,10 @@ class OrderRepository @Inject constructor(
                         courierName = trackingOrder.courierName,
                         courierVehicle = trackingOrder.courierVehicle,
                         courierPlate = trackingOrder.courierPlate,
-                        courierPhone = trackingOrder.courierPhone
+                        courierPhone = trackingOrder.courierPhone,
+                        serviceSubType = trackingOrder.serviceSubType,
+                        merchantName = trackingOrder.merchantName,
+                        orderNotes = trackingOrder.orderNotes // FB-121
                     )
                 ))
             } else {

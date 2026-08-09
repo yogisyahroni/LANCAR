@@ -364,6 +364,17 @@ private fun OrderCard(
                 )
             }
 
+            // FB-121: catatan level order dari customer (mis. "pisahin sambal semua")
+            if (!order.orderNotes.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "📝 ${order.orderNotes}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
 

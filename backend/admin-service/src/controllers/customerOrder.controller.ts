@@ -2780,9 +2780,13 @@ export const getMobileCustomerOrderTrackingDetail = async (req: Request, res: Re
              o.recipient_phone_masked, o.model, o.status, o.distance_km, o.total_price_idr,
              o.route_snapshot, o.route_provider, o.route_profile, o.route_polyline,
              o.package_details, o.customer_notes, o.created_at, o.updated_at,
+             COALESCE(o.order_notes, '') AS order_notes,
+             COALESCE(o.service_sub_type, '') AS service_sub_type,
+             COALESCE(m.nama_toko, '') AS merchant_name,
              u.full_name as courier_name, cp.vehicle_type as courier_vehicle, cp.vehicle_plate as courier_plate,
              cp.avg_partner_rating as courier_rating, NULL::text as courier_phone
       FROM orders o
+      LEFT JOIN merchants m ON m.id = o.merchant_id
       LEFT JOIN order_legs ol ON o.id = ol.order_id AND ol.leg_number = 1
       LEFT JOIN users u ON ol.courier_id = u.id
       LEFT JOIN courier_profiles cp ON u.id = cp.user_id

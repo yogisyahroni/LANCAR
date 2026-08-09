@@ -207,7 +207,7 @@ fun OrderDetailScreen(
                                 colors = CardDefaults.cardColors(containerColor = Color.White),
                                 border = BorderStroke(1.dp, Outline)
                             ) {
-                                Column(Modifier.padding(20.dp)) {
+                            Column(Modifier.padding(20.dp)) {
                                     Text("Rincian Pesanan", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = OnSurface)
                                     Spacer(Modifier.height(12.dp))
                                     order.foodItems.forEach { item ->
@@ -240,6 +240,22 @@ fun OrderDetailScreen(
                                             }
                                         }
                                         HorizontalDivider(color = Outline.copy(alpha = 0.4f))
+                                    }
+                                    // FB-121: catatan level order (mis. "pisahin sambal semua")
+                                    if (!order.orderNotes.isNullOrBlank()) {
+                                        Spacer(Modifier.height(10.dp))
+                                        Text(
+                                            "Catatan untuk merchant:",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = OnSurfaceVariant
+                                        )
+                                        Text(
+                                            order.orderNotes!!,
+                                            fontSize = 14.sp,
+                                            color = OnSurface,
+                                            modifier = Modifier.padding(top = 2.dp)
+                                        )
                                     }
                                 }
                             }

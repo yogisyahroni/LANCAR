@@ -174,6 +174,7 @@ class FoodViewModel @Inject constructor(
         receiverName: String?,
         receiverPhone: String?,
         voucherCode: String? = null,
+        orderNotes: String? = null, // FB-121: catatan level order
         onResult: (Result<FoodOrderCreateResponse>) -> Unit
     ) {
         val items = cartStore.cart.value.filter { it.quantity > 0 }
@@ -199,7 +200,8 @@ class FoodViewModel @Inject constructor(
                     dropoffLng = dropoffLng,
                     receiverName = receiverName,
                     receiverPhone = receiverPhone,
-                    voucherCode = voucherCode?.ifBlank { null }
+                    voucherCode = voucherCode?.ifBlank { null },
+                    orderNotes = orderNotes?.ifBlank { null }
                 )
                 val res: Response<FoodOrderCreateResponse> = apiService.createFoodOrder(request)
                 if (res.isSuccessful && res.body() != null) {

@@ -15,6 +15,7 @@ type MerchantOrderView struct {
 	MerchantAcceptedAt *string `json:"merchant_accepted_at,omitempty"`
 	FoodReadyAt       *string `json:"food_ready_at,omitempty"`
 	CreatedAt         string  `json:"created_at"`
+	OrderNotes        string  `json:"order_notes,omitempty"` // FB-121
 	Items             []FoodOrderItemView `json:"items"`
 }
 

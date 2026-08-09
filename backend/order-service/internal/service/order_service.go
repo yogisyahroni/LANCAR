@@ -1743,6 +1743,7 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		ReceiverPhone:      req.ReceiverPhone,
 		ServiceSubType:     serviceSubType,
 		Contactless:        req.Contactless,
+		OrderNotes:         req.OrderNotes, // FB-121: catatan level order
 		MerchantID:         &merchantID,
 		PrepTimeMinutes:    &prepMin,
 		CreatedAt:          now,

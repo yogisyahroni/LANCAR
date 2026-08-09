@@ -132,7 +132,12 @@ data class Order(
     // backend getCustomerOrderById). Kosong [] untuk order non-food.
     @ColumnInfo(name = "food_items")
     @SerialName("food_items")
-    var foodItems: List<FoodOrderItem> = emptyList()
+    var foodItems: List<FoodOrderItem> = emptyList(),
+
+    // FB-121: catatan keseluruhan order (mis. "pisahin sambal semua").
+    @ColumnInfo(name = "order_notes")
+    @SerialName("order_notes")
+    var orderNotes: String? = null
 )
 
 // FB-111: satu baris item pesanan food (nama, qty, catatan, harga beku).

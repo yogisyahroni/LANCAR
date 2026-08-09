@@ -53,6 +53,8 @@ type Order struct {
 	Weight                 float64      `json:"weight,omitempty"`
 	ItemDescription        string       `json:"item_description,omitempty"`
 	ItemImageURL           string       `json:"item_image_url,omitempty"`
+	// FB-121: catatan keseluruhan order (ditulis customer saat checkout).
+	OrderNotes             string       `json:"order_notes,omitempty"`
 	DistanceKM             float64      `json:"distance_km"`
 	IncludedDistanceKM     float64      `json:"included_distance_km"`
 	DistanceFeeIDR         int64        `json:"distance_fee_idr"`
@@ -179,6 +181,9 @@ type CreateFoodOrderRequest struct {
 	ReceiverName   string                 `json:"receiver_name,omitempty"`
 	ReceiverPhone  string                 `json:"receiver_phone,omitempty"`
 	IsScheduled    bool                   `json:"is_scheduled"`
+
+	// FB-121: catatan keseluruhan order (mis. "pisahin sambal semua").
+	OrderNotes string `json:"order_notes,omitempty"`
 
 	// FB-089: antar tanpa kontak fisik (foto lokasi dropoff, POD tetap wajib).
 	Contactless bool `json:"contactless,omitempty"`
