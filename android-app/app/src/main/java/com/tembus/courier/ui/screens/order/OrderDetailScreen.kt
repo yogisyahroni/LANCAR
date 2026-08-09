@@ -1829,15 +1829,23 @@ private fun OrderInfoCard(order: Order) {
             InfoRow(label = "Tujuan", value = order.dropAddress)
             InfoRow(label = "Waktu Pickup", value = order.pickupTime)
             InfoRow(label = "Jarak", value = order.distance)
-            InfoRow(label = "Pendapatan", value = order.fee)
-            // FB-077: tip dari customer — tampil hanya kalau > 0
-            if (order.tipAmountIdr > 0) {
+
+            // FB-115: breakdown pendapatan — ongkir dasar + tip + total.
+            val basePayout = order.cleanPayoutIdr()
+            val tipAmount = order.tipAmountIdr
+            InfoRow(label = "Ongkir Dasar", value = "Rp${formatRp(basePayout.toLong())}")
+            if (tipAmount > 0) {
                 InfoRow(
                     label = "Tip Customer",
-                    value = "Rp${formatRp(order.tipAmountIdr)}",
+                    value = "Rp${formatRp(tipAmount)}",
                     valueColor = Color(0xFF7BC043)
                 )
             }
+            InfoRow(
+                label = "Total Pendapatan",
+                value = "Rp${formatRp((basePayout + tipAmount).toLong())}",
+                valueColor = Color(0xFF7BC043)
+            )
             
             if (order.length != null || order.width != null || order.height != null) {
                 val dims = "${order.length ?: 0} x ${order.width ?: 0} x ${order.height ?: 0} cm"

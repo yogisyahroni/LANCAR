@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -88,6 +90,19 @@ func (r *relayRepository) GetCourierPerformanceStats(ctx context.Context, courie
 	if err := r.db.GetContext(ctx, &stats, query, courierID); err != nil {
 		return nil, fmt.Errorf("failed to fetch performance stats for courier %s: %w", courierID, err)
 	}
+
+	// FB-116: feedback rating terbaru dengan komentar (top 5).
+	var ratings []domain.CourierRatingComment
+	if err := r.db.SelectContext(ctx, &ratings, `
+		SELECT stars, COALESCE(comment, '') AS comment, created_at
+		FROM courier_ratings
+		WHERE courier_id = $1
+		  AND comment IS NOT NULL AND comment != ''
+		ORDER BY created_at DESC
+		LIMIT 5`, courierID); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("failed to fetch recent ratings for courier %s: %w", courierID, err)
+	}
+	stats.RecentRatings = ratings
 
 	return &stats, nil
 }

@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.tembus.courier.data.model.CourierPerformanceStats
+import com.tembus.courier.data.model.CourierRatingComment
 import com.tembus.courier.data.model.CourierTipsSummary
 import androidx.compose.material.icons.filled.VolunteerActivism
 
@@ -158,6 +159,62 @@ fun PerformanceContent(stats: CourierPerformanceStats, tipSummary: CourierTipsSu
                 title = "Skor Relay",
                 value = String.format("%.1f", stats.relayScore)
             )
+        }
+
+        // FB-116: feedback rating terbaru dari customer (dengan komentar)
+        if (stats.recentRatings.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(24.dp))
+            RecentRatingsSection(ratings = stats.recentRatings)
+        }
+    }
+}
+
+@Composable
+private fun RecentRatingsSection(ratings: List<CourierRatingComment>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Feedback Rating Terbaru",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Komentar dari customer yang sudah kamu antar",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ratings.forEach { rating ->
+                Row(verticalAlignment = Alignment.Top) {
+                    // Bintang rating (dipakai full star per rating)
+                    Text(
+                        text = "★".repeat(rating.stars.coerceIn(1, 5)),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Color(0xFFFFC107)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = rating.comment,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        rating.createdAt.takeIf { it.isNotBlank() }?.let { date ->
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = date.take(10),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+            }
         }
     }
 }
