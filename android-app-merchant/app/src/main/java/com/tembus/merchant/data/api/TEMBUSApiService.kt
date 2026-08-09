@@ -20,6 +20,12 @@ interface TEMBUSApiService {
     @GET("api/v1/merchant/profile")
     suspend fun getProfile(): Response<Merchant>
 
+    // FB-109: update profil (minimal order value, dll).
+    @PATCH("api/v1/merchant/profile")
+    suspend fun updateProfile(
+        @Body request: UpdateProfileRequest
+    ): Response<Merchant>
+
     @POST("api/v1/merchant/register")
     suspend fun registerMerchant(
         @Body request: RegisterMerchantRequest

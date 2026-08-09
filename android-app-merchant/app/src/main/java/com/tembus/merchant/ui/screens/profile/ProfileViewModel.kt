@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tembus.merchant.data.model.Merchant
 import com.tembus.merchant.data.model.UpdateBankAccountRequest
+import com.tembus.merchant.data.model.UpdateProfileRequest
 import com.tembus.merchant.data.repository.AuthRepository
 import com.tembus.merchant.data.repository.MerchantRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +22,10 @@ data class ProfileUiState(
     // FB-114: status form update rekening bank.
     val isSavingBank: Boolean = false,
     val bankSaved: Boolean = false,
-    val bankSaveError: String? = null
+    val bankSaveError: String? = null,
+    // FB-109: status update minimal order.
+    val isSavingMinOrder: Boolean = false,
+    val minOrderSaveError: String? = null
 )
 
 class ProfileViewModel(
@@ -101,6 +105,26 @@ class ProfileViewModel(
 
     fun clearBankSaved() {
         _uiState.value = _uiState.value.copy(bankSaved = false, bankSaveError = null)
+    }
+
+    // FB-109: update minimal order value (0 = tanpa minimum).
+    fun updateMinOrder(minOrderIdr: Long) {
+        _uiState.value = _uiState.value.copy(isSavingMinOrder = true, minOrderSaveError = null)
+        viewModelScope.launch {
+            merchantRepository.updateProfile(UpdateProfileRequest(minOrderIdr = minOrderIdr))
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        merchant = updated,
+                        isSavingMinOrder = false
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSavingMinOrder = false,
+                        minOrderSaveError = e.message ?: "Gagal menyimpan minimal order"
+                    )
+                }
+        }
     }
 
     fun clearError() {

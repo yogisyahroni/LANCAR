@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.tembus.merchant.data.model.Merchant
 import com.tembus.merchant.data.model.UpdateBankAccountRequest
+import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.screens.promo.PromoScreen
 import com.tembus.merchant.ui.theme.Accent
@@ -48,6 +49,7 @@ fun ProfileScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     var showPromo by remember { mutableStateOf(false) }
+    var showMinOrderDialog by remember { mutableStateOf(false) } // FB-109
 
     if (showPromo) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -174,6 +176,30 @@ fun ProfileScreen(
                     ProfileInfoRow("Status Toko", if (m.isOpen) "Buka" else "Tutup")
                     ProfileInfoRow("Completion Rate", "${m.completionRatePct}%")
                     m.createdAt?.let { ProfileInfoRow("Terdaftar", it.substring(0, 10)) }
+
+                    // FB-109: minimal order value — merchant bisa atur dari app.
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ProfileInfoRow(
+                            "Minimal Order",
+                            if (m.minOrderIdr > 0) "Rp ${Format.rupiah(m.minOrderIdr)}" else "Tidak ada"
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        TextButton(onClick = { showMinOrderDialog = true }) {
+                            Text("Atur", color = Primary)
+                        }
+                    }
+                    state.minOrderSaveError?.let {
+                        Text(
+                            text = it,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
                 }
             }
 
@@ -323,6 +349,52 @@ fun ProfileScreen(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
+        )
+    }
+
+    // FB-109: dialog atur minimal order value.
+    if (showMinOrderDialog) {
+        var minOrderText by remember { mutableStateOf(state.merchant?.minOrderIdr?.toString() ?: "0") }
+        AlertDialog(
+            onDismissRequest = { showMinOrderDialog = false },
+            title = { Text("Minimal Order") },
+            text = {
+                Column {
+                    Text(
+                        text = "Order dengan subtotal di bawah nominal ini akan ditolak otomatis. 0 = tidak ada minimum.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = minOrderText,
+                        onValueChange = { minOrderText = it.filter { c -> c.isDigit() }.take(9) },
+                        label = { Text("Minimal order (Rp)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (state.isSavingMinOrder) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val value = minOrderText.toLongOrNull() ?: 0L
+                        viewModel.updateMinOrder(value)
+                        showMinOrderDialog = false
+                    },
+                    enabled = !state.isSavingMinOrder
+                ) {
+                    Text("Simpan")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMinOrderDialog = false }) { Text("Batal") }
+            }
         )
     }
 }

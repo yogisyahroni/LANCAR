@@ -13,6 +13,8 @@ data class Merchant(
     @SerializedName("jam_buka") val jamBuka: String? = null,
     @SerializedName("jam_tutup") val jamTutup: String? = null,
     @SerializedName("is_open") val isOpen: Boolean = false,
+    // FB-109: minimum subtotal order (IDR). 0 = tanpa minimum.
+    @SerializedName("min_order_idr") val minOrderIdr: Long = 0,
     // FB-107: pause sementara — ISO-8601 timestamp sampai kapan pause
     // (mis. "2026-08-09T12:30:00Z"). NULL = tidak pause. Auto un-pause
     // backend saat waktu habis, tanpa aksi merchant.
@@ -81,6 +83,11 @@ data class ToggleOpenRequest(
 /** FB-107: body POST /merchant/pause — durasi pause dalam menit (1-180). */
 data class PauseRequest(
     @SerializedName("duration_minutes") val durationMinutes: Int
+)
+
+/** FB-109: body PATCH /merchant/profile — update minimal order (IDR). */
+data class UpdateProfileRequest(
+    @SerializedName("min_order_idr") val minOrderIdr: Long? = null
 )
 
 /** Reject order food — reason wajib (FOOD-BIKE-017/021). FB-122: reject_reason enum. */

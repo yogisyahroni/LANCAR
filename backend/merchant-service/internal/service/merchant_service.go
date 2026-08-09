@@ -141,6 +141,13 @@ func (s *merchantServiceImpl) UpdateProfile(ctx context.Context, userID string, 
 	if req.JamTutup != nil {
 		m.JamTutup = req.JamTutup
 	}
+	// FB-109: minimum subtotal order — 0 = tanpa batas minimum.
+	if req.MinOrderIDR != nil {
+		if *req.MinOrderIDR < 0 {
+			return nil, errors.New("min_order_idr tidak boleh negatif")
+		}
+		m.MinOrderIDR = *req.MinOrderIDR
+	}
 	if err := s.merchantRepo.Update(ctx, m); err != nil {
 		return nil, err
 	}

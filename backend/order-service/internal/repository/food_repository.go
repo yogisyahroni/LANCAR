@@ -36,6 +36,7 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 			is_open,
 			verification_status,
 			paused_until,
+			min_order_idr,
 			COALESCE(ST_Y(lokasi::geometry), 0),
 			COALESCE(ST_X(lokasi::geometry), 0),
 			jam_buka::text,
@@ -48,7 +49,7 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 	var pausedUntil sql.NullTime
 	err := r.readDB.QueryRowContext(ctx, query, merchantID).Scan(
 		&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
-		&pausedUntil, &m.Lat, &m.Lng, &jamBuka, &jamTutup,
+		&pausedUntil, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {

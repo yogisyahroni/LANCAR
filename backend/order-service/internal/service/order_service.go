@@ -1654,6 +1654,13 @@ func (s *orderServiceImpl) CreateFoodOrder(ctx context.Context, userID string, r
 		})
 	}
 
+	// FB-109: minimum subtotal order merchant (0 = tanpa minimum).
+	// Validasi SEBELUM bayar — customer langsung dapat pesan jelas.
+	if merchant.MinOrderIDR > 0 && subtotal < merchant.MinOrderIDR {
+		return nil, fmt.Errorf("minimum order di toko ini Rp %d — subtotal kamu Rp %d",
+			merchant.MinOrderIDR, subtotal)
+	}
+
 	// 5. Ongkir: jarak merchant → dropoff, tarif dari service product food_delivery
 	distanceKM := haversineKM(merchant.Lat, merchant.Lng, req.DropoffLat, req.DropoffLng)
 

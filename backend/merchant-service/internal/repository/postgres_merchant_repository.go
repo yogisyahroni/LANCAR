@@ -77,7 +77,7 @@ func (r *postgresMerchantRepository) Create(ctx context.Context, m *domain.Merch
 const merchantColumns = `id, user_id, nama_toko, alamat,
 	ST_Y(lokasi::geometry), ST_X(lokasi::geometry),
 	to_char(jam_buka, 'HH24:MI'), to_char(jam_tutup, 'HH24:MI'),
-	is_open, paused_until, completion_rate_pct, verification_status,
+	is_open, paused_until, min_order_idr, completion_rate_pct, verification_status,
 	avg_rating, rating_count,
 	halal_cert_number, to_char(halal_expiry_date, 'YYYY-MM-DD'),
 	spp_irt_number, to_char(spp_irt_expiry_date, 'YYYY-MM-DD'),
@@ -98,7 +98,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 		&m.ID, &m.UserID, &m.NamaToko, &m.Alamat,
 		&lat, &lng,
 		&jamBuka, &jamTutup,
-		&m.IsOpen, &pausedUntil, &m.CompletionRatePct, &m.VerificationStatus,
+		&m.IsOpen, &pausedUntil, &m.MinOrderIDR, &m.CompletionRatePct, &m.VerificationStatus,
 		&avgRating, &ratingCount,
 		&halalNo, &halalExp, &sppNo, &sppExp, &bpomNo, &bpomExp,
 		&bankName, &bankAccountNumber, &bankAccountHolder, &m.BankAccountVerified,
@@ -206,9 +206,10 @@ func (r *postgresMerchantRepository) Update(ctx context.Context, m *domain.Merch
 			lokasi = CASE WHEN $4::text IS NULL THEN lokasi ELSE $4::geography END,
 			jam_buka = CASE WHEN $5::text IS NULL THEN jam_buka ELSE $5::time END,
 			jam_tutup = CASE WHEN $6::text IS NULL THEN jam_tutup ELSE $6::time END,
+			min_order_idr = $7, -- FB-109 (0 = tanpa minimum)
 			updated_at = NOW()
 		WHERE id = $1`,
-		m.ID, m.NamaToko, m.Alamat, lokasi, jamBuka, jamTutup,
+		m.ID, m.NamaToko, m.Alamat, lokasi, jamBuka, jamTutup, m.MinOrderIDR,
 	)
 	return err
 }

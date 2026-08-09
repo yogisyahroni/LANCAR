@@ -13,6 +13,10 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun getProfile(): Result<Merchant> =
         request { api.getProfile() }
 
+    // FB-109: update minimal order value.
+    suspend fun updateProfile(req: UpdateProfileRequest): Result<Merchant> =
+        request { api.updateProfile(req) }
+
     suspend fun registerMerchant(req: RegisterMerchantRequest): Result<Merchant> =
         request { api.registerMerchant(req) }
 
