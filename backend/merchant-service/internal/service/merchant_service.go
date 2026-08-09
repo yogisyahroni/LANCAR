@@ -536,28 +536,63 @@ func (s *merchantServiceImpl) AcceptOrder(ctx context.Context, userID string, or
 // otomatis (pending_merchant = free window). Refund fire-and-forget ke
 // order-service — kegagalan HTTP tidak menggagalkan reject (bisa di-trigger
 // ulang manual oleh admin via /internal/refunds/process).
-func (s *merchantServiceImpl) RejectOrder(ctx context.Context, userID string, orderID string, reason string) error {
+func (s *merchantServiceImpl) RejectOrder(ctx context.Context, userID string, orderID string, reason string, rejectReason string) error {
 	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(reason) == "" {
+	// FB-122: reject_reason enum terstruktur. Label otomatis dari enum —
+	// kalau merchant tidak kirim enum, fallback ke "lainnya".
+	label := reason
+	if code, ok := normalizeRejectReason(rejectReason); ok {
+		rejectReason = code
+		label = rejectReasonLabel(code)
+		if strings.TrimSpace(reason) != "" && reason != label {
+			label = label + " (" + reason + ")"
+		}
+	}
+	if strings.TrimSpace(label) == "" {
 		return errors.New("reason wajib diisi saat menolak order")
 	}
-	if err := s.orderRepo.RejectOrder(ctx, m.ID, orderID, reason); err != nil {
+	if err := s.orderRepo.RejectOrder(ctx, m.ID, orderID, label, rejectReason); err != nil {
 		return err
 	}
-
 	// Jejak pembatalan utk customer/tracking
-	if evErr := s.orderRepo.RecordOrderEvent(ctx, orderID, "cancelled", "Pesanan ditolak merchant: "+reason); evErr != nil {
+	if evErr := s.orderRepo.RecordOrderEvent(ctx, orderID, "cancelled", "Pesanan ditolak merchant: "+label); evErr != nil {
 		log.Printf("[MerchantService] RejectOrder: gagal catat order_events utk %s: %v", orderID, evErr)
 	}
 
 	// Refund otomatis (async, non-blocking)
-	go s.triggerRefundOnMerchantReject(orderID, reason)
+	go s.triggerRefundOnMerchantReject(orderID, label)
 	// FB-084: notif push customer (async, non-blocking)
-	go s.notifyCustomerRejected(orderID, reason)
+	go s.notifyCustomerRejected(orderID, label)
 	return nil
+}
+
+// rejectReasonEnum — kode enum alasan reject merchant (FB-122).
+var rejectReasonEnum = map[string]string{
+	"stok_habis":    "Stok menu habis",
+	"terlalu_sibuk": "Merchant terlalu sibuk",
+	"tutup_mendadak": "Tutup mendadak",
+	"lainnya":       "Lainnya",
+}
+
+// normalizeRejectReason — validasi & normalisasi kode enum reject.
+// Return (kode ternormalisasi, true) kalau valid.
+func normalizeRejectReason(code string) (string, bool) {
+	c := strings.TrimSpace(strings.ToLower(code))
+	if _, ok := rejectReasonEnum[c]; ok {
+		return c, true
+	}
+	return "", false
+}
+
+// rejectReasonLabel — label bahasa Indonesia untuk kode enum reject.
+func rejectReasonLabel(code string) string {
+	if l, ok := rejectReasonEnum[code]; ok {
+		return l
+	}
+	return "Lainnya"
 }
 
 // triggerRefundOnMerchantReject — FB-081: panggil order-service

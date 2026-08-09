@@ -42,20 +42,26 @@ func (r *postgresMerchantOrderRepository) AcceptOrder(ctx context.Context, merch
 	return nil
 }
 
-func (r *postgresMerchantOrderRepository) RejectOrder(ctx context.Context, merchantID, orderID, reason string) error {
+func (r *postgresMerchantOrderRepository) RejectOrder(ctx context.Context, merchantID, orderID, reason, rejectReason string) error {
 	var cancelReason sql.NullString
 	if reason != "" {
 		cancelReason = sql.NullString{String: reason, Valid: true}
+	}
+	// FB-122: reject_reason enum (analitik); nullable kalau merchant legacy.
+	var rejectReasonCode sql.NullString
+	if rejectReason != "" {
+		rejectReasonCode = sql.NullString{String: rejectReason, Valid: true}
 	}
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE orders
 		SET status = 'cancelled',
 			cancellation_reason = COALESCE($3, cancellation_reason),
+			reject_reason = COALESCE($4, reject_reason),
 			cancelled_at = NOW(),
 			updated_at = NOW()
 		WHERE id = $1 AND merchant_id = $2
 		  AND status = 'pending_merchant'
-		  AND service_sub_type = 'food_delivery'`, orderID, merchantID, cancelReason)
+		  AND service_sub_type = 'food_delivery'`, orderID, merchantID, cancelReason, rejectReasonCode)
 	if err != nil {
 		return fmt.Errorf("reject order: %w", err)
 	}

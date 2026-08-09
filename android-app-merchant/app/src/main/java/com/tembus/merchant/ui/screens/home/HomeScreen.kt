@@ -1,6 +1,7 @@
 package com.tembus.merchant.ui.screens.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -58,12 +59,12 @@ fun HomeScreen(
         )
     }
 
-    // Dialog tolak order (reason wajib)
+    // Dialog tolak order (reason wajib) — FB-122: alasan terstruktur
     rejectTarget?.let { order ->
         RejectOrderDialog(
             order = order,
-            onConfirm = { reason ->
-                viewModel.rejectOrder(order.id, reason)
+            onConfirm = { reason, rejectReason ->
+                viewModel.rejectOrder(order.id, reason, rejectReason)
                 rejectTarget = null
             },
             onDismiss = { rejectTarget = null }
@@ -141,35 +142,58 @@ fun HomeScreen(
 @Composable
 private fun RejectOrderDialog(
     order: MerchantOrder,
-    onConfirm: (String) -> Unit,
+    onConfirm: (reason: String, rejectReason: String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var reason by remember(order.id) { mutableStateOf("Stok habis") }
+    // FB-122: alasan reject terstruktur (enum) — pilihan radio + detail opsional.
+    val rejectOptions = listOf(
+        "stok_habis" to "Stok menu habis",
+        "terlalu_sibuk" to "Terlalu sibuk",
+        "tutup_mendadak" to "Tutup mendadak",
+        "lainnya" to "Lainnya"
+    )
+    var selectedReason by remember(order.id) { mutableStateOf("stok_habis") }
+    var detail by remember(order.id) { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Tolak Order ${order.orderNumber}") },
         text = {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Alasan wajib diisi. Order akan dibatalkan dengan alasan ini.",
+                    text = "Alasan wajib diisi. Order akan dibatalkan dan customer melihat alasan ini.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                OutlinedTextField(
-                    value = reason,
-                    onValueChange = { reason = it },
-                    label = { Text("Alasan penolakan") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                rejectOptions.forEach { (code, label) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = selectedReason == code,
+                            onClick = { selectedReason = code }
+                        )
+                        Text(
+                            label,
+                            modifier = Modifier
+                                .padding(start = 4.dp)
+                                .clickable { selectedReason = code }
+                        )
+                    }
+                }
+                if (selectedReason == "lainnya") {
+                    OutlinedTextField(
+                        value = detail,
+                        onValueChange = { detail = it },
+                        label = { Text("Detail alasan (opsional)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(reason.trim().ifBlank { "Tidak ada alasan" }) },
-                enabled = reason.isNotBlank()
+                onClick = { onConfirm(detail.trim(), selectedReason) },
+                enabled = selectedReason != "lainnya" || detail.isNotBlank()
             ) {
                 Text("Tolak", color = MaterialTheme.colorScheme.error)
             }

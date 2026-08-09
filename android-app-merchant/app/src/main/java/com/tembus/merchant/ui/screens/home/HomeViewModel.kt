@@ -154,10 +154,10 @@ class HomeViewModel(
         }
     }
 
-    fun rejectOrder(orderId: String, reason: String) {
+    fun rejectOrder(orderId: String, reason: String, rejectReason: String) {
         _uiState.value = _uiState.value.copy(actionOrderId = orderId, actionError = null)
         viewModelScope.launch {
-            merchantRepository.rejectOrder(orderId, reason)
+            merchantRepository.rejectOrder(orderId, reason, rejectReason)
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(actionOrderId = null)
                     loadOrders()

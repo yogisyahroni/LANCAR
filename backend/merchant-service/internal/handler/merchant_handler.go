@@ -360,7 +360,7 @@ func (h *MerchantHandler) RejectOrder(w http.ResponseWriter, r *http.Request) {
 		h.respondError(w, http.StatusBadRequest, "Invalid JSON body")
 		return
 	}
-	if err := h.svc.RejectOrder(r.Context(), userID, orderID, body.Reason); err != nil {
+	if err := h.svc.RejectOrder(r.Context(), userID, orderID, body.Reason, body.RejectReason); err != nil {
 		h.respondError(w, http.StatusBadRequest, err.Error())
 		return
 	}

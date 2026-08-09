@@ -43,8 +43,8 @@ class MerchantRepository(private val api: TEMBUSApiService) {
     suspend fun acceptOrder(orderId: String): Result<Boolean> =
         request { api.acceptOrder(orderId) }.map { it.success }
 
-    suspend fun rejectOrder(orderId: String, reason: String): Result<Boolean> =
-        request { api.rejectOrder(orderId, RejectOrderRequest(reason)) }.map { it.success }
+    suspend fun rejectOrder(orderId: String, reason: String, rejectReason: String = "lainnya"): Result<Boolean> =
+        request { api.rejectOrder(orderId, RejectOrderRequest(reason, rejectReason)) }.map { it.success }
 
     suspend fun getStruk(orderId: String): Result<StrukData> =
         request { api.getStruk(orderId) }

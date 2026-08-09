@@ -69,9 +69,10 @@ data class ToggleOpenRequest(
     @SerializedName("is_open") val isOpen: Boolean
 )
 
-/** Reject order food — reason wajib (FOOD-BIKE-017/021). */
+/** Reject order food — reason wajib (FOOD-BIKE-017/021). FB-122: reject_reason enum. */
 data class RejectOrderRequest(
-    @SerializedName("reason") val reason: String
+    @SerializedName("reason") val reason: String,
+    @SerializedName("reject_reason") val rejectReason: String
 )
 
 /** List wrapper: {orders, total, page, page_size}. */

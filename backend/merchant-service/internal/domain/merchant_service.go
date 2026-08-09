@@ -53,7 +53,9 @@ type MerchantService interface {
 	// AcceptOrder menyetujui order food: status → preparing, set merchant_accepted_at.
 	AcceptOrder(ctx context.Context, userID string, orderID string) error
 	// RejectOrder menolak order food: status → cancelled_by_merchant + reason.
-	RejectOrder(ctx context.Context, userID string, orderID string, reason string) error
+	// FB-122: rejectReason enum terstruktur (stok_habis/terlalu_sibuk/
+	// tutup_mendadak/lainnya) untuk analitik.
+	RejectOrder(ctx context.Context, userID string, orderID string, reason string, rejectReason string) error
 	// ListOrders list order food milik merchant (belum dikerjakan / riwayat).
 	ListOrders(ctx context.Context, userID string, status string, page, pageSize int) ([]*MerchantOrderView, int, error)
 	// GetStruk ambil data struk pembelian + QR code untuk dicetak (FOOD-BIKE-034).

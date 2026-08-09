@@ -75,8 +75,12 @@ type UpdateMenuItemRequest struct {
 
 // MerchantOrderActionRequest — body accept/reject order food (FOOD-BIKE-017/021).
 // Reject wajib isi reason; accept opsional.
+// FB-122: reject_reason enum terstruktur — stok_habis | terlalu_sibuk |
+// tutup_mendadak | lainnya. Reason (label) otomatis dari enum; boleh diisi
+// detail tambahan lewat reason.
 type MerchantOrderActionRequest struct {
-	Reason string `json:"reason,omitempty"`
+	Reason       string `json:"reason,omitempty"`
+	RejectReason string `json:"reject_reason,omitempty"`
 }
 
 // EditOrderItemRequest — item baru saat merchant edit order (FB-087).
