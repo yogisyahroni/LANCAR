@@ -217,8 +217,20 @@ fun MerchantDetailScreen(
                             }
                         }
                     } else {
-                        items(m.menuItems, key = { it.id }) { item ->
-                            MenuItemRow(item = item, onAdd = { viewModel.addToCart(item, merchantName = merchant?.name) })
+                        // FB-118: menu dikelompokkan per kategori (sticky header).
+                        // Item tanpa kategori dikumpulkan di bawah "Lainnya".
+                        val grouped = LinkedHashMap<String, MutableList<FoodMenuItem>>()
+                        m.menuItems.forEach { menuItem ->
+                            val key = menuItem.kategori?.trim()?.ifEmpty { null } ?: "Lainnya"
+                            grouped.getOrPut(key) { mutableListOf() }.add(menuItem)
+                        }
+                        grouped.forEach { (kategori, items) ->
+                            item(key = "header_$kategori") {
+                                CategoryHeader(title = kategori)
+                            }
+                            items(items, key = { it.id }) { item ->
+                                MenuItemRow(item = item, onAdd = { viewModel.addToCart(item, merchantName = merchant?.name) })
+                            }
                         }
                     }
                 }
@@ -271,13 +283,6 @@ private fun MenuItemRow(item: FoodMenuItem, onAdd: () -> Unit) {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            item.kategori?.let {
-                Text(
-                    it.replaceFirstChar { c -> c.uppercase(Locale.US) },
-                    fontSize = 11.sp,
-                    color = Color(0xFF94A3B8)
-                )
-            }
             Text(
                 "Rp ${item.price.toInt().toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), ".")}",
                 fontSize = 14.sp,
@@ -300,4 +305,19 @@ private fun MenuItemRow(item: FoodMenuItem, onAdd: () -> Unit) {
             Icon(Icons.Default.Add, contentDescription = "Tambah", tint = Color.White, modifier = Modifier.size(20.dp))
         }
     }
+}
+
+/** FB-118: header section kategori menu (sticky saat scroll). */
+@Composable
+private fun CategoryHeader(title: String) {
+    Text(
+        text = title.replaceFirstChar { c -> c.uppercase(Locale.US) },
+        fontSize = 16.sp,
+        fontWeight = FontWeight.ExtraBold,
+        color = Color(0xFF0F172A),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF7F8FA))
+            .padding(vertical = 6.dp)
+    )
 }
