@@ -44,7 +44,8 @@ fun RegistrationScreen(
     var ktpUrl by remember { mutableStateOf("") }
     var fotoTokoUrl by remember { mutableStateOf("") }
     var rekeningUrl by remember { mutableStateOf("") }
-    // FB-092: dokumen pangan (opsional saat daftar, wajib sebelum buka toko)
+    // FB-092/ADR 003: dokumen pangan (opsional — soft-gate, bukan syarat buka)
+    var halalStatus by remember { mutableStateOf("unknown") }
     var halalNumber by remember { mutableStateOf("") }
     var halalExpiry by remember { mutableStateOf("") }
     var sppIrtNumber by remember { mutableStateOf("") }
@@ -198,29 +199,74 @@ fun RegistrationScreen(
             )
             Text(
                 text = "Sertifikat halal BPJPH + SPP-IRT atau izin edar BPOM (UU 33/2014, PerBPOM 4/2024). " +
-                    "Boleh diisi nanti, tapi wajib lengkap sebelum buka toko.",
+                    "Semua opsional — toko tetap bisa buka tanpa dokumen ini. Status halal dipakai untuk label & filter customer.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(
-                value = halalNumber,
-                onValueChange = { halalNumber = it },
-                label = { Text("Nomor Sertifikat Halal") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+
+            // ── ADR 003: pilihan status halal ──
+            Text(
+                text = "Status Halal",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = halalStatus == "unknown",
+                    onClick = { halalStatus = "unknown" },
+                    label = { Text("Belum ditentukan") }
+                )
+                FilterChip(
+                    selected = halalStatus == "halal_certified",
+                    onClick = { halalStatus = "halal_certified" },
+                    label = { Text("Bersertifikat") }
+                )
+                FilterChip(
+                    selected = halalStatus == "non_halal",
+                    onClick = { halalStatus = "non_halal" },
+                    label = { Text("Non-Halal") }
+                )
+            }
+            if (halalStatus == "halal_certified") {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Isi nomor sertifikat & masa berlaku di bawah. Badge Halal otomatis muncul & kedaluwarsa otomatis dihapus.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            if (halalStatus == "non_halal") {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Menjual produk non-halal? Pilih ini — customer bisa filter & melihat label Non-Halal.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedTextField(
-                value = halalExpiry,
-                onValueChange = { halalExpiry = it },
-                label = { Text("Masa Berlaku Halal (YYYY-MM-DD)") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+            if (halalStatus == "halal_certified") {
+                OutlinedTextField(
+                    value = halalNumber,
+                    onValueChange = { halalNumber = it },
+                    label = { Text("Nomor Sertifikat Halal") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = halalExpiry,
+                    onValueChange = { halalExpiry = it },
+                    label = { Text("Masa Berlaku Halal (YYYY-MM-DD)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             OutlinedTextField(
                 value = sppIrtNumber,
                 onValueChange = { sppIrtNumber = it },
@@ -269,9 +315,10 @@ fun RegistrationScreen(
                             ktpPemilikUrl = ktpUrl.trim(),
                             fotoTempatUsahaUrl = fotoTokoUrl.trim(),
                             rekeningBankUrl = rekeningUrl.trim(),
-                            // FB-092: dokumen pangan opsional saat daftar
-                            halalCertNumber = halalNumber.trim().ifBlank { null },
-                            halalExpiryDate = halalExpiry.trim().ifBlank { null },
+                            // FB-092: dokumen pangan opsional saat daftar (ADR 003 soft-gate)
+                            halalStatus = halalStatus,
+                            halalCertNumber = if (halalStatus == "halal_certified") halalNumber.trim().ifBlank { null } else null,
+                            halalExpiryDate = if (halalStatus == "halal_certified") halalExpiry.trim().ifBlank { null } else null,
                             sppIrtNumber = sppIrtNumber.trim().ifBlank { null },
                             sppIrtExpiryDate = sppIrtExpiry.trim().ifBlank { null },
                             bpomNumber = bpomNumber.trim().ifBlank { null },

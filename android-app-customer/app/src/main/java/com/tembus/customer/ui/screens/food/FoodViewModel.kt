@@ -42,6 +42,10 @@ class FoodViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // ── ADR 003: filter halal — "all" (default) | "halal_certified" | "non_halal" ──
+    private val _halalFilter = MutableStateFlow("all")
+    val halalFilter: StateFlow<String> = _halalFilter.asStateFlow()
+
     // ── Cart state (FB-084: shared via CartStore @Singleton) ──
     val cart: StateFlow<List<CartItem>> = cartStore.cart
     val cartSize: StateFlow<Int> = cartStore.cartSize
@@ -85,7 +89,9 @@ class FoodViewModel @Inject constructor(
             _loading.value = true
             _error.value = null
             try {
-                val res = apiService.listFoodMerchants(lat, lng, search.ifBlank { null })
+                // ADR 003: filter halal — null/all (semua) | halal_certified | non_halal
+                val halal = _halalFilter.value.takeIf { it != "all" }
+                val res = apiService.listFoodMerchants(lat, lng, search.ifBlank { null }, halal)
                 if (res.isSuccessful) {
                     _merchants.value = res.body()?.merchants ?: emptyList()
                 } else {
@@ -97,6 +103,15 @@ class FoodViewModel @Inject constructor(
                 _loading.value = false
             }
         }
+    }
+
+    /** ADR 003: set filter halal lalu reload daftar merchant. */
+    fun setHalalFilter(filter: String) {
+        if (_halalFilter.value == filter) return
+        _halalFilter.value = filter
+        val lat = _userLat.value
+        val lng = _userLng.value
+        if (lat != 0.0 || lng != 0.0) loadMerchants(lat, lng)
     }
 
     fun loadMerchantDetail(merchantId: String) {

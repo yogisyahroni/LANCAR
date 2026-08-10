@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -143,6 +144,31 @@ fun FoodHomeScreen(
                 shape = RoundedCornerShape(16.dp)
             )
 
+            // ── ADR 003: filter halal ──
+            val halalFilter by viewModel.halalFilter.collectAsState()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = halalFilter == "all",
+                    onClick = { viewModel.setHalalFilter("all") },
+                    label = { Text("Semua", fontSize = 12.sp) }
+                )
+                FilterChip(
+                    selected = halalFilter == "halal_certified",
+                    onClick = { viewModel.setHalalFilter("halal_certified") },
+                    label = { Text("Halal", fontSize = 12.sp) }
+                )
+                FilterChip(
+                    selected = halalFilter == "non_halal",
+                    onClick = { viewModel.setHalalFilter("non_halal") },
+                    label = { Text("Non-Halal", fontSize = 12.sp) }
+                )
+            }
+
             when {
                 loading && merchants.isEmpty() -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -206,14 +232,22 @@ private fun FoodMerchantCard(merchant: FoodMerchant, onClick: () -> Unit) {
                 Icon(Icons.Default.Store, contentDescription = null, tint = Primary, modifier = Modifier.size(26.dp))
             }
             Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(
-                    merchant.name,
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 16.sp,
-                    color = Color(0xFF0F172A),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        merchant.name,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp,
+                        color = Color(0xFF0F172A),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    // ADR 003: badge halal / non-halal
+                    when {
+                        merchant.isHalalCertified -> HalalBadge(text = "Halal", container = Color(0xFF16A34A))
+                        merchant.isNonHalal -> HalalBadge(text = "Non-Halal", container = Color(0xFF64748B))
+                    }
+                }
                 Text(
                     merchant.address,
                     fontSize = 12.sp,
@@ -251,5 +285,31 @@ private fun FoodMerchantCard(merchant: FoodMerchant, onClick: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+// ── ADR 003: badge status halal di kartu/detail toko ──
+@Composable
+private fun HalalBadge(text: String, container: Color) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(container.copy(alpha = 0.12f))
+            .padding(horizontal = 6.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(container)
+        )
+        Text(
+            text,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            color = container
+        )
     }
 }

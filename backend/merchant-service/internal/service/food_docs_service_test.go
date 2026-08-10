@@ -10,15 +10,20 @@ import (
 	"tembus/merchant-service/internal/service"
 )
 
-// ── FB-092: unit test UpdateFoodDocs + gate ToggleOpen ────────────────
+// ── FB-092 + ADR 003: unit test UpdateFoodDocs + ToggleOpen (SOFT-gate) ──
+// ADR 003 (2026-08-10): dokumen pangan BUKAN gate buka toko. Semua status
+// halal boleh buka. Label & filter di sisi customer.
 // Kasus:
-//   1. UpdateFoodDocs dengan data valid (halal + SPP-IRT) → tersimpan.
+//   1. UpdateFoodDocs data valid (halal + SPP-IRT) → tersimpan, status certified.
 //   2. Nomor halal tanpa expiry → ditolak.
 //   3. Format SPP-IRT tanpa awalan "P-IRT" → ditolak.
 //   4. Expiry di masa lalu → ditolak.
-//   5. ToggleOpen buka toko tanpa dokumen pangan → ditolak.
-//   6. ToggleOpen buka toko dengan dokumen expired → ditolak.
-//   7. ToggleOpen tutup toko tetap boleh (tanpa dokumen).
+//   5. UpdateFoodDocs tanpa dokumen + halal_status non_halal → status non_halal.
+//   6. UpdateFoodDocs tanpa dokumen → status unknown, toko tetap bisa buka.
+//   7. ToggleOpen buka toko tanpa dokumen pangan → DIBOLEHKAN (soft-gate).
+//   8. ToggleOpen buka toko dengan halal expired → DIBOLEHKAN (soft-gate).
+//   9. ToggleOpen tutup toko tetap boleh.
+//  10. ToggleOpen sebelum approved → ditolak.
 
 // foodDocsRepo — stub MerchantRepository minimal (hanya method yang dipakai).
 type foodDocsRepo struct {
@@ -69,11 +74,18 @@ func (r *foodDocsRepo) UpdateFoodDocs(ctx context.Context, m *domain.Merchant, d
 		r.merchant.SppIrtExpiryDate = m.SppIrtExpiryDate
 		r.merchant.BpomNumber = m.BpomNumber
 		r.merchant.BpomExpiryDate = m.BpomExpiryDate
+		r.merchant.HalalStatus = m.HalalStatus
 	}
 	return nil
 }
-func (r *foodDocsRepo) ListOpenWithExpiredFoodDocs(ctx context.Context) ([]*domain.Merchant, error) {
+func (r *foodDocsRepo) ListCertifiedWithExpiredHalal(ctx context.Context) ([]*domain.Merchant, error) {
 	return nil, nil
+}
+func (r *foodDocsRepo) SetHalalStatus(ctx context.Context, id, status string) error {
+	if r.merchant != nil {
+		r.merchant.HalalStatus = status
+	}
+	return nil
 }
 func (r *foodDocsRepo) ListForOperatingHoursSync(ctx context.Context) ([]*domain.Merchant, error) {
 	return nil, nil
@@ -116,6 +128,10 @@ func TestUpdateFoodDocs_Valid_Saves(t *testing.T) {
 	}
 	if *repo.updated.HalalCertNumber != "ID12345000000000001" {
 		t.Errorf("halal number mismatch: %s", *repo.updated.HalalCertNumber)
+	}
+	// ADR 003: nomor valid + expiry future → otomatis halal_certified.
+	if repo.updated.HalalStatus != "halal_certified" {
+		t.Errorf("halal_status harus halal_certified, got: %s", repo.updated.HalalStatus)
 	}
 }
 
@@ -163,17 +179,44 @@ func TestUpdateFoodDocs_ExpiryMasaLalu_Ditolak(t *testing.T) {
 	}
 }
 
-func TestToggleOpen_TanpaDokumenPangan_Ditolak(t *testing.T) {
+// ADR 003: merchant non-halal self-declare → status non_halal, tanpa nomor.
+func TestUpdateFoodDocs_SelfDeclareNonHalal(t *testing.T) {
+	repo := &foodDocsRepo{merchant: approvedMerchant()}
+	svc := newFoodDocsService(repo)
+
+	_, err := svc.UpdateFoodDocs(context.Background(), "user-1", domain.UpdateFoodDocsRequest{
+		HalalStatus: strp("non_halal"),
+	})
+	if err != nil {
+		t.Fatalf("deklarasi non_halal harus sukses, got: %v", err)
+	}
+	if repo.updated == nil {
+		t.Fatal("repo.UpdateFoodDocs tidak dipanggil")
+	}
+	if repo.updated.HalalStatus != "non_halal" {
+		t.Errorf("halal_status harus non_halal, got: %s", repo.updated.HalalStatus)
+	}
+	if repo.updated.HalalCertNumber != nil {
+		t.Error("merchant non_halal tidak boleh menyimpan nomor sertifikat halal")
+	}
+}
+
+// ADR 003: tanpa dokumen apa pun → unknown, dan TIDAK memblokir buka toko.
+func TestToggleOpen_TanpaDokumenPangan_Dibolehkan(t *testing.T) {
 	repo := &foodDocsRepo{merchant: approvedMerchant()}
 	svc := newFoodDocsService(repo)
 
 	_, err := svc.ToggleOpen(context.Background(), "user-1", true)
-	if err == nil {
-		t.Fatal("buka toko tanpa dokumen pangan harus ditolak")
+	if err != nil {
+		t.Fatalf("soft-gate ADR 003: buka toko tanpa dokumen pangan harus DIBOLEHKAN, got: %v", err)
+	}
+	if !repo.merchant.IsOpen {
+		t.Error("toko seharusnya terbuka")
 	}
 }
 
-func TestToggleOpen_DokumenExpired_Ditolak(t *testing.T) {
+// ADR 003: sertifikat expired TIDAK memblokir buka toko (badge turun ke unknown).
+func TestToggleOpen_HalalExpired_Dibolehkan(t *testing.T) {
 	past := time.Now().AddDate(-1, 0, 0).Format("2006-01-02")
 	future := time.Now().AddDate(1, 0, 0).Format("2006-01-02")
 	repo := &foodDocsRepo{merchant: &domain.Merchant{
@@ -189,8 +232,11 @@ func TestToggleOpen_DokumenExpired_Ditolak(t *testing.T) {
 	svc := newFoodDocsService(repo)
 
 	_, err := svc.ToggleOpen(context.Background(), "user-1", true)
-	if err == nil {
-		t.Fatal("buka toko dengan halal expired harus ditolak")
+	if err != nil {
+		t.Fatalf("soft-gate ADR 003: halal expired harus tetap boleh buka, got: %v", err)
+	}
+	if !repo.merchant.IsOpen {
+		t.Error("toko seharusnya terbuka")
 	}
 }
 

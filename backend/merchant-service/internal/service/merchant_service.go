@@ -91,7 +91,7 @@ func (s *merchantServiceImpl) Register(ctx context.Context, userID string, req d
 		docs = append(docs, domain.MerchantDocument{DocType: "nib", FileURL: *req.NibURL})
 	}
 
-	// Dokumen pangan opsional saat daftar (FB-092) — wajib sebelum is_open=true
+	// Dokumen pangan opsional saat daftar (FB-092 / ADR 003) — bukan gate.
 	foodDocs, err := s.buildFoodDocs(&m, domain.UpdateFoodDocsRequest{
 		HalalCertNumber:    req.HalalCertNumber,
 		HalalExpiryDate:    req.HalalExpiryDate,
@@ -102,7 +102,8 @@ func (s *merchantServiceImpl) Register(ctx context.Context, userID string, req d
 		BpomNumber:         req.BpomNumber,
 		BpomExpiryDate:     req.BpomExpiryDate,
 		IzinEdarBPOMURL:    req.IzinEdarBPOMURL,
-	}, false) // tidak wajib saat daftar
+		HalalStatus:        req.HalalStatus,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -162,13 +163,8 @@ func (s *merchantServiceImpl) ToggleOpen(ctx context.Context, userID string, isO
 	if m.VerificationStatus != "approved" {
 		return nil, errors.New("merchant belum disetujui — tidak bisa buka toko")
 	}
-	// FB-092: buka toko makanan wajib dokumen pangan lengkap & belum expired
-	// (UU 33/2014 + PP 39/2021 halal; PerBPOM 4/2024 SPP-IRT/BPOM).
-	if isOpen {
-		if err := validateFoodDocsReady(m); err != nil {
-			return nil, err
-		}
-	}
+	// ADR 003: dokumen pangan (halal/SPP-IRT/BPOM) TIDAK lagi jadi gate buka
+	// toko — semua status halal boleh buka. Label/filter di sisi customer.
 	if err := s.merchantRepo.ToggleOpen(ctx, m.ID, isOpen); err != nil {
 		return nil, err
 	}
@@ -207,13 +203,55 @@ func (s *merchantServiceImpl) Resume(ctx context.Context, userID string) (*domai
 	return s.merchantRepo.GetByID(ctx, m.ID)
 }
 
-// UpdateFoodDocs — FB-092: update nomor + masa berlaku dokumen pangan.
-// Patch semantics: hanya field yang diisi yang diperbarui; field yang tidak
-// diisi dipertahankan dari data lama. Nomor tanpa expiry → tolak.
+// UpdateFoodDocs — FB-092 + ADR 003: update nomor + masa berlaku dokumen
+// pangan. Patch semantics: hanya field yang diisi yang diperbarui; field yang
+// tidak diisi dipertahankan dari data lama. SEMUA dokumen OPSIONAL (soft-gate)
+// — validasi format hanya untuk nilai yang dikirim eksplisit di request ini.
 func (s *merchantServiceImpl) UpdateFoodDocs(ctx context.Context, userID string, req domain.UpdateFoodDocsRequest) (*domain.Merchant, error) {
 	m, err := s.requireMerchant(ctx, userID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Validasi hanya nilai yang dikirim eksplisit (nomor baru → format + expiry future).
+	if req.HalalCertNumber != nil && *req.HalalCertNumber != "" {
+		if err := validateHalalNumber(*req.HalalCertNumber); err != nil {
+			return nil, err
+		}
+		if req.HalalExpiryDate == nil || *req.HalalExpiryDate == "" {
+			return nil, errors.New("halal_expiry_date wajib diisi jika halal_cert_number diisi")
+		}
+		if err := validateFutureDate(*req.HalalExpiryDate, "halal_expiry_date"); err != nil {
+			return nil, err
+		}
+	}
+	if req.SppIrtNumber != nil && *req.SppIrtNumber != "" {
+		if err := validateSppIrtNumber(*req.SppIrtNumber); err != nil {
+			return nil, err
+		}
+		if req.SppIrtExpiryDate == nil || *req.SppIrtExpiryDate == "" {
+			return nil, errors.New("spp_irt_expiry_date wajib diisi jika spp_irt_number diisi")
+		}
+		if err := validateFutureDate(*req.SppIrtExpiryDate, "spp_irt_expiry_date"); err != nil {
+			return nil, err
+		}
+	}
+	if req.BpomNumber != nil && *req.BpomNumber != "" {
+		if err := validateBpomNumber(*req.BpomNumber); err != nil {
+			return nil, err
+		}
+		if req.BpomExpiryDate == nil || *req.BpomExpiryDate == "" {
+			return nil, errors.New("bpom_expiry_date wajib diisi jika bpom_number diisi")
+		}
+		if err := validateFutureDate(*req.BpomExpiryDate, "bpom_expiry_date"); err != nil {
+			return nil, err
+		}
+	}
+	if req.HalalStatus != nil {
+		st := *req.HalalStatus
+		if st != "non_halal" && st != "unknown" {
+			return nil, errors.New("halal_status tidak valid (non_halal | unknown)")
+		}
 	}
 
 	// Patch: gabungkan nilai lama + baru (request menang kalau diisi)
@@ -224,6 +262,7 @@ func (s *merchantServiceImpl) UpdateFoodDocs(ctx context.Context, userID string,
 		SppIrtExpiryDate:   m.SppIrtExpiryDate,
 		BpomNumber:         m.BpomNumber,
 		BpomExpiryDate:     m.BpomExpiryDate,
+		HalalStatus:        m.HalalStatusPtr(),
 	}
 	if req.HalalCertNumber != nil {
 		merged.HalalCertNumber = req.HalalCertNumber
@@ -243,8 +282,11 @@ func (s *merchantServiceImpl) UpdateFoodDocs(ctx context.Context, userID string,
 	if req.BpomExpiryDate != nil {
 		merged.BpomExpiryDate = req.BpomExpiryDate
 	}
+	if req.HalalStatus != nil {
+		merged.HalalStatus = req.HalalStatus
+	}
 
-	docs, err := s.buildFoodDocs(&m, merged, true) // wajib lengkap saat update
+	docs, err := s.buildFoodDocs(&m, merged)
 	if err != nil {
 		return nil, err
 	}
@@ -305,22 +347,16 @@ func ptrOr(p *string, fallback string) *string {
 
 // buildFoodDocs — validasi + pasang field dokumen pangan ke merchant,
 // return list MerchantDocument bukti (hanya doc_type yang punya nomor).
-// requireComplete=true → wajib lengkap (update KYC); false → opsional (daftar).
-func (s *merchantServiceImpl) buildFoodDocs(m **domain.Merchant, req domain.UpdateFoodDocsRequest, requireComplete bool) ([]domain.MerchantDocument, error) {
+// ADR 003: SEMUA dokumen opsional. halal_status dihitung otomatis:
+//   - nomor + expiry valid                → halal_certified
+//   - tanpa nomor valid, HalalStatus non_halal → non_halal (nomor dibersihkan)
+//   - selain itu                          → unknown (nomor dibersihkan)
+func (s *merchantServiceImpl) buildFoodDocs(m **domain.Merchant, req domain.UpdateFoodDocsRequest) ([]domain.MerchantDocument, error) {
 	mm := *m
 	docs := []domain.MerchantDocument{}
 
 	hasHalal := req.HalalCertNumber != nil && *req.HalalCertNumber != ""
 	if hasHalal {
-		if err := validateHalalNumber(*req.HalalCertNumber); err != nil {
-			return nil, err
-		}
-		if req.HalalExpiryDate == nil || *req.HalalExpiryDate == "" {
-			return nil, errors.New("halal_expiry_date wajib diisi jika halal_cert_number diisi")
-		}
-		if err := validateFutureDate(*req.HalalExpiryDate, "halal_expiry_date"); err != nil {
-			return nil, err
-		}
 		mm.HalalCertNumber = req.HalalCertNumber
 		mm.HalalExpiryDate = req.HalalExpiryDate
 		if req.SertifikatHalalURL != nil && *req.SertifikatHalalURL != "" {
@@ -330,15 +366,6 @@ func (s *merchantServiceImpl) buildFoodDocs(m **domain.Merchant, req domain.Upda
 
 	hasSpp := req.SppIrtNumber != nil && *req.SppIrtNumber != ""
 	if hasSpp {
-		if err := validateSppIrtNumber(*req.SppIrtNumber); err != nil {
-			return nil, err
-		}
-		if req.SppIrtExpiryDate == nil || *req.SppIrtExpiryDate == "" {
-			return nil, errors.New("spp_irt_expiry_date wajib diisi jika spp_irt_number diisi")
-		}
-		if err := validateFutureDate(*req.SppIrtExpiryDate, "spp_irt_expiry_date"); err != nil {
-			return nil, err
-		}
 		mm.SppIrtNumber = req.SppIrtNumber
 		mm.SppIrtExpiryDate = req.SppIrtExpiryDate
 		if req.SppIrtURL != nil && *req.SppIrtURL != "" {
@@ -348,15 +375,6 @@ func (s *merchantServiceImpl) buildFoodDocs(m **domain.Merchant, req domain.Upda
 
 	hasBpom := req.BpomNumber != nil && *req.BpomNumber != ""
 	if hasBpom {
-		if err := validateBpomNumber(*req.BpomNumber); err != nil {
-			return nil, err
-		}
-		if req.BpomExpiryDate == nil || *req.BpomExpiryDate == "" {
-			return nil, errors.New("bpom_expiry_date wajib diisi jika bpom_number diisi")
-		}
-		if err := validateFutureDate(*req.BpomExpiryDate, "bpom_expiry_date"); err != nil {
-			return nil, err
-		}
 		mm.BpomNumber = req.BpomNumber
 		mm.BpomExpiryDate = req.BpomExpiryDate
 		if req.IzinEdarBPOMURL != nil && *req.IzinEdarBPOMURL != "" {
@@ -364,44 +382,34 @@ func (s *merchantServiceImpl) buildFoodDocs(m **domain.Merchant, req domain.Upda
 		}
 	}
 
-	if requireComplete {
-		if err := validateFoodDocsReady(mm); err != nil {
-			return nil, err
-		}
+	// ADR 003: tentukan status halal (nomor valid menang atas deklarasi).
+	status := "unknown"
+	if hasHalal && halalExpiryFuture(req.HalalExpiryDate) {
+		status = "halal_certified"
+	} else if req.HalalStatus != nil && *req.HalalStatus == "non_halal" {
+		status = "non_halal"
 	}
+	// Status selain certified tidak boleh menyimpan nomor halal (konsisten
+	// dengan label): badge hilang → data sertifikat dibersihkan.
+	if status != "halal_certified" {
+		mm.HalalCertNumber = nil
+		mm.HalalExpiryDate = nil
+	}
+	mm.HalalStatus = status
 	*m = mm
 	return docs, nil
 }
 
-// validateFoodDocsReady — gate FB-092: toko makanan boleh buka hanya jika
-// (1) sertifikat halal terisi & belum expired, DAN
-// (2) salah satu dari SPP-IRT / izin edar BPOM terisi & belum expired.
-func validateFoodDocsReady(m *domain.Merchant) error {
-	now := time.Now().UTC()
-	if m.HalalCertNumber == nil || *m.HalalCertNumber == "" || m.HalalExpiryDate == nil || *m.HalalExpiryDate == "" {
-		return errors.New("dokumen pangan belum lengkap: wajib sertifikat halal (halal_cert_number + halal_expiry_date) sebelum buka toko")
+// halalExpiryFuture — true kalau expiry sertifikat halal di masa depan.
+func halalExpiryFuture(expiry *string) bool {
+	if expiry == nil || *expiry == "" {
+		return false
 	}
-	halalExp, err := time.Parse("2006-01-02", *m.HalalExpiryDate)
-	if err != nil || halalExp.Before(now) {
-		return errors.New("sertifikat halal sudah kedaluwarsa — perbarui dulu sebelum buka toko")
+	d, err := time.Parse("2006-01-02", strings.TrimSpace(*expiry))
+	if err != nil {
+		return false
 	}
-
-	hasSpp := m.SppIrtNumber != nil && *m.SppIrtNumber != "" && m.SppIrtExpiryDate != nil && *m.SppIrtExpiryDate != ""
-	hasBpom := m.BpomNumber != nil && *m.BpomNumber != "" && m.BpomExpiryDate != nil && *m.BpomExpiryDate != ""
-	if !hasSpp && !hasBpom {
-		return errors.New("dokumen pangan belum lengkap: wajib SPP-IRT atau izin edar BPOM sebelum buka toko")
-	}
-	if hasSpp {
-		if exp, err := time.Parse("2006-01-02", *m.SppIrtExpiryDate); err == nil && exp.Before(now) {
-			return errors.New("SPP-IRT sudah kedaluwarsa — perbarui dulu sebelum buka toko")
-		}
-	}
-	if hasBpom {
-		if exp, err := time.Parse("2006-01-02", *m.BpomExpiryDate); err == nil && exp.Before(now) {
-			return errors.New("izin edar BPOM sudah kedaluwarsa — perbarui dulu sebelum buka toko")
-		}
-	}
-	return nil
+	return !d.Before(time.Now().UTC())
 }
 
 // validateHalalNumber — nomor sertifikat halal BPJPH (alfanumerik, ≥8 char,

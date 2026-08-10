@@ -203,6 +203,37 @@ fun MerchantDetailScreen(
                                     Text("${m.jamBuka} - ${m.jamTutup}", fontSize = 13.sp, color = Color(0xFF64748B))
                                 }
                             }
+                            // ADR 003: badge halal / non-halal
+                            if (m.halalStatus == "halal_certified" || m.halalStatus == "non_halal") {
+                                Row(
+                                    modifier = Modifier
+                                        .padding(top = 12.dp)
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(
+                                            if (m.halalStatus == "halal_certified") Color(0xFF16A34A).copy(alpha = 0.12f)
+                                            else Color(0xFF64748B).copy(alpha = 0.12f)
+                                        )
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (m.halalStatus == "halal_certified") Color(0xFF16A34A)
+                                                else Color(0xFF64748B)
+                                            )
+                                    )
+                                    Spacer(Modifier.size(6.dp))
+                                    Text(
+                                        if (m.halalStatus == "halal_certified") "Bersertifikat Halal" else "Non-Halal",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = if (m.halalStatus == "halal_certified") Color(0xFF16A34A) else Color(0xFF64748B)
+                                    )
+                                }
+                            }
                             // Badge ramah kurir sepeda
                             Row(
                                 modifier = Modifier

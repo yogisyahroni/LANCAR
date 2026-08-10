@@ -92,11 +92,8 @@ func (w *OperatingHoursWorker) runOnce() {
 		}
 		open := expectedOpen(*m.JamBuka, *m.JamTutup, now)
 		if open && !m.IsOpen {
-			// Auto-buka hanya kalau gate KYC dokumen pangan lolos (FB-092).
-			if !m.FoodDocsReady() {
-				log.Printf("[OperatingHoursWorker] merchant %s (%s) sudah jam buka tapi dokumen pangan belum lengkap — SKIP auto-buka", m.ID, m.NamaToko)
-				continue
-			}
+			// ADR 003: dokumen pangan BUKAN lagi gate buka toko — semua status
+			// halal boleh auto-buka (label & filter di sisi customer).
 			if err := w.repo.ToggleOpen(ctx, m.ID, true); err != nil {
 				log.Printf("[OperatingHoursWorker] gagal auto-buka merchant %s: %v", m.ID, err)
 				continue

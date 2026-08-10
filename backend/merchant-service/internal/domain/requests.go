@@ -15,7 +15,7 @@ type RegisterMerchantRequest struct {
 	// NIB opsional
 	NibURL *string `json:"nib_url,omitempty"`
 
-	// Dokumen pangan (FB-092) — OPSIONAL saat daftar, wajib sebelum is_open=true.
+	// Dokumen pangan (FB-092 / ADR 003) — SEMUA OPSIONAL, bukan gate buka toko.
 	// Nomor + tanggal kedaluwarsa; URL bukti dokumen.
 	HalalCertNumber    *string `json:"halal_cert_number,omitempty"`
 	HalalExpiryDate    *string `json:"halal_expiry_date,omitempty"` // YYYY-MM-DD, wajib jika nomor diisi
@@ -26,11 +26,13 @@ type RegisterMerchantRequest struct {
 	BpomNumber         *string `json:"bpom_number,omitempty"`
 	BpomExpiryDate     *string `json:"bpom_expiry_date,omitempty"` // YYYY-MM-DD, wajib jika nomor diisi
 	IzinEdarBPOMURL    *string `json:"izin_edar_bpom_url,omitempty"`
+	// ADR 003: deklarasi halal — "non_halal" | "unknown" (default dihitung otomatis).
+	HalalStatus *string `json:"halal_status,omitempty"`
 }
 
 // UpdateFoodDocsRequest — update/upload dokumen pangan merchant (FB-092).
-// Field opsional (patch): hanya field yang diisi yang diperbarui.
-// Kalau nomor diisi, expiry wajib; URL opsional (sudah diunggah saat daftar).
+// ADR 003: SEMUA dokumen opsional (soft-gate). halal_status menentukan label:
+//   "halal_certified" (nomor+expiry valid, otomatis) | "non_halal" | "unknown".
 type UpdateFoodDocsRequest struct {
 	HalalCertNumber    *string `json:"halal_cert_number,omitempty"`
 	HalalExpiryDate    *string `json:"halal_expiry_date,omitempty"`
@@ -41,6 +43,10 @@ type UpdateFoodDocsRequest struct {
 	BpomNumber         *string `json:"bpom_number,omitempty"`
 	BpomExpiryDate     *string `json:"bpom_expiry_date,omitempty"`
 	IzinEdarBPOMURL    *string `json:"izin_edar_bpom_url,omitempty"`
+	// ADR 003: deklarasi halal merchant — "non_halal" (self-declare) atau
+	// "unknown". "halal_certified" tidak boleh dikirim manual (dihitung dari
+	// nomor + expiry valid); kalau terisi, diabaikan.
+	HalalStatus *string `json:"halal_status,omitempty"`
 }
 
 // UpdateMerchantRequest — update profil merchant (nama, alamat, lokasi, jam).

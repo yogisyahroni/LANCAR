@@ -21,8 +21,21 @@ data class FoodMerchant(
     @SerialName("distance_km") val distanceKm: Double? = null,
     @SerialName("avg_rating") val avgRating: Double? = null,
     @SerialName("rating_count") val ratingCount: Int = 0,
+    // ADR 003 (2026-08-10): status halal merchant — halal_certified | non_halal | unknown.
+    // Dipakai badge di kartu toko + filter chip (Semua/Halal/Non-Halal).
+    @SerialName("halal_status") val halalStatus: String = "unknown",
     @SerialName("menu_items") val menuItems: List<FoodMenuItem> = emptyList()
-)
+) {
+    val isHalalCertified: Boolean get() = halalStatus == "halal_certified"
+    val isNonHalal: Boolean get() = halalStatus == "non_halal"
+    /** Label badge untuk UI. */
+    val halalLabel: String
+        get() = when (halalStatus) {
+            "halal_certified" -> "Halal"
+            "non_halal" -> "Non-Halal"
+            else -> ""
+        }
+}
 
 @Serializable
 data class FoodMenuItem(

@@ -82,6 +82,7 @@ const merchantColumns = `id, user_id, nama_toko, alamat,
 	halal_cert_number, to_char(halal_expiry_date, 'YYYY-MM-DD'),
 	spp_irt_number, to_char(spp_irt_expiry_date, 'YYYY-MM-DD'),
 	bpom_number, to_char(bpom_expiry_date, 'YYYY-MM-DD'),
+	halal_status,
 	bank_name, bank_account_number, bank_account_holder, bank_account_verified,
 	created_at, updated_at`
 
@@ -93,6 +94,7 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 	var avgRating sql.NullFloat64
 	var ratingCount sql.NullInt64
 	var halalNo, halalExp, sppNo, sppExp, bpomNo, bpomExp sql.NullString
+	var halalStatus sql.NullString
 	var bankName, bankAccountNumber, bankAccountHolder sql.NullString
 	err := row.Scan(
 		&m.ID, &m.UserID, &m.NamaToko, &m.Alamat,
@@ -101,11 +103,15 @@ func scanMerchant(row interface{ Scan(...any) error }) (*domain.Merchant, error)
 		&m.IsOpen, &pausedUntil, &m.MinOrderIDR, &m.CompletionRatePct, &m.VerificationStatus,
 		&avgRating, &ratingCount,
 		&halalNo, &halalExp, &sppNo, &sppExp, &bpomNo, &bpomExp,
+		&halalStatus,
 		&bankName, &bankAccountNumber, &bankAccountHolder, &m.BankAccountVerified,
 		&m.CreatedAt, &m.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
+	}
+	if halalStatus.Valid {
+		m.HalalStatus = halalStatus.String
 	}
 	if pausedUntil.Valid {
 		m.PausedUntil = &pausedUntil.Time
@@ -367,9 +373,10 @@ func (r *postgresMerchantRepository) UpdateFoodDocs(ctx context.Context, m *doma
 			halal_cert_number = $2, halal_expiry_date = $3::date,
 			spp_irt_number = $4, spp_irt_expiry_date = $5::date,
 			bpom_number = $6, bpom_expiry_date = $7::date,
+			halal_status = $8,
 			updated_at = NOW()
 		WHERE id = $1`,
-		m.ID, halalNo, halalExp, sppNo, sppExp, bpomNo, bpomExp,
+		m.ID, halalNo, halalExp, sppNo, sppExp, bpomNo, bpomExp, m.HalalStatus,
 	)
 	if err != nil {
 		return fmt.Errorf("update food docs: %w", err)
@@ -398,16 +405,15 @@ func (r *postgresMerchantRepository) UpdateFoodDocs(ctx context.Context, m *doma
 	return tx.Commit()
 }
 
-// ListOpenWithExpiredFoodDocs — FB-092: merchant yang toko-nya buka tapi
-// dokumen pangan sudah kedaluwarsa → kandidat auto-suspend oleh worker.
-func (r *postgresMerchantRepository) ListOpenWithExpiredFoodDocs(ctx context.Context) ([]*domain.Merchant, error) {
+// ListCertifiedWithExpiredHalal — ADR 003: merchant halal_certified dengan
+// sertifikat halal yang sudah kedaluwarsa → kandidat auto-demote ke unknown
+// oleh worker (badge hilang, toko TETAP jalan — pola GoFood).
+func (r *postgresMerchantRepository) ListCertifiedWithExpiredHalal(ctx context.Context) ([]*domain.Merchant, error) {
 	rows, err := r.readDB.QueryContext(ctx, `
 		SELECT `+merchantColumns+` FROM merchants
-		WHERE is_open = true AND (
-			(halal_cert_number IS NOT NULL AND halal_expiry_date IS NOT NULL AND halal_expiry_date < CURRENT_DATE)
-			OR (spp_irt_number IS NOT NULL AND spp_irt_expiry_date IS NOT NULL AND spp_irt_expiry_date < CURRENT_DATE)
-			OR (bpom_number IS NOT NULL AND bpom_expiry_date IS NOT NULL AND bpom_expiry_date < CURRENT_DATE)
-		)`)
+		WHERE halal_status = 'halal_certified'
+		  AND halal_cert_number IS NOT NULL AND halal_cert_number <> ''
+		  AND halal_expiry_date IS NOT NULL AND halal_expiry_date < CURRENT_DATE`)
 	if err != nil {
 		return nil, err
 	}
@@ -422,6 +428,14 @@ func (r *postgresMerchantRepository) ListOpenWithExpiredFoodDocs(ctx context.Con
 		out = append(out, m)
 	}
 	return out, rows.Err()
+}
+
+// SetHalalStatus — ADR 003: ubah halal_status merchant.
+func (r *postgresMerchantRepository) SetHalalStatus(ctx context.Context, id, status string) error {
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE merchants SET halal_status = $2, updated_at = NOW() WHERE id = $1`,
+		id, status)
+	return err
 }
 
 // ListForOperatingHoursSync — FB-095: merchant approved dengan jam_buka/jam_tutup

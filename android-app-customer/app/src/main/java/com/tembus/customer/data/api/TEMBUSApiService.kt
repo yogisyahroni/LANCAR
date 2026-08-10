@@ -397,7 +397,9 @@ interface TEMBUSApiService {
     suspend fun listFoodMerchants(
         @Query("lat") lat: Double,
         @Query("lng") lng: Double,
-        @Query("search") search: String? = null
+        @Query("search") search: String? = null,
+        // ADR 003: filter halal — all (default) | halal_certified | non_halal
+        @Query("halal") halal: String? = null
     ): Response<FoodMerchantListResponse>
 
     @GET("api/v1/food/merchants/{id}")

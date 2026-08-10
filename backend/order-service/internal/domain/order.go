@@ -259,6 +259,9 @@ type FoodMerchantInfo struct {
 	DistanceKM  *float64           `json:"distance_km,omitempty"`
 	AvgRating   *float64           `json:"avg_rating,omitempty"`
 	RatingCount int                `json:"rating_count"`
+	// ADR 003 (2026-08-10): status halal merchant untuk label + filter
+	// customer — halal_certified | non_halal | unknown.
+	HalalStatus string `json:"halal_status"`
 	MenuItems   []FoodMenuItemInfo `json:"menu_items,omitempty"`
 }
 
@@ -354,7 +357,7 @@ type FoodRepository interface {
 	// merchant melebihi timeout (FOOD-BIKE-022: 3 menit) → auto-cancel.
 	GetPendingMerchantFoodOrders(ctx context.Context, timeout time.Duration) ([]*Order, error)
 	// FOOD-BIKE-055: browse merchant terdekat (is_open + approved) + menu
-	ListFoodMerchants(ctx context.Context, lat, lng float64, search string, limit int) ([]FoodMerchantInfo, error)
+	ListFoodMerchants(ctx context.Context, lat, lng float64, search, halal string, limit int) ([]FoodMerchantInfo, error)
 	GetFoodMerchantMenu(ctx context.Context, merchantID string) ([]FoodMenuItemInfo, error)
 	// ── FB-088: batching driver food ──
 	// GetSearchingFoodOrdersForBatch: order food `searching` tanpa batch_id
@@ -436,7 +439,7 @@ type OrderService interface {
 	// client hanya kirim menu_item_id + quantity.
 	CreateFoodOrder(ctx context.Context, userID string, req CreateFoodOrderRequest) (*Order, error)
 	// FOOD-BIKE-055: browse merchant food terdekat + menu.
-	ListFoodMerchants(ctx context.Context, lat, lng float64, search string) ([]FoodMerchantInfo, error)
+	ListFoodMerchants(ctx context.Context, lat, lng float64, search, halal string) ([]FoodMerchantInfo, error)
 	GetFoodMerchantDetail(ctx context.Context, merchantID string) (*FoodMerchantInfo, error)
 	// FB-084 REORDER: validasi ulang item order food lama (harga + availability)
 	// sebelum customer klik "Pesan Lagi". Return snapshot vs harga sekarang.

@@ -40,34 +40,38 @@ func (r *foodRepo) GetFoodMerchant(ctx context.Context, merchantID string) (*dom
 			COALESCE(ST_Y(lokasi::geometry), 0),
 			COALESCE(ST_X(lokasi::geometry), 0),
 			jam_buka::text,
-			jam_tutup::text
-		FROM merchants
-		WHERE id = $1`
+			jam_tutup::text,
+			halal_status
+			FROM merchants
+			WHERE id = $1`
 
-	m := &domain.FoodMerchantInfo{}
-	var jamBuka, jamTutup sql.NullString
-	var pausedUntil sql.NullTime
-	err := r.readDB.QueryRowContext(ctx, query, merchantID).Scan(
-		&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
-		&pausedUntil, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup,
-	)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("merchant not found: %s", merchantID)
-		}
-		return nil, err
-	}
-	if pausedUntil.Valid {
-		m.PausedUntil = &pausedUntil.Time
-	}
-	if jamBuka.Valid {
-		m.JamBuka = &jamBuka.String
-	}
-	if jamTutup.Valid {
-		m.JamTutup = &jamTutup.String
-	}
-	return m, nil
-}
+			m := &domain.FoodMerchantInfo{}
+			var jamBuka, jamTutup, halalStatus sql.NullString
+			var pausedUntil sql.NullTime
+			err := r.readDB.QueryRowContext(ctx, query, merchantID).Scan(
+			&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
+			&pausedUntil, &m.MinOrderIDR, &m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus,
+			)
+			if err != nil {
+			if err == sql.ErrNoRows {
+				return nil, fmt.Errorf("merchant not found: %s", merchantID)
+			}
+			return nil, err
+			}
+			if pausedUntil.Valid {
+			m.PausedUntil = &pausedUntil.Time
+			}
+			if jamBuka.Valid {
+			m.JamBuka = &jamBuka.String
+			}
+			if jamTutup.Valid {
+			m.JamTutup = &jamTutup.String
+			}
+			if halalStatus.Valid {
+			m.HalalStatus = halalStatus.String
+			}
+			return m, nil
+			}
 
 // GetFoodMenuItems — ambil menu items by IDs (harga diambil server-side,
 // client TIDAK bisa kirim harga sendiri — zero-trust).
@@ -370,9 +374,15 @@ func (r *foodRepo) GetPreparingFoodOrders(ctx context.Context) ([]*domain.Order,
 // ListFoodMerchants — FOOD-BIKE-055: browse merchant food terdekat.
 // Hanya merchant is_open = true + verification_status = 'approved'.
 // Distance dihitung dari lokasi customer (Haversine via geography).
-func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, search string, limit int) ([]domain.FoodMerchantInfo, error) {
+// halal: "all"|"" (semua, default) | "halal_certified" | "non_halal" (ADR 003).
+func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, search, halal string, limit int) ([]domain.FoodMerchantInfo, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
+	}
+	// Filter halal (ADR 003): unknown TIDAK muncul di filter apapun kecuali all.
+	halalClause := ""
+	if halal == "halal_certified" || halal == "non_halal" {
+		halalClause = "AND m.halal_status = '" + halal + "'"
 	}
 	var rows *sql.Rows
 	var err error
@@ -381,7 +391,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 			SELECT
 				m.id::text, m.nama_toko, m.alamat, m.is_open, m.verification_status,
 				COALESCE(ST_Y(m.lokasi::geometry), 0), COALESCE(ST_X(m.lokasi::geometry), 0),
-				m.jam_buka::text, m.jam_tutup::text,
+				m.jam_buka::text, m.jam_tutup::text, m.halal_status,
 				ROUND(CAST(ST_Distance(m.lokasi, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000 AS NUMERIC), 2)::float AS distance_km,
 				COALESCE(AVG(r.stars), 0)::float AS avg_rating,
 				COUNT(r.id) AS rating_count
@@ -389,6 +399,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
 			WHERE m.is_open = TRUE AND m.verification_status = 'approved'
 			  AND (m.paused_until IS NULL OR m.paused_until <= NOW()) -- FB-107
+			  `+halalClause+`
 			GROUP BY m.id
 			ORDER BY distance_km ASC
 			LIMIT $3`,
@@ -399,7 +410,7 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 			SELECT
 				m.id::text, m.nama_toko, m.alamat, m.is_open, m.verification_status,
 				COALESCE(ST_Y(m.lokasi::geometry), 0), COALESCE(ST_X(m.lokasi::geometry), 0),
-				m.jam_buka::text, m.jam_tutup::text,
+				m.jam_buka::text, m.jam_tutup::text, m.halal_status,
 				ROUND(CAST(ST_Distance(m.lokasi, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography) / 1000 AS NUMERIC), 2)::float AS distance_km,
 				COALESCE(AVG(r.stars), 0)::float AS avg_rating,
 				COUNT(r.id) AS rating_count
@@ -407,14 +418,10 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 			LEFT JOIN merchant_ratings r ON r.merchant_id = m.id
 			WHERE m.is_open = TRUE AND m.verification_status = 'approved'
 			AND (m.paused_until IS NULL OR m.paused_until <= NOW()) -- FB-107
+			  `+halalClause+`
 			  AND (
 			  m.nama_toko ILIKE '%' || $3 || '%'
 				  OR m.alamat ILIKE '%' || $3 || '%'
-				  -- FB-117: search juga cocokkan nama menu (mekanisme discovery
-				  -- utama — customer search "nasi goreng" harus menemukan merchant
-				  -- yang menjualnya). EXISTS, BUKAN LEFT JOIN: join menu item
-				  -- bakal melipat-gandakan baris rating (cartesian) dan
-				  -- merusak agregasi AVG/COUNT.
 				  OR EXISTS (
 					  SELECT 1 FROM merchant_menu_items mi
 					  WHERE mi.merchant_id = m.id AND mi.nama ILIKE '%' || $3 || '%'
@@ -434,10 +441,10 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 	var out []domain.FoodMerchantInfo
 	for rows.Next() {
 		var m domain.FoodMerchantInfo
-		var jamBuka, jamTutup sql.NullString
+		var jamBuka, jamTutup, halalStatus sql.NullString
 		if err := rows.Scan(
 			&m.ID, &m.Name, &m.Address, &m.IsOpen, &m.VerificationStatus,
-			&m.Lat, &m.Lng, &jamBuka, &jamTutup, &m.DistanceKM, &m.AvgRating, &m.RatingCount,
+			&m.Lat, &m.Lng, &jamBuka, &jamTutup, &halalStatus, &m.DistanceKM, &m.AvgRating, &m.RatingCount,
 		); err != nil {
 			return nil, err
 		}
@@ -446,6 +453,9 @@ func (r *foodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, sear
 		}
 		if jamTutup.Valid {
 			m.JamTutup = &jamTutup.String
+		}
+		if halalStatus.Valid {
+			m.HalalStatus = halalStatus.String
 		}
 		out = append(out, m)
 	}

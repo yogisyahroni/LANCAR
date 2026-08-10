@@ -8,10 +8,10 @@ import (
 	"tembus/merchant-service/internal/domain"
 )
 
-// FoodDocsExpiryWorker — FB-092: cek berkala (tiap 6 jam) merchant yang
-// toko-nya buka (is_open=true) tapi dokumen pangan sudah kedaluwarsa
-// (halal BPJPH / SPP-IRT / izin edar BPOM) → auto-suspend toko (is_open=false)
-// sebagai re-KYC gate (PerBPOM 4/2024 + PP 39/2021).
+// FoodDocsExpiryWorker — ADR 003 (2026-08-10): cek berkala (tiap 6 jam)
+// merchant halal_certified yang sertifikat halalnya sudah kedaluwarsa →
+// auto-demote halal_status ke 'unknown' (badge HALAL hilang), TETAPI toko
+// TETAP buka — pola GoFood ("expired → logo hilang, restoran tetap jalan").
 type FoodDocsExpiryWorker struct {
 	repo domain.MerchantRepository
 	stop chan struct{}
@@ -50,19 +50,19 @@ func (w *FoodDocsExpiryWorker) runOnce() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	expired, err := w.repo.ListOpenWithExpiredFoodDocs(ctx)
+	expired, err := w.repo.ListCertifiedWithExpiredHalal(ctx)
 	if err != nil {
-		log.Printf("[FoodDocsExpiryWorker] gagal query dokumen expired: %v", err)
+		log.Printf("[FoodDocsExpiryWorker] gagal query sertifikat expired: %v", err)
 		return
 	}
 	for _, m := range expired {
-		if err := w.repo.ToggleOpen(ctx, m.ID, false); err != nil {
-			log.Printf("[FoodDocsExpiryWorker] gagal suspend merchant %s: %v", m.ID, err)
+		if err := w.repo.SetHalalStatus(ctx, m.ID, "unknown"); err != nil {
+			log.Printf("[FoodDocsExpiryWorker] gagal demote halal merchant %s: %v", m.ID, err)
 			continue
 		}
-		log.Printf("[FoodDocsExpiryWorker] auto-suspend toko merchant %s (%s) — dokumen pangan kedaluwarsa", m.ID, m.NamaToko)
+		log.Printf("[FoodDocsExpiryWorker] auto-demote halal merchant %s (%s) — sertifikat kedaluwarsa, toko tetap buka", m.ID, m.NamaToko)
 	}
 	if len(expired) > 0 {
-		log.Printf("[FoodDocsExpiryWorker] %d merchant di-suspend (re-KYC)", len(expired))
+		log.Printf("[FoodDocsExpiryWorker] %d merchant di-demote (badge halal hilang)", len(expired))
 	}
 }

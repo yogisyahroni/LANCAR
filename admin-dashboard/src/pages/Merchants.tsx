@@ -180,6 +180,15 @@ export default function Merchants() {
                 <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-bold uppercase">
                   <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.verification_status}</span>
                   <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">{item.is_open ? 'Buka' : 'Tutup'}</span>
+                  {/* ADR 003: status halal */}
+                  <span className={cn(
+                    'rounded-full px-2 py-1',
+                    item.halal_status === 'halal_certified' && 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+                    item.halal_status === 'non_halal' && 'border border-zinc-500/30 bg-zinc-500/10 text-zinc-300',
+                    (!item.halal_status || item.halal_status === 'unknown') && 'border border-white/10 text-zinc-500'
+                  )}>
+                    {item.halal_status === 'halal_certified' ? 'Halal ✓' : item.halal_status === 'non_halal' ? 'Non-Halal' : 'Halal: Belum'}
+                  </span>
                 </div>
               </button>
             ))}
@@ -203,6 +212,19 @@ export default function Merchants() {
                     </span>
                     <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">
                       Completion {active.completion_rate_pct ?? 0}%
+                    </span>
+                    {/* ADR 003: status halal merchant */}
+                    <span className={cn(
+                      'rounded-full px-2 py-1 font-bold',
+                      active.halal_status === 'halal_certified' && 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+                      active.halal_status === 'non_halal' && 'border border-zinc-500/30 bg-zinc-500/10 text-zinc-300',
+                      (!active.halal_status || active.halal_status === 'unknown') && 'border border-white/10 text-zinc-500'
+                    )}>
+                      {active.halal_status === 'halal_certified'
+                        ? '✓ Bersertifikat Halal'
+                        : active.halal_status === 'non_halal'
+                          ? 'Non-Halal (self-declare)'
+                          : 'Halal: Belum ditentukan'}
                     </span>
                     {active.lokasi_lat != null && (
                       <span className="rounded-full border border-white/10 px-2 py-1 text-zinc-400">

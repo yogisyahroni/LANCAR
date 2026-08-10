@@ -207,8 +207,13 @@ func (h *OrderHandler) ListFoodMerchants(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	search := r.URL.Query().Get("search")
+	// ADR 003: filter halal — all|"" (semua) | halal_certified | non_halal.
+	halal := r.URL.Query().Get("halal")
+	if halal != "halal_certified" && halal != "non_halal" {
+		halal = ""
+	}
 
-	merchants, err := h.orderSvc.ListFoodMerchants(r.Context(), lat, lng, search)
+	merchants, err := h.orderSvc.ListFoodMerchants(r.Context(), lat, lng, search, halal)
 	if err != nil {
 		userSafeError(w, r, err, http.StatusInternalServerError)
 		return

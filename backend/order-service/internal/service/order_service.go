@@ -2330,11 +2330,11 @@ func (s *orderServiceImpl) publishOrderEvent(ctx context.Context, orderID string
 // ─────────────────────────────────────────────────────────────
 // FOOD DELIVERY — Browse merchant (FOOD-BIKE-055/056)
 // ─────────────────────────────────────────────────────────────
-func (s *orderServiceImpl) ListFoodMerchants(ctx context.Context, lat, lng float64, search string) ([]domain.FoodMerchantInfo, error) {
+func (s *orderServiceImpl) ListFoodMerchants(ctx context.Context, lat, lng float64, search, halal string) ([]domain.FoodMerchantInfo, error) {
 	if s.foodRepo == nil {
 		return nil, fmt.Errorf("food repository not wired")
 	}
-	return s.foodRepo.ListFoodMerchants(ctx, lat, lng, search, 50)
+	return s.foodRepo.ListFoodMerchants(ctx, lat, lng, search, halal, 50)
 }
 
 func (s *orderServiceImpl) GetFoodMerchantDetail(ctx context.Context, merchantID string) (*domain.FoodMerchantInfo, error) {

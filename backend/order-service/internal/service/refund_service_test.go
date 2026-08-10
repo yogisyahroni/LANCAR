@@ -359,7 +359,7 @@ func (m *mockFoodRepo) GetPreparingFoodOrders(ctx context.Context) ([]*domain.Or
 func (m *mockFoodRepo) GetPendingMerchantFoodOrders(ctx context.Context, timeout time.Duration) ([]*domain.Order, error) {
 	return nil, nil
 }
-func (m *mockFoodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, search string, limit int) ([]domain.FoodMerchantInfo, error) {
+func (m *mockFoodRepo) ListFoodMerchants(ctx context.Context, lat, lng float64, search, halal string, limit int) ([]domain.FoodMerchantInfo, error) {
 	return nil, nil
 }
 func (m *mockFoodRepo) GetFoodMerchantMenu(ctx context.Context, merchantID string) ([]domain.FoodMenuItemInfo, error) {

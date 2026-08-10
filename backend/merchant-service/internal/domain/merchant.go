@@ -31,14 +31,17 @@ type Merchant struct {
 	AvgRating          float64    `json:"avg_rating"`
 	RatingCount        int        `json:"rating_count"`
 	// Dokumen pangan (FB-092): UU 33/2014 + PP 39/2021 (halal BPJPH),
-	// PerBPOM 4/2024 (SPP-IRT / izin edar BPOM). Opsional saat daftar,
-	// WAJIB lengkap & belum expired sebelum is_open = true.
+	// PerBPOM 4/2024 (SPP-IRT / izin edar BPOM). Opsional saat daftar.
+	// ADR 003: SEMUA opsional — bukan gate buka toko.
 	HalalCertNumber   *string    `json:"halal_cert_number,omitempty"`
 	HalalExpiryDate   *string    `json:"halal_expiry_date,omitempty"` // YYYY-MM-DD
 	SppIrtNumber      *string    `json:"spp_irt_number,omitempty"`
 	SppIrtExpiryDate  *string    `json:"spp_irt_expiry_date,omitempty"` // YYYY-MM-DD
 	BpomNumber        *string    `json:"bpom_number,omitempty"`
 	BpomExpiryDate    *string    `json:"bpom_expiry_date,omitempty"` // YYYY-MM-DD
+	// ADR 003 (2026-08-10): status halal untuk label + filter customer.
+	// halal_certified | non_halal | unknown (default).
+	HalalStatus string `json:"halal_status"`
 	// Rekening bank untuk payout (FB-114) — di-update dari app; verifikasi
 	// ulang oleh admin saat rekening berubah.
 	BankName             *string  `json:"bank_name,omitempty"`
@@ -49,41 +52,44 @@ type Merchant struct {
 	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
-// FoodDocsReady — gate FB-092 untuk buka toko: (1) sertifikat halal terisi &
-// belum expired, DAN (2) salah satu SPP-IRT / izin edar BPOM terisi & belum
-// expired. Dipakai service ToggleOpen (pesan error detail) DAN worker
-// auto jam operasional (FB-095) supaya auto-buka tidak melanggar KYC.
-// Logika harus SINKRON dengan validateFoodDocsReady di service.
-func (m *Merchant) FoodDocsReady() bool {
+// HalalStatusValue — status halal merchant (ADR 003, model Grab/GoFood):
+//   halal_certified = punya nomor + expiry valid (badge HALAL)
+//   non_halal       = self-declare merchant (badge NON-HALAL)
+//   unknown         = default, tanpa badge
+// Fallback dari kolom lama kalau halal_status belum terisi (migrasi parsial).
+func (m *Merchant) HalalStatusValue() string {
+	if m.HalalStatus == "halal_certified" || m.HalalStatus == "non_halal" {
+		return m.HalalStatus
+	}
+	// Backward-compat: turunkan dari sertifikat yang masih valid.
+	if m.HalalCertNumber != nil && *m.HalalCertNumber != "" &&
+		m.HalalExpiryDate != nil && *m.HalalExpiryDate != "" {
+		if exp, err := time.Parse("2006-01-02", *m.HalalExpiryDate); err == nil && !exp.Before(time.Now().UTC()) {
+			return "halal_certified"
+		}
+	}
+	return "unknown"
+}
+
+// HalalCertValid — true kalau merchant punya sertifikat halal valid
+// (nomor + expiry masa depan). Dipakai worker expiry → demote.
+func (m *Merchant) HalalCertValid() bool {
 	now := time.Now().UTC()
+	if m.HalalCertNumber == nil || *m.HalalCertNumber == "" ||
+		m.HalalExpiryDate == nil || *m.HalalExpiryDate == "" {
+		return false
+	}
+	exp, err := time.Parse("2006-01-02", *m.HalalExpiryDate)
+	return err == nil && !exp.Before(now)
+}
 
-	hasHalal := m.HalalCertNumber != nil && *m.HalalCertNumber != "" &&
-		m.HalalExpiryDate != nil && *m.HalalExpiryDate != ""
-	if !hasHalal {
-		return false
+// HalalStatusPtr — pointer halal_status untuk patch request (default unknown).
+func (m *Merchant) HalalStatusPtr() *string {
+	if m.HalalStatus == "" {
+		s := "unknown"
+		return &s
 	}
-	if exp, err := time.Parse("2006-01-02", *m.HalalExpiryDate); err != nil || exp.Before(now) {
-		return false
-	}
-
-	hasSpp := m.SppIrtNumber != nil && *m.SppIrtNumber != "" &&
-		m.SppIrtExpiryDate != nil && *m.SppIrtExpiryDate != ""
-	hasBpom := m.BpomNumber != nil && *m.BpomNumber != "" &&
-		m.BpomExpiryDate != nil && *m.BpomExpiryDate != ""
-	if !hasSpp && !hasBpom {
-		return false
-	}
-	if hasSpp {
-		if exp, err := time.Parse("2006-01-02", *m.SppIrtExpiryDate); err == nil && exp.Before(now) {
-			return false
-		}
-	}
-	if hasBpom {
-		if exp, err := time.Parse("2006-01-02", *m.BpomExpiryDate); err == nil && exp.Before(now) {
-			return false
-		}
-	}
-	return true
+	return &m.HalalStatus
 }
 
 // MerchantDocument — dokumen verifikasi (KTP pemilik, foto tempat usaha,
@@ -127,9 +133,11 @@ type MerchantRepository interface {
 	// (bank_account_verified=false) sampai admin setujui rekening baru.
 	// changed=false → data sama persis, verifikasi dipertahankan.
 	UpdateBankAccount(ctx context.Context, merchantID string, req UpdateBankAccountRequest, changed bool) error
-	// ListOpenWithExpiredFoodDocs merchant is_open=true dengan dokumen pangan
-	// yang sudah kedaluwarsa (untuk worker auto-suspend FB-092).
-	ListOpenWithExpiredFoodDocs(ctx context.Context) ([]*Merchant, error)
+	// ListCertifiedWithExpiredHalal merchant halal_certified dengan sertifikat
+	// halal yang sudah kedaluwarsa (worker ADR 003 → auto-demote ke unknown).
+	ListCertifiedWithExpiredHalal(ctx context.Context) ([]*Merchant, error)
+	// SetHalalStatus (ADR 003): ubah halal_status (halal_certified/non_halal/unknown).
+	SetHalalStatus(ctx context.Context, id, status string) error
 	// ListForOperatingHoursSync merchant approved dengan jam_buka/jam_tutup
 	// terisi — kandidat auto-toggle is_open sesuai jam operasional (FB-095).
 	ListForOperatingHoursSync(ctx context.Context) ([]*Merchant, error)
