@@ -465,10 +465,9 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          # NOTE: tanpa driver:docker — Docker driver tidak mendukung cache
-          # backend type=gha (error: buildx failed ...build-cache-backends).
-          # Default docker-container driver mendukung gha cache + load:true.
+        # NOTE: tanpa driver:docker — Docker driver tidak mendukung cache
+        # backend type=gha (error: buildx failed ...build-cache-backends).
+        # Default docker-container driver mendukung gha cache + load:true.
 
       - name: Build local image for audit
         uses: docker/build-push-action@v5
