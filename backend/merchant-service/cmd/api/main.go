@@ -89,7 +89,10 @@ func main() {
 	}
 	uploadBaseURL := os.Getenv("UPLOAD_PUBLIC_URL")
 	if uploadBaseURL == "" {
-		uploadBaseURL = "http://merchant-service:8085/uploads"
+		// FB-110: URL publik harus bisa diakses device/web (bukan internal docker).
+		// Dev/staging: via gateway localhost:8080 → /merchant-uploads (path unik,
+		// bentrok dengan /uploads admin-service di gateway).
+		uploadBaseURL = "http://localhost:8080/merchant-uploads"
 	}
 	uploadSvc, err := service.NewMenuPhotoStorage(uploadDir, uploadBaseURL)
 	if err != nil {
@@ -120,7 +123,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Serve foto menu (GET publik, cache immutable)
-	mux.Handle("/uploads/", middleware.BaseChain(service.StaticUploadHandler(uploadDir)))
+	mux.Handle("/merchant-uploads/", middleware.BaseChain(service.StaticUploadHandler(uploadDir)))
 
 	// Pendaftaran & profil (FOOD-BIKE-045/018)
 	mux.HandleFunc("/api/v1/merchant/register", middleware.BaseChain(h.RegisterMerchant))

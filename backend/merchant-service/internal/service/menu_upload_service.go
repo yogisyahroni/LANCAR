@@ -89,11 +89,12 @@ func ContentTypeByExt(ext string) string {
 	}
 }
 
-// StaticUploadHandler — serve file /uploads/* (pola FileServer dengan cache header).
+// StaticUploadHandler — serve file /merchant-uploads/* (pola FileServer dengan cache header).
+// Path unik (bukan /uploads) supaya tidak bentrok dengan admin-service di gateway.
 func StaticUploadHandler(uploadDir string) http.HandlerFunc {
 	// StripPrefix WAJIB: ServeMux tidak menghapus prefix path; tanpa ini
-	// FileServer mencari <dir>/uploads/<file> → 404.
-	fs := http.StripPrefix("/uploads/", http.FileServer(http.Dir(uploadDir)))
+	// FileServer mencari <dir>/merchant-uploads/<file> → 404.
+	fs := http.StripPrefix("/merchant-uploads/", http.FileServer(http.Dir(uploadDir)))
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Hanya GET — file upload tidak boleh ditimpa/dihapus via HTTP.
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {

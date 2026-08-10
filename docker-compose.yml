@@ -289,7 +289,7 @@ services:
       ORDER_SERVICE_URL: ${ORDER_SERVICE_URL:-http://order-service:8083}
       # FB-110: foto menu — local disk persistent + URL publik via service ini
       UPLOAD_DIR: /app/public/uploads
-      UPLOAD_PUBLIC_URL: http://merchant-service:8085/uploads
+      UPLOAD_PUBLIC_URL: ${UPLOAD_PUBLIC_URL:-https://api.bawain.my.id/merchant-uploads}
     volumes:
       - tembus-merchant-uploads:/app/public/uploads
     ports:

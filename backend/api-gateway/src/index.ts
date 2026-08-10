@@ -465,6 +465,21 @@ app.use(createProxyMiddleware({
   changeOrigin: true
 }));
 
+// FB-110: Merchant uploads (foto menu & dokumen registrasi) — path unik
+// /merchant-uploads → merchant-service, PUBLIK (tanpa JWT) supaya gambar
+// bisa tampil di app customer / web tanpa login.
+app.use(createProxyMiddleware({
+  pathFilter: '/merchant-uploads',
+  target: MERCHANT_SERVICE_URL,
+  changeOrigin: true,
+  on: {
+    proxyReq: (proxyReq: any, req: any) => {
+      logProxyForward('merchant_uploads', req, MERCHANT_SERVICE_URL);
+      prepareProxyRequest(proxyReq, req);
+    }
+  }
+}));
+
 // --- VALIDATED ROUTES ---
 
 // Auth Service (Gateway-level validation)
