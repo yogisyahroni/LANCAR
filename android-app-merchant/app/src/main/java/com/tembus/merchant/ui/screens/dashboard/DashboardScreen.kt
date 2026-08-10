@@ -1,5 +1,6 @@
 package com.tembus.merchant.ui.screens.dashboard
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,13 +16,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.tembus.merchant.R
 import com.tembus.merchant.data.model.MerchantOrder
 import com.tembus.merchant.ui.Format
 import com.tembus.merchant.ui.appViewModel
 import com.tembus.merchant.ui.theme.Accent
+import com.tembus.merchant.ui.theme.FreshGreen
+import com.tembus.merchant.ui.theme.FreshGreenDark
 import com.tembus.merchant.ui.theme.Primary
 
 /**
@@ -98,19 +107,35 @@ fun DashboardScreen(
 
         if (state.recentOrders.isEmpty() && !state.isLoading) {
             item {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp)
+                        .padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 8.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
+                        .background(Color(0xFFE7F7EE))
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Image(
+                        painter = painterResource(R.drawable.ill_dash_ref),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth(0.6f)
+                            .heightIn(max = 110.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
                         text = "Belum ada pesanan hari ini",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Order baru akan muncul di sini begitu customer memesan",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -184,7 +209,13 @@ private fun RevenueCard(report: com.tembus.merchant.data.model.SalesReportSummar
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 16.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(Accent)
+            // Gradient hijau segar — mengikuti referensi mockup hijau-putih
+            // (sebelumnya oranye polos, iterasi 2026-08-11)
+            .background(
+                Brush.linearGradient(
+                    listOf(FreshGreen, FreshGreenDark)
+                )
+            )
             .padding(20.dp)
     ) {
         Text(

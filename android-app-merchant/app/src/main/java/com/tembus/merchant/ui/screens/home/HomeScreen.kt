@@ -603,7 +603,7 @@ private fun StatusBadge(status: String) {
 @Composable
 private fun EmptyOrdersContent(onRefresh: () -> Unit) {
     EmptyStateIllustration(
-        illustration = R.drawable.ill_receipt,
+        illustration = R.drawable.ill_order_ref,
         title = "Belum ada order",
         description = "Order baru akan muncul di sini. Pastikan toko kamu buka dan menu tersedia ya.",
         action = {

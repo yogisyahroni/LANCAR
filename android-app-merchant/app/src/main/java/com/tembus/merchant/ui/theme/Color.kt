@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 
 // TEMBUS merchant brand colors — mengikuti design system terbaru (mockup merchant 2026-08).
 // Hijau tua pekat untuk header/splash, oranye #FF6400 untuk aksen/tombol/badge.
+// Referensi UI 2026-08-11: hijau segar #40C27A dominan (mockup hijau-putih).
 val Primary = Color(0xFF0E2C22)
 val PrimaryDark = Color(0xFF032A1C)
 val PrimaryLight = Color(0xFFE7F7EE)
@@ -11,6 +12,10 @@ val PrimaryLight = Color(0xFFE7F7EE)
 val Secondary = Color(0xFF138C3B)
 val SecondaryDark = Color(0xFF0B6B2C)
 val SecondaryLight = Color(0xFFEAF8EF)
+
+// Hijau segar — warna kunci referensi mockup (kartu pendapatan, aksen)
+val FreshGreen = Color(0xFF40C27A)
+val FreshGreenDark = Color(0xFF2FA863)
 
 val Accent = Color(0xFFFF6400)
 val AccentDark = Color(0xFFE65E00)
