@@ -5,6 +5,8 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.RestaurantMenu
@@ -22,6 +25,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -63,7 +67,7 @@ fun MenuScreen(
     }
 
     if (showEditor || editorTarget != null) {
-        MenuItemEditorDialog(
+        MenuItemEditorSheet(
             existing = editorTarget,
             onUploadPhoto = { file -> viewModel.uploadPhoto(file) },
             onDismiss = {
@@ -125,15 +129,19 @@ fun MenuScreen(
             }
         }
 
-        ExtendedFloatingActionButton(
-            onClick = { showEditor = true },
-            icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-            text = { Text("Tambah Menu") },
-            containerColor = Accent,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-        )
+        // FAB hanya saat menu sudah ada — empty state sudah punya tombol
+        // "Tambah Menu" di tengah (duplikat CTA dihindari).
+        if (state.items.isNotEmpty()) {
+            ExtendedFloatingActionButton(
+                onClick = { showEditor = true },
+                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                text = { Text("Tambah Menu") },
+                containerColor = Accent,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+            )
+        }
     }
 }
 
@@ -212,8 +220,9 @@ private fun MenuItemCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun MenuItemEditorDialog(
+private fun MenuItemEditorSheet(
     existing: MenuItem?,
     onUploadPhoto: suspend (java.io.File) -> Result<String>,
     onDismiss: () -> Unit,
@@ -226,6 +235,7 @@ private fun MenuItemEditorDialog(
     var foto by remember(existing?.id) { mutableStateOf(existing?.foto ?: "") }
     var uploading by remember { mutableStateOf(false) }
     var uploadError by remember { mutableStateOf<String?>(null) }
+    var kategoriExpanded by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -252,105 +262,190 @@ private fun MenuItemEditorDialog(
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (existing == null) "Tambah Menu" else "Edit Menu") },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                OutlinedTextField(
-                    value = nama,
-                    onValueChange = { nama = it },
-                    label = { Text("Nama menu*") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = harga,
-                    onValueChange = { harga = it.filter { c -> c.isDigit() } },
-                    label = { Text("Harga (Rp)*") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = kategori,
-                    onValueChange = { kategori = it },
-                    label = { Text("Kategori (cth: Makanan, Minuman)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = prepTime,
-                    onValueChange = { prepTime = it.filter { c -> c.isDigit() } },
-                    label = { Text("Waktu siap (menit)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth()
-                )
+    // Opsi kategori & waktu siap — nilai existing (data lama) ikut dimasukkan
+    // kalau custom, biar saat edit dropdown/chip tetap menampilkan nilai lama.
+    val kategoriList = remember(existing?.id) {
+        val base = listOf("Makanan", "Minuman", "Snack", "Dessert", "Lainnya")
+        val existingKategori = existing?.kategori?.trim()
+        if (!existingKategori.isNullOrBlank() && existingKategori !in base) base + existingKategori else base
+    }
+    val prepOptions = remember(existing?.id) {
+        val base = listOf("5", "10", "15", "20", "30")
+        val existingPrep = existing?.prepTimeMinutes?.toString()
+        if (!existingPrep.isNullOrBlank() && existingPrep !in base) base + existingPrep else base
+    }
 
-                Spacer(modifier = Modifier.height(12.dp))
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 36.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(
+                text = if (existing == null) "Tambah Menu" else "Edit Menu",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
 
-                // ── Foto menu (FB-110: upload dari galeri / tempel URL) ──
-                if (foto.isNotBlank()) {
-                    AsyncImage(
-                        model = foto,
-                        contentDescription = "Foto menu",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp)
-                            .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
-                if (uploading) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Mengunggah foto...", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // ── Foto menu: area besar, tap untuk upload dari galeri ──
+            if (uploading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(modifier = Modifier.size(32.dp), strokeWidth = 3.dp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Mengunggah foto...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                } else {
-                    OutlinedButton(
-                        onClick = {
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable {
                             photoPicker.launch(
                                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                             )
                         },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (foto.isBlank()) "Upload foto dari galeri" else "Ganti foto")
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (foto.isNotBlank()) {
+                        AsyncImage(
+                            model = foto,
+                            contentDescription = "Foto menu",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                        // Overlay gelap + label "Ganti foto"
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.35f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.AddPhotoAlternate, contentDescription = null, tint = Color.White)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Ganti foto", color = Color.White, style = MaterialTheme.typography.titleSmall)
+                            }
+                        }
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Filled.AddPhotoAlternate,
+                                contentDescription = null,
+                                modifier = Modifier.size(44.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Upload foto menu", style = MaterialTheme.typography.titleMedium)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                "JPG/PNG/WebP maks 2MB — dari galeri",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
-
-                uploadError?.let { msg ->
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(msg, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
-                }
-
-                if (foto.isNotBlank()) {
-                    TextButton(onClick = { foto = "" }) {
-                        Text("Hapus foto", color = MaterialTheme.colorScheme.error)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-                OutlinedTextField(
-                    value = foto,
-                    onValueChange = { foto = it },
-                    label = { Text("atau tempel URL foto (opsional)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
-        },
-        confirmButton = {
-            TextButton(
+
+            uploadError?.let { msg ->
+                Text(msg, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
+
+            OutlinedTextField(
+                value = nama,
+                onValueChange = { nama = it },
+                label = { Text("Nama menu*") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = harga,
+                onValueChange = { harga = it.filter { c -> c.isDigit() } },
+                label = { Text("Harga") },
+                prefix = { Text("Rp ") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // ── Kategori: dropdown standar ──
+            ExposedDropdownMenuBox(
+                expanded = kategoriExpanded,
+                onExpandedChange = { kategoriExpanded = it }
+            ) {
+                OutlinedTextField(
+                    value = kategori,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Kategori") },
+                    placeholder = { Text("Pilih kategori") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = kategoriExpanded) },
+                    singleLine = true,
+                    modifier = Modifier
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        .fillMaxWidth()
+                )
+                ExposedDropdownMenu(
+                    expanded = kategoriExpanded,
+                    onDismissRequest = { kategoriExpanded = false }
+                ) {
+                    kategoriList.forEach { k ->
+                        DropdownMenuItem(
+                            text = { Text(k) },
+                            onClick = {
+                                kategori = k
+                                kategoriExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // ── Waktu siap: preset cepat (chip) ──
+            Text(
+                text = "Waktu siap",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                prepOptions.forEach { p ->
+                    FilterChip(
+                        selected = prepTime == p,
+                        onClick = { prepTime = p },
+                        label = { Text("$p mnt") }
+                    )
+                }
+            }
+
+            // ── Alternatif: tempel URL (opsional, power user) ──
+            OutlinedTextField(
+                value = foto,
+                onValueChange = { foto = it },
+                label = { Text("atau tempel URL foto (opsional)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Button(
                 onClick = {
                     onSave(
                         MenuItemRequest(
@@ -363,15 +458,18 @@ private fun MenuItemEditorDialog(
                         )
                     )
                 },
-                enabled = nama.isNotBlank() && harga.toLongOrNull() != null && harga.toLongOrNull()!! > 0
+                enabled = nama.isNotBlank() && (harga.toLongOrNull() ?: 0) > 0,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
             ) {
-                Text("Simpan")
+                Text(
+                    if (existing == null) "Simpan Menu" else "Simpan Perubahan",
+                    style = MaterialTheme.typography.titleMedium
+                )
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Batal") }
         }
-    )
+    }
 }
 
 // FB-110: salin foto dari galeri (content://) ke file cache supaya bisa di-upload.
